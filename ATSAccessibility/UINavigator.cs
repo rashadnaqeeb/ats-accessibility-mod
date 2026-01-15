@@ -32,6 +32,11 @@ namespace ATSAccessibility
         private List<Selectable> _tabButtons = new List<Selectable>();
         private object _tabsPanelRef = null;
 
+        // Dropdown navigation
+        private TMP_Dropdown _activeDropdown = null;
+        private List<Toggle> _dropdownToggles = new List<Toggle>();
+        private int _dropdownIndex = 0;
+
         /// <summary>
         /// Whether there's an active popup being navigated.
         /// </summary>
@@ -46,6 +51,11 @@ namespace ATSAccessibility
         /// Whether navigation is active (popup or menu).
         /// </summary>
         public bool IsNavigationActive => _currentPopup != null || _currentMenu != null;
+
+        /// <summary>
+        /// Whether a dropdown is currently open for navigation.
+        /// </summary>
+        public bool IsDropdownOpen => _activeDropdown != null;
 
         // ========================================
         // LIFECYCLE
@@ -223,8 +233,7 @@ namespace ATSAccessibility
                 }
                 else if (element is TMP_Dropdown dropdown)
                 {
-                    dropdown.Show();
-                    Debug.Log($"[ATSAccessibility] Opened dropdown: {UIElementFinder.GetElementText(element)}");
+                    OpenDropdown(dropdown);
                 }
                 else if (element is Slider slider)
                 {
@@ -296,6 +305,144 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] Failed to dismiss popup: {ex.Message}");
+            }
+        }
+
+        // ========================================
+        // DROPDOWN NAVIGATION
+        // ========================================
+
+        /// <summary>
+        /// Open a dropdown for keyboard navigation.
+        /// </summary>
+        public void OpenDropdown(TMP_Dropdown dropdown)
+        {
+            if (dropdown == null) return;
+
+            _activeDropdown = dropdown;
+            dropdown.Show();
+
+            // Find the dropdown list and its toggles
+            var dropdownList = dropdown.transform.Find("Dropdown List");
+            if (dropdownList == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] Dropdown list not found after Show()");
+                ClearDropdownState();
+                return;
+            }
+
+            // Get all toggles, filter out the template "Option A"
+            _dropdownToggles.Clear();
+            var allToggles = dropdownList.GetComponentsInChildren<Toggle>(true);
+            foreach (var toggle in allToggles)
+            {
+                var label = toggle.GetComponentInChildren<TMP_Text>()?.text;
+                if (label != null && label != "Option A")
+                {
+                    _dropdownToggles.Add(toggle);
+                }
+            }
+
+            if (_dropdownToggles.Count == 0)
+            {
+                Debug.LogWarning("[ATSAccessibility] No valid toggles found in dropdown");
+                ClearDropdownState();
+                return;
+            }
+
+            // Find currently selected option (isOn=true)
+            _dropdownIndex = 0;
+            for (int i = 0; i < _dropdownToggles.Count; i++)
+            {
+                if (_dropdownToggles[i].isOn)
+                {
+                    _dropdownIndex = i;
+                    break;
+                }
+            }
+
+            // Announce dropdown opened
+            string announcement = $"dropdown opened, {_dropdownToggles.Count} options";
+            Debug.Log($"[ATSAccessibility] {announcement}");
+            Speech.Say(announcement);
+
+            // Announce current option
+            AnnounceDropdownOption();
+        }
+
+        /// <summary>
+        /// Navigate within the open dropdown. Returns false if dropdown was closed externally.
+        /// </summary>
+        public bool NavigateDropdownOption(int direction)
+        {
+            if (_activeDropdown == null) return false;
+
+            // Check if dropdown list still exists
+            var list = _activeDropdown.transform.Find("Dropdown List");
+            if (list == null || !list.gameObject.activeInHierarchy)
+            {
+                Debug.Log("[ATSAccessibility] Dropdown closed externally");
+                ClearDropdownState();
+                return false;
+            }
+
+            // Navigate with wrapping
+            _dropdownIndex = (_dropdownIndex + direction + _dropdownToggles.Count) % _dropdownToggles.Count;
+            AnnounceDropdownOption();
+            return true;
+        }
+
+        /// <summary>
+        /// Select the current dropdown option and close the dropdown.
+        /// </summary>
+        public void SelectCurrentDropdownOption()
+        {
+            if (_activeDropdown == null || _dropdownToggles.Count == 0) return;
+
+            if (_dropdownIndex >= 0 && _dropdownIndex < _dropdownToggles.Count)
+            {
+                var toggle = _dropdownToggles[_dropdownIndex];
+                var optionText = toggle.GetComponentInChildren<TMP_Text>()?.text ?? "option";
+
+                // Setting isOn triggers the dropdown's selection mechanism
+                toggle.isOn = true;
+
+                Debug.Log($"[ATSAccessibility] Selected dropdown option: {optionText}");
+                Speech.Say($"{optionText}, selected");
+            }
+
+            ClearDropdownState();
+        }
+
+        /// <summary>
+        /// Close the dropdown without selecting.
+        /// </summary>
+        public void CloseActiveDropdown()
+        {
+            if (_activeDropdown == null) return;
+
+            _activeDropdown.Hide();
+            Debug.Log("[ATSAccessibility] Dropdown cancelled");
+            Speech.Say("cancelled");
+
+            ClearDropdownState();
+        }
+
+        private void ClearDropdownState()
+        {
+            _activeDropdown = null;
+            _dropdownToggles.Clear();
+            _dropdownIndex = 0;
+        }
+
+        private void AnnounceDropdownOption()
+        {
+            if (_dropdownIndex >= 0 && _dropdownIndex < _dropdownToggles.Count)
+            {
+                var toggle = _dropdownToggles[_dropdownIndex];
+                var text = toggle.GetComponentInChildren<TMP_Text>()?.text ?? "option";
+                Debug.Log($"[ATSAccessibility] Dropdown option: {text}");
+                Speech.Say(text);
             }
         }
 

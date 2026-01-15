@@ -77,6 +77,16 @@ namespace ATSAccessibility
                 return;
             }
 
+            // If a dropdown is open, handle it first
+            if (_uiNavigator.IsDropdownOpen)
+            {
+                if (ProcessDropdownKeyEvent(keyCode))
+                {
+                    return; // Key was handled by dropdown
+                }
+                // Dropdown was closed externally, fall through to normal handling
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -108,6 +118,40 @@ namespace ATSAccessibility
                     Debug.Log("[ATSAccessibility] DEBUG: Escape pressed");
                     _uiNavigator.DismissPopup();
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Handle key event when a dropdown is open.
+        /// Returns true if the key was handled, false if dropdown was closed externally.
+        /// </summary>
+        private bool ProcessDropdownKeyEvent(KeyCode keyCode)
+        {
+            switch (keyCode)
+            {
+                case KeyCode.UpArrow:
+                    Debug.Log("[ATSAccessibility] DEBUG: UpArrow in dropdown");
+                    return _uiNavigator.NavigateDropdownOption(-1);
+
+                case KeyCode.DownArrow:
+                    Debug.Log("[ATSAccessibility] DEBUG: DownArrow in dropdown");
+                    return _uiNavigator.NavigateDropdownOption(1);
+
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                case KeyCode.Space:
+                    Debug.Log("[ATSAccessibility] DEBUG: Select in dropdown");
+                    _uiNavigator.SelectCurrentDropdownOption();
+                    return true;
+
+                case KeyCode.Escape:
+                    Debug.Log("[ATSAccessibility] DEBUG: Cancel dropdown");
+                    _uiNavigator.CloseActiveDropdown();
+                    return true;
+
+                default:
+                    // Other keys - let dropdown stay open but don't handle
+                    return true;
             }
         }
     }
