@@ -78,7 +78,10 @@ namespace ATSAccessibility
                 PollGameState();
 
                 // Try to subscribe to popups if not already subscribed
-                TrySubscribeToPopups();
+                if (!_subscribedToPopups)
+                {
+                    TrySubscribeToPopups();
+                }
             }
         }
 

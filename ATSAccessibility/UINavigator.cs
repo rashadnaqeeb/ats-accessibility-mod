@@ -357,7 +357,8 @@ namespace ATSAccessibility
             if (_currentPopup == null) return;
 
             var announcements = new List<string>();
-            var textElements = _currentPopup.GetComponentsInChildren<TMP_Text>(true);
+            // Only scan active text elements - inactive tabs may have placeholder text
+            var textElements = _currentPopup.GetComponentsInChildren<TMP_Text>(false);
 
             foreach (var text in textElements)
             {
@@ -383,10 +384,8 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Announcing popup: {announcement}");
             Speech.Say(announcement);
 
-            if (_elements.Count > 0)
-            {
-                AnnounceCurrentElement();
-            }
+            // Don't automatically announce the first element - let the popup info be read
+            // User must press arrow key to start element navigation
         }
 
         private void AnnouncePanelName()

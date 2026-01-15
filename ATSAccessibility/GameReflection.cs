@@ -23,9 +23,7 @@ namespace ATSAccessibility
 
         // GameController type info
         private static Type _gameControllerType = null;
-        private static PropertyInfo _gcInstanceProperty = null;      // static Instance
         private static PropertyInfo _gcIsGameActiveProperty = null;  // static IsGameActive
-        private static PropertyInfo _gcGameServicesProperty = null;  // instance GameServices
 
         // MainController type info
         private static Type _mainControllerType = null;
@@ -91,12 +89,8 @@ namespace ATSAccessibility
                 _gameControllerType = _gameAssembly.GetType("Eremite.Controller.GameController");
                 if (_gameControllerType != null)
                 {
-                    _gcInstanceProperty = _gameControllerType.GetProperty("Instance",
-                        BindingFlags.Public | BindingFlags.Static);
                     _gcIsGameActiveProperty = _gameControllerType.GetProperty("IsGameActive",
                         BindingFlags.Public | BindingFlags.Static);
-                    _gcGameServicesProperty = _gameControllerType.GetProperty("GameServices",
-                        BindingFlags.Public | BindingFlags.Instance);
 
                     Debug.Log("[ATSAccessibility] Cached GameController type info");
                 }
@@ -154,26 +148,6 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get GameController instance. Returns null if not in game.
-        /// DO NOT cache this value - it's destroyed on scene change.
-        /// </summary>
-        public static object GetGameControllerInstance()
-        {
-            EnsureTypes();
-
-            if (_gcInstanceProperty == null) return null;
-
-            try
-            {
-                return _gcInstanceProperty.GetValue(null);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
         /// Get MainController instance. This persists across scenes via DontDestroyOnLoad.
         /// Still, do not cache long-term as it could be recreated.
         /// </summary>
@@ -186,25 +160,6 @@ namespace ATSAccessibility
             try
             {
                 return _mcInstanceProperty.GetValue(null);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get GameServices from current GameController.
-        /// DO NOT cache - services are destroyed on scene change.
-        /// </summary>
-        public static object GetGameServices()
-        {
-            var gc = GetGameControllerInstance();
-            if (gc == null || _gcGameServicesProperty == null) return null;
-
-            try
-            {
-                return _gcGameServicesProperty.GetValue(gc);
             }
             catch
             {
@@ -344,7 +299,6 @@ namespace ATSAccessibility
 
         // Public accessors for tab types
         public static Type TabsPanelType { get { EnsureTabTypes(); return _tabsPanelType; } }
-        public static Type TabsButtonType { get { EnsureTabTypes(); return _tabsButtonType; } }
         public static FieldInfo TabsPanelButtonsField { get { EnsureTabTypes(); return _tabsPanelButtonsField; } }
         public static FieldInfo TabsPanelCurrentField { get { EnsureTabTypes(); return _tabsPanelCurrentField; } }
         public static FieldInfo TabsButtonButtonField { get { EnsureTabTypes(); return _tabsButtonButtonField; } }
