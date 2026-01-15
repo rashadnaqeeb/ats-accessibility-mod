@@ -1,0 +1,20 @@
+# Build outputs
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Library DLLs (don't redistribute game/Unity assemblies)
+lib/*.dll
+
+# Decompiled game source (reference only, don't redistribute)
+game-source/
+
+# Log files
+*.log
+
+# Claude Code artifacts
+.claude/
