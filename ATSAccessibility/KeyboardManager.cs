@@ -25,9 +25,20 @@ namespace ATSAccessibility
         // Reference to UI navigator for popup input handling
         private readonly UINavigator _uiNavigator;
 
+        // Reference to tutorial handler for tutorial re-reading
+        private TutorialHandler _tutorialHandler;
+
         public KeyboardManager(UINavigator uiNavigator)
         {
             _uiNavigator = uiNavigator;
+        }
+
+        /// <summary>
+        /// Set the tutorial handler reference.
+        /// </summary>
+        public void SetTutorialHandler(TutorialHandler handler)
+        {
+            _tutorialHandler = handler;
         }
 
         /// <summary>
@@ -48,6 +59,15 @@ namespace ATSAccessibility
         /// </summary>
         public void ProcessKeyEvent(KeyCode keyCode)
         {
+            // Check if tutorial is active - takes priority over other contexts
+            if (_tutorialHandler != null && _tutorialHandler.IsTutorialActive)
+            {
+                if (ProcessTutorialKeyEvent(keyCode))
+                {
+                    return; // Key was handled by tutorial
+                }
+            }
+
             switch (CurrentContext)
             {
                 case NavigationContext.Popup:
@@ -63,6 +83,25 @@ namespace ATSAccessibility
                 default:
                     // No special input handling
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Handle key event when a tutorial is active.
+        /// Returns true if key was handled.
+        /// </summary>
+        private bool ProcessTutorialKeyEvent(KeyCode keyCode)
+        {
+            switch (keyCode)
+            {
+                case KeyCode.F1:
+                    Debug.Log("[ATSAccessibility] F1 pressed - re-reading tutorial");
+                    _tutorialHandler.ReannounceCurrentTutorial();
+                    return true;
+
+                default:
+                    // Let other keys pass through (arrow keys, game's continue key, etc.)
+                    return false;
             }
         }
 

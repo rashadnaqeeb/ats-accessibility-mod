@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -32,6 +33,9 @@ namespace ATSAccessibility
         private IDisposable _popupHiddenSubscription;
         private bool _subscribedToPopups = false;
 
+        // Tutorial handling
+        private TutorialHandler _tutorialHandler;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -49,6 +53,12 @@ namespace ATSAccessibility
             // Initialize UI navigation
             _uiNavigator = new UINavigator();
             _keyboardManager = new KeyboardManager(_uiNavigator);
+
+            // Initialize tutorial handler
+            _tutorialHandler = new TutorialHandler(OnTutorialPhaseChanged);
+
+            // Wire up tutorial handler to keyboard manager
+            _keyboardManager.SetTutorialHandler(_tutorialHandler);
 
             // Check if we're already on a scene (mod loaded mid-game)
             CheckCurrentScene();
@@ -82,6 +92,9 @@ namespace ATSAccessibility
                 {
                     TrySubscribeToPopups();
                 }
+
+                // Try to subscribe to tutorial phase changes
+                _tutorialHandler?.TrySubscribe();
             }
         }
 
@@ -136,6 +149,9 @@ namespace ATSAccessibility
 
             // Dispose popup subscriptions (PopupsService is destroyed on scene change)
             DisposePopupSubscriptions();
+
+            // Dispose tutorial handler subscription
+            _tutorialHandler?.Dispose();
 
             // Reset UI navigator state
             _uiNavigator?.Reset();
@@ -453,6 +469,31 @@ namespace ATSAccessibility
                     _keyboardManager?.SetContext(KeyboardManager.NavigationContext.None);
                 }
             }
+        }
+
+        // ========================================
+        // TUTORIAL EVENT HANDLING
+        // ========================================
+
+        /// <summary>
+        /// Called when tutorial phase changes.
+        /// Schedules announcement with delay to let tooltip text update.
+        /// Uses real-time delay since game may have timeScale=0 during loading.
+        /// </summary>
+        private void OnTutorialPhaseChanged()
+        {
+            Debug.Log("[ATSAccessibility] Tutorial phase changed, scheduling announcement (real-time)");
+            StartCoroutine(AnnounceTutorialDelayed());
+        }
+
+        /// <summary>
+        /// Coroutine to announce tutorial after real-time delay.
+        /// </summary>
+        private IEnumerator AnnounceTutorialDelayed()
+        {
+            yield return new WaitForSecondsRealtime(0.5f);
+            Debug.Log("[ATSAccessibility] AnnounceTutorial() called after real-time delay");
+            _tutorialHandler?.AnnounceTooltip();
         }
     }
 }

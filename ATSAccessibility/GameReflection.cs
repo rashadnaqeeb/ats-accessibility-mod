@@ -303,5 +303,114 @@ namespace ATSAccessibility
         public static FieldInfo TabsPanelCurrentField { get { EnsureTabTypes(); return _tabsPanelCurrentField; } }
         public static FieldInfo TabsButtonButtonField { get { EnsureTabTypes(); return _tabsButtonButtonField; } }
         public static FieldInfo TabsButtonContentField { get { EnsureTabTypes(); return _tabsButtonContentField; } }
+
+        // ========================================
+        // TUTORIAL SYSTEM REFLECTION
+        // ========================================
+        // Path: MetaController.Instance.MetaServices.TutorialService.Phase
+
+        private static Type _metaControllerType = null;
+        private static PropertyInfo _metaControllerInstanceProperty = null;  // static Instance
+        private static PropertyInfo _mcMetaServicesProperty = null;          // MetaServices
+        private static PropertyInfo _msTutorialServiceProperty = null;       // TutorialService
+        private static PropertyInfo _tsPhaseProperty = null;                 // Phase (ReactiveProperty)
+        private static bool _tutorialTypesCached = false;
+
+        private static void EnsureTutorialTypes()
+        {
+            if (_tutorialTypesCached) return;
+            EnsureAssembly();
+
+            if (_gameAssembly == null)
+            {
+                _tutorialTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Cache MetaController type
+                _metaControllerType = _gameAssembly.GetType("Eremite.Controller.MetaController");
+                if (_metaControllerType != null)
+                {
+                    _metaControllerInstanceProperty = _metaControllerType.GetProperty("Instance",
+                        BindingFlags.Public | BindingFlags.Static);
+                    _mcMetaServicesProperty = _metaControllerType.GetProperty("MetaServices",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached MetaController type info");
+                }
+
+                // Cache TutorialService property (from MetaServices interface)
+                var metaServicesType = _gameAssembly.GetType("Eremite.Services.IMetaServices");
+                if (metaServicesType != null)
+                {
+                    _msTutorialServiceProperty = metaServicesType.GetProperty("TutorialService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache Phase property (from TutorialService)
+                var tutorialServiceType = _gameAssembly.GetType("Eremite.Services.ITutorialService");
+                if (tutorialServiceType != null)
+                {
+                    _tsPhaseProperty = tutorialServiceType.GetProperty("Phase",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached TutorialService type info");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Tutorial type caching failed: {ex.Message}");
+            }
+
+            _tutorialTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get the TutorialService.Phase observable (ReactiveProperty).
+        /// Subscribe to this to get notified of tutorial phase changes.
+        /// </summary>
+        public static object GetTutorialPhaseObservable()
+        {
+            EnsureTutorialTypes();
+
+            try
+            {
+                // Get MetaController.Instance
+                var metaController = _metaControllerInstanceProperty?.GetValue(null);
+                if (metaController == null)
+                {
+                    Debug.Log("[ATSAccessibility] DEBUG: MetaController.Instance is null");
+                    return null;
+                }
+
+                // Get MetaServices
+                var metaServices = _mcMetaServicesProperty?.GetValue(metaController);
+                if (metaServices == null)
+                {
+                    Debug.Log("[ATSAccessibility] DEBUG: MetaServices is null");
+                    return null;
+                }
+
+                // Get TutorialService
+                var tutorialService = _msTutorialServiceProperty?.GetValue(metaServices);
+                if (tutorialService == null)
+                {
+                    Debug.Log("[ATSAccessibility] DEBUG: TutorialService is null");
+                    return null;
+                }
+
+                // Get Phase (ReactiveProperty<TutorialPhase>)
+                var phase = _tsPhaseProperty?.GetValue(tutorialService);
+                Debug.Log($"[ATSAccessibility] DEBUG: Got TutorialService.Phase: {phase?.GetType().FullName}");
+                return phase;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetTutorialPhaseObservable failed: {ex.Message}");
+                return null;
+            }
+        }
     }
 }
