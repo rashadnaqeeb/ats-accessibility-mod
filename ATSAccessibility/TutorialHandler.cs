@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using TMPro;
 using UnityEngine;
@@ -10,6 +11,13 @@ namespace ATSAccessibility
     /// Subscribes to TutorialService.Phase changes to announce tutorial text.
     /// Separate module that can be expanded for generic tooltip support.
     /// </summary>
+    /// <remarks>
+    /// TODO: Known issues to revisit:
+    /// - TimeControl and Wood phases don't announce (their TutorialTooltip hides too quickly)
+    /// - Attempted timestamp-based fix caused announcements to fire out of order
+    /// - Need different approach: perhaps polling for tooltip visibility, or capturing text immediately on phase change
+    /// - Working phases: CameraControl, Impatience, Reputation (TutorialTexts), ReputationPick (TutorialTooltip stays active)
+    /// </remarks>
     public class TutorialHandler
     {
         private IDisposable _phaseSubscription;
@@ -19,8 +27,10 @@ namespace ATSAccessibility
         // Cached type for finding TutorialTooltip
         private Type _tutorialTooltipType = null;
 
-        // Cached references to avoid expensive FindObjectOfType calls
+        // Cached tooltip reference for visibility checks
         private Component _cachedTooltip = null;
+
+        // Cached TutorialTexts references for positioned text tutorials
         private GameObject _cachedTutorialTexts = null;
         private TMP_Text _cachedTextElement = null;
 
@@ -115,7 +125,7 @@ namespace ATSAccessibility
                 return true;
             }
 
-            // Check cached text element from TutorialTexts
+            // Check cached TutorialTexts element
             if (_cachedTextElement != null && _cachedTextElement.gameObject.activeInHierarchy)
             {
                 return true;
@@ -141,6 +151,16 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Check if a phase is an end marker (no tooltip shown).
+        /// </summary>
+        private bool IsEndMarkerPhase(string phase)
+        {
+            return phase == "Tut1End" || phase == "Tut2End" ||
+                   phase == "Tut3End" || phase == "Tut4End" ||
+                   phase == "TutorialEnd";
+        }
+
+        /// <summary>
         /// Find the TutorialTooltip and announce its text.
         /// Call this after a delay when phase changes.
         /// </summary>
@@ -155,13 +175,20 @@ namespace ATSAccessibility
                 return;
             }
 
-            // Try TutorialTooltip first (popup-style tutorials)
+            // Skip end marker phases (they don't have tooltips)
+            if (IsEndMarkerPhase(_lastAnnouncedPhase))
+            {
+                Debug.Log($"[ATSAccessibility] TutorialHandler: Skipping end marker phase {_lastAnnouncedPhase}");
+                return;
+            }
+
+            // Try TutorialTooltip first (popup style)
             if (TryAnnounceTutorialTooltip())
             {
                 return;
             }
 
-            // Fall back to TutorialTexts (positioned text tutorials)
+            // Fall back to TutorialTexts (positioned text)
             if (TryAnnounceTutorialTexts())
             {
                 return;
@@ -172,6 +199,7 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Try to announce from TutorialTooltip (popup style).
+        /// Finds tooltip even if inactive (it may have been hidden quickly).
         /// </summary>
         private bool TryAnnounceTutorialTooltip()
         {
@@ -183,72 +211,104 @@ namespace ATSAccessibility
 
             if (_tutorialTooltipType == null)
             {
+                Debug.Log("[ATSAccessibility] TutorialHandler: TutorialTooltip type not found");
                 return false;
             }
 
-            // Find the active TutorialTooltip in the scene
-            var tooltip = UnityEngine.Object.FindObjectOfType(_tutorialTooltipType) as Component;
-            if (tooltip == null || !tooltip.gameObject.activeInHierarchy)
+            // Find tooltip even if inactive (it may have been hidden before we got here)
+            // Use FindObjectsOfType with includeInactive: true
+            var tooltips = UnityEngine.Object.FindObjectsOfType(_tutorialTooltipType, true) as Component[];
+            var tooltip = tooltips?.FirstOrDefault();
+
+            if (tooltip == null)
             {
-                _cachedTooltip = null; // Clear cache if not found
+                Debug.Log("[ATSAccessibility] TutorialHandler: No TutorialTooltip instance found");
+                _cachedTooltip = null;
+                return false;
+            }
+
+            Debug.Log($"[ATSAccessibility] TutorialHandler: Found TutorialTooltip, active={tooltip.gameObject.activeInHierarchy}");
+
+            // Only read text if tooltip is actually active - otherwise we get stale text from previous use
+            if (!tooltip.gameObject.activeInHierarchy)
+            {
+                Debug.Log("[ATSAccessibility] TutorialHandler: Tooltip is inactive, skipping to avoid stale text");
+                _cachedTooltip = null;
                 return false;
             }
 
             // Cache for visibility checks
             _cachedTooltip = tooltip;
-            _cachedTextElement = null; // Clear other cache
 
-            // Get ALL text components from the tooltip and find the content
-            var textComponents = tooltip.GetComponentsInChildren<TMP_Text>(true);
-            Debug.Log($"[ATSAccessibility] TutorialHandler: Found {textComponents.Length} TMP_Text in TutorialTooltip");
+            // Try to find text at Content/Text path first (the TextTyper component)
+            Transform contentText = tooltip.transform.Find("Content/Text");
+            TMP_Text textComponent = contentText?.GetComponent<TMP_Text>();
 
-            string contentText = null;
-            string speakerText = null;
+            // Also look for speaker name at Content/Name
+            Transform contentName = tooltip.transform.Find("Content/Name");
+            TMP_Text nameComponent = contentName?.GetComponent<TMP_Text>();
 
-            foreach (var tc in textComponents)
+            string contentTextStr = textComponent?.text;
+            string speakerText = nameComponent?.text;
+
+            Debug.Log($"[ATSAccessibility] TutorialHandler: Content/Text={contentTextStr?.Length ?? 0} chars, Content/Name={speakerText ?? "null"}");
+
+            // If Content/Text path didn't work, fall back to scanning all text components
+            if (string.IsNullOrEmpty(contentTextStr))
             {
-                if (tc == null || string.IsNullOrEmpty(tc.text)) continue;
+                var textComponents = tooltip.GetComponentsInChildren<TMP_Text>(true);
+                Debug.Log($"[ATSAccessibility] TutorialHandler: Scanning {textComponents.Length} TMP_Text components");
 
-                string objName = tc.gameObject.name.ToLower();
-                string text = tc.text;
+                foreach (var tc in textComponents)
+                {
+                    if (tc == null || string.IsNullOrEmpty(tc.text)) continue;
 
-                Debug.Log($"[ATSAccessibility] TutorialHandler: TMP_Text '{tc.gameObject.name}' = '{text.Substring(0, Math.Min(50, text.Length))}'");
+                    string objName = tc.gameObject.name.ToLower();
+                    string text = tc.text;
 
-                // "Label" contains the content, "Name" contains the speaker
-                if (objName == "label" || objName.Contains("content") || objName.Contains("desc") || objName.Contains("message") || objName.Contains("body"))
-                {
-                    contentText = text;
-                }
-                else if (objName == "name" || objName.Contains("speaker") || objName.Contains("title") || objName.Contains("header"))
-                {
-                    speakerText = text;
-                }
-                else if (contentText == null && text.Length > 20)
-                {
-                    contentText = text;
-                }
-                else if (speakerText == null)
-                {
-                    speakerText = text;
+                    Debug.Log($"[ATSAccessibility] TutorialHandler: TMP_Text '{tc.gameObject.name}' = '{text.Substring(0, Math.Min(50, text.Length))}'");
+
+                    // "Label" or "Text" contains the content, "Name" contains the speaker
+                    if (objName == "label" || objName == "text" || objName.Contains("content") || objName.Contains("desc") || objName.Contains("message") || objName.Contains("body"))
+                    {
+                        contentTextStr = text;
+                    }
+                    else if (objName == "name" || objName.Contains("speaker") || objName.Contains("title") || objName.Contains("header"))
+                    {
+                        speakerText = text;
+                    }
+                    else if (contentTextStr == null && text.Length > 20)
+                    {
+                        contentTextStr = text;
+                    }
+                    else if (speakerText == null)
+                    {
+                        speakerText = text;
+                    }
                 }
             }
 
-            // Build announcement
-            var announcement = new System.Collections.Generic.List<string>();
-            if (!string.IsNullOrEmpty(speakerText))
-                announcement.Add(speakerText);
-            if (!string.IsNullOrEmpty(contentText))
-                announcement.Add(contentText);
-
-            if (announcement.Count == 0)
+            // If still no content, we can't announce
+            if (string.IsNullOrEmpty(contentTextStr))
             {
+                Debug.Log("[ATSAccessibility] TutorialHandler: No text content found in tooltip");
                 return false;
             }
 
-            string fullAnnouncement = string.Join(". ", announcement);
-            _lastAnnouncedText = fullAnnouncement;
-            Debug.Log($"[ATSAccessibility] Tutorial (Tooltip): {fullAnnouncement}");
-            Speech.Say(fullAnnouncement);
+            // Build announcement with speaker if available
+            string announcement;
+            if (!string.IsNullOrEmpty(speakerText))
+            {
+                announcement = $"{speakerText}. {contentTextStr}";
+            }
+            else
+            {
+                announcement = contentTextStr;
+            }
+
+            _lastAnnouncedText = announcement;
+            Debug.Log($"[ATSAccessibility] Tutorial: {announcement}");
+            Speech.Say(announcement);
             return true;
         }
 
@@ -258,7 +318,7 @@ namespace ATSAccessibility
         /// </summary>
         private bool TryAnnounceTutorialTexts()
         {
-            // Use cached TutorialTexts or find it
+            // Find TutorialTexts GameObject
             if (_cachedTutorialTexts == null || !_cachedTutorialTexts.activeInHierarchy)
             {
                 _cachedTutorialTexts = null;
@@ -268,6 +328,7 @@ namespace ATSAccessibility
                     if (obj.name == "TutorialTexts" && obj.activeInHierarchy)
                     {
                         _cachedTutorialTexts = obj;
+                        Debug.Log("[ATSAccessibility] TutorialHandler: Found TutorialTexts GameObject");
                         break;
                     }
                 }
@@ -287,40 +348,28 @@ namespace ATSAccessibility
                 return false;
             }
 
-            // Find the specific text element
+            // Find the specific text element - must be active
             var textComponents = _cachedTutorialTexts.GetComponentsInChildren<TMP_Text>(true);
-            TMP_Text foundElement = null;
-            string contentText = null;
             foreach (var tc in textComponents)
             {
-                if (tc.gameObject.name == targetTextName && !string.IsNullOrEmpty(tc.text))
+                if (tc.gameObject.name == targetTextName &&
+                    tc.gameObject.activeInHierarchy &&
+                    !string.IsNullOrEmpty(tc.text))
                 {
-                    foundElement = tc;
-                    contentText = tc.text;
-                    break;
+                    _cachedTextElement = tc;
+                    _cachedTooltip = null; // Clear other cache
+
+                    string announcement = $"The Queen's Envoy. {tc.text}";
+                    _lastAnnouncedText = announcement;
+                    Debug.Log($"[ATSAccessibility] Tutorial (Texts/{targetTextName}): {announcement}");
+                    Speech.Say(announcement);
+                    return true;
                 }
             }
 
-            if (contentText == null)
-            {
-                Debug.Log($"[ATSAccessibility] TutorialHandler: Text element '{targetTextName}' not found or empty");
-                _cachedTextElement = null;
-                return false;
-            }
-
-            // Cache for visibility checks
-            _cachedTextElement = foundElement;
-            _cachedTooltip = null; // Clear other cache
-
-            // For TutorialTexts phases, the speaker is always "The Queen's Envoy"
-            // The game doesn't expose this in an accessible way for these phases
-            string speakerName = "The Queen's Envoy";
-
-            string announcement = $"{speakerName}. {contentText}";
-            _lastAnnouncedText = announcement;
-            Debug.Log($"[ATSAccessibility] Tutorial (Texts/{targetTextName}): {announcement}");
-            Speech.Say(announcement);
-            return true;
+            Debug.Log($"[ATSAccessibility] TutorialHandler: Text element '{targetTextName}' not found or inactive");
+            _cachedTextElement = null;
+            return false;
         }
 
         /// <summary>
@@ -331,11 +380,11 @@ namespace ATSAccessibility
             switch (phase)
             {
                 case "CameraControl":
-                    return "Mid";  // "Use [W, S, A, D] or mouse to move camera"
+                    return "Mid";
                 case "Impatience":
-                    return "LowerRight";  // "Neglecting your village will increase the Queen's impatience..."
+                    return "LowerRight";
                 case "Reputation":
-                    return "LowerLeft";  // "Fulfilling your duties will increase the town's reputation..."
+                    return "LowerLeft";
                 case "RacesHUD":
                 case "RacesHUDFirst":
                     return "RacesHUDFirstRight";
@@ -352,7 +401,6 @@ namespace ATSAccessibility
                     return null;
             }
         }
-
 
         // ========================================
         // OBSERVABLE SUBSCRIPTION (via reflection)

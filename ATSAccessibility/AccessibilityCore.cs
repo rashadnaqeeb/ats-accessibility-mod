@@ -488,10 +488,11 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Coroutine to announce tutorial after real-time delay.
+        /// Needs enough delay for tooltip to update its text content.
         /// </summary>
         private IEnumerator AnnounceTutorialDelayed()
         {
-            yield return new WaitForSecondsRealtime(0.5f);
+            yield return new WaitForSecondsRealtime(0.6f);
             Debug.Log("[ATSAccessibility] AnnounceTutorial() called after real-time delay");
             _tutorialHandler?.AnnounceTooltip();
         }

@@ -68,6 +68,15 @@ namespace ATSAccessibility
                 }
             }
 
+            // ============================================================
+            // TEMPORARY DEBUG HOTKEYS - Remove this section when done
+            // ============================================================
+            if (ProcessTemporaryDebugKeys(keyCode))
+            {
+                return;
+            }
+            // ============================================================
+
             switch (CurrentContext)
             {
                 case NavigationContext.Popup:
@@ -193,5 +202,64 @@ namespace ATSAccessibility
                     return true;
             }
         }
+
+        // ============================================================
+        // TEMPORARY DEBUG HOTKEYS - Remove this entire section when done
+        // ============================================================
+
+        /// <summary>
+        /// Process temporary debug hotkeys for testing.
+        /// Returns true if a key was handled.
+        /// TODO: Remove this method and its call when proper UI is implemented.
+        /// </summary>
+        private bool ProcessTemporaryDebugKeys(KeyCode keyCode)
+        {
+            switch (keyCode)
+            {
+                case KeyCode.B:
+                    Debug.Log("[ATSAccessibility] DEBUG: B pressed - opening reputation rewards popup");
+                    OpenReputationRewardsPopup();
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Open the reputation rewards popup via reflection.
+        /// TODO: Remove when proper UI navigation is implemented.
+        /// </summary>
+        private void OpenReputationRewardsPopup()
+        {
+            var reputationRewardsService = GameReflection.GetReputationRewardsService();
+            if (reputationRewardsService == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] DEBUG: ReputationRewardsService not available");
+                return;
+            }
+
+            try
+            {
+                var requestPopupMethod = reputationRewardsService.GetType().GetMethod("RequestPopup");
+                if (requestPopupMethod != null)
+                {
+                    requestPopupMethod.Invoke(reputationRewardsService, null);
+                    Debug.Log("[ATSAccessibility] DEBUG: RequestPopup() called");
+                }
+                else
+                {
+                    Debug.LogWarning("[ATSAccessibility] DEBUG: RequestPopup method not found");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] DEBUG: Failed to open reputation popup: {ex.Message}");
+            }
+        }
+
+        // ============================================================
+        // END TEMPORARY DEBUG HOTKEYS
+        // ============================================================
     }
 }

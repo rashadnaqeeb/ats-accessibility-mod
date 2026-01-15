@@ -367,6 +367,83 @@ namespace ATSAccessibility
             _tutorialTypesCached = true;
         }
 
+        // ========================================
+        // GAME SERVICES REFLECTION (for in-game services)
+        // ========================================
+        // Path: GameController.Instance.GameServices.XxxService
+
+        private static PropertyInfo _gcInstanceProperty = null;       // static Instance
+        private static PropertyInfo _gcGameServicesProperty = null;   // GameServices
+        private static PropertyInfo _gsReputationRewardsProperty = null;  // ReputationRewardsService
+        private static bool _gameServicesTypesCached = false;
+
+        private static void EnsureGameServicesTypes()
+        {
+            if (_gameServicesTypesCached) return;
+            EnsureTypes();
+
+            if (_gameControllerType == null)
+            {
+                _gameServicesTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Cache GameController.Instance property
+                _gcInstanceProperty = _gameControllerType.GetProperty("Instance",
+                    BindingFlags.Public | BindingFlags.Static);
+
+                // Cache GameServices property
+                _gcGameServicesProperty = _gameControllerType.GetProperty("GameServices",
+                    BindingFlags.Public | BindingFlags.Instance);
+
+                // Cache ReputationRewardsService property from IGameServices interface
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsReputationRewardsProperty = gameServicesType.GetProperty("ReputationRewardsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GameServices type caching failed: {ex.Message}");
+            }
+
+            _gameServicesTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get the ReputationRewardsService from GameController.
+        /// Only available when in a game (IsGameActive == true).
+        /// </summary>
+        public static object GetReputationRewardsService()
+        {
+            EnsureGameServicesTypes();
+
+            if (!GetIsGameActive()) return null;
+
+            try
+            {
+                // Get GameController.Instance
+                var gameController = _gcInstanceProperty?.GetValue(null);
+                if (gameController == null) return null;
+
+                // Get GameServices
+                var gameServices = _gcGameServicesProperty?.GetValue(gameController);
+                if (gameServices == null) return null;
+
+                // Get ReputationRewardsService
+                return _gsReputationRewardsProperty?.GetValue(gameServices);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetReputationRewardsService failed: {ex.Message}");
+                return null;
+            }
+        }
+
         /// <summary>
         /// Get the TutorialService.Phase observable (ReactiveProperty).
         /// Subscribe to this to get notified of tutorial phase changes.
