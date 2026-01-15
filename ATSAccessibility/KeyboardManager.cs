@@ -15,7 +15,7 @@ namespace ATSAccessibility
         {
             None,       // No special handling
             Popup,      // Navigating a popup/menu
-            Map,        // Future: navigating game map
+            Map,        // Navigating settlement map
             Dialogue    // Future: reading dialogue
         }
 
@@ -28,6 +28,9 @@ namespace ATSAccessibility
         // Reference to tutorial handler for tutorial re-reading
         private TutorialHandler _tutorialHandler;
 
+        // Reference to map navigator for settlement navigation
+        private MapNavigator _mapNavigator;
+
         public KeyboardManager(UINavigator uiNavigator)
         {
             _uiNavigator = uiNavigator;
@@ -39,6 +42,14 @@ namespace ATSAccessibility
         public void SetTutorialHandler(TutorialHandler handler)
         {
             _tutorialHandler = handler;
+        }
+
+        /// <summary>
+        /// Set the map navigator reference.
+        /// </summary>
+        public void SetMapNavigator(MapNavigator navigator)
+        {
+            _mapNavigator = navigator;
         }
 
         /// <summary>
@@ -83,7 +94,7 @@ namespace ATSAccessibility
                     ProcessPopupKeyEvent(keyCode);
                     break;
                 case NavigationContext.Map:
-                    // Future: ProcessMapKeyEvent(keyCode);
+                    ProcessMapKeyEvent(keyCode);
                     break;
                 case NavigationContext.Dialogue:
                     // Future: ProcessDialogueKeyEvent(keyCode);
@@ -200,6 +211,42 @@ namespace ATSAccessibility
                 default:
                     // Other keys - let dropdown stay open but don't handle
                     return true;
+            }
+        }
+
+        /// <summary>
+        /// Handle key event when navigating the settlement map.
+        /// </summary>
+        private void ProcessMapKeyEvent(KeyCode keyCode)
+        {
+            if (_mapNavigator == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] DEBUG: ProcessMapKeyEvent - MapNavigator is null");
+                return;
+            }
+
+            switch (keyCode)
+            {
+                case KeyCode.UpArrow:
+                    Debug.Log("[ATSAccessibility] DEBUG: Map UpArrow");
+                    _mapNavigator.MoveCursor(0, 1);
+                    break;
+                case KeyCode.DownArrow:
+                    Debug.Log("[ATSAccessibility] DEBUG: Map DownArrow");
+                    _mapNavigator.MoveCursor(0, -1);
+                    break;
+                case KeyCode.LeftArrow:
+                    Debug.Log("[ATSAccessibility] DEBUG: Map LeftArrow");
+                    _mapNavigator.MoveCursor(-1, 0);
+                    break;
+                case KeyCode.RightArrow:
+                    Debug.Log("[ATSAccessibility] DEBUG: Map RightArrow");
+                    _mapNavigator.MoveCursor(1, 0);
+                    break;
+                case KeyCode.K:
+                    Debug.Log("[ATSAccessibility] DEBUG: Map K (coordinates)");
+                    _mapNavigator.AnnounceCurrentPosition();
+                    break;
             }
         }
 

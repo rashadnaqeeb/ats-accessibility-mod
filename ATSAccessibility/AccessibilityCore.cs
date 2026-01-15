@@ -28,6 +28,9 @@ namespace ATSAccessibility
         private UINavigator _uiNavigator;
         private KeyboardManager _keyboardManager;
 
+        // Map Navigation
+        private MapNavigator _mapNavigator;
+
         // Popup event subscriptions (IDisposable from UniRx)
         private IDisposable _popupShownSubscription;
         private IDisposable _popupHiddenSubscription;
@@ -53,6 +56,10 @@ namespace ATSAccessibility
             // Initialize UI navigation
             _uiNavigator = new UINavigator();
             _keyboardManager = new KeyboardManager(_uiNavigator);
+
+            // Initialize map navigation
+            _mapNavigator = new MapNavigator();
+            _keyboardManager.SetMapNavigator(_mapNavigator);
 
             // Initialize tutorial handler
             _tutorialHandler = new TutorialHandler(OnTutorialPhaseChanged);
@@ -141,6 +148,7 @@ namespace ATSAccessibility
             {
                 _announcedGameStart = false;
                 _wasGameActive = false;
+                _mapNavigator?.ResetCursor();
             }
             else if (scene.buildIndex == SCENE_MENU)
             {
@@ -270,11 +278,20 @@ namespace ATSAccessibility
                     _announcedGameStart = true;
                     Debug.Log("[ATSAccessibility] Announced: Game started");
                 }
+
+                // Set map navigation context (if no popup is open)
+                if (_uiNavigator == null || !_uiNavigator.HasActivePopup)
+                {
+                    _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Map);
+                    _mapNavigator?.ResetCursor();
+                    Debug.Log("[ATSAccessibility] Set context to Map navigation");
+                }
             }
             else if (!isGameActive && _wasGameActive)
             {
                 // Just left game
                 _wasGameActive = false;
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.None);
                 // State will be reset in OnSceneUnloaded
             }
         }
@@ -463,6 +480,12 @@ namespace ATSAccessibility
                     Debug.Log("[ATSAccessibility] Popup closed on menu scene, deferring menu setup to next input");
                     _menuPendingSetup = true;
                     // Keep context as Popup so navigation keys work
+                }
+                else if (GameReflection.GetIsGameActive())
+                {
+                    // In settlement - return to map navigation
+                    _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Map);
+                    Debug.Log("[ATSAccessibility] Popup closed in settlement, returning to Map context");
                 }
                 else
                 {

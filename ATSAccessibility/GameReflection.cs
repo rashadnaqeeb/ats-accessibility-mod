@@ -489,5 +489,240 @@ namespace ATSAccessibility
                 return null;
             }
         }
+
+        // ========================================
+        // MAP NAVIGATION REFLECTION
+        // ========================================
+        // Path: GameController.Instance.GameServices.MapService / GladesService / VillagersService
+
+        private static PropertyInfo _gsMapServiceProperty = null;
+        private static PropertyInfo _gsGladesServiceProperty = null;
+        private static PropertyInfo _gsVillagersServiceProperty = null;
+        private static MethodInfo _mapGetFieldMethod = null;
+        private static MethodInfo _mapGetObjectOnMethod = null;
+        private static MethodInfo _gladesGetGladeMethod = null;
+        private static PropertyInfo _villagersVillagersProperty = null;  // Dictionary<int, Villager>
+        private static bool _mapTypesCached = false;
+
+        private static void EnsureMapTypes()
+        {
+            if (_mapTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _mapTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get IGameServices interface for service properties
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsMapServiceProperty = gameServicesType.GetProperty("MapService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsGladesServiceProperty = gameServicesType.GetProperty("GladesService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsVillagersServiceProperty = gameServicesType.GetProperty("VillagersService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get MapService methods
+                var mapServiceType = _gameAssembly.GetType("Eremite.Services.IMapService");
+                if (mapServiceType != null)
+                {
+                    _mapGetFieldMethod = mapServiceType.GetMethod("GetField",
+                        new Type[] { typeof(int), typeof(int) });
+                    _mapGetObjectOnMethod = mapServiceType.GetMethod("GetObjectOn",
+                        new Type[] { typeof(int), typeof(int) });
+                }
+
+                // Get GladesService method
+                var gladesServiceType = _gameAssembly.GetType("Eremite.Services.IGladesService");
+                if (gladesServiceType != null)
+                {
+                    _gladesGetGladeMethod = gladesServiceType.GetMethod("GetGlade",
+                        new Type[] { typeof(Vector2Int) });
+                }
+
+                // Get VillagersService.Villagers property
+                var villagersServiceType = _gameAssembly.GetType("Eremite.Services.IVillagersService");
+                if (villagersServiceType != null)
+                {
+                    _villagersVillagersProperty = villagersServiceType.GetProperty("Villagers",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached map service types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Map type caching failed: {ex.Message}");
+            }
+
+            _mapTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get GameServices from GameController.Instance.
+        /// Only available when in a game (IsGameActive == true).
+        /// </summary>
+        public static object GetGameServices()
+        {
+            EnsureGameServicesTypes();
+
+            if (!GetIsGameActive()) return null;
+
+            try
+            {
+                var gameController = _gcInstanceProperty?.GetValue(null);
+                if (gameController == null) return null;
+
+                return _gcGameServicesProperty?.GetValue(gameController);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get MapService from GameServices.
+        /// </summary>
+        public static object GetMapService()
+        {
+            EnsureMapTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsMapServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get GladesService from GameServices.
+        /// </summary>
+        public static object GetGladesService()
+        {
+            EnsureMapTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsGladesServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get VillagersService from GameServices.
+        /// </summary>
+        public static object GetVillagersService()
+        {
+            EnsureMapTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsVillagersServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get Field at map coordinates.
+        /// Returns null if out of bounds or not in game.
+        /// </summary>
+        public static object GetField(int x, int y)
+        {
+            EnsureMapTypes();
+            var mapService = GetMapService();
+            if (mapService == null || _mapGetFieldMethod == null) return null;
+
+            try
+            {
+                return _mapGetFieldMethod.Invoke(mapService, new object[] { x, y });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get object (building/resource) on a map tile.
+        /// Returns null if nothing there or not in game.
+        /// </summary>
+        public static object GetObjectOn(int x, int y)
+        {
+            EnsureMapTypes();
+            var mapService = GetMapService();
+            if (mapService == null || _mapGetObjectOnMethod == null) return null;
+
+            try
+            {
+                return _mapGetObjectOnMethod.Invoke(mapService, new object[] { x, y });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get Glade at map coordinates.
+        /// Returns null if no glade at position or not in game.
+        /// </summary>
+        public static object GetGlade(int x, int y)
+        {
+            EnsureMapTypes();
+            var gladesService = GetGladesService();
+            if (gladesService == null || _gladesGetGladeMethod == null) return null;
+
+            try
+            {
+                return _gladesGetGladeMethod.Invoke(gladesService, new object[] { new Vector2Int(x, y) });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all villagers as a dictionary.
+        /// Returns null if not in game.
+        /// </summary>
+        public static object GetAllVillagers()
+        {
+            EnsureMapTypes();
+            var villagersService = GetVillagersService();
+            if (villagersService == null || _villagersVillagersProperty == null) return null;
+
+            try
+            {
+                return _villagersVillagersProperty.GetValue(villagersService);
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }

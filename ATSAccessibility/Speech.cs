@@ -114,6 +114,24 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Clean resource names by stripping verbose prefixes.
+        /// E.g., "Wood Node Moss Broccoli - Small" → "Moss Broccoli - Small"
+        /// </summary>
+        public static string CleanResourceName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+
+            // Strip "XXX Node " prefix (e.g., "Wood Node ", "Universal Node ")
+            int nodeIndex = name.IndexOf(" Node ");
+            if (nodeIndex >= 0)
+            {
+                return name.Substring(nodeIndex + 6); // 6 = " Node ".Length
+            }
+
+            return name;
+        }
+
+        /// <summary>
         /// Speak the given message.
         /// Rich text tags are automatically stripped before speaking.
         /// </summary>
