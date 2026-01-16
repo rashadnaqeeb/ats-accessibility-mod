@@ -1,4 +1,5 @@
 using BepInEx;
+using HarmonyLib;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -27,6 +28,11 @@ namespace ATSAccessibility
                     int error = Marshal.GetLastWin32Error();
                     Logger.LogWarning($"SetDllDirectory failed with error code: {error}");
                 }
+
+                // Apply Harmony patches to block game input
+                var harmony = new Harmony("com.ats.accessibility");
+                harmony.PatchAll();
+                Logger.LogInfo("Harmony patches applied");
 
                 // Create persistent GameObject that survives scene transitions
                 var go = new GameObject("ATSAccessibilityCore");

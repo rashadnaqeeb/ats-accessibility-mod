@@ -731,6 +731,161 @@ namespace ATSAccessibility
         }
 
         // ========================================
+        // TIME SCALE SERVICE API (Pause/Unpause)
+        // ========================================
+
+        private static PropertyInfo _gsTimeScaleServiceProperty = null;
+        private static MethodInfo _tssIsPausedMethod = null;
+        private static MethodInfo _tssPauseMethod = null;
+        private static MethodInfo _tssUnpauseMethod = null;
+        private static bool _timeScaleTypesCached = false;
+
+        private static void EnsureTimeScaleTypes()
+        {
+            if (_timeScaleTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _timeScaleTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get TimeScaleService property from IGameServices
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsTimeScaleServiceProperty = gameServicesType.GetProperty("TimeScaleService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get methods from ITimeScaleService interface
+                var timeScaleServiceType = _gameAssembly.GetType("Eremite.Services.ITimeScaleService");
+                if (timeScaleServiceType != null)
+                {
+                    _tssIsPausedMethod = timeScaleServiceType.GetMethod("IsPaused",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _tssPauseMethod = timeScaleServiceType.GetMethod("Pause",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _tssUnpauseMethod = timeScaleServiceType.GetMethod("Unpause",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached TimeScaleService type info");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] TimeScaleService type caching failed: {ex.Message}");
+            }
+
+            _timeScaleTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get TimeScaleService from GameServices.
+        /// </summary>
+        public static object GetTimeScaleService()
+        {
+            EnsureTimeScaleTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsTimeScaleServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if the game is currently paused.
+        /// </summary>
+        public static bool IsPaused()
+        {
+            EnsureTimeScaleTypes();
+            var timeScaleService = GetTimeScaleService();
+            if (timeScaleService == null || _tssIsPausedMethod == null) return false;
+
+            try
+            {
+                return (bool)_tssIsPausedMethod.Invoke(timeScaleService, null);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // Game speed values: 0=paused, 1=1x, 2=1.5x, 3=2x, 4=3x
+        private static readonly float[] Speeds = new float[] { 0f, 1f, 1.5f, 2f, 3f };
+        private static MethodInfo _tssChangeMethod = null;
+
+        /// <summary>
+        /// Set game speed (1-4). 1=normal, 2=1.5x, 3=2x, 4=3x
+        /// </summary>
+        public static void SetSpeed(int speedIndex)
+        {
+            if (speedIndex < 1 || speedIndex > 4) return;
+
+            EnsureTimeScaleTypes();
+            var timeScaleService = GetTimeScaleService();
+            if (timeScaleService == null) return;
+
+            try
+            {
+                // Cache the Change method if needed
+                if (_tssChangeMethod == null)
+                {
+                    _tssChangeMethod = timeScaleService.GetType().GetMethod("Change",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Change(float scale, bool userBased, bool force = false)
+                _tssChangeMethod?.Invoke(timeScaleService, new object[] { Speeds[speedIndex], true, false });
+                Debug.Log($"[ATSAccessibility] Game speed set to {speedIndex} ({Speeds[speedIndex]}x)");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SetSpeed failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Toggle pause state. If paused, unpause. If unpaused, pause.
+        /// </summary>
+        public static void TogglePause()
+        {
+            EnsureTimeScaleTypes();
+            var timeScaleService = GetTimeScaleService();
+            if (timeScaleService == null) return;
+
+            try
+            {
+                if (IsPaused())
+                {
+                    // Unpause(userBased: true)
+                    _tssUnpauseMethod?.Invoke(timeScaleService, new object[] { true });
+                    Debug.Log("[ATSAccessibility] Game unpaused");
+                }
+                else
+                {
+                    // Pause(userBased: true)
+                    _tssPauseMethod?.Invoke(timeScaleService, new object[] { true });
+                    Debug.Log("[ATSAccessibility] Game paused");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] TogglePause failed: {ex.Message}");
+            }
+        }
+
+        // ========================================
         // CAMERA CONTROLLER API
         // ========================================
 

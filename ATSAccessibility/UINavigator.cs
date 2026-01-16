@@ -209,13 +209,22 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Activate the current element (Enter/Space).
+        /// Returns true if an element was activated, false if no element to activate.
         /// </summary>
-        public void ActivateCurrentElement()
+        public bool ActivateCurrentElement()
         {
-            if (_elements.Count == 0 || _currentElementIndex >= _elements.Count) return;
+            if (_elements.Count == 0 || _currentElementIndex >= _elements.Count)
+            {
+                Debug.Log("[ATSAccessibility] No element to activate - passing through to game");
+                return false;
+            }
 
             var element = _elements[_currentElementIndex];
-            if (element == null) return;
+            if (element == null)
+            {
+                Debug.Log("[ATSAccessibility] Current element is null - passing through to game");
+                return false;
+            }
 
             try
             {
@@ -240,10 +249,12 @@ namespace ATSAccessibility
                     slider.Select();
                     Debug.Log($"[ATSAccessibility] Selected slider: {UIElementFinder.GetElementText(element)}");
                 }
+                return true;
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] Failed to activate element: {ex.Message}");
+                return false;
             }
         }
 

@@ -101,7 +101,7 @@ namespace ATSAccessibility
                     break;
                 case NavigationContext.None:
                 default:
-                    // No special input handling
+                    // No special input handling (pause/speed only in Map context)
                     break;
             }
         }
@@ -115,7 +115,6 @@ namespace ATSAccessibility
             switch (keyCode)
             {
                 case KeyCode.F1:
-                    Debug.Log("[ATSAccessibility] F1 pressed - re-reading tutorial");
                     _tutorialHandler.ReannounceCurrentTutorial();
                     return true;
 
@@ -130,12 +129,6 @@ namespace ATSAccessibility
         /// </summary>
         private void ProcessPopupKeyEvent(KeyCode keyCode)
         {
-            if (_uiNavigator == null)
-            {
-                Debug.LogWarning("[ATSAccessibility] DEBUG: ProcessPopupKeyEvent - UINavigator is null");
-                return;
-            }
-
             // If a dropdown is open, handle it first
             if (_uiNavigator.IsDropdownOpen)
             {
@@ -149,32 +142,25 @@ namespace ATSAccessibility
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: UpArrow pressed");
                     _uiNavigator.NavigateElement(-1);
                     break;
                 case KeyCode.DownArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: DownArrow pressed");
                     _uiNavigator.NavigateElement(1);
                     break;
                 case KeyCode.LeftArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: LeftArrow pressed");
                     _uiNavigator.NavigatePanel(-1);
                     break;
                 case KeyCode.RightArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: RightArrow pressed");
                     _uiNavigator.NavigatePanel(1);
                     break;
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
-                    Debug.Log("[ATSAccessibility] DEBUG: Enter pressed");
                     _uiNavigator.ActivateCurrentElement();
                     break;
                 case KeyCode.Space:
-                    Debug.Log("[ATSAccessibility] DEBUG: Space pressed");
                     _uiNavigator.ActivateCurrentElement();
                     break;
                 case KeyCode.Escape:
-                    Debug.Log("[ATSAccessibility] DEBUG: Escape pressed");
                     _uiNavigator.DismissPopup();
                     break;
             }
@@ -189,22 +175,18 @@ namespace ATSAccessibility
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: UpArrow in dropdown");
                     return _uiNavigator.NavigateDropdownOption(-1);
 
                 case KeyCode.DownArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: DownArrow in dropdown");
                     return _uiNavigator.NavigateDropdownOption(1);
 
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                 case KeyCode.Space:
-                    Debug.Log("[ATSAccessibility] DEBUG: Select in dropdown");
                     _uiNavigator.SelectCurrentDropdownOption();
                     return true;
 
                 case KeyCode.Escape:
-                    Debug.Log("[ATSAccessibility] DEBUG: Cancel dropdown");
                     _uiNavigator.CloseActiveDropdown();
                     return true;
 
@@ -219,33 +201,41 @@ namespace ATSAccessibility
         /// </summary>
         private void ProcessMapKeyEvent(KeyCode keyCode)
         {
-            if (_mapNavigator == null)
-            {
-                Debug.LogWarning("[ATSAccessibility] DEBUG: ProcessMapKeyEvent - MapNavigator is null");
-                return;
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: Map UpArrow");
                     _mapNavigator.MoveCursor(0, 1);
                     break;
                 case KeyCode.DownArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: Map DownArrow");
                     _mapNavigator.MoveCursor(0, -1);
                     break;
                 case KeyCode.LeftArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: Map LeftArrow");
                     _mapNavigator.MoveCursor(-1, 0);
                     break;
                 case KeyCode.RightArrow:
-                    Debug.Log("[ATSAccessibility] DEBUG: Map RightArrow");
                     _mapNavigator.MoveCursor(1, 0);
                     break;
                 case KeyCode.K:
-                    Debug.Log("[ATSAccessibility] DEBUG: Map K (coordinates)");
                     _mapNavigator.AnnounceCurrentPosition();
+                    break;
+                case KeyCode.Space:
+                    GameReflection.TogglePause();
+                    break;
+                case KeyCode.Alpha1:
+                case KeyCode.Keypad1:
+                    GameReflection.SetSpeed(1);
+                    break;
+                case KeyCode.Alpha2:
+                case KeyCode.Keypad2:
+                    GameReflection.SetSpeed(2);
+                    break;
+                case KeyCode.Alpha3:
+                case KeyCode.Keypad3:
+                    GameReflection.SetSpeed(3);
+                    break;
+                case KeyCode.Alpha4:
+                case KeyCode.Keypad4:
+                    GameReflection.SetSpeed(4);
                     break;
             }
         }
