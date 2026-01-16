@@ -340,9 +340,9 @@ namespace ATSAccessibility
 
                 if (shownObservable != null && hiddenObservable != null)
                 {
-                    // Subscribe to observables using reflection
-                    _popupShownSubscription = SubscribeToObservable(shownObservable, OnPopupShown);
-                    _popupHiddenSubscription = SubscribeToObservable(hiddenObservable, OnPopupHidden);
+                    // Subscribe to observables using shared utility
+                    _popupShownSubscription = GameReflection.SubscribeToObservable(shownObservable, OnPopupShown);
+                    _popupHiddenSubscription = GameReflection.SubscribeToObservable(hiddenObservable, OnPopupHidden);
 
                     Debug.Log($"[ATSAccessibility] DEBUG: Subscriptions created - shown: {_popupShownSubscription != null}, hidden: {_popupHiddenSubscription != null}");
 
@@ -357,93 +357,6 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] Failed to subscribe to popups: {ex.Message}\n{ex.StackTrace}");
-            }
-        }
-
-        /// <summary>
-        /// Subscribe to a UniRx IObservable using reflection.
-        /// </summary>
-        private IDisposable SubscribeToObservable(object observable, Action<object> callback)
-        {
-            if (observable == null) return null;
-
-            try
-            {
-                var observableType = observable.GetType();
-                Debug.Log($"[ATSAccessibility] DEBUG: Observable type: {observableType.FullName}");
-
-                // UniRx Subject<T> uses Subscribe(IObserver<T>), not Subscribe(Action<T>)
-                // We need to create an IObserver wrapper
-                var methods = observableType.GetMethods();
-
-                foreach (var method in methods)
-                {
-                    if (method.Name != "Subscribe") continue;
-                    var parameters = method.GetParameters();
-                    if (parameters.Length != 1) continue;
-
-                    var paramType = parameters[0].ParameterType;
-                    if (!paramType.IsGenericType) continue;
-
-                    // Check for IObserver<T>
-                    if (paramType.GetGenericTypeDefinition() == typeof(IObserver<>))
-                    {
-                        var elementType = paramType.GetGenericArguments()[0];
-                        Debug.Log($"[ATSAccessibility] DEBUG: Found Subscribe(IObserver<{elementType.Name}>)");
-
-                        // Create our observer wrapper
-                        var observerType = typeof(ActionObserver<>).MakeGenericType(elementType);
-                        var observer = Activator.CreateInstance(observerType, new object[] { callback });
-
-                        // Invoke Subscribe
-                        var result = method.Invoke(observable, new object[] { observer });
-                        Debug.Log($"[ATSAccessibility] DEBUG: Subscribe invoked, result: {result != null}");
-                        return result as IDisposable;
-                    }
-                }
-
-                Debug.LogWarning("[ATSAccessibility] DEBUG: No matching Subscribe method found");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] Observable subscription failed: {ex.Message}\n{ex.StackTrace}");
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// IObserver wrapper that calls an Action for each OnNext.
-        /// </summary>
-        private class ActionObserver<T> : IObserver<T>
-        {
-            private readonly Action<object> _callback;
-
-            public ActionObserver(Action<object> callback)
-            {
-                _callback = callback;
-            }
-
-            public void OnNext(T value)
-            {
-                try
-                {
-                    _callback?.Invoke(value);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[ATSAccessibility] Observer callback error: {ex.Message}");
-                }
-            }
-
-            public void OnError(Exception error)
-            {
-                Debug.LogError($"[ATSAccessibility] Observable error: {error.Message}");
-            }
-
-            public void OnCompleted()
-            {
-                Debug.Log("[ATSAccessibility] Observable completed");
             }
         }
 

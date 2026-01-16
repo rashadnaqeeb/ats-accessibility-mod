@@ -107,6 +107,10 @@ namespace ATSAccessibility
             // Remove all rich text tags (anything between < and >)
             text = Regex.Replace(text, "<[^>]+>", "");
 
+            // Remove empty brackets/parentheses left behind by sprite tags
+            text = text.Replace("[]", "");
+            text = text.Replace("()", "");
+
             // Normalize whitespace (collapse multiple spaces/newlines)
             text = Regex.Replace(text, @"\s+", " ");
 

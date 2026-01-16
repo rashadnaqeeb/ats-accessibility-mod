@@ -157,7 +157,7 @@ namespace ATSAccessibility
         {
             _categoryButtons.Clear();
 
-            var buttons = GameReflection.GetWikiCategoryButtons(_wikiPopup);
+            var buttons = WikiReflection.GetWikiCategoryButtons(_wikiPopup);
             if (buttons == null)
             {
                 Debug.LogWarning("[ATSAccessibility] Could not get wiki category buttons");
@@ -180,7 +180,7 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Found {_categoryButtons.Count} wiki category buttons");
 
             // Find which category is currently active
-            var currentPanel = GameReflection.GetCurrentWikiPanel(_wikiPopup);
+            var currentPanel = WikiReflection.GetCurrentWikiPanel(_wikiPopup);
             if (currentPanel != null)
             {
                 _currentCategoryPanel = currentPanel;
@@ -188,7 +188,7 @@ namespace ATSAccessibility
                 // Find the button for this panel
                 for (int i = 0; i < _categoryButtons.Count; i++)
                 {
-                    var buttonPanel = GameReflection.GetCategoryButtonPanel(_categoryButtons[i]);
+                    var buttonPanel = WikiReflection.GetCategoryButtonPanel(_categoryButtons[i]);
                     if (buttonPanel == currentPanel)
                     {
                         _categoryIndex = i;
@@ -217,10 +217,10 @@ namespace ATSAccessibility
                 return false;
 
             var button = _categoryButtons[_categoryIndex];
-            GameReflection.ClickWikiButton(button);
+            WikiReflection.ClickWikiButton(button);
 
             // Update the current panel reference
-            _currentCategoryPanel = GameReflection.GetCategoryButtonPanel(button);
+            _currentCategoryPanel = WikiReflection.GetCategoryButtonPanel(button);
 
             Debug.Log($"[ATSAccessibility] Activated category {_categoryIndex}");
 
@@ -239,7 +239,7 @@ namespace ATSAccessibility
             _articleIndex = 0;
 
             // Get the current panel from the wiki popup
-            var currentPanel = GameReflection.GetCurrentWikiPanel(_wikiPopup);
+            var currentPanel = WikiReflection.GetCurrentWikiPanel(_wikiPopup);
             if (currentPanel == null)
             {
                 Debug.LogWarning("[ATSAccessibility] No current wiki panel");
@@ -249,7 +249,7 @@ namespace ATSAccessibility
             _currentCategoryPanel = currentPanel;
 
             // Get slots from the panel
-            var slots = GameReflection.GetPanelSlots(currentPanel);
+            var slots = WikiReflection.GetPanelSlots(currentPanel);
             if (slots == null)
             {
                 Debug.LogWarning("[ATSAccessibility] Could not get panel slots");
@@ -292,13 +292,13 @@ namespace ATSAccessibility
             var slot = _articleSlots[_articleIndex];
 
             // Check if unlocked
-            if (!GameReflection.IsWikiSlotUnlocked(slot))
+            if (!WikiReflection.IsWikiSlotUnlocked(slot))
             {
                 Speech.Say("Locked");
                 return false;
             }
 
-            GameReflection.ClickWikiButton(slot);
+            WikiReflection.ClickWikiButton(slot);
 
             Debug.Log($"[ATSAccessibility] Activated article {_articleIndex}");
             return true;
@@ -319,7 +319,7 @@ namespace ATSAccessibility
                 var slot = _articleSlots[_articleIndex];
 
                 // Check for race article
-                if (GameReflection.IsWikiRaceSlot(slot))
+                if (WikiReflection.IsWikiRaceSlot(slot))
                 {
                     BuildRaceContent(slot);
                     Debug.Log($"[ATSAccessibility] Built structured race content: {_contentLines.Count} lines");
@@ -327,7 +327,7 @@ namespace ATSAccessibility
                 }
 
                 // Check for building article
-                if (GameReflection.IsWikiBuildingSlot(slot))
+                if (WikiReflection.IsWikiBuildingSlot(slot))
                 {
                     BuildBuildingContent(slot);
                     Debug.Log($"[ATSAccessibility] Built structured building content: {_contentLines.Count} lines");
@@ -363,51 +363,51 @@ namespace ATSAccessibility
         /// </summary>
         private void BuildRaceContent(object raceSlot)
         {
-            var raceModel = GameReflection.GetRaceModelFromSlot(raceSlot);
+            var raceModel = WikiReflection.GetRaceModelFromSlot(raceSlot);
             if (raceModel == null) return;
 
             // 1. Name
-            AddIfNotEmpty(GameReflection.GetRaceDisplayName(raceModel));
+            AddIfNotEmpty(WikiReflection.GetRaceDisplayName(raceModel));
 
             // 2. Description
-            AddIfNotEmpty(StripRichTextTags(GameReflection.GetRaceDescription(raceModel)));
+            AddIfNotEmpty(WikiReflection.GetRaceDescription(raceModel));
 
             // 3. Stats (one per line, "Label: value" format)
-            var resolve = GameReflection.GetRaceInitialResolve(raceModel);
+            var resolve = WikiReflection.GetRaceInitialResolve(raceModel);
             _contentLines.Add($"Resolve: {resolve}");
 
-            var interval = GameReflection.GetRaceNeedsInterval(raceModel);
+            var interval = WikiReflection.GetRaceNeedsInterval(raceModel);
             _contentLines.Add($"Break Interval: {FormatMinSec(interval)}");
 
-            var resilience = GameReflection.GetRaceResilienceLabel(raceModel);
+            var resilience = WikiReflection.GetRaceResilienceLabel(raceModel);
             AddIfNotEmpty("Resilience: " + resilience);
 
-            var demanding = GameReflection.GetRaceDemanding(raceModel);
+            var demanding = WikiReflection.GetRaceDemanding(raceModel);
             _contentLines.Add($"Demanding: {demanding}");
 
-            var decadent = GameReflection.GetRaceDecadent(raceModel);
+            var decadent = WikiReflection.GetRaceDecadent(raceModel);
             _contentLines.Add($"Decadent: {Mathf.RoundToInt(decadent)}");
 
-            var hunger = GameReflection.GetRaceHungerTolerance(raceModel);
+            var hunger = WikiReflection.GetRaceHungerTolerance(raceModel);
             _contentLines.Add($"Hunger Tolerance: {hunger}");
 
             // 4. Effects
-            var revealEffect = GameReflection.GetRaceRevealEffect(raceModel);
+            var revealEffect = WikiReflection.GetRaceRevealEffect(raceModel);
             if (!string.IsNullOrEmpty(revealEffect))
-                _contentLines.Add("Reveal Effect: " + StripRichTextTags(revealEffect));
+                _contentLines.Add("Reveal Effect: " + revealEffect);
 
-            var passiveEffect = GameReflection.GetRacePassiveEffect(raceModel);
+            var passiveEffect = WikiReflection.GetRacePassiveEffect(raceModel);
             if (!string.IsNullOrEmpty(passiveEffect))
-                _contentLines.Add("Passive Effect: " + StripRichTextTags(passiveEffect));
+                _contentLines.Add("Passive Effect: " + passiveEffect);
 
             // 5. Needs (comma-separated on one line)
-            var needs = GameReflection.GetRaceNeeds(raceModel);
+            var needs = WikiReflection.GetRaceNeeds(raceModel);
             if (needs != null && needs.Length > 0)
             {
                 var needNames = new List<string>();
                 foreach (var need in needs)
                 {
-                    var needName = GameReflection.GetNeedDisplayName(need);
+                    var needName = WikiReflection.GetNeedDisplayName(need);
                     if (!string.IsNullOrEmpty(needName))
                         needNames.Add(needName);
                 }
@@ -416,13 +416,13 @@ namespace ATSAccessibility
             }
 
             // 6. Species Buildings (comma-separated on one line)
-            var buildings = GameReflection.GetRaceBuildings(raceModel);
+            var buildings = WikiReflection.GetRaceBuildings(raceModel);
             if (buildings != null && buildings.Length > 0)
             {
                 var buildingNames = new List<string>();
                 foreach (var building in buildings)
                 {
-                    var buildingName = GameReflection.GetBuildingDisplayName(building);
+                    var buildingName = WikiReflection.GetBuildingDisplayName(building);
                     if (!string.IsNullOrEmpty(buildingName))
                         buildingNames.Add(buildingName);
                 }
@@ -431,13 +431,13 @@ namespace ATSAccessibility
             }
 
             // 7. Specializations (multi-line with header)
-            var characteristics = GameReflection.GetRaceCharacteristicsText(raceModel);
+            var characteristics = WikiReflection.GetRaceCharacteristicsText(raceModel);
             if (!string.IsNullOrEmpty(characteristics))
             {
                 _contentLines.Add("Specializations:");
                 foreach (var line in characteristics.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    var cleaned = StripRichTextTags(line.Trim());
+                    var cleaned = line.Trim();
                     if (!string.IsNullOrEmpty(cleaned))
                         _contentLines.Add("  " + cleaned);
                 }
@@ -450,43 +450,43 @@ namespace ATSAccessibility
         /// </summary>
         private void BuildBuildingContent(object buildingSlot)
         {
-            var building = GameReflection.GetBuildingModelFromSlot(buildingSlot);
+            var building = WikiReflection.GetBuildingModelFromSlot(buildingSlot);
             if (building == null) return;
 
             // 1. Name
-            AddIfNotEmpty(GameReflection.GetBuildingDisplayName(building));
+            AddIfNotEmpty(WikiReflection.GetBuildingDisplayName(building));
 
             // 2. Description (includes production list for workshops)
-            AddIfNotEmpty(StripRichTextTags(GameReflection.GetBuildingDescription(building)));
+            AddIfNotEmpty(WikiReflection.GetBuildingDescription(building));
 
             // 3. Category
-            var category = GameReflection.GetBuildingCategory(building);
+            var category = WikiReflection.GetBuildingCategory(building);
             if (!string.IsNullOrEmpty(category))
                 _contentLines.Add($"Category: {category}");
 
             // 4. Size
-            var size = GameReflection.GetBuildingSize(building);
+            var size = WikiReflection.GetBuildingSize(building);
             if (size.x > 0 && size.y > 0)
                 _contentLines.Add($"Size: {size.x}x{size.y}");
 
             // 5. Workplaces
-            var workplaces = GameReflection.GetBuildingWorkplacesCount(building);
+            var workplaces = WikiReflection.GetBuildingWorkplacesCount(building);
             if (workplaces > 0)
                 _contentLines.Add($"Workplaces: {workplaces}");
 
             // 6. Movability
-            var movable = GameReflection.GetBuildingMovable(building);
+            var movable = WikiReflection.GetBuildingMovable(building);
             _contentLines.Add(movable ? "Can be moved" : "Cannot be moved");
 
             // 7. Construction cost
-            var requiredGoods = GameReflection.GetBuildingRequiredGoods(building);
+            var requiredGoods = WikiReflection.GetBuildingRequiredGoods(building);
             if (requiredGoods != null && requiredGoods.Length > 0)
             {
                 var costs = new List<string>();
                 foreach (var goodRef in requiredGoods)
                 {
-                    var name = GameReflection.GetGoodRefDisplayName(goodRef);
-                    var amount = GameReflection.GetGoodRefAmount(goodRef);
+                    var name = WikiReflection.GetGoodRefDisplayName(goodRef);
+                    var amount = WikiReflection.GetGoodRefAmount(goodRef);
                     if (!string.IsNullOrEmpty(name) && amount > 0)
                         costs.Add($"{amount} {name}");
                 }
@@ -495,15 +495,15 @@ namespace ATSAccessibility
             }
 
             // 8. Tags
-            var tags = GameReflection.GetBuildingTags(building);
+            var tags = WikiReflection.GetBuildingTags(building);
             if (tags != null && tags.Length > 0)
             {
                 var tagNames = new List<string>();
                 foreach (var tag in tags)
                 {
-                    if (GameReflection.GetTagVisible(tag))
+                    if (WikiReflection.GetTagVisible(tag))
                     {
-                        var name = GameReflection.GetTagDisplayName(tag);
+                        var name = WikiReflection.GetTagDisplayName(tag);
                         if (!string.IsNullOrEmpty(name))
                             tagNames.Add(name);
                     }
@@ -513,14 +513,14 @@ namespace ATSAccessibility
             }
 
             // 9. Recipes (for workshops)
-            if (GameReflection.IsWorkshopModel(building))
+            if (WikiReflection.IsWorkshopModel(building))
             {
                 BuildWorkshopRecipes(building);
             }
 
             // 10. Upgrades (for upgradable buildings)
-            if (GameReflection.IsUpgradableBuildingModel(building) &&
-                !GameReflection.GetHideUpgradesInWiki(building))
+            if (WikiReflection.IsUpgradableBuildingModel(building) &&
+                !WikiReflection.GetHideUpgradesInWiki(building))
             {
                 BuildUpgradeInfo(building);
             }
@@ -531,46 +531,23 @@ namespace ATSAccessibility
         /// </summary>
         private void BuildWorkshopRecipes(object workshop)
         {
-            var recipes = GameReflection.GetWorkshopRecipes(workshop);
+            var recipes = WikiReflection.GetWorkshopRecipes(workshop);
             if (recipes == null || recipes.Length == 0) return;
 
             _contentLines.Add("Recipes:");
             foreach (var recipe in recipes)
             {
-                var outputName = GameReflection.GetRecipeOutputName(recipe);
-                var outputAmount = GameReflection.GetRecipeOutputAmount(recipe);
-                var productionTime = GameReflection.GetRecipeProductionTime(recipe);
-                var gradeLevel = GameReflection.GetRecipeGradeLevel(recipe);
+                var outputName = WikiReflection.GetRecipeOutputName(recipe);
+                var outputAmount = WikiReflection.GetRecipeOutputAmount(recipe);
+                var productionTime = WikiReflection.GetRecipeProductionTime(recipe);
+                var gradeLevel = WikiReflection.GetRecipeGradeLevel(recipe);
 
                 // Build grade stars string
                 var gradeStr = gradeLevel > 0 ? $" ({gradeLevel} star{(gradeLevel > 1 ? "s" : "")})" : "";
 
-                // Build inputs string
-                var inputParts = new List<string>();
-                var requiredGoods = GameReflection.GetRecipeRequiredGoods(recipe);
-                if (requiredGoods != null)
-                {
-                    foreach (var goodsSet in requiredGoods)
-                    {
-                        var goods = GameReflection.GetGoodsSetGoods(goodsSet);
-                        if (goods != null && goods.Length > 0)
-                        {
-                            // Multiple goods in a set = alternatives (OR)
-                            var alternatives = new List<string>();
-                            foreach (var goodRef in goods)
-                            {
-                                var name = GameReflection.GetGoodRefDisplayName(goodRef);
-                                var amount = GameReflection.GetGoodRefAmount(goodRef);
-                                if (!string.IsNullOrEmpty(name))
-                                    alternatives.Add($"{amount} {name}");
-                            }
-                            if (alternatives.Count > 0)
-                                inputParts.Add(string.Join(" OR ", alternatives));
-                        }
-                    }
-                }
-
-                var inputs = inputParts.Count > 0 ? string.Join(" + ", inputParts) : "nothing";
+                // Build inputs string using shared helper
+                var requiredGoods = WikiReflection.GetRecipeRequiredGoods(recipe);
+                var inputs = FormatGoodsSets(requiredGoods) ?? "nothing";
                 var time = FormatMinSec(productionTime);
 
                 _contentLines.Add($"  {outputAmount} {outputName}{gradeStr}: {inputs} ({time})");
@@ -582,7 +559,7 @@ namespace ATSAccessibility
         /// </summary>
         private void BuildUpgradeInfo(object building)
         {
-            var levels = GameReflection.GetBuildingLevels(building);
+            var levels = WikiReflection.GetBuildingLevels(building);
             if (levels == null || levels.Length <= 1) return;  // Skip if only base level
 
             _contentLines.Add("Upgrades:");
@@ -594,20 +571,20 @@ namespace ATSAccessibility
                 var levelNum = IntToRoman(i);  // I, II, III, etc.
 
                 // Get upgrade cost
-                var requiredGoods = GameReflection.GetLevelRequiredGoods(level);
+                var requiredGoods = WikiReflection.GetLevelRequiredGoods(level);
                 var costStr = FormatUpgradeCost(requiredGoods);
 
                 _contentLines.Add($"  Level {levelNum}: {costStr}");
 
                 // Get perk options
-                var options = GameReflection.GetLevelOptions(level);
+                var options = WikiReflection.GetLevelOptions(level);
                 if (options != null)
                 {
                     foreach (var perk in options)
                     {
-                        var name = GameReflection.GetPerkDisplayName(perk);
-                        var amount = GameReflection.GetPerkAmountText(perk);
-                        var desc = StripRichTextTags(GameReflection.GetPerkDescription(perk));
+                        var name = WikiReflection.GetPerkDisplayName(perk);
+                        var amount = WikiReflection.GetPerkAmountText(perk);
+                        var desc = WikiReflection.GetPerkDescription(perk);
 
                         // Format: "Perk Name (+10%): Description"
                         var amountPart = !string.IsNullOrEmpty(amount) ? $" ({amount})" : "";
@@ -634,31 +611,41 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Format the upgrade cost from an array of GoodsSet objects.
+        /// Format an array of GoodsSet objects as a readable string.
+        /// Each GoodsSet represents one required input slot (joined by separator).
+        /// Multiple goods within a GoodsSet are alternatives (joined by altSeparator).
         /// </summary>
-        private string FormatUpgradeCost(Array requiredGoods)
+        private string FormatGoodsSets(Array goodsSets, string separator = " + ", string altSeparator = " OR ")
         {
-            if (requiredGoods == null || requiredGoods.Length == 0) return "Free";
+            if (goodsSets == null || goodsSets.Length == 0) return null;
 
             var parts = new List<string>();
-            foreach (var goodsSet in requiredGoods)
+            foreach (var goodsSet in goodsSets)
             {
-                var goods = GameReflection.GetGoodsSetGoods(goodsSet);
+                var goods = WikiReflection.GetGoodsSetGoods(goodsSet);
                 if (goods != null && goods.Length > 0)
                 {
                     var alternatives = new List<string>();
                     foreach (var goodRef in goods)
                     {
-                        var name = GameReflection.GetGoodRefDisplayName(goodRef);
-                        var amount = GameReflection.GetGoodRefAmount(goodRef);
+                        var name = WikiReflection.GetGoodRefDisplayName(goodRef);
+                        var amount = WikiReflection.GetGoodRefAmount(goodRef);
                         if (!string.IsNullOrEmpty(name))
                             alternatives.Add($"{amount} {name}");
                     }
                     if (alternatives.Count > 0)
-                        parts.Add(string.Join(" OR ", alternatives));
+                        parts.Add(string.Join(altSeparator, alternatives));
                 }
             }
-            return parts.Count > 0 ? string.Join(" + ", parts) : "Free";
+            return parts.Count > 0 ? string.Join(separator, parts) : null;
+        }
+
+        /// <summary>
+        /// Format the upgrade cost from an array of GoodsSet objects.
+        /// </summary>
+        private string FormatUpgradeCost(Array requiredGoods)
+        {
+            return FormatGoodsSets(requiredGoods) ?? "Free";
         }
 
         /// <summary>
@@ -680,22 +667,10 @@ namespace ATSAccessibility
             return $"{mins:D2}:{secs:D2}";
         }
 
-        /// <summary>
-        /// Strip Unity rich text tags like &lt;sprite name=xxx&gt;, &lt;color&gt;, etc.
-        /// </summary>
-        private string StripRichTextTags(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-                return text;
-
-            // Remove all tags matching <xxx> or <xxx=yyy> or </xxx>
-            return System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]+>", "").Trim();
-        }
-
         private string ExtractPreviewContent()
         {
             // Get the current panel
-            var currentPanel = GameReflection.GetCurrentWikiPanel(_wikiPopup);
+            var currentPanel = WikiReflection.GetCurrentWikiPanel(_wikiPopup);
             if (currentPanel == null) return null;
 
             var panelComp = currentPanel as Component;
@@ -802,7 +777,7 @@ namespace ATSAccessibility
                 return;
             }
 
-            if (_categoryIndex < 0 || _categoryIndex >= _categoryButtons.Count)
+            if (_categoryIndex >= _categoryButtons.Count)
                 return;
 
             var button = _categoryButtons[_categoryIndex];
@@ -820,14 +795,14 @@ namespace ATSAccessibility
                 return;
             }
 
-            if (_articleIndex < 0 || _articleIndex >= _articleSlots.Count)
+            if (_articleIndex >= _articleSlots.Count)
                 return;
 
             var slot = _articleSlots[_articleIndex];
             var comp = slot as Component;
             string name = comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : "Unknown";
 
-            bool unlocked = GameReflection.IsWikiSlotUnlocked(slot);
+            bool unlocked = WikiReflection.IsWikiSlotUnlocked(slot);
             string lockStatus = unlocked ? "" : ", locked";
 
             Speech.Say($"{name}, button{lockStatus}");
@@ -841,7 +816,7 @@ namespace ATSAccessibility
                 return;
             }
 
-            if (_contentLineIndex < 0 || _contentLineIndex >= _contentLines.Count)
+            if (_contentLineIndex >= _contentLines.Count)
                 return;
 
             var line = _contentLines[_contentLineIndex];

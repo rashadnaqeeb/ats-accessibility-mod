@@ -69,7 +69,7 @@ namespace ATSAccessibility
 
             Debug.Log($"[ATSAccessibility] TutorialHandler: Got Phase observable: {phaseObservable.GetType().FullName}");
 
-            _phaseSubscription = SubscribeToObservable(phaseObservable, OnPhaseChanged);
+            _phaseSubscription = GameReflection.SubscribeToObservable(phaseObservable, OnPhaseChanged);
             _subscribed = _phaseSubscription != null;
 
             if (_subscribed)
@@ -402,92 +402,5 @@ namespace ATSAccessibility
             }
         }
 
-        // ========================================
-        // OBSERVABLE SUBSCRIPTION (via reflection)
-        // ========================================
-
-        /// <summary>
-        /// Subscribe to a UniRx IObservable using reflection.
-        /// </summary>
-        private IDisposable SubscribeToObservable(object observable, Action<object> callback)
-        {
-            if (observable == null) return null;
-
-            try
-            {
-                var observableType = observable.GetType();
-
-                // Find Subscribe method that takes IObserver<T>
-                var methods = observableType.GetMethods();
-
-                foreach (var method in methods)
-                {
-                    if (method.Name != "Subscribe") continue;
-                    var parameters = method.GetParameters();
-                    if (parameters.Length != 1) continue;
-
-                    var paramType = parameters[0].ParameterType;
-                    if (!paramType.IsGenericType) continue;
-
-                    // Check for IObserver<T>
-                    if (paramType.GetGenericTypeDefinition() == typeof(IObserver<>))
-                    {
-                        var elementType = paramType.GetGenericArguments()[0];
-                        Debug.Log($"[ATSAccessibility] TutorialHandler: Found Subscribe(IObserver<{elementType.Name}>)");
-
-                        // Create our observer wrapper
-                        var observerType = typeof(ActionObserver<>).MakeGenericType(elementType);
-                        var observer = Activator.CreateInstance(observerType, new object[] { callback });
-
-                        // Invoke Subscribe
-                        var result = method.Invoke(observable, new object[] { observer });
-                        return result as IDisposable;
-                    }
-                }
-
-                Debug.LogWarning("[ATSAccessibility] TutorialHandler: No matching Subscribe method found");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] TutorialHandler subscription failed: {ex.Message}");
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// IObserver wrapper that calls an Action for each OnNext.
-        /// </summary>
-        private class ActionObserver<T> : IObserver<T>
-        {
-            private readonly Action<object> _callback;
-
-            public ActionObserver(Action<object> callback)
-            {
-                _callback = callback;
-            }
-
-            public void OnNext(T value)
-            {
-                try
-                {
-                    _callback?.Invoke(value);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[ATSAccessibility] TutorialHandler observer error: {ex.Message}");
-                }
-            }
-
-            public void OnError(Exception error)
-            {
-                Debug.LogError($"[ATSAccessibility] TutorialHandler observable error: {error.Message}");
-            }
-
-            public void OnCompleted()
-            {
-                Debug.Log("[ATSAccessibility] TutorialHandler observable completed");
-            }
-        }
     }
 }
