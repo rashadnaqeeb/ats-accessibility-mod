@@ -73,10 +73,6 @@ namespace ATSAccessibility
         private PropertyInfo _naturalResourcesProperty = null;
         private PropertyInfo _depositsProperty = null;
         private PropertyInfo _buildingsProperty = null;
-        private PropertyInfo _buildingFieldProperty = null;  // Building.Field position
-        private PropertyInfo _objectModelProperty = null;     // Object.Model
-        private FieldInfo _modelDisplayNameField = null;      // Model.displayName
-        private PropertyInfo _modelNameProperty = null;       // Model.name
         private bool _reflectionCached = false;
 
         // Unrevealed glade tiles cache (rebuilt each scan)
@@ -719,16 +715,11 @@ namespace ATSAccessibility
         {
             try
             {
-                // Cache reflection on first use
-                if (_buildingFieldProperty == null)
+                var fieldProp = building.GetType().GetProperty("Field",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (fieldProp != null)
                 {
-                    _buildingFieldProperty = building.GetType().GetProperty("Field",
-                        BindingFlags.Public | BindingFlags.Instance);
-                }
-
-                if (_buildingFieldProperty != null)
-                {
-                    return (Vector2Int)_buildingFieldProperty.GetValue(building);
+                    return (Vector2Int)fieldProp.GetValue(building);
                 }
             }
             catch { }
@@ -743,30 +734,22 @@ namespace ATSAccessibility
             {
                 var objType = obj.GetType();
 
-                // Cache Model property on first use
-                if (_objectModelProperty == null)
+                // Try Model.displayName
+                var modelProperty = objType.GetProperty("Model",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (modelProperty != null)
                 {
-                    _objectModelProperty = objType.GetProperty("Model",
-                        BindingFlags.Public | BindingFlags.Instance);
-                }
-
-                if (_objectModelProperty != null)
-                {
-                    var model = _objectModelProperty.GetValue(obj);
+                    var model = modelProperty.GetValue(obj);
                     if (model != null)
                     {
                         var modelType = model.GetType();
 
-                        // Cache displayName field on first use
-                        if (_modelDisplayNameField == null)
+                        // Try displayName field
+                        var displayNameField = modelType.GetField("displayName",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        if (displayNameField != null)
                         {
-                            _modelDisplayNameField = modelType.GetField("displayName",
-                                BindingFlags.Public | BindingFlags.Instance);
-                        }
-
-                        if (_modelDisplayNameField != null)
-                        {
-                            var displayName = _modelDisplayNameField.GetValue(model);
+                            var displayName = displayNameField.GetValue(model);
                             if (displayName != null)
                             {
                                 string text = displayName.ToString();
@@ -777,16 +760,12 @@ namespace ATSAccessibility
                             }
                         }
 
-                        // Cache name property on first use
-                        if (_modelNameProperty == null)
+                        // Try name property
+                        var nameProp = modelType.GetProperty("name",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        if (nameProp != null)
                         {
-                            _modelNameProperty = modelType.GetProperty("name",
-                                BindingFlags.Public | BindingFlags.Instance);
-                        }
-
-                        if (_modelNameProperty != null)
-                        {
-                            var name = _modelNameProperty.GetValue(model);
+                            var name = nameProp.GetValue(model);
                             if (name != null)
                             {
                                 return Speech.CleanResourceName(name.ToString());
