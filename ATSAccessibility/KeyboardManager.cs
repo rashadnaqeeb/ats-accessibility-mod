@@ -160,9 +160,8 @@ namespace ATSAccessibility
                 case KeyCode.Space:
                     _uiNavigator.ActivateCurrentElement();
                     break;
-                case KeyCode.Escape:
-                    _uiNavigator.DismissPopup();
-                    break;
+                // Note: Escape is handled by the game's native handler, not here
+                // (our handler would conflict with the game's toggle logic)
             }
         }
 

@@ -258,67 +258,6 @@ namespace ATSAccessibility
             }
         }
 
-        /// <summary>
-        /// Dismiss the current popup (Escape key).
-        /// </summary>
-        public void DismissPopup()
-        {
-            if (_currentPopup == null) return;
-
-            try
-            {
-                // Strategy 1: Look for BackableButton component
-                var backableButtons = _currentPopup.GetComponentsInChildren<Component>(true)
-                    .Where(c => c != null && c.GetType().Name == "BackableButton")
-                    .ToList();
-
-                if (backableButtons.Count > 0)
-                {
-                    var button = backableButtons[0].GetComponent<Button>();
-                    if (button != null)
-                    {
-                        button.onClick.Invoke();
-                        Debug.Log("[ATSAccessibility] Dismissed popup via BackableButton");
-                        return;
-                    }
-                }
-
-                // Strategy 2: Look for close/back/cancel buttons
-                var closeButtons = _currentPopup.GetComponentsInChildren<Button>(true)
-                    .Where(b => {
-                        string name = b.gameObject.name.ToLower();
-                        return name.Contains("close") || name.Contains("hide") ||
-                               name.Contains("back") || name.Contains("cancel") ||
-                               name.Contains("exit") || name.Contains("dismiss");
-                    })
-                    .ToList();
-
-                if (closeButtons.Count > 0)
-                {
-                    closeButtons[0].onClick.Invoke();
-                    Debug.Log($"[ATSAccessibility] Dismissed popup via close button: {closeButtons[0].name}");
-                    return;
-                }
-
-                // Strategy 3: Look for "Blend" button
-                var blendButton = _currentPopup.GetComponentsInChildren<Button>(true)
-                    .FirstOrDefault(b => b.gameObject.name.ToLower() == "blend");
-
-                if (blendButton != null)
-                {
-                    blendButton.onClick.Invoke();
-                    Debug.Log("[ATSAccessibility] Dismissed popup via Blend button");
-                    return;
-                }
-
-                Debug.Log("[ATSAccessibility] No dismiss button found for popup");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] Failed to dismiss popup: {ex.Message}");
-            }
-        }
-
         // ========================================
         // DROPDOWN NAVIGATION
         // ========================================

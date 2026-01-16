@@ -49,6 +49,13 @@ namespace ATSAccessibility
                 string name = t.name.ToLower();
                 if (name.Contains("panel") || name.Contains("content") || name.Contains("section"))
                 {
+                    // Skip panels that are inside an inactive nested popup
+                    var owningPopup = FindOwningPopup(t, root.transform);
+                    if (owningPopup != null && !owningPopup.activeInHierarchy)
+                    {
+                        continue;
+                    }
+
                     var selectables = t.GetComponentsInChildren<Selectable>(true);
                     var validSelectables = selectables.Where(s =>
                         (isPopup || s.gameObject.activeInHierarchy) &&
@@ -85,6 +92,22 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Find the owning popup of a component by walking up the hierarchy.
+        /// Returns null if no intermediate popup found between component and root.
+        /// </summary>
+        private static GameObject FindOwningPopup(Transform t, Transform root)
+        {
+            var current = t.parent;
+            while (current != null && current != root)
+            {
+                if (current.name.Contains("Popup"))
+                    return current.gameObject;
+                current = current.parent;
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Try to detect TabsPanel/TabsButton structure.
         /// </summary>
         private static bool TrySetupTabsPanel(GameObject root, PanelDiscoveryResult result)
@@ -100,6 +123,14 @@ namespace ATSAccessibility
             {
                 if (comp != null && comp.GetType() == tabsPanelType)
                 {
+                    // Check if this TabsPanel is inside a nested child popup that's inactive
+                    var owningPopup = FindOwningPopup(comp.transform, root.transform);
+                    if (owningPopup != null && !owningPopup.activeInHierarchy)
+                    {
+                        Debug.Log($"[ATSAccessibility] Skipping TabsPanel in inactive nested popup: {owningPopup.name}");
+                        continue;
+                    }
+
                     tabsPanel = comp;
                     break;
                 }
@@ -240,9 +271,23 @@ namespace ATSAccessibility
 
             foreach (var sel in allSelectables)
             {
-                // For menus, skip inactive elements
-                // For popups, include inactive elements (they animate in)
+                // For menus, skip inactive elements (check full hierarchy)
+                // For popups, skip directly deactivated elements but allow animated ones
+                // (activeSelf=false means intentionally hidden; activeInHierarchy=false with activeSelf=true means parent animating)
                 if (!isPopup && !sel.gameObject.activeInHierarchy) continue;
+                if (isPopup && !sel.gameObject.activeSelf) continue;
+                // Also skip popup elements that are intentionally hidden (deactivated parent or CanvasGroup alpha=0)
+                if (isPopup && IsHiddenElement(sel.transform, panel.transform))
+                {
+                    Debug.Log($"[ATSAccessibility] DEBUG: Skipping '{sel.name}' - hidden element");
+                    continue;
+                }
+                // Skip demo-only elements (have DemoElement component with inFullGame=false)
+                if (isPopup && IsDemoOnlyElement(sel.transform, panel.transform))
+                {
+                    Debug.Log($"[ATSAccessibility] DEBUG: Skipping '{sel.name}' - demo-only element");
+                    continue;
+                }
                 if (!sel.interactable) continue;
                 if (ShouldIgnoreElement(sel)) continue;
 
@@ -254,6 +299,61 @@ namespace ATSAccessibility
 
             Debug.Log($"[ATSAccessibility] Found {elements.Count} elements in panel {panel.name}");
             return elements;
+        }
+
+        /// <summary>
+        /// Check if element or any parent is hidden (deactivated or CanvasGroup with alpha=0).
+        /// Used to filter out intentionally hidden elements in popups.
+        /// </summary>
+        private static bool IsHiddenElement(Transform t, Transform boundary)
+        {
+            // Check the element itself and all parents up to (but not including) the boundary
+            var current = t;
+            while (current != null && current != boundary)
+            {
+                // Check if GameObject is deactivated
+                if (!current.gameObject.activeSelf)
+                    return true;
+
+                // Check if CanvasGroup is hiding this element (alpha = 0)
+                var canvasGroup = current.GetComponent<CanvasGroup>();
+                if (canvasGroup != null && canvasGroup.alpha < 0.01f)
+                    return true;
+
+                current = current.parent;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Check if element or any parent has a DemoElement component that hides it in full game.
+        /// The game uses DemoElement with inFullGame=false to mark demo-only UI.
+        /// </summary>
+        private static bool IsDemoOnlyElement(Transform t, Transform boundary)
+        {
+            var current = t;
+            while (current != null && current != boundary)
+            {
+                // Look for DemoElement component by name (avoid direct type reference)
+                var components = current.GetComponents<Component>();
+                foreach (var comp in components)
+                {
+                    if (comp != null && comp.GetType().Name == "DemoElement")
+                    {
+                        // Check if inFullGame field is false (meaning hidden in full game)
+                        var inFullGameField = comp.GetType().GetField("inFullGame",
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        if (inFullGameField != null)
+                        {
+                            bool inFullGame = (bool)inFullGameField.GetValue(comp);
+                            if (!inFullGame)
+                                return true; // This is a demo-only element
+                        }
+                    }
+                }
+                current = current.parent;
+            }
+            return false;
         }
 
         /// <summary>
