@@ -72,6 +72,23 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set cursor to specific position (for scanner End key).
+        /// Does not announce - caller handles announcement.
+        /// </summary>
+        public void SetCursorPosition(int x, int y)
+        {
+            // Bounds check
+            if (x < MAP_MIN || x > MAP_MAX || y < MAP_MIN || y > MAP_MAX)
+                return;
+
+            _cursorX = x;
+            _cursorY = y;
+
+            var field = GameReflection.GetField(_cursorX, _cursorY);
+            SyncCameraToTile(field);
+        }
+
+        /// <summary>
         /// Skip tiles in direction until finding a tile with different announcement.
         /// If edge reached without finding different tile, stay put and announce edge.
         /// </summary>

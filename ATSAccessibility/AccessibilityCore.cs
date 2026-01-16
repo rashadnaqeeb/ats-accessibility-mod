@@ -42,6 +42,9 @@ namespace ATSAccessibility
         // Encyclopedia/wiki navigation
         private EncyclopediaNavigator _encyclopediaNavigator;
 
+        // Map scanner for quick object finding
+        private MapScanner _mapScanner;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -73,6 +76,10 @@ namespace ATSAccessibility
             // Initialize encyclopedia navigator
             _encyclopediaNavigator = new EncyclopediaNavigator();
             _keyboardManager.SetEncyclopediaNavigator(_encyclopediaNavigator);
+
+            // Initialize map scanner
+            _mapScanner = new MapScanner(_mapNavigator);
+            _keyboardManager.SetMapScanner(_mapScanner);
 
             // Check if we're already on a scene (mod loaded mid-game)
             CheckCurrentScene();
@@ -128,7 +135,8 @@ namespace ATSAccessibility
                     _menuPendingSetup = false;
                 }
 
-                _keyboardManager?.ProcessKeyEvent(e.keyCode);
+                var modifiers = new KeyboardManager.KeyModifiers(e.control, e.alt, e.shift);
+                _keyboardManager?.ProcessKeyEvent(e.keyCode, modifiers);
             }
         }
 

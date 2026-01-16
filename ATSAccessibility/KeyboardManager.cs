@@ -9,6 +9,23 @@ namespace ATSAccessibility
     public class KeyboardManager
     {
         /// <summary>
+        /// Key modifiers state (Ctrl, Alt, Shift).
+        /// </summary>
+        public struct KeyModifiers
+        {
+            public bool Control { get; }
+            public bool Alt { get; }
+            public bool Shift { get; }
+
+            public KeyModifiers(bool control, bool alt, bool shift)
+            {
+                Control = control;
+                Alt = alt;
+                Shift = shift;
+            }
+        }
+
+        /// <summary>
         /// Navigation context determines which keys do what.
         /// </summary>
         public enum NavigationContext
@@ -34,6 +51,9 @@ namespace ATSAccessibility
 
         // Reference to encyclopedia navigator for wiki popup
         private EncyclopediaNavigator _encyclopediaNavigator;
+
+        // Reference to map scanner for quick object finding
+        private MapScanner _mapScanner;
 
         public KeyboardManager(UINavigator uiNavigator)
         {
@@ -65,6 +85,14 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set the map scanner reference.
+        /// </summary>
+        public void SetMapScanner(MapScanner scanner)
+        {
+            _mapScanner = scanner;
+        }
+
+        /// <summary>
         /// Set the current navigation context.
         /// </summary>
         public void SetContext(NavigationContext context)
@@ -80,7 +108,7 @@ namespace ATSAccessibility
         /// Process a key event from OnGUI.
         /// Called from AccessibilityCore.OnGUI().
         /// </summary>
-        public void ProcessKeyEvent(KeyCode keyCode)
+        public void ProcessKeyEvent(KeyCode keyCode, KeyModifiers modifiers = default)
         {
             // Check if tutorial is active - takes priority over other contexts
             if (_tutorialHandler != null && _tutorialHandler.IsTutorialActive)
@@ -106,7 +134,7 @@ namespace ATSAccessibility
                     ProcessPopupKeyEvent(keyCode);
                     break;
                 case NavigationContext.Map:
-                    ProcessMapKeyEvent(keyCode);
+                    ProcessMapKeyEvent(keyCode, modifiers);
                     break;
                 case NavigationContext.Dialogue:
                     // Future: ProcessDialogueKeyEvent(keyCode);
@@ -213,7 +241,7 @@ namespace ATSAccessibility
         /// <summary>
         /// Handle key event when navigating the settlement map.
         /// </summary>
-        private void ProcessMapKeyEvent(KeyCode keyCode)
+        private void ProcessMapKeyEvent(KeyCode keyCode, KeyModifiers modifiers)
         {
             switch (keyCode)
             {
@@ -250,6 +278,30 @@ namespace ATSAccessibility
                 case KeyCode.Alpha4:
                 case KeyCode.Keypad4:
                     GameReflection.SetSpeed(4);
+                    break;
+
+                // Map Scanner controls
+                case KeyCode.PageUp:
+                    if (modifiers.Control)
+                        _mapScanner?.ChangeCategory(-1);
+                    else if (modifiers.Alt)
+                        _mapScanner?.ChangeItem(-1);
+                    else
+                        _mapScanner?.ChangeGroup(-1);
+                    break;
+                case KeyCode.PageDown:
+                    if (modifiers.Control)
+                        _mapScanner?.ChangeCategory(1);
+                    else if (modifiers.Alt)
+                        _mapScanner?.ChangeItem(1);
+                    else
+                        _mapScanner?.ChangeGroup(1);
+                    break;
+                case KeyCode.Home:
+                    _mapScanner?.AnnounceDistance();
+                    break;
+                case KeyCode.End:
+                    _mapScanner?.MoveCursorToItem();
                     break;
             }
         }

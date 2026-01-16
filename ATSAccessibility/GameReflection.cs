@@ -507,6 +507,10 @@ namespace ATSAccessibility
         private static MethodInfo _mapGetObjectOnMethod = null;
         private static MethodInfo _gladesGetGladeMethod = null;
         private static PropertyInfo _villagersVillagersProperty = null;  // Dictionary<int, Villager>
+        private static PropertyInfo _gsResourcesServiceProperty = null;
+        private static PropertyInfo _gsDepositsServiceProperty = null;
+        private static PropertyInfo _gsBuildingsServiceProperty = null;
+        private static PropertyInfo _gsGladesProperty = null;  // GladesService.Glades list
         private static bool _mapTypesCached = false;
 
         private static void EnsureMapTypes()
@@ -532,6 +536,22 @@ namespace ATSAccessibility
                         BindingFlags.Public | BindingFlags.Instance);
                     _gsVillagersServiceProperty = gameServicesType.GetProperty("VillagersService",
                         BindingFlags.Public | BindingFlags.Instance);
+                    _gsResourcesServiceProperty = gameServicesType.GetProperty("ResourcesService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsDepositsServiceProperty = gameServicesType.GetProperty("DepositsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsBuildingsServiceProperty = gameServicesType.GetProperty("BuildingsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get Glades property and method from IGladesService
+                var gladesServiceType = _gameAssembly.GetType("Eremite.Services.IGladesService");
+                if (gladesServiceType != null)
+                {
+                    _gsGladesProperty = gladesServiceType.GetProperty("Glades",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gladesGetGladeMethod = gladesServiceType.GetMethod("GetGlade",
+                        new Type[] { typeof(Vector2Int) });
                 }
 
                 // Get MapService methods
@@ -542,14 +562,6 @@ namespace ATSAccessibility
                         new Type[] { typeof(int), typeof(int) });
                     _mapGetObjectOnMethod = mapServiceType.GetMethod("GetObjectOn",
                         new Type[] { typeof(int), typeof(int) });
-                }
-
-                // Get GladesService method
-                var gladesServiceType = _gameAssembly.GetType("Eremite.Services.IGladesService");
-                if (gladesServiceType != null)
-                {
-                    _gladesGetGladeMethod = gladesServiceType.GetMethod("GetGlade",
-                        new Type[] { typeof(Vector2Int) });
                 }
 
                 // Get VillagersService.Villagers property
@@ -723,6 +735,86 @@ namespace ATSAccessibility
             try
             {
                 return _villagersVillagersProperty.GetValue(villagersService);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get ResourcesService from GameServices.
+        /// Contains NaturalResources dictionary.
+        /// </summary>
+        public static object GetResourcesService()
+        {
+            EnsureMapTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsResourcesServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get DepositsService from GameServices.
+        /// Contains Deposits dictionary.
+        /// </summary>
+        public static object GetDepositsService()
+        {
+            EnsureMapTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsDepositsServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get BuildingsService from GameServices.
+        /// Contains Buildings dictionary.
+        /// </summary>
+        public static object GetBuildingsService()
+        {
+            EnsureMapTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsBuildingsServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all glades from GladesService.
+        /// Returns null if not in game.
+        /// </summary>
+        public static object GetAllGlades()
+        {
+            EnsureMapTypes();
+            var gladesService = GetGladesService();
+            if (gladesService == null || _gsGladesProperty == null) return null;
+
+            try
+            {
+                return _gsGladesProperty.GetValue(gladesService);
             }
             catch
             {
