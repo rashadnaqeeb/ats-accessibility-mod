@@ -19,6 +19,15 @@ namespace ATSAccessibility
             "scrollbar", "background", "resize", "handle", "hide", "blend", "item", "template"
         };
 
+        // Generic text patterns to ignore (not useful labels)
+        private static readonly string[] GenericTexts = {
+            "Toggle", "Slider", "Button", "Dropdown", "Option A", "Item"
+        };
+
+        // Cached reflection for DemoElement.inFullGame field
+        private static System.Reflection.FieldInfo _demoElementInFullGameField;
+        private static bool _demoElementFieldLookedUp;
+
         // ========================================
         // PANEL DISCOVERY
         // ========================================
@@ -46,8 +55,10 @@ namespace ATSAccessibility
 
             foreach (var t in allTransforms)
             {
-                string name = t.name.ToLower();
-                if (name.Contains("panel") || name.Contains("content") || name.Contains("section"))
+                string name = t.name;
+                if (name.IndexOf("panel", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("content", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("section", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     // Skip panels that are inside an inactive nested popup
                     var owningPopup = FindOwningPopup(t, root.transform);
@@ -271,25 +282,7 @@ namespace ATSAccessibility
 
             foreach (var sel in allSelectables)
             {
-                // For menus, skip inactive elements (check full hierarchy)
-                // For popups, skip directly deactivated elements but allow animated ones
-                // (activeSelf=false means intentionally hidden; activeInHierarchy=false with activeSelf=true means parent animating)
-                if (!isPopup && !sel.gameObject.activeInHierarchy) continue;
-                if (isPopup && !sel.gameObject.activeSelf) continue;
-                // Also skip popup elements that are intentionally hidden (deactivated parent or CanvasGroup alpha=0)
-                if (isPopup && IsHiddenElement(sel.transform, panel.transform))
-                {
-                    Debug.Log($"[ATSAccessibility] DEBUG: Skipping '{sel.name}' - hidden element");
-                    continue;
-                }
-                // Skip demo-only elements (have DemoElement component with inFullGame=false)
-                if (isPopup && IsDemoOnlyElement(sel.transform, panel.transform))
-                {
-                    Debug.Log($"[ATSAccessibility] DEBUG: Skipping '{sel.name}' - demo-only element");
-                    continue;
-                }
-                if (!sel.interactable) continue;
-                if (ShouldIgnoreElement(sel)) continue;
+                if (ShouldSkipElement(sel, panel.transform, isPopup)) continue;
 
                 string text = GetElementText(sel);
                 if (string.IsNullOrEmpty(text)) continue;
@@ -302,58 +295,78 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Check if element or any parent is hidden (deactivated or CanvasGroup with alpha=0).
-        /// Used to filter out intentionally hidden elements in popups.
+        /// Unified check for whether to skip an element during navigation.
+        /// Consolidates visibility, interactability, and filter checks.
         /// </summary>
-        private static bool IsHiddenElement(Transform t, Transform boundary)
+        private static bool ShouldSkipElement(Selectable sel, Transform boundary, bool isPopup)
         {
-            // Check the element itself and all parents up to (but not including) the boundary
+            // For menus, skip inactive elements (check full hierarchy)
+            // For popups, allow animated elements (parent inactive) but skip directly deactivated
+            if (!isPopup && !sel.gameObject.activeInHierarchy) return true;
+            if (isPopup && !sel.gameObject.activeSelf) return true;
+
+            // For popups, check hidden/demo-only elements (single hierarchy walk)
+            if (isPopup)
+            {
+                var (filtered, reason) = IsElementFiltered(sel.transform, boundary);
+                if (filtered)
+                {
+                    Debug.Log($"[ATSAccessibility] DEBUG: Skipping '{sel.name}' - {reason}");
+                    return true;
+                }
+            }
+
+            if (!sel.interactable) return true;
+            if (ShouldIgnoreElement(sel)) return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if element should be filtered out due to being hidden or demo-only.
+        /// Combines hierarchy walk for: deactivated, CanvasGroup alpha=0, and DemoElement.
+        /// Returns (isFiltered, reason) where reason is for debug logging.
+        /// </summary>
+        private static (bool filtered, string reason) IsElementFiltered(Transform t, Transform boundary)
+        {
             var current = t;
             while (current != null && current != boundary)
             {
                 // Check if GameObject is deactivated
                 if (!current.gameObject.activeSelf)
-                    return true;
+                    return (true, "hidden (inactive)");
 
                 // Check if CanvasGroup is hiding this element (alpha = 0)
                 var canvasGroup = current.GetComponent<CanvasGroup>();
                 if (canvasGroup != null && canvasGroup.alpha < 0.01f)
-                    return true;
+                    return (true, "hidden (alpha=0)");
 
-                current = current.parent;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Check if element or any parent has a DemoElement component that hides it in full game.
-        /// The game uses DemoElement with inFullGame=false to mark demo-only UI.
-        /// </summary>
-        private static bool IsDemoOnlyElement(Transform t, Transform boundary)
-        {
-            var current = t;
-            while (current != null && current != boundary)
-            {
-                // Look for DemoElement component by name (avoid direct type reference)
+                // Check for DemoElement component (demo-only UI)
                 var components = current.GetComponents<Component>();
                 foreach (var comp in components)
                 {
                     if (comp != null && comp.GetType().Name == "DemoElement")
                     {
-                        // Check if inFullGame field is false (meaning hidden in full game)
-                        var inFullGameField = comp.GetType().GetField("inFullGame",
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        if (inFullGameField != null)
+                        // Cache the FieldInfo on first lookup
+                        if (!_demoElementFieldLookedUp)
                         {
-                            bool inFullGame = (bool)inFullGameField.GetValue(comp);
+                            _demoElementInFullGameField = comp.GetType().GetField("inFullGame",
+                                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                            _demoElementFieldLookedUp = true;
+                        }
+
+                        if (_demoElementInFullGameField != null)
+                        {
+                            bool inFullGame = (bool)_demoElementInFullGameField.GetValue(comp);
                             if (!inFullGame)
-                                return true; // This is a demo-only element
+                                return (true, "demo-only");
                         }
                     }
                 }
+
                 current = current.parent;
             }
-            return false;
+            return (false, null);
         }
 
         /// <summary>
@@ -361,10 +374,10 @@ namespace ATSAccessibility
         /// </summary>
         public static bool ShouldIgnoreElement(Selectable element)
         {
-            string name = element.gameObject.name.ToLower();
+            string name = element.gameObject.name;
             foreach (var ignored in IgnoredElementNames)
             {
-                if (name.Contains(ignored)) return true;
+                if (name.IndexOf(ignored, StringComparison.OrdinalIgnoreCase) >= 0) return true;
             }
             return false;
         }
@@ -517,8 +530,7 @@ namespace ATSAccessibility
         {
             if (string.IsNullOrEmpty(text)) return true;
 
-            var genericTexts = new[] { "Toggle", "Slider", "Button", "Dropdown", "Option A", "Item" };
-            foreach (var generic in genericTexts)
+            foreach (var generic in GenericTexts)
             {
                 if (text.Equals(generic, StringComparison.OrdinalIgnoreCase))
                     return true;

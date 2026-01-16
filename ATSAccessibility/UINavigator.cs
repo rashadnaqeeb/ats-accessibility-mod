@@ -155,18 +155,19 @@ namespace ATSAccessibility
         /// </summary>
         public void Reset()
         {
-            _currentPopup = null;
             _currentMenu = null;
-            _panels.Clear();
-            _elements.Clear();
-            _tabButtons.Clear();
-            _isTabbedPopup = false;
-            _tabsPanelRef = null;
-            _currentPanelIndex = 0;
-            _currentElementIndex = 0;
+            ClearNavigationState();
         }
 
         private void ResetPopup()
+        {
+            ClearNavigationState();
+        }
+
+        /// <summary>
+        /// Clear navigation state (shared by Reset and ResetPopup).
+        /// </summary>
+        private void ClearNavigationState()
         {
             _currentPopup = null;
             _panels.Clear();
@@ -459,13 +460,16 @@ namespace ATSAccessibility
 
             foreach (var text in textElements)
             {
-                string objName = text.gameObject.name.ToLower();
-                if (objName == "title" || objName.EndsWith("title"))
+                string objName = text.gameObject.name;
+                if (objName.Equals("title", StringComparison.OrdinalIgnoreCase) ||
+                    objName.EndsWith("title", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!string.IsNullOrEmpty(text.text))
                         announcements.Add(text.text);
                 }
-                else if (objName == "desc" || objName == "description" || objName.EndsWith("desc"))
+                else if (objName.Equals("desc", StringComparison.OrdinalIgnoreCase) ||
+                         objName.Equals("description", StringComparison.OrdinalIgnoreCase) ||
+                         objName.EndsWith("desc", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!string.IsNullOrEmpty(text.text))
                         announcements.Add(text.text);
