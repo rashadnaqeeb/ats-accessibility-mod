@@ -387,6 +387,23 @@ namespace ATSAccessibility
         // ========================================
 
         /// <summary>
+        /// Get text from any UI component's TMP_Text children.
+        /// Useful for non-Selectable elements like WikiSlot, WikiCategoryButton.
+        /// </summary>
+        public static string GetTextFromTransform(Transform t)
+        {
+            if (t == null) return null;
+
+            var tmpText = t.GetComponentInChildren<TMP_Text>();
+            if (tmpText != null && !string.IsNullOrEmpty(tmpText.text))
+            {
+                return tmpText.text;
+            }
+
+            return CleanObjectName(t.gameObject.name);
+        }
+
+        /// <summary>
         /// Get the primary text content of a UI element.
         /// </summary>
         public static string GetElementText(Selectable element)

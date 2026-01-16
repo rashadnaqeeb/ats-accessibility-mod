@@ -974,5 +974,259 @@ namespace ATSAccessibility
                 Debug.LogError($"[ATSAccessibility] SetCameraTarget failed: {ex.Message}");
             }
         }
+
+        // ========================================
+        // WIKI/ENCYCLOPEDIA REFLECTION
+        // ========================================
+
+        private static Type _wikiPopupType;
+        private static Type _wikiCategoryButtonType;
+        private static Type _wikiSlotType;
+        private static bool _wikiTypesLookedUp;
+
+        // WikiPopup fields
+        private static FieldInfo _wikiPopupCategoryButtonsField;  // List<WikiCategoryButton> categoryButtons
+        private static FieldInfo _wikiPopupCurrentField;          // WikiCategoryPanel current
+        private static FieldInfo _wikiPopupPanelsField;           // WikiCategoryPanel[] panels
+
+        // WikiCategoryButton fields
+        private static FieldInfo _wcbButtonField;                 // Button button
+        private static PropertyInfo _wcbPanelProp;                // WikiCategoryPanel Panel
+
+        // WikiSlot fields
+        private static FieldInfo _wsButtonField;                  // Button button
+        private static MethodInfo _wsIsUnlockedMethod;            // bool IsUnlocked()
+
+        private static void EnsureWikiTypes()
+        {
+            if (_wikiTypesLookedUp) return;
+            EnsureAssembly();
+
+            if (_gameAssembly == null)
+            {
+                _wikiTypesLookedUp = true;
+                return;
+            }
+
+            try
+            {
+                // Cache WikiPopup type
+                _wikiPopupType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiPopup");
+                if (_wikiPopupType != null)
+                {
+                    _wikiPopupCategoryButtonsField = _wikiPopupType.GetField("categoryButtons",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+                    _wikiPopupCurrentField = _wikiPopupType.GetField("current",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+                    _wikiPopupPanelsField = _wikiPopupType.GetField("panels",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached WikiPopup type info");
+                }
+
+                // Cache WikiCategoryButton type
+                _wikiCategoryButtonType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiCategoryButton");
+                if (_wikiCategoryButtonType != null)
+                {
+                    _wcbButtonField = _wikiCategoryButtonType.GetField("button",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+                    _wcbPanelProp = _wikiCategoryButtonType.GetProperty("Panel",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached WikiCategoryButton type info");
+                }
+
+                // Cache WikiSlot base type
+                _wikiSlotType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiSlot");
+                if (_wikiSlotType != null)
+                {
+                    _wsButtonField = _wikiSlotType.GetField("button",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+                    _wsIsUnlockedMethod = _wikiSlotType.GetMethod("IsUnlocked",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached WikiSlot type info");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Wiki type caching failed: {ex.Message}");
+            }
+
+            _wikiTypesLookedUp = true;
+        }
+
+        // Public accessors for wiki types
+        public static Type WikiPopupType { get { EnsureWikiTypes(); return _wikiPopupType; } }
+        public static Type WikiCategoryButtonType { get { EnsureWikiTypes(); return _wikiCategoryButtonType; } }
+        public static Type WikiSlotType { get { EnsureWikiTypes(); return _wikiSlotType; } }
+
+        /// <summary>
+        /// Check if the popup is a WikiPopup.
+        /// </summary>
+        public static bool IsWikiPopup(object popup)
+        {
+            if (popup == null) return false;
+            EnsureWikiTypes();
+            if (_wikiPopupType == null) return false;
+
+            return _wikiPopupType.IsAssignableFrom(popup.GetType());
+        }
+
+        /// <summary>
+        /// Get the category buttons list from a WikiPopup.
+        /// </summary>
+        public static System.Collections.IList GetWikiCategoryButtons(object wikiPopup)
+        {
+            EnsureWikiTypes();
+            if (wikiPopup == null || _wikiPopupCategoryButtonsField == null) return null;
+
+            try
+            {
+                return _wikiPopupCategoryButtonsField.GetValue(wikiPopup) as System.Collections.IList;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the current (active) WikiCategoryPanel from a WikiPopup.
+        /// </summary>
+        public static object GetCurrentWikiPanel(object wikiPopup)
+        {
+            EnsureWikiTypes();
+            if (wikiPopup == null || _wikiPopupCurrentField == null) return null;
+
+            try
+            {
+                return _wikiPopupCurrentField.GetValue(wikiPopup);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the panels array from a WikiPopup.
+        /// </summary>
+        public static Array GetWikiPanels(object wikiPopup)
+        {
+            EnsureWikiTypes();
+            if (wikiPopup == null || _wikiPopupPanelsField == null) return null;
+
+            try
+            {
+                return _wikiPopupPanelsField.GetValue(wikiPopup) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the WikiCategoryPanel associated with a WikiCategoryButton.
+        /// </summary>
+        public static object GetCategoryButtonPanel(object categoryButton)
+        {
+            EnsureWikiTypes();
+            if (categoryButton == null || _wcbPanelProp == null) return null;
+
+            try
+            {
+                return _wcbPanelProp.GetValue(categoryButton);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if a WikiSlot is unlocked.
+        /// </summary>
+        public static bool IsWikiSlotUnlocked(object slot)
+        {
+            EnsureWikiTypes();
+            if (slot == null || _wsIsUnlockedMethod == null) return false;
+
+            try
+            {
+                return (bool)_wsIsUnlockedMethod.Invoke(slot, null);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Click the button on a WikiCategoryButton or WikiSlot.
+        /// </summary>
+        public static void ClickWikiButton(object buttonHolder)
+        {
+            if (buttonHolder == null) return;
+            EnsureWikiTypes();
+
+            try
+            {
+                FieldInfo buttonField = null;
+                var holderType = buttonHolder.GetType();
+
+                // Check if it's a WikiCategoryButton
+                if (_wikiCategoryButtonType != null && _wikiCategoryButtonType.IsAssignableFrom(holderType))
+                {
+                    buttonField = _wcbButtonField;
+                }
+                // Check if it's a WikiSlot (or derived)
+                else if (_wikiSlotType != null && _wikiSlotType.IsAssignableFrom(holderType))
+                {
+                    buttonField = _wsButtonField;
+                }
+
+                if (buttonField != null)
+                {
+                    var button = buttonField.GetValue(buttonHolder) as UnityEngine.UI.Button;
+                    if (button != null && button.interactable)
+                    {
+                        button.onClick.Invoke();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] ClickWikiButton failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Find slots in a WikiCategoryPanel via reflection.
+        /// All panel types have a "slots" field containing List of WikiSlot-derived types.
+        /// </summary>
+        public static System.Collections.IList GetPanelSlots(object panel)
+        {
+            if (panel == null) return null;
+
+            try
+            {
+                var panelType = panel.GetType();
+                var slotsField = panelType.GetField("slots",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (slotsField != null)
+                {
+                    return slotsField.GetValue(panel) as System.Collections.IList;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetPanelSlots failed: {ex.Message}");
+            }
+
+            return null;
+        }
     }
 }

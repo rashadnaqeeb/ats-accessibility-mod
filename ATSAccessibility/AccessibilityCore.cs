@@ -39,6 +39,9 @@ namespace ATSAccessibility
         // Tutorial handling
         private TutorialHandler _tutorialHandler;
 
+        // Encyclopedia/wiki navigation
+        private EncyclopediaNavigator _encyclopediaNavigator;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -66,6 +69,10 @@ namespace ATSAccessibility
 
             // Wire up tutorial handler to keyboard manager
             _keyboardManager.SetTutorialHandler(_tutorialHandler);
+
+            // Initialize encyclopedia navigator
+            _encyclopediaNavigator = new EncyclopediaNavigator();
+            _keyboardManager.SetEncyclopediaNavigator(_encyclopediaNavigator);
 
             // Check if we're already on a scene (mod loaded mid-game)
             CheckCurrentScene();
@@ -458,6 +465,17 @@ namespace ATSAccessibility
         private void OnPopupShown(object popup)
         {
             Debug.Log($"[ATSAccessibility] Popup shown event received");
+
+            // Check wiki popup FIRST - it has its own navigator
+            if (GameReflection.IsWikiPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Wiki popup detected, using Encyclopedia navigator");
+                _encyclopediaNavigator?.OnWikiPopupShown(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Encyclopedia);
+                return;
+            }
+
+            // Standard popup handling
             _uiNavigator?.OnPopupShown(popup);
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
         }
@@ -468,7 +486,18 @@ namespace ATSAccessibility
         private void OnPopupHidden(object popup)
         {
             Debug.Log($"[ATSAccessibility] Popup hidden event received");
-            _uiNavigator?.OnPopupHidden(popup);
+
+            // Check wiki popup first
+            if (GameReflection.IsWikiPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Wiki popup closed");
+                _encyclopediaNavigator?.OnWikiPopupHidden();
+                // Fall through to handle context change
+            }
+            else
+            {
+                _uiNavigator?.OnPopupHidden(popup);
+            }
 
             // Only handle context change if no more popups active
             if (_uiNavigator != null && !_uiNavigator.HasActivePopup)

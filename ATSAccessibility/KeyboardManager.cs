@@ -13,10 +13,11 @@ namespace ATSAccessibility
         /// </summary>
         public enum NavigationContext
         {
-            None,       // No special handling
-            Popup,      // Navigating a popup/menu
-            Map,        // Navigating settlement map
-            Dialogue    // Future: reading dialogue
+            None,           // No special handling
+            Popup,          // Navigating a popup/menu
+            Map,            // Navigating settlement map
+            Dialogue,       // Future: reading dialogue
+            Encyclopedia    // Navigating wiki/encyclopedia popup
         }
 
         // Current navigation context
@@ -30,6 +31,9 @@ namespace ATSAccessibility
 
         // Reference to map navigator for settlement navigation
         private MapNavigator _mapNavigator;
+
+        // Reference to encyclopedia navigator for wiki popup
+        private EncyclopediaNavigator _encyclopediaNavigator;
 
         public KeyboardManager(UINavigator uiNavigator)
         {
@@ -50,6 +54,14 @@ namespace ATSAccessibility
         public void SetMapNavigator(MapNavigator navigator)
         {
             _mapNavigator = navigator;
+        }
+
+        /// <summary>
+        /// Set the encyclopedia navigator reference.
+        /// </summary>
+        public void SetEncyclopediaNavigator(EncyclopediaNavigator navigator)
+        {
+            _encyclopediaNavigator = navigator;
         }
 
         /// <summary>
@@ -98,6 +110,9 @@ namespace ATSAccessibility
                     break;
                 case NavigationContext.Dialogue:
                     // Future: ProcessDialogueKeyEvent(keyCode);
+                    break;
+                case NavigationContext.Encyclopedia:
+                    ProcessEncyclopediaKeyEvent(keyCode);
                     break;
                 case NavigationContext.None:
                 default:
@@ -235,6 +250,35 @@ namespace ATSAccessibility
                 case KeyCode.Alpha4:
                 case KeyCode.Keypad4:
                     GameReflection.SetSpeed(4);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Handle key event when navigating the encyclopedia/wiki popup.
+        /// </summary>
+        private void ProcessEncyclopediaKeyEvent(KeyCode keyCode)
+        {
+            if (_encyclopediaNavigator == null || !_encyclopediaNavigator.IsActive) return;
+
+            switch (keyCode)
+            {
+                case KeyCode.UpArrow:
+                    _encyclopediaNavigator.NavigateElement(-1);
+                    break;
+                case KeyCode.DownArrow:
+                    _encyclopediaNavigator.NavigateElement(1);
+                    break;
+                case KeyCode.LeftArrow:
+                    _encyclopediaNavigator.NavigatePanel(-1);
+                    break;
+                case KeyCode.RightArrow:
+                    _encyclopediaNavigator.NavigatePanel(1);
+                    break;
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                case KeyCode.Space:
+                    _encyclopediaNavigator.ActivateCurrentElement();
                     break;
             }
         }
