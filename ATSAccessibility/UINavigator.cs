@@ -233,6 +233,15 @@ namespace ATSAccessibility
                 {
                     button.onClick.Invoke();
                     Debug.Log($"[ATSAccessibility] Activated button: {UIElementFinder.GetElementText(element)}");
+
+                    // If we just activated a tab, auto-switch to content panel
+                    if (_isTabbedPopup && _currentPanelIndex == 0)
+                    {
+                        _currentPanelIndex = 1;
+                        RebuildElementsForCurrentPanel();
+                        AnnouncePanelName();
+                        return true;
+                    }
                 }
                 else if (element is Toggle toggle)
                 {
@@ -444,6 +453,47 @@ namespace ATSAccessibility
                 _currentPanelIndex,
                 _tabButtons,
                 _tabsPanelRef);
+
+            // For tabbed popups on the tabs panel, focus on the active tab
+            if (_isTabbedPopup && _currentPanelIndex == 0 && _elements.Count > 0)
+            {
+                int activeTabIndex = FindActiveTabIndex();
+                if (activeTabIndex >= 0 && activeTabIndex < _elements.Count)
+                    _currentElementIndex = activeTabIndex;
+            }
+        }
+
+        /// <summary>
+        /// Find the index of the currently active tab in the elements list.
+        /// Returns 0 if the active tab cannot be determined.
+        /// </summary>
+        private int FindActiveTabIndex()
+        {
+            if (_tabsPanelRef == null) return 0;
+
+            try
+            {
+                // Get the current TabsButton from TabsPanel.current field
+                var currentTabsButton = GameReflection.TabsPanelCurrentField?.GetValue(_tabsPanelRef);
+                if (currentTabsButton == null) return 0;
+
+                // Get the Button component from the TabsButton
+                var activeButton = GameReflection.TabsButtonButtonField?.GetValue(currentTabsButton);
+                if (activeButton == null) return 0;
+
+                // Find which element matches
+                for (int i = 0; i < _elements.Count; i++)
+                {
+                    if (object.ReferenceEquals(_elements[i], activeButton))
+                        return i;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] FindActiveTabIndex failed: {ex.Message}");
+            }
+
+            return 0;
         }
 
         // ========================================

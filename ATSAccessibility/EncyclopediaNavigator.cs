@@ -93,13 +93,24 @@ namespace ATSAccessibility
                 // When entering Articles panel, rebuild from current category
                 if (_currentPanel == WikiPanel.Articles)
                 {
+                    // Reset index only when going forward from Categories
+                    if (direction > 0) _articleIndex = 0;
                     RebuildArticles();
+                    // Clamp index if list size changed
+                    if (_articleIndex >= _articleSlots.Count)
+                        _articleIndex = Math.Max(0, _articleSlots.Count - 1);
                 }
                 // When entering Content panel, rebuild from current article
                 else if (_currentPanel == WikiPanel.Content)
                 {
+                    // Reset index only when going forward from Articles
+                    if (direction > 0) _contentLineIndex = 0;
                     RebuildContent();
+                    // Clamp index if list size changed
+                    if (_contentLineIndex >= _contentLines.Count)
+                        _contentLineIndex = Math.Max(0, _contentLines.Count - 1);
                 }
+                // When going back to Categories, _categoryIndex is already correct
 
                 AnnounceCurrentPanel();
                 AnnounceCurrentElement();
@@ -224,8 +235,13 @@ namespace ATSAccessibility
 
             Debug.Log($"[ATSAccessibility] Activated category {_categoryIndex}");
 
-            // Give the game time to switch panels, then rebuild articles
-            // (caller should wait a frame before switching panels)
+            // Auto-advance to Articles panel
+            _currentPanel = WikiPanel.Articles;
+            _articleIndex = 0;  // Reset for new category
+            RebuildArticles();
+            AnnounceCurrentPanel();
+            AnnounceCurrentElement();
+
             return true;
         }
 
@@ -236,7 +252,7 @@ namespace ATSAccessibility
         private void RebuildArticles()
         {
             _articleSlots.Clear();
-            _articleIndex = 0;
+            // Note: Don't reset _articleIndex here - caller controls it
 
             // Get the current panel from the wiki popup
             var currentPanel = WikiReflection.GetCurrentWikiPanel(_wikiPopup);
@@ -301,6 +317,14 @@ namespace ATSAccessibility
             WikiReflection.ClickWikiButton(slot);
 
             Debug.Log($"[ATSAccessibility] Activated article {_articleIndex}");
+
+            // Auto-advance to Content panel
+            _currentPanel = WikiPanel.Content;
+            _contentLineIndex = 0;  // Start at top
+            RebuildContent();
+            AnnounceCurrentPanel();
+            AnnounceCurrentElement();
+
             return true;
         }
 
@@ -311,7 +335,7 @@ namespace ATSAccessibility
         private void RebuildContent()
         {
             _contentLines.Clear();
-            _contentLineIndex = 0;
+            // Note: Don't reset _contentLineIndex here - caller controls it
 
             // Check for structured article types
             if (_articleIndex >= 0 && _articleIndex < _articleSlots.Count)
