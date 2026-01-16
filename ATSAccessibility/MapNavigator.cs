@@ -72,6 +72,53 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Skip tiles in direction until finding a tile with different announcement.
+        /// If edge reached without finding different tile, stay put and announce edge.
+        /// </summary>
+        public void SkipToNextChange(int dx, int dy)
+        {
+            // Get current tile's announcement as baseline (exclude villagers for comparison)
+            var currentField = GameReflection.GetField(_cursorX, _cursorY);
+            string currentAnnouncement = GetTileAnnouncement(_cursorX, _cursorY, currentField, includeVillagers: false);
+
+            int newX = _cursorX;
+            int newY = _cursorY;
+
+            // Step in direction until we find different tile or hit edge
+            while (true)
+            {
+                int nextX = newX + dx;
+                int nextY = newY + dy;
+
+                // Check bounds BEFORE moving
+                if (nextX < MAP_MIN || nextX > MAP_MAX || nextY < MAP_MIN || nextY > MAP_MAX)
+                {
+                    // Hit edge without finding different tile - stay at current position
+                    Speech.Say("no change till edge");
+                    return;
+                }
+
+                newX = nextX;
+                newY = nextY;
+
+                // Get this tile's announcement (need fresh field for correct terrain/passability)
+                var nextField = GameReflection.GetField(newX, newY);
+                string nextAnnouncement = GetTileAnnouncement(newX, newY, nextField, includeVillagers: false);
+
+                // Exact string comparison
+                if (nextAnnouncement != currentAnnouncement)
+                {
+                    // Found different tile - move there
+                    _cursorX = newX;
+                    _cursorY = newY;
+                    AnnounceTile(nextField);
+                    SyncCameraToTile(nextField);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
         /// Announce current coordinates (K key).
         /// </summary>
         public void AnnounceCurrentPosition()
@@ -103,7 +150,8 @@ namespace ATSAccessibility
         /// <summary>
         /// Build announcement string for a tile.
         /// </summary>
-        private string GetTileAnnouncement(int x, int y, object field)
+        /// <param name="includeVillagers">If false, skip villager check (for skip comparison performance)</param>
+        private string GetTileAnnouncement(int x, int y, object field, bool includeVillagers = true)
         {
             // Check for unrevealed glade first
             var glade = GameReflection.GetGlade(x, y);
@@ -163,11 +211,14 @@ namespace ATSAccessibility
                 }
             }
 
-            // Check for villagers
-            string villagerInfo = GetVillagersOnTile(x, y);
-            if (!string.IsNullOrEmpty(villagerInfo))
+            // Check for villagers (optional - excluded during skip comparison for performance)
+            if (includeVillagers)
             {
-                parts.Add(villagerInfo);
+                string villagerInfo = GetVillagersOnTile(x, y);
+                if (!string.IsNullOrEmpty(villagerInfo))
+                {
+                    parts.Add(villagerInfo);
+                }
             }
 
             return string.Join(", ", parts);
@@ -187,10 +238,7 @@ namespace ATSAccessibility
                 _fieldTypeProperty = fieldType.GetProperty("Type");
                 _fieldIsTraversableProperty = fieldType.GetProperty("IsTraversable");
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] Field property caching failed: {ex.Message}");
-            }
+            catch { }
 
             _fieldPropertiesCached = true;
         }
@@ -205,16 +253,13 @@ namespace ATSAccessibility
                 var typeValue = _fieldTypeProperty.GetValue(field);
                 if (typeValue == null) return "unknown";
 
-                // Debug: log the type and its properties
                 var typeType = typeValue.GetType();
-                Debug.Log($"[ATSAccessibility] Field.Type is {typeType.Name}, value={typeValue}");
 
                 // Try to get displayName or name from the type object
                 var displayNameProp = typeType.GetProperty("displayName");
                 if (displayNameProp != null)
                 {
                     var displayName = displayNameProp.GetValue(typeValue);
-                    Debug.Log($"[ATSAccessibility] Field.Type.displayName = {displayName}");
                     if (displayName != null) return displayName.ToString();
                 }
 
@@ -222,26 +267,13 @@ namespace ATSAccessibility
                 if (nameProp != null)
                 {
                     var name = nameProp.GetValue(typeValue);
-                    Debug.Log($"[ATSAccessibility] Field.Type.name = {name}");
                     if (name != null) return name.ToString();
-                }
-
-                // Log all properties for debugging
-                foreach (var prop in typeType.GetProperties())
-                {
-                    try
-                    {
-                        var val = prop.GetValue(typeValue);
-                        Debug.Log($"[ATSAccessibility] Field.Type.{prop.Name} = {val}");
-                    }
-                    catch { }
                 }
 
                 return typeValue.ToString();
             }
-            catch (Exception ex)
+            catch
             {
-                Debug.LogError($"[ATSAccessibility] GetFieldType failed: {ex.Message}");
                 return "unknown";
             }
         }
@@ -278,10 +310,7 @@ namespace ATSAccessibility
                 _gladeDangerLevelField = gladeType.GetField("dangerLevel",
                     BindingFlags.Public | BindingFlags.Instance);
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] Glade field caching failed: {ex.Message}");
-            }
+            catch { }
 
             _gladePropertiesCached = true;
         }
@@ -297,10 +326,7 @@ namespace ATSAccessibility
                     return (bool)_gladeWasDiscoveredField.GetValue(glade);
                 }
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}");
-            }
+            catch { }
 
             // Default to discovered (don't hide content if we can't determine state)
             return true;
@@ -331,10 +357,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetGladeDangerLevel failed: {ex.Message}");
-            }
+            catch { }
 
             return "unknown";
         }
@@ -350,49 +373,18 @@ namespace ATSAccessibility
             try
             {
                 var objType = obj.GetType();
-                Debug.Log($"[ATSAccessibility] GetObjectName: object type is {objType.FullName}");
 
-                // Log all properties for debugging
-                Debug.Log($"[ATSAccessibility] Properties on {objType.Name}:");
-                foreach (var prop in objType.GetProperties())
-                {
-                    try
-                    {
-                        var val = prop.GetValue(obj);
-                        string valStr = val?.ToString() ?? "null";
-                        if (valStr.Length > 100) valStr = valStr.Substring(0, 100) + "...";
-                        Debug.Log($"[ATSAccessibility]   .{prop.Name} = {valStr}");
-                    }
-                    catch { }
-                }
-
-                // Try Model.label.displayName first (specific type like "Lush Tree")
-                // Then fall back to Model.displayName (generic category like "Woodlands Trees")
+                // Try Model.displayName first (specific type like "Lush Tree")
+                // Then fall back to Model.label.displayName (generic category like "Woodlands Trees")
                 var modelProperty = objType.GetProperty("Model");
                 if (modelProperty != null)
                 {
                     var model = modelProperty.GetValue(obj);
                     if (model != null)
                     {
-                        Debug.Log($"[ATSAccessibility] Found Model property, type={model.GetType().Name}");
                         var modelType = model.GetType();
 
-                        // Log all fields for debugging
-                        Debug.Log($"[ATSAccessibility] Fields on {modelType.Name}:");
-                        foreach (var field in modelType.GetFields(BindingFlags.Public | BindingFlags.Instance))
-                        {
-                            try
-                            {
-                                var val = field.GetValue(model);
-                                string valStr = val?.ToString() ?? "null";
-                                if (valStr.Length > 100) valStr = valStr.Substring(0, 100) + "...";
-                                Debug.Log($"[ATSAccessibility]   .{field.Name} = {valStr}");
-                            }
-                            catch { }
-                        }
-
-                        // Try Model.displayName first (specific type like "Lush Tree")
-                        // Note: displayName is already user-friendly, don't run through CleanResourceName
+                        // Try Model.displayName first
                         var displayNameField = modelType.GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
                         if (displayNameField != null)
                         {
@@ -400,7 +392,6 @@ namespace ATSAccessibility
                             if (displayName != null)
                             {
                                 string displayText = displayName.ToString();
-                                Debug.Log($"[ATSAccessibility] Model.displayName = {displayText}");
                                 if (!string.IsNullOrEmpty(displayText))
                                 {
                                     return displayText;
@@ -408,14 +399,13 @@ namespace ATSAccessibility
                             }
                         }
 
-                        // Fall back to Model.label.displayName (generic category like "Resource")
+                        // Fall back to Model.label.displayName
                         var labelField = modelType.GetField("label", BindingFlags.Public | BindingFlags.Instance);
                         if (labelField != null)
                         {
                             var label = labelField.GetValue(model);
                             if (label != null)
                             {
-                                Debug.Log($"[ATSAccessibility] Found label field, type={label.GetType().Name}");
                                 var labelDisplayNameField = label.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
                                 if (labelDisplayNameField != null)
                                 {
@@ -423,7 +413,6 @@ namespace ATSAccessibility
                                     if (labelDisplayName != null)
                                     {
                                         string labelText = labelDisplayName.ToString();
-                                        Debug.Log($"[ATSAccessibility] Model.label.displayName = {labelText}");
                                         if (!string.IsNullOrEmpty(labelText))
                                         {
                                             return labelText;
@@ -439,7 +428,6 @@ namespace ATSAccessibility
                             var name = nameProp.GetValue(model);
                             if (name != null)
                             {
-                                Debug.Log($"[ATSAccessibility] Model.name = {name}");
                                 return Speech.CleanResourceName(name.ToString());
                             }
                         }
@@ -469,12 +457,10 @@ namespace ATSAccessibility
                 }
 
                 // Fallback to type name
-                Debug.Log($"[ATSAccessibility] No name found, using type name: {objType.Name}");
                 return objType.Name;
             }
-            catch (Exception ex)
+            catch
             {
-                Debug.LogError($"[ATSAccessibility] GetObjectName failed: {ex.Message}");
                 return null;
             }
         }
@@ -505,10 +491,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] Villager property caching failed: {ex.Message}");
-            }
+            catch { }
 
             _villagerPropertiesCached = true;
         }
@@ -576,9 +559,8 @@ namespace ATSAccessibility
 
                 return string.Join(", ", parts);
             }
-            catch (Exception ex)
+            catch
             {
-                Debug.LogError($"[ATSAccessibility] GetVillagersOnTile failed: {ex.Message}");
                 return null;
             }
         }
@@ -639,10 +621,7 @@ namespace ATSAccessibility
                     GameReflection.SetCameraTarget(fieldTransform);
                 }
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] SyncCameraToTile failed: {ex.Message}");
-            }
+            catch { }
         }
     }
 }
