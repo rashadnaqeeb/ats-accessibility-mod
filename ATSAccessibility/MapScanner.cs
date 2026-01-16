@@ -73,7 +73,14 @@ namespace ATSAccessibility
         private PropertyInfo _naturalResourcesProperty = null;
         private PropertyInfo _depositsProperty = null;
         private PropertyInfo _buildingsProperty = null;
+        private PropertyInfo _buildingFieldProperty = null;  // Building.Field position
+        private PropertyInfo _objectModelProperty = null;     // Object.Model
+        private FieldInfo _modelDisplayNameField = null;      // Model.displayName
+        private PropertyInfo _modelNameProperty = null;       // Model.name
         private bool _reflectionCached = false;
+
+        // Unrevealed glade tiles cache (rebuilt each scan)
+        private HashSet<Vector2Int> _unrevealedGladeTiles = null;
 
         // ========================================
         // CONSTRUCTOR
@@ -82,6 +89,22 @@ namespace ATSAccessibility
         public MapScanner(MapNavigator mapNavigator)
         {
             _mapNavigator = mapNavigator;
+        }
+
+        // ========================================
+        // STATIC COMPARERS (avoid closure allocations)
+        // ========================================
+
+        private static int CompareGroupsByDistance(ItemGroup a, ItemGroup b)
+        {
+            int distA = a.Items.Count > 0 ? a.Items[0].Distance : int.MaxValue;
+            int distB = b.Items.Count > 0 ? b.Items[0].Distance : int.MaxValue;
+            return distA.CompareTo(distB);
+        }
+
+        private static int CompareItemsByDistance(ScannedItem a, ScannedItem b)
+        {
+            return a.Distance.CompareTo(b.Distance);
         }
 
         // ========================================
@@ -231,6 +254,12 @@ namespace ATSAccessibility
         {
             EnsureReflectionCache();
 
+            // Build unrevealed glade tiles map for Resources/Buildings scans (O(1) lookup)
+            if (_currentCategory == ScanCategory.Resources || _currentCategory == ScanCategory.Buildings)
+            {
+                BuildUnrevealedGladeTilesMap();
+            }
+
             switch (_currentCategory)
             {
                 case ScanCategory.Glades:
@@ -244,15 +273,52 @@ namespace ATSAccessibility
                     break;
             }
 
+            // Clear glade tiles cache after scan
+            _unrevealedGladeTiles = null;
+
             // Sort groups by nearest item distance
             if (_cachedGroups != null && _cachedGroups.Count > 0)
             {
-                _cachedGroups.Sort((a, b) =>
+                _cachedGroups.Sort(CompareGroupsByDistance);
+            }
+        }
+
+        private void BuildUnrevealedGladeTilesMap()
+        {
+            _unrevealedGladeTiles = new HashSet<Vector2Int>();
+
+            try
+            {
+                var allGlades = GameReflection.GetAllGlades();
+                if (allGlades == null) return;
+
+                var gladesList = allGlades as IEnumerable;
+                if (gladesList == null) return;
+
+                foreach (var glade in gladesList)
                 {
-                    int distA = a.Items.Count > 0 ? a.Items[0].Distance : int.MaxValue;
-                    int distB = b.Items.Count > 0 ? b.Items[0].Distance : int.MaxValue;
-                    return distA.CompareTo(distB);
-                });
+                    if (glade == null) continue;
+
+                    // Only include unrevealed glades
+                    if (GetGladeWasDiscovered(glade)) continue;
+
+                    // Get all fields in this glade
+                    if (_gladeFieldsField != null)
+                    {
+                        var fields = _gladeFieldsField.GetValue(glade) as IList;
+                        if (fields != null)
+                        {
+                            foreach (var field in fields)
+                            {
+                                _unrevealedGladeTiles.Add((Vector2Int)field);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] BuildUnrevealedGladeTilesMap failed: {ex.Message}");
             }
         }
 
@@ -289,12 +355,13 @@ namespace ATSAccessibility
 
                     int distance = Math.Abs(position.x - cursorX) + Math.Abs(position.y - cursorY);
 
-                    if (!groups.ContainsKey(groupName))
+                    if (!groups.TryGetValue(groupName, out var group))
                     {
-                        groups[groupName] = new ItemGroup(groupName);
+                        group = new ItemGroup(groupName);
+                        groups[groupName] = group;
                     }
 
-                    groups[groupName].Items.Add(new ScannedItem(position, distance));
+                    group.Items.Add(new ScannedItem(position, distance));
                 }
             }
             catch (Exception ex)
@@ -306,7 +373,7 @@ namespace ATSAccessibility
             var result = new List<ItemGroup>(groups.Values);
             foreach (var group in result)
             {
-                group.Items.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+                group.Items.Sort(CompareItemsByDistance);
             }
 
             return result;
@@ -343,12 +410,13 @@ namespace ATSAccessibility
 
                                 int distance = Math.Abs(pos.x - cursorX) + Math.Abs(pos.y - cursorY);
 
-                                if (!groups.ContainsKey(displayName))
+                                if (!groups.TryGetValue(displayName, out var group))
                                 {
-                                    groups[displayName] = new ItemGroup(displayName);
+                                    group = new ItemGroup(displayName);
+                                    groups[displayName] = group;
                                 }
 
-                                groups[displayName].Items.Add(new ScannedItem(pos, distance));
+                                group.Items.Add(new ScannedItem(pos, distance));
                             }
                         }
                     }
@@ -377,12 +445,13 @@ namespace ATSAccessibility
 
                                 int distance = Math.Abs(pos.x - cursorX) + Math.Abs(pos.y - cursorY);
 
-                                if (!groups.ContainsKey(displayName))
+                                if (!groups.TryGetValue(displayName, out var depositGroup))
                                 {
-                                    groups[displayName] = new ItemGroup(displayName);
+                                    depositGroup = new ItemGroup(displayName);
+                                    groups[displayName] = depositGroup;
                                 }
 
-                                groups[displayName].Items.Add(new ScannedItem(pos, distance));
+                                depositGroup.Items.Add(new ScannedItem(pos, distance));
                             }
                         }
                     }
@@ -397,7 +466,7 @@ namespace ATSAccessibility
             var result = new List<ItemGroup>(groups.Values);
             foreach (var group in result)
             {
-                group.Items.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+                group.Items.Sort(CompareItemsByDistance);
             }
 
             return result;
@@ -437,12 +506,13 @@ namespace ATSAccessibility
 
                                 int distance = Math.Abs(pos.x - cursorX) + Math.Abs(pos.y - cursorY);
 
-                                if (!groups.ContainsKey(displayName))
+                                if (!groups.TryGetValue(displayName, out var group))
                                 {
-                                    groups[displayName] = new ItemGroup(displayName);
+                                    group = new ItemGroup(displayName);
+                                    groups[displayName] = group;
                                 }
 
-                                groups[displayName].Items.Add(new ScannedItem(pos, distance));
+                                group.Items.Add(new ScannedItem(pos, distance));
                             }
                         }
                     }
@@ -457,7 +527,7 @@ namespace ATSAccessibility
             var result = new List<ItemGroup>(groups.Values);
             foreach (var group in result)
             {
-                group.Items.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+                group.Items.Sort(CompareItemsByDistance);
             }
 
             return result;
@@ -649,11 +719,16 @@ namespace ATSAccessibility
         {
             try
             {
-                var fieldProp = building.GetType().GetProperty("Field",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (fieldProp != null)
+                // Cache reflection on first use
+                if (_buildingFieldProperty == null)
                 {
-                    return (Vector2Int)fieldProp.GetValue(building);
+                    _buildingFieldProperty = building.GetType().GetProperty("Field",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                if (_buildingFieldProperty != null)
+                {
+                    return (Vector2Int)_buildingFieldProperty.GetValue(building);
                 }
             }
             catch { }
@@ -668,22 +743,30 @@ namespace ATSAccessibility
             {
                 var objType = obj.GetType();
 
-                // Try Model.displayName
-                var modelProperty = objType.GetProperty("Model",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (modelProperty != null)
+                // Cache Model property on first use
+                if (_objectModelProperty == null)
                 {
-                    var model = modelProperty.GetValue(obj);
+                    _objectModelProperty = objType.GetProperty("Model",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                if (_objectModelProperty != null)
+                {
+                    var model = _objectModelProperty.GetValue(obj);
                     if (model != null)
                     {
                         var modelType = model.GetType();
 
-                        // Try displayName field
-                        var displayNameField = modelType.GetField("displayName",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        if (displayNameField != null)
+                        // Cache displayName field on first use
+                        if (_modelDisplayNameField == null)
                         {
-                            var displayName = displayNameField.GetValue(model);
+                            _modelDisplayNameField = modelType.GetField("displayName",
+                                BindingFlags.Public | BindingFlags.Instance);
+                        }
+
+                        if (_modelDisplayNameField != null)
+                        {
+                            var displayName = _modelDisplayNameField.GetValue(model);
                             if (displayName != null)
                             {
                                 string text = displayName.ToString();
@@ -694,12 +777,16 @@ namespace ATSAccessibility
                             }
                         }
 
-                        // Try name property
-                        var nameProp = modelType.GetProperty("name",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        if (nameProp != null)
+                        // Cache name property on first use
+                        if (_modelNameProperty == null)
                         {
-                            var name = nameProp.GetValue(model);
+                            _modelNameProperty = modelType.GetProperty("name",
+                                BindingFlags.Public | BindingFlags.Instance);
+                        }
+
+                        if (_modelNameProperty != null)
+                        {
+                            var name = _modelNameProperty.GetValue(model);
                             if (name != null)
                             {
                                 return Speech.CleanResourceName(name.ToString());
@@ -719,9 +806,15 @@ namespace ATSAccessibility
 
         private bool IsInsideUnrevealedGlade(int x, int y)
         {
+            // Use cached HashSet for O(1) lookup
+            if (_unrevealedGladeTiles != null)
+            {
+                return _unrevealedGladeTiles.Contains(new Vector2Int(x, y));
+            }
+
+            // Fallback if cache not built (shouldn't happen in normal flow)
             var glade = GameReflection.GetGlade(x, y);
             if (glade == null) return false;
-
             return !GetGladeWasDiscovered(glade);
         }
     }
