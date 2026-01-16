@@ -377,6 +377,11 @@ namespace ATSAccessibility
         private static PropertyInfo _gsReputationRewardsProperty = null;  // ReputationRewardsService
         private static bool _gameServicesTypesCached = false;
 
+        // Camera controller access
+        private static PropertyInfo _gcCameraControllerProperty = null;  // GameController.CameraController
+        private static FieldInfo _ccTargetField = null;                   // CameraController.target
+        private static bool _cameraTypesCached = false;
+
         private static void EnsureGameServicesTypes()
         {
             if (_gameServicesTypesCached) return;
@@ -722,6 +727,96 @@ namespace ATSAccessibility
             catch
             {
                 return null;
+            }
+        }
+
+        // ========================================
+        // CAMERA CONTROLLER API
+        // ========================================
+
+        private static void EnsureCameraTypes()
+        {
+            if (_cameraTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameControllerType == null)
+            {
+                _cameraTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Cache GameController.CameraController property
+                _gcCameraControllerProperty = _gameControllerType.GetProperty("CameraController",
+                    BindingFlags.Public | BindingFlags.Instance);
+
+                if (_gcCameraControllerProperty != null)
+                {
+                    Debug.Log("[ATSAccessibility] Cached CameraController property");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Camera type caching failed: {ex.Message}");
+            }
+
+            _cameraTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get the CameraController from GameController.Instance.
+        /// Only available when in a game (IsGameActive == true).
+        /// </summary>
+        public static object GetCameraController()
+        {
+            EnsureCameraTypes();
+
+            if (!GetIsGameActive()) return null;
+            if (_gcInstanceProperty == null || _gcCameraControllerProperty == null) return null;
+
+            try
+            {
+                var gameController = _gcInstanceProperty.GetValue(null);
+                if (gameController == null) return null;
+
+                return _gcCameraControllerProperty.GetValue(gameController);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetCameraController failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Set the camera target to make the camera smoothly pan to a transform.
+        /// Uses the game's built-in smooth camera movement system.
+        /// </summary>
+        public static void SetCameraTarget(Transform target)
+        {
+            if (target == null) return;
+
+            var cameraController = GetCameraController();
+            if (cameraController == null) return;
+
+            try
+            {
+                // Cache the target field if not already cached
+                if (_ccTargetField == null)
+                {
+                    _ccTargetField = cameraController.GetType().GetField("target",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                if (_ccTargetField != null)
+                {
+                    _ccTargetField.SetValue(cameraController, target);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SetCameraTarget failed: {ex.Message}");
             }
         }
     }

@@ -64,7 +64,11 @@ namespace ATSAccessibility
             _cursorX = newX;
             _cursorY = newY;
 
-            AnnounceTile();
+            // Fetch field once, reuse for announcement and camera
+            var field = GameReflection.GetField(_cursorX, _cursorY);
+
+            AnnounceTile(field);
+            SyncCameraToTile(field);
         }
 
         /// <summary>
@@ -87,9 +91,9 @@ namespace ATSAccessibility
         /// <summary>
         /// Announce the current tile contents.
         /// </summary>
-        private void AnnounceTile()
+        private void AnnounceTile(object field)
         {
-            string announcement = GetTileAnnouncement(_cursorX, _cursorY);
+            string announcement = GetTileAnnouncement(_cursorX, _cursorY, field);
             if (!string.IsNullOrEmpty(announcement))
             {
                 Speech.Say(announcement);
@@ -99,7 +103,7 @@ namespace ATSAccessibility
         /// <summary>
         /// Build announcement string for a tile.
         /// </summary>
-        private string GetTileAnnouncement(int x, int y)
+        private string GetTileAnnouncement(int x, int y, object field)
         {
             // Check for unrevealed glade first
             var glade = GameReflection.GetGlade(x, y);
@@ -138,8 +142,7 @@ namespace ATSAccessibility
 
             if (!hasRealObject)
             {
-                // No object - announce terrain
-                var field = GameReflection.GetField(x, y);
+                // No object - announce terrain using passed-in field
                 if (field != null)
                 {
                     string terrain = GetFieldType(field);
@@ -150,11 +153,10 @@ namespace ATSAccessibility
                 }
             }
 
-            // Check passability
-            var fieldForPassability = GameReflection.GetField(x, y);
-            if (fieldForPassability != null)
+            // Check passability using same field (no second GetField call)
+            if (field != null)
             {
-                bool isTraversable = GetFieldIsTraversable(fieldForPassability);
+                bool isTraversable = GetFieldIsTraversable(field);
                 if (!isTraversable)
                 {
                     parts.Add("impassable");
@@ -364,7 +366,8 @@ namespace ATSAccessibility
                     catch { }
                 }
 
-                // Try Model.displayName (common pattern for ScriptableObject-based games)
+                // Try Model.label.displayName first (specific type like "Lush Tree")
+                // Then fall back to Model.displayName (generic category like "Woodlands Trees")
                 var modelProperty = objType.GetProperty("Model");
                 if (modelProperty != null)
                 {
@@ -374,14 +377,59 @@ namespace ATSAccessibility
                         Debug.Log($"[ATSAccessibility] Found Model property, type={model.GetType().Name}");
                         var modelType = model.GetType();
 
-                        var displayNameProp = modelType.GetProperty("displayName");
-                        if (displayNameProp != null)
+                        // Log all fields for debugging
+                        Debug.Log($"[ATSAccessibility] Fields on {modelType.Name}:");
+                        foreach (var field in modelType.GetFields(BindingFlags.Public | BindingFlags.Instance))
                         {
-                            var displayName = displayNameProp.GetValue(model);
+                            try
+                            {
+                                var val = field.GetValue(model);
+                                string valStr = val?.ToString() ?? "null";
+                                if (valStr.Length > 100) valStr = valStr.Substring(0, 100) + "...";
+                                Debug.Log($"[ATSAccessibility]   .{field.Name} = {valStr}");
+                            }
+                            catch { }
+                        }
+
+                        // Try Model.displayName first (specific type like "Lush Tree")
+                        // Note: displayName is already user-friendly, don't run through CleanResourceName
+                        var displayNameField = modelType.GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+                        if (displayNameField != null)
+                        {
+                            var displayName = displayNameField.GetValue(model);
                             if (displayName != null)
                             {
-                                Debug.Log($"[ATSAccessibility] Model.displayName = {displayName}");
-                                return Speech.CleanResourceName(displayName.ToString());
+                                string displayText = displayName.ToString();
+                                Debug.Log($"[ATSAccessibility] Model.displayName = {displayText}");
+                                if (!string.IsNullOrEmpty(displayText))
+                                {
+                                    return displayText;
+                                }
+                            }
+                        }
+
+                        // Fall back to Model.label.displayName (generic category like "Resource")
+                        var labelField = modelType.GetField("label", BindingFlags.Public | BindingFlags.Instance);
+                        if (labelField != null)
+                        {
+                            var label = labelField.GetValue(model);
+                            if (label != null)
+                            {
+                                Debug.Log($"[ATSAccessibility] Found label field, type={label.GetType().Name}");
+                                var labelDisplayNameField = label.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+                                if (labelDisplayNameField != null)
+                                {
+                                    var labelDisplayName = labelDisplayNameField.GetValue(label);
+                                    if (labelDisplayName != null)
+                                    {
+                                        string labelText = labelDisplayName.ToString();
+                                        Debug.Log($"[ATSAccessibility] Model.label.displayName = {labelText}");
+                                        if (!string.IsNullOrEmpty(labelText))
+                                        {
+                                            return labelText;
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -564,6 +612,36 @@ namespace ATSAccessibility
             catch
             {
                 return null;
+            }
+        }
+
+        // ========================================
+        // CAMERA SYNC
+        // ========================================
+
+        /// <summary>
+        /// Sync the camera to follow the current cursor position.
+        /// Uses the game's built-in smooth camera movement.
+        /// </summary>
+        private void SyncCameraToTile(object field)
+        {
+            if (field == null) return;
+
+            try
+            {
+                // Get the Field's transform property
+                var transformProperty = field.GetType().GetProperty("transform");
+                if (transformProperty == null) return;
+
+                var fieldTransform = transformProperty.GetValue(field) as Transform;
+                if (fieldTransform != null)
+                {
+                    GameReflection.SetCameraTarget(fieldTransform);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SyncCameraToTile failed: {ex.Message}");
             }
         }
     }
