@@ -517,6 +517,13 @@ namespace ATSAccessibility
             {
                 BuildWorkshopRecipes(building);
             }
+
+            // 10. Upgrades (for upgradable buildings)
+            if (GameReflection.IsUpgradableBuildingModel(building) &&
+                !GameReflection.GetHideUpgradesInWiki(building))
+            {
+                BuildUpgradeInfo(building);
+            }
         }
 
         /// <summary>
@@ -568,6 +575,90 @@ namespace ATSAccessibility
 
                 _contentLines.Add($"  {outputAmount} {outputName}{gradeStr}: {inputs} ({time})");
             }
+        }
+
+        /// <summary>
+        /// Build upgrade information for an upgradable building.
+        /// </summary>
+        private void BuildUpgradeInfo(object building)
+        {
+            var levels = GameReflection.GetBuildingLevels(building);
+            if (levels == null || levels.Length <= 1) return;  // Skip if only base level
+
+            _contentLines.Add("Upgrades:");
+
+            // Start from index 1 (level I), skip index 0 (base)
+            for (int i = 1; i < levels.Length; i++)
+            {
+                var level = levels.GetValue(i);
+                var levelNum = IntToRoman(i);  // I, II, III, etc.
+
+                // Get upgrade cost
+                var requiredGoods = GameReflection.GetLevelRequiredGoods(level);
+                var costStr = FormatUpgradeCost(requiredGoods);
+
+                _contentLines.Add($"  Level {levelNum}: {costStr}");
+
+                // Get perk options
+                var options = GameReflection.GetLevelOptions(level);
+                if (options != null)
+                {
+                    foreach (var perk in options)
+                    {
+                        var name = GameReflection.GetPerkDisplayName(perk);
+                        var amount = GameReflection.GetPerkAmountText(perk);
+                        var desc = StripRichTextTags(GameReflection.GetPerkDescription(perk));
+
+                        // Format: "Perk Name (+10%): Description"
+                        var amountPart = !string.IsNullOrEmpty(amount) ? $" ({amount})" : "";
+                        _contentLines.Add($"    {name}{amountPart}: {desc}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Convert an integer to Roman numerals (for upgrade levels).
+        /// </summary>
+        private string IntToRoman(int num)
+        {
+            return num switch
+            {
+                1 => "I",
+                2 => "II",
+                3 => "III",
+                4 => "IV",
+                5 => "V",
+                _ => num.ToString()
+            };
+        }
+
+        /// <summary>
+        /// Format the upgrade cost from an array of GoodsSet objects.
+        /// </summary>
+        private string FormatUpgradeCost(Array requiredGoods)
+        {
+            if (requiredGoods == null || requiredGoods.Length == 0) return "Free";
+
+            var parts = new List<string>();
+            foreach (var goodsSet in requiredGoods)
+            {
+                var goods = GameReflection.GetGoodsSetGoods(goodsSet);
+                if (goods != null && goods.Length > 0)
+                {
+                    var alternatives = new List<string>();
+                    foreach (var goodRef in goods)
+                    {
+                        var name = GameReflection.GetGoodRefDisplayName(goodRef);
+                        var amount = GameReflection.GetGoodRefAmount(goodRef);
+                        if (!string.IsNullOrEmpty(name))
+                            alternatives.Add($"{amount} {name}");
+                    }
+                    if (alternatives.Count > 0)
+                        parts.Add(string.Join(" OR ", alternatives));
+                }
+            }
+            return parts.Count > 0 ? string.Join(" + ", parts) : "Free";
         }
 
         /// <summary>

@@ -2373,5 +2373,247 @@ namespace ATSAccessibility
                 return null;
             }
         }
+
+        // ========================================
+        // UPGRADABLE BUILDING REFLECTION
+        // ========================================
+
+        // UpgradableBuildingModel (extends BuildingModel)
+        private static Type _upgradableBuildingModelType;
+        private static FieldInfo _ubmLevelsField;              // BuildingLevelModel[] levels
+        private static FieldInfo _ubmHideUpgradesField;        // bool hideUpgradesInWiki
+
+        // BuildingLevelModel
+        private static Type _buildingLevelModelType;
+        private static FieldInfo _blmOptionsField;             // BuildingPerkModel[] options
+        private static FieldInfo _blmRequiredGoodsField;       // GoodsSet[] requiredGoods
+
+        // BuildingPerkModel
+        private static Type _buildingPerkModelType;
+        private static PropertyInfo _bpmDisplayNameProperty;   // string DisplayName
+        private static MethodInfo _bpmGetDescriptionMethod;    // string GetDescription(Building)
+        private static MethodInfo _bpmGetAmountTextMethod;     // string GetAmountText()
+
+        private static bool _upgradeTypesInitialized = false;
+
+        /// <summary>
+        /// Ensure upgrade-related types are cached.
+        /// </summary>
+        private static void EnsureUpgradeTypes()
+        {
+            if (_upgradeTypesInitialized) return;
+            _upgradeTypesInitialized = true;
+
+            EnsureAssembly();
+            if (_gameAssembly == null) return;
+
+            try
+            {
+                // Cache UpgradableBuildingModel type
+                _upgradableBuildingModelType = _gameAssembly.GetType("Eremite.Buildings.UpgradableBuildingModel");
+                if (_upgradableBuildingModelType != null)
+                {
+                    _ubmLevelsField = _upgradableBuildingModelType.GetField("levels",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _ubmHideUpgradesField = _upgradableBuildingModelType.GetField("hideUpgradesInWiki",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached UpgradableBuildingModel type info");
+                }
+
+                // Cache BuildingLevelModel type
+                _buildingLevelModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingLevelModel");
+                if (_buildingLevelModelType != null)
+                {
+                    _blmOptionsField = _buildingLevelModelType.GetField("options",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _blmRequiredGoodsField = _buildingLevelModelType.GetField("requiredGoods",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached BuildingLevelModel type info");
+                }
+
+                // Cache BuildingPerkModel type
+                _buildingPerkModelType = _gameAssembly.GetType("Eremite.Model.BuildingPerkModel");
+                if (_buildingPerkModelType != null)
+                {
+                    _bpmDisplayNameProperty = _buildingPerkModelType.GetProperty("DisplayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _bpmGetDescriptionMethod = _buildingPerkModelType.GetMethod("GetDescription",
+                        BindingFlags.Public | BindingFlags.Instance,
+                        null, new Type[] { _gameAssembly.GetType("Eremite.Buildings.Building") ?? typeof(object) }, null);
+                    _bpmGetAmountTextMethod = _buildingPerkModelType.GetMethod("GetAmountText",
+                        BindingFlags.Public | BindingFlags.Instance,
+                        null, Type.EmptyTypes, null);
+
+                    Debug.Log("[ATSAccessibility] Cached BuildingPerkModel type info");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] EnsureUpgradeTypes failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Check if a BuildingModel is an UpgradableBuildingModel.
+        /// </summary>
+        public static bool IsUpgradableBuildingModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            EnsureUpgradeTypes();
+            if (_upgradableBuildingModelType == null) return false;
+
+            return _upgradableBuildingModelType.IsAssignableFrom(buildingModel.GetType());
+        }
+
+        /// <summary>
+        /// Get whether upgrades should be hidden in wiki for this building.
+        /// </summary>
+        public static bool GetHideUpgradesInWiki(object buildingModel)
+        {
+            if (buildingModel == null) return true;
+            EnsureUpgradeTypes();
+
+            if (_upgradableBuildingModelType == null || _ubmHideUpgradesField == null) return true;
+            if (!_upgradableBuildingModelType.IsAssignableFrom(buildingModel.GetType())) return true;
+
+            try
+            {
+                return (bool)_ubmHideUpgradesField.GetValue(buildingModel);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Get the building levels array from an UpgradableBuildingModel.
+        /// </summary>
+        public static Array GetBuildingLevels(object buildingModel)
+        {
+            if (buildingModel == null) return null;
+            EnsureUpgradeTypes();
+
+            if (_upgradableBuildingModelType == null || _ubmLevelsField == null) return null;
+            if (!_upgradableBuildingModelType.IsAssignableFrom(buildingModel.GetType())) return null;
+
+            try
+            {
+                return _ubmLevelsField.GetValue(buildingModel) as Array;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetBuildingLevels failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the perk options array from a BuildingLevelModel.
+        /// </summary>
+        public static Array GetLevelOptions(object levelModel)
+        {
+            if (levelModel == null) return null;
+            EnsureUpgradeTypes();
+
+            if (_blmOptionsField == null) return null;
+
+            try
+            {
+                return _blmOptionsField.GetValue(levelModel) as Array;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetLevelOptions failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the required goods sets (upgrade cost) from a BuildingLevelModel.
+        /// </summary>
+        public static Array GetLevelRequiredGoods(object levelModel)
+        {
+            if (levelModel == null) return null;
+            EnsureUpgradeTypes();
+
+            if (_blmRequiredGoodsField == null) return null;
+
+            try
+            {
+                return _blmRequiredGoodsField.GetValue(levelModel) as Array;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetLevelRequiredGoods failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the display name from a BuildingPerkModel.
+        /// </summary>
+        public static string GetPerkDisplayName(object perkModel)
+        {
+            if (perkModel == null) return null;
+            EnsureUpgradeTypes();
+
+            if (_bpmDisplayNameProperty == null) return null;
+
+            try
+            {
+                return _bpmDisplayNameProperty.GetValue(perkModel) as string;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetPerkDisplayName failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the description from a BuildingPerkModel.
+        /// </summary>
+        public static string GetPerkDescription(object perkModel)
+        {
+            if (perkModel == null) return null;
+            EnsureUpgradeTypes();
+
+            if (_bpmGetDescriptionMethod == null) return null;
+
+            try
+            {
+                // Call GetDescription(null) - building context is optional
+                return _bpmGetDescriptionMethod.Invoke(perkModel, new object[] { null }) as string;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetPerkDescription failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the amount text from a BuildingPerkModel (e.g., "+10%", "+2").
+        /// </summary>
+        public static string GetPerkAmountText(object perkModel)
+        {
+            if (perkModel == null) return null;
+            EnsureUpgradeTypes();
+
+            if (_bpmGetAmountTextMethod == null) return null;
+
+            try
+            {
+                return _bpmGetAmountTextMethod.Invoke(perkModel, null) as string;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetPerkAmountText failed: {ex.Message}");
+                return null;
+            }
+        }
     }
 }
