@@ -313,6 +313,29 @@ namespace ATSAccessibility
             _contentLines.Clear();
             _contentLineIndex = 0;
 
+            // Check for structured article types
+            if (_articleIndex >= 0 && _articleIndex < _articleSlots.Count)
+            {
+                var slot = _articleSlots[_articleIndex];
+
+                // Check for race article
+                if (GameReflection.IsWikiRaceSlot(slot))
+                {
+                    BuildRaceContent(slot);
+                    Debug.Log($"[ATSAccessibility] Built structured race content: {_contentLines.Count} lines");
+                    return;
+                }
+
+                // Check for building article
+                if (GameReflection.IsWikiBuildingSlot(slot))
+                {
+                    BuildBuildingContent(slot);
+                    Debug.Log($"[ATSAccessibility] Built structured building content: {_contentLines.Count} lines");
+                    return;
+                }
+            }
+
+            // Fall back to generic UI text extraction for other article types
             var contentText = ExtractPreviewContent();
             if (string.IsNullOrEmpty(contentText))
             {
@@ -332,6 +355,250 @@ namespace ATSAccessibility
             }
 
             Debug.Log($"[ATSAccessibility] Found {_contentLines.Count} content lines");
+        }
+
+        /// <summary>
+        /// Build structured content for a race/species article.
+        /// Extracts data directly from RaceModel via reflection for proper ordering.
+        /// </summary>
+        private void BuildRaceContent(object raceSlot)
+        {
+            var raceModel = GameReflection.GetRaceModelFromSlot(raceSlot);
+            if (raceModel == null) return;
+
+            // 1. Name
+            AddIfNotEmpty(GameReflection.GetRaceDisplayName(raceModel));
+
+            // 2. Description
+            AddIfNotEmpty(StripRichTextTags(GameReflection.GetRaceDescription(raceModel)));
+
+            // 3. Stats (one per line, "Label: value" format)
+            var resolve = GameReflection.GetRaceInitialResolve(raceModel);
+            _contentLines.Add($"Resolve: {resolve}");
+
+            var interval = GameReflection.GetRaceNeedsInterval(raceModel);
+            _contentLines.Add($"Break Interval: {FormatMinSec(interval)}");
+
+            var resilience = GameReflection.GetRaceResilienceLabel(raceModel);
+            AddIfNotEmpty("Resilience: " + resilience);
+
+            var demanding = GameReflection.GetRaceDemanding(raceModel);
+            _contentLines.Add($"Demanding: {demanding}");
+
+            var decadent = GameReflection.GetRaceDecadent(raceModel);
+            _contentLines.Add($"Decadent: {Mathf.RoundToInt(decadent)}");
+
+            var hunger = GameReflection.GetRaceHungerTolerance(raceModel);
+            _contentLines.Add($"Hunger Tolerance: {hunger}");
+
+            // 4. Effects
+            var revealEffect = GameReflection.GetRaceRevealEffect(raceModel);
+            if (!string.IsNullOrEmpty(revealEffect))
+                _contentLines.Add("Reveal Effect: " + StripRichTextTags(revealEffect));
+
+            var passiveEffect = GameReflection.GetRacePassiveEffect(raceModel);
+            if (!string.IsNullOrEmpty(passiveEffect))
+                _contentLines.Add("Passive Effect: " + StripRichTextTags(passiveEffect));
+
+            // 5. Needs (comma-separated on one line)
+            var needs = GameReflection.GetRaceNeeds(raceModel);
+            if (needs != null && needs.Length > 0)
+            {
+                var needNames = new List<string>();
+                foreach (var need in needs)
+                {
+                    var needName = GameReflection.GetNeedDisplayName(need);
+                    if (!string.IsNullOrEmpty(needName))
+                        needNames.Add(needName);
+                }
+                if (needNames.Count > 0)
+                    _contentLines.Add("Needs: " + string.Join(", ", needNames));
+            }
+
+            // 6. Species Buildings (comma-separated on one line)
+            var buildings = GameReflection.GetRaceBuildings(raceModel);
+            if (buildings != null && buildings.Length > 0)
+            {
+                var buildingNames = new List<string>();
+                foreach (var building in buildings)
+                {
+                    var buildingName = GameReflection.GetBuildingDisplayName(building);
+                    if (!string.IsNullOrEmpty(buildingName))
+                        buildingNames.Add(buildingName);
+                }
+                if (buildingNames.Count > 0)
+                    _contentLines.Add("Species Buildings: " + string.Join(", ", buildingNames));
+            }
+
+            // 7. Specializations (multi-line with header)
+            var characteristics = GameReflection.GetRaceCharacteristicsText(raceModel);
+            if (!string.IsNullOrEmpty(characteristics))
+            {
+                _contentLines.Add("Specializations:");
+                foreach (var line in characteristics.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var cleaned = StripRichTextTags(line.Trim());
+                    if (!string.IsNullOrEmpty(cleaned))
+                        _contentLines.Add("  " + cleaned);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Build structured content for a building article.
+        /// Extracts data directly from BuildingModel via reflection.
+        /// </summary>
+        private void BuildBuildingContent(object buildingSlot)
+        {
+            var building = GameReflection.GetBuildingModelFromSlot(buildingSlot);
+            if (building == null) return;
+
+            // 1. Name
+            AddIfNotEmpty(GameReflection.GetBuildingDisplayName(building));
+
+            // 2. Description (includes production list for workshops)
+            AddIfNotEmpty(StripRichTextTags(GameReflection.GetBuildingDescription(building)));
+
+            // 3. Category
+            var category = GameReflection.GetBuildingCategory(building);
+            if (!string.IsNullOrEmpty(category))
+                _contentLines.Add($"Category: {category}");
+
+            // 4. Size
+            var size = GameReflection.GetBuildingSize(building);
+            if (size.x > 0 && size.y > 0)
+                _contentLines.Add($"Size: {size.x}x{size.y}");
+
+            // 5. Workplaces
+            var workplaces = GameReflection.GetBuildingWorkplacesCount(building);
+            if (workplaces > 0)
+                _contentLines.Add($"Workplaces: {workplaces}");
+
+            // 6. Movability
+            var movable = GameReflection.GetBuildingMovable(building);
+            _contentLines.Add(movable ? "Can be moved" : "Cannot be moved");
+
+            // 7. Construction cost
+            var requiredGoods = GameReflection.GetBuildingRequiredGoods(building);
+            if (requiredGoods != null && requiredGoods.Length > 0)
+            {
+                var costs = new List<string>();
+                foreach (var goodRef in requiredGoods)
+                {
+                    var name = GameReflection.GetGoodRefDisplayName(goodRef);
+                    var amount = GameReflection.GetGoodRefAmount(goodRef);
+                    if (!string.IsNullOrEmpty(name) && amount > 0)
+                        costs.Add($"{amount} {name}");
+                }
+                if (costs.Count > 0)
+                    _contentLines.Add("Construction: " + string.Join(", ", costs));
+            }
+
+            // 8. Tags
+            var tags = GameReflection.GetBuildingTags(building);
+            if (tags != null && tags.Length > 0)
+            {
+                var tagNames = new List<string>();
+                foreach (var tag in tags)
+                {
+                    if (GameReflection.GetTagVisible(tag))
+                    {
+                        var name = GameReflection.GetTagDisplayName(tag);
+                        if (!string.IsNullOrEmpty(name))
+                            tagNames.Add(name);
+                    }
+                }
+                if (tagNames.Count > 0)
+                    _contentLines.Add("Tags: " + string.Join(", ", tagNames));
+            }
+
+            // 9. Recipes (for workshops)
+            if (GameReflection.IsWorkshopModel(building))
+            {
+                BuildWorkshopRecipes(building);
+            }
+        }
+
+        /// <summary>
+        /// Build recipe list for a workshop building.
+        /// </summary>
+        private void BuildWorkshopRecipes(object workshop)
+        {
+            var recipes = GameReflection.GetWorkshopRecipes(workshop);
+            if (recipes == null || recipes.Length == 0) return;
+
+            _contentLines.Add("Recipes:");
+            foreach (var recipe in recipes)
+            {
+                var outputName = GameReflection.GetRecipeOutputName(recipe);
+                var outputAmount = GameReflection.GetRecipeOutputAmount(recipe);
+                var productionTime = GameReflection.GetRecipeProductionTime(recipe);
+                var gradeLevel = GameReflection.GetRecipeGradeLevel(recipe);
+
+                // Build grade stars string
+                var gradeStr = gradeLevel > 0 ? $" ({gradeLevel} star{(gradeLevel > 1 ? "s" : "")})" : "";
+
+                // Build inputs string
+                var inputParts = new List<string>();
+                var requiredGoods = GameReflection.GetRecipeRequiredGoods(recipe);
+                if (requiredGoods != null)
+                {
+                    foreach (var goodsSet in requiredGoods)
+                    {
+                        var goods = GameReflection.GetGoodsSetGoods(goodsSet);
+                        if (goods != null && goods.Length > 0)
+                        {
+                            // Multiple goods in a set = alternatives (OR)
+                            var alternatives = new List<string>();
+                            foreach (var goodRef in goods)
+                            {
+                                var name = GameReflection.GetGoodRefDisplayName(goodRef);
+                                var amount = GameReflection.GetGoodRefAmount(goodRef);
+                                if (!string.IsNullOrEmpty(name))
+                                    alternatives.Add($"{amount} {name}");
+                            }
+                            if (alternatives.Count > 0)
+                                inputParts.Add(string.Join(" OR ", alternatives));
+                        }
+                    }
+                }
+
+                var inputs = inputParts.Count > 0 ? string.Join(" + ", inputParts) : "nothing";
+                var time = FormatMinSec(productionTime);
+
+                _contentLines.Add($"  {outputAmount} {outputName}{gradeStr}: {inputs} ({time})");
+            }
+        }
+
+        /// <summary>
+        /// Helper to add a line if it's not null or empty.
+        /// </summary>
+        private void AddIfNotEmpty(string text)
+        {
+            if (!string.IsNullOrEmpty(text))
+                _contentLines.Add(text);
+        }
+
+        /// <summary>
+        /// Format seconds as MM:SS.
+        /// </summary>
+        private string FormatMinSec(float totalSeconds)
+        {
+            int mins = (int)(totalSeconds / 60);
+            int secs = (int)(totalSeconds % 60);
+            return $"{mins:D2}:{secs:D2}";
+        }
+
+        /// <summary>
+        /// Strip Unity rich text tags like &lt;sprite name=xxx&gt;, &lt;color&gt;, etc.
+        /// </summary>
+        private string StripRichTextTags(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return text;
+
+            // Remove all tags matching <xxx> or <xxx=yyy> or </xxx>
+            return System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]+>", "").Trim();
         }
 
         private string ExtractPreviewContent()
