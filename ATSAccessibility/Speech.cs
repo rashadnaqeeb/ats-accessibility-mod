@@ -98,13 +98,17 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Filter out rich text tags from speech output.
-        /// Removes Unity rich text like <color>, <b>, <i>, <size>, <sprite>, etc.
+        /// Converts meaningful sprites (like star icons) to text, then removes remaining tags.
         /// </summary>
         private static string FilterRichText(string text)
         {
             if (string.IsNullOrEmpty(text)) return text;
 
-            // Remove all rich text tags (anything between < and >)
+            // Convert sprite tags to readable text BEFORE removing tags
+            // (e.g., recipe grade stars become "1 star", "2 star", etc.)
+            text = ConvertSpriteTags(text);
+
+            // Remove all remaining rich text tags (anything between < and >)
             text = Regex.Replace(text, "<[^>]+>", "");
 
             // Remove empty brackets/parentheses left behind by sprite tags
@@ -115,6 +119,36 @@ namespace ATSAccessibility
             text = Regex.Replace(text, @"\s+", " ");
 
             return text.Trim();
+        }
+
+        /// <summary>
+        /// Convert sprite tags to readable text.
+        /// E.g., recipe grade sprites like "[recipe grade] 1" become "1 star".
+        /// </summary>
+        private static string ConvertSpriteTags(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+
+            // Pattern: <sprite name=...>
+            // Grade sprites are named like "[recipe grade] 0", "[recipe grade] 1", etc.
+            return Regex.Replace(
+                text,
+                @"<sprite\s+name=([^>]+)>",
+                match =>
+                {
+                    string spriteName = match.Groups[1].Value.Trim();
+
+                    // Check for grade sprites (contain numbers 0-3)
+                    if (spriteName.Contains("0")) return "0 star";
+                    if (spriteName.Contains("1")) return "1 star";
+                    if (spriteName.Contains("2")) return "2 star";
+                    if (spriteName.Contains("3")) return "3 star";
+
+                    // For other sprites, just remove them
+                    return "";
+                },
+                RegexOptions.IgnoreCase
+            );
         }
 
         /// <summary>

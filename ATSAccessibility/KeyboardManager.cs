@@ -303,6 +303,9 @@ namespace ATSAccessibility
                 case KeyCode.End:
                     _mapScanner?.MoveCursorToItem();
                     break;
+                case KeyCode.I:
+                    TileInfoReader.ReadCurrentTile(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                    break;
             }
         }
 

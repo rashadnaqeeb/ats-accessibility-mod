@@ -29,12 +29,12 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 ### Log Files
 
-**When debugging issues, check Player.log first** - it contains Unity engine errors and exceptions that often explain why things aren't working. BepInEx log is secondary.
+**When debugging issues, check Player.log first** - it contains Unity engine errors, exceptions, and all mod Debug.Log output (prefixed with `[ATSAccessibility]`). BepInEx log only shows mod loading and Harmony patch info.
 
 | Path | Description |
 |------|-------------|
-| `C:\Users\rasha\AppData\LocalLow\Eremite Games\Against the Storm\Player.log` | **Check first** - Unity player log (engine errors, crashes, exceptions) |
-| `C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\BepInEx\LogOutput.log` | BepInEx log (mod loading, Harmony patches, Debug.Log output) |
+| `C:\Users\rasha\AppData\LocalLow\Eremite Games\Against the Storm\Player.log` | **Check first** - Unity player log with all `[ATSAccessibility]` debug output, engine errors, crashes |
+| `C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\BepInEx\LogOutput.log` | BepInEx log (mod loading, Harmony patches only) |
 
 ## Architecture
 
@@ -58,6 +58,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 - **UIElementFinder.cs** - Finds navigable UI elements in Unity hierarchy
 - **WikiReflection.cs** - Reflection helpers for encyclopedia/wiki system
+- **TileInfoReader.cs** - Reads detailed tile info (I key) for buildings, resources, deposits with per-type reflection caching
 - **InputBlocker.cs** - Prevents game input during accessibility navigation
 - **InputPatches.cs** - Harmony patches for input handling
 
@@ -73,6 +74,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **Arrow keys** - Move cursor on map grid
 - **Ctrl+Arrow** - Skip to next different tile type
 - **Space** - Interact with tile under cursor
+- **I** - Read detailed info about object under cursor (description, charges, products)
 
 ### Map Scanner
 - **PageUp/Down** - Cycle groups (e.g., "Clay Deposit" → "Copper Deposit")
