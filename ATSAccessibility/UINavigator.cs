@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -528,6 +529,13 @@ namespace ATSAccessibility
             yield return null;
 
             if (_currentPopup == null) yield break;
+
+            // Special handling for MetaRewardsPopup
+            if (_currentPopup.name.Contains("MetaRewards"))
+            {
+                yield return MetaRewardsPopupReader.AnnounceMetaRewardsPopup(_currentPopup, _coroutineRunner);
+                yield break;
+            }
 
             var announcements = new List<string>();
             // Only get active elements - inactive tabs (like Key Bindings) have placeholder text

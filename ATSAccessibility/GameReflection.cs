@@ -232,6 +232,40 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get a type by its full name (e.g., "Eremite.View.HUD.GoodSlot").
+        /// More efficient than FindTypeByName when full name is known.
+        /// </summary>
+        public static Type GetTypeByName(string fullTypeName)
+        {
+            EnsureAssembly();
+            return _gameAssembly?.GetType(fullTypeName);
+        }
+
+        /// <summary>
+        /// Get the game Settings via MB.Settings static property.
+        /// Contains all game model data including goods, buildings, etc.
+        /// </summary>
+        public static object GetSettings()
+        {
+            EnsureAssembly();
+            if (_gameAssembly == null) return null;
+
+            try
+            {
+                var mbType = _gameAssembly.GetType("Eremite.MB");
+                if (mbType == null) return null;
+
+                var settingsProperty = mbType.GetProperty("Settings",
+                    BindingFlags.Public | BindingFlags.Static);
+                return settingsProperty?.GetValue(null);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Clear any cached instance references.
         /// Call this on scene unload to be safe.
         /// Note: We deliberately don't cache instances, so this is a no-op,
