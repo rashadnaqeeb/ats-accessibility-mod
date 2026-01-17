@@ -364,24 +364,18 @@ namespace ATSAccessibility
 
             switch (keyCode)
             {
-                // Hex movement: Q/E/D/C/Z/A
-                case KeyCode.Q:
-                    _worldMapNavigator.MoveCursor(0);  // NW
+                // Arrow key navigation (zigzag pattern for up/down)
+                case KeyCode.RightArrow:
+                    _worldMapNavigator.MoveArrow(1, 0);
                     break;
-                case KeyCode.E:
-                    _worldMapNavigator.MoveCursor(1);  // NE
+                case KeyCode.LeftArrow:
+                    _worldMapNavigator.MoveArrow(-1, 0);
                     break;
-                case KeyCode.D:
-                    _worldMapNavigator.MoveCursor(2);  // E
+                case KeyCode.UpArrow:
+                    _worldMapNavigator.MoveArrow(0, 1);
                     break;
-                case KeyCode.C:
-                    _worldMapNavigator.MoveCursor(3);  // SE
-                    break;
-                case KeyCode.Z:
-                    _worldMapNavigator.MoveCursor(4);  // SW
-                    break;
-                case KeyCode.A:
-                    _worldMapNavigator.MoveCursor(5);  // W
+                case KeyCode.DownArrow:
+                    _worldMapNavigator.MoveArrow(0, -1);
                     break;
 
                 // Jump to capital

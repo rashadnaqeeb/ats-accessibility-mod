@@ -62,6 +62,44 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Move cursor using arrow key directions (fallback navigation).
+        /// Up/Down zigzag based on z coordinate parity for predictable navigation.
+        /// </summary>
+        public void MoveArrow(int dx, int dy)
+        {
+            int directionIndex;
+
+            if (dx > 0)  // Right → East
+            {
+                directionIndex = 2;
+            }
+            else if (dx < 0)  // Left → West
+            {
+                directionIndex = 5;
+            }
+            else
+            {
+                // Use z coordinate for parity since NE/NW both change z but not necessarily x
+                // This ensures zigzag alternates with each up/down press
+                bool evenZ = ((_cursorPos.z % 2) + 2) % 2 == 0;
+
+                if (dy > 0)  // Up
+                {
+                    directionIndex = evenZ ? 1 : 0;  // Even z→NE, Odd z→NW
+                }
+                else  // Down
+                {
+                    // Match the opposite of what Up does from the tile we came from
+                    // Even z: came here via NW from odd z, so go SE to return
+                    // Odd z: came here via NE from even z, so go SW to return
+                    directionIndex = evenZ ? 3 : 4;  // Even z→SE, Odd z→SW
+                }
+            }
+
+            MoveCursor(directionIndex);
+        }
+
+        /// <summary>
         /// Jump cursor to the capital (Smoldering City).
         /// </summary>
         public void JumpToCapital()
@@ -271,14 +309,32 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Get the direction name from current position toward the capital.
-        /// Returns the closest cardinal/ordinal direction (e.g., "southwest").
+        /// Returns the closest direction (north, south, or one of 6 hex directions).
         /// </summary>
         private string GetDirectionToCapital(Vector3Int from)
         {
             // Direction vector pointing toward capital (0,0,0)
             var toCapital = Vector3Int.zero - from;
 
-            // Find which hex direction best matches by dot product
+            int x = toCapital.x;
+            int y = toCapital.y;
+            int z = toCapital.z;
+
+            int absX = Mathf.Abs(x);
+            int absY = Mathf.Abs(y);
+
+            // Check if direction is close to pure north or south (within 2:1 ratio)
+            // In hex cubic coords: north = x and y both negative, z positive
+            //                      south = x and y both positive, z negative
+            if (absX * 2 >= absY && absY * 2 >= absX)
+            {
+                if (z > 0 && x < 0 && y < 0)
+                    return "north";
+                if (z < 0 && x > 0 && y > 0)
+                    return "south";
+            }
+
+            // Fall back to hex direction matching
             int bestIndex = 0;
             int bestDot = int.MinValue;
 

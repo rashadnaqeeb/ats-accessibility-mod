@@ -209,7 +209,7 @@ namespace ATSAccessibility
 
             int dx = item.Position.x - cursorX;
             int dy = item.Position.y - cursorY;
-            int distance = Math.Abs(dx) + Math.Abs(dy);
+            int distance = Math.Max(Math.Abs(dx), Math.Abs(dy));
 
             string direction = GetDirection(dx, dy);
             string announcement = distance == 0 ? "here" : $"{distance} tiles {direction}";
@@ -349,7 +349,9 @@ namespace ATSAccessibility
                     Vector2Int position = GetGladePosition(glade);
                     if (position.x < 0 || position.y < 0) continue;
 
-                    int distance = Math.Abs(position.x - cursorX) + Math.Abs(position.y - cursorY);
+                    int dx = Math.Abs(position.x - cursorX);
+                    int dy = Math.Abs(position.y - cursorY);
+                    int distance = Math.Max(dx, dy);
 
                     if (!groups.TryGetValue(groupName, out var group))
                     {
@@ -404,7 +406,9 @@ namespace ATSAccessibility
                                 string displayName = GetObjectDisplayName(resource);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
-                                int distance = Math.Abs(pos.x - cursorX) + Math.Abs(pos.y - cursorY);
+                                int dx = Math.Abs(pos.x - cursorX);
+                                int dy = Math.Abs(pos.y - cursorY);
+                                int distance = Math.Max(dx, dy);
 
                                 if (!groups.TryGetValue(displayName, out var group))
                                 {
@@ -439,7 +443,9 @@ namespace ATSAccessibility
                                 string displayName = GetObjectDisplayName(deposit);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
-                                int distance = Math.Abs(pos.x - cursorX) + Math.Abs(pos.y - cursorY);
+                                int dx = Math.Abs(pos.x - cursorX);
+                                int dy = Math.Abs(pos.y - cursorY);
+                                int distance = Math.Max(dx, dy);
 
                                 if (!groups.TryGetValue(displayName, out var depositGroup))
                                 {
@@ -500,7 +506,9 @@ namespace ATSAccessibility
                                 string displayName = GetObjectDisplayName(building);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
-                                int distance = Math.Abs(pos.x - cursorX) + Math.Abs(pos.y - cursorY);
+                                int dx = Math.Abs(pos.x - cursorX);
+                                int dy = Math.Abs(pos.y - cursorY);
+                                int distance = Math.Max(dx, dy);
 
                                 if (!groups.TryGetValue(displayName, out var group))
                                 {
@@ -570,11 +578,16 @@ namespace ATSAccessibility
         {
             if (dx == 0 && dy == 0) return "";
 
-            // Use primary and secondary directions
-            string ns = dy > 0 ? "north" : (dy < 0 ? "south" : "");
-            string ew = dx > 0 ? "east" : (dx < 0 ? "west" : "");
+            int absDx = Math.Abs(dx);
+            int absDy = Math.Abs(dy);
 
-            // Combine for 8-way direction
+            // Only use diagonal if both axes are significant (within 2:1 ratio)
+            bool useNS = absDy > 0 && absDy * 2 >= absDx;
+            bool useEW = absDx > 0 && absDx * 2 >= absDy;
+
+            string ns = useNS ? (dy > 0 ? "north" : "south") : "";
+            string ew = useEW ? (dx > 0 ? "east" : "west") : "";
+
             if (string.IsNullOrEmpty(ns)) return ew;
             if (string.IsNullOrEmpty(ew)) return ns;
             return ns + ew;  // e.g., "northeast"
