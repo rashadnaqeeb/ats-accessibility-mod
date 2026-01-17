@@ -59,6 +59,8 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **UIElementFinder.cs** - Finds navigable UI elements in Unity hierarchy
 - **WikiReflection.cs** - Reflection helpers for encyclopedia/wiki system
 - **TileInfoReader.cs** - Reads detailed tile info (I key) for buildings, resources, deposits with per-type reflection caching
+- **StatsReader.cs** - Reads game statistics (Reputation, Impatience, Hostility, Resolve) via reflection
+- **StatsPanel.cs** - Virtual speech-only panel for detailed stats navigation
 - **InputBlocker.cs** - Prevents game input during accessibility navigation
 - **InputPatches.cs** - Harmony patches for input handling
 
@@ -75,6 +77,17 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **Ctrl+Arrow** - Skip to next different tile type
 - **Space** - Interact with tile under cursor
 - **I** - Read detailed info about object under cursor (description, charges, products)
+
+### Game Stats
+- **S** - Announce quick summary (Reputation, Impatience, Hostility)
+- **R** - Announce resolve for all present species
+- **Alt+S** - Open stats panel for detailed breakdown
+
+### Stats Panel (when open)
+- **Up/Down** - Navigate categories (left panel) or details (right panel)
+- **Enter** - View breakdown details for current category
+- **Left Arrow** - Return from details to categories
+- **Escape** - Close stats panel
 
 ### Map Scanner
 - **PageUp/Down** - Cycle groups (e.g., "Clay Deposit" → "Copper Deposit")

@@ -1169,5 +1169,132 @@ namespace ATSAccessibility
         /// This is a forwarding method to WikiReflection for backward compatibility.
         /// </summary>
         public static bool IsWikiPopup(object popup) => WikiReflection.IsWikiPopup(popup);
+
+        // ========================================
+        // STATS SERVICES (Reputation, Hostility, Resolve)
+        // ========================================
+
+        private static PropertyInfo _gsReputationServiceProperty = null;
+        private static PropertyInfo _gsHostilityServiceProperty = null;
+        private static PropertyInfo _gsResolveServiceProperty = null;
+        private static PropertyInfo _gsRacesServiceProperty = null;
+        private static bool _statsServiceTypesCached = false;
+
+        private static void EnsureStatsServiceTypes()
+        {
+            if (_statsServiceTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _statsServiceTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get IGameServices interface for service properties
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsReputationServiceProperty = gameServicesType.GetProperty("ReputationService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsHostilityServiceProperty = gameServicesType.GetProperty("HostilityService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsResolveServiceProperty = gameServicesType.GetProperty("ResolveService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsRacesServiceProperty = gameServicesType.GetProperty("RacesService",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached stats service types");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Stats service type caching failed: {ex.Message}");
+            }
+
+            _statsServiceTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get ReputationService from GameServices.
+        /// Contains reputation values and penalty (impatience).
+        /// </summary>
+        public static object GetReputationService()
+        {
+            EnsureStatsServiceTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsReputationServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get HostilityService from GameServices.
+        /// Contains hostility points and level.
+        /// </summary>
+        public static object GetHostilityService()
+        {
+            EnsureStatsServiceTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsHostilityServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get ResolveService from GameServices.
+        /// Contains species resolve values and effects.
+        /// </summary>
+        public static object GetResolveService()
+        {
+            EnsureStatsServiceTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsResolveServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get RacesService from GameServices.
+        /// Contains race definitions and configurations.
+        /// </summary>
+        public static object GetRacesService()
+        {
+            EnsureStatsServiceTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsRacesServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }

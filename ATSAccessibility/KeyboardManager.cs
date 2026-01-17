@@ -55,6 +55,9 @@ namespace ATSAccessibility
         // Reference to map scanner for quick object finding
         private MapScanner _mapScanner;
 
+        // Reference to stats panel for game statistics
+        private StatsPanel _statsPanel;
+
         public KeyboardManager(UINavigator uiNavigator)
         {
             _uiNavigator = uiNavigator;
@@ -93,6 +96,14 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set the stats panel reference.
+        /// </summary>
+        public void SetStatsPanel(StatsPanel panel)
+        {
+            _statsPanel = panel;
+        }
+
+        /// <summary>
         /// Set the current navigation context.
         /// </summary>
         public void SetContext(NavigationContext context)
@@ -110,6 +121,15 @@ namespace ATSAccessibility
         /// </summary>
         public void ProcessKeyEvent(KeyCode keyCode, KeyModifiers modifiers = default)
         {
+            // Check if stats panel is open - highest priority
+            if (_statsPanel != null && _statsPanel.IsOpen)
+            {
+                if (_statsPanel.ProcessKeyEvent(keyCode))
+                {
+                    return; // Key was handled by stats panel
+                }
+            }
+
             // Check if tutorial is active - takes priority over other contexts
             if (_tutorialHandler != null && _tutorialHandler.IsTutorialActive)
             {
@@ -278,6 +298,17 @@ namespace ATSAccessibility
                 case KeyCode.Alpha4:
                 case KeyCode.Keypad4:
                     GameReflection.SetSpeed(4);
+                    break;
+
+                // Stats hotkeys
+                case KeyCode.S:
+                    if (modifiers.Alt)
+                        _statsPanel?.Open();
+                    else
+                        StatsReader.AnnounceQuickSummary();
+                    break;
+                case KeyCode.R:
+                    StatsReader.AnnounceResolveSummary();
                     break;
 
                 // Map Scanner controls

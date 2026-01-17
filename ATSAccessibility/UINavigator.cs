@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
@@ -13,6 +14,9 @@ namespace ATSAccessibility
     /// </summary>
     public class UINavigator
     {
+        // MonoBehaviour reference for starting coroutines
+        private MonoBehaviour _coroutineRunner;
+
         // Current popup being navigated
         private GameObject _currentPopup = null;
 
@@ -56,6 +60,18 @@ namespace ATSAccessibility
         /// Whether a dropdown is currently open for navigation.
         /// </summary>
         public bool IsDropdownOpen => _activeDropdown != null;
+
+        // ========================================
+        // CONSTRUCTOR
+        // ========================================
+
+        /// <summary>
+        /// Creates a new UINavigator with a MonoBehaviour reference for coroutine execution.
+        /// </summary>
+        public UINavigator(MonoBehaviour coroutineRunner)
+        {
+            _coroutineRunner = coroutineRunner;
+        }
 
         // ========================================
         // LIFECYCLE
@@ -503,20 +519,33 @@ namespace ATSAccessibility
         private void AnnouncePopup()
         {
             if (_currentPopup == null) return;
+            _coroutineRunner?.StartCoroutine(AnnouncePopupDelayed());
+        }
+
+        private IEnumerator AnnouncePopupDelayed()
+        {
+            // Wait one frame for text elements to be populated
+            yield return null;
+
+            if (_currentPopup == null) yield break;
 
             var announcements = new List<string>();
-            // Only scan active text elements - inactive tabs may have placeholder text
+            // Only get active elements - inactive tabs (like Key Bindings) have placeholder text
             var textElements = _currentPopup.GetComponentsInChildren<TMP_Text>(false);
 
             foreach (var text in textElements)
             {
                 string objName = text.gameObject.name;
+                // Match title patterns: "title", "*title", "name", "*name"
                 if (objName.Equals("title", StringComparison.OrdinalIgnoreCase) ||
-                    objName.EndsWith("title", StringComparison.OrdinalIgnoreCase))
+                    objName.EndsWith("title", StringComparison.OrdinalIgnoreCase) ||
+                    objName.Equals("name", StringComparison.OrdinalIgnoreCase) ||
+                    objName.EndsWith("name", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!string.IsNullOrEmpty(text.text))
                         announcements.Add(text.text);
                 }
+                // Match description patterns: "desc", "*desc", "description"
                 else if (objName.Equals("desc", StringComparison.OrdinalIgnoreCase) ||
                          objName.Equals("description", StringComparison.OrdinalIgnoreCase) ||
                          objName.EndsWith("desc", StringComparison.OrdinalIgnoreCase))

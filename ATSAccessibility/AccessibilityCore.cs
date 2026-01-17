@@ -45,6 +45,9 @@ namespace ATSAccessibility
         // Map scanner for quick object finding
         private MapScanner _mapScanner;
 
+        // Stats panel for game statistics
+        private StatsPanel _statsPanel;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -60,7 +63,7 @@ namespace ATSAccessibility
             _speechInitialized = Speech.Initialize();
 
             // Initialize UI navigation
-            _uiNavigator = new UINavigator();
+            _uiNavigator = new UINavigator(this);
             _keyboardManager = new KeyboardManager(_uiNavigator);
 
             // Initialize map navigation
@@ -80,6 +83,10 @@ namespace ATSAccessibility
             // Initialize map scanner
             _mapScanner = new MapScanner(_mapNavigator);
             _keyboardManager.SetMapScanner(_mapScanner);
+
+            // Initialize stats panel
+            _statsPanel = new StatsPanel();
+            _keyboardManager.SetStatsPanel(_statsPanel);
 
             // Check if we're already on a scene (mod loaded mid-game)
             CheckCurrentScene();
