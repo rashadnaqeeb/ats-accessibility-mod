@@ -13,6 +13,7 @@ namespace ATSAccessibility
         // 0 = Menu, 1 = Game (settlement), 2 = Transition, 3 = WorldMap, 4 = Intro, 5 = IronmanCutscene, 6 = Credits
         private const int SCENE_MENU = 0;
         private const int SCENE_GAME = 1;
+        private const int SCENE_WORLDMAP = 3;
 
         // State tracking
         private bool _speechInitialized = false;
@@ -47,6 +48,10 @@ namespace ATSAccessibility
 
         // Stats panel for game statistics
         private StatsPanel _statsPanel;
+
+        // World map navigator
+        private WorldMapNavigator _worldMapNavigator;
+        private bool _announcedWorldMap = false;
 
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
@@ -87,6 +92,10 @@ namespace ATSAccessibility
             // Initialize stats panel
             _statsPanel = new StatsPanel();
             _keyboardManager.SetStatsPanel(_statsPanel);
+
+            // Initialize world map navigator
+            _worldMapNavigator = new WorldMapNavigator();
+            _keyboardManager.SetWorldMapNavigator(_worldMapNavigator);
 
             // Check if we're already on a scene (mod loaded mid-game)
             CheckCurrentScene();
@@ -176,6 +185,11 @@ namespace ATSAccessibility
             {
                 _announcedMainMenu = false;
             }
+            else if (scene.buildIndex == SCENE_WORLDMAP)
+            {
+                _announcedWorldMap = false;
+                _worldMapNavigator?.Reset();
+            }
 
             // Dispose popup subscriptions (PopupsService is destroyed on scene change)
             DisposePopupSubscriptions();
@@ -203,6 +217,12 @@ namespace ATSAccessibility
                 // For game scene, we wait for GameController.IsGameActive
                 // This is handled by polling since the controller initializes async
                 _announcedGameStart = false;
+            }
+            else if (scene.buildIndex == SCENE_WORLDMAP)
+            {
+                // Delay to allow WorldController to initialize
+                _announcedWorldMap = false;
+                Invoke(nameof(SetupWorldMapNavigation), 0.5f);
             }
         }
 
@@ -281,6 +301,30 @@ namespace ATSAccessibility
             else
             {
                 Debug.LogWarning("[ATSAccessibility] Could not find main menu canvas");
+            }
+        }
+
+        private void SetupWorldMapNavigation()
+        {
+            if (_announcedWorldMap) return;
+
+            if (GameReflection.IsWorldMapActive())
+            {
+                _worldMapNavigator?.Reset();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);
+
+                if (_speechInitialized && Speech.IsAvailable)
+                {
+                    Speech.Say("World map");
+                    _announcedWorldMap = true;
+                    Debug.Log("[ATSAccessibility] Announced: World map");
+                }
+            }
+            else
+            {
+                // WorldController not ready yet, retry
+                Debug.Log("[ATSAccessibility] WorldController not ready, retrying...");
+                Invoke(nameof(SetupWorldMapNavigation), 0.5f);
             }
         }
 
@@ -443,6 +487,11 @@ namespace ATSAccessibility
                     // In settlement - return to map navigation
                     _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Map);
                     Debug.Log("[ATSAccessibility] Popup closed in settlement, returning to Map context");
+                }
+                else if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP)
+                {
+                    _keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);
+                    Debug.Log("[ATSAccessibility] Popup closed on world map, returning to WorldMap context");
                 }
                 else
                 {

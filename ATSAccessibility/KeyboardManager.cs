@@ -33,6 +33,7 @@ namespace ATSAccessibility
             None,           // No special handling
             Popup,          // Navigating a popup/menu
             Map,            // Navigating settlement map
+            WorldMap,       // Navigating world map hex grid
             Dialogue,       // Future: reading dialogue
             Encyclopedia    // Navigating wiki/encyclopedia popup
         }
@@ -57,6 +58,9 @@ namespace ATSAccessibility
 
         // Reference to stats panel for game statistics
         private StatsPanel _statsPanel;
+
+        // Reference to world map navigator for hex grid navigation
+        private WorldMapNavigator _worldMapNavigator;
 
         public KeyboardManager(UINavigator uiNavigator)
         {
@@ -101,6 +105,14 @@ namespace ATSAccessibility
         public void SetStatsPanel(StatsPanel panel)
         {
             _statsPanel = panel;
+        }
+
+        /// <summary>
+        /// Set the world map navigator reference.
+        /// </summary>
+        public void SetWorldMapNavigator(WorldMapNavigator navigator)
+        {
+            _worldMapNavigator = navigator;
         }
 
         /// <summary>
@@ -155,6 +167,9 @@ namespace ATSAccessibility
                     break;
                 case NavigationContext.Map:
                     ProcessMapKeyEvent(keyCode, modifiers);
+                    break;
+                case NavigationContext.WorldMap:
+                    ProcessWorldMapKeyEvent(keyCode);
                     break;
                 case NavigationContext.Dialogue:
                     // Future: ProcessDialogueKeyEvent(keyCode);
@@ -336,6 +351,53 @@ namespace ATSAccessibility
                     break;
                 case KeyCode.I:
                     TileInfoReader.ReadCurrentTile(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Handle key event when navigating the world map hex grid.
+        /// </summary>
+        private void ProcessWorldMapKeyEvent(KeyCode keyCode)
+        {
+            if (_worldMapNavigator == null) return;
+
+            switch (keyCode)
+            {
+                // Hex movement: Q/E/D/C/Z/A
+                case KeyCode.Q:
+                    _worldMapNavigator.MoveCursor(0);  // NW
+                    break;
+                case KeyCode.E:
+                    _worldMapNavigator.MoveCursor(1);  // NE
+                    break;
+                case KeyCode.D:
+                    _worldMapNavigator.MoveCursor(2);  // E
+                    break;
+                case KeyCode.C:
+                    _worldMapNavigator.MoveCursor(3);  // SE
+                    break;
+                case KeyCode.Z:
+                    _worldMapNavigator.MoveCursor(4);  // SW
+                    break;
+                case KeyCode.A:
+                    _worldMapNavigator.MoveCursor(5);  // W
+                    break;
+
+                // Jump to capital
+                case KeyCode.Home:
+                    _worldMapNavigator.JumpToCapital();
+                    break;
+
+                // Select tile (embark)
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                    _worldMapNavigator.Interact();
+                    break;
+
+                // Read detailed info
+                case KeyCode.I:
+                    _worldMapNavigator.ReadDetailedInfo();
                     break;
             }
         }

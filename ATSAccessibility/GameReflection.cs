@@ -1330,5 +1330,665 @@ namespace ATSAccessibility
                 return null;
             }
         }
+
+        // ========================================
+        // WORLD MAP REFLECTION
+        // ========================================
+        // Path: WorldController.Instance.WorldServices.WorldMapService
+        // Path: MetaController.Instance.MetaServices.WorldStateService
+
+        private static Type _worldControllerType = null;
+        private static PropertyInfo _wcInstanceProperty = null;       // static Instance
+        private static PropertyInfo _wcWorldServicesProperty = null;  // WorldServices
+        private static PropertyInfo _wcCameraControllerProperty = null;  // CameraController
+        private static PropertyInfo _wsWorldMapServiceProperty = null;   // WorldMapService
+        private static PropertyInfo _wsWorldBlackboardServiceProperty = null;  // WorldBlackboardService
+        private static PropertyInfo _msWorldStateServiceProperty = null;  // WorldStateService (from IMetaServices)
+        private static bool _worldMapTypesCached = false;
+
+        // WorldMapService methods
+        private static MethodInfo _wmsGetFieldMethod = null;
+        private static MethodInfo _wmsIsRevealedMethod = null;
+        private static MethodInfo _wmsCanBePickedMethod = null;
+        private static MethodInfo _wmsInBoundsMethod = null;
+        private static MethodInfo _wmsIsCapitalMethod = null;
+        private static MethodInfo _wmsIsCityMethod = null;
+        private static MethodInfo _wmsGetDistanceToStartTownMethod = null;
+        private static PropertyInfo _wmsFieldsMapProperty = null;
+
+        // WorldStateService methods
+        private static MethodInfo _wssHasModifierMethod = null;
+        private static MethodInfo _wssHasEventMethod = null;
+        private static MethodInfo _wssHasSealMethod = null;
+        private static MethodInfo _wssGetModifierModelMethod = null;
+        private static MethodInfo _wssGetEventModelMethod = null;
+        private static MethodInfo _wssGetSealModelMethod = null;
+        private static MethodInfo _wssGetDisplayNameForMethod = null;
+
+        // WorldBlackboardService
+        private static PropertyInfo _wbbOnFieldClickedProperty = null;
+
+        private static void EnsureWorldMapTypes()
+        {
+            if (_worldMapTypesCached) return;
+            EnsureTutorialTypes(); // Ensures MetaController types are cached
+
+            if (_gameAssembly == null)
+            {
+                _worldMapTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Cache WorldController type
+                _worldControllerType = _gameAssembly.GetType("Eremite.Controller.WorldController");
+                if (_worldControllerType != null)
+                {
+                    _wcInstanceProperty = _worldControllerType.GetProperty("Instance",
+                        BindingFlags.Public | BindingFlags.Static);
+                    _wcWorldServicesProperty = _worldControllerType.GetProperty("WorldServices",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _wcCameraControllerProperty = _worldControllerType.GetProperty("CameraController",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached WorldController type info");
+                }
+
+                // Cache IWorldServices interface properties
+                var worldServicesType = _gameAssembly.GetType("Eremite.Services.World.IWorldServices");
+                if (worldServicesType != null)
+                {
+                    _wsWorldMapServiceProperty = worldServicesType.GetProperty("WorldMapService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _wsWorldBlackboardServiceProperty = worldServicesType.GetProperty("WorldBlackboardService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache IWorldMapService methods
+                var worldMapServiceType = _gameAssembly.GetType("Eremite.Services.World.IWorldMapService");
+                if (worldMapServiceType != null)
+                {
+                    _wmsGetFieldMethod = worldMapServiceType.GetMethod("GetField",
+                        new Type[] { typeof(Vector3Int) });
+                    _wmsIsRevealedMethod = worldMapServiceType.GetMethod("IsRevealed",
+                        new Type[] { typeof(Vector3Int), typeof(int) });
+                    _wmsCanBePickedMethod = worldMapServiceType.GetMethod("CanBePicked",
+                        new Type[] { typeof(Vector3Int) });
+                    _wmsInBoundsMethod = worldMapServiceType.GetMethod("InBounds",
+                        new Type[] { typeof(Vector3Int) });
+                    _wmsIsCapitalMethod = worldMapServiceType.GetMethod("IsCapital",
+                        new Type[] { typeof(Vector3Int) });
+                    _wmsIsCityMethod = worldMapServiceType.GetMethod("IsCity",
+                        new Type[] { typeof(Vector3Int) });
+                    _wmsGetDistanceToStartTownMethod = worldMapServiceType.GetMethod("GetDistanceToStartTown",
+                        new Type[] { typeof(Vector3Int) });
+                    _wmsFieldsMapProperty = worldMapServiceType.GetProperty("FieldsMap",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached IWorldMapService type info");
+                }
+
+                // Cache IWorldStateService methods (from IMetaServices)
+                var metaServicesType = _gameAssembly.GetType("Eremite.Services.IMetaServices");
+                if (metaServicesType != null)
+                {
+                    _msWorldStateServiceProperty = metaServicesType.GetProperty("WorldStateService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                var worldStateServiceType = _gameAssembly.GetType("Eremite.Services.IWorldStateService");
+                if (worldStateServiceType != null)
+                {
+                    _wssHasModifierMethod = worldStateServiceType.GetMethod("HasModifier",
+                        new Type[] { typeof(Vector3Int) });
+                    _wssHasEventMethod = worldStateServiceType.GetMethod("HasEvent",
+                        new Type[] { typeof(Vector3Int) });
+                    _wssHasSealMethod = worldStateServiceType.GetMethod("HasSeal",
+                        new Type[] { typeof(Vector3Int) });
+                    _wssGetModifierModelMethod = worldStateServiceType.GetMethod("GetModifierModel",
+                        new Type[] { typeof(Vector3Int) });
+                    _wssGetEventModelMethod = worldStateServiceType.GetMethod("GetEventModel",
+                        new Type[] { typeof(Vector3Int) });
+                    _wssGetSealModelMethod = worldStateServiceType.GetMethod("GetSealModel",
+                        new Type[] { typeof(Vector3Int) });
+                    _wssGetDisplayNameForMethod = worldStateServiceType.GetMethod("GetDisplayNameFor",
+                        new Type[] { typeof(Vector3Int) });
+
+                    Debug.Log("[ATSAccessibility] Cached IWorldStateService type info");
+                }
+
+                // Cache WorldBlackboardService OnFieldClicked property
+                var worldBlackboardServiceType = _gameAssembly.GetType("Eremite.Services.World.IWorldBlackboardService");
+                if (worldBlackboardServiceType != null)
+                {
+                    _wbbOnFieldClickedProperty = worldBlackboardServiceType.GetProperty("OnFieldClicked",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] World map type caching failed: {ex.Message}");
+            }
+
+            _worldMapTypesCached = true;
+        }
+
+        /// <summary>
+        /// Check if we are on the world map (WorldController.Instance != null).
+        /// </summary>
+        public static bool IsWorldMapActive()
+        {
+            EnsureWorldMapTypes();
+
+            if (_wcInstanceProperty == null) return false;
+
+            try
+            {
+                var instance = _wcInstanceProperty.GetValue(null);
+                return instance != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get WorldController.Instance.
+        /// </summary>
+        public static object GetWorldController()
+        {
+            EnsureWorldMapTypes();
+
+            if (_wcInstanceProperty == null) return null;
+
+            try
+            {
+                return _wcInstanceProperty.GetValue(null);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get WorldServices from WorldController.
+        /// </summary>
+        public static object GetWorldServices()
+        {
+            var wc = GetWorldController();
+            if (wc == null || _wcWorldServicesProperty == null) return null;
+
+            try
+            {
+                return _wcWorldServicesProperty.GetValue(wc);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get WorldMapService from WorldServices.
+        /// </summary>
+        public static object GetWorldMapService()
+        {
+            EnsureWorldMapTypes();
+            var ws = GetWorldServices();
+            if (ws == null || _wsWorldMapServiceProperty == null) return null;
+
+            try
+            {
+                return _wsWorldMapServiceProperty.GetValue(ws);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get WorldStateService from MetaController.Instance.MetaServices.
+        /// </summary>
+        public static object GetWorldStateService()
+        {
+            EnsureWorldMapTypes();
+
+            try
+            {
+                var metaController = _metaControllerInstanceProperty?.GetValue(null);
+                if (metaController == null) return null;
+
+                var metaServices = _mcMetaServicesProperty?.GetValue(metaController);
+                if (metaServices == null) return null;
+
+                return _msWorldStateServiceProperty?.GetValue(metaServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get WorldBlackboardService from WorldServices.
+        /// </summary>
+        public static object GetWorldBlackboardService()
+        {
+            EnsureWorldMapTypes();
+            var ws = GetWorldServices();
+            if (ws == null || _wsWorldBlackboardServiceProperty == null) return null;
+
+            try
+            {
+                return _wsWorldBlackboardServiceProperty.GetValue(ws);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if a world map position is within bounds.
+        /// </summary>
+        public static bool WorldMapInBounds(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsInBoundsMethod == null) return false;
+
+            try
+            {
+                return (bool)_wmsInBoundsMethod.Invoke(wms, new object[] { cubicPos });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a world map position is revealed (not in fog).
+        /// </summary>
+        public static bool WorldMapIsRevealed(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsIsRevealedMethod == null) return false;
+
+            try
+            {
+                return (bool)_wmsIsRevealedMethod.Invoke(wms, new object[] { cubicPos, 0 });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a world map position is the capital (0,0,0).
+        /// </summary>
+        public static bool WorldMapIsCapital(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsIsCapitalMethod == null) return false;
+
+            try
+            {
+                return (bool)_wmsIsCapitalMethod.Invoke(wms, new object[] { cubicPos });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a world map position has a city.
+        /// </summary>
+        public static bool WorldMapIsCity(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsIsCityMethod == null) return false;
+
+            try
+            {
+                return (bool)_wmsIsCityMethod.Invoke(wms, new object[] { cubicPos });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a world map position can be picked for embark.
+        /// </summary>
+        public static bool WorldMapCanBePicked(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsCanBePickedMethod == null) return false;
+
+            try
+            {
+                return (bool)_wmsCanBePickedMethod.Invoke(wms, new object[] { cubicPos });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a world map position has a modifier.
+        /// </summary>
+        public static bool WorldMapHasModifier(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null || _wssHasModifierMethod == null) return false;
+
+            try
+            {
+                return (bool)_wssHasModifierMethod.Invoke(wss, new object[] { cubicPos });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a world map position has an event.
+        /// </summary>
+        public static bool WorldMapHasEvent(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null || _wssHasEventMethod == null) return false;
+
+            try
+            {
+                return (bool)_wssHasEventMethod.Invoke(wss, new object[] { cubicPos });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a world map position has a seal.
+        /// </summary>
+        public static bool WorldMapHasSeal(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null || _wssHasSealMethod == null) return false;
+
+            try
+            {
+                return (bool)_wssHasSealMethod.Invoke(wss, new object[] { cubicPos });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the distance from a position to the capital.
+        /// </summary>
+        public static int WorldMapGetDistanceToCapital(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsGetDistanceToStartTownMethod == null) return -1;
+
+            try
+            {
+                return (int)_wmsGetDistanceToStartTownMethod.Invoke(wms, new object[] { cubicPos });
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Get the biome display name for a world map position.
+        /// </summary>
+        public static string WorldMapGetBiomeName(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsGetFieldMethod == null) return null;
+
+            try
+            {
+                // Get WorldField at position
+                var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
+                if (field == null) return null;
+
+                // Get Biome property
+                var biomeProperty = field.GetType().GetProperty("Biome",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var biome = biomeProperty?.GetValue(field);
+                if (biome == null) return null;
+
+                // Get displayName field
+                var displayNameField = biome.GetType().GetField("displayName",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var displayName = displayNameField?.GetValue(biome);
+                if (displayName == null) return null;
+
+                // Get Text property from LocaText
+                var textProperty = displayName.GetType().GetProperty("Text",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return textProperty?.GetValue(displayName) as string;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetBiomeName failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the city name for a world map position.
+        /// </summary>
+        public static string WorldMapGetCityName(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null || _wssGetDisplayNameForMethod == null) return null;
+
+            try
+            {
+                return _wssGetDisplayNameForMethod.Invoke(wss, new object[] { cubicPos }) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the modifier name for a world map position.
+        /// </summary>
+        public static string WorldMapGetModifierName(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null || _wssGetModifierModelMethod == null) return null;
+
+            try
+            {
+                var model = _wssGetModifierModelMethod.Invoke(wss, new object[] { cubicPos });
+                if (model == null) return null;
+
+                // Get displayName from model
+                var displayNameField = model.GetType().GetField("displayName",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var displayName = displayNameField?.GetValue(model);
+                if (displayName == null) return null;
+
+                var textProperty = displayName.GetType().GetProperty("Text",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return textProperty?.GetValue(displayName) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the event name for a world map position.
+        /// </summary>
+        public static string WorldMapGetEventName(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null || _wssGetEventModelMethod == null) return null;
+
+            try
+            {
+                var model = _wssGetEventModelMethod.Invoke(wss, new object[] { cubicPos });
+                if (model == null) return null;
+
+                // Get displayName from model
+                var displayNameField = model.GetType().GetField("displayName",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var displayName = displayNameField?.GetValue(model);
+                if (displayName == null) return null;
+
+                var textProperty = displayName.GetType().GetProperty("Text",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return textProperty?.GetValue(displayName) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the seal name for a world map position.
+        /// </summary>
+        public static string WorldMapGetSealName(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null || _wssGetSealModelMethod == null) return null;
+
+            try
+            {
+                var model = _wssGetSealModelMethod.Invoke(wss, new object[] { cubicPos });
+                if (model == null) return null;
+
+                // Get displayName from model
+                var displayNameField = model.GetType().GetField("displayName",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var displayName = displayNameField?.GetValue(model);
+                if (displayName == null) return null;
+
+                var textProperty = displayName.GetType().GetProperty("Text",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return textProperty?.GetValue(displayName) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Trigger a field click on the world map.
+        /// This opens the embark screen for the selected tile.
+        /// </summary>
+        public static void WorldMapTriggerFieldClick(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wbb = GetWorldBlackboardService();
+            if (wbb == null || _wbbOnFieldClickedProperty == null) return;
+
+            try
+            {
+                var subject = _wbbOnFieldClickedProperty.GetValue(wbb);
+                if (subject == null) return;
+
+                // Call OnNext on the Subject<Vector3Int>
+                var onNextMethod = subject.GetType().GetMethod("OnNext",
+                    new Type[] { typeof(Vector3Int) });
+                onNextMethod?.Invoke(subject, new object[] { cubicPos });
+
+                Debug.Log($"[ATSAccessibility] Triggered field click at {cubicPos}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapTriggerFieldClick failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Move the world map camera to a position.
+        /// </summary>
+        public static void SetWorldCameraPosition(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wc = GetWorldController();
+            if (wc == null || _wcCameraControllerProperty == null) return;
+
+            try
+            {
+                var cameraController = _wcCameraControllerProperty.GetValue(wc);
+                if (cameraController == null) return;
+
+                // Get the transform
+                var transformProperty = cameraController.GetType().GetProperty("transform",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var transform = transformProperty?.GetValue(cameraController) as Transform;
+                if (transform == null) return;
+
+                // Convert cubic to world coordinates
+                var worldPos = CubicToWorld(cubicPos);
+
+                // Smoothly move to position
+                transform.position = new Vector3(worldPos.x, worldPos.y, transform.position.z);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SetWorldCameraPosition failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Convert cubic hex coordinates to world position.
+        /// Matches the game's WorldMapUtils.CubicToWorld implementation.
+        /// </summary>
+        public static Vector3 CubicToWorld(Vector3Int cubic)
+        {
+            // HexSize = 0.62f
+            const float HexSize = 0.62f;
+
+            // CubicToAxial: q = cubic.x, r = cubic.z
+            int q = cubic.x;
+            int r = cubic.z;
+
+            // AxialToWorld
+            float x = HexSize * (1.5f * q);
+            float y = HexSize * (Mathf.Sqrt(3f) / 2f * q + Mathf.Sqrt(3f) * r);
+
+            return new Vector3(x, y, 0f);
+        }
     }
 }
