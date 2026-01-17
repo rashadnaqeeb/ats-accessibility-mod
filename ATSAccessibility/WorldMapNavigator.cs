@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility
 {
     /// <summary>
     /// Handles keyboard navigation on the world map hex grid.
-    /// Uses Q/A/Z/E/D/C keys for 6-direction movement.
+    /// Uses arrow keys for navigation with zigzag pattern for up/down.
     /// </summary>
     public class WorldMapNavigator
     {
@@ -34,6 +35,27 @@ namespace ATSAccessibility
         // (0, 0, 0) is the Smoldering City / capital
         private Vector3Int _cursorPos = Vector3Int.zero;
 
+        // Cached tile info (updated on cursor move)
+        private string _cachedBriefInfo;
+
+        // Effects panel for M key
+        private WorldMapEffectsPanel _effectsPanel = new WorldMapEffectsPanel();
+
+        // Tile type for tooltip selection
+        private enum TileType
+        {
+            Unexplored,
+            Capital,
+            City,
+            Seal,
+            Modifier,
+            Event,
+            PlayableField,
+            OutOfReach
+        }
+
+        private TileType _cachedTileType;
+
         /// <summary>
         /// Current cursor position in cubic coordinates.
         /// </summary>
@@ -58,6 +80,7 @@ namespace ATSAccessibility
 
             _cursorPos = newPos;
             SyncCameraToTile();
+            CacheTileInfo();
             AnnounceTile();
         }
 
@@ -100,13 +123,15 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Jump cursor to the capital (Smoldering City).
+        /// Set cursor to a specific position (used by scanner).
         /// </summary>
-        public void JumpToCapital()
+        public void SetCursorPosition(Vector3Int pos)
         {
-            _cursorPos = Vector3Int.zero;
+            if (!GameReflection.WorldMapInBounds(pos)) return;
+            _cursorPos = pos;
             SyncCameraToTile();
-            Speech.Say("Smoldering City");
+            CacheTileInfo();
+            AnnounceTile();
         }
 
         /// <summary>
@@ -118,12 +143,37 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Read detailed information about the current tile.
+        /// Read detailed tooltip information about the current tile (I key).
+        /// Content varies based on tile type.
         /// </summary>
-        public void ReadDetailedInfo()
+        public void ReadTooltip()
         {
-            var info = GetDetailedTileInfo();
-            Speech.Say(info);
+            string tooltip = BuildTooltip();
+            Speech.Say(tooltip);
+        }
+
+        /// <summary>
+        /// Read embark status and distance/direction to capital (D key).
+        /// </summary>
+        public void ReadEmbarkAndDistance()
+        {
+            var parts = new List<string>();
+
+            // Embark status
+            if (GameReflection.WorldMapCanBePicked(_cursorPos))
+                parts.Add("Can embark here");
+            else
+                parts.Add("Cannot embark");
+
+            // Distance to capital (unless at capital)
+            if (!GameReflection.WorldMapIsCapital(_cursorPos))
+            {
+                var distance = GetHexDistance(_cursorPos, Vector3Int.zero);
+                var direction = GetDirectionToCapital(_cursorPos);
+                parts.Add($"Capital: {distance} {direction}");
+            }
+
+            Speech.Say(string.Join(", ", parts));
         }
 
         /// <summary>
@@ -136,157 +186,300 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Announce the current tile briefly.
+        /// Open the effects panel for the current tile.
         /// </summary>
-        private void AnnounceTile()
+        public void OpenEffectsPanel()
         {
-            var info = GetBriefTileInfo();
-            Speech.Say(info);
+            _effectsPanel.Open(_cursorPos);
         }
 
         /// <summary>
-        /// Get brief tile info for movement announcements.
-        /// Format: "{biome}, {type}" or "unexplored"
+        /// Process key events for the effects panel.
+        /// Returns true if the key was handled.
         /// </summary>
-        private string GetBriefTileInfo()
+        public bool ProcessPanelKeyEvent(KeyCode keyCode)
         {
-            // Check if revealed
-            if (!GameReflection.WorldMapIsRevealed(_cursorPos))
+            return _effectsPanel.ProcessKeyEvent(keyCode);
+        }
+
+        /// <summary>
+        /// Build and cache tile info for current position.
+        /// Called once per cursor move to avoid repeated reflection.
+        /// </summary>
+        private void CacheTileInfo()
+        {
+            bool isRevealed = GameReflection.WorldMapIsRevealed(_cursorPos);
+
+            // Check for special features visible in fog of war
+            bool hasSeal = GameReflection.WorldMapHasSeal(_cursorPos);
+            bool hasModifier = !hasSeal && GameReflection.WorldMapHasModifier(_cursorPos);
+            bool hasEvent = !hasSeal && !hasModifier && GameReflection.WorldMapHasEvent(_cursorPos);
+
+            // Handle unexplored tiles with special visibility rules
+            if (!isRevealed)
             {
-                return "Unexplored";
+                if (hasSeal)
+                {
+                    // Seals visible through fog - show seal type only
+                    _cachedTileType = TileType.Seal;
+                    var sealName = GameReflection.WorldMapGetSealName(_cursorPos);
+                    _cachedBriefInfo = !string.IsNullOrEmpty(sealName)
+                        ? $"Unexplored, Seal: {sealName}"
+                        : "Unexplored, Seal";
+                }
+                else if (hasModifier)
+                {
+                    // Modifier visible as "?" - don't identify it
+                    _cachedTileType = TileType.Unexplored;
+                    _cachedBriefInfo = "Unexplored, unknown modifier";
+                }
+                else if (hasEvent)
+                {
+                    // Event visible as "?" - don't identify it
+                    _cachedTileType = TileType.Unexplored;
+                    _cachedBriefInfo = "Unexplored, unknown event";
+                }
+                else
+                {
+                    // Plain unexplored
+                    _cachedTileType = TileType.Unexplored;
+                    _cachedBriefInfo = "Unexplored";
+                }
+                return;
             }
 
+            // Get biome for revealed tiles
             var biome = GameReflection.WorldMapGetBiomeName(_cursorPos) ?? "Unknown biome";
-            var tileType = GetTileType();
 
-            if (string.IsNullOrEmpty(tileType))
+            // Check tile type once with short-circuit evaluation
+            bool isCapital = GameReflection.WorldMapIsCapital(_cursorPos);
+            bool isCity = !isCapital && GameReflection.WorldMapIsCity(_cursorPos);
+
+            // Determine tile type and brief info
+            string tileType = null;
+
+            if (isCapital)
             {
-                return biome;
+                _cachedTileType = TileType.Capital;
+                tileType = "Capital";
+            }
+            else if (isCity)
+            {
+                _cachedTileType = TileType.City;
+                tileType = "City";
+            }
+            else if (hasSeal)
+            {
+                _cachedTileType = TileType.Seal;
+                var sealName = GameReflection.WorldMapGetSealName(_cursorPos);
+                tileType = !string.IsNullOrEmpty(sealName) ? $"Seal: {sealName}" : "Seal";
+            }
+            else if (hasModifier)
+            {
+                _cachedTileType = TileType.Modifier;
+                var modifierName = GameReflection.WorldMapGetModifierName(_cursorPos);
+                tileType = !string.IsNullOrEmpty(modifierName) ? modifierName : "Modifier";
+            }
+            else if (hasEvent)
+            {
+                _cachedTileType = TileType.Event;
+                var eventName = GameReflection.WorldMapGetEventName(_cursorPos);
+                tileType = !string.IsNullOrEmpty(eventName) ? $"Event: {eventName}" : "Event";
+            }
+            else if (!GameReflection.WorldMapHasAnyPathTo(_cursorPos))
+            {
+                _cachedTileType = TileType.OutOfReach;
+                tileType = "Out of reach";
+            }
+            else if (GameReflection.WorldMapCanBePicked(_cursorPos))
+            {
+                _cachedTileType = TileType.PlayableField;
+            }
+            else
+            {
+                _cachedTileType = TileType.OutOfReach;
+                tileType = "Out of reach";
             }
 
-            return $"{biome}, {tileType}";
+            // Brief info
+            _cachedBriefInfo = string.IsNullOrEmpty(tileType) ? biome : $"{biome}, {tileType}";
         }
 
         /// <summary>
-        /// Get detailed tile info for I key.
+        /// Build tooltip content based on cached tile type.
+        /// Seals show full info even if unexplored (visible through fog).
+        /// Unexplored modifiers/events just return "Unexplored".
         /// </summary>
-        private string GetDetailedTileInfo()
+        private string BuildTooltip()
         {
-            // Check if revealed
-            if (!GameReflection.WorldMapIsRevealed(_cursorPos))
-            {
-                var distance = GetHexDistance(_cursorPos, Vector3Int.zero);
-                var direction = GetDirectionToCapital(_cursorPos);
-                return $"Unexplored, Capital: {distance} {direction}";
-            }
+            // Unexplored tiles with no special features (or unexplored modifiers/events)
+            if (_cachedTileType == TileType.Unexplored)
+                return "Unexplored";
 
-            var parts = new System.Collections.Generic.List<string>();
+            // Seal tiles - show full seal info even if unexplored (seals visible through fog)
+            if (_cachedTileType == TileType.Seal)
+                return BuildSealTooltip();
+
+            // For all other revealed tiles, show the playable field tooltip
+            return BuildPlayableFieldTooltip();
+        }
+
+        /// <summary>
+        /// Build tooltip for capital/city tiles.
+        /// </summary>
+        private string BuildCityTooltip()
+        {
+            var parts = new List<string>();
+
+            // City name
+            var cityName = GameReflection.WorldMapGetCityName(_cursorPos);
+            if (!string.IsNullOrEmpty(cityName))
+                parts.Add(cityName);
+            else if (GameReflection.WorldMapIsCapital(_cursorPos))
+                parts.Add("Smoldering City");
+            else
+                parts.Add("City");
 
             // Biome
-            var biome = GameReflection.WorldMapGetBiomeName(_cursorPos) ?? "Unknown biome";
-            parts.Add(biome);
+            var biome = GameReflection.WorldMapGetBiomeName(_cursorPos);
+            if (!string.IsNullOrEmpty(biome))
+                parts.Add(biome);
 
-            // Type and details
-            if (GameReflection.WorldMapIsCapital(_cursorPos))
-            {
-                parts.Add("Smoldering City (Capital)");
-            }
-            else if (GameReflection.WorldMapIsCity(_cursorPos))
-            {
-                var cityName = GameReflection.WorldMapGetCityName(_cursorPos);
-                if (!string.IsNullOrEmpty(cityName))
-                {
-                    parts.Add($"City: {cityName}");
-                }
-                else
-                {
-                    parts.Add("City");
-                }
-            }
-            else if (GameReflection.WorldMapHasEvent(_cursorPos))
-            {
-                var eventName = GameReflection.WorldMapGetEventName(_cursorPos);
-                if (!string.IsNullOrEmpty(eventName))
-                {
-                    parts.Add($"Event: {eventName}");
-                }
-                else
-                {
-                    parts.Add("Event");
-                }
-            }
-            else if (GameReflection.WorldMapHasSeal(_cursorPos))
-            {
-                var sealName = GameReflection.WorldMapGetSealName(_cursorPos);
-                if (!string.IsNullOrEmpty(sealName))
-                {
-                    parts.Add($"Seal: {sealName}");
-                }
-                else
-                {
-                    parts.Add("Seal");
-                }
-            }
-            else if (GameReflection.WorldMapHasModifier(_cursorPos))
-            {
-                var modifierName = GameReflection.WorldMapGetModifierName(_cursorPos);
-                if (!string.IsNullOrEmpty(modifierName))
-                {
-                    parts.Add($"Modifier: {modifierName}");
-                }
-                else
-                {
-                    parts.Add("Modifier");
-                }
-            }
-
-            // Distance from capital (only show if not at capital)
-            if (!GameReflection.WorldMapIsCapital(_cursorPos))
-            {
-                var distance = GetHexDistance(_cursorPos, Vector3Int.zero);
-                var direction = GetDirectionToCapital(_cursorPos);
-                parts.Add($"Capital: {distance} {direction}");
-            }
-
-            // Reachability
-            if (GameReflection.WorldMapCanBePicked(_cursorPos))
-            {
-                parts.Add("Can embark here");
-            }
-            else if (!GameReflection.WorldMapIsCapital(_cursorPos) && !GameReflection.WorldMapIsCity(_cursorPos))
-            {
-                parts.Add("Cannot embark");
-            }
+            // Wanted goods (if trade routes enabled)
+            var wantedGoods = GameReflection.WorldMapGetWantedGoods(_cursorPos);
+            if (wantedGoods != null && wantedGoods.Length > 0)
+                parts.Add($"Wants: {string.Join(", ", wantedGoods)}");
 
             return string.Join(", ", parts);
         }
 
         /// <summary>
-        /// Get the tile type string for brief announcements.
+        /// Build tooltip for seal tiles.
         /// </summary>
-        private string GetTileType()
+        private string BuildSealTooltip()
         {
-            if (GameReflection.WorldMapIsCapital(_cursorPos))
+            var (sealName, difficultyName, minFragments, rewardsPercent, bonusYears, isCompleted) = GameReflection.WorldMapGetSealInfo(_cursorPos);
+
+            var parts = new List<string>();
+
+            // Seal name
+            if (!string.IsNullOrEmpty(sealName))
+                parts.Add(sealName);
+            else
+                parts.Add("Seal");
+
+            // Difficulty and requirements
+            if (!string.IsNullOrEmpty(difficultyName))
+                parts.Add($"{difficultyName} difficulty");
+
+            if (minFragments > 0)
+                parts.Add($"Requires {minFragments} seal fragments");
+
+            // Rewards
+            if (rewardsPercent > 0)
+                parts.Add($"Bonus: {rewardsPercent}% of cycle rewards");
+
+            if (bonusYears > 0)
+                parts.Add($"{bonusYears} bonus years per cycle");
+
+            // Completion status
+            if (isCompleted)
+                parts.Add("Completed");
+
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>
+        /// Build tooltip for modifier tiles.
+        /// </summary>
+        private string BuildModifierTooltip()
+        {
+            var (effectName, labelName, description, isPositive) = GameReflection.WorldMapGetModifierInfo(_cursorPos);
+
+            var parts = new List<string>();
+
+            // Effect name
+            if (!string.IsNullOrEmpty(effectName))
+                parts.Add(effectName);
+
+            // Label (effect type)
+            if (!string.IsNullOrEmpty(labelName))
+                parts.Add($"({labelName})");
+
+            // Description
+            if (!string.IsNullOrEmpty(description))
+                parts.Add(description);
+
+            return string.Join(" ", parts);
+        }
+
+        /// <summary>
+        /// Build tooltip for event tiles.
+        /// </summary>
+        private string BuildEventTooltip()
+        {
+            // Check if event is reachable
+            if (!GameReflection.WorldMapCanReachEvent(_cursorPos))
             {
-                return "Capital";
+                return "Event unreachable";
             }
-            if (GameReflection.WorldMapIsCity(_cursorPos))
-            {
-                return "City";
-            }
-            if (GameReflection.WorldMapHasEvent(_cursorPos))
-            {
-                return "Event";
-            }
-            if (GameReflection.WorldMapHasSeal(_cursorPos))
-            {
-                return "Seal";
-            }
-            if (GameReflection.WorldMapHasModifier(_cursorPos))
-            {
-                return "Modifier";
-            }
-            return null;
+
+            var eventName = GameReflection.WorldMapGetEventName(_cursorPos);
+            return !string.IsNullOrEmpty(eventName) ? eventName : "Event";
+        }
+
+        /// <summary>
+        /// Build tooltip for playable field tiles.
+        /// </summary>
+        private string BuildPlayableFieldTooltip()
+        {
+            var parts = new List<string>();
+
+            // Biome name
+            var biome = GameReflection.WorldMapGetBiomeName(_cursorPos);
+            if (!string.IsNullOrEmpty(biome))
+                parts.Add(biome);
+
+            // Min difficulty
+            var difficulty = GameReflection.WorldMapGetMinDifficultyName(_cursorPos);
+            if (!string.IsNullOrEmpty(difficulty))
+                parts.Add($"{difficulty} difficulty");
+
+            // Field effects (biome + modifiers)
+            var effects = GameReflection.WorldMapGetFieldEffects(_cursorPos);
+            if (effects != null && effects.Length > 0)
+                parts.Add($"Effects: {string.Join(", ", effects)}");
+
+            // Seal fragments to win
+            var fragments = GameReflection.WorldMapGetSealFragmentsForWin(_cursorPos);
+            if (fragments > 0)
+                parts.Add($"{fragments} seal fragments to win");
+
+            // Meta currencies (rewards)
+            var currencies = GameReflection.WorldMapGetMetaCurrencies(_cursorPos);
+            if (currencies != null && currencies.Length > 0)
+                parts.Add($"Rewards: {string.Join(", ", currencies)}");
+
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>
+        /// Build tooltip for out of reach tiles.
+        /// </summary>
+        private string BuildOutOfReachTooltip()
+        {
+            var biome = GameReflection.WorldMapGetBiomeName(_cursorPos);
+            if (!string.IsNullOrEmpty(biome))
+                return $"{biome}, cannot reach";
+            return "Cannot reach";
+        }
+
+        /// <summary>
+        /// Announce the current tile briefly.
+        /// </summary>
+        private void AnnounceTile()
+        {
+            Speech.Say(_cachedBriefInfo);
         }
 
         /// <summary>

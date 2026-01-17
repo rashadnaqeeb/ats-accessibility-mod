@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
@@ -45,6 +46,31 @@ namespace ATSAccessibility
         private static FieldInfo _tabsButtonButtonField = null;      // TabsButton.button (Button)
         private static FieldInfo _tabsButtonContentField = null;     // TabsButton.content (GameObject)
         private static bool _tabTypesCached = false;
+
+        // ========================================
+        // HELPER METHODS (reduce try-catch boilerplate)
+        // ========================================
+
+        private static T TryGetPropertyValue<T>(PropertyInfo prop, object instance) where T : class
+        {
+            if (prop == null || instance == null) return null;
+            try { return prop.GetValue(instance) as T; }
+            catch { return null; }
+        }
+
+        private static object TryInvokeMethod(MethodInfo method, object instance, object[] args = null)
+        {
+            if (method == null || instance == null) return null;
+            try { return method.Invoke(instance, args); }
+            catch { return null; }
+        }
+
+        private static bool TryInvokeBool(MethodInfo method, object instance, object[] args = null)
+        {
+            if (method == null || instance == null) return false;
+            try { return (bool?)method.Invoke(instance, args) ?? false; }
+            catch { return false; }
+        }
 
         // ========================================
         // INITIALIZATION
@@ -248,19 +274,40 @@ namespace ATSAccessibility
         public static object GetSettings()
         {
             EnsureAssembly();
-            if (_gameAssembly == null) return null;
+            if (_gameAssembly == null)
+            {
+                Debug.Log("[ATSAccessibility] GetSettings: _gameAssembly is null");
+                return null;
+            }
 
             try
             {
                 var mbType = _gameAssembly.GetType("Eremite.MB");
-                if (mbType == null) return null;
+                if (mbType == null)
+                {
+                    Debug.Log("[ATSAccessibility] GetSettings: Eremite.MB type not found");
+                    return null;
+                }
 
+                // Settings is protected static, so we need NonPublic flag
                 var settingsProperty = mbType.GetProperty("Settings",
-                    BindingFlags.Public | BindingFlags.Static);
-                return settingsProperty?.GetValue(null);
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                if (settingsProperty == null)
+                {
+                    Debug.Log("[ATSAccessibility] GetSettings: Settings property not found");
+                    return null;
+                }
+
+                var result = settingsProperty.GetValue(null);
+                if (result == null)
+                {
+                    Debug.Log("[ATSAccessibility] GetSettings: Settings value is null");
+                }
+                return result;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogError($"[ATSAccessibility] GetSettings failed: {ex.Message}");
                 return null;
             }
         }
@@ -645,17 +692,7 @@ namespace ATSAccessibility
         public static object GetMapService()
         {
             EnsureMapTypes();
-            var gameServices = GetGameServices();
-            if (gameServices == null) return null;
-
-            try
-            {
-                return _gsMapServiceProperty?.GetValue(gameServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return TryGetPropertyValue<object>(_gsMapServiceProperty, GetGameServices());
         }
 
         /// <summary>
@@ -664,17 +701,7 @@ namespace ATSAccessibility
         public static object GetGladesService()
         {
             EnsureMapTypes();
-            var gameServices = GetGameServices();
-            if (gameServices == null) return null;
-
-            try
-            {
-                return _gsGladesServiceProperty?.GetValue(gameServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return TryGetPropertyValue<object>(_gsGladesServiceProperty, GetGameServices());
         }
 
         /// <summary>
@@ -683,17 +710,7 @@ namespace ATSAccessibility
         public static object GetVillagersService()
         {
             EnsureMapTypes();
-            var gameServices = GetGameServices();
-            if (gameServices == null) return null;
-
-            try
-            {
-                return _gsVillagersServiceProperty?.GetValue(gameServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return TryGetPropertyValue<object>(_gsVillagersServiceProperty, GetGameServices());
         }
 
         /// <summary>
@@ -703,17 +720,7 @@ namespace ATSAccessibility
         public static object GetField(int x, int y)
         {
             EnsureMapTypes();
-            var mapService = GetMapService();
-            if (mapService == null || _mapGetFieldMethod == null) return null;
-
-            try
-            {
-                return _mapGetFieldMethod.Invoke(mapService, new object[] { x, y });
-            }
-            catch
-            {
-                return null;
-            }
+            return TryInvokeMethod(_mapGetFieldMethod, GetMapService(), new object[] { x, y });
         }
 
         /// <summary>
@@ -723,17 +730,7 @@ namespace ATSAccessibility
         public static object GetObjectOn(int x, int y)
         {
             EnsureMapTypes();
-            var mapService = GetMapService();
-            if (mapService == null || _mapGetObjectOnMethod == null) return null;
-
-            try
-            {
-                return _mapGetObjectOnMethod.Invoke(mapService, new object[] { x, y });
-            }
-            catch
-            {
-                return null;
-            }
+            return TryInvokeMethod(_mapGetObjectOnMethod, GetMapService(), new object[] { x, y });
         }
 
         /// <summary>
@@ -743,17 +740,7 @@ namespace ATSAccessibility
         public static object GetGlade(int x, int y)
         {
             EnsureMapTypes();
-            var gladesService = GetGladesService();
-            if (gladesService == null || _gladesGetGladeMethod == null) return null;
-
-            try
-            {
-                return _gladesGetGladeMethod.Invoke(gladesService, new object[] { new Vector2Int(x, y) });
-            }
-            catch
-            {
-                return null;
-            }
+            return TryInvokeMethod(_gladesGetGladeMethod, GetGladesService(), new object[] { new Vector2Int(x, y) });
         }
 
         /// <summary>
@@ -763,17 +750,7 @@ namespace ATSAccessibility
         public static object GetAllVillagers()
         {
             EnsureMapTypes();
-            var villagersService = GetVillagersService();
-            if (villagersService == null || _villagersVillagersProperty == null) return null;
-
-            try
-            {
-                return _villagersVillagersProperty.GetValue(villagersService);
-            }
-            catch
-            {
-                return null;
-            }
+            return TryGetPropertyValue<object>(_villagersVillagersProperty, GetVillagersService());
         }
 
         /// <summary>
@@ -783,17 +760,7 @@ namespace ATSAccessibility
         public static object GetResourcesService()
         {
             EnsureMapTypes();
-            var gameServices = GetGameServices();
-            if (gameServices == null) return null;
-
-            try
-            {
-                return _gsResourcesServiceProperty?.GetValue(gameServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return TryGetPropertyValue<object>(_gsResourcesServiceProperty, GetGameServices());
         }
 
         /// <summary>
@@ -803,17 +770,7 @@ namespace ATSAccessibility
         public static object GetDepositsService()
         {
             EnsureMapTypes();
-            var gameServices = GetGameServices();
-            if (gameServices == null) return null;
-
-            try
-            {
-                return _gsDepositsServiceProperty?.GetValue(gameServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return TryGetPropertyValue<object>(_gsDepositsServiceProperty, GetGameServices());
         }
 
         /// <summary>
@@ -823,17 +780,7 @@ namespace ATSAccessibility
         public static object GetBuildingsService()
         {
             EnsureMapTypes();
-            var gameServices = GetGameServices();
-            if (gameServices == null) return null;
-
-            try
-            {
-                return _gsBuildingsServiceProperty?.GetValue(gameServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return TryGetPropertyValue<object>(_gsBuildingsServiceProperty, GetGameServices());
         }
 
         /// <summary>
@@ -843,17 +790,7 @@ namespace ATSAccessibility
         public static object GetAllGlades()
         {
             EnsureMapTypes();
-            var gladesService = GetGladesService();
-            if (gladesService == null || _gsGladesProperty == null) return null;
-
-            try
-            {
-                return _gsGladesProperty.GetValue(gladesService);
-            }
-            catch
-            {
-                return null;
-            }
+            return TryGetPropertyValue<object>(_gsGladesProperty, GetGladesService());
         }
 
         // ========================================
@@ -915,17 +852,7 @@ namespace ATSAccessibility
         public static object GetTimeScaleService()
         {
             EnsureTimeScaleTypes();
-            var gameServices = GetGameServices();
-            if (gameServices == null) return null;
-
-            try
-            {
-                return _gsTimeScaleServiceProperty?.GetValue(gameServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return TryGetPropertyValue<object>(_gsTimeScaleServiceProperty, GetGameServices());
         }
 
         /// <summary>
@@ -934,17 +861,7 @@ namespace ATSAccessibility
         public static bool IsPaused()
         {
             EnsureTimeScaleTypes();
-            var timeScaleService = GetTimeScaleService();
-            if (timeScaleService == null || _tssIsPausedMethod == null) return false;
-
-            try
-            {
-                return (bool)_tssIsPausedMethod.Invoke(timeScaleService, null);
-            }
-            catch
-            {
-                return false;
-            }
+            return TryInvokeBool(_tssIsPausedMethod, GetTimeScaleService());
         }
 
         // Game speed values: 0=paused, 1=1x, 2=1.5x, 3=2x, 4=3x
@@ -1364,6 +1281,7 @@ namespace ATSAccessibility
         private static MethodInfo _wssGetEventModelMethod = null;
         private static MethodInfo _wssGetSealModelMethod = null;
         private static MethodInfo _wssGetDisplayNameForMethod = null;
+        private static PropertyInfo _wssFieldsProperty = null;
 
         // WorldBlackboardService
         private static PropertyInfo _wbbOnFieldClickedProperty = null;
@@ -1454,6 +1372,8 @@ namespace ATSAccessibility
                         new Type[] { typeof(Vector3Int) });
                     _wssGetDisplayNameForMethod = worldStateServiceType.GetMethod("GetDisplayNameFor",
                         new Type[] { typeof(Vector3Int) });
+                    _wssFieldsProperty = worldStateServiceType.GetProperty("Fields",
+                        BindingFlags.Public | BindingFlags.Instance);
 
                     Debug.Log("[ATSAccessibility] Cached IWorldStateService type info");
                 }
@@ -1574,6 +1494,33 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get all world map field positions from WorldStateService.Fields.
+        /// </summary>
+        public static IEnumerable<Vector3Int> GetWorldMapPositions()
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null || _wssFieldsProperty == null) return Enumerable.Empty<Vector3Int>();
+
+            try
+            {
+                var fields = _wssFieldsProperty.GetValue(wss);
+                if (fields == null) return Enumerable.Empty<Vector3Int>();
+
+                // Fields is Dictionary<Vector3Int, WorldFieldState>
+                var keysProperty = fields.GetType().GetProperty("Keys");
+                if (keysProperty == null) return Enumerable.Empty<Vector3Int>();
+
+                var keys = keysProperty.GetValue(fields) as IEnumerable<Vector3Int>;
+                return keys ?? Enumerable.Empty<Vector3Int>();
+            }
+            catch
+            {
+                return Enumerable.Empty<Vector3Int>();
+            }
+        }
+
+        /// <summary>
         /// Get WorldBlackboardService from WorldServices.
         /// </summary>
         public static object GetWorldBlackboardService()
@@ -1598,17 +1545,7 @@ namespace ATSAccessibility
         public static bool WorldMapInBounds(Vector3Int cubicPos)
         {
             EnsureWorldMapTypes();
-            var wms = GetWorldMapService();
-            if (wms == null || _wmsInBoundsMethod == null) return false;
-
-            try
-            {
-                return (bool)_wmsInBoundsMethod.Invoke(wms, new object[] { cubicPos });
-            }
-            catch
-            {
-                return false;
-            }
+            return TryInvokeBool(_wmsInBoundsMethod, GetWorldMapService(), new object[] { cubicPos });
         }
 
         /// <summary>
@@ -1617,17 +1554,7 @@ namespace ATSAccessibility
         public static bool WorldMapIsRevealed(Vector3Int cubicPos)
         {
             EnsureWorldMapTypes();
-            var wms = GetWorldMapService();
-            if (wms == null || _wmsIsRevealedMethod == null) return false;
-
-            try
-            {
-                return (bool)_wmsIsRevealedMethod.Invoke(wms, new object[] { cubicPos, 0 });
-            }
-            catch
-            {
-                return false;
-            }
+            return TryInvokeBool(_wmsIsRevealedMethod, GetWorldMapService(), new object[] { cubicPos, 0 });
         }
 
         /// <summary>
@@ -1636,17 +1563,7 @@ namespace ATSAccessibility
         public static bool WorldMapIsCapital(Vector3Int cubicPos)
         {
             EnsureWorldMapTypes();
-            var wms = GetWorldMapService();
-            if (wms == null || _wmsIsCapitalMethod == null) return false;
-
-            try
-            {
-                return (bool)_wmsIsCapitalMethod.Invoke(wms, new object[] { cubicPos });
-            }
-            catch
-            {
-                return false;
-            }
+            return TryInvokeBool(_wmsIsCapitalMethod, GetWorldMapService(), new object[] { cubicPos });
         }
 
         /// <summary>
@@ -1655,17 +1572,7 @@ namespace ATSAccessibility
         public static bool WorldMapIsCity(Vector3Int cubicPos)
         {
             EnsureWorldMapTypes();
-            var wms = GetWorldMapService();
-            if (wms == null || _wmsIsCityMethod == null) return false;
-
-            try
-            {
-                return (bool)_wmsIsCityMethod.Invoke(wms, new object[] { cubicPos });
-            }
-            catch
-            {
-                return false;
-            }
+            return TryInvokeBool(_wmsIsCityMethod, GetWorldMapService(), new object[] { cubicPos });
         }
 
         /// <summary>
@@ -1674,17 +1581,7 @@ namespace ATSAccessibility
         public static bool WorldMapCanBePicked(Vector3Int cubicPos)
         {
             EnsureWorldMapTypes();
-            var wms = GetWorldMapService();
-            if (wms == null || _wmsCanBePickedMethod == null) return false;
-
-            try
-            {
-                return (bool)_wmsCanBePickedMethod.Invoke(wms, new object[] { cubicPos });
-            }
-            catch
-            {
-                return false;
-            }
+            return TryInvokeBool(_wmsCanBePickedMethod, GetWorldMapService(), new object[] { cubicPos });
         }
 
         /// <summary>
@@ -1693,17 +1590,7 @@ namespace ATSAccessibility
         public static bool WorldMapHasModifier(Vector3Int cubicPos)
         {
             EnsureWorldMapTypes();
-            var wss = GetWorldStateService();
-            if (wss == null || _wssHasModifierMethod == null) return false;
-
-            try
-            {
-                return (bool)_wssHasModifierMethod.Invoke(wss, new object[] { cubicPos });
-            }
-            catch
-            {
-                return false;
-            }
+            return TryInvokeBool(_wssHasModifierMethod, GetWorldStateService(), new object[] { cubicPos });
         }
 
         /// <summary>
@@ -1712,17 +1599,7 @@ namespace ATSAccessibility
         public static bool WorldMapHasEvent(Vector3Int cubicPos)
         {
             EnsureWorldMapTypes();
-            var wss = GetWorldStateService();
-            if (wss == null || _wssHasEventMethod == null) return false;
-
-            try
-            {
-                return (bool)_wssHasEventMethod.Invoke(wss, new object[] { cubicPos });
-            }
-            catch
-            {
-                return false;
-            }
+            return TryInvokeBool(_wssHasEventMethod, GetWorldStateService(), new object[] { cubicPos });
         }
 
         /// <summary>
@@ -1731,17 +1608,7 @@ namespace ATSAccessibility
         public static bool WorldMapHasSeal(Vector3Int cubicPos)
         {
             EnsureWorldMapTypes();
-            var wss = GetWorldStateService();
-            if (wss == null || _wssHasSealMethod == null) return false;
-
-            try
-            {
-                return (bool)_wssHasSealMethod.Invoke(wss, new object[] { cubicPos });
-            }
-            catch
-            {
-                return false;
-            }
+            return TryInvokeBool(_wssHasSealMethod, GetWorldStateService(), new object[] { cubicPos });
         }
 
         /// <summary>
@@ -1828,22 +1695,27 @@ namespace ATSAccessibility
         {
             EnsureWorldMapTypes();
             var wss = GetWorldStateService();
-            if (wss == null || _wssGetModifierModelMethod == null) return null;
+            if (wss == null) return null;
+
+            // Try interface method first, fallback to concrete class
+            if (_wssGetModifierModelMethod == null)
+            {
+                var concreteMethod = wss.GetType().GetMethod("GetModifierModel",
+                    new Type[] { typeof(Vector3Int) });
+                if (concreteMethod != null)
+                    _wssGetModifierModelMethod = concreteMethod;
+                else
+                    return null;
+            }
 
             try
             {
                 var model = _wssGetModifierModelMethod.Invoke(wss, new object[] { cubicPos });
                 if (model == null) return null;
 
-                // Get displayName from model
-                var displayNameField = model.GetType().GetField("displayName",
+                var displayNameProp = model.GetType().GetProperty("DisplayName",
                     BindingFlags.Public | BindingFlags.Instance);
-                var displayName = displayNameField?.GetValue(model);
-                if (displayName == null) return null;
-
-                var textProperty = displayName.GetType().GetProperty("Text",
-                    BindingFlags.Public | BindingFlags.Instance);
-                return textProperty?.GetValue(displayName) as string;
+                return displayNameProp?.GetValue(model) as string;
             }
             catch
             {
@@ -1989,6 +1861,729 @@ namespace ATSAccessibility
             float y = HexSize * (Mathf.Sqrt(3f) / 2f * q + Mathf.Sqrt(3f) * r);
 
             return new Vector3(x, y, 0f);
+        }
+
+        // ========================================
+        // WORLD MAP TOOLTIP DATA METHODS
+        // ========================================
+
+        /// <summary>
+        /// Get the minimum difficulty display name for a world map position.
+        /// </summary>
+        public static string WorldMapGetMinDifficultyName(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null) return null;
+
+            try
+            {
+                // Get GetMinDifficultyFor method
+                var method = wms.GetType().GetMethod("GetMinDifficultyFor",
+                    new Type[] { typeof(Vector3Int) });
+                if (method == null) return null;
+
+                var difficulty = method.Invoke(wms, new object[] { cubicPos });
+                if (difficulty == null) return null;
+
+                // Get GetDisplayName method
+                var getDisplayName = difficulty.GetType().GetMethod("GetDisplayName",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return getDisplayName?.Invoke(difficulty, null) as string;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetMinDifficultyName failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the seal fragments required to win for the last picked difficulty at a position.
+        /// </summary>
+        public static int WorldMapGetSealFragmentsForWin(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null) return -1;
+
+            try
+            {
+                // Get the min difficulty for this field
+                var getMinDiff = wms.GetType().GetMethod("GetMinDifficultyFor",
+                    new Type[] { typeof(Vector3Int) });
+                if (getMinDiff == null) return -1;
+
+                var difficulty = getMinDiff.Invoke(wms, new object[] { cubicPos });
+                if (difficulty == null) return -1;
+
+                // Get sealFramentsForWin field
+                var field = difficulty.GetType().GetField("sealFramentsForWin",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (field == null) return -1;
+
+                return (int)field.GetValue(difficulty);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetSealFragmentsForWin failed: {ex.Message}");
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Get the field effects (biome effects + modifier effects) for a world map position.
+        /// Returns effect names, sorted with negative effects first.
+        /// </summary>
+        public static string[] WorldMapGetFieldEffects(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            var wss = GetWorldStateService();
+            if (wms == null) return null;
+
+            try
+            {
+                // Get WorldField
+                var field = _wmsGetFieldMethod?.Invoke(wms, new object[] { cubicPos });
+                if (field == null) return null;
+
+                // Get Biome.effects
+                var biomeProperty = field.GetType().GetProperty("Biome",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var biome = biomeProperty?.GetValue(field);
+                if (biome == null) return null;
+
+                var effectsField = biome.GetType().GetField("effects",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var biomeEffects = effectsField?.GetValue(biome) as System.Collections.IEnumerable;
+
+                var effectsList = new System.Collections.Generic.List<(string name, bool isPositive)>();
+
+                // Add biome effects
+                if (biomeEffects != null)
+                {
+                    foreach (var effect in biomeEffects)
+                    {
+                        var displayNameProp = effect.GetType().GetProperty("DisplayName",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        var isPositiveProp = effect.GetType().GetProperty("IsPositive",
+                            BindingFlags.Public | BindingFlags.Instance);
+
+                        var name = displayNameProp?.GetValue(effect) as string;
+                        var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
+
+                        if (!string.IsNullOrEmpty(name))
+                            effectsList.Add((name, isPositive));
+                    }
+                }
+
+                // Get modifier effects from GetModifiersInfluencing
+                if (wss != null)
+                {
+                    var getModifiers = wss.GetType().GetMethod("GetModifiersInfluencing",
+                        new Type[] { typeof(Vector3Int) });
+                    if (getModifiers != null)
+                    {
+                        var modifierNames = getModifiers.Invoke(wss, new object[] { cubicPos }) as System.Collections.Generic.List<string>;
+                        if (modifierNames != null)
+                        {
+                            var settings = GetSettings();
+                            if (settings != null)
+                            {
+                                var getModifier = settings.GetType().GetMethod("GetModifier",
+                                    new Type[] { typeof(string) });
+                                if (getModifier != null)
+                                {
+                                    foreach (var modName in modifierNames)
+                                    {
+                                        var modifier = getModifier.Invoke(settings, new object[] { modName });
+                                        if (modifier != null)
+                                        {
+                                            var effectField = modifier.GetType().GetField("effect",
+                                                BindingFlags.Public | BindingFlags.Instance);
+                                            var effect = effectField?.GetValue(modifier);
+                                            if (effect != null)
+                                            {
+                                                var displayNameProp = effect.GetType().GetProperty("DisplayName",
+                                                    BindingFlags.Public | BindingFlags.Instance);
+                                                var isPositiveProp = effect.GetType().GetProperty("IsPositive",
+                                                    BindingFlags.Public | BindingFlags.Instance);
+
+                                                var name = displayNameProp?.GetValue(effect) as string;
+                                                var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
+
+                                                if (!string.IsNullOrEmpty(name))
+                                                    effectsList.Add((name, isPositive));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Sort: negative effects first, then positive
+                effectsList.Sort((a, b) => a.isPositive.CompareTo(b.isPositive));
+
+                return effectsList.ConvertAll(e => e.name).ToArray();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetFieldEffects failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get meta currency rewards for a world map position.
+        /// Returns array of "amount currencyName" strings.
+        /// </summary>
+        public static string[] WorldMapGetMetaCurrencies(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+
+            try
+            {
+                // Get MetaController.Instance.MetaServices.MetaEconomyService
+                var metaController = _metaControllerInstanceProperty?.GetValue(null);
+                if (metaController == null) return null;
+
+                var metaServices = _mcMetaServicesProperty?.GetValue(metaController);
+                if (metaServices == null) return null;
+
+                // Get MetaEconomyService
+                var mesProp = metaServices.GetType().GetProperty("MetaEconomyService",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var metaEconomyService = mesProp?.GetValue(metaServices);
+                if (metaEconomyService == null) return null;
+
+                // Get min difficulty for this field
+                var wms = GetWorldMapService();
+                if (wms == null) return null;
+
+                var getMinDiff = wms.GetType().GetMethod("GetMinDifficultyFor",
+                    new Type[] { typeof(Vector3Int) });
+                var difficulty = getMinDiff?.Invoke(wms, new object[] { cubicPos });
+                if (difficulty == null) return null;
+
+                // Get GetCurrenciesFor(Vector3Int cubicPos, DifficultyModel difficulty)
+                var getCurrencies = metaEconomyService.GetType().GetMethod("GetCurrenciesFor",
+                    new Type[] { typeof(Vector3Int), difficulty.GetType() });
+                if (getCurrencies == null) return null;
+
+                var currencies = getCurrencies.Invoke(metaEconomyService, new object[] { cubicPos, difficulty }) as System.Collections.IList;
+                if (currencies == null || currencies.Count == 0) return null;
+
+                var settings = GetSettings();
+                if (settings == null) return null;
+
+                var getMetaCurrency = settings.GetType().GetMethod("GetMetaCurrency",
+                    new Type[] { typeof(string) });
+                if (getMetaCurrency == null) return null;
+
+                var result = new System.Collections.Generic.List<string>();
+                foreach (var currency in currencies)
+                {
+                    // MetaCurrency has name (string) and amount (int) fields
+                    var nameField = currency.GetType().GetField("name",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    var amountField = currency.GetType().GetField("amount",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    var name = nameField?.GetValue(currency) as string;
+                    var amount = (int)(amountField?.GetValue(currency) ?? 0);
+
+                    if (!string.IsNullOrEmpty(name) && amount > 0)
+                    {
+                        // Get display name from MetaCurrencyModel
+                        var model = getMetaCurrency.Invoke(settings, new object[] { name });
+                        if (model != null)
+                        {
+                            var displayNameProp = model.GetType().GetProperty("DisplayName",
+                                BindingFlags.Public | BindingFlags.Instance);
+                            var displayName = displayNameProp?.GetValue(model) as string ?? name;
+                            result.Add($"{amount} {displayName}");
+                        }
+                    }
+                }
+
+                return result.ToArray();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetMetaCurrencies failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get seal information for a world map position.
+        /// Returns (sealName, difficultyName, minFragments, rewardsPercent, bonusYears, isCompleted).
+        /// </summary>
+        public static (string sealName, string difficultyName, int minFragments, int rewardsPercent, int bonusYears, bool isCompleted) WorldMapGetSealInfo(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null) return (null, null, 0, 0, 0, false);
+
+            try
+            {
+                // Get seal model via GetNearbySeal
+                var getNearbySeal = wss.GetType().GetMethod("GetNearbySeal",
+                    new Type[] { typeof(Vector3Int) });
+                var seal = getNearbySeal?.Invoke(wss, new object[] { cubicPos });
+                if (seal == null) return (null, null, 0, 0, 0, false);
+
+                // Get displayName
+                var displayNameField = seal.GetType().GetField("displayName",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var displayName = displayNameField?.GetValue(seal);
+                var sealName = "";
+                if (displayName != null)
+                {
+                    var textProp = displayName.GetType().GetProperty("Text",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    sealName = textProp?.GetValue(displayName) as string ?? "";
+                }
+
+                // Get difficulty
+                var diffField = seal.GetType().GetField("difficulty",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var difficulty = diffField?.GetValue(seal);
+                var difficultyName = "";
+                if (difficulty != null)
+                {
+                    var getDisplayName = difficulty.GetType().GetMethod("GetDisplayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    difficultyName = getDisplayName?.Invoke(difficulty, null) as string ?? "";
+                }
+
+                // Get minFragmentsToStart
+                var minFragField = seal.GetType().GetField("minFragmentsToStart",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var minFragments = (int)(minFragField?.GetValue(seal) ?? 0);
+
+                // Get rewardsMultiplier
+                var rewardsMulField = seal.GetType().GetField("rewardsMultiplier",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var rewardsMultiplier = (float)(rewardsMulField?.GetValue(seal) ?? 0f);
+                var rewardsPercent = (int)(rewardsMultiplier * 100);
+
+                // Get bonusYearsPerCycle
+                var bonusYearsField = seal.GetType().GetField("bonusYearsPerCycle",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var bonusYears = (int)(bonusYearsField?.GetValue(seal) ?? 0);
+
+                // Check if completed via WorldSealsService
+                bool isCompleted = false;
+                var worldServices = GetWorldServices();
+                if (worldServices != null)
+                {
+                    var sealsServiceProp = worldServices.GetType().GetProperty("WorldSealsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    var sealsService = sealsServiceProp?.GetValue(worldServices);
+                    if (sealsService != null)
+                    {
+                        var wasAnyCompleted = sealsService.GetType().GetMethod("WasAnySealEverCompleted",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        if (wasAnyCompleted != null && (bool)wasAnyCompleted.Invoke(sealsService, null))
+                        {
+                            var getHighestWon = sealsService.GetType().GetMethod("GetHighestWonSeal",
+                                BindingFlags.Public | BindingFlags.Instance);
+                            var highestWon = getHighestWon?.Invoke(sealsService, null);
+                            if (highestWon != null && difficulty != null)
+                            {
+                                var sealDiffField = highestWon.GetType().GetField("difficulty",
+                                    BindingFlags.Public | BindingFlags.Instance);
+                                var highestDiff = sealDiffField?.GetValue(highestWon);
+                                if (highestDiff != null)
+                                {
+                                    var sealIndexField = difficulty.GetType().GetField("index",
+                                        BindingFlags.Public | BindingFlags.Instance);
+                                    var highestIndexField = highestDiff.GetType().GetField("index",
+                                        BindingFlags.Public | BindingFlags.Instance);
+                                    var sealIndex = (int)(sealIndexField?.GetValue(difficulty) ?? 0);
+                                    var highestIndex = (int)(highestIndexField?.GetValue(highestDiff) ?? -1);
+                                    isCompleted = sealIndex <= highestIndex;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return (sealName, difficultyName, minFragments, rewardsPercent, bonusYears, isCompleted);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetSealInfo failed: {ex.Message}");
+                return (null, null, 0, 0, 0, false);
+            }
+        }
+
+        /// <summary>
+        /// Get modifier effect information for a world map position.
+        /// Returns (effectName, labelName, description, isPositive).
+        /// </summary>
+        public static (string effectName, string labelName, string description, bool isPositive) WorldMapGetModifierInfo(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wss = GetWorldStateService();
+            if (wss == null)
+                return (null, null, null, false);
+
+            try
+            {
+                // Get modifier state
+                var getModifier = wss.GetType().GetMethod("GetModifier",
+                    new Type[] { typeof(Vector3Int) });
+                if (getModifier == null)
+                    return (null, null, null, false);
+
+                var modifierState = getModifier.Invoke(wss, new object[] { cubicPos });
+                if (modifierState == null)
+                    return (null, null, null, false);
+
+                // Get model name
+                var modelField = modifierState.GetType().GetField("model",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var modelName = modelField?.GetValue(modifierState) as string;
+                if (string.IsNullOrEmpty(modelName))
+                    return (null, null, null, false);
+
+                // Get ModifierModel from settings
+                var settings = GetSettings();
+                if (settings == null)
+                    return (null, null, null, false);
+
+                var getModifierModel = settings.GetType().GetMethod("GetModifier",
+                    new Type[] { typeof(string) });
+                if (getModifierModel == null)
+                    return (null, null, null, false);
+
+                var modifier = getModifierModel.Invoke(settings, new object[] { modelName });
+                if (modifier == null)
+                    return (null, null, null, false);
+
+                // Get effect
+                var effectField = modifier.GetType().GetField("effect",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var effect = effectField?.GetValue(modifier);
+                if (effect == null)
+                    return (null, null, null, false);
+
+                // Get effect DisplayName
+                var displayNameProp = effect.GetType().GetProperty("DisplayName",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var effectName = displayNameProp?.GetValue(effect) as string ?? "";
+
+                // Get label.displayName
+                var labelField = effect.GetType().GetField("label",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var label = labelField?.GetValue(effect);
+                var labelName = "";
+                if (label != null)
+                {
+                    var labelDisplayName = label.GetType().GetField("displayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    var labelLocaText = labelDisplayName?.GetValue(label);
+                    if (labelLocaText != null)
+                    {
+                        var textProp = labelLocaText.GetType().GetProperty("Text",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        labelName = textProp?.GetValue(labelLocaText) as string ?? "";
+                    }
+                }
+
+                // Get Description
+                var descProp = effect.GetType().GetProperty("Description",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var description = descProp?.GetValue(effect) as string ?? "";
+
+                // Get IsPositive
+                var isPositiveProp = effect.GetType().GetProperty("IsPositive",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? false);
+
+                return (effectName, labelName, description, isPositive);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetModifierInfo failed: {ex.Message}\n{ex.StackTrace}");
+                return (null, null, null, false);
+            }
+        }
+
+        /// <summary>
+        /// Check if an event at a world map position can be reached.
+        /// </summary>
+        public static bool WorldMapCanReachEvent(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null) return false;
+
+            try
+            {
+                var canReachEvent = wms.GetType().GetMethod("CanReachEvent",
+                    new Type[] { typeof(Vector3Int) });
+                if (canReachEvent == null) return false;
+
+                return (bool)canReachEvent.Invoke(wms, new object[] { cubicPos });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapCanReachEvent failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if the world map position has any path to it from explored territory.
+        /// </summary>
+        public static bool WorldMapHasAnyPathTo(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null) return false;
+
+            try
+            {
+                // Get WorldField first
+                var field = _wmsGetFieldMethod?.Invoke(wms, new object[] { cubicPos });
+                if (field == null) return false;
+
+                var hasAnyPathTo = wms.GetType().GetMethod("HasAnyPathTo",
+                    new Type[] { field.GetType() });
+                if (hasAnyPathTo == null) return false;
+
+                return (bool)hasAnyPathTo.Invoke(wms, new object[] { field });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapHasAnyPathTo failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get wanted goods for a city at a world map position.
+        /// Only available if trade routes are enabled.
+        /// </summary>
+        public static string[] WorldMapGetWantedGoods(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+
+            try
+            {
+                // Check if trade routes are enabled
+                var metaController = _metaControllerInstanceProperty?.GetValue(null);
+                if (metaController == null) return null;
+
+                var metaServices = _mcMetaServicesProperty?.GetValue(metaController);
+                if (metaServices == null) return null;
+
+                var mpsProp = metaServices.GetType().GetProperty("MetaPerksService",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var metaPerksService = mpsProp?.GetValue(metaServices);
+                if (metaPerksService == null) return null;
+
+                var areTradeRoutes = metaPerksService.GetType().GetMethod("AreTradeRoutesEnabled",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (areTradeRoutes == null || !(bool)areTradeRoutes.Invoke(metaPerksService, null))
+                    return null;
+
+                // Get biome's wanted goods
+                var wms = GetWorldMapService();
+                if (wms == null) return null;
+
+                var field = _wmsGetFieldMethod?.Invoke(wms, new object[] { cubicPos });
+                if (field == null) return null;
+
+                var biomeProperty = field.GetType().GetProperty("Biome",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var biome = biomeProperty?.GetValue(field);
+                if (biome == null) return null;
+
+                var wantedGoodsField = biome.GetType().GetField("wantedGoods",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var wantedGoods = wantedGoodsField?.GetValue(biome) as System.Array;
+                if (wantedGoods == null || wantedGoods.Length == 0) return null;
+
+                var result = new System.Collections.Generic.List<string>();
+                foreach (var good in wantedGoods)
+                {
+                    var displayNameField = good.GetType().GetField("displayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    var displayName = displayNameField?.GetValue(good);
+                    if (displayName != null)
+                    {
+                        var textProp = displayName.GetType().GetProperty("Text",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        var name = textProp?.GetValue(displayName) as string;
+                        if (!string.IsNullOrEmpty(name))
+                            result.Add(name);
+                    }
+                }
+
+                return result.ToArray();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetWantedGoods failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the biome description for a world map position.
+        /// </summary>
+        public static string WorldMapGetBiomeDescription(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsGetFieldMethod == null) return null;
+
+            try
+            {
+                // Get WorldField at position
+                var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
+                if (field == null) return null;
+
+                // Get Biome property
+                var biomeProperty = field.GetType().GetProperty("Biome",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var biome = biomeProperty?.GetValue(field);
+                if (biome == null) return null;
+
+                // Get description field
+                var descriptionField = biome.GetType().GetField("description",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var description = descriptionField?.GetValue(biome);
+                if (description == null) return null;
+
+                // Get Text property from LocaText
+                var textProperty = description.GetType().GetProperty("Text",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return textProperty?.GetValue(description) as string;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetBiomeDescription failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get field effects with their descriptions for a world map position.
+        /// Returns list of (name, description) tuples.
+        /// </summary>
+        public static System.Collections.Generic.List<(string name, string description)> WorldMapGetFieldEffectsWithDescriptions(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            var wss = GetWorldStateService();
+            if (wms == null) return null;
+
+            try
+            {
+                // Get WorldField
+                var field = _wmsGetFieldMethod?.Invoke(wms, new object[] { cubicPos });
+                if (field == null) return null;
+
+                // Get Biome.effects
+                var biomeProperty = field.GetType().GetProperty("Biome",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var biome = biomeProperty?.GetValue(field);
+                if (biome == null) return null;
+
+                var effectsField = biome.GetType().GetField("effects",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var biomeEffects = effectsField?.GetValue(biome) as System.Collections.IEnumerable;
+
+                var effectsList = new System.Collections.Generic.List<(string name, string description, bool isPositive)>();
+
+                // Add biome effects
+                if (biomeEffects != null)
+                {
+                    foreach (var effect in biomeEffects)
+                    {
+                        var displayNameProp = effect.GetType().GetProperty("DisplayName",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        var descriptionProp = effect.GetType().GetProperty("Description",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        var isPositiveProp = effect.GetType().GetProperty("IsPositive",
+                            BindingFlags.Public | BindingFlags.Instance);
+
+                        var name = displayNameProp?.GetValue(effect) as string;
+                        var description = descriptionProp?.GetValue(effect) as string;
+                        var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
+
+                        if (!string.IsNullOrEmpty(name))
+                            effectsList.Add((name, description ?? "", isPositive));
+                    }
+                }
+
+                // Get modifier effects from GetModifiersInfluencing
+                if (wss != null)
+                {
+                    var getModifiers = wss.GetType().GetMethod("GetModifiersInfluencing",
+                        new Type[] { typeof(Vector3Int) });
+                    if (getModifiers != null)
+                    {
+                        var modifierNames = getModifiers.Invoke(wss, new object[] { cubicPos }) as System.Collections.Generic.List<string>;
+                        if (modifierNames != null)
+                        {
+                            var settings = GetSettings();
+                            if (settings != null)
+                            {
+                                var getModifier = settings.GetType().GetMethod("GetModifier",
+                                    new Type[] { typeof(string) });
+                                if (getModifier != null)
+                                {
+                                    foreach (var modName in modifierNames)
+                                    {
+                                        var modifier = getModifier.Invoke(settings, new object[] { modName });
+                                        if (modifier != null)
+                                        {
+                                            var effectField = modifier.GetType().GetField("effect",
+                                                BindingFlags.Public | BindingFlags.Instance);
+                                            var effect = effectField?.GetValue(modifier);
+                                            if (effect != null)
+                                            {
+                                                var displayNameProp = effect.GetType().GetProperty("DisplayName",
+                                                    BindingFlags.Public | BindingFlags.Instance);
+                                                var descriptionProp = effect.GetType().GetProperty("Description",
+                                                    BindingFlags.Public | BindingFlags.Instance);
+                                                var isPositiveProp = effect.GetType().GetProperty("IsPositive",
+                                                    BindingFlags.Public | BindingFlags.Instance);
+
+                                                var name = displayNameProp?.GetValue(effect) as string;
+                                                var description = descriptionProp?.GetValue(effect) as string;
+                                                var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
+
+                                                if (!string.IsNullOrEmpty(name))
+                                                    effectsList.Add((name, description ?? "", isPositive));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Sort: negative effects first, then positive
+                effectsList.Sort((a, b) => a.isPositive.CompareTo(b.isPositive));
+
+                return effectsList.ConvertAll(e => (e.name, e.description));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetFieldEffectsWithDescriptions failed: {ex.Message}");
+                return null;
+            }
         }
     }
 }

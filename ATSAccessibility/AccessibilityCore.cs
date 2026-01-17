@@ -51,6 +51,7 @@ namespace ATSAccessibility
 
         // World map navigator
         private WorldMapNavigator _worldMapNavigator;
+        private WorldMapScanner _worldMapScanner;
         private bool _announcedWorldMap = false;
 
         // Deferred menu rebuild (wait for user input after popup closes)
@@ -93,9 +94,11 @@ namespace ATSAccessibility
             _statsPanel = new StatsPanel();
             _keyboardManager.SetStatsPanel(_statsPanel);
 
-            // Initialize world map navigator
+            // Initialize world map navigator and scanner
             _worldMapNavigator = new WorldMapNavigator();
             _keyboardManager.SetWorldMapNavigator(_worldMapNavigator);
+            _worldMapScanner = new WorldMapScanner(_worldMapNavigator);
+            _keyboardManager.SetWorldMapScanner(_worldMapScanner);
 
             // Check if we're already on a scene (mod loaded mid-game)
             CheckCurrentScene();

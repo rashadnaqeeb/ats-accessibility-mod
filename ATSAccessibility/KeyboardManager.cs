@@ -62,6 +62,9 @@ namespace ATSAccessibility
         // Reference to world map navigator for hex grid navigation
         private WorldMapNavigator _worldMapNavigator;
 
+        // Reference to world map scanner for quick feature finding
+        private WorldMapScanner _worldMapScanner;
+
         public KeyboardManager(UINavigator uiNavigator)
         {
             _uiNavigator = uiNavigator;
@@ -113,6 +116,14 @@ namespace ATSAccessibility
         public void SetWorldMapNavigator(WorldMapNavigator navigator)
         {
             _worldMapNavigator = navigator;
+        }
+
+        /// <summary>
+        /// Set the world map scanner reference.
+        /// </summary>
+        public void SetWorldMapScanner(WorldMapScanner scanner)
+        {
+            _worldMapScanner = scanner;
         }
 
         /// <summary>
@@ -169,7 +180,7 @@ namespace ATSAccessibility
                     ProcessMapKeyEvent(keyCode, modifiers);
                     break;
                 case NavigationContext.WorldMap:
-                    ProcessWorldMapKeyEvent(keyCode);
+                    ProcessWorldMapKeyEvent(keyCode, modifiers);
                     break;
                 case NavigationContext.Dialogue:
                     // Future: ProcessDialogueKeyEvent(keyCode);
@@ -358,9 +369,13 @@ namespace ATSAccessibility
         /// <summary>
         /// Handle key event when navigating the world map hex grid.
         /// </summary>
-        private void ProcessWorldMapKeyEvent(KeyCode keyCode)
+        private void ProcessWorldMapKeyEvent(KeyCode keyCode, KeyModifiers modifiers)
         {
             if (_worldMapNavigator == null) return;
+
+            // Check if effects panel is open first
+            if (_worldMapNavigator.ProcessPanelKeyEvent(keyCode))
+                return;
 
             switch (keyCode)
             {
@@ -378,9 +393,24 @@ namespace ATSAccessibility
                     _worldMapNavigator.MoveArrow(0, -1);
                     break;
 
-                // Jump to capital
+                // Scanner controls
+                case KeyCode.PageUp:
+                    if (modifiers.Alt)
+                        _worldMapScanner?.ChangeItem(-1);
+                    else
+                        _worldMapScanner?.ChangeType(-1);
+                    break;
+                case KeyCode.PageDown:
+                    if (modifiers.Alt)
+                        _worldMapScanner?.ChangeItem(1);
+                    else
+                        _worldMapScanner?.ChangeType(1);
+                    break;
                 case KeyCode.Home:
-                    _worldMapNavigator.JumpToCapital();
+                    _worldMapScanner?.AnnounceDirection();
+                    break;
+                case KeyCode.End:
+                    _worldMapScanner?.JumpToItem();
                     break;
 
                 // Select tile (embark)
@@ -389,9 +419,19 @@ namespace ATSAccessibility
                     _worldMapNavigator.Interact();
                     break;
 
-                // Read detailed info
+                // Read full tooltip content
                 case KeyCode.I:
-                    _worldMapNavigator.ReadDetailedInfo();
+                    _worldMapNavigator.ReadTooltip();
+                    break;
+
+                // Read embark status and distance to capital
+                case KeyCode.D:
+                    _worldMapNavigator.ReadEmbarkAndDistance();
+                    break;
+
+                // Open effects panel
+                case KeyCode.M:
+                    _worldMapNavigator.OpenEffectsPanel();
                     break;
             }
         }
