@@ -14,6 +14,12 @@ namespace ATSAccessibility
         /// </summary>
         public static bool IsBlocking { get; private set; } = true;
 
+        /// <summary>
+        /// When true, blocks the Cancel action once then resets itself.
+        /// Used when StatsPanel is closing to prevent game menu from opening.
+        /// </summary>
+        public static bool BlockCancelOnce { get; set; } = false;
+
         // Action names to allow through InputService even when blocking
         private static readonly HashSet<string> WhitelistedActions = new HashSet<string>
         {

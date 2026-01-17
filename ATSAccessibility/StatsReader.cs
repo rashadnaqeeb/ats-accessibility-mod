@@ -511,14 +511,23 @@ namespace ATSAccessibility
                     if (effectModel != null && count > 0)
                     {
                         // Get effect name and resolve value
-                        var displayNameProp = effectModel.GetType().GetProperty("displayName");
+                        var displayNameField = effectModel.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
                         var nameProp = effectModel.GetType().GetProperty("Name");
                         var resolvePropertyInfo = effectModel.GetType().GetProperty("resolve");
                         var resolveFieldInfo = effectModel.GetType().GetField("resolve", BindingFlags.Public | BindingFlags.Instance);
 
-                        string name = displayNameProp?.GetValue(effectModel)?.ToString()
-                            ?? nameProp?.GetValue(effectModel)?.ToString()
-                            ?? "Unknown effect";
+                        string name = "Unknown effect";
+                        var locaText = displayNameField?.GetValue(effectModel);
+                        if (locaText != null)
+                        {
+                            // LocaText.Text returns localized English string
+                            var textProp = locaText.GetType().GetProperty("Text");
+                            name = textProp?.GetValue(locaText)?.ToString() ?? nameProp?.GetValue(effectModel)?.ToString() ?? "Unknown effect";
+                        }
+                        else
+                        {
+                            name = nameProp?.GetValue(effectModel)?.ToString() ?? "Unknown effect";
+                        }
 
                         int resolveValue = 0;
                         if (resolvePropertyInfo != null)
@@ -527,8 +536,16 @@ namespace ATSAccessibility
                             resolveValue = (int)(resolveFieldInfo.GetValue(effectModel) ?? 0);
 
                         string prefix = resolveValue >= 0 ? "+" : "";
-                        string countStr = count > 1 ? $" ({count})" : "";
-                        result.Add($"{prefix}{resolveValue} {name}{countStr}");
+                        int total = resolveValue * count;
+                        string totalPrefix = total >= 0 ? "+" : "";
+                        if (count > 1)
+                        {
+                            result.Add($"{totalPrefix}{total} from {name} ({prefix}{resolveValue} × {count})");
+                        }
+                        else
+                        {
+                            result.Add($"{prefix}{resolveValue} from {name}");
+                        }
                     }
                 }
 

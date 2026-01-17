@@ -65,6 +65,15 @@ namespace ATSAccessibility
             {
                 if (!InputBlocker.IsBlocking) return true;
 
+                // Block Cancel once when flag is set (used by StatsPanel close)
+                if (action != null && action.name == "Cancel" && InputBlocker.BlockCancelOnce)
+                {
+                    Debug.Log("[ATSAccessibility] DEBUG: Blocking Cancel action once");
+                    InputBlocker.BlockCancelOnce = false;  // Reset after blocking
+                    __result = false;
+                    return false;
+                }
+
                 // Allow whitelisted actions through
                 if (InputBlocker.IsActionWhitelisted(action)) return true;
 

@@ -68,6 +68,7 @@ namespace ATSAccessibility
             if (!_isOpen) return;
 
             _isOpen = false;
+            InputBlocker.BlockCancelOnce = true;  // Block the Cancel action that will fire this frame
             _categories.Clear();
             Speech.Say("Stats panel closed");
             Debug.Log("[ATSAccessibility] Stats panel closed");
@@ -266,7 +267,8 @@ namespace ATSAccessibility
             // Add indicator if details are available
             if (category.Details.Count > 0)
             {
-                message += $". {category.Details.Count} details, press Enter for breakdown";
+                string detailWord = category.Details.Count == 1 ? "detail" : "details";
+                message += $". {category.Details.Count} {detailWord}";
             }
 
             Speech.Say(message);
