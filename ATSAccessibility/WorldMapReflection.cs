@@ -27,6 +27,7 @@ namespace ATSAccessibility
         private static PropertyInfo _wcInstanceProperty = null;       // static Instance
         private static PropertyInfo _wcWorldServicesProperty = null;  // WorldServices
         private static PropertyInfo _wcCameraControllerProperty = null;  // CameraController
+        private static FieldInfo _wccTargetField = null;  // WorldCameraController.target
         private static PropertyInfo _wsWorldMapServiceProperty = null;   // WorldMapService
         private static PropertyInfo _wsWorldBlackboardServiceProperty = null;  // WorldBlackboardService
         private static PropertyInfo _msWorldStateServiceProperty = null;  // WorldStateService (from IMetaServices)
@@ -610,6 +611,48 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] SetWorldCameraPosition failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Set the camera target to a world map field for smooth following.
+        /// The game's WorldCameraController has a target field but doesn't use it.
+        /// Our Harmony patch adds target-following behavior to UpdateMovement().
+        /// </summary>
+        public static void SetWorldCameraTarget(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wc = GetWorldController();
+            if (wc == null || _wcCameraControllerProperty == null) return;
+
+            try
+            {
+                var cameraController = _wcCameraControllerProperty.GetValue(wc);
+                if (cameraController == null) return;
+
+                // Cache target field
+                if (_wccTargetField == null)
+                {
+                    _wccTargetField = cameraController.GetType().GetField("target",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get WorldField at position to get its Transform
+                var wms = GetWorldMapService();
+                if (wms == null || _wmsGetFieldMethod == null) return;
+
+                var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
+                if (field == null) return;
+
+                var transformProp = field.GetType().GetProperty("transform",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var fieldTransform = transformProp?.GetValue(field) as Transform;
+
+                _wccTargetField?.SetValue(cameraController, fieldTransform);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SetWorldCameraTarget failed: {ex.Message}");
             }
         }
 

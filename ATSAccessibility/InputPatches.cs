@@ -1,3 +1,4 @@
+using System.Reflection;
 using Eremite.Services;
 using HarmonyLib;
 using UnityEngine;
@@ -97,6 +98,60 @@ namespace ATSAccessibility
                 __result = false;
                 return false;
             }
+        }
+    }
+
+    /// <summary>
+    /// Patch WorldCameraController.UpdateMovement to add target-following behavior.
+    /// The game's world map camera has a target field but doesn't use it.
+    /// This patch adds smooth following when target is set (for accessibility navigation).
+    /// </summary>
+    [HarmonyPatch]
+    public static class WorldCameraControllerUpdateMovementPatch
+    {
+        private static FieldInfo _targetField;
+        private static FieldInfo _movementVelocityField;
+        private static float _smoothTime = 0.5f;
+        private static float _maxSpeed = 40f;
+
+        static MethodBase TargetMethod()
+        {
+            var type = AccessTools.TypeByName("Eremite.View.Cameras.WorldCameraController");
+            return AccessTools.Method(type, "UpdateMovement");
+        }
+
+        public static void Postfix(object __instance)
+        {
+            if (__instance == null) return;
+
+            try
+            {
+                // Cache fields
+                if (_targetField == null)
+                {
+                    var type = __instance.GetType();
+                    _targetField = type.GetField("target", BindingFlags.Public | BindingFlags.Instance);
+                    _movementVelocityField = type.GetField("movementVelocity", BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                var target = _targetField?.GetValue(__instance) as Transform;
+                if (target == null) return;
+
+                var transform = (__instance as MonoBehaviour)?.transform;
+                if (transform == null) return;
+
+                // Get current velocity
+                var velocity = (Vector3)(_movementVelocityField?.GetValue(__instance) ?? Vector3.zero);
+
+                // Smooth move toward target (preserve Z)
+                var targetPos = new Vector3(target.position.x, target.position.y, transform.position.z);
+                transform.position = Vector3.SmoothDamp(transform.position, targetPos, ref velocity,
+                    _smoothTime, _maxSpeed, Time.unscaledDeltaTime);
+
+                // Store velocity back
+                _movementVelocityField?.SetValue(__instance, velocity);
+            }
+            catch { }
         }
     }
 }

@@ -483,11 +483,12 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Move the camera to follow the cursor.
+        /// Move the camera to smoothly follow the cursor.
+        /// Uses target-following (patched in WorldCameraController) for smooth movement.
         /// </summary>
         private void SyncCameraToTile()
         {
-            WorldMapReflection.SetWorldCameraPosition(_cursorPos);
+            WorldMapReflection.SetWorldCameraTarget(_cursorPos);
         }
 
         /// <summary>
