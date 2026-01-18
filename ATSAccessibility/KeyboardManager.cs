@@ -512,6 +512,23 @@ namespace ATSAccessibility
                 case KeyCode.M:
                     _worldMapNavigator.OpenEffectsPanel();
                     break;
+
+                // Meta stats announcements
+                case KeyCode.L:
+                    WorldMapStatsReader.AnnounceLevel();
+                    break;
+
+                case KeyCode.R:
+                    WorldMapStatsReader.AnnounceMetaResources();
+                    break;
+
+                case KeyCode.S:
+                    WorldMapStatsReader.AnnounceSealInfo();
+                    break;
+
+                case KeyCode.T:
+                    WorldMapStatsReader.AnnounceCycleInfo();
+                    break;
             }
         }
 

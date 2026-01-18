@@ -62,6 +62,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **WorldMapNavigator.cs** - World map hex grid navigation with arrow keys and camera following
 - **WorldMapScanner.cs** - Quick navigation to world map features by type (PageUp/Down)
 - **WorldMapEffectsPanel.cs** - Navigation for world map modifier effects panel
+- **WorldMapStatsReader.cs** - Meta-level stats (player level, meta resources, seals, cycle info)
 
 ### UI Navigation
 
@@ -130,6 +131,10 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **I** - Read full tooltip content for current tile
 - **D** - Read embark status and distance to capital
 - **M** - Open effects panel (modifiers for selected tile)
+- **L** - Announce player level and XP to next level
+- **R** - Announce meta resources (Food, Machinery, Artifacts, etc.)
+- **S** - Announce highest reforged seal info
+- **T** - Announce storm cycle info (year, games won/played, seal fragments)
 
 ### World Map Scanner
 - **PageUp/Down** - Cycle feature types (settlements, resources, etc.)
