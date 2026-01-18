@@ -42,25 +42,38 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 - **Plugin.cs** - BepInEx entry point. Sets DLL directory for Tolk, creates persistent AccessibilityCore GameObject
 - **AccessibilityCore.cs** - Main MonoBehaviour coordinating all features, survives scene transitions via DontDestroyOnLoad
-- **GameReflection.cs** - Centralized reflection access to game internals (services, controllers, map data)
+- **GameReflection.cs** - Centralized reflection access to settlement game internals (services, controllers, map data, dynamic map bounds)
+- **WorldMapReflection.cs** - Reflection access to world map internals (hex grid, nodes, biomes)
+- **EmbarkReflection.cs** - Reflection access to embark/expedition setup screen
 - **Speech.cs** - Tolk wrapper for screen reader output with SAPI fallback
 - **KeyboardManager.cs** - Input handling, routes keys to appropriate navigator based on context
 
-### Navigation Components
+### Settlement Navigation
+
+- **MapNavigator.cs** - Settlement map grid navigation (dynamic map size, cursor starts at Ancient Hearth)
+- **MapScanner.cs** - Hierarchical object scanner (PageUp/Down for groups, Ctrl for categories, Alt for items)
+- **TileInfoReader.cs** - Reads detailed tile info (I key) for buildings, resources, deposits
+- **StatsReader.cs** - Reads game statistics (Reputation, Impatience, Hostility, Resolve)
+- **StatsPanel.cs** - Virtual speech-only panel for detailed stats navigation
+
+### World Map Navigation
+
+- **WorldMapNavigator.cs** - World map hex grid navigation with arrow keys and camera following
+- **WorldMapScanner.cs** - Quick navigation to world map features by type (PageUp/Down)
+- **WorldMapEffectsPanel.cs** - Navigation for world map modifier effects panel
+
+### UI Navigation
 
 - **UINavigator.cs** - Popup/menu navigation with panel and element cycling
-- **MapNavigator.cs** - Settlement map grid navigation (70x70 tiles, arrow keys)
-- **MapScanner.cs** - Hierarchical object scanner (PageUp/Down for groups, Ctrl for categories, Alt for items)
-- **EncyclopediaNavigator.cs** - In-game wiki/encyclopedia navigation
+- **EncyclopediaNavigator.cs** - In-game wiki/encyclopedia navigation (3-panel: categories, articles, content)
+- **EmbarkPanel.cs** - Embark/expedition setup screen navigation
 - **TutorialHandler.cs** - Tutorial tooltip and decision popup handling
+- **MetaRewardsPopupReader.cs** - Reputation rewards popup with polling navigation
 
 ### Support Components
 
 - **UIElementFinder.cs** - Finds navigable UI elements in Unity hierarchy
 - **WikiReflection.cs** - Reflection helpers for encyclopedia/wiki system
-- **TileInfoReader.cs** - Reads detailed tile info (I key) for buildings, resources, deposits with per-type reflection caching
-- **StatsReader.cs** - Reads game statistics (Reputation, Impatience, Hostility, Resolve) via reflection
-- **StatsPanel.cs** - Virtual speech-only panel for detailed stats navigation
 - **InputBlocker.cs** - Prevents game input during accessibility navigation
 - **InputPatches.cs** - Harmony patches for input handling
 
@@ -68,20 +81,33 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 **Reflection caching**: Cache type metadata (PropertyInfo, MethodInfo, FieldInfo) but never cache service instances (destroyed on scene change). For methods handling multiple object types, use per-call reflection. See `GAME-INTERNALS.md` for details.
 
+**Lazy initialization**: Game services aren't fully loaded when scene becomes active. Defer initialization that requires game data (e.g., hearth position, map size) until first user interaction. MapNavigator uses this pattern - cursor initializes on first arrow key press.
+
 **Native DLL loading**: Tolk.dll and helpers (nvdaControllerClient64.dll, SAAPI64.dll) must stay in plugins folder. SetDllDirectory is called in Plugin.Awake() before any P/Invoke.
+
+**Navigation priority**: KeyboardManager checks contexts in order: StatsPanel → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
 
 ## Keyboard Controls
 
-### Map Navigation
-- **Arrow keys** - Move cursor on map grid
+### Settlement Map Navigation
+- **Arrow keys** - Move cursor on map grid (starts at Ancient Hearth)
 - **Ctrl+Arrow** - Skip to next different tile type
-- **Space** - Interact with tile under cursor
+- **K** - Announce current cursor coordinates
 - **I** - Read detailed info about object under cursor (description, charges, products)
 
-### Game Stats
+### Settlement Map Scanner
+- **PageUp/Down** - Cycle groups (e.g., "Clay Deposit" → "Copper Deposit")
+- **Ctrl+PageUp/Down** - Cycle categories (Glades → Resources → Buildings)
+- **Alt+PageUp/Down** - Cycle items within group
+- **Home** - Announce distance/direction to current item
+- **End** - Move cursor to current item
+
+### Game Stats (Settlement)
 - **S** - Announce quick summary (Reputation, Impatience, Hostility)
 - **R** - Announce resolve for all present species
 - **Alt+S** - Open stats panel for detailed breakdown
+- **Space** - Toggle pause
+- **1-4** - Set game speed
 
 ### Stats Panel (when open)
 - **Up/Down** - Navigate categories (left panel) or details (right panel)
@@ -89,24 +115,42 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **Left Arrow** - Return from details to categories
 - **Escape** - Close stats panel
 
-### Map Scanner
-- **PageUp/Down** - Cycle groups (e.g., "Clay Deposit" → "Copper Deposit")
-- **Ctrl+PageUp/Down** - Cycle categories (Glades → Resources → Buildings)
-- **Alt+PageUp/Down** - Cycle items within group
-- **Home** - Announce distance/direction to current item
-- **End** - Move cursor to current item
+### World Map Navigation
+- **Arrow keys** - Navigate hex grid (camera follows cursor)
+- **Enter** - Select/interact with current tile
+- **I** - Read full tooltip content for current tile
+- **D** - Read embark status and distance to capital
+- **M** - Open effects panel (modifiers for selected tile)
 
-### UI Navigation
+### World Map Scanner
+- **PageUp/Down** - Cycle feature types (settlements, resources, etc.)
+- **Alt+PageUp/Down** - Cycle items within current type
+- **Home** - Announce direction to current item
+- **End** - Jump cursor to current item
+
+### Embark Panel (pre-expedition setup)
+- **Up/Down** - Navigate within current section
+- **Left/Right** - Switch between sections (menu, resources, effects, embark button)
+- **Enter** - Activate selected item
+
+### UI/Popup Navigation
 - **Tab/Shift+Tab** - Cycle panels
 - **Up/Down** - Cycle elements within panel
+- **Left/Right** - Navigate between panels (encyclopedia)
 - **Enter** - Activate element
 - **Escape** - Close popup
+
+### Encyclopedia
+- **Left/Right** - Switch panels (Categories → Articles → Content)
+- **Up/Down** - Navigate within current panel
+- **Enter** - Select category/article or re-read content line
 
 ## Game Internals Reference
 
 See `GAME-INTERNALS.md` for detailed game API documentation including:
 - Controller hierarchy and service containers
-- Map system (70x70 grid, GladesService, ResourcesService, etc.)
+- Settlement map system (dynamic size via MapService, GladesService, ResourcesService, BuildingsService)
+- World map system (hex grid, WorldMapService, nodes and biomes)
 - UI hierarchy and popup structure
 - Key class names and reflection patterns
 
