@@ -72,6 +72,9 @@ namespace ATSAccessibility
         // Reference to mysteries panel for forest mysteries and modifiers
         private MysteriesPanel _mysteriesPanel;
 
+        // Reference to settlement resource panel for inventory browsing
+        private SettlementResourcePanel _settlementResourcePanel;
+
         public KeyboardManager(UINavigator uiNavigator)
         {
             _uiNavigator = uiNavigator;
@@ -150,6 +153,14 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set the settlement resource panel reference.
+        /// </summary>
+        public void SetSettlementResourcePanel(SettlementResourcePanel panel)
+        {
+            _settlementResourcePanel = panel;
+        }
+
+        /// <summary>
         /// Set the current navigation context.
         /// </summary>
         public void SetContext(NavigationContext context)
@@ -182,6 +193,15 @@ namespace ATSAccessibility
                 if (_mysteriesPanel.ProcessKeyEvent(keyCode))
                 {
                     return; // Key was handled by mysteries panel
+                }
+            }
+
+            // Check if settlement resource panel is open
+            if (_settlementResourcePanel != null && _settlementResourcePanel.IsOpen)
+            {
+                if (_settlementResourcePanel.ProcessKeyEvent(keyCode))
+                {
+                    return; // Key was handled by resource panel
                 }
             }
 
@@ -407,7 +427,10 @@ namespace ATSAccessibility
                         StatsReader.AnnounceQuickSummary();
                     break;
                 case KeyCode.R:
-                    StatsReader.AnnounceResolveSummary();
+                    if (modifiers.Alt)
+                        _settlementResourcePanel?.Open();
+                    else
+                        StatsReader.AnnounceResolveSummary();
                     break;
                 case KeyCode.T:
                     StatsReader.AnnounceTimeSummary();

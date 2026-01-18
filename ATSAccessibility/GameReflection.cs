@@ -1857,5 +1857,281 @@ namespace ATSAccessibility
                 return null;
             }
         }
+
+        // ========================================
+        // GOODS/STORAGE REFLECTION (for resource panel)
+        // ========================================
+
+        private static PropertyInfo _gsStorageServiceProperty = null;
+        private static MethodInfo _ssGetStorageMethod = null;
+        private static PropertyInfo _storageGoodsProperty = null;
+        private static FieldInfo _goodsCollectionGoodsField = null;
+        private static FieldInfo _settingsGoodsField = null;
+        private static bool _goodsTypesCached = false;
+
+        private static void EnsureGoodsTypes()
+        {
+            if (_goodsTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _goodsTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get StorageService property from IGameServices
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsStorageServiceProperty = gameServicesType.GetProperty("StorageService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get GetStorage method from IStorageService
+                var storageServiceType = _gameAssembly.GetType("Eremite.Services.IStorageService");
+                if (storageServiceType != null)
+                {
+                    _ssGetStorageMethod = storageServiceType.GetMethod("GetStorage",
+                        Type.EmptyTypes); // No parameters version
+                }
+
+                // Get Goods property from Storage class
+                var storageType = _gameAssembly.GetType("Eremite.Buildings.Storage");
+                if (storageType != null)
+                {
+                    _storageGoodsProperty = storageType.GetProperty("Goods",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get goods field from GoodsCollection
+                var goodsCollectionType = _gameAssembly.GetType("Eremite.GoodsCollection");
+                if (goodsCollectionType != null)
+                {
+                    _goodsCollectionGoodsField = goodsCollectionType.GetField("goods",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get Goods array from Settings
+                var settingsType = _gameAssembly.GetType("Eremite.Model.Settings");
+                if (settingsType != null)
+                {
+                    _settingsGoodsField = settingsType.GetField("Goods",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached goods/storage types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Goods type caching failed: {ex.Message}");
+            }
+
+            _goodsTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get StorageService from GameServices.
+        /// </summary>
+        public static object GetStorageService()
+        {
+            EnsureGoodsTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsStorageServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the main Storage building (contains goods collection).
+        /// </summary>
+        public static object GetMainStorage()
+        {
+            EnsureGoodsTypes();
+            var storageService = GetStorageService();
+            if (storageService == null || _ssGetStorageMethod == null) return null;
+
+            try
+            {
+                return _ssGetStorageMethod.Invoke(storageService, null);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all stored goods as a dictionary (goodName -> amount).
+        /// Only includes goods with amount > 0.
+        /// </summary>
+        public static Dictionary<string, int> GetAllStoredGoods()
+        {
+            EnsureGoodsTypes();
+            var storage = GetMainStorage();
+            if (storage == null) return new Dictionary<string, int>();
+
+            try
+            {
+                // Get Goods property (LockedGoodsCollection)
+                var goodsCollection = _storageGoodsProperty?.GetValue(storage);
+                if (goodsCollection == null) return new Dictionary<string, int>();
+
+                // Get the goods dictionary
+                var goodsDict = _goodsCollectionGoodsField?.GetValue(goodsCollection) as Dictionary<string, int>;
+                if (goodsDict == null) return new Dictionary<string, int>();
+
+                // Filter to only goods with amount > 0
+                var result = new Dictionary<string, int>();
+                foreach (var kvp in goodsDict)
+                {
+                    if (kvp.Value > 0)
+                    {
+                        result[kvp.Key] = kvp.Value;
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetAllStoredGoods failed: {ex.Message}");
+                return new Dictionary<string, int>();
+            }
+        }
+
+        /// <summary>
+        /// Get all GoodModel definitions from Settings.
+        /// </summary>
+        public static Array GetAllGoodModels()
+        {
+            EnsureGoodsTypes();
+            var settings = GetSettings();
+            if (settings == null || _settingsGoodsField == null) return null;
+
+            try
+            {
+                return _settingsGoodsField.GetValue(settings) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the category of a GoodModel.
+        /// </summary>
+        public static object GetGoodCategory(object goodModel)
+        {
+            if (goodModel == null) return null;
+
+            try
+            {
+                var categoryField = goodModel.GetType().GetField("category",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return categoryField?.GetValue(goodModel);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the display name from a GoodModel or GoodCategoryModel.
+        /// Both use displayName.Text pattern.
+        /// </summary>
+        public static string GetDisplayName(object model)
+        {
+            if (model == null) return null;
+
+            try
+            {
+                // Get displayName field (LocaText)
+                var displayNameField = model.GetType().GetField("displayName",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (displayNameField == null) return null;
+
+                var locaText = displayNameField.GetValue(model);
+                if (locaText == null) return null;
+
+                // Get Text property from LocaText
+                var textProperty = locaText.GetType().GetProperty("Text",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return textProperty?.GetValue(locaText) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the internal name from a model (SO.Name property).
+        /// </summary>
+        public static string GetModelName(object model)
+        {
+            if (model == null) return null;
+
+            try
+            {
+                var nameProperty = model.GetType().GetProperty("Name",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return nameProperty?.GetValue(model) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the order field from a model (used for sorting).
+        /// </summary>
+        public static int GetModelOrder(object model)
+        {
+            if (model == null) return 0;
+
+            try
+            {
+                var orderField = model.GetType().GetField("order",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (orderField != null)
+                {
+                    return (int)orderField.GetValue(model);
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        /// <summary>
+        /// Check if a GoodModel is active.
+        /// </summary>
+        public static bool IsGoodActive(object goodModel)
+        {
+            if (goodModel == null) return false;
+
+            try
+            {
+                var isActiveField = goodModel.GetType().GetField("isActive",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (isActiveField != null)
+                {
+                    return (bool)isActiveField.GetValue(goodModel);
+                }
+            }
+            catch { }
+            return true; // Default to active
+        }
     }
 }

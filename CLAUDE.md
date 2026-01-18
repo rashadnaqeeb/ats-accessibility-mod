@@ -87,7 +87,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 **Native DLL loading**: Tolk.dll and helpers (nvdaControllerClient64.dll, SAAPI64.dll) must stay in plugins folder. SetDllDirectory is called in Plugin.Awake() before any P/Invoke.
 
-**Navigation priority**: KeyboardManager checks contexts in order: StatsPanel → MysteriesPanel → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
+**Navigation priority**: KeyboardManager checks contexts in order: StatsPanel → MysteriesPanel → ResourcePanel → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
 
 ## Keyboard Controls
 
@@ -109,6 +109,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **R** - Announce resolve for all present species
 - **T** - Announce current season, time remaining, and settlement year
 - **Alt+S** - Open stats panel for detailed breakdown
+- **Alt+R** - Open resource panel for inventory browsing
 - **M** - Open mysteries/modifiers panel
 - **Space** - Toggle pause
 - **1-4** - Set game speed
@@ -124,6 +125,12 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **Enter** - View items in current category
 - **Left Arrow** - Return from items to categories
 - **Escape** - Close mysteries panel
+
+### Resource Panel (when open)
+- **Up/Down** - Navigate categories (left panel) or items (right panel)
+- **Enter/Right Arrow** - View items in current category
+- **Left Arrow** - Return from items to categories
+- **Escape** - Close resource panel
 
 ### World Map Navigation
 - **Arrow keys** - Navigate hex grid (camera follows cursor)

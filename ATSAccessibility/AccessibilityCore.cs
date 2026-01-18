@@ -52,6 +52,9 @@ namespace ATSAccessibility
         // Mysteries panel for forest mysteries and modifiers
         private MysteriesPanel _mysteriesPanel;
 
+        // Settlement resource panel for inventory browsing
+        private SettlementResourcePanel _settlementResourcePanel;
+
         // World map navigator
         private WorldMapNavigator _worldMapNavigator;
         private WorldMapScanner _worldMapScanner;
@@ -106,6 +109,10 @@ namespace ATSAccessibility
             // Initialize mysteries panel
             _mysteriesPanel = new MysteriesPanel();
             _keyboardManager.SetMysteriesPanel(_mysteriesPanel);
+
+            // Initialize settlement resource panel
+            _settlementResourcePanel = new SettlementResourcePanel();
+            _keyboardManager.SetSettlementResourcePanel(_settlementResourcePanel);
 
             // Initialize world map navigator and scanner
             _worldMapNavigator = new WorldMapNavigator();
