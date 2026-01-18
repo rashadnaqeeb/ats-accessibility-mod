@@ -72,7 +72,7 @@ namespace ATSAccessibility
             var newPos = _cursorPos + HexDirections[directionIndex];
 
             // Check if in bounds
-            if (!GameReflection.WorldMapInBounds(newPos))
+            if (!WorldMapReflection.WorldMapInBounds(newPos))
             {
                 Speech.Say("Edge of map");
                 return;
@@ -127,7 +127,7 @@ namespace ATSAccessibility
         /// </summary>
         public void SetCursorPosition(Vector3Int pos)
         {
-            if (!GameReflection.WorldMapInBounds(pos)) return;
+            if (!WorldMapReflection.WorldMapInBounds(pos)) return;
             _cursorPos = pos;
             SyncCameraToTile();
             CacheTileInfo();
@@ -139,7 +139,7 @@ namespace ATSAccessibility
         /// </summary>
         public void Interact()
         {
-            GameReflection.WorldMapTriggerFieldClick(_cursorPos);
+            WorldMapReflection.WorldMapTriggerFieldClick(_cursorPos);
         }
 
         /// <summary>
@@ -160,13 +160,13 @@ namespace ATSAccessibility
             var parts = new List<string>();
 
             // Embark status
-            if (GameReflection.WorldMapCanBePicked(_cursorPos))
+            if (WorldMapReflection.WorldMapCanBePicked(_cursorPos))
                 parts.Add("Can embark here");
             else
                 parts.Add("Cannot embark");
 
             // Distance to capital (unless at capital)
-            if (!GameReflection.WorldMapIsCapital(_cursorPos))
+            if (!WorldMapReflection.WorldMapIsCapital(_cursorPos))
             {
                 var distance = GetHexDistance(_cursorPos, Vector3Int.zero);
                 var direction = GetDirectionToCapital(_cursorPos);
@@ -208,12 +208,12 @@ namespace ATSAccessibility
         /// </summary>
         private void CacheTileInfo()
         {
-            bool isRevealed = GameReflection.WorldMapIsRevealed(_cursorPos);
+            bool isRevealed = WorldMapReflection.WorldMapIsRevealed(_cursorPos);
 
             // Check for special features visible in fog of war
-            bool hasSeal = GameReflection.WorldMapHasSeal(_cursorPos);
-            bool hasModifier = !hasSeal && GameReflection.WorldMapHasModifier(_cursorPos);
-            bool hasEvent = !hasSeal && !hasModifier && GameReflection.WorldMapHasEvent(_cursorPos);
+            bool hasSeal = WorldMapReflection.WorldMapHasSeal(_cursorPos);
+            bool hasModifier = !hasSeal && WorldMapReflection.WorldMapHasModifier(_cursorPos);
+            bool hasEvent = !hasSeal && !hasModifier && WorldMapReflection.WorldMapHasEvent(_cursorPos);
 
             // Handle unexplored tiles with special visibility rules
             if (!isRevealed)
@@ -222,7 +222,7 @@ namespace ATSAccessibility
                 {
                     // Seals visible through fog - show seal type only
                     _cachedTileType = TileType.Seal;
-                    var sealName = GameReflection.WorldMapGetSealName(_cursorPos);
+                    var sealName = WorldMapReflection.WorldMapGetSealName(_cursorPos);
                     _cachedBriefInfo = !string.IsNullOrEmpty(sealName)
                         ? $"Unexplored, Seal: {sealName}"
                         : "Unexplored, Seal";
@@ -249,11 +249,11 @@ namespace ATSAccessibility
             }
 
             // Get biome for revealed tiles
-            var biome = GameReflection.WorldMapGetBiomeName(_cursorPos) ?? "Unknown biome";
+            var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos) ?? "Unknown biome";
 
             // Check tile type once with short-circuit evaluation
-            bool isCapital = GameReflection.WorldMapIsCapital(_cursorPos);
-            bool isCity = !isCapital && GameReflection.WorldMapIsCity(_cursorPos);
+            bool isCapital = WorldMapReflection.WorldMapIsCapital(_cursorPos);
+            bool isCity = !isCapital && WorldMapReflection.WorldMapIsCity(_cursorPos);
 
             // Determine tile type and brief info
             string tileType = null;
@@ -271,27 +271,27 @@ namespace ATSAccessibility
             else if (hasSeal)
             {
                 _cachedTileType = TileType.Seal;
-                var sealName = GameReflection.WorldMapGetSealName(_cursorPos);
+                var sealName = WorldMapReflection.WorldMapGetSealName(_cursorPos);
                 tileType = !string.IsNullOrEmpty(sealName) ? $"Seal: {sealName}" : "Seal";
             }
             else if (hasModifier)
             {
                 _cachedTileType = TileType.Modifier;
-                var modifierName = GameReflection.WorldMapGetModifierName(_cursorPos);
+                var modifierName = WorldMapReflection.WorldMapGetModifierName(_cursorPos);
                 tileType = !string.IsNullOrEmpty(modifierName) ? modifierName : "Modifier";
             }
             else if (hasEvent)
             {
                 _cachedTileType = TileType.Event;
-                var eventName = GameReflection.WorldMapGetEventName(_cursorPos);
+                var eventName = WorldMapReflection.WorldMapGetEventName(_cursorPos);
                 tileType = !string.IsNullOrEmpty(eventName) ? $"Event: {eventName}" : "Event";
             }
-            else if (!GameReflection.WorldMapHasAnyPathTo(_cursorPos))
+            else if (!WorldMapReflection.WorldMapHasAnyPathTo(_cursorPos))
             {
                 _cachedTileType = TileType.OutOfReach;
                 tileType = "Out of reach";
             }
-            else if (GameReflection.WorldMapCanBePicked(_cursorPos))
+            else if (WorldMapReflection.WorldMapCanBePicked(_cursorPos))
             {
                 _cachedTileType = TileType.PlayableField;
             }
@@ -332,21 +332,21 @@ namespace ATSAccessibility
             var parts = new List<string>();
 
             // City name
-            var cityName = GameReflection.WorldMapGetCityName(_cursorPos);
+            var cityName = WorldMapReflection.WorldMapGetCityName(_cursorPos);
             if (!string.IsNullOrEmpty(cityName))
                 parts.Add(cityName);
-            else if (GameReflection.WorldMapIsCapital(_cursorPos))
+            else if (WorldMapReflection.WorldMapIsCapital(_cursorPos))
                 parts.Add("Smoldering City");
             else
                 parts.Add("City");
 
             // Biome
-            var biome = GameReflection.WorldMapGetBiomeName(_cursorPos);
+            var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos);
             if (!string.IsNullOrEmpty(biome))
                 parts.Add(biome);
 
             // Wanted goods (if trade routes enabled)
-            var wantedGoods = GameReflection.WorldMapGetWantedGoods(_cursorPos);
+            var wantedGoods = WorldMapReflection.WorldMapGetWantedGoods(_cursorPos);
             if (wantedGoods != null && wantedGoods.Length > 0)
                 parts.Add($"Wants: {string.Join(", ", wantedGoods)}");
 
@@ -358,7 +358,7 @@ namespace ATSAccessibility
         /// </summary>
         private string BuildSealTooltip()
         {
-            var (sealName, difficultyName, minFragments, rewardsPercent, bonusYears, isCompleted) = GameReflection.WorldMapGetSealInfo(_cursorPos);
+            var (sealName, difficultyName, minFragments, rewardsPercent, bonusYears, isCompleted) = WorldMapReflection.WorldMapGetSealInfo(_cursorPos);
 
             var parts = new List<string>();
 
@@ -394,7 +394,7 @@ namespace ATSAccessibility
         /// </summary>
         private string BuildModifierTooltip()
         {
-            var (effectName, labelName, description, isPositive) = GameReflection.WorldMapGetModifierInfo(_cursorPos);
+            var (effectName, labelName, description, isPositive) = WorldMapReflection.WorldMapGetModifierInfo(_cursorPos);
 
             var parts = new List<string>();
 
@@ -419,12 +419,12 @@ namespace ATSAccessibility
         private string BuildEventTooltip()
         {
             // Check if event is reachable
-            if (!GameReflection.WorldMapCanReachEvent(_cursorPos))
+            if (!WorldMapReflection.WorldMapCanReachEvent(_cursorPos))
             {
                 return "Event unreachable";
             }
 
-            var eventName = GameReflection.WorldMapGetEventName(_cursorPos);
+            var eventName = WorldMapReflection.WorldMapGetEventName(_cursorPos);
             return !string.IsNullOrEmpty(eventName) ? eventName : "Event";
         }
 
@@ -436,27 +436,27 @@ namespace ATSAccessibility
             var parts = new List<string>();
 
             // Biome name
-            var biome = GameReflection.WorldMapGetBiomeName(_cursorPos);
+            var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos);
             if (!string.IsNullOrEmpty(biome))
                 parts.Add(biome);
 
             // Min difficulty
-            var difficulty = GameReflection.WorldMapGetMinDifficultyName(_cursorPos);
+            var difficulty = WorldMapReflection.WorldMapGetMinDifficultyName(_cursorPos);
             if (!string.IsNullOrEmpty(difficulty))
                 parts.Add($"{difficulty} difficulty");
 
             // Field effects (biome + modifiers)
-            var effects = GameReflection.WorldMapGetFieldEffects(_cursorPos);
+            var effects = WorldMapReflection.WorldMapGetFieldEffects(_cursorPos);
             if (effects != null && effects.Length > 0)
                 parts.Add($"Effects: {string.Join(", ", effects)}");
 
             // Seal fragments to win
-            var fragments = GameReflection.WorldMapGetSealFragmentsForWin(_cursorPos);
+            var fragments = WorldMapReflection.WorldMapGetSealFragmentsForWin(_cursorPos);
             if (fragments > 0)
                 parts.Add($"{fragments} seal fragments to win");
 
             // Meta currencies (rewards)
-            var currencies = GameReflection.WorldMapGetMetaCurrencies(_cursorPos);
+            var currencies = WorldMapReflection.WorldMapGetMetaCurrencies(_cursorPos);
             if (currencies != null && currencies.Length > 0)
                 parts.Add($"Rewards: {string.Join(", ", currencies)}");
 
@@ -468,7 +468,7 @@ namespace ATSAccessibility
         /// </summary>
         private string BuildOutOfReachTooltip()
         {
-            var biome = GameReflection.WorldMapGetBiomeName(_cursorPos);
+            var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos);
             if (!string.IsNullOrEmpty(biome))
                 return $"{biome}, cannot reach";
             return "Cannot reach";
@@ -487,7 +487,7 @@ namespace ATSAccessibility
         /// </summary>
         private void SyncCameraToTile()
         {
-            GameReflection.SetWorldCameraPosition(_cursorPos);
+            WorldMapReflection.SetWorldCameraPosition(_cursorPos);
         }
 
         /// <summary>

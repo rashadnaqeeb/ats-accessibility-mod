@@ -172,7 +172,7 @@ namespace ATSAccessibility
             var cursorPos = _navigator.CursorPosition;
 
             // Iterate over actual world map positions
-            foreach (var pos in GameReflection.GetWorldMapPositions())
+            foreach (var pos in WorldMapReflection.GetWorldMapPositions())
             {
                 ScannedItem item = CheckPosition(pos, cursorPos);
                 if (item != null)
@@ -187,21 +187,21 @@ namespace ATSAccessibility
 
         private ScannedItem CheckPosition(Vector3Int pos, Vector3Int cursorPos)
         {
-            bool isRevealed = GameReflection.WorldMapIsRevealed(pos);
+            bool isRevealed = WorldMapReflection.WorldMapIsRevealed(pos);
 
             switch (_currentType)
             {
                 case ScanType.RevealedModifier:
-                    if (isRevealed && GameReflection.WorldMapHasModifier(pos))
+                    if (isRevealed && WorldMapReflection.WorldMapHasModifier(pos))
                     {
-                        string name = GameReflection.WorldMapGetModifierName(pos) ?? "Modifier";
+                        string name = WorldMapReflection.WorldMapGetModifierName(pos) ?? "Modifier";
                         int dist = GetHexDistance(cursorPos, pos);
                         return new ScannedItem(pos, dist, name);
                     }
                     break;
 
                 case ScanType.UnknownModifier:
-                    if (!isRevealed && GameReflection.WorldMapHasModifier(pos))
+                    if (!isRevealed && WorldMapReflection.WorldMapHasModifier(pos))
                     {
                         int dist = GetHexDistance(cursorPos, pos);
                         return new ScannedItem(pos, dist, "Unknown modifier");
@@ -209,16 +209,16 @@ namespace ATSAccessibility
                     break;
 
                 case ScanType.RevealedEvent:
-                    if (isRevealed && GameReflection.WorldMapHasEvent(pos))
+                    if (isRevealed && WorldMapReflection.WorldMapHasEvent(pos))
                     {
-                        string name = GameReflection.WorldMapGetEventName(pos) ?? "Event";
+                        string name = WorldMapReflection.WorldMapGetEventName(pos) ?? "Event";
                         int dist = GetHexDistance(cursorPos, pos);
                         return new ScannedItem(pos, dist, name);
                     }
                     break;
 
                 case ScanType.UnknownEvent:
-                    if (!isRevealed && GameReflection.WorldMapHasEvent(pos))
+                    if (!isRevealed && WorldMapReflection.WorldMapHasEvent(pos))
                     {
                         int dist = GetHexDistance(cursorPos, pos);
                         return new ScannedItem(pos, dist, "Unknown event");
@@ -226,9 +226,9 @@ namespace ATSAccessibility
                     break;
 
                 case ScanType.Seal:
-                    if (GameReflection.WorldMapHasSeal(pos))
+                    if (WorldMapReflection.WorldMapHasSeal(pos))
                     {
-                        string name = GameReflection.WorldMapGetSealName(pos) ?? "Seal";
+                        string name = WorldMapReflection.WorldMapGetSealName(pos) ?? "Seal";
                         int dist = GetHexDistance(cursorPos, pos);
                         return new ScannedItem(pos, dist, name);
                     }
@@ -236,14 +236,14 @@ namespace ATSAccessibility
 
                 case ScanType.Settlement:
                     // Player cities (not capital)
-                    if (GameReflection.WorldMapIsCity(pos) && !GameReflection.WorldMapIsCapital(pos))
+                    if (WorldMapReflection.WorldMapIsCity(pos) && !WorldMapReflection.WorldMapIsCapital(pos))
                     {
-                        string name = GameReflection.WorldMapGetCityName(pos) ?? "Settlement";
+                        string name = WorldMapReflection.WorldMapGetCityName(pos) ?? "Settlement";
                         int dist = GetHexDistance(cursorPos, pos);
                         return new ScannedItem(pos, dist, name);
                     }
                     // Capital - only include once at origin (0,0,0) to avoid duplicates
-                    if (pos == Vector3Int.zero && GameReflection.WorldMapIsCapital(pos))
+                    if (pos == Vector3Int.zero && WorldMapReflection.WorldMapIsCapital(pos))
                     {
                         int dist = GetHexDistance(cursorPos, pos);
                         return new ScannedItem(pos, dist, "Capital");

@@ -311,7 +311,7 @@ namespace ATSAccessibility
         {
             if (_announcedWorldMap) return;
 
-            if (GameReflection.IsWorldMapActive())
+            if (WorldMapReflection.IsWorldMapActive())
             {
                 _worldMapNavigator?.Reset();
                 _keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);

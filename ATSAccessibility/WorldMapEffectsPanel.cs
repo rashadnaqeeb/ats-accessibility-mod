@@ -31,7 +31,7 @@ namespace ATSAccessibility
             }
 
             // Don't reveal effects on unexplored tiles
-            if (!GameReflection.WorldMapIsRevealed(tilePos))
+            if (!WorldMapReflection.WorldMapIsRevealed(tilePos))
             {
                 Speech.Say("Unexplored");
                 return;
@@ -138,8 +138,8 @@ namespace ATSAccessibility
             _items.Clear();
 
             // Add biome as first item
-            var biomeName = GameReflection.WorldMapGetBiomeName(_tilePos);
-            var biomeDescription = GameReflection.WorldMapGetBiomeDescription(_tilePos);
+            var biomeName = WorldMapReflection.WorldMapGetBiomeName(_tilePos);
+            var biomeDescription = WorldMapReflection.WorldMapGetBiomeDescription(_tilePos);
 
             if (!string.IsNullOrEmpty(biomeName))
             {
@@ -147,7 +147,7 @@ namespace ATSAccessibility
             }
 
             // Add field effects
-            var effects = GameReflection.WorldMapGetFieldEffectsWithDescriptions(_tilePos);
+            var effects = WorldMapReflection.WorldMapGetFieldEffectsWithDescriptions(_tilePos);
             if (effects != null)
             {
                 foreach (var effect in effects)
