@@ -2133,5 +2133,597 @@ namespace ATSAccessibility
             catch { }
             return true; // Default to active
         }
+
+        // ========================================
+        // BUILDING SYSTEM REFLECTION
+        // ========================================
+
+        private static FieldInfo _settingsBuildingsField = null;
+        private static FieldInfo _settingsBuildingCategoriesField = null;
+        private static PropertyInfo _gsGameContentServiceProperty = null;
+        private static PropertyInfo _gsConstructionServiceProperty = null;
+        private static MethodInfo _gcsIsUnlockedMethod = null;
+        private static MethodInfo _csCanConstructMethod = null;
+        private static Type _buildingCreatorType = null;
+        private static MethodInfo _bcCreateBuildingMethod = null;
+        private static bool _buildingTypesCached = false;
+
+        private static void EnsureBuildingTypes()
+        {
+            if (_buildingTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _buildingTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get Buildings and BuildingCategories from Settings
+                var settingsType = _gameAssembly.GetType("Eremite.Model.Settings");
+                if (settingsType != null)
+                {
+                    _settingsBuildingsField = settingsType.GetField("Buildings",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _settingsBuildingCategoriesField = settingsType.GetField("BuildingCategories",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get GameContentService from IGameServices
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsGameContentServiceProperty = gameServicesType.GetProperty("GameContentService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsConstructionServiceProperty = gameServicesType.GetProperty("ConstructionService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get IsUnlocked method from IGameContentService
+                var gameContentServiceType = _gameAssembly.GetType("Eremite.Services.IGameContentService");
+                if (gameContentServiceType != null)
+                {
+                    var buildingModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingModel");
+                    if (buildingModelType != null)
+                    {
+                        _gcsIsUnlockedMethod = gameContentServiceType.GetMethod("IsUnlocked",
+                            new Type[] { buildingModelType });
+                    }
+                }
+
+                // Get CanConstruct method from IConstructionService
+                var constructionServiceType = _gameAssembly.GetType("Eremite.Services.IConstructionService");
+                if (constructionServiceType != null)
+                {
+                    var buildingModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingModel");
+                    if (buildingModelType != null)
+                    {
+                        _csCanConstructMethod = constructionServiceType.GetMethod("CanConstruct",
+                            new Type[] { buildingModelType });
+                    }
+                }
+
+                // Get BuildingCreator class
+                _buildingCreatorType = _gameAssembly.GetType("Eremite.Buildings.BuildingCreator");
+                if (_buildingCreatorType != null)
+                {
+                    _bcCreateBuildingMethod = _buildingCreatorType.GetMethod("CreateBuilding",
+                        new Type[] { _gameAssembly.GetType("Eremite.Buildings.BuildingModel"), typeof(int) });
+                }
+
+                Debug.Log("[ATSAccessibility] Cached building system types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Building type caching failed: {ex.Message}");
+            }
+
+            _buildingTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get all BuildingModel definitions from Settings.
+        /// </summary>
+        public static Array GetAllBuildingModels()
+        {
+            EnsureBuildingTypes();
+            var settings = GetSettings();
+            if (settings == null || _settingsBuildingsField == null) return null;
+
+            try
+            {
+                return _settingsBuildingsField.GetValue(settings) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all BuildingCategoryModel definitions from Settings.
+        /// </summary>
+        public static Array GetBuildingCategories()
+        {
+            EnsureBuildingTypes();
+            var settings = GetSettings();
+            if (settings == null || _settingsBuildingCategoriesField == null) return null;
+
+            try
+            {
+                return _settingsBuildingCategoriesField.GetValue(settings) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the category of a BuildingModel.
+        /// </summary>
+        public static object GetBuildingCategory(object buildingModel)
+        {
+            if (buildingModel == null) return null;
+
+            try
+            {
+                var categoryField = buildingModel.GetType().GetField("category",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return categoryField?.GetValue(buildingModel);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if a building model is in the shop (should show in build menu).
+        /// </summary>
+        public static bool IsBuildingInShop(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+
+            try
+            {
+                var isInShopField = buildingModel.GetType().GetField("isInShop",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (isInShopField != null)
+                {
+                    return (bool)isInShopField.GetValue(buildingModel);
+                }
+            }
+            catch { }
+            return true; // Default to true
+        }
+
+        /// <summary>
+        /// Get the size of a building model.
+        /// </summary>
+        public static Vector2Int GetBuildingSize(object buildingModel)
+        {
+            if (buildingModel == null) return Vector2Int.one;
+
+            try
+            {
+                var sizeField = buildingModel.GetType().GetField("size",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (sizeField != null)
+                {
+                    return (Vector2Int)sizeField.GetValue(buildingModel);
+                }
+            }
+            catch { }
+            return Vector2Int.one;
+        }
+
+        /// <summary>
+        /// Get the description of a building model.
+        /// </summary>
+        public static string GetBuildingDescription(object buildingModel)
+        {
+            if (buildingModel == null) return null;
+
+            try
+            {
+                // Try the Description property first (virtual property in BuildingModel)
+                var descProperty = buildingModel.GetType().GetProperty("Description",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (descProperty != null)
+                {
+                    return descProperty.GetValue(buildingModel) as string;
+                }
+
+                // Fall back to description field (LocaText)
+                var descField = buildingModel.GetType().GetField("description",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                if (descField != null)
+                {
+                    var locaText = descField.GetValue(buildingModel);
+                    if (locaText != null)
+                    {
+                        var textProperty = locaText.GetType().GetProperty("Text",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        if (textProperty != null)
+                        {
+                            return textProperty.GetValue(locaText) as string;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>
+        /// Check if building model is active.
+        /// </summary>
+        public static bool IsBuildingActive(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+
+            try
+            {
+                var isActiveField = buildingModel.GetType().GetField("isActive",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (isActiveField != null)
+                {
+                    return (bool)isActiveField.GetValue(buildingModel);
+                }
+            }
+            catch { }
+            return true;
+        }
+
+        /// <summary>
+        /// Check if building category is on HUD (should show in categories).
+        /// </summary>
+        public static bool IsCategoryOnHUD(object categoryModel)
+        {
+            if (categoryModel == null) return false;
+
+            try
+            {
+                var isOnHUDField = categoryModel.GetType().GetField("isOnHUD",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (isOnHUDField != null)
+                {
+                    return (bool)isOnHUDField.GetValue(categoryModel);
+                }
+            }
+            catch { }
+            return true;
+        }
+
+        /// <summary>
+        /// Get GameContentService from GameServices.
+        /// </summary>
+        public static object GetGameContentService()
+        {
+            EnsureBuildingTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null || _gsGameContentServiceProperty == null) return null;
+
+            try
+            {
+                return _gsGameContentServiceProperty.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get ConstructionService from GameServices.
+        /// </summary>
+        public static object GetConstructionService()
+        {
+            EnsureBuildingTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null || _gsConstructionServiceProperty == null) return null;
+
+            try
+            {
+                return _gsConstructionServiceProperty.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if a building is unlocked in the current game.
+        /// </summary>
+        public static bool IsBuildingUnlocked(object buildingModel)
+        {
+            EnsureBuildingTypes();
+            var gameContentService = GetGameContentService();
+            if (gameContentService == null || _gcsIsUnlockedMethod == null || buildingModel == null)
+                return false;
+
+            try
+            {
+                return (bool)_gcsIsUnlockedMethod.Invoke(gameContentService, new object[] { buildingModel });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a building can be constructed (not at max amount).
+        /// </summary>
+        public static bool CanConstructBuilding(object buildingModel)
+        {
+            EnsureBuildingTypes();
+            var constructionService = GetConstructionService();
+            if (constructionService == null || _csCanConstructMethod == null || buildingModel == null)
+                return false;
+
+            try
+            {
+                return (bool)_csCanConstructMethod.Invoke(constructionService, new object[] { buildingModel });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Create a building instance using BuildingCreator.
+        /// The building is not yet placed on the grid.
+        /// </summary>
+        public static object CreateBuilding(object buildingModel, int rotation = 0)
+        {
+            EnsureBuildingTypes();
+            if (_buildingCreatorType == null || _bcCreateBuildingMethod == null || buildingModel == null)
+                return null;
+
+            try
+            {
+                // Create a new BuildingCreator instance
+                var creator = Activator.CreateInstance(_buildingCreatorType);
+                return _bcCreateBuildingMethod.Invoke(creator, new object[] { buildingModel, rotation });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CreateBuilding failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        // Building placement reflection
+        private static MethodInfo _csCanPlaceOnGridMethod = null;
+        private static MethodInfo _csPlaceOnGridMethod = null;
+        private static MethodInfo _csRemoveFromGridMethod = null;
+        private static MethodInfo _buildingManualPlacingFinishedMethod = null;
+        private static MethodInfo _buildingRemoveMethod = null;
+        // Note: _buildingFieldProperty is already defined above for Ancient Hearth
+        private static PropertyInfo _buildingRotationProperty = null;
+        private static MethodInfo _buildingSetPositionMethod = null;
+        private static MethodInfo _buildingRotateMethod = null;
+        private static bool _buildingPlacementTypesCached = false;
+
+        private static void EnsureBuildingPlacementTypes()
+        {
+            if (_buildingPlacementTypesCached) return;
+            EnsureBuildingTypes();
+
+            if (_gameAssembly == null)
+            {
+                _buildingPlacementTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get ConstructionService methods
+                var constructionServiceType = _gameAssembly.GetType("Eremite.Services.IConstructionService");
+                var buildingType = _gameAssembly.GetType("Eremite.Buildings.Building");
+
+                if (constructionServiceType != null && buildingType != null)
+                {
+                    _csCanPlaceOnGridMethod = constructionServiceType.GetMethod("CanPlaceOnGrid",
+                        new Type[] { buildingType });
+                    _csPlaceOnGridMethod = constructionServiceType.GetMethod("PlaceOnGrid",
+                        new Type[] { buildingType });
+                    _csRemoveFromGridMethod = constructionServiceType.GetMethod("RemoveFromGrid",
+                        new Type[] { buildingType });
+                }
+
+                if (buildingType != null)
+                {
+                    // Get Building methods and properties
+                    _buildingManualPlacingFinishedMethod = buildingType.GetMethod("ManualPlacingFinished",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _buildingRemoveMethod = buildingType.GetMethod("Remove",
+                        new Type[] { typeof(bool) });
+                    // _buildingFieldProperty is cached elsewhere (Ancient Hearth section)
+                    _buildingRotationProperty = buildingType.GetProperty("Rotation",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _buildingSetPositionMethod = buildingType.GetMethod("SetPosition",
+                        new Type[] { typeof(Vector3) });
+                    _buildingRotateMethod = buildingType.GetMethod("Rotate",
+                        new Type[] { typeof(int) });
+                }
+
+                Debug.Log("[ATSAccessibility] Cached building placement types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Building placement type caching failed: {ex.Message}");
+            }
+
+            _buildingPlacementTypesCached = true;
+        }
+
+        /// <summary>
+        /// Check if a building can be placed at its current position.
+        /// </summary>
+        public static bool CanPlaceBuilding(object building)
+        {
+            EnsureBuildingPlacementTypes();
+            var constructionService = GetConstructionService();
+            if (constructionService == null || _csCanPlaceOnGridMethod == null || building == null)
+                return false;
+
+            try
+            {
+                return (bool)_csCanPlaceOnGridMethod.Invoke(constructionService, new object[] { building });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Set a building's position.
+        /// </summary>
+        public static void SetBuildingPosition(object building, Vector2Int gridPos)
+        {
+            EnsureBuildingPlacementTypes();
+            if (building == null || _buildingSetPositionMethod == null) return;
+
+            try
+            {
+                // Convert grid position to world position
+                Vector3 worldPos = new Vector3(gridPos.x, 0, gridPos.y);
+                _buildingSetPositionMethod.Invoke(building, new object[] { worldPos });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SetBuildingPosition failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Rotate a building to a specific rotation value (0-3).
+        /// </summary>
+        public static void RotateBuilding(object building, int rotation)
+        {
+            EnsureBuildingPlacementTypes();
+            if (building == null || _buildingRotateMethod == null) return;
+
+            try
+            {
+                _buildingRotateMethod.Invoke(building, new object[] { rotation });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] RotateBuilding failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get the current rotation of a building (0-3).
+        /// </summary>
+        public static int GetBuildingRotation(object building)
+        {
+            EnsureBuildingPlacementTypes();
+            if (building == null || _buildingRotationProperty == null) return 0;
+
+            try
+            {
+                return (int)_buildingRotationProperty.GetValue(building);
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Finalize building placement after setting position.
+        /// This registers the building, plays sounds, and starts construction.
+        /// </summary>
+        public static void FinalizeBuildingPlacement(object building)
+        {
+            EnsureBuildingPlacementTypes();
+            if (building == null || _buildingManualPlacingFinishedMethod == null) return;
+
+            try
+            {
+                _buildingManualPlacingFinishedMethod.Invoke(building, null);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] FinalizeBuildingPlacement failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Remove a building from the game.
+        /// </summary>
+        public static void RemoveBuilding(object building, bool refund = true)
+        {
+            EnsureBuildingPlacementTypes();
+            if (building == null || _buildingRemoveMethod == null) return;
+
+            try
+            {
+                _buildingRemoveMethod.Invoke(building, new object[] { refund });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] RemoveBuilding failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get building at a specific map position.
+        /// Returns null if no building at that position.
+        /// </summary>
+        public static object GetBuildingAtPosition(int x, int y)
+        {
+            var obj = GetObjectOn(x, y);
+            if (obj == null) return null;
+
+            // Check if it's a Building type
+            var buildingType = _gameAssembly?.GetType("Eremite.Buildings.Building");
+            if (buildingType != null && buildingType.IsInstanceOfType(obj))
+            {
+                return obj;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Check if a building is unfinished (still under construction).
+        /// </summary>
+        public static bool IsBuildingUnfinished(object building)
+        {
+            if (building == null) return false;
+
+            try
+            {
+                // Get BuildingState property
+                var stateProperty = building.GetType().GetProperty("BuildingState",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (stateProperty == null) return false;
+
+                var state = stateProperty.GetValue(building);
+                if (state == null) return false;
+
+                // Get finished field from state
+                var finishedField = state.GetType().GetField("finished",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (finishedField == null) return false;
+
+                return !(bool)finishedField.GetValue(state);
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }

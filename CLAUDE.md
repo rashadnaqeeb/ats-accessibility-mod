@@ -56,6 +56,8 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **StatsReader.cs** - Reads game statistics (Reputation, Impatience, Hostility, Resolve)
 - **StatsPanel.cs** - Virtual speech-only panel for detailed stats navigation
 - **MysteriesPanel.cs** - Virtual speech panel for forest mysteries and world modifiers
+- **BuildingMenuPanel.cs** - Virtual speech panel for building selection (Tab key, two-panel: categories → buildings)
+- **BuildModeController.cs** - Handles building placement, rotation, and removal in build mode
 
 ### World Map Navigation
 
@@ -87,7 +89,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 **Native DLL loading**: Tolk.dll and helpers (nvdaControllerClient64.dll, SAAPI64.dll) must stay in plugins folder. SetDllDirectory is called in Plugin.Awake() before any P/Invoke.
 
-**Navigation priority**: KeyboardManager checks contexts in order: StatsPanel → MysteriesPanel → ResourcePanel → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
+**Navigation priority**: KeyboardManager checks contexts in order: StatsPanel → MysteriesPanel → ResourcePanel → BuildingMenuPanel → BuildModeController → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
 
 ## Keyboard Controls
 
@@ -131,6 +133,21 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **Enter/Right Arrow** - View items in current category
 - **Left Arrow** - Return from items to categories
 - **Escape** - Close resource panel
+
+### Building Menu (Tab key)
+- **Tab** - Open building menu (from settlement map)
+- **Up/Down** - Navigate categories (left panel) or buildings (right panel)
+- **Enter/Right Arrow** - View buildings in category, or select building to place
+- **Left Arrow** - Return from buildings to categories
+- **Escape** - Close building menu
+
+### Build Mode (after selecting a building)
+- **Arrow keys** - Move cursor on map (same as normal navigation)
+- **R** - Rotate building (announces cardinal direction: North/East/South/West)
+- **Space** - Place building at cursor position
+- **Shift+Space** - Remove unfinished building at cursor
+- **Tab** - Return to building menu
+- **Escape/Enter** - Exit build mode
 
 ### World Map Navigation
 - **Arrow keys** - Navigate hex grid (camera follows cursor)

@@ -75,6 +75,12 @@ namespace ATSAccessibility
         // Reference to settlement resource panel for inventory browsing
         private SettlementResourcePanel _settlementResourcePanel;
 
+        // Reference to building menu panel for construction
+        private BuildingMenuPanel _buildingMenuPanel;
+
+        // Reference to build mode controller for placing buildings
+        private BuildModeController _buildModeController;
+
         public KeyboardManager(UINavigator uiNavigator)
         {
             _uiNavigator = uiNavigator;
@@ -161,6 +167,22 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set the building menu panel reference.
+        /// </summary>
+        public void SetBuildingMenuPanel(BuildingMenuPanel panel)
+        {
+            _buildingMenuPanel = panel;
+        }
+
+        /// <summary>
+        /// Set the build mode controller reference.
+        /// </summary>
+        public void SetBuildModeController(BuildModeController controller)
+        {
+            _buildModeController = controller;
+        }
+
+        /// <summary>
         /// Set the current navigation context.
         /// </summary>
         public void SetContext(NavigationContext context)
@@ -203,6 +225,25 @@ namespace ATSAccessibility
                 {
                     return; // Key was handled by resource panel
                 }
+            }
+
+            // Check if building menu panel is open
+            if (_buildingMenuPanel != null && _buildingMenuPanel.IsOpen)
+            {
+                if (_buildingMenuPanel.ProcessKeyEvent(keyCode))
+                {
+                    return; // Key was handled by building menu
+                }
+            }
+
+            // Check if build mode is active
+            if (_buildModeController != null && _buildModeController.IsActive)
+            {
+                if (_buildModeController.ProcessKeyEvent(keyCode, modifiers))
+                {
+                    return; // Key was handled by build mode
+                }
+                // If not handled, fall through to allow MapNavigator to handle arrow keys
             }
 
             // Check if encyclopedia is active - takes priority over generic popup handling
@@ -464,6 +505,11 @@ namespace ATSAccessibility
                     break;
                 case KeyCode.M:
                     _mysteriesPanel?.Open();
+                    break;
+
+                // Building menu
+                case KeyCode.Tab:
+                    _buildingMenuPanel?.Open();
                     break;
             }
         }

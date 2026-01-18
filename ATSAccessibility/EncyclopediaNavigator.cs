@@ -574,7 +574,7 @@ namespace ATSAccessibility
                 var inputs = FormatGoodsSets(requiredGoods) ?? "nothing";
                 var time = FormatMinSec(productionTime);
 
-                _contentLines.Add($"  {outputAmount} {outputName}{gradeStr}: {inputs} ({time})");
+                _contentLines.Add($"  {outputAmount} {outputName}: {inputs}. {time}{gradeStr}");
             }
         }
 
@@ -639,7 +639,7 @@ namespace ATSAccessibility
         /// Each GoodsSet represents one required input slot (joined by separator).
         /// Multiple goods within a GoodsSet are alternatives (joined by altSeparator).
         /// </summary>
-        private string FormatGoodsSets(Array goodsSets, string separator = " + ", string altSeparator = " OR ")
+        private string FormatGoodsSets(Array goodsSets, string separator = ", + ", string altSeparator = " OR ")
         {
             if (goodsSets == null || goodsSets.Length == 0) return null;
 
@@ -688,7 +688,12 @@ namespace ATSAccessibility
         {
             int mins = (int)(totalSeconds / 60);
             int secs = (int)(totalSeconds % 60);
-            return $"{mins:D2}:{secs:D2}";
+            if (mins > 0 && secs > 0)
+                return $"{mins}m {secs}s";
+            else if (mins > 0)
+                return $"{mins}m";
+            else
+                return $"{secs}s";
         }
 
         private string ExtractPreviewContent()

@@ -1,0 +1,281 @@
+using UnityEngine;
+
+namespace ATSAccessibility
+{
+    /// <summary>
+    /// Controls building placement mode: rotation, placement, and removal.
+    /// Works with MapNavigator for cursor position.
+    /// </summary>
+    public class BuildModeController
+    {
+        private bool _isActive = false;
+        private object _selectedBuildingModel = null;
+        private string _selectedBuildingName = null;
+        private object _currentBuilding = null;  // The actual building instance being placed
+        private int _rotation = 0;  // 0-3, maps to cardinal directions
+
+        // Reference to map navigator for cursor position
+        private readonly MapNavigator _mapNavigator;
+
+        // Reference to building menu for returning
+        private readonly BuildingMenuPanel _buildingMenuPanel;
+
+        /// <summary>
+        /// Whether build mode is currently active.
+        /// </summary>
+        public bool IsActive => _isActive;
+
+        public BuildModeController(MapNavigator mapNavigator, BuildingMenuPanel buildingMenuPanel)
+        {
+            _mapNavigator = mapNavigator;
+            _buildingMenuPanel = buildingMenuPanel;
+        }
+
+        /// <summary>
+        /// Enter build mode with a selected building.
+        /// </summary>
+        public void EnterBuildMode(object buildingModel, string buildingName)
+        {
+            if (buildingModel == null)
+            {
+                Debug.LogError("[ATSAccessibility] EnterBuildMode called with null model");
+                return;
+            }
+
+            _selectedBuildingModel = buildingModel;
+            _selectedBuildingName = buildingName;
+            _rotation = 0;
+            _isActive = true;
+            _currentBuilding = null;
+
+            Speech.Say($"Build mode: {buildingName}. R to rotate, Space to place, Tab for menu.");
+            Debug.Log($"[ATSAccessibility] Entered build mode for: {buildingName}");
+        }
+
+        /// <summary>
+        /// Exit build mode and clean up.
+        /// </summary>
+        public void ExitBuildMode()
+        {
+            if (!_isActive) return;
+
+            // Clean up any preview building
+            CleanupCurrentBuilding();
+
+            _isActive = false;
+            _selectedBuildingModel = null;
+            _selectedBuildingName = null;
+            _currentBuilding = null;
+            _rotation = 0;
+
+            InputBlocker.BlockCancelOnce = true;
+            Speech.Say("Exited build mode");
+            Debug.Log("[ATSAccessibility] Exited build mode");
+        }
+
+        /// <summary>
+        /// Process a key event for build mode.
+        /// Returns true if the key was handled.
+        /// </summary>
+        public bool ProcessKeyEvent(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (!_isActive) return false;
+
+            switch (keyCode)
+            {
+                case KeyCode.R:
+                    RotateBuilding();
+                    return true;
+
+                case KeyCode.Space:
+                    if (modifiers.Shift)
+                        RemoveBuildingAtCursor();
+                    else
+                        PlaceBuilding();
+                    return true;
+
+                case KeyCode.Tab:
+                    ReturnToMenu();
+                    return true;
+
+                case KeyCode.Escape:
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                    ExitBuildMode();
+                    return true;
+
+                // Let arrow keys pass through to MapNavigator
+                case KeyCode.UpArrow:
+                case KeyCode.DownArrow:
+                case KeyCode.LeftArrow:
+                case KeyCode.RightArrow:
+                    return false;
+
+                // Let PageUp/Down pass through to MapScanner
+                case KeyCode.PageUp:
+                case KeyCode.PageDown:
+                    return false;
+
+                // Let other map keys pass through
+                case KeyCode.K:
+                case KeyCode.I:
+                    return false;
+
+                default:
+                    // Consume other keys to prevent interference
+                    return true;
+            }
+        }
+
+        /// <summary>
+        /// Rotate the building and announce the new direction.
+        /// </summary>
+        private void RotateBuilding()
+        {
+            _rotation = (_rotation + 1) % 4;
+            string direction = GetCardinalDirection(_rotation);
+
+            Speech.Say($"{_selectedBuildingName} facing {direction}");
+            Debug.Log($"[ATSAccessibility] Building rotated to {_rotation} ({direction})");
+        }
+
+        /// <summary>
+        /// Attempt to place the building at the current cursor position.
+        /// </summary>
+        private void PlaceBuilding()
+        {
+            if (_selectedBuildingModel == null || _mapNavigator == null)
+            {
+                Speech.Say("Cannot place");
+                return;
+            }
+
+            // Check if we can still construct this building type
+            if (!GameReflection.CanConstructBuilding(_selectedBuildingModel))
+            {
+                Speech.Say($"{_selectedBuildingName} at maximum, cannot place more");
+                return;
+            }
+
+            // Get cursor position
+            int x = _mapNavigator.CursorX;
+            int y = _mapNavigator.CursorY;
+
+            // Create the building at the cursor position
+            var building = GameReflection.CreateBuilding(_selectedBuildingModel, _rotation);
+            if (building == null)
+            {
+                Speech.Say("Failed to create building");
+                Debug.LogError("[ATSAccessibility] Failed to create building instance");
+                return;
+            }
+
+            // Set position
+            GameReflection.SetBuildingPosition(building, new Vector2Int(x, y));
+
+            // Check if placement is valid
+            if (!GameReflection.CanPlaceBuilding(building))
+            {
+                // Remove the building since we can't place it
+                GameReflection.RemoveBuilding(building, false);
+                Speech.Say("Cannot place here");
+                Debug.Log($"[ATSAccessibility] Cannot place {_selectedBuildingName} at ({x}, {y})");
+                return;
+            }
+
+            // Finalize placement
+            GameReflection.FinalizeBuildingPlacement(building);
+
+            Speech.Say($"{_selectedBuildingName} placed");
+            Debug.Log($"[ATSAccessibility] Placed {_selectedBuildingName} at ({x}, {y}) rotation {_rotation}");
+
+            // Check if we can build more
+            if (!GameReflection.CanConstructBuilding(_selectedBuildingModel))
+            {
+                Speech.Say($"Maximum {_selectedBuildingName} reached");
+                ExitBuildMode();
+            }
+        }
+
+        /// <summary>
+        /// Remove an unfinished building at the current cursor position.
+        /// </summary>
+        private void RemoveBuildingAtCursor()
+        {
+            if (_mapNavigator == null)
+            {
+                Speech.Say("Cannot remove");
+                return;
+            }
+
+            int x = _mapNavigator.CursorX;
+            int y = _mapNavigator.CursorY;
+
+            // Check if there's a building at cursor
+            var building = GameReflection.GetBuildingAtPosition(x, y);
+            if (building == null)
+            {
+                Speech.Say("No building here");
+                return;
+            }
+
+            // Check if it's unfinished (under construction)
+            if (!GameReflection.IsBuildingUnfinished(building))
+            {
+                Speech.Say("Building already complete, use game controls to remove");
+                return;
+            }
+
+            // Get the building name for announcement
+            string buildingName = GameReflection.GetDisplayName(building) ?? "Building";
+
+            // Remove with refund
+            GameReflection.RemoveBuilding(building, true);
+
+            Speech.Say($"{buildingName} removed");
+            Debug.Log($"[ATSAccessibility] Removed building at ({x}, {y})");
+        }
+
+        /// <summary>
+        /// Return to the building menu without exiting build mode entirely.
+        /// </summary>
+        private void ReturnToMenu()
+        {
+            // Clean up current state
+            CleanupCurrentBuilding();
+            _isActive = false;
+            _selectedBuildingModel = null;
+            _selectedBuildingName = null;
+            _currentBuilding = null;
+
+            // Open the menu
+            _buildingMenuPanel?.Open();
+        }
+
+        /// <summary>
+        /// Clean up any preview building that might exist.
+        /// </summary>
+        private void CleanupCurrentBuilding()
+        {
+            // Note: We don't maintain a persistent preview building in this implementation.
+            // Each placement creates a new building. This method is here for future use
+            // if we add visual preview functionality.
+            _currentBuilding = null;
+        }
+
+        /// <summary>
+        /// Get the cardinal direction name for a rotation value.
+        /// </summary>
+        private string GetCardinalDirection(int rotation)
+        {
+            return rotation switch
+            {
+                0 => "North",
+                1 => "East",
+                2 => "South",
+                3 => "West",
+                _ => "Unknown"
+            };
+        }
+    }
+}

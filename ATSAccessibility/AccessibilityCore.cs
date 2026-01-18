@@ -55,6 +55,12 @@ namespace ATSAccessibility
         // Settlement resource panel for inventory browsing
         private SettlementResourcePanel _settlementResourcePanel;
 
+        // Building menu panel for construction
+        private BuildingMenuPanel _buildingMenuPanel;
+
+        // Build mode controller for placing buildings
+        private BuildModeController _buildModeController;
+
         // World map navigator
         private WorldMapNavigator _worldMapNavigator;
         private WorldMapScanner _worldMapScanner;
@@ -113,6 +119,13 @@ namespace ATSAccessibility
             // Initialize settlement resource panel
             _settlementResourcePanel = new SettlementResourcePanel();
             _keyboardManager.SetSettlementResourcePanel(_settlementResourcePanel);
+
+            // Initialize building menu panel and build mode controller
+            _buildingMenuPanel = new BuildingMenuPanel();
+            _buildModeController = new BuildModeController(_mapNavigator, _buildingMenuPanel);
+            _buildingMenuPanel.SetBuildModeController(_buildModeController);
+            _keyboardManager.SetBuildingMenuPanel(_buildingMenuPanel);
+            _keyboardManager.SetBuildModeController(_buildModeController);
 
             // Initialize world map navigator and scanner
             _worldMapNavigator = new WorldMapNavigator();
