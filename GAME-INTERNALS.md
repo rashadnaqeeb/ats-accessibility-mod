@@ -36,14 +36,15 @@ MetaController.Instance → MetaServices → TutorialService
 
 | Service | Purpose |
 |---------|---------|
-| MapService | Field/tile access, object lookup |
+| MapService | Field/tile access, object lookup, map dimensions |
 | GladesService | Fog of war, glade danger levels |
 | ResourcesService | NaturalResources dictionary (trees, etc.) |
 | DepositsService | Deposits dictionary (clay, copper, etc.) |
-| BuildingsService | Buildings dictionary (player structures) |
+| BuildingsService | Buildings dictionary, GetMainHearth() |
 | VillagersService | Villagers dictionary |
 | ModeService | Game mode state (Idle property) |
 | InputService | Input handling, lock mechanism |
+| ReputationRewardsService | Reputation rewards popup, RequestPopup() |
 
 ### AppServices
 
@@ -62,11 +63,20 @@ MetaController.Instance → MetaServices → TutorialService
 ## Map System
 
 ### Coordinates
-- 70x70 grid (0-69 bounds)
+- Dynamic grid size (varies by mission type, e.g., 70x70, 125x125)
 - `Vector2Int` for positions
+- Use `MapService.InBounds(x, y)` for bounds checking
 
 ### MapService Methods
 ```csharp
+// Get map dimensions
+var fields = mapService.Fields;  // Map<Field> object
+int width = fields.width;        // public field
+int height = fields.height;      // public field
+
+// Check bounds
+bool valid = mapService.InBounds(x, y);
+
 // Get field at coordinate
 var field = mapService.GetField(x, y);
 
@@ -95,6 +105,21 @@ glade.wasDiscovered // bool - true if revealed
 ResourcesService.NaturalResources  // Dict<Vector2Int, NaturalResource>
 DepositsService.Deposits           // Dict<Vector2Int, Deposit>
 BuildingsService.Buildings         // Dict<int, Building>
+BuildingsService.Hearths           // Dict<int, Hearth>
+```
+
+### BuildingsService Methods
+```csharp
+// Get main hearth (Ancient Hearth) - WARNING: throws if no hearths registered yet
+var mainHearth = buildingsService.GetMainHearth();
+
+// Safer: access Hearths dictionary directly
+var hearthsDict = buildingsService.Hearths;  // Dict<int, Hearth>
+if (hearthsDict.Count > 0)
+{
+    var firstHearth = hearthsDict.Values.First();  // Main hearth is first
+    var position = firstHearth.Field;              // Vector2Int map position
+}
 ```
 
 ### Object Properties
@@ -116,6 +141,24 @@ var position = building.Field;      // PropertyInfo → Vector2Int
 ```csharp
 AnyPopupShown   // IReadOnlyReactiveProperty<object>
 AnyPopupHidden  // IReadOnlyReactiveProperty<object>
+```
+
+### Opening Popups Programmatically
+
+**Reputation Rewards Popup** (pick reward from reputation milestone):
+```csharp
+// Access via GameServices
+var reputationRewardsService = gameServices.ReputationRewardsService;
+reputationRewardsService.RequestPopup();  // Opens the reward selection popup
+```
+
+**Reflection pattern:**
+```csharp
+var gameServices = GameReflection.GetGameServices();
+var rewardsServiceProp = gameServices.GetType().GetProperty("ReputationRewardsService");
+var rewardsService = rewardsServiceProp.GetValue(gameServices);
+var requestPopupMethod = rewardsService.GetType().GetMethod("RequestPopup");
+requestPopupMethod.Invoke(rewardsService, null);
 ```
 
 ### ModeService
