@@ -54,6 +54,12 @@ namespace ATSAccessibility
         private WorldMapScanner _worldMapScanner;
         private bool _announcedWorldMap = false;
 
+        // Embark panel for pre-expedition setup
+        private EmbarkPanel _embarkPanel;
+        private IDisposable _embarkShownSubscription;
+        private IDisposable _embarkClosedSubscription;
+        private bool _subscribedToEmbark = false;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -100,6 +106,10 @@ namespace ATSAccessibility
             _worldMapScanner = new WorldMapScanner(_worldMapNavigator);
             _keyboardManager.SetWorldMapScanner(_worldMapScanner);
 
+            // Initialize embark panel
+            _embarkPanel = new EmbarkPanel();
+            _keyboardManager.SetEmbarkPanel(_embarkPanel);
+
             // Check if we're already on a scene (mod loaded mid-game)
             CheckCurrentScene();
         }
@@ -131,6 +141,12 @@ namespace ATSAccessibility
                 if (!_subscribedToPopups)
                 {
                     TrySubscribeToPopups();
+                }
+
+                // Try to subscribe to embark events if not already subscribed
+                if (!_subscribedToEmbark)
+                {
+                    TrySubscribeToEmbark();
                 }
 
                 // Try to subscribe to tutorial phase changes
@@ -196,6 +212,9 @@ namespace ATSAccessibility
 
             // Dispose popup subscriptions (PopupsService is destroyed on scene change)
             DisposePopupSubscriptions();
+
+            // Dispose embark subscriptions (WorldBlackboardService is destroyed on scene change)
+            DisposeEmbarkSubscriptions();
 
             // Dispose tutorial handler subscription
             _tutorialHandler?.Dispose();
@@ -432,6 +451,78 @@ namespace ATSAccessibility
             _popupShownSubscription = null;
             _popupHiddenSubscription = null;
             _subscribedToPopups = false;
+        }
+
+        // ========================================
+        // EMBARK EVENT SUBSCRIPTION
+        // ========================================
+
+        /// <summary>
+        /// Try to subscribe to embark screen events from WorldBlackboardService.
+        /// Called periodically until successful.
+        /// </summary>
+        private void TrySubscribeToEmbark()
+        {
+            if (_subscribedToEmbark) return;
+
+            // Only subscribe when on world map scene
+            if (SceneManager.GetActiveScene().buildIndex != SCENE_WORLDMAP) return;
+
+            try
+            {
+                // Subscribe to OnFieldPreviewShown (embark screen opened)
+                _embarkShownSubscription = EmbarkReflection.SubscribeToFieldPreviewShown(OnEmbarkScreenShown);
+
+                // Subscribe to OnFieldPreviewClosed (embark screen closed)
+                _embarkClosedSubscription = EmbarkReflection.SubscribeToFieldPreviewClosed(OnEmbarkScreenClosed);
+
+                if (_embarkShownSubscription != null && _embarkClosedSubscription != null)
+                {
+                    _subscribedToEmbark = true;
+                    Debug.Log("[ATSAccessibility] Subscribed to embark screen events");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Failed to subscribe to embark events: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Dispose embark subscriptions.
+        /// </summary>
+        private void DisposeEmbarkSubscriptions()
+        {
+            _embarkShownSubscription?.Dispose();
+            _embarkClosedSubscription?.Dispose();
+            _embarkShownSubscription = null;
+            _embarkClosedSubscription = null;
+            _subscribedToEmbark = false;
+
+            // Close embark panel if open
+            _embarkPanel?.Close();
+        }
+
+        /// <summary>
+        /// Called when the embark screen is shown (OnFieldPreviewShown event).
+        /// </summary>
+        private void OnEmbarkScreenShown(object worldField)
+        {
+            Debug.Log("[ATSAccessibility] Embark screen shown");
+            _embarkPanel?.Open(worldField);
+            _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Embark);
+        }
+
+        /// <summary>
+        /// Called when the embark screen is closed (OnFieldPreviewClosed event).
+        /// </summary>
+        private void OnEmbarkScreenClosed(object worldField)
+        {
+            Debug.Log("[ATSAccessibility] Embark screen closed");
+            _embarkPanel?.Close();
+
+            // Return to world map context
+            _keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);
         }
 
         /// <summary>

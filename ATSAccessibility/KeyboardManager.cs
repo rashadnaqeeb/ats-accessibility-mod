@@ -35,7 +35,8 @@ namespace ATSAccessibility
             Map,            // Navigating settlement map
             WorldMap,       // Navigating world map hex grid
             Dialogue,       // Future: reading dialogue
-            Encyclopedia    // Navigating wiki/encyclopedia popup
+            Encyclopedia,   // Navigating wiki/encyclopedia popup
+            Embark          // Navigating embark screen (pre-expedition setup)
         }
 
         // Current navigation context
@@ -64,6 +65,9 @@ namespace ATSAccessibility
 
         // Reference to world map scanner for quick feature finding
         private WorldMapScanner _worldMapScanner;
+
+        // Reference to embark panel for pre-expedition setup
+        private EmbarkPanel _embarkPanel;
 
         public KeyboardManager(UINavigator uiNavigator)
         {
@@ -127,6 +131,14 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set the embark panel reference.
+        /// </summary>
+        public void SetEmbarkPanel(EmbarkPanel panel)
+        {
+            _embarkPanel = panel;
+        }
+
+        /// <summary>
         /// Set the current navigation context.
         /// </summary>
         public void SetContext(NavigationContext context)
@@ -150,6 +162,15 @@ namespace ATSAccessibility
                 if (_statsPanel.ProcessKeyEvent(keyCode))
                 {
                     return; // Key was handled by stats panel
+                }
+            }
+
+            // Check if embark panel is open - second priority
+            if (_embarkPanel != null && _embarkPanel.IsOpen)
+            {
+                if (_embarkPanel.ProcessKeyEvent(keyCode))
+                {
+                    return; // Key was handled by embark panel
                 }
             }
 
@@ -187,6 +208,10 @@ namespace ATSAccessibility
                     break;
                 case NavigationContext.Encyclopedia:
                     ProcessEncyclopediaKeyEvent(keyCode);
+                    break;
+                case NavigationContext.Embark:
+                    // Embark panel handles its own keys via IsOpen check above
+                    // This case is for when embark panel is open but key wasn't handled
                     break;
                 case NavigationContext.None:
                 default:

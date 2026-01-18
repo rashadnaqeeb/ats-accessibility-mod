@@ -111,6 +111,9 @@ namespace ATSAccessibility
             // Remove all remaining rich text tags (anything between < and >)
             text = Regex.Replace(text, "<[^>]+>", "");
 
+            // Remove TextMeshPro shorthand sprite tags like [Food Raw], [Water], etc.
+            text = Regex.Replace(text, @"\[[^\]]+\]\s*", "");
+
             // Remove empty brackets/parentheses left behind by sprite tags
             text = text.Replace("[]", "");
             text = text.Replace("()", "");

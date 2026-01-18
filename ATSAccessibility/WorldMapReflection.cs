@@ -712,6 +712,39 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get the preparation points penalty from the min difficulty for a position.
+        /// Returns a negative number (the penalty to subtract from base points).
+        /// </summary>
+        public static int WorldMapGetDifficultyPreparationPenalty(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null) return 0;
+
+            try
+            {
+                var method = wms.GetType().GetMethod("GetMinDifficultyFor",
+                    new Type[] { typeof(Vector3Int) });
+                if (method == null) return 0;
+
+                var difficulty = method.Invoke(wms, new object[] { cubicPos });
+                if (difficulty == null) return 0;
+
+                var penaltyField = difficulty.GetType().GetField("preparationPointsPenalty",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (penaltyField == null) return 0;
+
+                var penalty = penaltyField.GetValue(difficulty);
+                return penalty != null ? (int)penalty : 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetDifficultyPreparationPenalty failed: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
         /// Get the seal fragments required to win for the last picked difficulty at a position.
         /// </summary>
         public static int WorldMapGetSealFragmentsForWin(Vector3Int cubicPos)
@@ -1284,6 +1317,108 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] WorldMapGetBiomeDescription failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the resource deposit goods available in this biome.
+        /// </summary>
+        public static List<string> WorldMapGetBiomeDepositsGoods(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsGetFieldMethod == null) return null;
+
+            try
+            {
+                var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
+                if (field == null) return null;
+
+                var biomeProperty = field.GetType().GetProperty("Biome",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var biome = biomeProperty?.GetValue(field);
+                if (biome == null) return null;
+
+                // Call GetDepositsGoods() method
+                var getDepositsMethod = biome.GetType().GetMethod("GetDepositsGoods",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (getDepositsMethod == null) return null;
+
+                var goods = getDepositsMethod.Invoke(biome, null) as System.Collections.IEnumerable;
+                if (goods == null) return null;
+
+                var result = new List<string>();
+                foreach (var good in goods)
+                {
+                    var displayNameField = good.GetType().GetField("displayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    var displayName = displayNameField?.GetValue(good);
+                    if (displayName != null)
+                    {
+                        var textProp = displayName.GetType().GetProperty("Text",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        var text = textProp?.GetValue(displayName) as string;
+                        if (!string.IsNullOrEmpty(text))
+                            result.Add(text);
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetBiomeDepositsGoods failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the tree/natural resource goods available in this biome.
+        /// </summary>
+        public static List<string> WorldMapGetBiomeTreesGoods(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+            var wms = GetWorldMapService();
+            if (wms == null || _wmsGetFieldMethod == null) return null;
+
+            try
+            {
+                var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
+                if (field == null) return null;
+
+                var biomeProperty = field.GetType().GetProperty("Biome",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var biome = biomeProperty?.GetValue(field);
+                if (biome == null) return null;
+
+                // Call GetTreesGoods() method
+                var getTreesMethod = biome.GetType().GetMethod("GetTreesGoods",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (getTreesMethod == null) return null;
+
+                var goods = getTreesMethod.Invoke(biome, null) as System.Collections.IEnumerable;
+                if (goods == null) return null;
+
+                var result = new List<string>();
+                foreach (var good in goods)
+                {
+                    var displayNameField = good.GetType().GetField("displayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    var displayName = displayNameField?.GetValue(good);
+                    if (displayName != null)
+                    {
+                        var textProp = displayName.GetType().GetProperty("Text",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        var text = textProp?.GetValue(displayName) as string;
+                        if (!string.IsNullOrEmpty(text))
+                            result.Add(text);
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WorldMapGetBiomeTreesGoods failed: {ex.Message}");
                 return null;
             }
         }
