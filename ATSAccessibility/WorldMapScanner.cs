@@ -93,8 +93,7 @@ namespace ATSAccessibility
         /// </summary>
         public void ChangeType(int direction)
         {
-            int newType = ((int)_currentType + direction + TYPE_COUNT) % TYPE_COUNT;
-            _currentType = (ScanType)newType;
+            _currentType = (ScanType)NavigationUtils.WrapIndex((int)_currentType, direction, TYPE_COUNT);
 
             // Rescan and reset index
             ScanCurrentType();
@@ -114,7 +113,7 @@ namespace ATSAccessibility
                 return;
             }
 
-            _currentItemIndex = (_currentItemIndex + direction + _cachedItems.Count) % _cachedItems.Count;
+            _currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, _cachedItems.Count);
             AnnounceItem();
         }
 

@@ -38,7 +38,11 @@ namespace ATSAccessibility
 
         // Cached enum type for ReputationChangeSource
         private static Type _reputationChangeSourceType = null;
+        private static Type _hostilitySourceType = null;
         private static bool _enumTypesCached = false;
+
+        // Reusable object array for single-argument method invocations (avoid allocations in loops)
+        private static readonly object[] _singleArgArray = new object[1];
 
         // ========================================
         // INITIALIZATION
@@ -405,7 +409,8 @@ namespace ATSAccessibility
                 for (int i = 0; i < 4; i++)
                 {
                     var enumValue = Enum.ToObject(_reputationChangeSourceType, i);
-                    float amount = (float)(_repGetGainedFromMethod?.Invoke(repService, new object[] { enumValue }) ?? 0f);
+                    _singleArgArray[0] = enumValue;
+                    float amount = (float)(_repGetGainedFromMethod?.Invoke(repService, _singleArgArray) ?? 0f);
 
                     if (amount > 0.01f)
                     {
@@ -435,6 +440,14 @@ namespace ATSAccessibility
 
             try
             {
+                // Cache HostilitySource type outside loop
+                if (_hostilitySourceType == null)
+                {
+                    _hostilitySourceType = hostService.GetType().Assembly.GetType("Eremite.Model.State.HostilitySource");
+                }
+
+                if (_hostilitySourceType == null) return result;
+
                 // HostilitySource enum values and their meanings
                 var sources = new (int value, string name)[]
                 {
@@ -451,18 +464,14 @@ namespace ATSAccessibility
 
                 foreach (var (value, name) in sources)
                 {
-                    // GetSourceAmount expects the enum value
-                    var hostilitySourceType = hostService.GetType().Assembly.GetType("Eremite.Model.State.HostilitySource");
-                    if (hostilitySourceType != null)
-                    {
-                        var enumValue = Enum.ToObject(hostilitySourceType, value);
-                        int amount = (int)(_hostGetSourceAmountMethod?.Invoke(hostService, new object[] { enumValue }) ?? 0);
+                    var enumValue = Enum.ToObject(_hostilitySourceType, value);
+                    _singleArgArray[0] = enumValue;
+                    int amount = (int)(_hostGetSourceAmountMethod?.Invoke(hostService, _singleArgArray) ?? 0);
 
-                        if (amount != 0)
-                        {
-                            string prefix = amount > 0 ? "+" : "";
-                            result.Add($"{prefix}{amount} from {name}");
-                        }
+                    if (amount != 0)
+                    {
+                        string prefix = amount > 0 ? "+" : "";
+                        result.Add($"{prefix}{amount} from {name}");
                     }
                 }
             }
@@ -618,6 +627,51 @@ namespace ATSAccessibility
             string message = string.Join(", ", parts);
             Speech.Say(message);
             Debug.Log($"[ATSAccessibility] Resolve: {message}");
+        }
+
+        // ========================================
+        // TIME/SEASON (T key)
+        // ========================================
+
+        // Season names for announcement
+        private static readonly string[] SeasonNames = { "Drizzle", "Clearance", "Storm" };
+
+        /// <summary>
+        /// Get time summary as (year, seasonName, secondsToNextSeason).
+        /// </summary>
+        public static (int year, string season, float secondsRemaining) GetTimeSummary()
+        {
+            int year = GameReflection.GetYear();
+            int seasonIndex = GameReflection.GetSeason();
+            string season = seasonIndex >= 0 && seasonIndex < SeasonNames.Length
+                ? SeasonNames[seasonIndex] : "Unknown";
+            float seconds = GameReflection.GetTimeTillNextSeason();
+            return (year, season, seconds);
+        }
+
+        /// <summary>
+        /// Announce current season, time remaining, and year (T key).
+        /// </summary>
+        public static void AnnounceTimeSummary()
+        {
+            var (year, season, seconds) = GetTimeSummary();
+
+            // Format time remaining as "X minutes Y seconds" or just "X seconds"
+            string timeRemaining;
+            if (seconds >= 60)
+            {
+                int minutes = Mathf.FloorToInt(seconds / 60);
+                int secs = Mathf.FloorToInt(seconds % 60);
+                timeRemaining = secs > 0 ? $"{minutes} minutes {secs} seconds" : $"{minutes} minutes";
+            }
+            else
+            {
+                timeRemaining = $"{Mathf.FloorToInt(seconds)} seconds";
+            }
+
+            string message = $"{season}, {timeRemaining} remaining, Year {year}";
+            Speech.Say(message);
+            Debug.Log($"[ATSAccessibility] Time: {message}");
         }
     }
 }

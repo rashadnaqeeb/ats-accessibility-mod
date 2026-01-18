@@ -55,6 +55,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **TileInfoReader.cs** - Reads detailed tile info (I key) for buildings, resources, deposits
 - **StatsReader.cs** - Reads game statistics (Reputation, Impatience, Hostility, Resolve)
 - **StatsPanel.cs** - Virtual speech-only panel for detailed stats navigation
+- **MysteriesPanel.cs** - Virtual speech panel for forest mysteries and world modifiers
 
 ### World Map Navigation
 
@@ -85,7 +86,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 **Native DLL loading**: Tolk.dll and helpers (nvdaControllerClient64.dll, SAAPI64.dll) must stay in plugins folder. SetDllDirectory is called in Plugin.Awake() before any P/Invoke.
 
-**Navigation priority**: KeyboardManager checks contexts in order: StatsPanel → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
+**Navigation priority**: KeyboardManager checks contexts in order: StatsPanel → MysteriesPanel → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
 
 ## Keyboard Controls
 
@@ -105,7 +106,9 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 ### Game Stats (Settlement)
 - **S** - Announce quick summary (Reputation, Impatience, Hostility)
 - **R** - Announce resolve for all present species
+- **T** - Announce current season, time remaining, and settlement year
 - **Alt+S** - Open stats panel for detailed breakdown
+- **M** - Open mysteries/modifiers panel
 - **Space** - Toggle pause
 - **1-4** - Set game speed
 
@@ -114,6 +117,12 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **Enter** - View breakdown details for current category
 - **Left Arrow** - Return from details to categories
 - **Escape** - Close stats panel
+
+### Mysteries Panel (when open)
+- **Up/Down** - Navigate categories or items within current category
+- **Enter** - View items in current category
+- **Left Arrow** - Return from items to categories
+- **Escape** - Close mysteries panel
 
 ### World Map Navigation
 - **Arrow keys** - Navigate hex grid (camera follows cursor)

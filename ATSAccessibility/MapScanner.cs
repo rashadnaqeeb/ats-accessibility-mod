@@ -112,9 +112,8 @@ namespace ATSAccessibility
         /// </summary>
         public void ChangeCategory(int direction)
         {
-            int categoryCount = 3; // Glades, Resources, Buildings
-            int newCategory = ((int)_currentCategory + direction + categoryCount) % categoryCount;
-            _currentCategory = (ScanCategory)newCategory;
+            const int categoryCount = 3; // Glades, Resources, Buildings
+            _currentCategory = (ScanCategory)NavigationUtils.WrapIndex((int)_currentCategory, direction, categoryCount);
 
             // Full rescan
             ScanCurrentCategory();
@@ -158,7 +157,7 @@ namespace ATSAccessibility
                 return;
             }
 
-            _currentGroupIndex = (_currentGroupIndex + direction + _cachedGroups.Count) % _cachedGroups.Count;
+            _currentGroupIndex = NavigationUtils.WrapIndex(_currentGroupIndex, direction, _cachedGroups.Count);
             AnnounceCurrentItem();
         }
 
@@ -180,7 +179,7 @@ namespace ATSAccessibility
                 return;
             }
 
-            _currentItemIndex = (_currentItemIndex + direction + currentGroup.Items.Count) % currentGroup.Items.Count;
+            _currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, currentGroup.Items.Count);
             AnnounceCurrentItem();
         }
 

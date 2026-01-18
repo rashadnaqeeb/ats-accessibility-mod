@@ -16,7 +16,6 @@ namespace ATSAccessibility
         {
             public string Name { get; set; }
             public string Value { get; set; }
-            public string Race { get; set; }  // For resolve categories, null otherwise
             public List<string> Details { get; set; } = new List<string>();
         }
 
@@ -89,14 +88,7 @@ namespace ATSAccessibility
                 return;
             }
 
-            _currentCategoryIndex += direction;
-
-            // Wrap around
-            if (_currentCategoryIndex < 0)
-                _currentCategoryIndex = _categories.Count - 1;
-            else if (_currentCategoryIndex >= _categories.Count)
-                _currentCategoryIndex = 0;
-
+            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
             _currentDetailIndex = 0;  // Reset detail index when changing category
             AnnounceCurrentCategory();
         }
@@ -111,14 +103,7 @@ namespace ATSAccessibility
             var category = _categories[_currentCategoryIndex];
             if (category.Details.Count == 0) return;
 
-            _currentDetailIndex += direction;
-
-            // Wrap around
-            if (_currentDetailIndex < 0)
-                _currentDetailIndex = category.Details.Count - 1;
-            else if (_currentDetailIndex >= category.Details.Count)
-                _currentDetailIndex = 0;
-
+            _currentDetailIndex = NavigationUtils.WrapIndex(_currentDetailIndex, direction, category.Details.Count);
             AnnounceCurrentDetail();
         }
 
@@ -182,6 +167,7 @@ namespace ATSAccessibility
 
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
+                case KeyCode.RightArrow:
                     EnterDetails();
                     return true;
 
@@ -246,7 +232,6 @@ namespace ATSAccessibility
                 {
                     Name = $"{race} Resolve",
                     Value = $"{Mathf.FloorToInt(resolve)} of {threshold}, drifting towards {settling}",
-                    Race = race,
                     Details = resolveBreakdown
                 });
             }
@@ -265,10 +250,11 @@ namespace ATSAccessibility
             string message = $"{category.Name}, {category.Value}";
 
             // Add indicator if details are available
-            if (category.Details.Count > 0)
+            int detailCount = category.Details.Count;
+            if (detailCount > 0)
             {
-                string detailWord = category.Details.Count == 1 ? "detail" : "details";
-                message += $". {category.Details.Count} {detailWord}";
+                string detailWord = detailCount == 1 ? "detail" : "details";
+                message += $". {detailCount} {detailWord}";
             }
 
             Speech.Say(message);

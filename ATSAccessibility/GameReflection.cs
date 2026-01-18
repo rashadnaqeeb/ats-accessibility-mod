@@ -353,19 +353,6 @@ namespace ATSAccessibility
             }
         }
 
-        /// <summary>
-        /// Clear any cached instance references.
-        /// Call this on scene unload to be safe.
-        /// Note: We deliberately don't cache instances, so this is a no-op,
-        /// but it's here for the pattern and future expansion.
-        /// </summary>
-        public static void ClearCachedInstances()
-        {
-            // Nothing to clear - we deliberately don't cache instances
-            // This method exists for the pattern and documentation
-            Debug.Log("[ATSAccessibility] ClearCachedInstances called (no-op by design)");
-        }
-
         // ========================================
         // TAB SYSTEM API
         // ========================================
@@ -1425,6 +1412,445 @@ namespace ATSAccessibility
             try
             {
                 return _gsRacesServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // ========================================
+        // CALENDAR SERVICE (Season, Year, Time)
+        // ========================================
+
+        private static PropertyInfo _gsCalendarServiceProperty = null;
+        private static PropertyInfo _calYearProperty = null;
+        private static PropertyInfo _calSeasonProperty = null;
+        private static MethodInfo _calGetTimeTillNextSeasonMethod = null;
+        private static bool _calendarTypesCached = false;
+
+        private static void EnsureCalendarTypes()
+        {
+            if (_calendarTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _calendarTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get IGameServices interface for CalendarService property
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsCalendarServiceProperty = gameServicesType.GetProperty("CalendarService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get ICalendarService interface for Year, Season, and GetTimeTillNextSeasonChange
+                var calendarServiceType = _gameAssembly.GetType("Eremite.Services.ICalendarService");
+                if (calendarServiceType != null)
+                {
+                    _calYearProperty = calendarServiceType.GetProperty("Year",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _calSeasonProperty = calendarServiceType.GetProperty("Season",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _calGetTimeTillNextSeasonMethod = calendarServiceType.GetMethod("GetTimeTillNextSeasonChange",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] Cached CalendarService types");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CalendarService type caching failed: {ex.Message}");
+            }
+
+            _calendarTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get CalendarService from GameServices.
+        /// Contains season, year, and time information.
+        /// </summary>
+        public static object GetCalendarService()
+        {
+            EnsureCalendarTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsCalendarServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the current settlement year.
+        /// </summary>
+        public static int GetYear()
+        {
+            EnsureCalendarTypes();
+            var calService = GetCalendarService();
+            if (calService == null) return 0;
+
+            try
+            {
+                return (int)(_calYearProperty?.GetValue(calService) ?? 0);
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the current season as enum int (0=Drizzle, 1=Clearance, 2=Storm).
+        /// </summary>
+        public static int GetSeason()
+        {
+            EnsureCalendarTypes();
+            var calService = GetCalendarService();
+            if (calService == null) return -1;
+
+            try
+            {
+                var seasonEnum = _calSeasonProperty?.GetValue(calService);
+                if (seasonEnum != null)
+                {
+                    return (int)seasonEnum;
+                }
+                return -1;
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Get time remaining until next season change in seconds.
+        /// </summary>
+        public static float GetTimeTillNextSeason()
+        {
+            EnsureCalendarTypes();
+            var calService = GetCalendarService();
+            if (calService == null) return 0f;
+
+            try
+            {
+                return (float)(_calGetTimeTillNextSeasonMethod?.Invoke(calService, null) ?? 0f);
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        // ========================================
+        // MYSTERIES/MODIFIERS (StateService access)
+        // ========================================
+
+        private static PropertyInfo _gsStateServiceProperty = null;
+        private static PropertyInfo _ssSeasonalEffectsProperty = null;
+        private static FieldInfo _seEffectsField = null;
+        private static PropertyInfo _ssConditionsProperty = null;
+        private static FieldInfo _condEarlyEffectsField = null;
+        private static FieldInfo _condLateEffectsField = null;
+        private static bool _mysteriesTypesCached = false;
+
+        // Settings methods for model lookup
+        private static MethodInfo _settingsGetSimpleSeasonalEffectMethod = null;
+        private static MethodInfo _settingsGetConditionalSeasonalEffectMethod = null;
+        private static MethodInfo _settingsGetEffectMethod = null;
+        private static bool _settingsModelMethodsCached = false;
+
+        private static void EnsureMysteriesTypes()
+        {
+            if (_mysteriesTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _mysteriesTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get StateService property from IGameServices
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsStateServiceProperty = gameServicesType.GetProperty("StateService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get SeasonalEffects and Conditions from IStateService
+                var stateServiceType = _gameAssembly.GetType("Eremite.Services.IStateService");
+                if (stateServiceType != null)
+                {
+                    _ssSeasonalEffectsProperty = stateServiceType.GetProperty("SeasonalEffects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _ssConditionsProperty = stateServiceType.GetProperty("Conditions",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get effects field from SeasonalEffectsState
+                var seasonalEffectsStateType = _gameAssembly.GetType("Eremite.Model.State.SeasonalEffectsState");
+                if (seasonalEffectsStateType != null)
+                {
+                    _seEffectsField = seasonalEffectsStateType.GetField("effects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get earlyEffects and lateEffects from ConditionsState
+                var conditionsStateType = _gameAssembly.GetType("Eremite.Model.State.ConditionsState");
+                if (conditionsStateType != null)
+                {
+                    _condEarlyEffectsField = conditionsStateType.GetField("earlyEffects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _condLateEffectsField = conditionsStateType.GetField("lateEffects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached mysteries/modifiers types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Mysteries type caching failed: {ex.Message}");
+            }
+
+            _mysteriesTypesCached = true;
+        }
+
+        private static void EnsureSettingsModelMethods()
+        {
+            if (_settingsModelMethodsCached) return;
+            EnsureAssembly();
+
+            if (_gameAssembly == null)
+            {
+                _settingsModelMethodsCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get Settings type (Eremite.Model.Settings)
+                var settingsType = _gameAssembly.GetType("Eremite.Model.Settings");
+                if (settingsType != null)
+                {
+                    // GetSimpleSeasonalEffect(string name)
+                    _settingsGetSimpleSeasonalEffectMethod = settingsType.GetMethod("GetSimpleSeasonalEffect",
+                        BindingFlags.Public | BindingFlags.Instance,
+                        null,
+                        new Type[] { typeof(string) },
+                        null);
+
+                    // GetConditionalSeasonalEffect(string name)
+                    _settingsGetConditionalSeasonalEffectMethod = settingsType.GetMethod("GetConditionalSeasonalEffect",
+                        BindingFlags.Public | BindingFlags.Instance,
+                        null,
+                        new Type[] { typeof(string) },
+                        null);
+
+                    // GetEffect(string name)
+                    _settingsGetEffectMethod = settingsType.GetMethod("GetEffect",
+                        BindingFlags.Public | BindingFlags.Instance,
+                        null,
+                        new Type[] { typeof(string) },
+                        null);
+
+                    Debug.Log("[ATSAccessibility] Cached Settings model lookup methods");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Settings model methods caching failed: {ex.Message}");
+            }
+
+            _settingsModelMethodsCached = true;
+        }
+
+        /// <summary>
+        /// Get StateService from GameServices.
+        /// Contains seasonal effects and conditions state.
+        /// </summary>
+        public static object GetStateService()
+        {
+            EnsureMysteriesTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsStateServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get SeasonalEffectsState from StateService.
+        /// Contains the effects dictionary.
+        /// </summary>
+        public static object GetSeasonalEffectsState()
+        {
+            EnsureMysteriesTypes();
+            var stateService = GetStateService();
+            if (stateService == null) return null;
+
+            try
+            {
+                return _ssSeasonalEffectsProperty?.GetValue(stateService);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the seasonal effects dictionary from SeasonalEffectsState.
+        /// Returns Dictionary&lt;string, SeasonalEffectState&gt;.
+        /// </summary>
+        public static System.Collections.IDictionary GetSeasonalEffectsDictionary()
+        {
+            EnsureMysteriesTypes();
+            var seasonalEffectsState = GetSeasonalEffectsState();
+            if (seasonalEffectsState == null) return null;
+
+            try
+            {
+                return _seEffectsField?.GetValue(seasonalEffectsState) as System.Collections.IDictionary;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get ConditionsState from StateService.
+        /// Contains early and late effects lists.
+        /// </summary>
+        public static object GetConditionsState()
+        {
+            EnsureMysteriesTypes();
+            var stateService = GetStateService();
+            if (stateService == null) return null;
+
+            try
+            {
+                return _ssConditionsProperty?.GetValue(stateService);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the early effects list from ConditionsState.
+        /// These are modifiers applied at embark.
+        /// </summary>
+        public static List<string> GetEarlyEffects()
+        {
+            EnsureMysteriesTypes();
+            var conditionsState = GetConditionsState();
+            if (conditionsState == null) return null;
+
+            try
+            {
+                return _condEarlyEffectsField?.GetValue(conditionsState) as List<string>;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the late effects list from ConditionsState.
+        /// These are modifiers applied at embark.
+        /// </summary>
+        public static List<string> GetLateEffects()
+        {
+            EnsureMysteriesTypes();
+            var conditionsState = GetConditionsState();
+            if (conditionsState == null) return null;
+
+            try
+            {
+                return _condLateEffectsField?.GetValue(conditionsState) as List<string>;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get SimpleSeasonalEffect model by name from Settings.
+        /// </summary>
+        public static object GetSimpleSeasonalEffectModel(string name)
+        {
+            EnsureSettingsModelMethods();
+            var settings = GetSettings();
+            if (settings == null || _settingsGetSimpleSeasonalEffectMethod == null) return null;
+
+            try
+            {
+                return _settingsGetSimpleSeasonalEffectMethod.Invoke(settings, new object[] { name });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get ConditionalSeasonalEffect model by name from Settings.
+        /// </summary>
+        public static object GetConditionalSeasonalEffectModel(string name)
+        {
+            EnsureSettingsModelMethods();
+            var settings = GetSettings();
+            if (settings == null || _settingsGetConditionalSeasonalEffectMethod == null) return null;
+
+            try
+            {
+                return _settingsGetConditionalSeasonalEffectMethod.Invoke(settings, new object[] { name });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get Effect model by name from Settings.
+        /// Used for world modifiers.
+        /// </summary>
+        public static object GetEffectModel(string name)
+        {
+            EnsureSettingsModelMethods();
+            var settings = GetSettings();
+            if (settings == null || _settingsGetEffectMethod == null) return null;
+
+            try
+            {
+                return _settingsGetEffectMethod.Invoke(settings, new object[] { name });
             }
             catch
             {

@@ -49,6 +49,9 @@ namespace ATSAccessibility
         // Stats panel for game statistics
         private StatsPanel _statsPanel;
 
+        // Mysteries panel for forest mysteries and modifiers
+        private MysteriesPanel _mysteriesPanel;
+
         // World map navigator
         private WorldMapNavigator _worldMapNavigator;
         private WorldMapScanner _worldMapScanner;
@@ -99,6 +102,10 @@ namespace ATSAccessibility
             // Initialize stats panel
             _statsPanel = new StatsPanel();
             _keyboardManager.SetStatsPanel(_statsPanel);
+
+            // Initialize mysteries panel
+            _mysteriesPanel = new MysteriesPanel();
+            _keyboardManager.SetMysteriesPanel(_mysteriesPanel);
 
             // Initialize world map navigator and scanner
             _worldMapNavigator = new WorldMapNavigator();
@@ -160,8 +167,6 @@ namespace ATSAccessibility
             Event e = Event.current;
             if (e != null && e.isKey && e.type == EventType.KeyDown)
             {
-                Debug.Log($"[ATSAccessibility] DEBUG: OnGUI detected key: {e.keyCode}");
-
                 // Deferred menu setup - rebuild on first key press after popup closes
                 if (_menuPendingSetup)
                 {
@@ -222,9 +227,6 @@ namespace ATSAccessibility
             // Reset UI navigator state
             _uiNavigator?.Reset();
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.None);
-
-            // Clear any cached references
-            GameReflection.ClearCachedInstances();
         }
 
         private void ProcessSceneLoad(Scene scene)
@@ -272,7 +274,6 @@ namespace ATSAccessibility
             // Find the main menu Canvas
             // Look for Canvas objects with buttons - the main menu typically has "MainMenu" or similar in name
             var canvases = FindObjectsOfType<Canvas>();
-            Debug.Log($"[ATSAccessibility] DEBUG: Found {canvases.Length} canvases in scene");
 
             GameObject mainMenuRoot = null;
 
@@ -282,7 +283,6 @@ namespace ATSAccessibility
                 if (!canvas.gameObject.activeInHierarchy) continue;
 
                 string name = canvas.gameObject.name.ToLower();
-                Debug.Log($"[ATSAccessibility] DEBUG: Canvas '{canvas.gameObject.name}' active={canvas.gameObject.activeInHierarchy}");
 
                 // Look for main menu indicators
                 if (name.Contains("mainmenu") || name.Contains("main menu") || name.Contains("menu"))
@@ -292,7 +292,6 @@ namespace ATSAccessibility
                     if (buttons.Length > 0)
                     {
                         mainMenuRoot = canvas.gameObject;
-                        Debug.Log($"[ATSAccessibility] DEBUG: Found main menu candidate: {canvas.gameObject.name} with {buttons.Length} buttons");
                         break;
                     }
                 }
@@ -309,7 +308,6 @@ namespace ATSAccessibility
                     if (buttons.Length >= 3) // Main menu typically has several buttons
                     {
                         mainMenuRoot = canvas.gameObject;
-                        Debug.Log($"[ATSAccessibility] DEBUG: Using fallback canvas: {canvas.gameObject.name} with {buttons.Length} buttons");
                         break;
                     }
                 }
@@ -398,13 +396,7 @@ namespace ATSAccessibility
             if (_subscribedToPopups) return;
 
             var popupsService = GameReflection.GetPopupsService();
-            if (popupsService == null)
-            {
-                Debug.Log("[ATSAccessibility] DEBUG: PopupsService is null, waiting...");
-                return;
-            }
-
-            Debug.Log($"[ATSAccessibility] DEBUG: Got PopupsService: {popupsService.GetType().FullName}");
+            if (popupsService == null) return;
 
             try
             {
@@ -413,12 +405,10 @@ namespace ATSAccessibility
                 // Get AnyPopupShown observable
                 var shownProperty = popupsServiceType.GetProperty("AnyPopupShown");
                 var shownObservable = shownProperty?.GetValue(popupsService);
-                Debug.Log($"[ATSAccessibility] DEBUG: AnyPopupShown property: {shownProperty != null}, observable: {shownObservable != null}");
 
                 // Get AnyPopupHidden observable
                 var hiddenProperty = popupsServiceType.GetProperty("AnyPopupHidden");
                 var hiddenObservable = hiddenProperty?.GetValue(popupsService);
-                Debug.Log($"[ATSAccessibility] DEBUG: AnyPopupHidden property: {hiddenProperty != null}, observable: {hiddenObservable != null}");
 
                 if (shownObservable != null && hiddenObservable != null)
                 {
@@ -426,14 +416,8 @@ namespace ATSAccessibility
                     _popupShownSubscription = GameReflection.SubscribeToObservable(shownObservable, OnPopupShown);
                     _popupHiddenSubscription = GameReflection.SubscribeToObservable(hiddenObservable, OnPopupHidden);
 
-                    Debug.Log($"[ATSAccessibility] DEBUG: Subscriptions created - shown: {_popupShownSubscription != null}, hidden: {_popupHiddenSubscription != null}");
-
                     _subscribedToPopups = true;
                     Debug.Log("[ATSAccessibility] Subscribed to popup events");
-                }
-                else
-                {
-                    Debug.LogWarning("[ATSAccessibility] DEBUG: Observables are null, cannot subscribe");
                 }
             }
             catch (Exception ex)

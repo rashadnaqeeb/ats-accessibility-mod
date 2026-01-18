@@ -99,14 +99,7 @@ namespace ATSAccessibility
         {
             if (_items.Count == 0) return;
 
-            _currentIndex += direction;
-
-            // Wrap around
-            if (_currentIndex < 0)
-                _currentIndex = _items.Count - 1;
-            else if (_currentIndex >= _items.Count)
-                _currentIndex = 0;
-
+            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
             AnnounceCurrentItem();
         }
 

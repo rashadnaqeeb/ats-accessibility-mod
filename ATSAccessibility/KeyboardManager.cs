@@ -69,6 +69,9 @@ namespace ATSAccessibility
         // Reference to embark panel for pre-expedition setup
         private EmbarkPanel _embarkPanel;
 
+        // Reference to mysteries panel for forest mysteries and modifiers
+        private MysteriesPanel _mysteriesPanel;
+
         public KeyboardManager(UINavigator uiNavigator)
         {
             _uiNavigator = uiNavigator;
@@ -139,6 +142,14 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set the mysteries panel reference.
+        /// </summary>
+        public void SetMysteriesPanel(MysteriesPanel panel)
+        {
+            _mysteriesPanel = panel;
+        }
+
+        /// <summary>
         /// Set the current navigation context.
         /// </summary>
         public void SetContext(NavigationContext context)
@@ -162,6 +173,15 @@ namespace ATSAccessibility
                 if (_statsPanel.ProcessKeyEvent(keyCode))
                 {
                     return; // Key was handled by stats panel
+                }
+            }
+
+            // Check if mysteries panel is open
+            if (_mysteriesPanel != null && _mysteriesPanel.IsOpen)
+            {
+                if (_mysteriesPanel.ProcessKeyEvent(keyCode))
+                {
+                    return; // Key was handled by mysteries panel
                 }
             }
 
@@ -389,6 +409,9 @@ namespace ATSAccessibility
                 case KeyCode.R:
                     StatsReader.AnnounceResolveSummary();
                     break;
+                case KeyCode.T:
+                    StatsReader.AnnounceTimeSummary();
+                    break;
 
                 // Map Scanner controls
                 case KeyCode.PageUp:
@@ -415,6 +438,9 @@ namespace ATSAccessibility
                     break;
                 case KeyCode.I:
                     TileInfoReader.ReadCurrentTile(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                    break;
+                case KeyCode.M:
+                    _mysteriesPanel?.Open();
                     break;
             }
         }

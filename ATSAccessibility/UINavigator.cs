@@ -635,7 +635,6 @@ namespace ATSAccessibility
                 parts.Add(state);
 
             string announcement = string.Join(", ", parts);
-            Debug.Log($"[ATSAccessibility] DEBUG: Announcing: '{announcement}'");
             Speech.Say(announcement);
         }
     }

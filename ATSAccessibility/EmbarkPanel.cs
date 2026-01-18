@@ -166,8 +166,7 @@ namespace ATSAccessibility
         {
             if (_currentSection == EmbarkSection.TopMenu)
             {
-                _topMenuIndex--;
-                if (_topMenuIndex < 0) _topMenuIndex = _topMenuItems.Length - 1;
+                _topMenuIndex = NavigationUtils.WrapIndex(_topMenuIndex, -1, _topMenuItems.Length);
                 AnnounceTopMenu();
             }
             else if (_currentSection == EmbarkSection.SpendPoints)
@@ -189,8 +188,7 @@ namespace ATSAccessibility
         {
             if (_currentSection == EmbarkSection.TopMenu)
             {
-                _topMenuIndex++;
-                if (_topMenuIndex >= _topMenuItems.Length) _topMenuIndex = 0;
+                _topMenuIndex = NavigationUtils.WrapIndex(_topMenuIndex, 1, _topMenuItems.Length);
                 AnnounceTopMenu();
             }
             else if (_currentSection == EmbarkSection.SpendPoints)
@@ -254,10 +252,7 @@ namespace ATSAccessibility
         {
             if (_categories.Count == 0) return;
 
-            _currentCategoryIndex += direction;
-            if (_currentCategoryIndex < 0) _currentCategoryIndex = _categories.Count - 1;
-            if (_currentCategoryIndex >= _categories.Count) _currentCategoryIndex = 0;
-
+            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
             _currentDetailIndex = 0;
             AnnounceSpendPointsPanel();
         }
@@ -273,10 +268,7 @@ namespace ATSAccessibility
                 return;
             }
 
-            _currentDetailIndex += direction;
-            if (_currentDetailIndex < 0) _currentDetailIndex = category.Details.Count - 1;
-            if (_currentDetailIndex >= category.Details.Count) _currentDetailIndex = 0;
-
+            _currentDetailIndex = NavigationUtils.WrapIndex(_currentDetailIndex, direction, category.Details.Count);
             AnnounceSpendPointsItem();
         }
 
@@ -434,14 +426,7 @@ namespace ATSAccessibility
         {
             if (_categories.Count == 0) return;
 
-            _currentCategoryIndex += direction;
-
-            // Wrap around
-            if (_currentCategoryIndex < 0)
-                _currentCategoryIndex = _categories.Count - 1;
-            else if (_currentCategoryIndex >= _categories.Count)
-                _currentCategoryIndex = 0;
-
+            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
             _currentDetailIndex = 0;
             AnnounceCurrentCategory();
         }
@@ -532,14 +517,7 @@ namespace ATSAccessibility
             var category = _categories[_currentCategoryIndex];
             if (category.Details.Count == 0) return;
 
-            _currentDetailIndex += direction;
-
-            // Wrap around
-            if (_currentDetailIndex < 0)
-                _currentDetailIndex = category.Details.Count - 1;
-            else if (_currentDetailIndex >= category.Details.Count)
-                _currentDetailIndex = 0;
-
+            _currentDetailIndex = NavigationUtils.WrapIndex(_currentDetailIndex, direction, category.Details.Count);
             AnnounceCurrentDetail();
         }
 
