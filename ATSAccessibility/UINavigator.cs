@@ -574,12 +574,16 @@ namespace ATSAccessibility
                 }
             }
 
-            if (announcements.Count == 0)
+            // If no title found, or multiple titles found (likely section headers), use popup name
+            string announcement;
+            if (announcements.Count == 1)
             {
-                announcements.Add(UIElementFinder.CleanObjectName(_currentPopup.name));
+                announcement = announcements[0];
             }
-
-            string announcement = string.Join(". ", announcements);
+            else
+            {
+                announcement = UIElementFinder.CleanObjectName(_currentPopup.name);
+            }
             Debug.Log($"[ATSAccessibility] Announcing popup: {announcement}");
             Speech.Say(announcement);
 

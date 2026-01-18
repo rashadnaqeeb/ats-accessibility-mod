@@ -28,6 +28,7 @@ namespace ATSAccessibility
         // Cached reflection metadata for ResolveService
         private static MethodInfo _resGetResolveForMethod = null;        // GetResolveFor(race)
         private static MethodInfo _resGetMinResolveForRepMethod = null;  // GetMinResolveForReputation(race)
+        private static MethodInfo _resGetTargetResolveForMethod = null; // GetTargetResolveFor(race) - settling point
         private static PropertyInfo _resEffectsProperty = null;          // Effects dictionary
         private static bool _resTypesCached = false;
 
@@ -112,6 +113,8 @@ namespace ATSAccessibility
                 var type = resService.GetType();
                 _resGetResolveForMethod = type.GetMethod("GetResolveFor", BindingFlags.Public | BindingFlags.Instance);
                 _resGetMinResolveForRepMethod = type.GetMethod("GetMinResolveForReputation",
+                    BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(string) }, null);
+                _resGetTargetResolveForMethod = type.GetMethod("GetTargetResolveFor",
                     BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(string) }, null);
                 _resEffectsProperty = type.GetProperty("Effects", BindingFlags.Public | BindingFlags.Instance);
 
@@ -280,26 +283,27 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get resolve for a specific race as (currentResolve, thresholdForReputation).
+        /// Get resolve for a specific race as (currentResolve, thresholdForReputation, settlingPoint).
         /// </summary>
-        public static (float resolve, int threshold) GetResolveSummary(string race)
+        public static (float resolve, int threshold, int settling) GetResolveSummary(string race)
         {
             EnsureResolveTypes();
 
             var resService = GameReflection.GetResolveService();
-            if (resService == null) return (0, 0);
+            if (resService == null) return (0, 0, 0);
 
             try
             {
                 float resolve = (float)(_resGetResolveForMethod?.Invoke(resService, new object[] { race }) ?? 0f);
                 int threshold = (int)(_resGetMinResolveForRepMethod?.Invoke(resService, new object[] { race }) ?? 0);
+                int settling = (int)(_resGetTargetResolveForMethod?.Invoke(resService, new object[] { race }) ?? 0);
 
-                return (resolve, threshold);
+                return (resolve, threshold, settling);
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] GetResolveSummary failed: {ex.Message}");
-                return (0, 0);
+                return (0, 0, 0);
             }
         }
 
@@ -510,11 +514,9 @@ namespace ATSAccessibility
 
                     if (effectModel != null && count > 0)
                     {
-                        // Get effect name and resolve value
+                        // Get effect name
                         var displayNameField = effectModel.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
                         var nameProp = effectModel.GetType().GetProperty("Name");
-                        var resolvePropertyInfo = effectModel.GetType().GetProperty("resolve");
-                        var resolveFieldInfo = effectModel.GetType().GetField("resolve", BindingFlags.Public | BindingFlags.Instance);
 
                         string name = "Unknown effect";
                         var locaText = displayNameField?.GetValue(effectModel);
@@ -529,23 +531,32 @@ namespace ATSAccessibility
                             name = nameProp?.GetValue(effectModel)?.ToString() ?? "Unknown effect";
                         }
 
-                        int resolveValue = 0;
-                        if (resolvePropertyInfo != null)
-                            resolveValue = (int)(resolvePropertyInfo.GetValue(effectModel) ?? 0);
-                        else if (resolveFieldInfo != null)
-                            resolveValue = (int)(resolveFieldInfo.GetValue(effectModel) ?? 0);
+                        // Get actual average impact from ResolveService
+                        int actualImpact = 0;
+                        try
+                        {
+                            var getRoundedAvgMethod = resService.GetType().GetMethod("GetRoundedAverageResolveImpact",
+                                BindingFlags.Public | BindingFlags.Instance);
+                            if (getRoundedAvgMethod != null)
+                            {
+                                actualImpact = (int)getRoundedAvgMethod.Invoke(resService, new object[] { race, effectModel });
+                            }
+                        }
+                        catch (Exception avgEx)
+                        {
+                            Debug.LogWarning($"[ATSAccessibility] GetRoundedAverageResolveImpact failed for {name}: {avgEx.Message}");
+                            // Fallback to raw resolve value
+                            var resPropFallback = effectModel.GetType().GetProperty("resolve");
+                            var resFieldFallback = effectModel.GetType().GetField("resolve", BindingFlags.Public | BindingFlags.Instance);
+                            if (resPropFallback != null)
+                                actualImpact = (int)(resPropFallback.GetValue(effectModel) ?? 0);
+                            else if (resFieldFallback != null)
+                                actualImpact = (int)(resFieldFallback.GetValue(effectModel) ?? 0);
+                        }
 
-                        string prefix = resolveValue >= 0 ? "+" : "";
-                        int total = resolveValue * count;
-                        string totalPrefix = total >= 0 ? "+" : "";
-                        if (count > 1)
-                        {
-                            result.Add($"{totalPrefix}{total} from {name} ({prefix}{resolveValue} × {count})");
-                        }
-                        else
-                        {
-                            result.Add($"{prefix}{resolveValue} from {name}");
-                        }
+                        string prefix = actualImpact >= 0 ? "+" : "";
+                        string villagerWord = count == 1 ? "villager" : "villagers";
+                        result.Add($"{prefix}{actualImpact} from {name}, affecting {count} {villagerWord}");
                     }
                 }
 
@@ -576,7 +587,7 @@ namespace ATSAccessibility
 
             string message = $"Reputation {Mathf.FloorToInt(rep.current)} of {rep.target}, " +
                            $"Impatience {Mathf.FloorToInt(imp.current)} of {imp.max}, " +
-                           $"Hostility {host.points}";
+                           $"Hostility level {host.level}";
 
             Speech.Say(message);
             Debug.Log($"[ATSAccessibility] Stats: {message}");
@@ -598,8 +609,7 @@ namespace ATSAccessibility
             var parts = new List<string>();
             foreach (var race in races)
             {
-                var (resolve, threshold) = GetResolveSummary(race);
-                int count = GetRaceCount(race);
+                var (resolve, threshold, _) = GetResolveSummary(race);
 
                 // Format: "Humans 24/30" (current resolve / threshold)
                 parts.Add($"{race} {Mathf.FloorToInt(resolve)} of {threshold}");

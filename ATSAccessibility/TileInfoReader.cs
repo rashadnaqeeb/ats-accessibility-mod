@@ -360,7 +360,7 @@ namespace ATSAccessibility
                     parts.Add(desc);
                 }
 
-                return string.Join(". ", parts);
+                return string.Join(", ", parts);
             }
             catch (Exception ex)
             {
@@ -459,7 +459,7 @@ namespace ATSAccessibility
                     parts.Add($"Harvested by: {sourcesInfo}");
                 }
 
-                return string.Join(". ", parts);
+                return string.Join(", ", parts);
             }
             catch (Exception ex)
             {
@@ -561,7 +561,7 @@ namespace ATSAccessibility
                     parts.Add($"Gathered by: {sourcesInfo}");
                 }
 
-                return string.Join(". ", parts);
+                return string.Join(", ", parts);
             }
             catch (Exception ex)
             {

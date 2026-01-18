@@ -239,13 +239,13 @@ namespace ATSAccessibility
             var races = StatsReader.GetPresentRaces();
             foreach (var race in races)
             {
-                var (resolve, threshold) = StatsReader.GetResolveSummary(race);
+                var (resolve, threshold, settling) = StatsReader.GetResolveSummary(race);
                 var resolveBreakdown = StatsReader.GetResolveBreakdown(race);
 
                 _categories.Add(new Category
                 {
                     Name = $"{race} Resolve",
-                    Value = $"{Mathf.FloorToInt(resolve)} of {threshold}",
+                    Value = $"{Mathf.FloorToInt(resolve)} of {threshold}, drifting towards {settling}",
                     Race = race,
                     Details = resolveBreakdown
                 });

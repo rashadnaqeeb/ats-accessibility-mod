@@ -254,9 +254,9 @@ namespace ATSAccessibility
 
             if (_speechInitialized && Speech.IsAvailable)
             {
-                Speech.Say("Mod loaded");
+                Speech.Say("Main menu");
                 _announcedMainMenu = true;
-                Debug.Log("[ATSAccessibility] Announced: Mod loaded");
+                Debug.Log("[ATSAccessibility] Announced: Main menu");
 
                 // Set up main menu navigation after a short delay (let UI initialize)
                 Invoke(nameof(SetupMainMenuNavigation), 0.5f);
