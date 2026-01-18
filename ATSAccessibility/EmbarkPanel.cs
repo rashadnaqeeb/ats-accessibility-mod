@@ -39,6 +39,7 @@ namespace ATSAccessibility
         // Panel state
         private bool _isOpen = false;
         private object _currentField;  // WorldField object
+        private Vector3Int _cachedFieldPos;  // Cached field position (avoids repeated reflection)
 
         // Top menu
         private readonly string[] _topMenuItems = {
@@ -80,6 +81,7 @@ namespace ATSAccessibility
             }
 
             _currentField = worldField;
+            _cachedFieldPos = GetFieldPositionInternal();  // Cache field position once
             _isOpen = true;
             _currentSection = EmbarkSection.TopMenu;
             _topMenuIndex = 0;
@@ -87,6 +89,9 @@ namespace ATSAccessibility
             _currentCategoryIndex = 0;
             _currentDetailIndex = 0;
             _focusOnDetails = false;
+
+            // Cache expensive instance references (pass field pos for min difficulty calculation)
+            EmbarkReflection.CacheInstancesOnOpen(_cachedFieldPos);
 
             Speech.Say("Embark screen");
             AnnounceTopMenu();
@@ -103,7 +108,11 @@ namespace ATSAccessibility
 
             _isOpen = false;
             _currentField = null;
+            _cachedFieldPos = Vector3Int.zero;
             _categories.Clear();
+
+            // Clear cached instance references
+            EmbarkReflection.ClearInstanceCaches();
 
             Speech.Say("Embark panel closed");
             Debug.Log("[ATSAccessibility] EmbarkPanel closed");
@@ -115,7 +124,7 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Process a key event for the embark panel.
-        /// Returns true if the key was handled.
+        /// Returns true if the key was handled (consumed), false to let game receive it.
         /// </summary>
         public bool ProcessKeyEvent(KeyCode keyCode)
         {
@@ -145,8 +154,7 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    HandleEscape();
-                    return true;
+                    return HandleEscape();  // Returns false at top menu to let game handle it
 
                 default:
                     // Consume all other keys while panel is open
@@ -339,12 +347,16 @@ namespace ATSAccessibility
             ToggleBonus(category.Name, item);
         }
 
-        private void HandleEscape()
+        /// <summary>
+        /// Handle escape key. Returns true if consumed, false to let game handle it.
+        /// </summary>
+        private bool HandleEscape()
         {
             if (_currentSection == EmbarkSection.TopMenu)
             {
-                // Close the embark panel entirely
-                Close();
+                // At top menu - let escape through to game (may show confirm dialog)
+                // Panel will close via OnFieldPreviewClosed event if user confirms
+                return false;  // Don't consume - let game receive it
             }
             else if (_focusOnDetails)
             {
@@ -352,6 +364,7 @@ namespace ATSAccessibility
                 InputBlocker.BlockCancelOnce = true;
                 _focusOnDetails = false;
                 AnnounceCurrentCategory();
+                return true;  // Consumed
             }
             else
             {
@@ -359,6 +372,7 @@ namespace ATSAccessibility
                 InputBlocker.BlockCancelOnce = true;
                 _currentSection = EmbarkSection.TopMenu;
                 AnnounceTopMenu();
+                return true;  // Consumed
             }
         }
 
@@ -665,13 +679,10 @@ namespace ATSAccessibility
                 });
             }
 
-            // Embark points - use selected difficulty's penalty
-            int rawBasePoints = EmbarkReflection.GetBasePreparationPoints();
-            int difficultyPenalty = currentDifficulty != null
-                ? EmbarkReflection.GetDifficultyPreparationPenalty(currentDifficulty)
-                : WorldMapReflection.WorldMapGetDifficultyPreparationPenalty(fieldPos);
-            int basePoints = Math.Max(0, rawBasePoints + difficultyPenalty);
+            // Embark points - use min difficulty penalty (matches game behavior)
+            int totalPoints = EmbarkReflection.GetTotalPreparationPoints();
             int bonusPoints = EmbarkReflection.GetBonusPreparationPoints();
+            int basePoints = totalPoints - bonusPoints;
             _categories.Add(new Category
             {
                 Name = "Embark Points",
@@ -742,35 +753,8 @@ namespace ATSAccessibility
         {
             var details = new List<string>();
 
-            // Species breakdown
-            var villagers = EmbarkReflection.GetCaravanVillagers(caravan);
-            var races = EmbarkReflection.GetCaravanRaces(caravan);
-            int revealedCount = EmbarkReflection.GetCaravanRevealedCount(caravan);
-
-            // Determine which races are revealed (first 'revealedCount' races in the list)
-            var revealedRaces = new HashSet<string>();
-            for (int i = 0; i < revealedCount && i < races.Count; i++)
-            {
-                revealedRaces.Add(races[i]);
-            }
-
-            var raceCounts = new Dictionary<string, int>();
-            int unknownCount = 0;
-
-            foreach (var villagerRace in villagers)
-            {
-                // Check if this villager's race is in the revealed set
-                if (revealedRaces.Contains(villagerRace))
-                {
-                    if (!raceCounts.ContainsKey(villagerRace))
-                        raceCounts[villagerRace] = 0;
-                    raceCounts[villagerRace]++;
-                }
-                else
-                {
-                    unknownCount++;
-                }
-            }
+            // Species breakdown - use shared helper
+            var (raceCounts, unknownCount) = EmbarkReflection.GetCaravanRaceCounts(caravan);
 
             // Add species to details
             foreach (var kvp in raceCounts)
@@ -868,13 +852,7 @@ namespace ATSAccessibility
             });
 
             // Panel 3: Spent - points summary + picked items
-            // Calculate total with difficulty penalty applied
-            int rawBase = EmbarkReflection.GetBasePreparationPoints();
-            var currentDifficulty = EmbarkReflection.GetCurrentDifficulty();
-            int difficultyPenalty = currentDifficulty != null
-                ? EmbarkReflection.GetDifficultyPreparationPenalty(currentDifficulty)
-                : WorldMapReflection.WorldMapGetDifficultyPreparationPenalty(GetFieldPosition());
-            int total = Math.Max(0, rawBase + difficultyPenalty) + EmbarkReflection.GetBonusPreparationPoints();
+            int total = EmbarkReflection.GetTotalPreparationPoints();
             int used = EmbarkReflection.CalculatePointsUsed();
 
             var spentDetails = new List<string>();
@@ -1093,10 +1071,8 @@ namespace ATSAccessibility
                 return;
             }
 
-            // Close our panel first
-            Close();
-
-            // Trigger the game's embark flow
+            // Trigger the game's embark flow (may show confirm dialog if points unspent)
+            // Don't close panel here - it will close via OnFieldPreviewClosed when embark succeeds
             Speech.Say("Embarking");
             bool success = EmbarkReflection.TriggerEmbark();
 
@@ -1110,7 +1086,19 @@ namespace ATSAccessibility
         // HELPERS
         // ========================================
 
+        /// <summary>
+        /// Get cached field position (avoids repeated reflection calls).
+        /// </summary>
         private Vector3Int GetFieldPosition()
+        {
+            return _cachedFieldPos;
+        }
+
+        /// <summary>
+        /// Internal method to extract field position via reflection.
+        /// Called once when panel opens.
+        /// </summary>
+        private Vector3Int GetFieldPositionInternal()
         {
             if (_currentField == null) return Vector3Int.zero;
 

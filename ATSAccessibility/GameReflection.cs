@@ -633,6 +633,10 @@ namespace ATSAccessibility
         private static PropertyInfo _gsDepositsServiceProperty = null;
         private static PropertyInfo _gsBuildingsServiceProperty = null;
         private static PropertyInfo _gsGladesProperty = null;  // GladesService.Glades list
+        private static PropertyInfo _mapFieldsProperty = null;  // MapService.Fields (Map<Field>)
+        private static FieldInfo _mapWidthField = null;         // Fields.width
+        private static FieldInfo _mapHeightField = null;        // Fields.height
+        private static MethodInfo _mapInBoundsMethod = null;    // MapService.InBounds(int, int)
         private static bool _mapTypesCached = false;
 
         private static void EnsureMapTypes()
@@ -683,6 +687,10 @@ namespace ATSAccessibility
                     _mapGetFieldMethod = mapServiceType.GetMethod("GetField",
                         new Type[] { typeof(int), typeof(int) });
                     _mapGetObjectOnMethod = mapServiceType.GetMethod("GetObjectOn",
+                        new Type[] { typeof(int), typeof(int) });
+                    _mapFieldsProperty = mapServiceType.GetProperty("Fields",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _mapInBoundsMethod = mapServiceType.GetMethod("InBounds",
                         new Type[] { typeof(int), typeof(int) });
                 }
 
@@ -832,6 +840,141 @@ namespace ATSAccessibility
         {
             EnsureMapTypes();
             return TryGetPropertyValue<object>(_gsGladesProperty, GetGladesService());
+        }
+
+        /// <summary>
+        /// Get the map width from MapService.Fields.
+        /// Returns 70 as fallback if not available.
+        /// </summary>
+        public static int GetMapWidth()
+        {
+            EnsureMapTypes();
+            var mapService = GetMapService();
+            if (mapService == null) return 70; // Fallback
+
+            try
+            {
+                if (_mapFieldsProperty != null)
+                {
+                    var fields = _mapFieldsProperty.GetValue(mapService);
+                    if (fields != null)
+                    {
+                        if (_mapWidthField == null)
+                            _mapWidthField = fields.GetType().GetField("width",
+                                BindingFlags.Public | BindingFlags.Instance);
+                        if (_mapWidthField != null)
+                            return (int)_mapWidthField.GetValue(fields);
+                    }
+                }
+            }
+            catch { }
+            return 70;
+        }
+
+        /// <summary>
+        /// Get the map height from MapService.Fields.
+        /// Returns 70 as fallback if not available.
+        /// </summary>
+        public static int GetMapHeight()
+        {
+            EnsureMapTypes();
+            var mapService = GetMapService();
+            if (mapService == null) return 70; // Fallback
+
+            try
+            {
+                if (_mapFieldsProperty != null)
+                {
+                    var fields = _mapFieldsProperty.GetValue(mapService);
+                    if (fields != null)
+                    {
+                        if (_mapHeightField == null)
+                            _mapHeightField = fields.GetType().GetField("height",
+                                BindingFlags.Public | BindingFlags.Instance);
+                        if (_mapHeightField != null)
+                            return (int)_mapHeightField.GetValue(fields);
+                    }
+                }
+            }
+            catch { }
+            return 70;
+        }
+
+        /// <summary>
+        /// Check if map coordinates are within bounds using MapService.InBounds().
+        /// Returns false if not in game or coordinates are out of bounds.
+        /// </summary>
+        public static bool MapInBounds(int x, int y)
+        {
+            EnsureMapTypes();
+            var mapService = GetMapService();
+            if (mapService == null) return false;
+            return TryInvokeBool(_mapInBoundsMethod, mapService, new object[] { x, y });
+        }
+
+        // Cached reflection for hearth position
+        private static PropertyInfo _buildingFieldProperty = null;
+        private static PropertyInfo _hearthsDictProperty = null;
+
+        /// <summary>
+        /// Get the main hearth's map position (Ancient Hearth).
+        /// Returns null if not in game or hearth not found.
+        /// </summary>
+        public static Vector2Int? GetMainHearthPosition()
+        {
+            EnsureMapTypes();
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                // Get Hearths dictionary property
+                if (_hearthsDictProperty == null)
+                {
+                    _hearthsDictProperty = buildingsService.GetType().GetProperty("Hearths",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                if (_hearthsDictProperty == null) return null;
+
+                var hearthsDict = _hearthsDictProperty.GetValue(buildingsService);
+                if (hearthsDict == null) return null;
+
+                // Get the dictionary as IDictionary to iterate
+                var dict = hearthsDict as System.Collections.IDictionary;
+                if (dict == null || dict.Count == 0) return null;
+
+                // Get the first hearth (main hearth is always first)
+                object firstHearth = null;
+                foreach (System.Collections.DictionaryEntry entry in dict)
+                {
+                    firstHearth = entry.Value;
+                    break;
+                }
+
+                if (firstHearth == null) return null;
+
+                // Cache Field property (inherited from Building)
+                if (_buildingFieldProperty == null)
+                {
+                    _buildingFieldProperty = firstHearth.GetType().GetProperty("Field",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                if (_buildingFieldProperty == null) return null;
+
+                var field = _buildingFieldProperty.GetValue(firstHearth);
+                if (field is Vector2Int pos)
+                {
+                    return pos;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetMainHearthPosition failed: {ex.Message}");
+            }
+
+            return null;
         }
 
         // ========================================

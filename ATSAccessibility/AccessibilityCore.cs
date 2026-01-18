@@ -198,7 +198,7 @@ namespace ATSAccessibility
             {
                 _announcedGameStart = false;
                 _wasGameActive = false;
-                _mapNavigator?.ResetCursor();
+                _mapNavigator?.ClearCursor();  // Clear so it reinitializes on next game
             }
             else if (scene.buildIndex == SCENE_MENU)
             {
@@ -368,10 +368,11 @@ namespace ATSAccessibility
                 }
 
                 // Set map navigation context (if no popup is open)
+                // Note: Don't call ResetCursor here - game services aren't fully loaded yet.
+                // Let lazy initialization in MoveCursor() handle it on first arrow key press.
                 if (_uiNavigator == null || !_uiNavigator.HasActivePopup)
                 {
                     _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Map);
-                    _mapNavigator?.ResetCursor();
                     Debug.Log("[ATSAccessibility] Set context to Map navigation");
                 }
             }

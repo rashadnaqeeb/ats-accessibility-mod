@@ -48,6 +48,11 @@ namespace ATSAccessibility
         public bool HasActivePopup => _currentPopup != null;
 
         /// <summary>
+        /// Whether the current popup is the MetaRewardsPopup.
+        /// </summary>
+        public bool IsMetaRewardsPopup => _currentPopup != null && _currentPopup.name.Contains("MetaRewards");
+
+        /// <summary>
         /// Whether there's an active menu being navigated.
         /// </summary>
         public bool HasActiveMenu => _currentMenu != null;
@@ -178,6 +183,12 @@ namespace ATSAccessibility
 
         private void ResetPopup()
         {
+            // Reset MetaRewardsPopupReader state if it was a MetaRewards popup
+            if (_currentPopup != null && _currentPopup.name.Contains("MetaRewards"))
+            {
+                MetaRewardsPopupReader.Reset();
+            }
+
             ClearNavigationState();
         }
 

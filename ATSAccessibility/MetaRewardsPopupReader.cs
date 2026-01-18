@@ -13,15 +13,74 @@ namespace ATSAccessibility
     /// </summary>
     public static class MetaRewardsPopupReader
     {
+        // State tracking
+        private static bool _isPolling = false;
+        private static bool _isReady = false;
+        private static string _cachedAnnouncement = null;
+
+        /// <summary>
+        /// Whether the MetaRewardsPopup is currently polling for rewards.
+        /// </summary>
+        public static bool IsPolling => _isPolling;
+
+        /// <summary>
+        /// Whether the MetaRewardsPopup has finished loading and is ready.
+        /// </summary>
+        public static bool IsReady => _isReady;
+
+        /// <summary>
+        /// Reset state when popup closes.
+        /// </summary>
+        public static void Reset()
+        {
+            _isPolling = false;
+            _isReady = false;
+            _cachedAnnouncement = null;
+        }
+
+        /// <summary>
+        /// Handle key events for the MetaRewardsPopup.
+        /// Returns true if the key was handled.
+        /// </summary>
+        public static bool ProcessKeyEvent(KeyCode keyCode)
+        {
+            // Only handle arrow keys
+            if (keyCode != KeyCode.UpArrow && keyCode != KeyCode.DownArrow &&
+                keyCode != KeyCode.LeftArrow && keyCode != KeyCode.RightArrow)
+            {
+                return false;
+            }
+
+            if (_isPolling)
+            {
+                Speech.Say("Please wait for rewards");
+                return true;
+            }
+
+            if (_isReady && !string.IsNullOrEmpty(_cachedAnnouncement))
+            {
+                Speech.Say(_cachedAnnouncement);
+                return true;
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// Announces the MetaRewardsPopup content including level info, experience, and rewards.
         /// Polls for rewards until the animation completes and count stabilizes.
+        /// All information is combined into a single announcement to avoid interruption.
         /// </summary>
         /// <param name="popup">The MetaRewardsPopup GameObject</param>
         /// <param name="runner">MonoBehaviour for coroutine execution</param>
         public static IEnumerator AnnounceMetaRewardsPopup(GameObject popup, MonoBehaviour runner)
         {
             if (popup == null) yield break;
+
+            // Set polling state
+            _isPolling = true;
+            _isReady = false;
+            _cachedAnnouncement = null;
 
             // Get all TMP_Text components for level/exp info (available immediately)
             var allText = popup.GetComponentsInChildren<TMP_Text>(true);
@@ -45,21 +104,16 @@ namespace ATSAccessibility
                     expProgress = $"Experience {value}";
             }
 
-            // Announce level/exp info immediately
-            var initialAnnouncements = new List<string>();
+            // Collect level/exp info but don't announce yet - wait for rewards
+            var levelExpParts = new List<string>();
             if (!string.IsNullOrEmpty(levelText))
-                initialAnnouncements.Add(levelText);
+                levelExpParts.Add(levelText);
             if (!string.IsNullOrEmpty(gainedExp))
-                initialAnnouncements.Add(gainedExp);
+                levelExpParts.Add(gainedExp);
             if (!string.IsNullOrEmpty(expProgress))
-                initialAnnouncements.Add(expProgress);
+                levelExpParts.Add(expProgress);
 
-            if (initialAnnouncements.Count > 0)
-            {
-                string initial = string.Join(". ", initialAnnouncements);
-                Debug.Log($"[ATSAccessibility] MetaRewards initial: {initial}");
-                Speech.Say(initial);
-            }
+            Debug.Log($"[ATSAccessibility] MetaRewards level/exp: {string.Join(", ", levelExpParts)}");
 
             // Poll until reward count stabilizes (no new rewards for 0.5s)
             List<string> rewardNames = new List<string>();
@@ -96,17 +150,31 @@ namespace ATSAccessibility
                 lastCount = currentCount;
             }
 
-            // Announce rewards if found
+            // Build combined announcement: level/exp, then rewards, then close instruction
+            var fullAnnouncement = new List<string>();
+
+            // Add level/exp info
+            if (levelExpParts.Count > 0)
+            {
+                fullAnnouncement.Add(string.Join(". ", levelExpParts));
+            }
+
+            // Add rewards
             if (rewardNames.Count > 0)
             {
-                string rewards = $"Rewards: {string.Join(", ", rewardNames)}";
-                Debug.Log($"[ATSAccessibility] MetaRewards: {rewards}");
-                Speech.Say(rewards);
+                fullAnnouncement.Add($"Rewards: {string.Join(", ", rewardNames)}");
             }
-            else
-            {
-                Debug.Log("[ATSAccessibility] MetaRewardsPopup: No rewards found after waiting");
-            }
+
+            // Add close instruction
+            fullAnnouncement.Add("Press escape to close");
+
+            // Cache and announce everything together
+            _cachedAnnouncement = string.Join(". ", fullAnnouncement);
+            _isPolling = false;
+            _isReady = true;
+
+            Debug.Log($"[ATSAccessibility] MetaRewards full: {_cachedAnnouncement}");
+            Speech.Say(_cachedAnnouncement);
         }
 
         /// <summary>

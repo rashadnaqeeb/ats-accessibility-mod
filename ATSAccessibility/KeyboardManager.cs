@@ -165,7 +165,23 @@ namespace ATSAccessibility
                 }
             }
 
-            // Check if embark panel is open - second priority
+            // Check if encyclopedia is active - takes priority over generic popup handling
+            // Encyclopedia has its own specialized navigation that supersedes the popup manager
+            if (_encyclopediaNavigator != null && _encyclopediaNavigator.IsActive)
+            {
+                ProcessEncyclopediaKeyEvent(keyCode);
+                return; // Encyclopedia consumes all keys
+            }
+
+            // Check if a popup is active - takes priority over embark panel
+            // This allows navigating confirmation dialogs during embark
+            if (_uiNavigator != null && _uiNavigator.HasActivePopup)
+            {
+                ProcessPopupKeyEvent(keyCode);
+                return; // Popup consumes all keys
+            }
+
+            // Check if embark panel is open
             if (_embarkPanel != null && _embarkPanel.IsOpen)
             {
                 if (_embarkPanel.ProcessKeyEvent(keyCode))
@@ -253,6 +269,15 @@ namespace ATSAccessibility
                 // Dropdown was closed externally, fall through to normal handling
             }
 
+            // Special handling for MetaRewardsPopup (polling/repeat behavior)
+            if (_uiNavigator.IsMetaRewardsPopup)
+            {
+                if (MetaRewardsPopupReader.ProcessKeyEvent(keyCode))
+                {
+                    return; // Key was handled by MetaRewardsPopupReader
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -317,16 +342,28 @@ namespace ATSAccessibility
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
-                    _mapNavigator.MoveCursor(0, 1);
+                    if (modifiers.Control)
+                        _mapNavigator.SkipToNextChange(0, 1);
+                    else
+                        _mapNavigator.MoveCursor(0, 1);
                     break;
                 case KeyCode.DownArrow:
-                    _mapNavigator.MoveCursor(0, -1);
+                    if (modifiers.Control)
+                        _mapNavigator.SkipToNextChange(0, -1);
+                    else
+                        _mapNavigator.MoveCursor(0, -1);
                     break;
                 case KeyCode.LeftArrow:
-                    _mapNavigator.MoveCursor(-1, 0);
+                    if (modifiers.Control)
+                        _mapNavigator.SkipToNextChange(-1, 0);
+                    else
+                        _mapNavigator.MoveCursor(-1, 0);
                     break;
                 case KeyCode.RightArrow:
-                    _mapNavigator.MoveCursor(1, 0);
+                    if (modifiers.Control)
+                        _mapNavigator.SkipToNextChange(1, 0);
+                    else
+                        _mapNavigator.MoveCursor(1, 0);
                     break;
                 case KeyCode.K:
                     _mapNavigator.AnnounceCurrentPosition();

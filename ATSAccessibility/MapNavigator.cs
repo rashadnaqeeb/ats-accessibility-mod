@@ -8,17 +8,14 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Handles keyboard-based map navigation in settlement view.
-    /// Arrow keys move a virtual cursor on the 70x70 grid, announcing tile contents.
+    /// Arrow keys move a virtual cursor on the map grid, announcing tile contents.
+    /// Map size is dynamically determined from the game's MapService.
     /// </summary>
     public class MapNavigator
     {
-        // Map bounds (70x70 grid)
-        private const int MAP_MIN = 0;
-        private const int MAP_MAX = 69;
-
-        // Virtual cursor position (start at center)
-        private int _cursorX = 35;
-        private int _cursorY = 35;
+        // Virtual cursor position (initialized to center on first use)
+        private int _cursorX = -1;
+        private int _cursorY = -1;
 
         // Cached reflection info for Field properties
         private PropertyInfo _fieldTypeProperty = null;
@@ -51,11 +48,17 @@ namespace ATSAccessibility
         /// </summary>
         public void MoveCursor(int dx, int dy)
         {
+            // Initialize cursor to center if not yet set
+            if (_cursorX < 0 || _cursorY < 0)
+            {
+                ResetCursor();
+            }
+
             int newX = _cursorX + dx;
             int newY = _cursorY + dy;
 
-            // Bounds check
-            if (newX < MAP_MIN || newX > MAP_MAX || newY < MAP_MIN || newY > MAP_MAX)
+            // Bounds check using game's MapService
+            if (!GameReflection.MapInBounds(newX, newY))
             {
                 Speech.Say("edge of map");
                 return;
@@ -77,8 +80,8 @@ namespace ATSAccessibility
         /// </summary>
         public void SetCursorPosition(int x, int y)
         {
-            // Bounds check
-            if (x < MAP_MIN || x > MAP_MAX || y < MAP_MIN || y > MAP_MAX)
+            // Bounds check using game's MapService
+            if (!GameReflection.MapInBounds(x, y))
                 return;
 
             _cursorX = x;
@@ -94,6 +97,12 @@ namespace ATSAccessibility
         /// </summary>
         public void SkipToNextChange(int dx, int dy)
         {
+            // Initialize cursor to center if not yet set
+            if (_cursorX < 0 || _cursorY < 0)
+            {
+                ResetCursor();
+            }
+
             // Get current tile's announcement as baseline (exclude villagers for comparison)
             var currentField = GameReflection.GetField(_cursorX, _cursorY);
             string currentAnnouncement = GetTileAnnouncement(_cursorX, _cursorY, currentField, includeVillagers: false);
@@ -107,8 +116,8 @@ namespace ATSAccessibility
                 int nextX = newX + dx;
                 int nextY = newY + dy;
 
-                // Check bounds BEFORE moving
-                if (nextX < MAP_MIN || nextX > MAP_MAX || nextY < MAP_MIN || nextY > MAP_MAX)
+                // Check bounds BEFORE moving using game's MapService
+                if (!GameReflection.MapInBounds(nextX, nextY))
                 {
                     // Hit edge without finding different tile - stay at current position
                     Speech.Say("no change till edge");
@@ -144,12 +153,32 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Reset cursor to center of map.
+        /// Clear cursor position so it will be reinitialized on next use.
+        /// Call this when leaving a game session.
+        /// </summary>
+        public void ClearCursor()
+        {
+            _cursorX = -1;
+            _cursorY = -1;
+        }
+
+        /// <summary>
+        /// Reset cursor to the Ancient Hearth position, or map center as fallback.
         /// </summary>
         public void ResetCursor()
         {
-            _cursorX = 35;
-            _cursorY = 35;
+            var hearthPos = GameReflection.GetMainHearthPosition();
+            if (hearthPos.HasValue)
+            {
+                _cursorX = hearthPos.Value.x;
+                _cursorY = hearthPos.Value.y;
+            }
+            else
+            {
+                // Fallback to center if hearth not found
+                _cursorX = GameReflection.GetMapWidth() / 2;
+                _cursorY = GameReflection.GetMapHeight() / 2;
+            }
         }
 
         /// <summary>

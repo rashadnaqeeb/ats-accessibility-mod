@@ -109,6 +109,16 @@ namespace ATSAccessibility
         private static bool _typesCached = false;
 
         // ========================================
+        // CACHED INSTANCE REFERENCES (cleared on panel close)
+        // ========================================
+
+        // Cached EmbarkDifficultyPicker - expensive FindObjectOfType call
+        private static object _cachedDifficultyPicker = null;
+
+        // Cached min difficulty penalty for the field (game uses min difficulty, not selected)
+        private static int _cachedMinDifficultyPenalty = 0;
+
+        // ========================================
         // INITIALIZATION
         // ========================================
 
@@ -372,6 +382,40 @@ namespace ATSAccessibility
                 _settingsDifficultiesField = settingsType.GetField("difficulties",
                     BindingFlags.Public | BindingFlags.Instance);
             }
+        }
+
+        // ========================================
+        // INSTANCE CACHE MANAGEMENT
+        // ========================================
+
+        /// <summary>
+        /// Cache expensive instance references when embark panel opens.
+        /// Call this when entering the embark screen.
+        /// </summary>
+        /// <param name="fieldPos">Field position to cache min difficulty penalty for</param>
+        public static void CacheInstancesOnOpen(Vector3Int fieldPos)
+        {
+            _cachedDifficultyPicker = FindEmbarkDifficultyPickerInternal();
+
+            // Cache the min difficulty penalty - game uses min difficulty for points calculation,
+            // not the currently selected difficulty
+            var minDifficulty = GetMinDifficultyFor(fieldPos);
+            _cachedMinDifficultyPenalty = minDifficulty != null
+                ? GetDifficultyPreparationPenalty(minDifficulty)
+                : 0;
+
+            Debug.Log($"[ATSAccessibility] EmbarkReflection: Cached instances, min difficulty penalty: {_cachedMinDifficultyPenalty}");
+        }
+
+        /// <summary>
+        /// Clear cached instance references when embark panel closes.
+        /// Instance references become stale on scene changes.
+        /// </summary>
+        public static void ClearInstanceCaches()
+        {
+            _cachedDifficultyPicker = null;
+            _cachedMinDifficultyPenalty = 0;
+            Debug.Log("[ATSAccessibility] EmbarkReflection: Cleared instance caches");
         }
 
         // ========================================
@@ -696,42 +740,58 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Build a display string for a caravan option.
-        /// Format: "Human: 3, Beaver: 2, 3 unknown"
+        /// Get caravan race counts (revealed species and unknown count).
+        /// Centralizes the logic for determining which villagers are revealed vs hidden.
         /// </summary>
-        public static string GetCaravanDisplayString(object caravan, int index)
+        /// <param name="caravan">The caravan state object</param>
+        /// <returns>Tuple of (revealedCounts dictionary, unknownCount)</returns>
+        public static (Dictionary<string, int> revealedCounts, int unknownCount) GetCaravanRaceCounts(object caravan)
         {
+            var revealedCounts = new Dictionary<string, int>();
+            int unknownCount = 0;
+
+            if (caravan == null) return (revealedCounts, unknownCount);
+
             var villagers = GetCaravanVillagers(caravan);
-            var revealedCount = GetCaravanRevealedCount(caravan);
             var races = GetCaravanRaces(caravan);
+            int revealedRaceCount = GetCaravanRevealedCount(caravan);
 
-            if (villagers.Count == 0) return $"Caravan {index + 1}";
-
-            // Determine which races are revealed (first 'revealedCount' races in the list)
+            // Determine which races are revealed (first 'revealedRaceCount' races in the list)
             var revealedRaces = new HashSet<string>();
-            for (int i = 0; i < revealedCount && i < races.Count; i++)
+            for (int i = 0; i < revealedRaceCount && i < races.Count; i++)
             {
                 revealedRaces.Add(races[i]);
             }
 
             // Count villagers by race
-            var counts = new Dictionary<string, int>();
-            int unknownCount = 0;
-
             foreach (var villagerRace in villagers)
             {
-                // Check if this villager's race is in the revealed set
                 if (revealedRaces.Contains(villagerRace))
                 {
-                    if (!counts.ContainsKey(villagerRace))
-                        counts[villagerRace] = 0;
-                    counts[villagerRace]++;
+                    if (!revealedCounts.ContainsKey(villagerRace))
+                        revealedCounts[villagerRace] = 0;
+                    revealedCounts[villagerRace]++;
                 }
                 else
                 {
                     unknownCount++;
                 }
             }
+
+            return (revealedCounts, unknownCount);
+        }
+
+        /// <summary>
+        /// Build a display string for a caravan option.
+        /// Format: "Human: 3, Beaver: 2, 3 unknown"
+        /// </summary>
+        public static string GetCaravanDisplayString(object caravan, int index)
+        {
+            var villagers = GetCaravanVillagers(caravan);
+            if (villagers.Count == 0) return $"Caravan {index + 1}";
+
+            // Use shared helper for race counting
+            var (counts, unknownCount) = GetCaravanRaceCounts(caravan);
 
             var parts = new List<string>();
             foreach (var kvp in counts)
@@ -1030,6 +1090,19 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get total preparation points available (base + bonus).
+        /// Uses the min difficulty penalty (cached on panel open), matching the game's behavior
+        /// where base points are calculated from the minimum required difficulty, not selected difficulty.
+        /// </summary>
+        public static int GetTotalPreparationPoints()
+        {
+            int rawBase = GetBasePreparationPoints();
+            // Use cached min difficulty penalty - game calculates base points using
+            // GetMinDifficultyFor(field).preparationPointsPenalty, not current selection
+            return Math.Max(0, rawBase + _cachedMinDifficultyPenalty) + GetBonusPreparationPoints();
+        }
+
+        /// <summary>
         /// Calculate total points used from picked bonuses.
         /// </summary>
         public static int CalculatePointsUsed()
@@ -1056,13 +1129,7 @@ namespace ATSAccessibility
         /// </summary>
         public static int CalculatePointsRemaining()
         {
-            int rawBase = GetBasePreparationPoints();
-            var currentDifficulty = GetCurrentDifficulty();
-            int difficultyPenalty = currentDifficulty != null
-                ? GetDifficultyPreparationPenalty(currentDifficulty)
-                : 0;
-            int total = Math.Max(0, rawBase + difficultyPenalty) + GetBonusPreparationPoints();
-            return total - CalculatePointsUsed();
+            return GetTotalPreparationPoints() - CalculatePointsUsed();
         }
 
         // ========================================
@@ -1214,8 +1281,22 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Find the active EmbarkDifficultyPicker in the scene.
+        /// Uses cached reference if available.
         /// </summary>
         private static object FindEmbarkDifficultyPicker()
+        {
+            // Return cached picker if available
+            if (_cachedDifficultyPicker != null)
+                return _cachedDifficultyPicker;
+
+            // Fall back to finding it (expensive)
+            return FindEmbarkDifficultyPickerInternal();
+        }
+
+        /// <summary>
+        /// Internal method that actually performs FindObjectOfType.
+        /// </summary>
+        private static object FindEmbarkDifficultyPickerInternal()
         {
             EnsureTypes();
 
