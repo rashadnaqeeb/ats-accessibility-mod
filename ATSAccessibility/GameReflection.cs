@@ -2146,7 +2146,19 @@ namespace ATSAccessibility
         private static MethodInfo _csCanConstructMethod = null;
         private static Type _buildingCreatorType = null;
         private static MethodInfo _bcCreateBuildingMethod = null;
+        private static object _buildingCreatorInstance = null;
         private static bool _buildingTypesCached = false;
+
+        // BuildingModel field caching (used by multiple methods called per-building)
+        private static FieldInfo _bmCategoryField = null;
+        private static FieldInfo _bmIsInShopField = null;
+        private static FieldInfo _bmSizeField = null;
+        private static FieldInfo _bmIsActiveField = null;
+        private static PropertyInfo _bmDescriptionProperty = null;
+        private static FieldInfo _bmDescriptionField = null;
+        private static PropertyInfo _locaTextProperty = null;
+        private static FieldInfo _bcmIsOnHUDField = null;
+        private static bool _bmFieldsCached = false;
 
         private static void EnsureBuildingTypes()
         {
@@ -2224,6 +2236,66 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Cache BuildingModel and BuildingCategoryModel field info for efficient per-building lookups.
+        /// </summary>
+        private static void EnsureBuildingModelFields()
+        {
+            if (_bmFieldsCached) return;
+            EnsureBuildingTypes();
+
+            if (_gameAssembly == null)
+            {
+                _bmFieldsCached = true;
+                return;
+            }
+
+            try
+            {
+                // Cache BuildingModel fields
+                var buildingModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingModel");
+                if (buildingModelType != null)
+                {
+                    _bmCategoryField = buildingModelType.GetField("category",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _bmIsInShopField = buildingModelType.GetField("isInShop",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _bmSizeField = buildingModelType.GetField("size",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _bmIsActiveField = buildingModelType.GetField("isActive",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _bmDescriptionProperty = buildingModelType.GetProperty("Description",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _bmDescriptionField = buildingModelType.GetField("description",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+                }
+
+                // Cache BuildingCategoryModel fields
+                var buildingCategoryModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingCategoryModel");
+                if (buildingCategoryModelType != null)
+                {
+                    _bcmIsOnHUDField = buildingCategoryModelType.GetField("isOnHUD",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache LocaText.Text property (used by description)
+                var locaTextType = _gameAssembly.GetType("Eremite.Model.LocaText");
+                if (locaTextType != null)
+                {
+                    _locaTextProperty = locaTextType.GetProperty("Text",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached BuildingModel field info");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] BuildingModel field caching failed: {ex.Message}");
+            }
+
+            _bmFieldsCached = true;
+        }
+
+        /// <summary>
         /// Get all BuildingModel definitions from Settings.
         /// </summary>
         public static Array GetAllBuildingModels()
@@ -2267,12 +2339,11 @@ namespace ATSAccessibility
         public static object GetBuildingCategory(object buildingModel)
         {
             if (buildingModel == null) return null;
+            EnsureBuildingModelFields();
 
             try
             {
-                var categoryField = buildingModel.GetType().GetField("category",
-                    BindingFlags.Public | BindingFlags.Instance);
-                return categoryField?.GetValue(buildingModel);
+                return _bmCategoryField?.GetValue(buildingModel);
             }
             catch
             {
@@ -2286,14 +2357,13 @@ namespace ATSAccessibility
         public static bool IsBuildingInShop(object buildingModel)
         {
             if (buildingModel == null) return false;
+            EnsureBuildingModelFields();
 
             try
             {
-                var isInShopField = buildingModel.GetType().GetField("isInShop",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (isInShopField != null)
+                if (_bmIsInShopField != null)
                 {
-                    return (bool)isInShopField.GetValue(buildingModel);
+                    return (bool)_bmIsInShopField.GetValue(buildingModel);
                 }
             }
             catch { }
@@ -2306,14 +2376,13 @@ namespace ATSAccessibility
         public static Vector2Int GetBuildingSize(object buildingModel)
         {
             if (buildingModel == null) return Vector2Int.one;
+            EnsureBuildingModelFields();
 
             try
             {
-                var sizeField = buildingModel.GetType().GetField("size",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (sizeField != null)
+                if (_bmSizeField != null)
                 {
-                    return (Vector2Int)sizeField.GetValue(buildingModel);
+                    return (Vector2Int)_bmSizeField.GetValue(buildingModel);
                 }
             }
             catch { }
@@ -2326,31 +2395,23 @@ namespace ATSAccessibility
         public static string GetBuildingDescription(object buildingModel)
         {
             if (buildingModel == null) return null;
+            EnsureBuildingModelFields();
 
             try
             {
                 // Try the Description property first (virtual property in BuildingModel)
-                var descProperty = buildingModel.GetType().GetProperty("Description",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (descProperty != null)
+                if (_bmDescriptionProperty != null)
                 {
-                    return descProperty.GetValue(buildingModel) as string;
+                    return _bmDescriptionProperty.GetValue(buildingModel) as string;
                 }
 
                 // Fall back to description field (LocaText)
-                var descField = buildingModel.GetType().GetField("description",
-                    BindingFlags.NonPublic | BindingFlags.Instance);
-                if (descField != null)
+                if (_bmDescriptionField != null)
                 {
-                    var locaText = descField.GetValue(buildingModel);
-                    if (locaText != null)
+                    var locaText = _bmDescriptionField.GetValue(buildingModel);
+                    if (locaText != null && _locaTextProperty != null)
                     {
-                        var textProperty = locaText.GetType().GetProperty("Text",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        if (textProperty != null)
-                        {
-                            return textProperty.GetValue(locaText) as string;
-                        }
+                        return _locaTextProperty.GetValue(locaText) as string;
                     }
                 }
             }
@@ -2364,14 +2425,13 @@ namespace ATSAccessibility
         public static bool IsBuildingActive(object buildingModel)
         {
             if (buildingModel == null) return false;
+            EnsureBuildingModelFields();
 
             try
             {
-                var isActiveField = buildingModel.GetType().GetField("isActive",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (isActiveField != null)
+                if (_bmIsActiveField != null)
                 {
-                    return (bool)isActiveField.GetValue(buildingModel);
+                    return (bool)_bmIsActiveField.GetValue(buildingModel);
                 }
             }
             catch { }
@@ -2384,14 +2444,13 @@ namespace ATSAccessibility
         public static bool IsCategoryOnHUD(object categoryModel)
         {
             if (categoryModel == null) return false;
+            EnsureBuildingModelFields();
 
             try
             {
-                var isOnHUDField = categoryModel.GetType().GetField("isOnHUD",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (isOnHUDField != null)
+                if (_bcmIsOnHUDField != null)
                 {
-                    return (bool)isOnHUDField.GetValue(categoryModel);
+                    return (bool)_bcmIsOnHUDField.GetValue(categoryModel);
                 }
             }
             catch { }
@@ -2488,9 +2547,11 @@ namespace ATSAccessibility
 
             try
             {
-                // Create a new BuildingCreator instance
-                var creator = Activator.CreateInstance(_buildingCreatorType);
-                return _bcCreateBuildingMethod.Invoke(creator, new object[] { buildingModel, rotation });
+                // Reuse cached BuildingCreator instance (stateless)
+                if (_buildingCreatorInstance == null)
+                    _buildingCreatorInstance = Activator.CreateInstance(_buildingCreatorType);
+
+                return _bcCreateBuildingMethod.Invoke(_buildingCreatorInstance, new object[] { buildingModel, rotation });
             }
             catch (Exception ex)
             {
@@ -2719,6 +2780,46 @@ namespace ATSAccessibility
                 if (finishedField == null) return false;
 
                 return !(bool)finishedField.GetValue(state);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if an object from GetObjectOn is a Building (not a resource or field).
+        /// </summary>
+        public static bool IsBuilding(object obj)
+        {
+            if (obj == null) return false;
+
+            var buildingType = _gameAssembly?.GetType("Eremite.Buildings.Building");
+            return buildingType != null && buildingType.IsInstanceOfType(obj);
+        }
+
+        /// <summary>
+        /// Check if a building is a relic/ruin (its model is a RelicModel).
+        /// Relics are special buildings created when regular buildings are destroyed/ruined,
+        /// or glade events that need to be investigated.
+        /// </summary>
+        public static bool IsRelic(object building)
+        {
+            if (building == null) return false;
+
+            try
+            {
+                // Get BuildingModel property from the building
+                var buildingModelProp = building.GetType().GetProperty("BuildingModel",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (buildingModelProp == null) return false;
+
+                var model = buildingModelProp.GetValue(building);
+                if (model == null) return false;
+
+                // Check if the model is a RelicModel
+                var relicModelType = _gameAssembly?.GetType("Eremite.Buildings.RelicModel");
+                return relicModelType != null && relicModelType.IsInstanceOfType(model);
             }
             catch
             {

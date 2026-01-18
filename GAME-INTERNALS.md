@@ -133,6 +133,33 @@ var name = model.name;              // PropertyInfo - internal name (fallback)
 var position = building.Field;      // PropertyInfo → Vector2Int
 ```
 
+### Building State
+```csharp
+// Building has a BuildingState property with construction info
+var state = building.BuildingState;  // PropertyInfo
+
+// BuildingState fields (Eremite.Model.State.BuildingState)
+state.finished           // bool - true when construction complete
+state.buildingProgress   // float - construction progress (0-1)
+state.builders           // int - number of villagers constructing
+state.placed             // bool - true if placed on map
+state.rotation           // int - rotation value (0-3)
+```
+
+### Relic/Ruin Detection
+```csharp
+// Ruins are buildings whose model is a RelicModel
+// RelicModel inherits from UpgradableBuildingModel
+
+var buildingModel = building.BuildingModel;  // PropertyInfo
+// Check if model type is Eremite.Buildings.RelicModel
+bool isRelic = typeof(RelicModel).IsInstanceOfType(buildingModel);
+
+// RelicModel includes:
+// - Destroyed buildings turned into ruins (via BuildingModel.ruin field)
+// - Glade events/mysteries that need investigation
+```
+
 ---
 
 ## Events and Observables
@@ -225,6 +252,10 @@ All inherit from `Selectable`:
 | Input config | `Eremite.InputConfig` |
 | Demo element | `DemoElement` (check by name) |
 | Camera controller | `Eremite.View.CameraController` |
+| Building state | `Eremite.Model.State.BuildingState` |
+| Relic model | `Eremite.Buildings.RelicModel` |
+| Building model | `Eremite.Buildings.BuildingModel` |
+| Building base | `Eremite.Buildings.Building` |
 
 ---
 

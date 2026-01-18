@@ -50,12 +50,13 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 ### Settlement Navigation
 
-- **MapNavigator.cs** - Settlement map grid navigation (dynamic map size, cursor starts at Ancient Hearth)
+- **MapNavigator.cs** - Settlement map grid navigation (dynamic map size, cursor starts at Ancient Hearth). Announces building state (under construction, ruin) when navigating.
 - **MapScanner.cs** - Hierarchical object scanner (PageUp/Down for groups, Ctrl for categories, Alt for items)
 - **TileInfoReader.cs** - Reads detailed tile info (I key) for buildings, resources, deposits
 - **StatsReader.cs** - Reads game statistics (Reputation, Impatience, Hostility, Resolve)
 - **StatsPanel.cs** - Virtual speech-only panel for detailed stats navigation
 - **MysteriesPanel.cs** - Virtual speech panel for forest mysteries and world modifiers
+- **SettlementResourcePanel.cs** - Virtual speech panel for browsing settlement resources by category (Alt+R)
 - **BuildingMenuPanel.cs** - Virtual speech panel for building selection (Tab key, two-panel: categories → buildings)
 - **BuildModeController.cs** - Handles building placement, rotation, and removal in build mode
 
@@ -80,6 +81,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **WikiReflection.cs** - Reflection helpers for encyclopedia/wiki system
 - **InputBlocker.cs** - Prevents game input during accessibility navigation
 - **InputPatches.cs** - Harmony patches for input handling
+- **NavigationUtils.cs** - Shared utilities for index wrapping in navigation
 
 ### Key Patterns
 

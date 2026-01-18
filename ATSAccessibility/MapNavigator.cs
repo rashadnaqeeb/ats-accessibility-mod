@@ -228,6 +228,18 @@ namespace ATSAccessibility
                     string objectName = GetObjectName(objectOn);
                     if (!string.IsNullOrEmpty(objectName))
                     {
+                        // Check building state if it's a building
+                        if (GameReflection.IsBuilding(objectOn))
+                        {
+                            if (GameReflection.IsBuildingUnfinished(objectOn))
+                            {
+                                objectName += ", under construction";
+                            }
+                            else if (GameReflection.IsRelic(objectOn))
+                            {
+                                objectName += ", ruin";
+                            }
+                        }
                         parts.Add(objectName);
                         hasRealObject = true;
                     }

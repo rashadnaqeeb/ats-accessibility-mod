@@ -11,7 +11,6 @@ namespace ATSAccessibility
         private bool _isActive = false;
         private object _selectedBuildingModel = null;
         private string _selectedBuildingName = null;
-        private object _currentBuilding = null;  // The actual building instance being placed
         private int _rotation = 0;  // 0-3, maps to cardinal directions
 
         // Reference to map navigator for cursor position
@@ -46,7 +45,6 @@ namespace ATSAccessibility
             _selectedBuildingName = buildingName;
             _rotation = 0;
             _isActive = true;
-            _currentBuilding = null;
 
             Speech.Say($"Build mode: {buildingName}. R to rotate, Space to place, Tab for menu.");
             Debug.Log($"[ATSAccessibility] Entered build mode for: {buildingName}");
@@ -59,13 +57,9 @@ namespace ATSAccessibility
         {
             if (!_isActive) return;
 
-            // Clean up any preview building
-            CleanupCurrentBuilding();
-
             _isActive = false;
             _selectedBuildingModel = null;
             _selectedBuildingName = null;
-            _currentBuilding = null;
             _rotation = 0;
 
             InputBlocker.BlockCancelOnce = true;
@@ -241,26 +235,12 @@ namespace ATSAccessibility
         /// </summary>
         private void ReturnToMenu()
         {
-            // Clean up current state
-            CleanupCurrentBuilding();
             _isActive = false;
             _selectedBuildingModel = null;
             _selectedBuildingName = null;
-            _currentBuilding = null;
 
             // Open the menu
             _buildingMenuPanel?.Open();
-        }
-
-        /// <summary>
-        /// Clean up any preview building that might exist.
-        /// </summary>
-        private void CleanupCurrentBuilding()
-        {
-            // Note: We don't maintain a persistent preview building in this implementation.
-            // Each placement creates a new building. This method is here for future use
-            // if we add visual preview functionality.
-            _currentBuilding = null;
         }
 
         /// <summary>
