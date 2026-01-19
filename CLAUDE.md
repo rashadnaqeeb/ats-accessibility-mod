@@ -58,8 +58,10 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **MysteriesPanel.cs** - Virtual speech panel for forest mysteries and world modifiers
 - **SettlementResourcePanel.cs** - Virtual speech panel for browsing settlement resources by category
 - **InfoPanelMenu.cs** - Unified F1 menu for accessing information panels (Stats, Resources, Mysteries)
+- **MenuHub.cs** - Quick access menu (F2) for game popups (Recipes, Orders, Trade Routes, etc.)
 - **BuildingMenuPanel.cs** - Virtual speech panel for building selection (Tab key, two-panel: categories → buildings)
 - **BuildModeController.cs** - Handles building placement, rotation, and removal in build mode
+- **MoveModeController.cs** - Handles relocating existing buildings (M key)
 
 ### World Map Navigation
 
@@ -92,7 +94,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 **Native DLL loading**: Tolk.dll and helpers (nvdaControllerClient64.dll, SAAPI64.dll) must stay in plugins folder. SetDllDirectory is called in Plugin.Awake() before any P/Invoke.
 
-**Navigation priority**: KeyboardManager checks contexts in order: InfoPanelMenu (manages Stats/Resources/Mysteries panels) → BuildingMenuPanel → BuildModeController → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
+**Navigation priority**: KeyboardManager checks contexts in order: InfoPanelMenu (manages Stats/Resources/Mysteries panels) → MenuHub → BuildingMenuPanel → BuildModeController → MoveModeController → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
 
 ## Keyboard Controls
 
@@ -101,6 +103,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **Ctrl+Arrow** - Skip to next different tile type
 - **K** - Announce current cursor coordinates
 - **I** - Read detailed info about object under cursor (description, charges, products)
+- **M** - Enter move mode for building under cursor (relocate existing buildings)
 
 ### Settlement Map Scanner
 - **PageUp/Down** - Cycle groups (e.g., "Clay Deposit" → "Copper Deposit")
@@ -111,9 +114,10 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 ### Game Stats (Settlement)
 - **S** - Announce quick summary (Reputation, Impatience, Hostility)
-- **R** - Announce resolve for all present species
+- **V** - Announce resolve for next species (cycles through present species)
 - **T** - Announce current season, time remaining, and settlement year
 - **F1** - Open information panels menu
+- **F2** - Open menu hub (quick access to game popups)
 - **Space** - Toggle pause
 - **1-4** - Set game speed
 
@@ -123,6 +127,12 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **Enter/Right Arrow** - Open selected panel
 - **Left Arrow** - Return from panel to menu
 - **Escape** - Close menu and return to map
+
+### Menu Hub (F2)
+- **F2** - Open menu hub (quick access to game popups)
+- **Up/Down** - Navigate menu items (Recipes, Orders, Trade Routes, Consumption, Villagers, Trends, Trader)
+- **Enter** - Open selected popup
+- **Escape** - Close menu hub
 
 ### Stats Panel (when open)
 - **Up/Down** - Navigate categories (left panel) or details (right panel)
@@ -157,6 +167,12 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **Tab** - Return to building menu
 - **Escape/Enter** - Exit build mode
 
+### Move Mode (M key on existing building)
+- **Arrow keys** - Move cursor to new location
+- **R** - Rotate building
+- **Space** - Confirm move to current location
+- **Escape** - Cancel move mode
+
 ### World Map Navigation
 - **Arrow keys** - Navigate hex grid (camera follows cursor)
 - **Enter** - Select/interact with current tile
@@ -182,9 +198,16 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 ### UI/Popup Navigation
 - **Tab/Shift+Tab** - Cycle panels
 - **Up/Down** - Cycle elements within panel
+- **Shift+Up/Down** - Adjust slider value by 10%
 - **Left/Right** - Navigate between panels (encyclopedia)
-- **Enter** - Activate element
-- **Escape** - Close popup
+- **Enter** - Activate element (or enter text field edit mode)
+- **Escape** - Close popup (or cancel text field editing)
+
+### Text Field Editing (in popups)
+- **Enter** on text field - Enter edit mode (announces current text)
+- While editing: Type normally (keys pass through to Unity)
+- **Enter** - Submit text and exit edit mode
+- **Escape** - Cancel editing and exit edit mode
 
 ### Encyclopedia
 - **Left/Right** - Switch panels (Categories → Articles → Content)
