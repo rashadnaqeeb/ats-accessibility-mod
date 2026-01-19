@@ -328,13 +328,7 @@ namespace ATSAccessibility
                 var displayNameField = highestSeal.GetType().GetField("displayName",
                     BindingFlags.Public | BindingFlags.Instance);
                 var displayName = displayNameField?.GetValue(highestSeal);
-                var sealName = "";
-                if (displayName != null)
-                {
-                    var textProp = displayName.GetType().GetProperty("Text",
-                        BindingFlags.Public | BindingFlags.Instance);
-                    sealName = textProp?.GetValue(displayName) as string ?? "";
-                }
+                var sealName = GameReflection.GetLocaText(displayName) ?? "";
 
                 // Get rewardsMultiplier
                 var rewardsMulField = highestSeal.GetType().GetField("rewardsMultiplier",

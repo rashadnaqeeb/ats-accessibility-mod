@@ -126,11 +126,23 @@ if (hearthsDict.Count > 0)
 ```csharp
 // Get display name from any game object (resource, deposit, building)
 var model = obj.Model;              // PropertyInfo
-var displayName = model.displayName; // FieldInfo - localized name
+var displayName = model.displayName; // FieldInfo - LocaText object
 var name = model.name;              // PropertyInfo - internal name (fallback)
 
 // Building position
 var position = building.Field;      // PropertyInfo → Vector2Int
+```
+
+### LocaText (Localized Strings)
+Many game objects store display names as `LocaText` objects (type: `Eremite.Model.LocaText`).
+
+```csharp
+// Manual extraction (don't do this - use helper)
+var locaText = displayNameField.GetValue(model);
+var text = locaText.GetType().GetProperty("Text").GetValue(locaText) as string;
+
+// Use the helper instead:
+string text = GameReflection.GetLocaText(locaText);  // Handles null, caches PropertyInfo
 ```
 
 ### Building State

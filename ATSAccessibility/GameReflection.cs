@@ -17,6 +17,13 @@ namespace ATSAccessibility
     public static class GameReflection
     {
         // ========================================
+        // BINDINGFLAGS CONSTANTS (reduces typo risk)
+        // ========================================
+        public const BindingFlags PublicInstance = BindingFlags.Public | BindingFlags.Instance;
+        public const BindingFlags NonPublicInstance = BindingFlags.NonPublic | BindingFlags.Instance;
+        public const BindingFlags PublicStatic = BindingFlags.Public | BindingFlags.Static;
+
+        // ========================================
         // CACHED REFLECTION METADATA (safe to cache)
         // ========================================
         private static Assembly _gameAssembly = null;
@@ -70,6 +77,37 @@ namespace ATSAccessibility
             if (method == null || instance == null) return false;
             try { return (bool?)method.Invoke(instance, args) ?? false; }
             catch { return false; }
+        }
+
+        // ========================================
+        // LOCATEXT HELPER
+        // ========================================
+
+        // Cache for LocaText.Text property
+        private static PropertyInfo _locaTextTextProperty;
+
+        /// <summary>
+        /// Extract the Text string from a LocaText object.
+        /// Handles null checks and caches the property info.
+        /// </summary>
+        public static string GetLocaText(object locaText)
+        {
+            if (locaText == null) return null;
+
+            // Cache the Text property on first use
+            if (_locaTextTextProperty == null)
+            {
+                _locaTextTextProperty = locaText.GetType().GetProperty("Text", PublicInstance);
+            }
+
+            try
+            {
+                return _locaTextTextProperty?.GetValue(locaText) as string;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         // ========================================

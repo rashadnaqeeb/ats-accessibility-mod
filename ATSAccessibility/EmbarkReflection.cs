@@ -826,11 +826,7 @@ namespace ATSAccessibility
                 var displayNameProp = raceModel.GetType().GetProperty("displayName",
                     BindingFlags.Public | BindingFlags.Instance);
                 var locaText = displayNameProp?.GetValue(raceModel);
-                if (locaText == null) return raceName;
-
-                var textProp = locaText.GetType().GetProperty("Text",
-                    BindingFlags.Public | BindingFlags.Instance);
-                return textProp?.GetValue(locaText)?.ToString() ?? raceName;
+                return GameReflection.GetLocaText(locaText) ?? raceName;
             }
             catch
             {
@@ -955,11 +951,7 @@ namespace ATSAccessibility
                 var displayNameProp = goodModel.GetType().GetProperty("displayName",
                     BindingFlags.Public | BindingFlags.Instance);
                 var locaText = displayNameProp?.GetValue(goodModel);
-                if (locaText == null) return goodName;
-
-                var textProp = locaText.GetType().GetProperty("Text",
-                    BindingFlags.Public | BindingFlags.Instance);
-                return textProp?.GetValue(locaText)?.ToString() ?? goodName;
+                return GameReflection.GetLocaText(locaText) ?? goodName;
             }
             catch
             {
@@ -1822,17 +1814,11 @@ namespace ATSAccessibility
                     var displayNameField = label.GetType().GetField("displayName",
                         BindingFlags.Public | BindingFlags.Instance);
                     var displayName = displayNameField?.GetValue(label);
+                    var text = GameReflection.GetLocaText(displayName);
 
-                    if (displayName != null)
+                    if (!string.IsNullOrEmpty(text))
                     {
-                        var textProp = displayName.GetType().GetProperty("Text",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        var text = textProp?.GetValue(displayName)?.ToString();
-
-                        if (!string.IsNullOrEmpty(text))
-                        {
-                            map[cost] = text;
-                        }
+                        map[cost] = text;
                     }
                 }
             }

@@ -426,12 +426,7 @@ namespace ATSAccessibility
                 var displayNameField = biome.GetType().GetField("displayName",
                     BindingFlags.Public | BindingFlags.Instance);
                 var displayName = displayNameField?.GetValue(biome);
-                if (displayName == null) return null;
-
-                // Get Text property from LocaText
-                var textProperty = displayName.GetType().GetProperty("Text",
-                    BindingFlags.Public | BindingFlags.Instance);
-                return textProperty?.GetValue(displayName) as string;
+                return GameReflection.GetLocaText(displayName);
             }
             catch (Exception ex)
             {
@@ -512,11 +507,7 @@ namespace ATSAccessibility
                 var displayNameField = model.GetType().GetField("displayName",
                     BindingFlags.Public | BindingFlags.Instance);
                 var displayName = displayNameField?.GetValue(model);
-                if (displayName == null) return null;
-
-                var textProperty = displayName.GetType().GetProperty("Text",
-                    BindingFlags.Public | BindingFlags.Instance);
-                return textProperty?.GetValue(displayName) as string;
+                return GameReflection.GetLocaText(displayName);
             }
             catch
             {
@@ -542,11 +533,7 @@ namespace ATSAccessibility
                 var displayNameField = model.GetType().GetField("displayName",
                     BindingFlags.Public | BindingFlags.Instance);
                 var displayName = displayNameField?.GetValue(model);
-                if (displayName == null) return null;
-
-                var textProperty = displayName.GetType().GetProperty("Text",
-                    BindingFlags.Public | BindingFlags.Instance);
-                return textProperty?.GetValue(displayName) as string;
+                return GameReflection.GetLocaText(displayName);
             }
             catch
             {
@@ -986,13 +973,7 @@ namespace ATSAccessibility
                 var displayNameField = seal.GetType().GetField("displayName",
                     BindingFlags.Public | BindingFlags.Instance);
                 var displayName = displayNameField?.GetValue(seal);
-                var sealName = "";
-                if (displayName != null)
-                {
-                    var textProp = displayName.GetType().GetProperty("Text",
-                        BindingFlags.Public | BindingFlags.Instance);
-                    sealName = textProp?.GetValue(displayName) as string ?? "";
-                }
+                var sealName = GameReflection.GetLocaText(displayName) ?? "";
 
                 // Get difficulty
                 var diffField = seal.GetType().GetField("difficulty",
@@ -1131,15 +1112,10 @@ namespace ATSAccessibility
                 var labelName = "";
                 if (label != null)
                 {
-                    var labelDisplayName = label.GetType().GetField("displayName",
+                    var labelDisplayNameField = label.GetType().GetField("displayName",
                         BindingFlags.Public | BindingFlags.Instance);
-                    var labelLocaText = labelDisplayName?.GetValue(label);
-                    if (labelLocaText != null)
-                    {
-                        var textProp = labelLocaText.GetType().GetProperty("Text",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        labelName = textProp?.GetValue(labelLocaText) as string ?? "";
-                    }
+                    var labelLocaText = labelDisplayNameField?.GetValue(label);
+                    labelName = GameReflection.GetLocaText(labelLocaText) ?? "";
                 }
 
                 // Get Description
@@ -1263,14 +1239,9 @@ namespace ATSAccessibility
                     var displayNameField = good.GetType().GetField("displayName",
                         BindingFlags.Public | BindingFlags.Instance);
                     var displayName = displayNameField?.GetValue(good);
-                    if (displayName != null)
-                    {
-                        var textProp = displayName.GetType().GetProperty("Text",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        var name = textProp?.GetValue(displayName) as string;
-                        if (!string.IsNullOrEmpty(name))
-                            result.Add(name);
-                    }
+                    var name = GameReflection.GetLocaText(displayName);
+                    if (!string.IsNullOrEmpty(name))
+                        result.Add(name);
                 }
 
                 return result.ToArray();
@@ -1307,12 +1278,7 @@ namespace ATSAccessibility
                 var descriptionField = biome.GetType().GetField("description",
                     BindingFlags.Public | BindingFlags.Instance);
                 var description = descriptionField?.GetValue(biome);
-                if (description == null) return null;
-
-                // Get Text property from LocaText
-                var textProperty = description.GetType().GetProperty("Text",
-                    BindingFlags.Public | BindingFlags.Instance);
-                return textProperty?.GetValue(description) as string;
+                return GameReflection.GetLocaText(description);
             }
             catch (Exception ex)
             {
@@ -1354,14 +1320,9 @@ namespace ATSAccessibility
                     var displayNameField = good.GetType().GetField("displayName",
                         BindingFlags.Public | BindingFlags.Instance);
                     var displayName = displayNameField?.GetValue(good);
-                    if (displayName != null)
-                    {
-                        var textProp = displayName.GetType().GetProperty("Text",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        var text = textProp?.GetValue(displayName) as string;
-                        if (!string.IsNullOrEmpty(text))
-                            result.Add(text);
-                    }
+                    var text = GameReflection.GetLocaText(displayName);
+                    if (!string.IsNullOrEmpty(text))
+                        result.Add(text);
                 }
                 return result;
             }
@@ -1405,14 +1366,9 @@ namespace ATSAccessibility
                     var displayNameField = good.GetType().GetField("displayName",
                         BindingFlags.Public | BindingFlags.Instance);
                     var displayName = displayNameField?.GetValue(good);
-                    if (displayName != null)
-                    {
-                        var textProp = displayName.GetType().GetProperty("Text",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        var text = textProp?.GetValue(displayName) as string;
-                        if (!string.IsNullOrEmpty(text))
-                            result.Add(text);
-                    }
+                    var text = GameReflection.GetLocaText(displayName);
+                    if (!string.IsNullOrEmpty(text))
+                        result.Add(text);
                 }
                 return result;
             }

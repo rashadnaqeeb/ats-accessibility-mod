@@ -58,7 +58,6 @@ namespace ATSAccessibility
         private static FieldInfo _conditionCategoryField = null;
         private static FieldInfo _conditionAmountField = null;
         private static FieldInfo _categoryDisplayNameField = null;
-        private static PropertyInfo _locaTextProperty = null;
         private static bool _conditionFieldsCached = false;
 
         /// <summary>
@@ -578,16 +577,6 @@ namespace ATSAccessibility
                         _categoryDisplayNameField = catType.GetField("displayName",
                             BindingFlags.Public | BindingFlags.Instance);
 
-                        // Get LocaText.Text property
-                        if (_categoryDisplayNameField != null)
-                        {
-                            var displayName = _categoryDisplayNameField.GetValue(category);
-                            if (displayName != null)
-                            {
-                                _locaTextProperty = displayName.GetType().GetProperty("Text",
-                                    BindingFlags.Public | BindingFlags.Instance);
-                            }
-                        }
                     }
                 }
 
@@ -638,11 +627,7 @@ namespace ATSAccessibility
                     if (category != null)
                     {
                         var displayName = _categoryDisplayNameField?.GetValue(category);
-                        string text = "";
-                        if (displayName != null)
-                        {
-                            text = _locaTextProperty?.GetValue(displayName)?.ToString() ?? "";
-                        }
+                        string text = GameReflection.GetLocaText(displayName) ?? "";
 
                         if (!string.IsNullOrEmpty(text))
                             parts.Add($"{text} x{amount}");

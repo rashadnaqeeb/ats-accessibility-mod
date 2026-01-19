@@ -531,18 +531,10 @@ namespace ATSAccessibility
                         var displayNameField = effectModel.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
                         var nameProp = effectModel.GetType().GetProperty("Name");
 
-                        string name = "Unknown effect";
                         var locaText = displayNameField?.GetValue(effectModel);
-                        if (locaText != null)
-                        {
-                            // LocaText.Text returns localized English string
-                            var textProp = locaText.GetType().GetProperty("Text");
-                            name = textProp?.GetValue(locaText)?.ToString() ?? nameProp?.GetValue(effectModel)?.ToString() ?? "Unknown effect";
-                        }
-                        else
-                        {
-                            name = nameProp?.GetValue(effectModel)?.ToString() ?? "Unknown effect";
-                        }
+                        string name = GameReflection.GetLocaText(locaText)
+                            ?? nameProp?.GetValue(effectModel)?.ToString()
+                            ?? "Unknown effect";
 
                         // Get actual average impact from ResolveService
                         int actualImpact = 0;

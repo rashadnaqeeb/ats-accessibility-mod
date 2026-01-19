@@ -43,7 +43,6 @@ namespace ATSAccessibility
         private static PropertyInfo _goodRefChanceDisplayNameProp;
         private static FieldInfo _goodRefChanceField;
         private static FieldInfo _goodDisplayNameField;
-        private static PropertyInfo _locaTextTextProp;
         private static bool _sharedCached;
 
         // Service reflection cache
@@ -80,16 +79,6 @@ namespace ATSAccessibility
                         if (good != null)
                         {
                             _goodDisplayNameField = good.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
-
-                            // Cache LocaText.Text property
-                            if (_goodDisplayNameField != null)
-                            {
-                                var displayName = _goodDisplayNameField.GetValue(good);
-                                if (displayName != null)
-                                {
-                                    _locaTextTextProp = displayName.GetType().GetProperty("Text");
-                                }
-                            }
                         }
                     }
                 }
@@ -175,7 +164,6 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Get localized text from a LocaText field (fieldName.Text).
-        /// Uses cached _locaTextTextProp when available.
         /// </summary>
         private static string GetLocalizedText(object obj, string fieldName)
         {
@@ -185,13 +173,7 @@ namespace ATSAccessibility
                 if (field == null) return null;
 
                 var locaText = field.GetValue(obj);
-                if (locaText == null) return null;
-
-                // Use cached property if available, otherwise get it
-                var textProp = _locaTextTextProp ?? locaText.GetType().GetProperty("Text");
-                if (textProp == null) return null;
-
-                return textProp.GetValue(locaText) as string;
+                return GameReflection.GetLocaText(locaText);
             }
             catch
             {
@@ -854,13 +836,7 @@ namespace ATSAccessibility
                 if (displayNameField == null) return null;
 
                 var displayName = displayNameField.GetValue(good);
-                if (displayName == null) return null;
-
-                // Get Text
-                var textProp = _locaTextTextProp ?? displayName.GetType().GetProperty("Text");
-                if (textProp == null) return null;
-
-                string productName = textProp.GetValue(displayName) as string;
+                string productName = GameReflection.GetLocaText(displayName);
 
                 // Get amount
                 var amountField = _goodRefAmountField ?? production.GetType().GetField("amount", BindingFlags.Public | BindingFlags.Instance);

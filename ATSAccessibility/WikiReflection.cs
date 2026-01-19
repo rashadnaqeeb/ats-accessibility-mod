@@ -321,9 +321,6 @@ namespace ATSAccessibility
         // BuildingModel field
         private static FieldInfo _buildingDisplayNameField;    // LocaText displayName
 
-        // LocaText property
-        private static PropertyInfo _locaTextTextProperty;     // string Text { get; }
-
         private static void EnsureRaceTypes()
         {
             if (_raceTypesLookedUp) return;
@@ -402,16 +399,6 @@ namespace ATSAccessibility
 
                     Debug.Log("[ATSAccessibility] WikiReflection: Cached BuildingModel type info");
                 }
-
-                // Cache LocaText.Text property
-                var locaTextType = _gameAssembly.GetType("Eremite.Model.LocaText");
-                if (locaTextType != null)
-                {
-                    _locaTextTextProperty = locaTextType.GetProperty("Text",
-                        BindingFlags.Public | BindingFlags.Instance);
-
-                    Debug.Log("[ATSAccessibility] WikiReflection: Cached LocaText type info");
-                }
             }
             catch (Exception ex)
             {
@@ -419,23 +406,6 @@ namespace ATSAccessibility
             }
 
             _raceTypesLookedUp = true;
-        }
-
-        /// <summary>
-        /// Helper to get Text from a LocaText object.
-        /// </summary>
-        private static string GetLocaTextValue(object locaText)
-        {
-            if (locaText == null || _locaTextTextProperty == null) return null;
-
-            try
-            {
-                return _locaTextTextProperty.GetValue(locaText) as string;
-            }
-            catch
-            {
-                return null;
-            }
         }
 
         /// <summary>
@@ -506,7 +476,7 @@ namespace ATSAccessibility
             try
             {
                 var locaText = _raceDisplayNameField.GetValue(raceModel);
-                return GetLocaTextValue(locaText);
+                return GameReflection.GetLocaText(locaText);
             }
             catch (Exception ex)
             {
@@ -528,7 +498,7 @@ namespace ATSAccessibility
             try
             {
                 var locaText = _raceDescriptionField.GetValue(raceModel);
-                return GetLocaTextValue(locaText);
+                return GameReflection.GetLocaText(locaText);
             }
             catch (Exception ex)
             {
@@ -613,7 +583,7 @@ namespace ATSAccessibility
             try
             {
                 var locaText = _buildingDisplayNameField.GetValue(buildingModel);
-                return GetLocaTextValue(locaText);
+                return GameReflection.GetLocaText(locaText);
             }
             catch (Exception ex)
             {
@@ -675,7 +645,7 @@ namespace ATSAccessibility
             try
             {
                 var locaText = _raceResilienceLabelField.GetValue(raceModel);
-                return GetLocaTextValue(locaText);
+                return GameReflection.GetLocaText(locaText);
             }
             catch
             {
@@ -757,7 +727,7 @@ namespace ATSAccessibility
             try
             {
                 var locaText = _raceRevealEffectDescField.GetValue(raceModel);
-                return GetLocaTextValue(locaText);
+                return GameReflection.GetLocaText(locaText);
             }
             catch
             {
@@ -778,7 +748,7 @@ namespace ATSAccessibility
             try
             {
                 var locaText = _racePassiveEffectDescField.GetValue(raceModel);
-                return GetLocaTextValue(locaText);
+                return GameReflection.GetLocaText(locaText);
             }
             catch
             {
@@ -1178,7 +1148,7 @@ namespace ATSAccessibility
                 if (good == null) return null;
 
                 var locaText = _goodModelDisplayNameField.GetValue(good);
-                return GetLocaTextValue(locaText);
+                return GameReflection.GetLocaText(locaText);
             }
             catch (Exception ex)
             {
@@ -1241,7 +1211,7 @@ namespace ATSAccessibility
             try
             {
                 var locaText = _tagDisplayNameField.GetValue(tagModel);
-                return GetLocaTextValue(locaText);
+                return GameReflection.GetLocaText(locaText);
             }
             catch (Exception ex)
             {
