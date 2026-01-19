@@ -187,9 +187,15 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Open the effects panel for the current tile.
+        /// Does not work on capital/city tiles.
         /// </summary>
         public void OpenEffectsPanel()
         {
+            if (_cachedTileType == TileType.Capital || _cachedTileType == TileType.City)
+            {
+                Speech.Say("No effects panel for this tile");
+                return;
+            }
             _effectsPanel.Open(_cursorPos);
         }
 
@@ -316,6 +322,10 @@ namespace ATSAccessibility
             if (_cachedTileType == TileType.Unexplored)
                 return "Unexplored";
 
+            // Capital/City tiles - show city tooltip
+            if (_cachedTileType == TileType.Capital || _cachedTileType == TileType.City)
+                return BuildCityTooltip();
+
             // Seal tiles - show full seal info even if unexplored (seals visible through fog)
             if (_cachedTileType == TileType.Seal)
                 return BuildSealTooltip();
@@ -430,15 +440,11 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Build tooltip for playable field tiles.
+        /// Biome is already announced in brief info, so not repeated here.
         /// </summary>
         private string BuildPlayableFieldTooltip()
         {
             var parts = new List<string>();
-
-            // Biome name
-            var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos);
-            if (!string.IsNullOrEmpty(biome))
-                parts.Add(biome);
 
             // Min difficulty
             var difficulty = WorldMapReflection.WorldMapGetMinDifficultyName(_cursorPos);

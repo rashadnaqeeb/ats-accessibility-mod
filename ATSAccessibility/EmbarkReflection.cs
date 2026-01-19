@@ -740,50 +740,60 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get caravan race counts (revealed species and unknown count).
-        /// Centralizes the logic for determining which villagers are revealed vs hidden.
+        /// Get caravan race counts (villagers per race and unknown race count).
+        /// Uses villagers.Distinct() like the game UI does - all villagers have known races.
         /// </summary>
         /// <param name="caravan">The caravan state object</param>
-        /// <returns>Tuple of (revealedCounts dictionary, unknownCount)</returns>
-        public static (Dictionary<string, int> revealedCounts, int unknownCount) GetCaravanRaceCounts(object caravan)
+        /// <returns>Tuple of (raceCounts dictionary, unknownRaceCount) where unknownRaceCount is
+        /// the number of hidden race slots (gameplayRaces - revealed races)</returns>
+        public static (Dictionary<string, int> raceCounts, int unknownRaceCount) GetCaravanRaceCounts(object caravan)
         {
-            var revealedCounts = new Dictionary<string, int>();
-            int unknownCount = 0;
+            var raceCounts = new Dictionary<string, int>();
+            int unknownRaceCount = 0;
 
-            if (caravan == null) return (revealedCounts, unknownCount);
+            if (caravan == null) return (raceCounts, unknownRaceCount);
 
             var villagers = GetCaravanVillagers(caravan);
-            var races = GetCaravanRaces(caravan);
-            int revealedRaceCount = GetCaravanRevealedCount(caravan);
 
-            // Determine which races are revealed (first 'revealedRaceCount' races in the list)
-            var revealedRaces = new HashSet<string>();
-            for (int i = 0; i < revealedRaceCount && i < races.Count; i++)
-            {
-                revealedRaces.Add(races[i]);
-            }
-
-            // Count villagers by race
+            // Count villagers per race (all villagers have known races)
             foreach (var villagerRace in villagers)
             {
-                if (revealedRaces.Contains(villagerRace))
-                {
-                    if (!revealedCounts.ContainsKey(villagerRace))
-                        revealedCounts[villagerRace] = 0;
-                    revealedCounts[villagerRace]++;
-                }
-                else
-                {
-                    unknownCount++;
-                }
+                if (!raceCounts.ContainsKey(villagerRace))
+                    raceCounts[villagerRace] = 0;
+                raceCounts[villagerRace]++;
             }
 
-            return (revealedCounts, unknownCount);
+            // Calculate unknown race slots (gameplayRaces - distinct revealed races)
+            int gameplayRaces = GetGameplayRaces();
+            int revealedRaceCount = raceCounts.Count;
+            unknownRaceCount = Math.Max(0, gameplayRaces - revealedRaceCount);
+
+            return (raceCounts, unknownRaceCount);
+        }
+
+        /// <summary>
+        /// Get the gameplayRaces setting (max species per settlement, typically 3).
+        /// </summary>
+        private static int GetGameplayRaces()
+        {
+            try
+            {
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return 3; // Default fallback
+
+                var field = settings.GetType().GetField("gameplayRaces",
+                    BindingFlags.Public | BindingFlags.Instance);
+                return field != null ? (int)field.GetValue(settings) : 3;
+            }
+            catch
+            {
+                return 3; // Default fallback
+            }
         }
 
         /// <summary>
         /// Build a display string for a caravan option.
-        /// Format: "Human: 3, Beaver: 2, 3 unknown"
+        /// Format: "Human: 3, Beaver: 2, 1 unknown race"
         /// </summary>
         public static string GetCaravanDisplayString(object caravan, int index)
         {
@@ -791,7 +801,7 @@ namespace ATSAccessibility
             if (villagers.Count == 0) return $"Caravan {index + 1}";
 
             // Use shared helper for race counting
-            var (counts, unknownCount) = GetCaravanRaceCounts(caravan);
+            var (counts, unknownRaceCount) = GetCaravanRaceCounts(caravan);
 
             var parts = new List<string>();
             foreach (var kvp in counts)
@@ -799,9 +809,10 @@ namespace ATSAccessibility
                 var displayName = GetRaceDisplayName(kvp.Key);
                 parts.Add($"{displayName}: {kvp.Value}");
             }
-            if (unknownCount > 0)
+            if (unknownRaceCount > 0)
             {
-                parts.Add($"{unknownCount} unknown");
+                string raceWord = unknownRaceCount == 1 ? "race" : "races";
+                parts.Add($"{unknownRaceCount} unknown {raceWord}");
             }
 
             return string.Join(", ", parts);

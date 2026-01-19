@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Virtual speech-only panel for navigating game stats.
     /// Two-panel system: left panel has categories, right panel has details.
     /// </summary>
-    public class StatsPanel
+    public class StatsPanel : TwoLevelPanel
     {
         /// <summary>
         /// Represents a category in the left panel.
@@ -19,179 +19,22 @@ namespace ATSAccessibility
             public List<string> Details { get; set; } = new List<string>();
         }
 
-        private bool _isOpen = false;
         private List<Category> _categories = new List<Category>();
-        private int _currentCategoryIndex = 0;
-        private int _currentDetailIndex = 0;
-        private bool _focusOnDetails = false;
 
-        /// <summary>
-        /// Whether the stats panel is currently open.
-        /// </summary>
-        public bool IsOpen => _isOpen;
+        // ========================================
+        // ABSTRACT MEMBER IMPLEMENTATIONS
+        // ========================================
 
-        /// <summary>
-        /// Open the stats panel and announce the first category.
-        /// </summary>
-        public void Open()
-        {
-            if (_isOpen)
-            {
-                Close();
-                return;
-            }
+        protected override string PanelName => "Stats panel";
+        protected override string EmptyMessage => "No stats available";
+        protected override string NoItemsMessage => "No additional details";
+        protected override int CategoryCount => _categories.Count;
+        protected override int CurrentItemCount =>
+            _currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count
+                ? _categories[_currentCategoryIndex].Details.Count
+                : 0;
 
-            // Build category list
-            RefreshCategories();
-
-            if (_categories.Count == 0)
-            {
-                Speech.Say("No stats available");
-                return;
-            }
-
-            _isOpen = true;
-            _currentCategoryIndex = 0;
-            _currentDetailIndex = 0;
-            _focusOnDetails = false;
-
-            AnnounceCurrentCategory();
-            Debug.Log("[ATSAccessibility] Stats panel opened");
-        }
-
-        /// <summary>
-        /// Close the stats panel.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            InputBlocker.BlockCancelOnce = true;  // Block the Cancel action that will fire this frame
-            _categories.Clear();
-            Speech.Say("Stats panel closed");
-            Debug.Log("[ATSAccessibility] Stats panel closed");
-        }
-
-        /// <summary>
-        /// Navigate categories (left panel) with Up/Down.
-        /// </summary>
-        public void NavigateCategory(int direction)
-        {
-            if (!_isOpen || _categories.Count == 0) return;
-
-            // If on details, go back to categories first
-            if (_focusOnDetails)
-            {
-                _focusOnDetails = false;
-                AnnounceCurrentCategory();
-                return;
-            }
-
-            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
-            _currentDetailIndex = 0;  // Reset detail index when changing category
-            AnnounceCurrentCategory();
-        }
-
-        /// <summary>
-        /// Navigate details (right panel) with Up/Down when in details mode.
-        /// </summary>
-        public void NavigateDetail(int direction)
-        {
-            if (!_isOpen || !_focusOnDetails) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (category.Details.Count == 0) return;
-
-            _currentDetailIndex = NavigationUtils.WrapIndex(_currentDetailIndex, direction, category.Details.Count);
-            AnnounceCurrentDetail();
-        }
-
-        /// <summary>
-        /// Enter details mode (Enter key).
-        /// </summary>
-        public void EnterDetails()
-        {
-            if (!_isOpen) return;
-
-            var category = _categories[_currentCategoryIndex];
-
-            if (category.Details.Count == 0)
-            {
-                Speech.Say("No additional details");
-                return;
-            }
-
-            _focusOnDetails = true;
-            _currentDetailIndex = 0;
-            AnnounceCurrentDetail();
-        }
-
-        /// <summary>
-        /// Return to categories (Left arrow).
-        /// </summary>
-        public void ReturnToCategories()
-        {
-            if (!_isOpen) return;
-
-            if (_focusOnDetails)
-            {
-                _focusOnDetails = false;
-                AnnounceCurrentCategory();
-            }
-        }
-
-        /// <summary>
-        /// Process a key event for the stats panel.
-        /// Returns true if the key was handled.
-        /// </summary>
-        public bool ProcessKeyEvent(KeyCode keyCode)
-        {
-            if (!_isOpen) return false;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    if (_focusOnDetails)
-                        NavigateDetail(-1);
-                    else
-                        NavigateCategory(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    if (_focusOnDetails)
-                        NavigateDetail(1);
-                    else
-                        NavigateCategory(1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.RightArrow:
-                    EnterDetails();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    if (_focusOnDetails)
-                    {
-                        ReturnToCategories();
-                        return true;
-                    }
-                    return false;  // At root level, let parent handle
-
-                case KeyCode.Escape:
-                    Close();
-                    return true;
-
-                default:
-                    return true;  // Consume all other keys while panel is open
-            }
-        }
-
-        /// <summary>
-        /// Refresh the category list with current game data.
-        /// </summary>
-        private void RefreshCategories()
+        protected override void RefreshData()
         {
             _categories.Clear();
 
@@ -243,10 +86,12 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Stats panel refreshed: {_categories.Count} categories");
         }
 
-        /// <summary>
-        /// Announce the current category (left panel).
-        /// </summary>
-        private void AnnounceCurrentCategory()
+        protected override void ClearData()
+        {
+            _categories.Clear();
+        }
+
+        protected override void AnnounceCategory()
         {
             if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
 
@@ -265,15 +110,12 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Category {_currentCategoryIndex + 1}/{_categories.Count}: {message}");
         }
 
-        /// <summary>
-        /// Announce the current detail (right panel).
-        /// </summary>
-        private void AnnounceCurrentDetail()
+        protected override void AnnounceItem()
         {
             var category = _categories[_currentCategoryIndex];
-            if (_currentDetailIndex < 0 || _currentDetailIndex >= category.Details.Count) return;
+            if (_currentItemIndex < 0 || _currentItemIndex >= category.Details.Count) return;
 
-            string detail = category.Details[_currentDetailIndex];
+            string detail = category.Details[_currentItemIndex];
             Speech.Say(detail);
             Debug.Log($"[ATSAccessibility] Detail: {detail}");
         }

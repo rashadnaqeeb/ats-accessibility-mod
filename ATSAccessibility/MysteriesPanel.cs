@@ -10,7 +10,7 @@ namespace ATSAccessibility
     /// Virtual speech panel for forest mysteries (seasonal effects) and modifiers.
     /// Three categories: Positive Mysteries, Negative Mysteries, Modifiers.
     /// </summary>
-    public class MysteriesPanel
+    public class MysteriesPanel : TwoLevelPanel
     {
         /// <summary>
         /// Represents a single mystery or modifier item.
@@ -35,11 +35,7 @@ namespace ATSAccessibility
             public List<MysteryItem> Items { get; set; } = new List<MysteryItem>();
         }
 
-        private bool _isOpen = false;
         private List<Category> _categories = new List<Category>();
-        private int _currentCategoryIndex = 0;
-        private int _currentItemIndex = 0;
-        private bool _focusOnItems = false;
 
         // Cached reflection for SeasonalEffectState fields (these are public fields, not properties!)
         private static FieldInfo _sesModelField = null;
@@ -60,171 +56,65 @@ namespace ATSAccessibility
         private static FieldInfo _categoryDisplayNameField = null;
         private static bool _conditionFieldsCached = false;
 
-        /// <summary>
-        /// Whether the mysteries panel is currently open.
-        /// </summary>
-        public bool IsOpen => _isOpen;
+        // ========================================
+        // ABSTRACT MEMBER IMPLEMENTATIONS
+        // ========================================
 
-        /// <summary>
-        /// Open the mysteries panel and announce the first category.
-        /// Toggle behavior - if already open, close it.
-        /// </summary>
-        public void Open()
+        protected override string PanelName => "Mysteries panel";
+        protected override string EmptyMessage => "No mysteries or modifiers active";
+        protected override int CategoryCount => _categories.Count;
+        protected override int CurrentItemCount =>
+            _currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count
+                ? _categories[_currentCategoryIndex].Items.Count
+                : 0;
+
+        protected override bool HasAnyItems()
         {
-            if (_isOpen)
-            {
-                Close();
-                return;
-            }
-
-            // Build category list
-            RefreshCategories();
-
-            // Check if all categories are empty
-            bool hasAnyItems = false;
             foreach (var cat in _categories)
             {
                 if (cat.Items.Count > 0)
-                {
-                    hasAnyItems = true;
-                    break;
-                }
+                    return true;
             }
-
-            if (!hasAnyItems)
-            {
-                Speech.Say("No mysteries or modifiers active");
-                return;
-            }
-
-            _isOpen = true;
-            _currentCategoryIndex = 0;
-            _currentItemIndex = 0;
-            _focusOnItems = false;
-
-            AnnounceCurrentCategory();
-            Debug.Log("[ATSAccessibility] Mysteries panel opened");
+            return false;
         }
 
-        /// <summary>
-        /// Close the mysteries panel.
-        /// </summary>
-        public void Close()
+        protected override void RefreshData()
         {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            InputBlocker.BlockCancelOnce = true;  // Block the Cancel action that will fire this frame
             _categories.Clear();
-            Speech.Say("Mysteries panel closed");
-            Debug.Log("[ATSAccessibility] Mysteries panel closed");
-        }
 
-        /// <summary>
-        /// Process a key event for the mysteries panel.
-        /// Returns true if the key was handled.
-        /// </summary>
-        public bool ProcessKeyEvent(KeyCode keyCode)
-        {
-            if (!_isOpen) return false;
+            // Get all mysteries split by positive/negative
+            var (positiveMysteries, negativeMysteries) = GetMysteriesByType();
 
-            switch (keyCode)
+            // Category 1: Positive Mysteries
+            _categories.Add(new Category
             {
-                case KeyCode.UpArrow:
-                    if (_focusOnItems)
-                        NavigateItem(-1);
-                    else
-                        NavigateCategory(-1);
-                    return true;
+                Name = "Positive Mysteries",
+                Items = positiveMysteries
+            });
 
-                case KeyCode.DownArrow:
-                    if (_focusOnItems)
-                        NavigateItem(1);
-                    else
-                        NavigateCategory(1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.RightArrow:
-                    EnterItems();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    if (_focusOnItems)
-                    {
-                        ReturnToCategories();
-                        return true;
-                    }
-                    return false;  // At root level, let parent handle
-
-                case KeyCode.Escape:
-                    Close();
-                    return true;
-
-                default:
-                    return true;  // Consume all other keys while panel is open
-            }
-        }
-
-        /// <summary>
-        /// Navigate categories with Up/Down.
-        /// </summary>
-        private void NavigateCategory(int direction)
-        {
-            if (_categories.Count == 0) return;
-
-            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
-            _currentItemIndex = 0;  // Reset item index when changing category
-            AnnounceCurrentCategory();
-        }
-
-        /// <summary>
-        /// Navigate items within current category.
-        /// </summary>
-        private void NavigateItem(int direction)
-        {
-            var category = _categories[_currentCategoryIndex];
-            if (category.Items.Count == 0) return;
-
-            _currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, category.Items.Count);
-            AnnounceCurrentItem();
-        }
-
-        /// <summary>
-        /// Enter items view (Enter key).
-        /// </summary>
-        private void EnterItems()
-        {
-            var category = _categories[_currentCategoryIndex];
-
-            if (category.Items.Count == 0)
+            // Category 2: Negative Mysteries
+            _categories.Add(new Category
             {
-                Speech.Say("No items in this category");
-                return;
-            }
+                Name = "Negative Mysteries",
+                Items = negativeMysteries
+            });
 
-            _focusOnItems = true;
-            _currentItemIndex = 0;
-            AnnounceCurrentItem();
-        }
-
-        /// <summary>
-        /// Return to categories (Left arrow).
-        /// </summary>
-        private void ReturnToCategories()
-        {
-            if (_focusOnItems)
+            // Category 3: Modifiers
+            _categories.Add(new Category
             {
-                _focusOnItems = false;
-                AnnounceCurrentCategory();
-            }
+                Name = "Modifiers",
+                Items = GetActiveModifiers()
+            });
+
+            Debug.Log($"[ATSAccessibility] Mysteries panel refreshed: Positive={_categories[0].Items.Count}, Negative={_categories[1].Items.Count}, Modifiers={_categories[2].Items.Count}");
         }
 
-        /// <summary>
-        /// Announce the current category (name and count).
-        /// </summary>
-        private void AnnounceCurrentCategory()
+        protected override void ClearData()
+        {
+            _categories.Clear();
+        }
+
+        protected override void AnnounceCategory()
         {
             if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
 
@@ -236,12 +126,7 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Mysteries category {_currentCategoryIndex + 1}/{_categories.Count}: {message}");
         }
 
-        /// <summary>
-        /// Announce the current item.
-        /// For mysteries: "Active/Inactive, Name, Season. Description. Condition (if conditional)"
-        /// For modifiers: "Name. Description" (no positive/negative)
-        /// </summary>
-        private void AnnounceCurrentItem()
+        protected override void AnnounceItem()
         {
             var category = _categories[_currentCategoryIndex];
             if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return;
@@ -276,39 +161,9 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Mystery item {_currentItemIndex + 1}/{category.Items.Count}: {item.Name}");
         }
 
-        /// <summary>
-        /// Refresh the category list with current game data.
-        /// </summary>
-        private void RefreshCategories()
-        {
-            _categories.Clear();
-
-            // Get all mysteries split by positive/negative
-            var (positiveMysteries, negativeMysteries) = GetMysteriesByType();
-
-            // Category 1: Positive Mysteries
-            _categories.Add(new Category
-            {
-                Name = "Positive Mysteries",
-                Items = positiveMysteries
-            });
-
-            // Category 2: Negative Mysteries
-            _categories.Add(new Category
-            {
-                Name = "Negative Mysteries",
-                Items = negativeMysteries
-            });
-
-            // Category 3: Modifiers
-            _categories.Add(new Category
-            {
-                Name = "Modifiers",
-                Items = GetActiveModifiers()
-            });
-
-            Debug.Log($"[ATSAccessibility] Mysteries panel refreshed: Positive={_categories[0].Items.Count}, Negative={_categories[1].Items.Count}, Modifiers={_categories[2].Items.Count}");
-        }
+        // ========================================
+        // MYSTERY DATA LOADING
+        // ========================================
 
         /// <summary>
         /// Get all mysteries split by positive/negative.
@@ -381,6 +236,10 @@ namespace ATSAccessibility
 
             return items;
         }
+
+        // ========================================
+        // REFLECTION HELPERS
+        // ========================================
 
         /// <summary>
         /// Cache reflection fields for SeasonalEffectState.

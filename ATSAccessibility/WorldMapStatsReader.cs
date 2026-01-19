@@ -443,11 +443,12 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Announce cycle/storm info.
+        /// Seal fragments are reported by S key, not repeated here.
         /// </summary>
         public static void AnnounceCycleInfo()
         {
-            var (year, won, played, frags) = GetCycleInfo();
-            Speech.Say($"Year {year}, {won} of {played} games won, {frags} seal fragments");
+            var (year, won, played, _) = GetCycleInfo();
+            Speech.Say($"Year {year}, {won} of {played} games won");
         }
     }
 }

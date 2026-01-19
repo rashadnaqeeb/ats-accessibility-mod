@@ -217,8 +217,16 @@ namespace ATSAccessibility
 
             if (_currentSection == EmbarkSection.SpendPoints)
             {
-                // Left/Right navigates between panels
-                NavigateSpendPointsPanel(-1);
+                // At first panel, return to top menu; otherwise navigate panels
+                if (_currentCategoryIndex == 0)
+                {
+                    _currentSection = EmbarkSection.TopMenu;
+                    AnnounceTopMenu();
+                }
+                else
+                {
+                    NavigateSpendPointsPanel(-1);
+                }
             }
             else if (_focusOnDetails)
             {
@@ -226,11 +234,22 @@ namespace ATSAccessibility
                 _focusOnDetails = false;
                 AnnounceCurrentCategory();
             }
+            else
+            {
+                // At category level, return to top menu
+                _currentSection = EmbarkSection.TopMenu;
+                AnnounceTopMenu();
+            }
         }
 
         private void NavigateRight()
         {
-            if (_currentSection == EmbarkSection.TopMenu) return;
+            if (_currentSection == EmbarkSection.TopMenu)
+            {
+                // Right arrow enters the selected submenu (same as Enter)
+                ActivateTopMenuItem();
+                return;
+            }
 
             if (_currentSection == EmbarkSection.SpendPoints)
             {
@@ -282,11 +301,10 @@ namespace ATSAccessibility
             if (_categories.Count == 0) return;
 
             var category = _categories[_currentCategoryIndex];
-            string itemCount = category.Details.Count > 0
-                ? $"{category.Details.Count} items"
-                : "empty";
+            int used = EmbarkReflection.CalculatePointsUsed();
+            int total = EmbarkReflection.GetTotalPreparationPoints();
 
-            Speech.Say($"{category.Name}, {category.Value}, {itemCount}");
+            Speech.Say($"{category.Name}. {used} of {total} points spent");
         }
 
         private void AnnounceSpendPointsItem()
@@ -728,7 +746,7 @@ namespace ATSAccessibility
             var details = new List<string>();
 
             // Species breakdown - use shared helper
-            var (raceCounts, unknownCount) = EmbarkReflection.GetCaravanRaceCounts(caravan);
+            var (raceCounts, unknownRaceCount) = EmbarkReflection.GetCaravanRaceCounts(caravan);
 
             // Add species to details
             foreach (var kvp in raceCounts)
@@ -736,9 +754,10 @@ namespace ATSAccessibility
                 var displayName = EmbarkReflection.GetRaceDisplayName(kvp.Key);
                 details.Add($"{kvp.Value} {displayName}");
             }
-            if (unknownCount > 0)
+            if (unknownRaceCount > 0)
             {
-                details.Add($"{unknownCount} villagers, species hidden");
+                string raceWord = unknownRaceCount == 1 ? "race" : "races";
+                details.Add($"{unknownRaceCount} unknown {raceWord}");
             }
 
             // Base goods
