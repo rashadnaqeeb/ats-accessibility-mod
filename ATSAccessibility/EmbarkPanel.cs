@@ -10,7 +10,7 @@ namespace ATSAccessibility
     /// Top-level menu with sections: Mission Info, Caravans, Spend Embark Points, Difficulty, Embark.
     /// Each section uses two-panel navigation (categories/details) like StatsPanel.
     /// </summary>
-    public class EmbarkPanel
+    public class EmbarkPanel : IKeyHandler
     {
         /// <summary>
         /// Top-level menu sections.
@@ -64,6 +64,11 @@ namespace ATSAccessibility
         /// Whether the embark panel is currently open.
         /// </summary>
         public bool IsOpen => _isOpen;
+
+        /// <summary>
+        /// Whether this handler is currently active (IKeyHandler).
+        /// </summary>
+        public bool IsActive => _isOpen;
 
         // ========================================
         // LIFECYCLE
@@ -123,10 +128,10 @@ namespace ATSAccessibility
         // ========================================
 
         /// <summary>
-        /// Process a key event for the embark panel.
+        /// Process a key event for the embark panel (IKeyHandler).
         /// Returns true if the key was handled (consumed), false to let game receive it.
         /// </summary>
-        public bool ProcessKeyEvent(KeyCode keyCode)
+        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
 

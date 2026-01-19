@@ -1,10 +1,12 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility
 {
     /// <summary>
-    /// Centralized keyboard input handling with context-based navigation.
-    /// All hotkeys are processed here for future extensibility.
+    /// Centralized keyboard input handling with handler chain pattern.
+    /// Handlers are processed in priority order; the first active handler
+    /// that returns true from ProcessKey() consumes the key event.
     /// </summary>
     public class KeyboardManager
     {
@@ -26,197 +28,40 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Navigation context determines which keys do what.
+        /// Navigation context for debugging and logging purposes.
+        /// With the full handler chain, this is purely informational.
         /// </summary>
         public enum NavigationContext
         {
-            None,           // No special handling
-            Popup,          // Navigating a popup/menu
-            Map,            // Navigating settlement map
-            WorldMap,       // Navigating world map hex grid
-            Dialogue,       // Future: reading dialogue
-            Encyclopedia,   // Navigating wiki/encyclopedia popup
-            Embark          // Navigating embark screen (pre-expedition setup)
+            None,
+            Popup,
+            Map,
+            WorldMap,
+            Dialogue,
+            Encyclopedia,
+            Embark
         }
 
-        // Current navigation context
+        // Current navigation context (informational only)
         public NavigationContext CurrentContext { get; private set; } = NavigationContext.None;
 
-        // Reference to UI navigator for popup input handling
-        private readonly UINavigator _uiNavigator;
-
-        // Reference to tutorial handler for tutorial re-reading
-        private TutorialHandler _tutorialHandler;
-
-        // Reference to map navigator for settlement navigation
-        private MapNavigator _mapNavigator;
-
-        // Reference to encyclopedia navigator for wiki popup
-        private EncyclopediaNavigator _encyclopediaNavigator;
-
-        // Reference to map scanner for quick object finding
-        private MapScanner _mapScanner;
-
-        // Reference to stats panel for game statistics
-        private StatsPanel _statsPanel;
-
-        // Reference to world map navigator for hex grid navigation
-        private WorldMapNavigator _worldMapNavigator;
-
-        // Reference to world map scanner for quick feature finding
-        private WorldMapScanner _worldMapScanner;
-
-        // Reference to embark panel for pre-expedition setup
-        private EmbarkPanel _embarkPanel;
-
-        // Reference to mysteries panel for forest mysteries and modifiers
-        private MysteriesPanel _mysteriesPanel;
-
-        // Reference to settlement resource panel for inventory browsing
-        private SettlementResourcePanel _settlementResourcePanel;
-
-        // Reference to building menu panel for construction
-        private BuildingMenuPanel _buildingMenuPanel;
-
-        // Reference to build mode controller for placing buildings
-        private BuildModeController _buildModeController;
-
-        // Reference to move mode controller for relocating buildings
-        private MoveModeController _moveModeController;
-
-        // Reference to info panel menu for unified panel access
-        private InfoPanelMenu _infoPanelMenu;
-
-        // Reference to menu hub for quick popup access
-        private MenuHub _menuHub;
-
-        public KeyboardManager(UINavigator uiNavigator)
-        {
-            _uiNavigator = uiNavigator;
-        }
+        // Handler chain in priority order
+        private readonly List<IKeyHandler> _handlers = new List<IKeyHandler>();
 
         /// <summary>
-        /// Set the tutorial handler reference.
+        /// Register a key handler. Handlers are processed in registration order.
         /// </summary>
-        public void SetTutorialHandler(TutorialHandler handler)
+        public void RegisterHandler(IKeyHandler handler)
         {
-            _tutorialHandler = handler;
+            if (handler != null && !_handlers.Contains(handler))
+            {
+                _handlers.Add(handler);
+                Debug.Log($"[ATSAccessibility] Registered key handler: {handler.GetType().Name}");
+            }
         }
 
         /// <summary>
-        /// Set the map navigator reference.
-        /// </summary>
-        public void SetMapNavigator(MapNavigator navigator)
-        {
-            _mapNavigator = navigator;
-        }
-
-        /// <summary>
-        /// Set the encyclopedia navigator reference.
-        /// </summary>
-        public void SetEncyclopediaNavigator(EncyclopediaNavigator navigator)
-        {
-            _encyclopediaNavigator = navigator;
-        }
-
-        /// <summary>
-        /// Set the map scanner reference.
-        /// </summary>
-        public void SetMapScanner(MapScanner scanner)
-        {
-            _mapScanner = scanner;
-        }
-
-        /// <summary>
-        /// Set the stats panel reference.
-        /// </summary>
-        public void SetStatsPanel(StatsPanel panel)
-        {
-            _statsPanel = panel;
-        }
-
-        /// <summary>
-        /// Set the world map navigator reference.
-        /// </summary>
-        public void SetWorldMapNavigator(WorldMapNavigator navigator)
-        {
-            _worldMapNavigator = navigator;
-        }
-
-        /// <summary>
-        /// Set the world map scanner reference.
-        /// </summary>
-        public void SetWorldMapScanner(WorldMapScanner scanner)
-        {
-            _worldMapScanner = scanner;
-        }
-
-        /// <summary>
-        /// Set the embark panel reference.
-        /// </summary>
-        public void SetEmbarkPanel(EmbarkPanel panel)
-        {
-            _embarkPanel = panel;
-        }
-
-        /// <summary>
-        /// Set the mysteries panel reference.
-        /// </summary>
-        public void SetMysteriesPanel(MysteriesPanel panel)
-        {
-            _mysteriesPanel = panel;
-        }
-
-        /// <summary>
-        /// Set the settlement resource panel reference.
-        /// </summary>
-        public void SetSettlementResourcePanel(SettlementResourcePanel panel)
-        {
-            _settlementResourcePanel = panel;
-        }
-
-        /// <summary>
-        /// Set the building menu panel reference.
-        /// </summary>
-        public void SetBuildingMenuPanel(BuildingMenuPanel panel)
-        {
-            _buildingMenuPanel = panel;
-        }
-
-        /// <summary>
-        /// Set the build mode controller reference.
-        /// </summary>
-        public void SetBuildModeController(BuildModeController controller)
-        {
-            _buildModeController = controller;
-        }
-
-        /// <summary>
-        /// Set the move mode controller reference.
-        /// </summary>
-        public void SetMoveModeController(MoveModeController controller)
-        {
-            _moveModeController = controller;
-        }
-
-        /// <summary>
-        /// Set the info panel menu reference.
-        /// </summary>
-        public void SetInfoPanelMenu(InfoPanelMenu menu)
-        {
-            _infoPanelMenu = menu;
-        }
-
-        /// <summary>
-        /// Set the menu hub reference.
-        /// </summary>
-        public void SetMenuHub(MenuHub hub)
-        {
-            _menuHub = hub;
-        }
-
-        /// <summary>
-        /// Set the current navigation context.
+        /// Set the current navigation context (informational only).
         /// </summary>
         public void SetContext(NavigationContext context)
         {
@@ -229,479 +74,19 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Process a key event from OnGUI.
-        /// Called from AccessibilityCore.OnGUI().
+        /// Iterates through handlers in priority order until one handles the key.
         /// </summary>
         public void ProcessKeyEvent(KeyCode keyCode, KeyModifiers modifiers = default)
         {
-            // Check if info panel menu is open - highest priority when active
-            // InfoPanelMenu manages its child panels (Stats, Resources, Mysteries) internally
-            if (_infoPanelMenu != null && _infoPanelMenu.IsOpen)
+            foreach (var handler in _handlers)
             {
-                if (_infoPanelMenu.ProcessKeyEvent(keyCode))
+                if (handler.IsActive && handler.ProcessKey(keyCode, modifiers))
                 {
-                    return; // Key was handled by info panel menu
+                    return; // Key was handled
                 }
             }
 
-            // Check if menu hub is open
-            if (_menuHub != null && _menuHub.IsOpen)
-            {
-                if (_menuHub.ProcessKeyEvent(keyCode))
-                {
-                    return; // Key was handled by menu hub
-                }
-            }
-
-            // Check if building menu panel is open
-            if (_buildingMenuPanel != null && _buildingMenuPanel.IsOpen)
-            {
-                if (_buildingMenuPanel.ProcessKeyEvent(keyCode))
-                {
-                    return; // Key was handled by building menu
-                }
-            }
-
-            // Check if build mode is active
-            if (_buildModeController != null && _buildModeController.IsActive)
-            {
-                if (_buildModeController.ProcessKeyEvent(keyCode, modifiers))
-                {
-                    return; // Key was handled by build mode
-                }
-                // If not handled, fall through to allow MapNavigator to handle arrow keys
-            }
-
-            // Check if move mode is active
-            if (_moveModeController != null && _moveModeController.IsActive)
-            {
-                if (_moveModeController.ProcessKeyEvent(keyCode, modifiers))
-                {
-                    return; // Key was handled by move mode
-                }
-                // If not handled, fall through to allow MapNavigator to handle arrow keys
-            }
-
-            // Check if encyclopedia is active - takes priority over generic popup handling
-            // Encyclopedia has its own specialized navigation that supersedes the popup manager
-            if (_encyclopediaNavigator != null && _encyclopediaNavigator.IsActive)
-            {
-                ProcessEncyclopediaKeyEvent(keyCode);
-                return; // Encyclopedia consumes all keys
-            }
-
-            // Check if a popup is active - takes priority over embark panel
-            // This allows navigating confirmation dialogs during embark
-            if (_uiNavigator != null && _uiNavigator.HasActivePopup)
-            {
-                ProcessPopupKeyEvent(keyCode, modifiers);
-                return; // Popup consumes all keys
-            }
-
-            // Check if embark panel is open
-            if (_embarkPanel != null && _embarkPanel.IsOpen)
-            {
-                if (_embarkPanel.ProcessKeyEvent(keyCode))
-                {
-                    return; // Key was handled by embark panel
-                }
-            }
-
-            // Check if tutorial is active - takes priority over other contexts
-            if (_tutorialHandler != null && _tutorialHandler.IsTutorialActive)
-            {
-                if (ProcessTutorialKeyEvent(keyCode))
-                {
-                    return; // Key was handled by tutorial
-                }
-            }
-
-            switch (CurrentContext)
-            {
-                case NavigationContext.Popup:
-                    ProcessPopupKeyEvent(keyCode, modifiers);
-                    break;
-                case NavigationContext.Map:
-                    ProcessMapKeyEvent(keyCode, modifiers);
-                    break;
-                case NavigationContext.WorldMap:
-                    ProcessWorldMapKeyEvent(keyCode, modifiers);
-                    break;
-                case NavigationContext.Dialogue:
-                    // Future: ProcessDialogueKeyEvent(keyCode);
-                    break;
-                case NavigationContext.Encyclopedia:
-                    ProcessEncyclopediaKeyEvent(keyCode);
-                    break;
-                case NavigationContext.Embark:
-                    // Embark panel handles its own keys via IsOpen check above
-                    // This case is for when embark panel is open but key wasn't handled
-                    break;
-                case NavigationContext.None:
-                default:
-                    // No special input handling (pause/speed only in Map context)
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Handle key event when a tutorial is active.
-        /// Returns true if key was handled.
-        /// </summary>
-        private bool ProcessTutorialKeyEvent(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                default:
-                    // Let other keys pass through (arrow keys, game's continue key, etc.)
-                    return false;
-            }
-        }
-
-        /// <summary>
-        /// Handle key event when navigating popups/menus.
-        /// </summary>
-        private void ProcessPopupKeyEvent(KeyCode keyCode, KeyModifiers modifiers)
-        {
-            // If editing a text field, only handle Enter (submit) and Escape (cancel)
-            if (_uiNavigator.IsEditingTextField)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        _uiNavigator.EndTextFieldEdit(submit: true);
-                        break;
-                    case KeyCode.Escape:
-                        _uiNavigator.EndTextFieldEdit(submit: false);
-                        break;
-                    // All other keys pass through to the text field
-                }
-                return;
-            }
-
-            // If a dropdown is open, handle it first
-            if (_uiNavigator.IsDropdownOpen)
-            {
-                if (ProcessDropdownKeyEvent(keyCode))
-                {
-                    return; // Key was handled by dropdown
-                }
-                // Dropdown was closed externally, fall through to normal handling
-            }
-
-            // Special handling for MetaRewardsPopup (polling/repeat behavior)
-            if (_uiNavigator.IsMetaRewardsPopup)
-            {
-                if (MetaRewardsPopupReader.ProcessKeyEvent(keyCode))
-                {
-                    return; // Key was handled by MetaRewardsPopupReader
-                }
-            }
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    if (modifiers.Shift)
-                        _uiNavigator.AdjustCurrentSlider(1);
-                    else
-                        _uiNavigator.NavigateElement(-1);
-                    break;
-                case KeyCode.DownArrow:
-                    if (modifiers.Shift)
-                        _uiNavigator.AdjustCurrentSlider(-1);
-                    else
-                        _uiNavigator.NavigateElement(1);
-                    break;
-                case KeyCode.LeftArrow:
-                    _uiNavigator.NavigatePanel(-1);
-                    break;
-                case KeyCode.RightArrow:
-                    _uiNavigator.NavigatePanel(1);
-                    break;
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    _uiNavigator.ActivateCurrentElement();
-                    break;
-                case KeyCode.Space:
-                    _uiNavigator.ActivateCurrentElement();
-                    break;
-                // Note: Escape is handled by the game's native handler, not here
-                // (our handler would conflict with the game's toggle logic)
-            }
-        }
-
-        /// <summary>
-        /// Handle key event when a dropdown is open.
-        /// Returns true if the key was handled, false if dropdown was closed externally.
-        /// </summary>
-        private bool ProcessDropdownKeyEvent(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    return _uiNavigator.NavigateDropdownOption(-1);
-
-                case KeyCode.DownArrow:
-                    return _uiNavigator.NavigateDropdownOption(1);
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    _uiNavigator.SelectCurrentDropdownOption();
-                    return true;
-
-                case KeyCode.Escape:
-                    _uiNavigator.CloseActiveDropdown();
-                    return true;
-
-                default:
-                    // Other keys - let dropdown stay open but don't handle
-                    return true;
-            }
-        }
-
-        /// <summary>
-        /// Handle key event when navigating the settlement map.
-        /// </summary>
-        private void ProcessMapKeyEvent(KeyCode keyCode, KeyModifiers modifiers)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    if (modifiers.Control)
-                        _mapNavigator.SkipToNextChange(0, 1);
-                    else
-                        _mapNavigator.MoveCursor(0, 1);
-                    break;
-                case KeyCode.DownArrow:
-                    if (modifiers.Control)
-                        _mapNavigator.SkipToNextChange(0, -1);
-                    else
-                        _mapNavigator.MoveCursor(0, -1);
-                    break;
-                case KeyCode.LeftArrow:
-                    if (modifiers.Control)
-                        _mapNavigator.SkipToNextChange(-1, 0);
-                    else
-                        _mapNavigator.MoveCursor(-1, 0);
-                    break;
-                case KeyCode.RightArrow:
-                    if (modifiers.Control)
-                        _mapNavigator.SkipToNextChange(1, 0);
-                    else
-                        _mapNavigator.MoveCursor(1, 0);
-                    break;
-                case KeyCode.K:
-                    _mapNavigator.AnnounceCurrentPosition();
-                    break;
-                case KeyCode.Space:
-                    GameReflection.TogglePause();
-                    break;
-                case KeyCode.Alpha1:
-                case KeyCode.Keypad1:
-                    GameReflection.SetSpeed(1);
-                    break;
-                case KeyCode.Alpha2:
-                case KeyCode.Keypad2:
-                    GameReflection.SetSpeed(2);
-                    break;
-                case KeyCode.Alpha3:
-                case KeyCode.Keypad3:
-                    GameReflection.SetSpeed(3);
-                    break;
-                case KeyCode.Alpha4:
-                case KeyCode.Keypad4:
-                    GameReflection.SetSpeed(4);
-                    break;
-
-                // Stats hotkeys
-                case KeyCode.S:
-                    StatsReader.AnnounceQuickSummary();
-                    break;
-                case KeyCode.V:
-                    StatsReader.AnnounceNextSpeciesResolve();
-                    break;
-                case KeyCode.T:
-                    StatsReader.AnnounceTimeSummary();
-                    break;
-
-                // Map Scanner controls
-                case KeyCode.PageUp:
-                    if (modifiers.Control)
-                        _mapScanner?.ChangeCategory(-1);
-                    else if (modifiers.Shift)
-                        _mapScanner?.ChangeSubcategory(-1);
-                    else if (modifiers.Alt)
-                        _mapScanner?.ChangeItem(-1);
-                    else
-                        _mapScanner?.ChangeGroup(-1);
-                    break;
-                case KeyCode.PageDown:
-                    if (modifiers.Control)
-                        _mapScanner?.ChangeCategory(1);
-                    else if (modifiers.Shift)
-                        _mapScanner?.ChangeSubcategory(1);
-                    else if (modifiers.Alt)
-                        _mapScanner?.ChangeItem(1);
-                    else
-                        _mapScanner?.ChangeGroup(1);
-                    break;
-                case KeyCode.Home:
-                    _mapScanner?.MoveCursorToItem();
-                    break;
-                case KeyCode.End:
-                    _mapScanner?.AnnounceDistance();
-                    break;
-                case KeyCode.I:
-                    TileInfoReader.ReadCurrentTile(_mapNavigator.CursorX, _mapNavigator.CursorY);
-                    break;
-                case KeyCode.E:
-                    _mapNavigator.AnnounceEntrance();
-                    break;
-                case KeyCode.R:
-                    _mapNavigator.RotateBuilding();
-                    break;
-
-                // Information panels menu
-                case KeyCode.F1:
-                    _infoPanelMenu?.Open();
-                    break;
-
-                // Menu hub for quick popup access
-                case KeyCode.F2:
-                    _menuHub?.Open();
-                    break;
-
-                // Building menu
-                case KeyCode.Tab:
-                    _buildingMenuPanel?.Open();
-                    break;
-
-                // Move building mode
-                case KeyCode.M:
-                    var building = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
-                    if (building != null)
-                        _moveModeController?.EnterMoveMode(building);
-                    else
-                        Speech.Say("No building here");
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Handle key event when navigating the world map hex grid.
-        /// </summary>
-        private void ProcessWorldMapKeyEvent(KeyCode keyCode, KeyModifiers modifiers)
-        {
-            if (_worldMapNavigator == null) return;
-
-            // Check if effects panel is open first
-            if (_worldMapNavigator.ProcessPanelKeyEvent(keyCode))
-                return;
-
-            switch (keyCode)
-            {
-                // Arrow key navigation (zigzag pattern for up/down)
-                case KeyCode.RightArrow:
-                    _worldMapNavigator.MoveArrow(1, 0);
-                    break;
-                case KeyCode.LeftArrow:
-                    _worldMapNavigator.MoveArrow(-1, 0);
-                    break;
-                case KeyCode.UpArrow:
-                    _worldMapNavigator.MoveArrow(0, 1);
-                    break;
-                case KeyCode.DownArrow:
-                    _worldMapNavigator.MoveArrow(0, -1);
-                    break;
-
-                // Scanner controls
-                case KeyCode.PageUp:
-                    if (modifiers.Alt)
-                        _worldMapScanner?.ChangeItem(-1);
-                    else
-                        _worldMapScanner?.ChangeType(-1);
-                    break;
-                case KeyCode.PageDown:
-                    if (modifiers.Alt)
-                        _worldMapScanner?.ChangeItem(1);
-                    else
-                        _worldMapScanner?.ChangeType(1);
-                    break;
-                case KeyCode.Home:
-                    _worldMapScanner?.JumpToItem();
-                    break;
-                case KeyCode.End:
-                    _worldMapScanner?.AnnounceDirection();
-                    break;
-
-                // Select tile (embark)
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    _worldMapNavigator.Interact();
-                    break;
-
-                // Read full tooltip content
-                case KeyCode.I:
-                    _worldMapNavigator.ReadTooltip();
-                    break;
-
-                // Read embark status and distance to capital
-                case KeyCode.D:
-                    _worldMapNavigator.ReadEmbarkAndDistance();
-                    break;
-
-                // Open effects panel
-                case KeyCode.M:
-                    _worldMapNavigator.OpenEffectsPanel();
-                    break;
-
-                // Meta stats announcements
-                case KeyCode.L:
-                    WorldMapStatsReader.AnnounceLevel();
-                    break;
-
-                case KeyCode.R:
-                    WorldMapStatsReader.AnnounceMetaResources();
-                    break;
-
-                case KeyCode.S:
-                    WorldMapStatsReader.AnnounceSealInfo();
-                    break;
-
-                case KeyCode.T:
-                    WorldMapStatsReader.AnnounceCycleInfo();
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Handle key event when navigating the encyclopedia/wiki popup.
-        /// </summary>
-        private void ProcessEncyclopediaKeyEvent(KeyCode keyCode)
-        {
-            if (_encyclopediaNavigator == null || !_encyclopediaNavigator.IsActive) return;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    _encyclopediaNavigator.NavigateElement(-1);
-                    break;
-                case KeyCode.DownArrow:
-                    _encyclopediaNavigator.NavigateElement(1);
-                    break;
-                case KeyCode.LeftArrow:
-                    _encyclopediaNavigator.NavigatePanel(-1);
-                    break;
-                case KeyCode.RightArrow:
-                    _encyclopediaNavigator.NavigatePanel(1);
-                    break;
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    _encyclopediaNavigator.ActivateCurrentElement();
-                    break;
-            }
+            // Key was not handled by any handler - let it pass through to the game
         }
     }
 }

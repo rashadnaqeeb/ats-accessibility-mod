@@ -6,7 +6,7 @@ namespace ATSAccessibility
     /// Unified menu for accessing information panels (Stats, Resources, Mysteries).
     /// Opened with F1 from the settlement map.
     /// </summary>
-    public class InfoPanelMenu
+    public class InfoPanelMenu : IKeyHandler
     {
         private enum MenuPanel
         {
@@ -29,6 +29,11 @@ namespace ATSAccessibility
         /// Whether the info panel menu is currently open.
         /// </summary>
         public bool IsOpen => _isOpen;
+
+        /// <summary>
+        /// Whether this handler is currently active (IKeyHandler).
+        /// </summary>
+        public bool IsActive => _isOpen;
 
         /// <summary>
         /// Whether a child panel (Stats, Resources, or Mysteries) is currently open.
@@ -78,10 +83,10 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Process a key event for the info panel menu.
+        /// Process a key event for the info panel menu (IKeyHandler).
         /// Returns true if the key was handled.
         /// </summary>
-        public bool ProcessKeyEvent(KeyCode keyCode)
+        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
 

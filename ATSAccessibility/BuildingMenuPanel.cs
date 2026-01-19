@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Virtual speech-only panel for selecting buildings to place.
     /// Two-panel system: left panel has categories, right panel has buildings in category.
     /// </summary>
-    public class BuildingMenuPanel
+    public class BuildingMenuPanel : IKeyHandler
     {
         /// <summary>
         /// Represents a building category (e.g., Housing, Food Production).
@@ -44,6 +44,11 @@ namespace ATSAccessibility
         /// Whether the building menu is currently open.
         /// </summary>
         public bool IsOpen => _isOpen;
+
+        /// <summary>
+        /// Whether this handler is currently active (IKeyHandler).
+        /// </summary>
+        public bool IsActive => _isOpen;
 
         /// <summary>
         /// Set the build mode controller reference.
@@ -101,10 +106,10 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Process a key event for the building menu.
+        /// Process a key event for the building menu (IKeyHandler).
         /// Returns true if the key was handled.
         /// </summary>
-        public bool ProcessKeyEvent(KeyCode keyCode)
+        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
 

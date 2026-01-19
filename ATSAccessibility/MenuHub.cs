@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Opened with F2 from the settlement map.
     /// Isolated in a single file for easy removal if needed.
     /// </summary>
-    public class MenuHub
+    public class MenuHub : IKeyHandler
     {
         private static readonly string[] _menuLabels = {
             "Recipes",
@@ -26,6 +26,11 @@ namespace ATSAccessibility
         /// Whether the menu hub is currently open.
         /// </summary>
         public bool IsOpen => _isOpen;
+
+        /// <summary>
+        /// Whether this handler is currently active (IKeyHandler).
+        /// </summary>
+        public bool IsActive => _isOpen;
 
         /// <summary>
         /// Open the menu hub. If already open, closes it.
@@ -59,10 +64,10 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Process a key event for the menu hub.
+        /// Process a key event for the menu hub (IKeyHandler).
         /// Returns true if the key was handled.
         /// </summary>
-        public bool ProcessKeyEvent(KeyCode keyCode)
+        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
 

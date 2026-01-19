@@ -18,7 +18,7 @@ namespace ATSAccessibility
     /// - Need different approach: perhaps polling for tooltip visibility, or capturing text immediately on phase change
     /// - Working phases: CameraControl, Impatience, Reputation (TutorialTexts), ReputationPick (TutorialTooltip stays active)
     /// </remarks>
-    public class TutorialHandler
+    public class TutorialHandler : IKeyHandler
     {
         private IDisposable _phaseSubscription;
         private bool _subscribed = false;
@@ -42,6 +42,22 @@ namespace ATSAccessibility
         /// Whether a tutorial is currently visible and blocking interaction.
         /// </summary>
         public bool IsTutorialActive => CheckTutorialVisible();
+
+        /// <summary>
+        /// Whether this handler is currently active (IKeyHandler).
+        /// </summary>
+        public bool IsActive => IsTutorialActive;
+
+        /// <summary>
+        /// Process a key event when tutorial is active (IKeyHandler).
+        /// Returns false to allow keys to pass through to the game.
+        /// </summary>
+        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            // Tutorial handler doesn't consume keys - it just monitors state
+            // Let keys pass through so the game can handle tutorial progression
+            return false;
+        }
 
         /// <summary>
         /// Create a TutorialHandler with a callback for when phase changes.

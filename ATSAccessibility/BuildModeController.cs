@@ -6,7 +6,7 @@ namespace ATSAccessibility
     /// Controls building placement mode: rotation, placement, and removal.
     /// Works with MapNavigator for cursor position.
     /// </summary>
-    public class BuildModeController
+    public class BuildModeController : IKeyHandler
     {
         private bool _isActive = false;
         private object _selectedBuildingModel = null;
@@ -74,10 +74,10 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Process a key event for build mode.
+        /// Process a key event for build mode (IKeyHandler).
         /// Returns true if the key was handled.
         /// </summary>
-        public bool ProcessKeyEvent(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isActive) return false;
 

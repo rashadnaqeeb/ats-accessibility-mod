@@ -13,7 +13,7 @@ namespace ATSAccessibility
     /// Handles UI navigation within popups/menus.
     /// Uses panel-based hierarchy: Left/Right switches panels, Up/Down cycles elements.
     /// </summary>
-    public class UINavigator
+    public class UINavigator : IKeyHandler
     {
         // MonoBehaviour reference for starting coroutines
         private MonoBehaviour _coroutineRunner;
@@ -75,6 +75,117 @@ namespace ATSAccessibility
         /// Whether currently editing a text field.
         /// </summary>
         public bool IsEditingTextField => _isEditingTextField;
+
+        /// <summary>
+        /// Whether this handler is currently active (IKeyHandler).
+        /// </summary>
+        public bool IsActive => HasActivePopup || HasActiveMenu;
+
+        /// <summary>
+        /// Process a key event for popup/menu navigation (IKeyHandler).
+        /// Returns true if the key was handled.
+        /// </summary>
+        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (!HasActivePopup && !HasActiveMenu) return false;
+
+            // If editing a text field, only handle Enter (submit) and Escape (cancel)
+            if (_isEditingTextField)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        EndTextFieldEdit(submit: true);
+                        return true;
+                    case KeyCode.Escape:
+                        EndTextFieldEdit(submit: false);
+                        return true;
+                    default:
+                        // All other keys pass through to the text field
+                        return true;
+                }
+            }
+
+            // If a dropdown is open, handle it first
+            if (IsDropdownOpen)
+            {
+                return ProcessDropdownKey(keyCode);
+            }
+
+            // Special handling for MetaRewardsPopup (polling/repeat behavior)
+            if (IsMetaRewardsPopup)
+            {
+                if (MetaRewardsPopupReader.ProcessKeyEvent(keyCode))
+                {
+                    return true;
+                }
+            }
+
+            switch (keyCode)
+            {
+                case KeyCode.UpArrow:
+                    if (modifiers.Shift)
+                        AdjustCurrentSlider(1);
+                    else
+                        NavigateElement(-1);
+                    return true;
+                case KeyCode.DownArrow:
+                    if (modifiers.Shift)
+                        AdjustCurrentSlider(-1);
+                    else
+                        NavigateElement(1);
+                    return true;
+                case KeyCode.LeftArrow:
+                    NavigatePanel(-1);
+                    return true;
+                case KeyCode.RightArrow:
+                    NavigatePanel(1);
+                    return true;
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                    ActivateCurrentElement();
+                    return true;
+                case KeyCode.Space:
+                    ActivateCurrentElement();
+                    return true;
+                // Note: Escape is handled by the game's native handler, not here
+                // (our handler would conflict with the game's toggle logic)
+                default:
+                    // Don't consume other keys
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Process dropdown key events.
+        /// Returns true if key was handled, false if dropdown was closed externally.
+        /// </summary>
+        private bool ProcessDropdownKey(KeyCode keyCode)
+        {
+            switch (keyCode)
+            {
+                case KeyCode.UpArrow:
+                    return NavigateDropdownOption(-1);
+
+                case KeyCode.DownArrow:
+                    return NavigateDropdownOption(1);
+
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                case KeyCode.Space:
+                    SelectCurrentDropdownOption();
+                    return true;
+
+                case KeyCode.Escape:
+                    CloseActiveDropdown();
+                    return true;
+
+                default:
+                    // Other keys - let dropdown stay open but don't handle
+                    return true;
+            }
+        }
 
         // ========================================
         // CONSTRUCTOR

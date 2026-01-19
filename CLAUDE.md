@@ -46,22 +46,32 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **WorldMapReflection.cs** - Reflection access to world map internals (hex grid, nodes, biomes)
 - **EmbarkReflection.cs** - Reflection access to embark/expedition setup screen
 - **Speech.cs** - Tolk wrapper for screen reader output with SAPI fallback
-- **KeyboardManager.cs** - Input handling, routes keys to appropriate navigator based on context
+- **KeyboardManager.cs** - Handler chain coordinator, iterates through registered IKeyHandler implementations
+- **IKeyHandler.cs** - Interface for keyboard input handlers (IsActive, ProcessKey)
+
+### Key Handlers (processed in priority order)
+
+- **InfoPanelMenu.cs** - F1 menu for information panels (highest priority)
+- **MenuHub.cs** - F2 quick access menu
+- **BuildingMenuPanel.cs** - Tab building selection menu
+- **BuildModeController.cs** - Building placement mode (selective passthrough for arrows)
+- **MoveModeController.cs** - Building relocation mode (selective passthrough for arrows)
+- **EncyclopediaNavigator.cs** - Wiki/encyclopedia popup
+- **UINavigator.cs** - Generic popup/menu navigation
+- **EmbarkPanel.cs** - Pre-expedition setup screen
+- **TutorialHandler.cs** - Tutorial tooltips (passthrough, doesn't consume keys)
+- **SettlementKeyHandler.cs** - Settlement map context (fallback)
+- **WorldMapKeyHandler.cs** - World map context (fallback)
 
 ### Settlement Navigation
 
-- **MapNavigator.cs** - Settlement map grid navigation (dynamic map size, cursor starts at Ancient Hearth). Announces building state (under construction, ruin) when navigating.
+- **MapNavigator.cs** - Settlement map grid navigation (dynamic map size, cursor starts at Ancient Hearth)
 - **MapScanner.cs** - Hierarchical object scanner (PageUp/Down for groups, Ctrl for categories, Alt for items)
 - **TileInfoReader.cs** - Reads detailed tile info (I key) for buildings, resources, deposits
 - **StatsReader.cs** - Reads game statistics (Reputation, Impatience, Hostility, Resolve)
 - **StatsPanel.cs** - Virtual speech-only panel for detailed stats navigation
 - **MysteriesPanel.cs** - Virtual speech panel for forest mysteries and world modifiers
 - **SettlementResourcePanel.cs** - Virtual speech panel for browsing settlement resources by category
-- **InfoPanelMenu.cs** - Unified F1 menu for accessing information panels (Stats, Resources, Mysteries)
-- **MenuHub.cs** - Quick access menu (F2) for game popups (Recipes, Orders, Trade Routes, etc.)
-- **BuildingMenuPanel.cs** - Virtual speech panel for building selection (Tab key, two-panel: categories → buildings)
-- **BuildModeController.cs** - Handles building placement, rotation, and removal in build mode
-- **MoveModeController.cs** - Handles relocating existing buildings (M key)
 
 ### World Map Navigation
 
@@ -70,12 +80,8 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **WorldMapEffectsPanel.cs** - Navigation for world map modifier effects panel
 - **WorldMapStatsReader.cs** - Meta-level stats (player level, meta resources, seals, cycle info)
 
-### UI Navigation
+### UI Support
 
-- **UINavigator.cs** - Popup/menu navigation with panel and element cycling
-- **EncyclopediaNavigator.cs** - In-game wiki/encyclopedia navigation (3-panel: categories, articles, content)
-- **EmbarkPanel.cs** - Embark/expedition setup screen navigation
-- **TutorialHandler.cs** - Tutorial tooltip and decision popup handling
 - **MetaRewardsPopupReader.cs** - Reputation rewards popup with polling navigation
 
 ### Support Components
@@ -94,7 +100,18 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 **Native DLL loading**: Tolk.dll and helpers (nvdaControllerClient64.dll, SAAPI64.dll) must stay in plugins folder. SetDllDirectory is called in Plugin.Awake() before any P/Invoke.
 
-**Navigation priority**: KeyboardManager checks contexts in order: InfoPanelMenu (manages Stats/Resources/Mysteries panels) → MenuHub → BuildingMenuPanel → BuildModeController → MoveModeController → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
+**Handler chain pattern**: All keyboard input flows through a chain of IKeyHandler implementations. KeyboardManager iterates through handlers in registration order; the first handler where `IsActive` is true AND `ProcessKey()` returns true consumes the key. This makes priority explicit and easy to modify.
+
+- Handlers are registered in AccessibilityCore.Start() in priority order
+- Higher priority handlers (menus, popups) are registered first
+- Context handlers (SettlementKeyHandler, WorldMapKeyHandler) are registered last as fallbacks
+- Handlers can do "selective passthrough" by returning false for keys they don't handle (e.g., BuildModeController returns false for arrow keys so they fall through to SettlementKeyHandler)
+
+**Adding a new handler**:
+1. Create a class implementing `IKeyHandler` with `IsActive` property and `ProcessKey(KeyCode, KeyModifiers)` method
+2. Register it in AccessibilityCore.Start() at the appropriate priority position
+3. `IsActive` should return true when the handler should receive input (e.g., when a menu is open)
+4. `ProcessKey` should return true if the key was handled, false to pass to the next handler
 
 ## Keyboard Controls
 

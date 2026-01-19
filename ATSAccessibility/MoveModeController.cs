@@ -6,7 +6,7 @@ namespace ATSAccessibility
     /// Controls building move mode: relocating existing buildings.
     /// Works with MapNavigator for cursor position.
     /// </summary>
-    public class MoveModeController
+    public class MoveModeController : IKeyHandler
     {
         private bool _isActive = false;
         private object _movingBuilding = null;
@@ -131,10 +131,10 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Process a key event for move mode.
+        /// Process a key event for move mode (IKeyHandler).
         /// Returns true if the key was handled.
         /// </summary>
-        public bool ProcessKeyEvent(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isActive) return false;
 

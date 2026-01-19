@@ -10,7 +10,7 @@ namespace ATSAccessibility
     /// Provides keyboard navigation for the game's WikiPopup (encyclopedia).
     /// Supports 3-panel navigation: Categories, Articles, and Content.
     /// </summary>
-    public class EncyclopediaNavigator
+    public class EncyclopediaNavigator : IKeyHandler
     {
         public enum WikiPanel { Categories = 0, Articles = 1, Content = 2 }
 
@@ -32,7 +32,43 @@ namespace ATSAccessibility
         // Track which category panel is currently active
         private object _currentCategoryPanel;
 
+        /// <summary>
+        /// Whether this handler is currently active (IKeyHandler).
+        /// </summary>
         public bool IsActive => _wikiPopup != null;
+
+        /// <summary>
+        /// Process a key event for the encyclopedia (IKeyHandler).
+        /// Returns true if the key was handled.
+        /// </summary>
+        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (!IsActive) return false;
+
+            switch (keyCode)
+            {
+                case KeyCode.UpArrow:
+                    NavigateElement(-1);
+                    return true;
+                case KeyCode.DownArrow:
+                    NavigateElement(1);
+                    return true;
+                case KeyCode.LeftArrow:
+                    NavigatePanel(-1);
+                    return true;
+                case KeyCode.RightArrow:
+                    NavigatePanel(1);
+                    return true;
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                case KeyCode.Space:
+                    ActivateCurrentElement();
+                    return true;
+                default:
+                    // Consume all other keys while encyclopedia is open
+                    return true;
+            }
+        }
 
         // ========================================
         // LIFECYCLE

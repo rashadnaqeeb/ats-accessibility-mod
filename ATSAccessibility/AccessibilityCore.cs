@@ -97,66 +97,67 @@ namespace ATSAccessibility
 
             // Initialize UI navigation
             _uiNavigator = new UINavigator(this);
-            _keyboardManager = new KeyboardManager(_uiNavigator);
+            _keyboardManager = new KeyboardManager();
 
             // Initialize map navigation
             _mapNavigator = new MapNavigator();
-            _keyboardManager.SetMapNavigator(_mapNavigator);
 
             // Initialize tutorial handler
             _tutorialHandler = new TutorialHandler(OnTutorialPhaseChanged);
 
-            // Wire up tutorial handler to keyboard manager
-            _keyboardManager.SetTutorialHandler(_tutorialHandler);
-
             // Initialize encyclopedia navigator
             _encyclopediaNavigator = new EncyclopediaNavigator();
-            _keyboardManager.SetEncyclopediaNavigator(_encyclopediaNavigator);
 
             // Initialize map scanner
             _mapScanner = new MapScanner(_mapNavigator);
-            _keyboardManager.SetMapScanner(_mapScanner);
 
             // Initialize stats panel
             _statsPanel = new StatsPanel();
-            _keyboardManager.SetStatsPanel(_statsPanel);
 
             // Initialize mysteries panel
             _mysteriesPanel = new MysteriesPanel();
-            _keyboardManager.SetMysteriesPanel(_mysteriesPanel);
 
             // Initialize settlement resource panel
             _settlementResourcePanel = new SettlementResourcePanel();
-            _keyboardManager.SetSettlementResourcePanel(_settlementResourcePanel);
 
             // Initialize info panel menu (unified access to stats, resources, mysteries)
             _infoPanelMenu = new InfoPanelMenu(_statsPanel, _settlementResourcePanel, _mysteriesPanel);
-            _keyboardManager.SetInfoPanelMenu(_infoPanelMenu);
 
             // Initialize menu hub for quick popup access
             _menuHub = new MenuHub();
-            _keyboardManager.SetMenuHub(_menuHub);
 
             // Initialize building menu panel and build mode controller
             _buildingMenuPanel = new BuildingMenuPanel();
             _buildModeController = new BuildModeController(_mapNavigator, _buildingMenuPanel);
             _buildingMenuPanel.SetBuildModeController(_buildModeController);
-            _keyboardManager.SetBuildingMenuPanel(_buildingMenuPanel);
-            _keyboardManager.SetBuildModeController(_buildModeController);
 
             // Initialize move mode controller
             _moveModeController = new MoveModeController(_mapNavigator);
-            _keyboardManager.SetMoveModeController(_moveModeController);
 
             // Initialize world map navigator and scanner
             _worldMapNavigator = new WorldMapNavigator();
-            _keyboardManager.SetWorldMapNavigator(_worldMapNavigator);
             _worldMapScanner = new WorldMapScanner(_worldMapNavigator);
-            _keyboardManager.SetWorldMapScanner(_worldMapScanner);
 
             // Initialize embark panel
             _embarkPanel = new EmbarkPanel();
-            _keyboardManager.SetEmbarkPanel(_embarkPanel);
+
+            // Create context handlers for settlement and world map
+            var settlementHandler = new SettlementKeyHandler(
+                _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _buildingMenuPanel, _moveModeController);
+            var worldMapHandler = new WorldMapKeyHandler(_worldMapNavigator, _worldMapScanner);
+
+            // Register key handlers in priority order (highest priority first)
+            _keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
+            _keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
+            _keyboardManager.RegisterHandler(_buildingMenuPanel);   // Tab building menu
+            _keyboardManager.RegisterHandler(_buildModeController); // Building placement (selective passthrough)
+            _keyboardManager.RegisterHandler(_moveModeController);  // Building relocation (selective passthrough)
+            _keyboardManager.RegisterHandler(_encyclopediaNavigator); // Wiki popup
+            _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
+            _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
+            _keyboardManager.RegisterHandler(_tutorialHandler);     // Tutorial tooltips (passthrough)
+            _keyboardManager.RegisterHandler(settlementHandler);    // Settlement map navigation (fallback)
+            _keyboardManager.RegisterHandler(worldMapHandler);      // World map navigation (fallback)
 
             // Check if we're already on a scene (mod loaded mid-game)
             CheckCurrentScene();
