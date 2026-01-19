@@ -11,8 +11,9 @@ namespace ATSAccessibility
     {
         /// <summary>
         /// Whether input blocking is currently active.
+        /// Can be temporarily disabled when editing text fields.
         /// </summary>
-        public static bool IsBlocking { get; private set; } = true;
+        public static bool IsBlocking { get; set; } = true;
 
         /// <summary>
         /// When true, blocks the Cancel action once then resets itself.

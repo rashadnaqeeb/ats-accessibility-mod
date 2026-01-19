@@ -87,6 +87,9 @@ namespace ATSAccessibility
         // Reference to info panel menu for unified panel access
         private InfoPanelMenu _infoPanelMenu;
 
+        // Reference to menu hub for quick popup access
+        private MenuHub _menuHub;
+
         public KeyboardManager(UINavigator uiNavigator)
         {
             _uiNavigator = uiNavigator;
@@ -205,6 +208,14 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set the menu hub reference.
+        /// </summary>
+        public void SetMenuHub(MenuHub hub)
+        {
+            _menuHub = hub;
+        }
+
+        /// <summary>
         /// Set the current navigation context.
         /// </summary>
         public void SetContext(NavigationContext context)
@@ -229,6 +240,15 @@ namespace ATSAccessibility
                 if (_infoPanelMenu.ProcessKeyEvent(keyCode))
                 {
                     return; // Key was handled by info panel menu
+                }
+            }
+
+            // Check if menu hub is open
+            if (_menuHub != null && _menuHub.IsOpen)
+            {
+                if (_menuHub.ProcessKeyEvent(keyCode))
+                {
+                    return; // Key was handled by menu hub
                 }
             }
 
@@ -273,7 +293,7 @@ namespace ATSAccessibility
             // This allows navigating confirmation dialogs during embark
             if (_uiNavigator != null && _uiNavigator.HasActivePopup)
             {
-                ProcessPopupKeyEvent(keyCode);
+                ProcessPopupKeyEvent(keyCode, modifiers);
                 return; // Popup consumes all keys
             }
 
@@ -298,7 +318,7 @@ namespace ATSAccessibility
             switch (CurrentContext)
             {
                 case NavigationContext.Popup:
-                    ProcessPopupKeyEvent(keyCode);
+                    ProcessPopupKeyEvent(keyCode, modifiers);
                     break;
                 case NavigationContext.Map:
                     ProcessMapKeyEvent(keyCode, modifiers);
@@ -340,8 +360,25 @@ namespace ATSAccessibility
         /// <summary>
         /// Handle key event when navigating popups/menus.
         /// </summary>
-        private void ProcessPopupKeyEvent(KeyCode keyCode)
+        private void ProcessPopupKeyEvent(KeyCode keyCode, KeyModifiers modifiers)
         {
+            // If editing a text field, only handle Enter (submit) and Escape (cancel)
+            if (_uiNavigator.IsEditingTextField)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        _uiNavigator.EndTextFieldEdit(submit: true);
+                        break;
+                    case KeyCode.Escape:
+                        _uiNavigator.EndTextFieldEdit(submit: false);
+                        break;
+                    // All other keys pass through to the text field
+                }
+                return;
+            }
+
             // If a dropdown is open, handle it first
             if (_uiNavigator.IsDropdownOpen)
             {
@@ -364,10 +401,16 @@ namespace ATSAccessibility
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
-                    _uiNavigator.NavigateElement(-1);
+                    if (modifiers.Shift)
+                        _uiNavigator.AdjustCurrentSlider(1);
+                    else
+                        _uiNavigator.NavigateElement(-1);
                     break;
                 case KeyCode.DownArrow:
-                    _uiNavigator.NavigateElement(1);
+                    if (modifiers.Shift)
+                        _uiNavigator.AdjustCurrentSlider(-1);
+                    else
+                        _uiNavigator.NavigateElement(1);
                     break;
                 case KeyCode.LeftArrow:
                     _uiNavigator.NavigatePanel(-1);
@@ -522,6 +565,11 @@ namespace ATSAccessibility
                 // Information panels menu
                 case KeyCode.F1:
                     _infoPanelMenu?.Open();
+                    break;
+
+                // Menu hub for quick popup access
+                case KeyCode.F2:
+                    _menuHub?.Open();
                     break;
 
                 // Building menu

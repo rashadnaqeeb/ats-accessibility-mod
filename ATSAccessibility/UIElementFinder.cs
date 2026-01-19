@@ -443,6 +443,17 @@ namespace ATSAccessibility
             if (innerTmpText != null && !string.IsNullOrEmpty(innerTmpText.text))
             {
                 string innerText = innerTmpText.text;
+
+                // Special case: "Pick" buttons need context from parent slot
+                if (innerText.Equals("Pick", StringComparison.OrdinalIgnoreCase))
+                {
+                    string context = TryGetPickButtonContext(element.gameObject);
+                    if (!string.IsNullOrEmpty(context))
+                    {
+                        return $"Pick {context}";
+                    }
+                }
+
                 if (!IsGenericText(innerText))
                 {
                     return innerText;
@@ -531,6 +542,49 @@ namespace ATSAccessibility
                     {
                         return labelText.text;
                     }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Try to get context for a "Pick" button by finding the item name
+        /// in sibling TMP_Text components within the parent slot.
+        /// </summary>
+        private static string TryGetPickButtonContext(GameObject buttonObject)
+        {
+            var parent = buttonObject.transform.parent;
+            if (parent == null) return null;
+
+            // Common paths for item names in slot containers
+            string[] namePaths = { "Name", "Name/Text", "BG2/Header", "Header" };
+
+            foreach (var path in namePaths)
+            {
+                var nameTransform = parent.Find(path);
+                if (nameTransform != null)
+                {
+                    var tmpText = nameTransform.GetComponent<TMP_Text>();
+                    if (tmpText != null && !string.IsNullOrWhiteSpace(tmpText.text))
+                    {
+                        return tmpText.text;
+                    }
+                }
+            }
+
+            // Fallback: Search all sibling TMP_Text for non-trivial content
+            foreach (Transform sibling in parent)
+            {
+                if (sibling.gameObject == buttonObject) continue;
+
+                var tmpText = sibling.GetComponentInChildren<TMP_Text>();
+                if (tmpText != null && !string.IsNullOrWhiteSpace(tmpText.text))
+                {
+                    string text = tmpText.text.Trim();
+                    // Skip if it's just another generic label
+                    if (!text.Equals("Pick", StringComparison.OrdinalIgnoreCase) && text.Length > 2)
+                        return text;
                 }
             }
 

@@ -3233,5 +3233,338 @@ namespace ATSAccessibility
                 Debug.LogError($"[ATSAccessibility] PlaceBuildingOnGrid failed: {ex.Message}");
             }
         }
+
+        // ========================================
+        // MENU HUB - POPUP OPENING METHODS
+        // ========================================
+
+        // Cached reflection metadata for GameBlackboardService
+        private static PropertyInfo _gsGameBlackboardServiceProperty = null;
+        private static bool _gameBlackboardTypesInitialized = false;
+
+        private static void EnsureGameBlackboardTypes()
+        {
+            if (_gameBlackboardTypesInitialized) return;
+            EnsureAssembly();
+
+            if (_gameAssembly == null)
+            {
+                _gameBlackboardTypesInitialized = true;
+                return;
+            }
+
+            try
+            {
+                // Get IGameServices interface for GameBlackboardService property
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsGameBlackboardServiceProperty = gameServicesType.GetProperty("GameBlackboardService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    Debug.Log("[ATSAccessibility] Cached GameBlackboardService property");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GameBlackboard type caching failed: {ex.Message}");
+            }
+
+            _gameBlackboardTypesInitialized = true;
+        }
+
+        /// <summary>
+        /// Get GameBlackboardService from GameServices.
+        /// </summary>
+        public static object GetGameBlackboardService()
+        {
+            EnsureGameBlackboardTypes();
+
+            var gameServices = GetGameServices();
+            if (gameServices == null || _gsGameBlackboardServiceProperty == null) return null;
+
+            try
+            {
+                return _gsGameBlackboardServiceProperty.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Helper to invoke OnNext on a UniRx Subject property.
+        /// </summary>
+        private static bool InvokeSubjectOnNext(object blackboardService, string subjectPropertyName, object parameter)
+        {
+            if (blackboardService == null) return false;
+
+            try
+            {
+                var subjectProperty = blackboardService.GetType().GetProperty(subjectPropertyName,
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (subjectProperty == null)
+                {
+                    Debug.LogWarning($"[ATSAccessibility] Subject property '{subjectPropertyName}' not found");
+                    return false;
+                }
+
+                var subject = subjectProperty.GetValue(blackboardService);
+                if (subject == null)
+                {
+                    Debug.LogWarning($"[ATSAccessibility] Subject '{subjectPropertyName}' is null");
+                    return false;
+                }
+
+                var onNextMethod = subject.GetType().GetMethod("OnNext",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (onNextMethod == null)
+                {
+                    Debug.LogWarning($"[ATSAccessibility] OnNext method not found on subject");
+                    return false;
+                }
+
+                onNextMethod.Invoke(subject, new object[] { parameter });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] InvokeSubjectOnNext failed for {subjectPropertyName}: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Open the Recipes popup via GameBlackboardService.RecipesPopupRequested.
+        /// </summary>
+        public static bool OpenRecipesPopup()
+        {
+            var blackboardService = GetGameBlackboardService();
+            if (blackboardService == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] OpenRecipesPopup: GameBlackboardService not available");
+                return false;
+            }
+
+            try
+            {
+                // Create RecipesPopupRequest(true) for playShowAnim
+                var requestType = _gameAssembly?.GetType("Eremite.View.Popups.Recipes.RecipesPopupRequest");
+                if (requestType == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] RecipesPopupRequest type not found");
+                    return false;
+                }
+
+                // Constructor: RecipesPopupRequest(bool playShowAnim)
+                var constructor = requestType.GetConstructor(new[] { typeof(bool) });
+                if (constructor == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] RecipesPopupRequest constructor not found");
+                    return false;
+                }
+
+                var request = constructor.Invoke(new object[] { true });
+                return InvokeSubjectOnNext(blackboardService, "RecipesPopupRequested", request);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] OpenRecipesPopup failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Open the Orders popup via GameBlackboardService.OrdersPopupRequested.
+        /// </summary>
+        public static bool OpenOrdersPopup()
+        {
+            var blackboardService = GetGameBlackboardService();
+            if (blackboardService == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] OpenOrdersPopup: GameBlackboardService not available");
+                return false;
+            }
+
+            return InvokeSubjectOnNext(blackboardService, "OrdersPopupRequested", true);
+        }
+
+        /// <summary>
+        /// Open the Trade Routes popup via GameBlackboardService.TradeRoutesPopupRequested.
+        /// </summary>
+        public static bool OpenTradeRoutesPopup()
+        {
+            var blackboardService = GetGameBlackboardService();
+            if (blackboardService == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] OpenTradeRoutesPopup: GameBlackboardService not available");
+                return false;
+            }
+
+            return InvokeSubjectOnNext(blackboardService, "TradeRoutesPopupRequested", true);
+        }
+
+        /// <summary>
+        /// Open the Consumption Control popup via GameBlackboardService.ConsumptionPopupRequested.
+        /// </summary>
+        public static bool OpenConsumptionPopup()
+        {
+            var blackboardService = GetGameBlackboardService();
+            if (blackboardService == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] OpenConsumptionPopup: GameBlackboardService not available");
+                return false;
+            }
+
+            return InvokeSubjectOnNext(blackboardService, "ConsumptionPopupRequested", true);
+        }
+
+        /// <summary>
+        /// Open the Trends popup via GameBlackboardService.TrendsPopupRequested.
+        /// </summary>
+        public static bool OpenTrendsPopup()
+        {
+            var blackboardService = GetGameBlackboardService();
+            if (blackboardService == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] OpenTrendsPopup: GameBlackboardService not available");
+                return false;
+            }
+
+            return InvokeSubjectOnNext(blackboardService, "TrendsPopupRequested", true);
+        }
+
+        /// <summary>
+        /// Open the Villagers/Resolve popup via GameBlackboardService.ResolvePopupRequested.
+        /// Uses Unit.Default since this Subject takes no parameter.
+        /// </summary>
+        public static bool OpenVillagersPopup()
+        {
+            var blackboardService = GetGameBlackboardService();
+            if (blackboardService == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] OpenVillagersPopup: GameBlackboardService not available");
+                return false;
+            }
+
+            try
+            {
+                // UniRx.Unit.Default is the singleton value for Unit type
+                var unitType = Type.GetType("UniRx.Unit, UniRx");
+                if (unitType == null)
+                {
+                    // Try to find it in loaded assemblies
+                    foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                    {
+                        unitType = assembly.GetType("UniRx.Unit");
+                        if (unitType != null) break;
+                    }
+                }
+
+                if (unitType == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] UniRx.Unit type not found");
+                    return false;
+                }
+
+                var defaultField = unitType.GetField("Default", BindingFlags.Public | BindingFlags.Static);
+                if (defaultField == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] Unit.Default field not found");
+                    return false;
+                }
+
+                var unitDefault = defaultField.GetValue(null);
+                return InvokeSubjectOnNext(blackboardService, "ResolvePopupRequested", unitDefault);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] OpenVillagersPopup failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Open the Trader panel via TraderPanel.Instance.Show().
+        /// </summary>
+        public static bool OpenTraderPanel()
+        {
+            try
+            {
+                // Find TraderPanel type
+                var traderPanelType = _gameAssembly?.GetType("Eremite.Buildings.UI.Trade.TraderPanel");
+                if (traderPanelType == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] TraderPanel type not found");
+                    return false;
+                }
+
+                // Get Instance static property
+                var instanceProperty = traderPanelType.GetProperty("Instance",
+                    BindingFlags.Public | BindingFlags.Static);
+                if (instanceProperty == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] TraderPanel.Instance property not found");
+                    return false;
+                }
+
+                var traderPanel = instanceProperty.GetValue(null);
+                if (traderPanel == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] TraderPanel.Instance is null (no trading post?)");
+                    return false;
+                }
+
+                // Get current trader visit from TradeService
+                var gameServices = GetGameServices();
+                if (gameServices == null) return false;
+
+                var tradeServiceType = _gameAssembly?.GetType("Eremite.Services.ITradeService");
+                var tradeServiceProperty = gameServices.GetType().GetProperty("TradeService",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (tradeServiceProperty == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] TradeService property not found");
+                    return false;
+                }
+
+                var tradeService = tradeServiceProperty.GetValue(gameServices);
+                if (tradeService == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] TradeService is null");
+                    return false;
+                }
+
+                // Get current visit (may be null if no trader)
+                var currentVisitProperty = tradeService.GetType().GetProperty("CurrentVisit",
+                    BindingFlags.Public | BindingFlags.Instance);
+                object currentVisit = null;
+                if (currentVisitProperty != null)
+                {
+                    currentVisit = currentVisitProperty.GetValue(tradeService);
+                }
+
+                // Call Show(visit, playShowAnim)
+                var showMethod = traderPanelType.GetMethod("Show",
+                    BindingFlags.Public | BindingFlags.Instance,
+                    null,
+                    new Type[] { _gameAssembly.GetType("Eremite.Model.State.TraderVisitState"), typeof(bool) },
+                    null);
+
+                if (showMethod == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] TraderPanel.Show method not found");
+                    return false;
+                }
+
+                showMethod.Invoke(traderPanel, new object[] { currentVisit, true });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] OpenTraderPanel failed: {ex.Message}");
+                return false;
+            }
+        }
     }
 }

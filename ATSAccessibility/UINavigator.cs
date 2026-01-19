@@ -42,6 +42,10 @@ namespace ATSAccessibility
         private List<Toggle> _dropdownToggles = new List<Toggle>();
         private int _dropdownIndex = 0;
 
+        // Text field editing state
+        private bool _isEditingTextField = false;
+        private TMP_InputField _editingInputField = null;
+
         /// <summary>
         /// Whether there's an active popup being navigated.
         /// </summary>
@@ -66,6 +70,11 @@ namespace ATSAccessibility
         /// Whether a dropdown is currently open for navigation.
         /// </summary>
         public bool IsDropdownOpen => _activeDropdown != null;
+
+        /// <summary>
+        /// Whether currently editing a text field.
+        /// </summary>
+        public bool IsEditingTextField => _isEditingTextField;
 
         // ========================================
         // CONSTRUCTOR
@@ -282,6 +291,10 @@ namespace ATSAccessibility
                 {
                     OpenDropdown(dropdown);
                 }
+                else if (element is TMP_InputField inputField)
+                {
+                    StartTextFieldEdit(inputField);
+                }
                 else if (element is Slider slider)
                 {
                     slider.Select();
@@ -431,6 +444,85 @@ namespace ATSAccessibility
                 var text = toggle.GetComponentInChildren<TMP_Text>()?.text ?? "option";
                 Debug.Log($"[ATSAccessibility] Dropdown option: {text}");
                 Speech.Say(text);
+            }
+        }
+
+        // ========================================
+        // TEXT FIELD EDITING
+        // ========================================
+
+        /// <summary>
+        /// Start editing a text field.
+        /// </summary>
+        public void StartTextFieldEdit(TMP_InputField inputField)
+        {
+            _isEditingTextField = true;
+            _editingInputField = inputField;
+
+            // Disable input blocking so keys reach the text field
+            InputBlocker.IsBlocking = false;
+
+            // Focus the field
+            inputField.Select();
+            inputField.ActivateInputField();
+
+            string currentText = string.IsNullOrEmpty(inputField.text) ? "empty" : inputField.text;
+            Speech.Say($"Editing, current text: {currentText}");
+            Debug.Log($"[ATSAccessibility] Started editing text field: {inputField.name}");
+        }
+
+        /// <summary>
+        /// End text field editing (submit or cancel).
+        /// </summary>
+        public void EndTextFieldEdit(bool submit)
+        {
+            if (!_isEditingTextField || _editingInputField == null) return;
+
+            if (submit)
+            {
+                // Deselect triggers OnEndEdit which submits
+                _editingInputField.DeactivateInputField();
+                string finalText = string.IsNullOrEmpty(_editingInputField.text) ? "empty" : _editingInputField.text;
+                Speech.Say($"Submitted: {finalText}");
+                Debug.Log($"[ATSAccessibility] Submitted text field: {finalText}");
+            }
+            else
+            {
+                // Cancel - just deactivate without submitting
+                _editingInputField.DeactivateInputField();
+                Speech.Say("Cancelled");
+                Debug.Log("[ATSAccessibility] Cancelled text field editing");
+            }
+
+            _isEditingTextField = false;
+            _editingInputField = null;
+
+            // Re-enable input blocking
+            InputBlocker.IsBlocking = true;
+        }
+
+        // ========================================
+        // SLIDER ADJUSTMENT
+        // ========================================
+
+        /// <summary>
+        /// Adjust the current slider value by a step.
+        /// </summary>
+        public void AdjustCurrentSlider(int direction)
+        {
+            if (_elements.Count == 0 || _currentElementIndex >= _elements.Count) return;
+
+            var element = _elements[_currentElementIndex];
+            if (element is Slider slider)
+            {
+                // Adjust by 10% of the range
+                float step = (slider.maxValue - slider.minValue) * 0.1f;
+                float newValue = Mathf.Clamp(slider.value + (step * direction), slider.minValue, slider.maxValue);
+                slider.value = newValue;
+
+                int percent = Mathf.RoundToInt(slider.normalizedValue * 100);
+                Speech.Say($"{percent} percent");
+                Debug.Log($"[ATSAccessibility] Adjusted slider to {percent}%");
             }
         }
 

@@ -58,6 +58,9 @@ namespace ATSAccessibility
         // Info panel menu for unified panel access
         private InfoPanelMenu _infoPanelMenu;
 
+        // Menu hub for quick popup access
+        private MenuHub _menuHub;
+
         // Building menu panel for construction
         private BuildingMenuPanel _buildingMenuPanel;
 
@@ -129,6 +132,10 @@ namespace ATSAccessibility
             // Initialize info panel menu (unified access to stats, resources, mysteries)
             _infoPanelMenu = new InfoPanelMenu(_statsPanel, _settlementResourcePanel, _mysteriesPanel);
             _keyboardManager.SetInfoPanelMenu(_infoPanelMenu);
+
+            // Initialize menu hub for quick popup access
+            _menuHub = new MenuHub();
+            _keyboardManager.SetMenuHub(_menuHub);
 
             // Initialize building menu panel and build mode controller
             _buildingMenuPanel = new BuildingMenuPanel();
