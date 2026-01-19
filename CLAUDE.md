@@ -53,21 +53,30 @@ Handlers registered in AccessibilityCore.Start(). First handler where `IsActive`
 - **SettlementKeyHandler.cs** - Settlement map context (fallback)
 - **WorldMapKeyHandler.cs** - World map context (fallback)
 
+### Info Panel Menu (F1)
+
+Unified menu providing access to information panels. Order: Resources, Villagers, Stats, Mysteries.
+
+| Panel | Purpose | Base Class |
+|-------|---------|------------|
+| SettlementResourcePanel | Resources by category | TwoLevelPanel |
+| VillagersPanel | Per-race workforce, resolve, needs, individual villagers | Custom (3-level) |
+| StatsPanel | Game stats (Reputation, Impatience, Hostility) | TwoLevelPanel |
+| MysteriesPanel | Forest mysteries and modifiers | TwoLevelPanel |
+
 ### Two-Level Panels (TwoLevelPanel base class)
 
 Virtual speech-only panels with category→item navigation. Base class provides shared key handling (Up/Down/Enter/Right/Left/Escape) and navigation logic.
-
-| Panel | Purpose | Key |
-|-------|---------|-----|
-| StatsPanel | Game stats (Reputation, Resolve, etc.) | F3 |
-| MysteriesPanel | Forest mysteries and modifiers | F4 |
-| SettlementResourcePanel | Resources by category | F5 |
 
 To create a new two-level panel, inherit from `TwoLevelPanel` and implement:
 - `PanelName`, `EmptyMessage` - strings for announcements
 - `CategoryCount`, `CurrentItemCount` - navigation bounds
 - `RefreshData()`, `ClearData()` - data lifecycle
 - `AnnounceCategory()`, `AnnounceItem()` - speech output
+
+### VillagersPanel (Custom 3-level)
+
+Custom panel with selective 3rd level expansion. Navigation: races → details → sub-details (only for Resolve breakdown and individual villager info). Does not use TwoLevelPanel base class.
 
 ### Other Navigation Components
 

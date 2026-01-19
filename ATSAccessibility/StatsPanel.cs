@@ -68,20 +68,7 @@ namespace ATSAccessibility
                 Details = hostBreakdown
             });
 
-            // Species Resolve (one per present species)
-            var races = StatsReader.GetPresentRaces();
-            foreach (var race in races)
-            {
-                var (resolve, threshold, settling) = StatsReader.GetResolveSummary(race);
-                var resolveBreakdown = StatsReader.GetResolveBreakdown(race);
-
-                _categories.Add(new Category
-                {
-                    Name = $"{race} Resolve",
-                    Value = $"{Mathf.FloorToInt(resolve)} of {threshold}, drifting towards {settling}",
-                    Details = resolveBreakdown
-                });
-            }
+            // Note: Per-race Resolve has been moved to the Villagers panel (F1 -> Villagers)
 
             Debug.Log($"[ATSAccessibility] Stats panel refreshed: {_categories.Count} categories");
         }

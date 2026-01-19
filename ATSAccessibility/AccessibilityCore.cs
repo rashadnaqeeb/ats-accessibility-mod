@@ -55,6 +55,9 @@ namespace ATSAccessibility
         // Settlement resource panel for inventory browsing
         private SettlementResourcePanel _settlementResourcePanel;
 
+        // Villagers panel for villager information
+        private VillagersPanel _villagersPanel;
+
         // Info panel menu for unified panel access
         private InfoPanelMenu _infoPanelMenu;
 
@@ -120,8 +123,11 @@ namespace ATSAccessibility
             // Initialize settlement resource panel
             _settlementResourcePanel = new SettlementResourcePanel();
 
-            // Initialize info panel menu (unified access to stats, resources, mysteries)
-            _infoPanelMenu = new InfoPanelMenu(_statsPanel, _settlementResourcePanel, _mysteriesPanel);
+            // Initialize villagers panel
+            _villagersPanel = new VillagersPanel();
+
+            // Initialize info panel menu (unified access to stats, resources, mysteries, villagers)
+            _infoPanelMenu = new InfoPanelMenu(_statsPanel, _settlementResourcePanel, _mysteriesPanel, _villagersPanel);
 
             // Initialize menu hub for quick popup access
             _menuHub = new MenuHub();
