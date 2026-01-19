@@ -172,8 +172,12 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.LeftArrow:
-                    ReturnToCategories();
-                    return true;
+                    if (_focusOnDetails)
+                    {
+                        ReturnToCategories();
+                        return true;
+                    }
+                    return false;  // At root level, let parent handle
 
                 case KeyCode.Escape:
                     Close();
@@ -270,10 +274,8 @@ namespace ATSAccessibility
             if (_currentDetailIndex < 0 || _currentDetailIndex >= category.Details.Count) return;
 
             string detail = category.Details[_currentDetailIndex];
-            string position = $"{_currentDetailIndex + 1} of {category.Details.Count}";
-
-            Speech.Say($"{detail}. {position}");
-            Debug.Log($"[ATSAccessibility] Detail {position}: {detail}");
+            Speech.Say(detail);
+            Debug.Log($"[ATSAccessibility] Detail: {detail}");
         }
     }
 }

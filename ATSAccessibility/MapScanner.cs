@@ -24,6 +24,7 @@ namespace ATSAccessibility
         public class ItemGroup
         {
             public string TypeName;           // "Clay Deposit", "Small Warehouse", "Dangerous Glade"
+            public string BuildingTypeName;   // Runtime type name for subcategory lookup (e.g., "Hearth", "Workshop")
             public List<ScannedItem> Items;   // Sorted by distance at scan time
 
             public ItemGroup(string typeName)
@@ -64,7 +65,47 @@ namespace ATSAccessibility
         private int _currentItemIndex = 0;
         private List<ItemGroup> _cachedGroups = null;
 
+        // Building subcategory state
+        private int _currentSubcategoryIndex = 0;
+        private Dictionary<int, List<ItemGroup>> _cachedBuildingsBySubcategory = null;
+
         private readonly MapNavigator _mapNavigator;
+
+        // ========================================
+        // BUILDING SUBCATEGORY DEFINITIONS
+        // ========================================
+
+        private static readonly string[] SubcategoryNames = new string[]
+        {
+            "Essential", "Gathering", "Production", "Trade",
+            "Housing and Services", "Special Buildings",
+            "Blight Fighting", "Decorations", "Ruins", "Roads"
+        };
+
+        private static readonly Dictionary<string, int> BuildingTypeToSubcategory = new Dictionary<string, int>
+        {
+            // Essential (0)
+            { "Hearth", 0 }, { "Storage", 0 },
+            // Gathering (1)
+            { "Camp", 1 }, { "GathererHut", 1 }, { "Farm", 1 }, { "Farmfield", 1 },
+            { "FishingHut", 1 }, { "Mine", 1 }, { "Extractor", 1 }, { "RainCatcher", 1 }, { "Collector", 1 },
+            // Production (2)
+            { "Workshop", 2 },
+            // Trade (3)
+            { "TradingPost", 3 }, { "PerkCrafter", 3 }, { "BlackMarket", 3 },
+            // Housing and Services (4)
+            { "House", 4 }, { "Institution", 4 },
+            // Special Buildings (5)
+            { "Port", 5 }, { "Altar", 5 }, { "Shrine", 5 }, { "Seal", 5 }, { "Poro", 5 }, { "Spawner", 5 },
+            // Blight Fighting (6)
+            { "BlightPost", 6 }, { "Hydrant", 6 },
+            // Decorations (7)
+            { "Decoration", 7 },
+            // Ruins (8)
+            { "Relic", 8 },
+            // Roads (9)
+            { "Road", 9 }
+        };
 
         // Reflection cache for scanning
         private FieldInfo _gladeFieldsField = null;
@@ -72,6 +113,9 @@ namespace ATSAccessibility
         private FieldInfo _gladeWasDiscoveredField = null;
         private PropertyInfo _naturalResourcesProperty = null;
         private PropertyInfo _depositsProperty = null;
+        private PropertyInfo _oresProperty = null;
+        private PropertyInfo _springsProperty = null;
+        private PropertyInfo _lakesProperty = null;
         private PropertyInfo _buildingsProperty = null;
         private bool _reflectionCached = false;
 
@@ -115,8 +159,9 @@ namespace ATSAccessibility
             const int categoryCount = 3; // Glades, Resources, Buildings
             _currentCategory = (ScanCategory)NavigationUtils.WrapIndex((int)_currentCategory, direction, categoryCount);
 
-            // Full rescan
-            ScanCurrentCategory();
+            // Reset subcategory state
+            _currentSubcategoryIndex = 0;
+            _cachedBuildingsBySubcategory = null;
             _currentGroupIndex = 0;
             _currentItemIndex = 0;
 
@@ -129,36 +174,105 @@ namespace ATSAccessibility
                 _ => "Unknown"
             };
 
-            if (_cachedGroups == null || _cachedGroups.Count == 0 || _cachedGroups[0].Items.Count == 0)
+            // For Buildings, use subcategory system
+            if (_currentCategory == ScanCategory.Buildings)
             {
-                Speech.Say($"{categoryName}, none");
+                // Build unrevealed glade tiles map first
+                EnsureReflectionCache();
+                BuildUnrevealedGladeTilesMap();
+
+                ScanBuildingsWithSubcategories();
+                _unrevealedGladeTiles = null;
+
+                // Find first non-empty subcategory
+                bool foundSubcategory = false;
+                for (int i = 0; i < SubcategoryNames.Length; i++)
+                {
+                    if (_cachedBuildingsBySubcategory.TryGetValue(i, out var groups) && groups.Count > 0)
+                    {
+                        _currentSubcategoryIndex = i;
+                        _cachedGroups = groups;
+                        foundSubcategory = true;
+                        break;
+                    }
+                }
+
+                if (!foundSubcategory || _cachedGroups == null || _cachedGroups.Count == 0)
+                {
+                    Speech.Say($"{categoryName}, none");
+                }
+                else
+                {
+                    var currentGroup = _cachedGroups[_currentGroupIndex];
+                    int itemNum = _currentItemIndex + 1;
+                    int itemTotal = currentGroup.Items.Count;
+                    Speech.Say($"{categoryName}, {SubcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+                }
             }
             else
             {
-                var currentGroup = _cachedGroups[_currentGroupIndex];
-                int itemNum = _currentItemIndex + 1;
-                int itemTotal = currentGroup.Items.Count;
-                Speech.Say($"{categoryName}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+                // For Glades and Resources, use standard scanning
+                ScanCurrentCategory();
+
+                if (_cachedGroups == null || _cachedGroups.Count == 0 || _cachedGroups[0].Items.Count == 0)
+                {
+                    Speech.Say($"{categoryName}, none");
+                }
+                else
+                {
+                    var currentGroup = _cachedGroups[_currentGroupIndex];
+                    int itemNum = _currentItemIndex + 1;
+                    int itemTotal = currentGroup.Items.Count;
+                    Speech.Say($"{categoryName}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+                }
             }
         }
 
         /// <summary>
         /// Change group within category (PageUp/Down). Category rescan.
+        /// For Buildings, navigates within current subcategory only.
         /// </summary>
         public void ChangeGroup(int direction)
         {
-            // Rescan category to get fresh data
-            ScanCurrentCategory();
             _currentItemIndex = 0;
 
-            if (_cachedGroups == null || _cachedGroups.Count == 0)
+            // For Buildings, use subcategory groups
+            if (_currentCategory == ScanCategory.Buildings)
             {
-                AnnounceEmpty();
-                return;
-            }
+                // Rescan if needed
+                if (_cachedBuildingsBySubcategory == null)
+                {
+                    EnsureReflectionCache();
+                    BuildUnrevealedGladeTilesMap();
+                    ScanBuildingsWithSubcategories();
+                    _unrevealedGladeTiles = null;
+                }
 
-            _currentGroupIndex = NavigationUtils.WrapIndex(_currentGroupIndex, direction, _cachedGroups.Count);
-            AnnounceCurrentItem();
+                // Get groups from current subcategory
+                if (!_cachedBuildingsBySubcategory.TryGetValue(_currentSubcategoryIndex, out var subcategoryGroups) || subcategoryGroups.Count == 0)
+                {
+                    AnnounceEmpty();
+                    return;
+                }
+
+                _cachedGroups = subcategoryGroups;
+                _currentGroupIndex = NavigationUtils.WrapIndex(_currentGroupIndex, direction, _cachedGroups.Count);
+                AnnounceCurrentItem();
+            }
+            else
+            {
+                // For Glades and Resources, use standard scanning
+                ScanCurrentCategory();
+
+                if (_cachedGroups == null || _cachedGroups.Count == 0)
+                {
+                    AnnounceEmpty();
+                    return;
+                }
+
+                _currentGroupIndex = NavigationUtils.WrapIndex(_currentGroupIndex, direction, _cachedGroups.Count);
+                AnnounceCurrentItem();
+            }
         }
 
         /// <summary>
@@ -457,6 +571,117 @@ namespace ATSAccessibility
                         }
                     }
                 }
+
+                // Scan Ores (copper veins, etc.)
+                var oreService = GameReflection.GetOreService();
+                if (oreService != null)
+                {
+                    EnsureOresProperty(oreService);
+                    if (_oresProperty != null)
+                    {
+                        var ores = _oresProperty.GetValue(oreService) as IDictionary;
+                        if (ores != null)
+                        {
+                            foreach (DictionaryEntry entry in ores)
+                            {
+                                var pos = (Vector2Int)entry.Key;
+                                var ore = entry.Value;
+
+                                // Skip if inside unrevealed glade
+                                if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+
+                                string displayName = GetObjectDisplayName(ore);
+                                if (string.IsNullOrEmpty(displayName)) continue;
+
+                                int dx = Math.Abs(pos.x - cursorX);
+                                int dy = Math.Abs(pos.y - cursorY);
+                                int distance = Math.Max(dx, dy);
+
+                                if (!groups.TryGetValue(displayName, out var oreGroup))
+                                {
+                                    oreGroup = new ItemGroup(displayName);
+                                    groups[displayName] = oreGroup;
+                                }
+
+                                oreGroup.Items.Add(new ScannedItem(pos, distance));
+                            }
+                        }
+                    }
+                }
+
+                // Scan Springs (water geysers)
+                var springsService = GameReflection.GetSpringsService();
+                if (springsService != null)
+                {
+                    EnsureSpringsProperty(springsService);
+                    if (_springsProperty != null)
+                    {
+                        var springs = _springsProperty.GetValue(springsService) as IDictionary;
+                        if (springs != null)
+                        {
+                            foreach (DictionaryEntry entry in springs)
+                            {
+                                var pos = (Vector2Int)entry.Key;
+                                var spring = entry.Value;
+
+                                // Skip if inside unrevealed glade
+                                if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+
+                                string displayName = GetObjectDisplayName(spring);
+                                if (string.IsNullOrEmpty(displayName)) continue;
+
+                                int dx = Math.Abs(pos.x - cursorX);
+                                int dy = Math.Abs(pos.y - cursorY);
+                                int distance = Math.Max(dx, dy);
+
+                                if (!groups.TryGetValue(displayName, out var springGroup))
+                                {
+                                    springGroup = new ItemGroup(displayName);
+                                    groups[displayName] = springGroup;
+                                }
+
+                                springGroup.Items.Add(new ScannedItem(pos, distance));
+                            }
+                        }
+                    }
+                }
+
+                // Scan Lakes (fishing spots)
+                var lakesService = GameReflection.GetLakesService();
+                if (lakesService != null)
+                {
+                    EnsureLakesProperty(lakesService);
+                    if (_lakesProperty != null)
+                    {
+                        var lakes = _lakesProperty.GetValue(lakesService) as IDictionary;
+                        if (lakes != null)
+                        {
+                            foreach (DictionaryEntry entry in lakes)
+                            {
+                                var pos = (Vector2Int)entry.Key;
+                                var lake = entry.Value;
+
+                                // Skip if inside unrevealed glade
+                                if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+
+                                string displayName = GetObjectDisplayName(lake);
+                                if (string.IsNullOrEmpty(displayName)) continue;
+
+                                int dx = Math.Abs(pos.x - cursorX);
+                                int dy = Math.Abs(pos.y - cursorY);
+                                int distance = Math.Max(dx, dy);
+
+                                if (!groups.TryGetValue(displayName, out var lakeGroup))
+                                {
+                                    lakeGroup = new ItemGroup(displayName);
+                                    groups[displayName] = lakeGroup;
+                                }
+
+                                lakeGroup.Items.Add(new ScannedItem(pos, distance));
+                            }
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -502,7 +727,7 @@ namespace ATSAccessibility
                                 // Skip if inside unrevealed glade
                                 if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
 
-                                string displayName = GetObjectDisplayName(building);
+                                string displayName = GetBuildingDisplayName(building);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
                                 int dx = Math.Abs(pos.x - cursorX);
@@ -512,6 +737,7 @@ namespace ATSAccessibility
                                 if (!groups.TryGetValue(displayName, out var group))
                                 {
                                     group = new ItemGroup(displayName);
+                                    group.BuildingTypeName = GetBuildingTypeName(building);
                                     groups[displayName] = group;
                                 }
 
@@ -557,8 +783,7 @@ namespace ATSAccessibility
 
             int itemNum = _currentItemIndex + 1;
             int itemTotal = currentGroup.Items.Count;
-            string announcement = $"{currentGroup.TypeName}, {itemNum} of {itemTotal}";
-            Speech.Say(announcement);
+            Speech.Say($"{currentGroup.TypeName}, {itemNum} of {itemTotal}");
         }
 
         private void AnnounceEmpty()
@@ -654,6 +879,42 @@ namespace ATSAccessibility
             try
             {
                 _depositsProperty = depositsService.GetType().GetProperty("Deposits",
+                    BindingFlags.Public | BindingFlags.Instance);
+            }
+            catch { }
+        }
+
+        private void EnsureOresProperty(object oreService)
+        {
+            if (_oresProperty != null) return;
+
+            try
+            {
+                _oresProperty = oreService.GetType().GetProperty("Ores",
+                    BindingFlags.Public | BindingFlags.Instance);
+            }
+            catch { }
+        }
+
+        private void EnsureSpringsProperty(object springsService)
+        {
+            if (_springsProperty != null) return;
+
+            try
+            {
+                _springsProperty = springsService.GetType().GetProperty("Springs",
+                    BindingFlags.Public | BindingFlags.Instance);
+            }
+            catch { }
+        }
+
+        private void EnsureLakesProperty(object lakesService)
+        {
+            if (_lakesProperty != null) return;
+
+            try
+            {
+                _lakesProperty = lakesService.GetType().GetProperty("Lakes",
                     BindingFlags.Public | BindingFlags.Instance);
             }
             catch { }
@@ -807,6 +1068,266 @@ namespace ATSAccessibility
             var glade = GameReflection.GetGlade(x, y);
             if (glade == null) return false;
             return !GetGladeWasDiscovered(glade);
+        }
+
+        // ========================================
+        // BUILDING SUBCATEGORY HELPERS
+        // ========================================
+
+        /// <summary>
+        /// Get the runtime type name of a building (e.g., "Hearth", "Workshop").
+        /// </summary>
+        private string GetBuildingTypeName(object building)
+        {
+            if (building == null) return null;
+
+            try
+            {
+                // Get the base type name without "State" suffix
+                var typeName = building.GetType().Name;
+
+                // Remove "State" suffix if present (e.g., "HearthState" -> "Hearth")
+                if (typeName.EndsWith("State"))
+                {
+                    typeName = typeName.Substring(0, typeName.Length - 5);
+                }
+
+                return typeName;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the subcategory index for a building based on its type.
+        /// </summary>
+        private int GetBuildingSubcategoryIndex(object building)
+        {
+            var typeName = GetBuildingTypeName(building);
+            if (typeName == null) return SubcategoryNames.Length - 1; // Default to Misc
+
+            if (BuildingTypeToSubcategory.TryGetValue(typeName, out int index))
+            {
+                return index;
+            }
+
+            // Default to Misc for unknown types
+            return SubcategoryNames.Length - 1;
+        }
+
+        /// <summary>
+        /// Get the display name of a building from BuildingsService.
+        /// Uses BuildingModel.displayName (same pattern as TileInfoReader).
+        /// </summary>
+        private string GetBuildingDisplayName(object building)
+        {
+            if (building == null) return null;
+
+            try
+            {
+                var buildingType = building.GetType();
+
+                // Try BuildingModel property first (like TileInfoReader uses)
+                var buildingModelProp = buildingType.GetProperty("BuildingModel",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (buildingModelProp != null)
+                {
+                    var buildingModel = buildingModelProp.GetValue(building);
+                    if (buildingModel != null)
+                    {
+                        var modelType = buildingModel.GetType();
+
+                        // Try displayName field
+                        var displayNameField = modelType.GetField("displayName",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        if (displayNameField != null)
+                        {
+                            var displayName = displayNameField.GetValue(buildingModel);
+                            if (displayName != null)
+                            {
+                                string text = displayName.ToString();
+                                if (!string.IsNullOrEmpty(text))
+                                {
+                                    return text;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Fallback to Model property
+                var modelProperty = buildingType.GetProperty("Model",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (modelProperty != null)
+                {
+                    var model = modelProperty.GetValue(building);
+                    if (model != null)
+                    {
+                        var modelType = model.GetType();
+
+                        var displayNameField = modelType.GetField("displayName",
+                            BindingFlags.Public | BindingFlags.Instance);
+                        if (displayNameField != null)
+                        {
+                            var displayName = displayNameField.GetValue(model);
+                            if (displayName != null)
+                            {
+                                string text = displayName.ToString();
+                                if (!string.IsNullOrEmpty(text))
+                                {
+                                    return text;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Scan all buildings and organize them by subcategory.
+        /// </summary>
+        private void ScanBuildingsWithSubcategories()
+        {
+            _cachedBuildingsBySubcategory = new Dictionary<int, List<ItemGroup>>();
+            int cursorX = _mapNavigator.CursorX;
+            int cursorY = _mapNavigator.CursorY;
+
+            // Initialize all subcategories
+            for (int i = 0; i < SubcategoryNames.Length; i++)
+            {
+                _cachedBuildingsBySubcategory[i] = new List<ItemGroup>();
+            }
+
+            try
+            {
+                var buildingsService = GameReflection.GetBuildingsService();
+                if (buildingsService == null) return;
+
+                EnsureBuildingsProperty(buildingsService);
+                if (_buildingsProperty == null) return;
+
+                var buildings = _buildingsProperty.GetValue(buildingsService) as IDictionary;
+                if (buildings == null) return;
+
+                // Group buildings by (subcategory, displayName)
+                var groupsByKey = new Dictionary<(int subcategory, string displayName), ItemGroup>();
+
+                foreach (DictionaryEntry entry in buildings)
+                {
+                    var building = entry.Value;
+                    if (building == null) continue;
+
+                    // Get building position
+                    Vector2Int pos = GetBuildingPosition(building);
+                    if (pos.x < 0 || pos.y < 0) continue;
+
+                    // Skip if inside unrevealed glade
+                    if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+
+                    // Get building info
+                    string displayName = GetBuildingDisplayName(building);
+                    if (string.IsNullOrEmpty(displayName)) continue;
+
+                    string buildingTypeName = GetBuildingTypeName(building);
+                    int subcategoryIndex = GetBuildingSubcategoryIndex(building);
+
+                    int dx = Math.Abs(pos.x - cursorX);
+                    int dy = Math.Abs(pos.y - cursorY);
+                    int distance = Math.Max(dx, dy);
+
+                    var key = (subcategoryIndex, displayName);
+                    if (!groupsByKey.TryGetValue(key, out var group))
+                    {
+                        group = new ItemGroup(displayName);
+                        group.BuildingTypeName = buildingTypeName;
+                        groupsByKey[key] = group;
+                    }
+
+                    group.Items.Add(new ScannedItem(pos, distance));
+                }
+
+                // Distribute groups to subcategories
+                foreach (var kvp in groupsByKey)
+                {
+                    int subcategory = kvp.Key.subcategory;
+                    var group = kvp.Value;
+
+                    // Sort items by distance
+                    group.Items.Sort(CompareItemsByDistance);
+
+                    _cachedBuildingsBySubcategory[subcategory].Add(group);
+                }
+
+                // Sort groups within each subcategory by distance
+                foreach (var subcategory in _cachedBuildingsBySubcategory.Values)
+                {
+                    subcategory.Sort(CompareGroupsByDistance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] ScanBuildingsWithSubcategories failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Navigate to next/previous subcategory (Shift+PageUp/Down).
+        /// Only applies to Buildings category. Skips empty subcategories.
+        /// </summary>
+        public void ChangeSubcategory(int direction)
+        {
+            // Only works for Buildings category
+            if (_currentCategory != ScanCategory.Buildings)
+            {
+                Speech.Say("Subcategories only available in Buildings");
+                return;
+            }
+
+            // Rescan if needed
+            if (_cachedBuildingsBySubcategory == null)
+            {
+                ScanBuildingsWithSubcategories();
+            }
+
+            // Find next non-empty subcategory
+            int startIndex = _currentSubcategoryIndex;
+            int attempts = 0;
+            int maxAttempts = SubcategoryNames.Length;
+
+            do
+            {
+                _currentSubcategoryIndex = NavigationUtils.WrapIndex(_currentSubcategoryIndex, direction, SubcategoryNames.Length);
+                attempts++;
+
+                // Check if current subcategory has items
+                if (_cachedBuildingsBySubcategory.TryGetValue(_currentSubcategoryIndex, out var groups) && groups.Count > 0)
+                {
+                    // Found a non-empty subcategory
+                    _cachedGroups = groups;
+                    _currentGroupIndex = 0;
+                    _currentItemIndex = 0;
+
+                    var currentGroup = _cachedGroups[_currentGroupIndex];
+                    int itemNum = _currentItemIndex + 1;
+                    int itemTotal = currentGroup.Items.Count;
+                    Speech.Say($"{SubcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+                    return;
+                }
+            }
+            while (attempts < maxAttempts && _currentSubcategoryIndex != startIndex);
+
+            // All subcategories are empty
+            _currentSubcategoryIndex = startIndex;
+            Speech.Say("No buildings in any subcategory");
         }
     }
 }

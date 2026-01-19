@@ -277,12 +277,11 @@ namespace ATSAccessibility
             if (_categories.Count == 0) return;
 
             var category = _categories[_currentCategoryIndex];
-            string panelPosition = $"{_currentCategoryIndex + 1} of {_categories.Count}";
             string itemCount = category.Details.Count > 0
                 ? $"{category.Details.Count} items"
                 : "empty";
 
-            Speech.Say($"{category.Name}, {category.Value}, {itemCount}, panel {panelPosition}");
+            Speech.Say($"{category.Name}, {category.Value}, {itemCount}");
         }
 
         private void AnnounceSpendPointsItem()
@@ -293,9 +292,7 @@ namespace ATSAccessibility
             if (category.Details.Count == 0) return;
 
             string item = category.Details[_currentDetailIndex];
-            string position = $"{_currentDetailIndex + 1} of {category.Details.Count}";
-
-            Speech.Say($"{item}, {position}");
+            Speech.Say(item);
         }
 
         private void Activate()
@@ -375,8 +372,7 @@ namespace ATSAccessibility
         private void AnnounceTopMenu()
         {
             string item = _topMenuItems[_topMenuIndex];
-            string position = $"{_topMenuIndex + 1} of {_topMenuItems.Length}";
-            Speech.Say($"{item}. {position}");
+            Speech.Say(item);
         }
 
         private void ActivateTopMenuItem()
@@ -449,9 +445,6 @@ namespace ATSAccessibility
             {
                 message += ". Press right for details";
             }
-
-            string position = $"{_currentCategoryIndex + 1} of {_categories.Count}";
-            message += $". {position}";
 
             Speech.Say(message);
         }
@@ -531,9 +524,7 @@ namespace ATSAccessibility
             }
 
             string detail = category.Details[_currentDetailIndex];
-            string position = $"{_currentDetailIndex + 1} of {category.Details.Count}";
-
-            Speech.Say($"{detail}, {position}");
+            Speech.Say(detail);
         }
 
         private void ActivateDetail()

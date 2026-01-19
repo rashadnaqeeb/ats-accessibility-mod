@@ -152,8 +152,12 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.LeftArrow:
-                    ReturnToCategories();
-                    return true;
+                    if (_focusOnItems)
+                    {
+                        ReturnToCategories();
+                        return true;
+                    }
+                    return false;  // At root level, let parent handle
 
                 case KeyCode.Escape:
                     Close();

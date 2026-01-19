@@ -81,6 +81,12 @@ namespace ATSAccessibility
         // Reference to build mode controller for placing buildings
         private BuildModeController _buildModeController;
 
+        // Reference to move mode controller for relocating buildings
+        private MoveModeController _moveModeController;
+
+        // Reference to info panel menu for unified panel access
+        private InfoPanelMenu _infoPanelMenu;
+
         public KeyboardManager(UINavigator uiNavigator)
         {
             _uiNavigator = uiNavigator;
@@ -183,6 +189,22 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set the move mode controller reference.
+        /// </summary>
+        public void SetMoveModeController(MoveModeController controller)
+        {
+            _moveModeController = controller;
+        }
+
+        /// <summary>
+        /// Set the info panel menu reference.
+        /// </summary>
+        public void SetInfoPanelMenu(InfoPanelMenu menu)
+        {
+            _infoPanelMenu = menu;
+        }
+
+        /// <summary>
         /// Set the current navigation context.
         /// </summary>
         public void SetContext(NavigationContext context)
@@ -200,30 +222,13 @@ namespace ATSAccessibility
         /// </summary>
         public void ProcessKeyEvent(KeyCode keyCode, KeyModifiers modifiers = default)
         {
-            // Check if stats panel is open - highest priority
-            if (_statsPanel != null && _statsPanel.IsOpen)
+            // Check if info panel menu is open - highest priority when active
+            // InfoPanelMenu manages its child panels (Stats, Resources, Mysteries) internally
+            if (_infoPanelMenu != null && _infoPanelMenu.IsOpen)
             {
-                if (_statsPanel.ProcessKeyEvent(keyCode))
+                if (_infoPanelMenu.ProcessKeyEvent(keyCode))
                 {
-                    return; // Key was handled by stats panel
-                }
-            }
-
-            // Check if mysteries panel is open
-            if (_mysteriesPanel != null && _mysteriesPanel.IsOpen)
-            {
-                if (_mysteriesPanel.ProcessKeyEvent(keyCode))
-                {
-                    return; // Key was handled by mysteries panel
-                }
-            }
-
-            // Check if settlement resource panel is open
-            if (_settlementResourcePanel != null && _settlementResourcePanel.IsOpen)
-            {
-                if (_settlementResourcePanel.ProcessKeyEvent(keyCode))
-                {
-                    return; // Key was handled by resource panel
+                    return; // Key was handled by info panel menu
                 }
             }
 
@@ -242,6 +247,16 @@ namespace ATSAccessibility
                 if (_buildModeController.ProcessKeyEvent(keyCode, modifiers))
                 {
                     return; // Key was handled by build mode
+                }
+                // If not handled, fall through to allow MapNavigator to handle arrow keys
+            }
+
+            // Check if move mode is active
+            if (_moveModeController != null && _moveModeController.IsActive)
+            {
+                if (_moveModeController.ProcessKeyEvent(keyCode, modifiers))
+                {
+                    return; // Key was handled by move mode
                 }
                 // If not handled, fall through to allow MapNavigator to handle arrow keys
             }
@@ -316,10 +331,6 @@ namespace ATSAccessibility
         {
             switch (keyCode)
             {
-                case KeyCode.F1:
-                    _tutorialHandler.ReannounceCurrentTutorial();
-                    return true;
-
                 default:
                     // Let other keys pass through (arrow keys, game's continue key, etc.)
                     return false;
@@ -462,16 +473,10 @@ namespace ATSAccessibility
 
                 // Stats hotkeys
                 case KeyCode.S:
-                    if (modifiers.Alt)
-                        _statsPanel?.Open();
-                    else
-                        StatsReader.AnnounceQuickSummary();
+                    StatsReader.AnnounceQuickSummary();
                     break;
-                case KeyCode.R:
-                    if (modifiers.Alt)
-                        _settlementResourcePanel?.Open();
-                    else
-                        StatsReader.AnnounceResolveSummary();
+                case KeyCode.V:
+                    StatsReader.AnnounceNextSpeciesResolve();
                     break;
                 case KeyCode.T:
                     StatsReader.AnnounceTimeSummary();
@@ -481,6 +486,8 @@ namespace ATSAccessibility
                 case KeyCode.PageUp:
                     if (modifiers.Control)
                         _mapScanner?.ChangeCategory(-1);
+                    else if (modifiers.Shift)
+                        _mapScanner?.ChangeSubcategory(-1);
                     else if (modifiers.Alt)
                         _mapScanner?.ChangeItem(-1);
                     else
@@ -489,27 +496,46 @@ namespace ATSAccessibility
                 case KeyCode.PageDown:
                     if (modifiers.Control)
                         _mapScanner?.ChangeCategory(1);
+                    else if (modifiers.Shift)
+                        _mapScanner?.ChangeSubcategory(1);
                     else if (modifiers.Alt)
                         _mapScanner?.ChangeItem(1);
                     else
                         _mapScanner?.ChangeGroup(1);
                     break;
                 case KeyCode.Home:
-                    _mapScanner?.AnnounceDistance();
+                    _mapScanner?.MoveCursorToItem();
                     break;
                 case KeyCode.End:
-                    _mapScanner?.MoveCursorToItem();
+                    _mapScanner?.AnnounceDistance();
                     break;
                 case KeyCode.I:
                     TileInfoReader.ReadCurrentTile(_mapNavigator.CursorX, _mapNavigator.CursorY);
                     break;
-                case KeyCode.M:
-                    _mysteriesPanel?.Open();
+                case KeyCode.E:
+                    _mapNavigator.AnnounceEntrance();
+                    break;
+                case KeyCode.R:
+                    _mapNavigator.RotateBuilding();
+                    break;
+
+                // Information panels menu
+                case KeyCode.F1:
+                    _infoPanelMenu?.Open();
                     break;
 
                 // Building menu
                 case KeyCode.Tab:
                     _buildingMenuPanel?.Open();
+                    break;
+
+                // Move building mode
+                case KeyCode.M:
+                    var building = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                    if (building != null)
+                        _moveModeController?.EnterMoveMode(building);
+                    else
+                        Speech.Say("No building here");
                     break;
             }
         }
@@ -555,10 +581,10 @@ namespace ATSAccessibility
                         _worldMapScanner?.ChangeType(1);
                     break;
                 case KeyCode.Home:
-                    _worldMapScanner?.AnnounceDirection();
+                    _worldMapScanner?.JumpToItem();
                     break;
                 case KeyCode.End:
-                    _worldMapScanner?.JumpToItem();
+                    _worldMapScanner?.AnnounceDirection();
                     break;
 
                 // Select tile (embark)

@@ -56,7 +56,8 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **StatsReader.cs** - Reads game statistics (Reputation, Impatience, Hostility, Resolve)
 - **StatsPanel.cs** - Virtual speech-only panel for detailed stats navigation
 - **MysteriesPanel.cs** - Virtual speech panel for forest mysteries and world modifiers
-- **SettlementResourcePanel.cs** - Virtual speech panel for browsing settlement resources by category (Alt+R)
+- **SettlementResourcePanel.cs** - Virtual speech panel for browsing settlement resources by category
+- **InfoPanelMenu.cs** - Unified F1 menu for accessing information panels (Stats, Resources, Mysteries)
 - **BuildingMenuPanel.cs** - Virtual speech panel for building selection (Tab key, two-panel: categories → buildings)
 - **BuildModeController.cs** - Handles building placement, rotation, and removal in build mode
 
@@ -91,7 +92,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 **Native DLL loading**: Tolk.dll and helpers (nvdaControllerClient64.dll, SAAPI64.dll) must stay in plugins folder. SetDllDirectory is called in Plugin.Awake() before any P/Invoke.
 
-**Navigation priority**: KeyboardManager checks contexts in order: StatsPanel → MysteriesPanel → ResourcePanel → BuildingMenuPanel → BuildModeController → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
+**Navigation priority**: KeyboardManager checks contexts in order: InfoPanelMenu (manages Stats/Resources/Mysteries panels) → BuildingMenuPanel → BuildModeController → Encyclopedia → Popup → EmbarkPanel → Tutorial → Context-based (Map/WorldMap). Encyclopedia takes priority over generic popup handling.
 
 ## Keyboard Controls
 
@@ -105,18 +106,23 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **PageUp/Down** - Cycle groups (e.g., "Clay Deposit" → "Copper Deposit")
 - **Ctrl+PageUp/Down** - Cycle categories (Glades → Resources → Buildings)
 - **Alt+PageUp/Down** - Cycle items within group
-- **Home** - Announce distance/direction to current item
-- **End** - Move cursor to current item
+- **Home** - Move cursor to current item
+- **End** - Announce distance/direction to current item
 
 ### Game Stats (Settlement)
 - **S** - Announce quick summary (Reputation, Impatience, Hostility)
 - **R** - Announce resolve for all present species
 - **T** - Announce current season, time remaining, and settlement year
-- **Alt+S** - Open stats panel for detailed breakdown
-- **Alt+R** - Open resource panel for inventory browsing
-- **M** - Open mysteries/modifiers panel
+- **F1** - Open information panels menu
 - **Space** - Toggle pause
 - **1-4** - Set game speed
+
+### Information Panels Menu (F1)
+- **F1** - Open menu (announces "Information panels. Stats")
+- **Up/Down** - Navigate menu items (Stats, Resources, Mysteries)
+- **Enter/Right Arrow** - Open selected panel
+- **Left Arrow** - Return from panel to menu
+- **Escape** - Close menu and return to map
 
 ### Stats Panel (when open)
 - **Up/Down** - Navigate categories (left panel) or details (right panel)
@@ -165,8 +171,8 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 ### World Map Scanner
 - **PageUp/Down** - Cycle feature types (settlements, resources, etc.)
 - **Alt+PageUp/Down** - Cycle items within current type
-- **Home** - Announce direction to current item
-- **End** - Jump cursor to current item
+- **Home** - Jump cursor to current item
+- **End** - Announce direction to current item
 
 ### Embark Panel (pre-expedition setup)
 - **Up/Down** - Navigate within current section

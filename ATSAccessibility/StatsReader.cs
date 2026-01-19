@@ -44,6 +44,10 @@ namespace ATSAccessibility
         // Reusable object array for single-argument method invocations (avoid allocations in loops)
         private static readonly object[] _singleArgArray = new object[1];
 
+        // Species cycling state for V key
+        private static int _currentSpeciesIndex = 0;
+        private static List<string> _cachedPresentRaces = null;
+
         // ========================================
         // INITIALIZATION
         // ========================================
@@ -627,6 +631,47 @@ namespace ATSAccessibility
             string message = string.Join(", ", parts);
             Speech.Say(message);
             Debug.Log($"[ATSAccessibility] Resolve: {message}");
+        }
+
+        /// <summary>
+        /// Announce next species in rotation with population and resolve (V key).
+        /// Cycles through present species one at a time.
+        /// </summary>
+        public static void AnnounceNextSpeciesResolve()
+        {
+            // Refresh the list of present races
+            _cachedPresentRaces = GetPresentRaces();
+
+            if (_cachedPresentRaces.Count == 0)
+            {
+                Speech.Say("No species present");
+                return;
+            }
+
+            // Wrap index if needed
+            if (_currentSpeciesIndex >= _cachedPresentRaces.Count)
+            {
+                _currentSpeciesIndex = 0;
+            }
+
+            string race = _cachedPresentRaces[_currentSpeciesIndex];
+            int population = GetRaceCount(race);
+            var (resolve, threshold, _) = GetResolveSummary(race);
+
+            // Pluralize species name if more than 1
+            string raceName = population == 1 ? race : race + "s";
+
+            // Format: "7 Humans, resolve 8 of 15"
+            string message = $"{population} {raceName}, resolve {Mathf.FloorToInt(resolve)} of {threshold}";
+            Speech.Say(message);
+            Debug.Log($"[ATSAccessibility] Species resolve: {message}");
+
+            // Advance to next species for next press
+            _currentSpeciesIndex++;
+            if (_currentSpeciesIndex >= _cachedPresentRaces.Count)
+            {
+                _currentSpeciesIndex = 0;
+            }
         }
 
         // ========================================

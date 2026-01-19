@@ -46,8 +46,14 @@ namespace ATSAccessibility
             _rotation = 0;
             _isActive = true;
 
-            Speech.Say($"Build mode: {buildingName}. R to rotate, Space to place, Tab for menu.");
-            Debug.Log($"[ATSAccessibility] Entered build mode for: {buildingName}");
+            // Get building size for initial announcement
+            Vector2Int size = GameReflection.GetBuildingSize(buildingModel);
+            int extendEast = size.x - 1;
+            int extendNorth = size.y - 1;
+            string extension = GetExtensionAnnouncement(extendEast, extendNorth);
+
+            Speech.Say($"Build mode: {buildingName}, {extension}");
+            Debug.Log($"[ATSAccessibility] Entered build mode for: {buildingName} (size {size.x}x{size.y})");
         }
 
         /// <summary>
@@ -126,11 +132,52 @@ namespace ATSAccessibility
         /// </summary>
         private void RotateBuilding()
         {
+            // Check if the building model allows rotation
+            if (!GameReflection.CanRotateBuildingModel(_selectedBuildingModel))
+            {
+                Speech.Say("Cannot rotate");
+                return;
+            }
+
             _rotation = (_rotation + 1) % 4;
             string direction = GetCardinalDirection(_rotation);
 
-            Speech.Say($"{_selectedBuildingName} facing {direction}");
-            Debug.Log($"[ATSAccessibility] Building rotated to {_rotation} ({direction})");
+            // Get building size and adjust for rotation
+            Vector2Int baseSize = GameReflection.GetBuildingSize(_selectedBuildingModel);
+            bool isRotated = (_rotation % 2) == 1;
+            int extendEast = (isRotated ? baseSize.y : baseSize.x) - 1;
+            int extendNorth = (isRotated ? baseSize.x : baseSize.y) - 1;
+
+            // Build extension announcement
+            string extension = GetExtensionAnnouncement(extendEast, extendNorth);
+
+            Speech.Say($"{direction}, {extension}");
+            Debug.Log($"[ATSAccessibility] Building rotated to {_rotation} ({direction}), extends {extendEast}E {extendNorth}N");
+        }
+
+        /// <summary>
+        /// Get a readable announcement of how far the building extends from cursor.
+        /// </summary>
+        private string GetExtensionAnnouncement(int east, int north)
+        {
+            // Handle 1x1 buildings
+            if (east == 0 && north == 0)
+            {
+                return "1 tile";
+            }
+
+            var parts = new System.Collections.Generic.List<string>();
+
+            if (east > 0)
+            {
+                parts.Add($"{east} east");
+            }
+            if (north > 0)
+            {
+                parts.Add($"{north} north");
+            }
+
+            return "extends " + string.Join(", ", parts);
         }
 
         /// <summary>

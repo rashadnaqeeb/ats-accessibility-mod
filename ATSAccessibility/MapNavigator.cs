@@ -312,23 +312,33 @@ namespace ATSAccessibility
                 if (typeValue == null) return "unknown";
 
                 var typeType = typeValue.GetType();
+                string result = null;
 
                 // Try to get displayName or name from the type object
                 var displayNameProp = typeType.GetProperty("displayName");
                 if (displayNameProp != null)
                 {
                     var displayName = displayNameProp.GetValue(typeValue);
-                    if (displayName != null) return displayName.ToString();
+                    if (displayName != null) result = displayName.ToString();
                 }
 
-                var nameProp = typeType.GetProperty("name");
-                if (nameProp != null)
+                if (result == null)
                 {
-                    var name = nameProp.GetValue(typeValue);
-                    if (name != null) return name.ToString();
+                    var nameProp = typeType.GetProperty("name");
+                    if (nameProp != null)
+                    {
+                        var name = nameProp.GetValue(typeValue);
+                        if (name != null) result = name.ToString();
+                    }
                 }
 
-                return typeValue.ToString();
+                if (result == null) result = typeValue.ToString();
+
+                // Map game names to more descriptive names
+                if (result == "Grass") return "Fertile Soil";
+                if (result == "Sand") return "Soil";
+
+                return result;
             }
             catch
             {
@@ -680,6 +690,161 @@ namespace ATSAccessibility
                 }
             }
             catch { }
+        }
+
+        // ========================================
+        // ENTRANCE ANNOUNCEMENT (E key)
+        // ========================================
+
+        /// <summary>
+        /// Announce entrance location for building at current cursor position.
+        /// Only works for buildings that show entrances (warehouses, workshops, etc.)
+        /// </summary>
+        public void AnnounceEntrance()
+        {
+            // Initialize cursor if needed
+            if (_cursorX < 0 || _cursorY < 0)
+            {
+                ResetCursor();
+            }
+
+            // Get object at cursor position
+            var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
+            if (objectOn == null || objectOn.GetType().Name == "Field")
+            {
+                Speech.Say("No building here");
+                return;
+            }
+
+            // Check if it's a building
+            if (!GameReflection.IsBuilding(objectOn))
+            {
+                Speech.Say("Not a building");
+                return;
+            }
+
+            // Check if this building type shows entrances
+            if (!GameReflection.GetBuildingShouldShowEntrance(objectOn))
+            {
+                Speech.Say("No entrance");
+                return;
+            }
+
+            // Get entrance tile
+            var entranceTile = GameReflection.GetBuildingEntranceTile(objectOn);
+            if (!entranceTile.HasValue)
+            {
+                Speech.Say("Entrance not found");
+                return;
+            }
+
+            int entranceX = entranceTile.Value.x;
+            int entranceY = entranceTile.Value.y;
+
+            // Calculate distance and direction from cursor to entrance
+            int dx = entranceX - _cursorX;
+            int dy = entranceY - _cursorY;
+
+            // Check if we're already at the entrance
+            if (dx == 0 && dy == 0)
+            {
+                Speech.Say("At entrance");
+                return;
+            }
+
+            // Calculate Manhattan distance
+            int distance = Mathf.Abs(dx) + Mathf.Abs(dy);
+
+            // Determine direction
+            string direction = GetDirection(dx, dy);
+
+            // Announce
+            string tileWord = distance == 1 ? "tile" : "tiles";
+            Speech.Say($"Entrance {distance} {tileWord} {direction}");
+        }
+
+        /// <summary>
+        /// Get cardinal/intercardinal direction from delta.
+        /// </summary>
+        private string GetDirection(int dx, int dy)
+        {
+            // Determine primary direction based on deltas
+            // In this game: +X is East, +Y is North
+            if (dx == 0 && dy > 0) return "north";
+            if (dx == 0 && dy < 0) return "south";
+            if (dx > 0 && dy == 0) return "east";
+            if (dx < 0 && dy == 0) return "west";
+            if (dx > 0 && dy > 0) return "northeast";
+            if (dx > 0 && dy < 0) return "southeast";
+            if (dx < 0 && dy > 0) return "northwest";
+            if (dx < 0 && dy < 0) return "southwest";
+            return "unknown";
+        }
+
+        // ========================================
+        // BUILDING ROTATION (R key)
+        // ========================================
+
+        // Rotation directions: 0=North, 1=East, 2=South, 3=West
+        private static readonly string[] RotationDirections = { "North", "East", "South", "West" };
+
+        /// <summary>
+        /// Rotate the building at current cursor position and announce the new direction.
+        /// </summary>
+        public void RotateBuilding()
+        {
+            // Initialize cursor if needed
+            if (_cursorX < 0 || _cursorY < 0)
+            {
+                ResetCursor();
+            }
+
+            // Get object at cursor position
+            var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
+            if (objectOn == null || objectOn.GetType().Name == "Field")
+            {
+                Speech.Say("No building here");
+                return;
+            }
+
+            // Check if it's a building
+            if (!GameReflection.IsBuilding(objectOn))
+            {
+                Speech.Say("Not a building");
+                return;
+            }
+
+            // Check if building type supports rotation
+            if (!GameReflection.CanRotateBuilding(objectOn))
+            {
+                Speech.Say("Cannot rotate");
+                return;
+            }
+
+            // Check if building is movable (required for rotation)
+            if (!GameReflection.CanMovePlacedBuilding(objectOn))
+            {
+                Speech.Say("Unmovable");
+                return;
+            }
+
+            // Check if rotation would be blocked by obstacles
+            if (!GameReflection.CanRotatePlacedBuilding(objectOn))
+            {
+                Speech.Say("Rotation blocked");
+                return;
+            }
+
+            // Rotate the building
+            int newRotation = GameReflection.RotatePlacedBuilding(objectOn);
+            if (newRotation >= 0 && newRotation < RotationDirections.Length)
+            {
+                Speech.Say(RotationDirections[newRotation]);
+            }
+            else
+            {
+                Speech.Say("Rotation failed");
+            }
         }
     }
 }

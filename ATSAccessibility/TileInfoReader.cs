@@ -302,6 +302,18 @@ namespace ATSAccessibility
             {
                 info = GetResourceDepositInfo(objectOn);
             }
+            else if (typeName == "Ore")
+            {
+                info = GetOreInfo(objectOn);
+            }
+            else if (typeName == "Spring")
+            {
+                info = GetSpringInfo(objectOn);
+            }
+            else if (typeName == "Lake")
+            {
+                info = GetLakeInfo(objectOn);
+            }
             else
             {
                 // Unknown type - try generic name extraction
@@ -424,18 +436,18 @@ namespace ATSAccessibility
 
                 var parts = new List<string>();
 
+                // Charges first: chargesLeft from state, max from model
+                string chargesInfo = GetChargesInfo(state, stateChargesLeftField, model, modelChargesField);
+                if (!string.IsNullOrEmpty(chargesInfo))
+                {
+                    parts.Add(chargesInfo);
+                }
+
                 // Description - NaturalResourceModel uses a 'description' field (LocaText), not a property
                 string desc = GetLocalizedText(model, "description");
                 if (!string.IsNullOrEmpty(desc))
                 {
                     parts.Add(desc);
-                }
-
-                // Charges: chargesLeft from state, max from model
-                string chargesInfo = GetChargesInfo(state, stateChargesLeftField, model, modelChargesField);
-                if (!string.IsNullOrEmpty(chargesInfo))
-                {
-                    parts.Add(chargesInfo);
                 }
 
                 // Main product
@@ -526,18 +538,18 @@ namespace ATSAccessibility
 
                 var parts = new List<string>();
 
+                // Charges first: both values from state for deposits
+                string chargesInfo = GetChargesInfo(state, stateChargesLeftField, state, stateMaxChargesField);
+                if (!string.IsNullOrEmpty(chargesInfo))
+                {
+                    parts.Add(chargesInfo);
+                }
+
                 // Description
                 string desc = GetStringProperty(model, descProp);
                 if (!string.IsNullOrEmpty(desc))
                 {
                     parts.Add(desc);
-                }
-
-                // Charges: both values from state for deposits
-                string chargesInfo = GetChargesInfo(state, stateChargesLeftField, state, stateMaxChargesField);
-                if (!string.IsNullOrEmpty(chargesInfo))
-                {
-                    parts.Add(chargesInfo);
                 }
 
                 // Main product
@@ -566,6 +578,217 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] GetResourceDepositInfo failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get info for an ore deposit (copper vein, etc).
+        /// Includes: total charges, description, products.
+        /// </summary>
+        private static string GetOreInfo(object ore)
+        {
+            try
+            {
+                var oreType = ore.GetType();
+
+                // Get Model property
+                var modelProp = oreType.GetProperty("Model");
+                if (modelProp == null) return null;
+
+                var model = modelProp.GetValue(ore);
+                if (model == null) return null;
+
+                // Get State property
+                var stateProp = oreType.GetProperty("State");
+                var state = stateProp?.GetValue(ore);
+
+                var parts = new List<string>();
+
+                // Get total charges from state (mainCharges + extraCharges arrays)
+                if (state != null)
+                {
+                    var stateType = state.GetType();
+                    var mainChargesField = stateType.GetField("mainCharges", BindingFlags.Public | BindingFlags.Instance);
+                    var extraChargesField = stateType.GetField("extraCharges", BindingFlags.Public | BindingFlags.Instance);
+
+                    int totalCharges = 0;
+                    if (mainChargesField != null)
+                    {
+                        var mainCharges = mainChargesField.GetValue(state) as int[];
+                        if (mainCharges != null)
+                        {
+                            foreach (int c in mainCharges) totalCharges += c;
+                        }
+                    }
+                    if (extraChargesField != null)
+                    {
+                        var extraCharges = extraChargesField.GetValue(state) as int[];
+                        if (extraCharges != null)
+                        {
+                            foreach (int c in extraCharges) totalCharges += c;
+                        }
+                    }
+
+                    if (totalCharges > 0)
+                    {
+                        parts.Add($"{totalCharges} charges remaining");
+                    }
+                }
+
+                // Description
+                string desc = GetLocalizedText(model, "description");
+                if (!string.IsNullOrEmpty(desc))
+                {
+                    parts.Add(desc);
+                }
+
+                // Product info from displayProduct
+                var modelType = model.GetType();
+                var displayProductField = modelType.GetField("displayProduct", BindingFlags.Public | BindingFlags.Instance);
+                if (displayProductField != null)
+                {
+                    var displayProduct = displayProductField.GetValue(model);
+                    if (displayProduct != null)
+                    {
+                        var goodField = displayProduct.GetType().GetField("good", BindingFlags.Public | BindingFlags.Instance);
+                        if (goodField != null)
+                        {
+                            var good = goodField.GetValue(displayProduct);
+                            if (good != null)
+                            {
+                                string productName = GetLocalizedText(good, "displayName");
+                                if (!string.IsNullOrEmpty(productName))
+                                {
+                                    parts.Add($"Produces {productName}");
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return parts.Count > 0 ? string.Join(", ", parts) : null;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetOreInfo failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get info for a spring (water source).
+        /// Includes: charges, description.
+        /// </summary>
+        private static string GetSpringInfo(object spring)
+        {
+            try
+            {
+                var springType = spring.GetType();
+
+                // Get Model property
+                var modelProp = springType.GetProperty("Model");
+                if (modelProp == null) return null;
+
+                var model = modelProp.GetValue(spring);
+                if (model == null) return null;
+
+                // Get State property
+                var stateProp = springType.GetProperty("State");
+                var state = stateProp?.GetValue(spring);
+
+                var parts = new List<string>();
+
+                // Get charges from state
+                if (state != null)
+                {
+                    var stateType = state.GetType();
+                    var chargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
+                    var maxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
+
+                    int chargesLeft = GetIntField(state, chargesLeftField);
+                    int maxCharges = GetIntField(state, maxChargesField);
+
+                    if (maxCharges > 0)
+                    {
+                        parts.Add($"{chargesLeft} of {maxCharges} charges");
+                    }
+                }
+
+                // Description
+                string desc = GetLocalizedText(model, "description");
+                if (!string.IsNullOrEmpty(desc))
+                {
+                    parts.Add(desc);
+                }
+
+                return parts.Count > 0 ? string.Join(", ", parts) : null;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetSpringInfo failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get info for a lake (fishing spot).
+        /// Includes: charges, description, products.
+        /// </summary>
+        private static string GetLakeInfo(object lake)
+        {
+            try
+            {
+                var lakeType = lake.GetType();
+
+                // Get Model property
+                var modelProp = lakeType.GetProperty("Model");
+                if (modelProp == null) return null;
+
+                var model = modelProp.GetValue(lake);
+                if (model == null) return null;
+
+                // Get State property
+                var stateProp = lakeType.GetProperty("State");
+                var state = stateProp?.GetValue(lake);
+
+                var parts = new List<string>();
+
+                // Get charges from state
+                if (state != null)
+                {
+                    var stateType = state.GetType();
+                    var chargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
+                    var maxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
+
+                    int chargesLeft = GetIntField(state, chargesLeftField);
+                    int maxCharges = GetIntField(state, maxChargesField);
+
+                    if (maxCharges > 0)
+                    {
+                        parts.Add($"{chargesLeft} of {maxCharges} charges");
+                    }
+                }
+
+                // Description
+                string desc = GetLocalizedText(model, "description");
+                if (!string.IsNullOrEmpty(desc))
+                {
+                    parts.Add(desc);
+                }
+
+                // Product info from production field
+                string productInfo = GetMainProductInfo(model);
+                if (!string.IsNullOrEmpty(productInfo))
+                {
+                    parts.Add($"Produces {productInfo}");
+                }
+
+                return parts.Count > 0 ? string.Join(", ", parts) : null;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetLakeInfo failed: {ex.Message}");
                 return null;
             }
         }

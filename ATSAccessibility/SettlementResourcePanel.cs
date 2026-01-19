@@ -117,8 +117,12 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.LeftArrow:
-                    ReturnToCategories();
-                    return true;
+                    if (_focusOnItems)
+                    {
+                        ReturnToCategories();
+                        return true;
+                    }
+                    return false;  // At root level, let parent handle
 
                 case KeyCode.Escape:
                     Close();
@@ -292,9 +296,10 @@ namespace ATSAccessibility
 
             var category = _categories[_currentCategoryIndex];
             int itemCount = category.Items.Count;
+            string typeWord = itemCount == 1 ? "type" : "types";
 
-            Speech.Say($"{category.Name}: {itemCount}");
-            Debug.Log($"[ATSAccessibility] Category {_currentCategoryIndex + 1}/{_categories.Count}: {category.Name}, {itemCount} items");
+            Speech.Say($"{category.Name}: {itemCount} {typeWord}");
+            Debug.Log($"[ATSAccessibility] Category {_currentCategoryIndex + 1}/{_categories.Count}: {category.Name}, {itemCount} {typeWord}");
         }
 
         /// <summary>
@@ -306,10 +311,8 @@ namespace ATSAccessibility
             if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return;
 
             var item = category.Items[_currentItemIndex];
-            string position = $"{_currentItemIndex + 1} of {category.Items.Count}";
-
-            Speech.Say($"{item.Name}, {item.Amount}. {position}");
-            Debug.Log($"[ATSAccessibility] Item {position}: {item.Name} x{item.Amount}");
+            Speech.Say($"{item.Name}, {item.Amount}");
+            Debug.Log($"[ATSAccessibility] Item: {item.Name} x{item.Amount}");
         }
     }
 }

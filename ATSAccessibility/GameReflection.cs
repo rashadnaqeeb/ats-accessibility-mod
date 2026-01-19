@@ -618,6 +618,9 @@ namespace ATSAccessibility
         private static PropertyInfo _villagersVillagersProperty = null;  // Dictionary<int, Villager>
         private static PropertyInfo _gsResourcesServiceProperty = null;
         private static PropertyInfo _gsDepositsServiceProperty = null;
+        private static PropertyInfo _gsOreServiceProperty = null;
+        private static PropertyInfo _gsSpringsServiceProperty = null;
+        private static PropertyInfo _gsLakesServiceProperty = null;
         private static PropertyInfo _gsBuildingsServiceProperty = null;
         private static PropertyInfo _gsGladesProperty = null;  // GladesService.Glades list
         private static PropertyInfo _mapFieldsProperty = null;  // MapService.Fields (Map<Field>)
@@ -652,6 +655,12 @@ namespace ATSAccessibility
                     _gsResourcesServiceProperty = gameServicesType.GetProperty("ResourcesService",
                         BindingFlags.Public | BindingFlags.Instance);
                     _gsDepositsServiceProperty = gameServicesType.GetProperty("DepositsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsOreServiceProperty = gameServicesType.GetProperty("OreService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsSpringsServiceProperty = gameServicesType.GetProperty("SpringsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsLakesServiceProperty = gameServicesType.GetProperty("LakesService",
                         BindingFlags.Public | BindingFlags.Instance);
                     _gsBuildingsServiceProperty = gameServicesType.GetProperty("BuildingsService",
                         BindingFlags.Public | BindingFlags.Instance);
@@ -807,6 +816,36 @@ namespace ATSAccessibility
         {
             EnsureMapTypes();
             return TryGetPropertyValue<object>(_gsDepositsServiceProperty, GetGameServices());
+        }
+
+        /// <summary>
+        /// Get OreService from GameServices.
+        /// Contains Ores dictionary (copper veins, etc.).
+        /// </summary>
+        public static object GetOreService()
+        {
+            EnsureMapTypes();
+            return TryGetPropertyValue<object>(_gsOreServiceProperty, GetGameServices());
+        }
+
+        /// <summary>
+        /// Get SpringsService from GameServices.
+        /// Contains Springs dictionary (water sources).
+        /// </summary>
+        public static object GetSpringsService()
+        {
+            EnsureMapTypes();
+            return TryGetPropertyValue<object>(_gsSpringsServiceProperty, GetGameServices());
+        }
+
+        /// <summary>
+        /// Get LakesService from GameServices.
+        /// Contains Lakes dictionary (fishing spots).
+        /// </summary>
+        public static object GetLakesService()
+        {
+            EnsureMapTypes();
+            return TryGetPropertyValue<object>(_gsLakesServiceProperty, GetGameServices());
         }
 
         /// <summary>
@@ -2824,6 +2863,374 @@ namespace ATSAccessibility
             catch
             {
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the entrance tile coordinates for a building.
+        /// Returns null if the building has no entrance or if it can't be determined.
+        /// </summary>
+        public static Vector2Int? GetBuildingEntranceTile(object building)
+        {
+            if (building == null) return null;
+
+            try
+            {
+                // Get Entrance property (Vector3 world position)
+                var entranceProperty = building.GetType().GetProperty("Entrance",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (entranceProperty == null) return null;
+
+                var entrancePos = (Vector3)entranceProperty.GetValue(building);
+
+                // Convert world position to tile coordinates
+                return new Vector2Int(
+                    Mathf.FloorToInt(entrancePos.x),
+                    Mathf.FloorToInt(entrancePos.z)
+                );
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if a building should show its entrance (has meaningful entrance for gameplay).
+        /// </summary>
+        public static bool GetBuildingShouldShowEntrance(object building)
+        {
+            if (building == null) return false;
+
+            try
+            {
+                // ShouldShowEntrance is a protected virtual property
+                var shouldShowProp = building.GetType().GetProperty("ShouldShowEntrance",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                if (shouldShowProp != null)
+                {
+                    return (bool)shouldShowProp.GetValue(building);
+                }
+            }
+            catch { }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if a building instance can be rotated.
+        /// </summary>
+        public static bool CanRotateBuilding(object building)
+        {
+            if (building == null) return false;
+
+            try
+            {
+                // Get BuildingModel property
+                var modelProp = building.GetType().GetProperty("BuildingModel",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (modelProp == null) return false;
+
+                var model = modelProp.GetValue(building);
+                return CanRotateBuildingModel(model);
+            }
+            catch { }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if a building model allows rotation.
+        /// </summary>
+        public static bool CanRotateBuildingModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+
+            try
+            {
+                // Get canRotate field from model
+                var canRotateField = buildingModel.GetType().GetField("canRotate",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (canRotateField != null)
+                {
+                    return (bool)canRotateField.GetValue(buildingModel);
+                }
+            }
+            catch { }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if a building can be moved (required for rotation).
+        /// </summary>
+        public static bool CanMovePlacedBuilding(object building)
+        {
+            if (building == null) return false;
+
+            try
+            {
+                var constructionService = GetConstructionService();
+                if (constructionService == null) return false;
+
+                // Get CanBeMoved method (takes Building parameter)
+                var canMoveMethod = constructionService.GetType().GetMethod("CanBeMoved",
+                    BindingFlags.Public | BindingFlags.Instance,
+                    null, new Type[] { building.GetType() }, null);
+
+                // Try with base Building type if exact type doesn't match
+                if (canMoveMethod == null)
+                {
+                    var buildingType = _gameAssembly?.GetType("Eremite.Buildings.Building");
+                    if (buildingType != null)
+                    {
+                        canMoveMethod = constructionService.GetType().GetMethod("CanBeMoved",
+                            BindingFlags.Public | BindingFlags.Instance,
+                            null, new Type[] { buildingType }, null);
+                    }
+                }
+
+                if (canMoveMethod == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] CanBeMoved method not found");
+                    return true; // Fall back to allowing
+                }
+
+                return (bool)canMoveMethod.Invoke(constructionService, new object[] { building });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CanMovePlacedBuilding failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a placed building can be rotated in place.
+        /// Uses the game's ConstructionService.CanBeRotatedInPlace check.
+        /// </summary>
+        public static bool CanRotatePlacedBuilding(object building)
+        {
+            if (building == null) return false;
+
+            try
+            {
+                var constructionService = GetConstructionService();
+                if (constructionService == null) return false;
+
+                // Get CanBeRotatedInPlace method
+                var canRotateMethod = constructionService.GetType().GetMethod("CanBeRotatedInPlace",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (canRotateMethod == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] CanBeRotatedInPlace method not found");
+                    return true; // Fall back to allowing rotation
+                }
+
+                return (bool)canRotateMethod.Invoke(constructionService, new object[] { building });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CanRotatePlacedBuilding failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Rotate a placed building and return the new rotation (0-3).
+        /// Properly updates the map grid by removing and re-placing the building.
+        /// Call CanMovePlacedBuilding and CanRotatePlacedBuilding first to check validity.
+        /// Returns -1 if rotation failed.
+        /// </summary>
+        public static int RotatePlacedBuilding(object building)
+        {
+            if (building == null) return -1;
+
+            try
+            {
+                // Get MapService for grid operations
+                var mapService = GetMapService();
+                if (mapService == null)
+                {
+                    Debug.LogError("[ATSAccessibility] RotatePlacedBuilding: MapService not found");
+                    return -1;
+                }
+
+                // Get RemoveFromGrid and PlaceOnGrid methods
+                var removeMethod = mapService.GetType().GetMethod("RemoveFromGrid",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var placeMethod = mapService.GetType().GetMethod("PlaceOnGrid",
+                    BindingFlags.Public | BindingFlags.Instance);
+
+                if (removeMethod == null || placeMethod == null)
+                {
+                    Debug.LogError("[ATSAccessibility] RotatePlacedBuilding: Grid methods not found");
+                    return -1;
+                }
+
+                // Get the Rotate method
+                var rotateMethod = building.GetType().GetMethod("Rotate",
+                    BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
+                if (rotateMethod == null)
+                {
+                    Debug.LogError("[ATSAccessibility] RotatePlacedBuilding: Rotate method not found");
+                    return -1;
+                }
+
+                // 1. Remove from grid (clears old footprint)
+                removeMethod.Invoke(mapService, new object[] { building });
+
+                // 2. Rotate the building
+                rotateMethod.Invoke(building, null);
+
+                // 3. Re-place on grid (sets new footprint)
+                placeMethod.Invoke(mapService, new object[] { building });
+
+                // Get the new rotation value
+                var rotationProp = building.GetType().GetProperty("Rotation",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (rotationProp != null)
+                {
+                    return (int)rotationProp.GetValue(building);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] RotatePlacedBuilding failed: {ex.Message}");
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// Get a building's grid position.
+        /// Returns the building's Field property as Vector2Int.
+        /// </summary>
+        public static Vector2Int GetBuildingGridPosition(object building)
+        {
+            if (building == null) return Vector2Int.zero;
+
+            try
+            {
+                // _buildingFieldProperty may already be cached from Ancient Hearth code
+                if (_buildingFieldProperty == null)
+                {
+                    _buildingFieldProperty = building.GetType().GetProperty("Field",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                if (_buildingFieldProperty != null)
+                {
+                    var field = _buildingFieldProperty.GetValue(building);
+                    if (field is Vector2Int pos)
+                    {
+                        return pos;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetBuildingGridPosition failed: {ex.Message}");
+            }
+
+            return Vector2Int.zero;
+        }
+
+        /// <summary>
+        /// Get the building model (template) from a placed building instance.
+        /// Returns the BuildingModel that was used to create this building.
+        /// </summary>
+        public static object GetBuildingModel(object building)
+        {
+            if (building == null) return null;
+
+            try
+            {
+                // Building.BuildingModel property returns the BuildingModel
+                var modelProperty = building.GetType().GetProperty("BuildingModel",
+                    BindingFlags.Public | BindingFlags.Instance);
+
+                if (modelProperty != null)
+                {
+                    return modelProperty.GetValue(building);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetBuildingModel failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Lift a building from the map grid without destroying it.
+        /// This removes the building's footprint from the grid but keeps the object.
+        /// Call PlaceBuildingOnGrid to put it back.
+        /// </summary>
+        public static void LiftBuilding(object building)
+        {
+            if (building == null) return;
+
+            try
+            {
+                var mapService = GetMapService();
+                if (mapService == null)
+                {
+                    Debug.LogError("[ATSAccessibility] LiftBuilding: MapService not found");
+                    return;
+                }
+
+                var removeMethod = mapService.GetType().GetMethod("RemoveFromGrid",
+                    BindingFlags.Public | BindingFlags.Instance);
+
+                if (removeMethod == null)
+                {
+                    Debug.LogError("[ATSAccessibility] LiftBuilding: RemoveFromGrid method not found");
+                    return;
+                }
+
+                removeMethod.Invoke(mapService, new object[] { building });
+                Debug.Log("[ATSAccessibility] Building lifted from grid");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] LiftBuilding failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Place a building on the map grid at its current position.
+        /// Use after LiftBuilding and SetBuildingPosition to move a building.
+        /// </summary>
+        public static void PlaceBuildingOnGrid(object building)
+        {
+            if (building == null) return;
+
+            try
+            {
+                var mapService = GetMapService();
+                if (mapService == null)
+                {
+                    Debug.LogError("[ATSAccessibility] PlaceBuildingOnGrid: MapService not found");
+                    return;
+                }
+
+                var placeMethod = mapService.GetType().GetMethod("PlaceOnGrid",
+                    BindingFlags.Public | BindingFlags.Instance);
+
+                if (placeMethod == null)
+                {
+                    Debug.LogError("[ATSAccessibility] PlaceBuildingOnGrid: PlaceOnGrid method not found");
+                    return;
+                }
+
+                placeMethod.Invoke(mapService, new object[] { building });
+                Debug.Log("[ATSAccessibility] Building placed on grid");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] PlaceBuildingOnGrid failed: {ex.Message}");
             }
         }
     }

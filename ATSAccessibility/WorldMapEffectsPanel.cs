@@ -104,21 +104,20 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Announce the current item with position.
-        /// Format: "Name. Description. X of Y"
+        /// Announce the current item.
+        /// Format: "Name. Description"
         /// </summary>
         private void AnnounceCurrentItem()
         {
             if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
 
             var item = _items[_currentIndex];
-            string position = $"{_currentIndex + 1} of {_items.Count}";
 
             string message;
             if (string.IsNullOrEmpty(item.description))
-                message = $"{item.name}. {position}";
+                message = item.name;
             else
-                message = $"{item.name}. {item.description} {position}";
+                message = $"{item.name}. {item.description}";
 
             Speech.Say(message);
         }
