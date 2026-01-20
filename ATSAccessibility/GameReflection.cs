@@ -2904,6 +2904,146 @@ namespace ATSAccessibility
             }
         }
 
+        // Cached reflection for PickBuilding
+        private static PropertyInfo _modeServiceProperty = null;
+        private static PropertyInfo _destructionModeProperty = null;
+        private static PropertyInfo _harvestModeProperty = null;
+        private static MethodInfo _buildingPickMethod = null;
+        private static bool _pickBuildingCached = false;
+
+        /// <summary>
+        /// Pick/select a building to open its panel.
+        /// Returns true if successful, false if in a mode that prevents picking
+        /// or if the building cannot be picked.
+        /// </summary>
+        public static bool PickBuilding(object building)
+        {
+            if (building == null) return false;
+            if (!IsBuilding(building)) return false;
+
+            try
+            {
+                // Cache reflection info
+                if (!_pickBuildingCached)
+                {
+                    CachePickBuildingReflection();
+                }
+
+                // Check if in destruction mode or harvest mode (don't pick in these modes)
+                if (IsInDestructionMode() || IsInHarvestMode())
+                {
+                    Debug.Log("[ATSAccessibility] Cannot pick building: in destruction or harvest mode");
+                    return false;
+                }
+
+                // Get or cache the Pick method
+                if (_buildingPickMethod == null)
+                {
+                    var buildingType = _gameAssembly?.GetType("Eremite.Buildings.Building");
+                    if (buildingType != null)
+                    {
+                        _buildingPickMethod = buildingType.GetMethod("Pick",
+                            BindingFlags.Public | BindingFlags.Instance);
+                    }
+                }
+
+                if (_buildingPickMethod == null)
+                {
+                    Debug.LogError("[ATSAccessibility] Could not find Building.Pick method");
+                    return false;
+                }
+
+                // Call Pick() on the building
+                _buildingPickMethod.Invoke(building, null);
+                Debug.Log("[ATSAccessibility] Picked building successfully");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] PickBuilding failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void CachePickBuildingReflection()
+        {
+            try
+            {
+                // Get ModeService from GameServices
+                var gameServicesType = _gameAssembly?.GetType("Eremite.Services.GameServices");
+                if (gameServicesType != null)
+                {
+                    _modeServiceProperty = gameServicesType.GetProperty("ModeService",
+                        BindingFlags.Public | BindingFlags.Static);
+                }
+
+                // Get mode properties from ModeService type
+                var modeServiceType = _gameAssembly?.GetType("Eremite.Services.ModeService");
+                if (modeServiceType != null)
+                {
+                    _destructionModeProperty = modeServiceType.GetProperty("BuildingDestructionMode",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _harvestModeProperty = modeServiceType.GetProperty("HarvestMode",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                _pickBuildingCached = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CachePickBuildingReflection failed: {ex.Message}");
+                _pickBuildingCached = true; // Don't retry
+            }
+        }
+
+        private static bool IsInDestructionMode()
+        {
+            try
+            {
+                if (_modeServiceProperty == null) return false;
+
+                var modeService = _modeServiceProperty.GetValue(null);
+                if (modeService == null || _destructionModeProperty == null) return false;
+
+                var destructionMode = _destructionModeProperty.GetValue(modeService);
+                if (destructionMode == null) return false;
+
+                // It's a ReactiveProperty<bool>, get the Value
+                var valueProperty = destructionMode.GetType().GetProperty("Value");
+                if (valueProperty == null) return false;
+
+                return (bool)valueProperty.GetValue(destructionMode);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsInHarvestMode()
+        {
+            try
+            {
+                if (_modeServiceProperty == null) return false;
+
+                var modeService = _modeServiceProperty.GetValue(null);
+                if (modeService == null || _harvestModeProperty == null) return false;
+
+                var harvestMode = _harvestModeProperty.GetValue(modeService);
+                if (harvestMode == null) return false;
+
+                // It's a ReactiveProperty<bool>, get the Value
+                var valueProperty = harvestMode.GetType().GetProperty("Value");
+                if (valueProperty == null) return false;
+
+                return (bool)valueProperty.GetValue(harvestMode);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         /// <summary>
         /// Get the entrance tile coordinates for a building.
         /// Returns null if the building has no entrance or if it can't be determined.

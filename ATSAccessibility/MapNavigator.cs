@@ -693,6 +693,49 @@ namespace ATSAccessibility
         }
 
         // ========================================
+        // BUILDING ACTIVATION (Enter key)
+        // ========================================
+
+        /// <summary>
+        /// Activate/open the building panel for the building at current cursor position.
+        /// Returns true if a building was activated, false otherwise.
+        /// </summary>
+        public bool ActivateBuilding()
+        {
+            // Initialize cursor if needed
+            if (_cursorX < 0 || _cursorY < 0)
+            {
+                ResetCursor();
+            }
+
+            // Get object at cursor position
+            var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
+            if (objectOn == null || objectOn.GetType().Name == "Field")
+            {
+                Speech.Say("No building here");
+                return false;
+            }
+
+            // Check if it's a building
+            if (!GameReflection.IsBuilding(objectOn))
+            {
+                Speech.Say("Not a building");
+                return false;
+            }
+
+            // Try to pick the building (opens its panel)
+            if (GameReflection.PickBuilding(objectOn))
+            {
+                return true;
+            }
+            else
+            {
+                Speech.Say("Cannot open building");
+                return false;
+            }
+        }
+
+        // ========================================
         // ENTRANCE ANNOUNCEMENT (E key)
         // ========================================
 

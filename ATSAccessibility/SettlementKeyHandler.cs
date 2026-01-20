@@ -147,6 +147,12 @@ namespace ATSAccessibility
                     _mapNavigator.RotateBuilding();
                     return true;
 
+                // Building activation (opens building panel)
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                    _mapNavigator.ActivateBuilding();
+                    return true;
+
                 // Panel/menu openers
                 case KeyCode.F1:
                     _infoPanelMenu?.Open();
