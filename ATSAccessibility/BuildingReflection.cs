@@ -5736,13 +5736,26 @@ namespace ATSAccessibility
 
             try
             {
-                // GoodRef has 'good' field (GoodModel)
+                // First get the GoodModel from the 'good' field
                 var goodModel = goodRef.GetType().GetField("good", GameReflection.PublicInstance)?.GetValue(goodRef);
                 if (goodModel == null) return null;
 
-                // GoodModel has 'displayName' property
-                var displayName = goodModel.GetType().GetProperty("displayName", GameReflection.PublicInstance)?.GetValue(goodModel);
-                return GameReflection.GetLocaText(displayName);
+                // Try to get the Name property from GoodModel (inherited from SO)
+                var goodName = goodModel.GetType().GetProperty("Name", GameReflection.PublicInstance)?.GetValue(goodModel) as string;
+                if (!string.IsNullOrEmpty(goodName))
+                {
+                    // Look up the display name using the good ID
+                    return GetGoodDisplayName(goodName);
+                }
+
+                // Fallback: try displayName field directly (it's a LocaText)
+                var displayNameField = goodModel.GetType().GetField("displayName", GameReflection.PublicInstance)?.GetValue(goodModel);
+                if (displayNameField != null)
+                {
+                    return GameReflection.GetLocaText(displayNameField);
+                }
+
+                return null;
             }
             catch
             {
