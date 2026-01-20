@@ -378,3 +378,140 @@ When a method handles multiple object types (NaturalResource, Deposit, Building)
 // These are different types with different PropertyInfo
 var modelProp = obj.GetType().GetProperty("Model");  // Per-call, not cached
 ```
+
+---
+
+## Building Panel System
+
+### Detecting Panel Open/Close
+
+**Static Field:** `BuildingPanel.currentBuilding` holds the currently shown building (or null)
+
+**Events (via GameMB.GameBlackboardService):**
+- `OnBuildingPanelShown` - Fires when panel opens, passes Building
+- `OnBuildingPanelClosed` - Fires when panel closes, passes Building
+
+### Building Class Hierarchy
+
+```
+Building (base)
+├── ProductionBuilding (has workers, recipes)
+│   ├── Workshop, Farm, Mine, GathererHut, Camp
+│   ├── Collector, BlightPost, FishingHut
+│   └── RainCatcher, Extractor
+├── Hearth
+├── House
+├── Storage
+├── Institution
+├── Decoration
+├── Hydrant
+├── Relic
+├── Shrine
+├── Port
+└── Poro
+```
+
+### Common Building Data
+
+```csharp
+// Identity
+building.BuildingModel.displayName.Text  // Localized name
+building.BuildingModel.Name              // Internal name
+building.Id                              // Unique instance ID
+
+// State
+building.BuildingState.finished          // Construction complete
+building.BuildingState.isSleeping        // Is paused
+building.CanSleep()                      // Can be paused (virtual)
+building.Sleep() / building.WakeUp()     // Pause/resume
+
+// Position
+building.Field                           // Vector2Int map position
+```
+
+### Production Building Data
+
+All production buildings have workers and recipes:
+
+```csharp
+// Workers
+building.state.workers[]                 // int[] - villager IDs per slot (0 = empty)
+building.Workplaces                      // WorkplaceModel[] - slot definitions
+
+// Recipes (varies by building type)
+building.state.recipes                   // List<RecipeState> or specialized type
+building.SwitchProductionOf(recipe)      // Toggle recipe on/off
+
+// Storage (if applicable)
+building.ProductionStorage.goods         // Output goods
+building.IngredientsStorage.goods        // Input goods (Workshop, BlightPost)
+```
+
+### Recipe Data Access
+
+```csharp
+// Recipe state (common fields)
+recipeState.model                        // Recipe name
+recipeState.active                       // Is enabled
+recipeState.prio                         // Priority (some buildings)
+
+// Recipe model lookup
+MB.Settings.GetWorkshopRecipe(name)
+MB.Settings.GetFarmRecipe(name)
+MB.Settings.GetMineRecipe(name)
+// etc.
+
+// Recipe model fields
+recipe.producedGood                      // GoodRef - output
+recipe.requiredGoods                     // GoodsSet[] - ingredient slots
+recipe.productionTime                    // Base production time
+recipe.grade                             // RecipeGradeModel
+```
+
+### Building-Specific Data
+
+**Camp:** `camp.state.mode` (CampMode enum) - tree-cutting behavior
+
+**FishingHut:** `hut.state.baitMode` (FishmanBaitMode), `baitChargesLeft`
+
+**Hearth:** Fire panel, fuel selection, hub effects, sacrifice recipes, blight (main only)
+
+**Relic:** Investigation state machine - not started / in progress / complete
+
+**Port:** Expedition state machine - idle / in progress / rewards waiting
+
+**Poro:** Needs system with satisfaction levels
+
+**Shrine:** Tiered effects that unlock progressively
+
+### Worker Assignment
+
+```csharp
+// Get villager details
+var villager = GameMB.VillagersService.GetVillager(workerId);
+villager.Model.displayName.Text          // Villager name
+villager.Model.race                      // RaceModel
+
+// Get free workers by race
+var races = GameMB.RacesService.Races.Values;
+foreach (var race in races) {
+    int free = GameMB.WorkersService.GetFreeWorkersAmount(race.Name);
+}
+```
+
+### Storage/Goods Access
+
+```csharp
+// Building storage
+storage.goods                            // Dictionary access via reflection
+storage.GetFullAmount(goodName)          // Amount including reserved
+storage.GetDeliveryState(goodName)       // Delivery toggle state
+
+// Global storage
+GameMB.StorageService.Main.GetAmount(goodName)
+GameMB.StorageService.Main.Goods.goods   // All goods
+
+// Good display name
+good.displayName.Text                    // Localized name
+goodRef.DisplayName                      // Shortcut
+```
