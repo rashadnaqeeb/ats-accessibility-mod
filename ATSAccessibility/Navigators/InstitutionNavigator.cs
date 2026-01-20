@@ -32,6 +32,7 @@ namespace ATSAccessibility
         private string _buildingDescription;
         private bool _isFinished;
         private bool _isSleeping;
+        private bool _canSleep;
 
         // Service/Recipe data
         private List<ServiceInfo> _services = new List<ServiceInfo>();
@@ -92,6 +93,12 @@ namespace ATSAccessibility
             if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
                 return 0;
 
+            // Info section has sub-items for Status (pause/resume)
+            if (_sectionTypes[sectionIndex] == SectionType.Info)
+            {
+                return GetInfoSubItemCount(itemIndex);
+            }
+
             // Services have sub-items (available ingredients to choose from)
             if (_sectionTypes[sectionIndex] == SectionType.Services && itemIndex < _services.Count)
             {
@@ -136,7 +143,11 @@ namespace ATSAccessibility
 
         protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
         {
-            if (_sectionTypes[sectionIndex] == SectionType.Services && itemIndex < _services.Count)
+            if (_sectionTypes[sectionIndex] == SectionType.Info)
+            {
+                AnnounceInfoSubItem(itemIndex, subItemIndex);
+            }
+            else if (_sectionTypes[sectionIndex] == SectionType.Services && itemIndex < _services.Count)
             {
                 var service = _services[itemIndex];
                 string goodName = BuildingReflection.GetInstitutionAvailableGoodName(_building, service.RecipeIndex, subItemIndex);
@@ -146,6 +157,11 @@ namespace ATSAccessibility
 
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
         {
+            if (_sectionTypes[sectionIndex] == SectionType.Info)
+            {
+                return PerformInfoSubItemAction(itemIndex, subItemIndex);
+            }
+
             if (_sectionTypes[sectionIndex] == SectionType.Services && itemIndex < _services.Count)
             {
                 var service = _services[itemIndex];
@@ -166,6 +182,7 @@ namespace ATSAccessibility
             _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
             _isFinished = BuildingReflection.IsBuildingFinished(_building);
             _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
+            _canSleep = BuildingReflection.CanBuildingSleep(_building);
 
             RefreshServiceData();
             RefreshStorageData();
@@ -268,6 +285,20 @@ namespace ATSAccessibility
             return count;
         }
 
+        private int GetStatusItemIndex()
+        {
+            return string.IsNullOrEmpty(_buildingDescription) ? 1 : 2;
+        }
+
+        private int GetInfoSubItemCount(int itemIndex)
+        {
+            if (itemIndex == GetStatusItemIndex() && _canSleep)
+            {
+                return 1;  // Pause/Resume toggle
+            }
+            return 0;
+        }
+
         private void AnnounceInfoItem(int itemIndex)
         {
             int index = 0;
@@ -294,19 +325,66 @@ namespace ATSAccessibility
             // Status
             if (itemIndex == index)
             {
+                string status;
                 if (!_isFinished)
                 {
-                    Speech.Say("Status: Under construction");
+                    status = "Under construction";
                 }
                 else if (_isSleeping)
                 {
-                    Speech.Say("Status: Paused");
+                    status = "Paused";
                 }
                 else
                 {
-                    Speech.Say("Status: Active");
+                    status = "Active";
+                }
+
+                string announcement = $"Status: {status}";
+                if (_canSleep)
+                {
+                    announcement += _isSleeping ? ", Enter to resume" : ", Enter to pause";
+                }
+                Speech.Say(announcement);
+            }
+        }
+
+        private void AnnounceInfoSubItem(int itemIndex, int subItemIndex)
+        {
+            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
+            {
+                if (_isSleeping)
+                {
+                    Speech.Say("Resume building, Enter to confirm");
+                }
+                else
+                {
+                    Speech.Say("Pause building, workers will be unassigned, Enter to confirm");
                 }
             }
+        }
+
+        private bool PerformInfoSubItemAction(int itemIndex, int subItemIndex)
+        {
+            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
+            {
+                bool wasSleeping = _isSleeping;
+                if (BuildingReflection.ToggleBuildingSleep(_building))
+                {
+                    _isSleeping = !wasSleeping;
+                    if (!wasSleeping)
+                    {
+                        _workerIds = BuildingReflection.GetWorkerIds(_building);
+                    }
+                    Speech.Say(_isSleeping ? "Building paused" : "Building resumed");
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Cannot change building state");
+                    return false;
+                }
+            }
+            return false;
         }
 
         // ========================================

@@ -1,9 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
 BepInEx accessibility mod for "Against the Storm" providing screen reader support via Tolk library. Uses Harmony for runtime patching and reflection for game API access.
 
 ## Build & Deploy
@@ -15,133 +11,36 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 
 **Important**: Use `cp` with forward slashes and `/c/` prefix. Do NOT use Windows `copy` command.
 
-## Important File Locations
+## File Locations
 
 | Path | Description |
 |------|-------------|
 | `ATSAccessibility/` | Mod source code |
 | `game-source/` | Decompiled game source (read-only reference) |
 | `C:\Users\rasha\AppData\LocalLow\Eremite Games\Against the Storm\Player.log` | **Check first** for debugging - Unity log with `[ATSAccessibility]` output |
-| `C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\BepInEx\LogOutput.log` | BepInEx log (mod loading only) |
 
-## Architecture
+## Code Organization
 
-### Core Components
+**Reflection files** (where to add new game API access):
+- `GameReflection.cs` - Settlement game internals
+- `WorldMapReflection.cs` - World map internals
+- `EmbarkReflection.cs` - Embark/expedition setup
+- `BuildingReflection.cs` - Building panels (all types, recipes, workers)
 
-- **Plugin.cs** - BepInEx entry point, sets DLL directory for Tolk
-- **AccessibilityCore.cs** - Main MonoBehaviour, survives scene transitions via DontDestroyOnLoad
-- **Speech.cs** - Tolk wrapper for screen reader output with SAPI fallback
-- **KeyboardManager.cs** - Handler chain coordinator for IKeyHandler implementations
-- **GameReflection.cs** - Settlement game internals (services, map data)
-- **WorldMapReflection.cs** - World map internals (hex grid, nodes, biomes)
-- **EmbarkReflection.cs** - Embark/expedition setup screen
-- **WikiReflection.cs** - Encyclopedia/wiki system
-- **BuildingReflection.cs** - Building panel internals (all building types, recipes, workers)
+**Key handlers** in `KeyboardManager.cs` - priority chain where first active handler consumes key. Register in `AccessibilityCore.Start()`.
 
-### Key Handlers (priority order)
+**Base classes**:
+- `TwoLevelPanel` - Virtual panels with category→item navigation (F1 menu panels)
+- `BuildingSectionNavigator` - Building panel navigation with sections→items→sub-items
 
-Handlers registered in AccessibilityCore.Start(). First handler where `IsActive` is true AND `ProcessKey()` returns true consumes the key.
-
-- **InfoPanelMenu.cs** - F1 menu (highest priority)
-- **MenuHub.cs** - F2 quick access menu
-- **BuildingPanelHandler.cs** - Building panel navigation (routes to building-specific navigators)
-- **BuildingMenuPanel.cs** - Tab building selection
-- **BuildModeController.cs** - Building placement (passthrough for arrows)
-- **MoveModeController.cs** - Building relocation (passthrough for arrows)
-- **EncyclopediaNavigator.cs** - Wiki/encyclopedia popup
-- **UINavigator.cs** - Generic popup/menu navigation
-- **EmbarkPanel.cs** - Pre-expedition setup
-- **TutorialHandler.cs** - Tutorial tooltips (passthrough)
-- **SettlementKeyHandler.cs** - Settlement map context (fallback)
-- **WorldMapKeyHandler.cs** - World map context (fallback)
-
-### Info Panel Menu (F1)
-
-Unified menu providing access to information panels. Order: Resources, Villagers, Stats, Mysteries.
-
-| Panel | Purpose | Base Class |
-|-------|---------|------------|
-| SettlementResourcePanel | Resources by category | TwoLevelPanel |
-| VillagersPanel | Per-race workforce, resolve, needs, individual villagers | Custom (3-level) |
-| StatsPanel | Game stats (Reputation, Impatience, Hostility) | TwoLevelPanel |
-| MysteriesPanel | Forest mysteries and modifiers | TwoLevelPanel |
-
-### Two-Level Panels (TwoLevelPanel base class)
-
-Virtual speech-only panels with category→item navigation. Base class provides shared key handling (Up/Down/Enter/Right/Left/Escape) and navigation logic.
-
-To create a new two-level panel, inherit from `TwoLevelPanel` and implement:
-- `PanelName`, `EmptyMessage` - strings for announcements
-- `CategoryCount`, `CurrentItemCount` - navigation bounds
-- `RefreshData()`, `ClearData()` - data lifecycle
-- `AnnounceCategory()`, `AnnounceItem()` - speech output
-
-### VillagersPanel (Custom 3-level)
-
-Custom panel with selective 3rd level expansion. Navigation: races → details → sub-details (only for Resolve breakdown and individual villager info). Does not use TwoLevelPanel base class.
-
-### Other Navigation Components
-
-- **MapNavigator.cs** - Settlement grid navigation (cursor starts at Ancient Hearth)
-- **MapScanner.cs** - Object scanner (PageUp/Down for groups, Ctrl for categories)
-- **WorldMapNavigator.cs** - World map hex grid navigation
-- **WorldMapScanner.cs** - World map feature navigation
-- **WorldMapEffectsPanel.cs** - Single-level panel (not TwoLevelPanel)
-
-### Building Panel Navigation (BuildingSectionNavigator base class)
-
-Section-based navigation for building panels. Up to 4 levels: Sections → Items → Sub-items → Sub-sub-items. Base class provides shared key handling (Up/Down/Enter/Right/Left/Escape/+/-).
-
-To create a new building navigator, inherit from `BuildingSectionNavigator` and implement:
-- `NavigatorName` - for logging
-- `GetSections()`, `GetItemCount()` - navigation bounds
-- `AnnounceSection()`, `AnnounceItem()` - speech output
-- `RefreshData()`, `ClearData()` - data lifecycle
-- Optional: `GetSubItemCount()`, `AnnounceSubItem()`, `PerformItemAction()`, `AdjustItemValue()`
-
-| Navigator | Building Types | Sections |
-|-----------|---------------|----------|
-| ProductionNavigator | Workshop, Mine, Farm, Camp, Collector | Info, Recipes, Output, Workers |
-| HearthNavigator | Hearth (all types) | Info, Fuel, Corruption, Sacrifices |
-| HouseNavigator | House | Info, Residents |
-| RelicNavigator | Relic | Info, Investigation, Rewards |
-| InstitutionNavigator | Tavern, Temple, Clan Hall | Info, Services, Workers |
-| ShrineNavigator | Shrine | Info, Effects |
-| PortNavigator | Port | Info, Expedition, Workers |
-| FishingHutNavigator | FishingHut | Info, Bait, Recipes, Workers |
-| PoroNavigator | Poro | Info, Needs, Products |
-| StorageNavigator | Storage (main warehouse) | Info, Goods, Abilities, Workers |
-| WaterNavigator | RainCatcher, Extractor | Info, Water, Workers |
-| HydrantNavigator | Hydrant | Info, Fuel |
-| SimpleNavigator | Decoration, other basic | Info |
-
-### Support Components
-
-- **UIElementFinder.cs** - Finds navigable UI elements
-- **InputBlocker.cs** - Prevents game input during navigation
-- **InputPatches.cs** - Harmony patches for input
-- **NavigationUtils.cs** - Index wrapping utilities
-
-## Key Patterns
+## Critical Patterns
 
 **Reflection caching**: Cache type metadata (PropertyInfo, MethodInfo, FieldInfo) but never cache service instances (destroyed on scene change).
 
-**Reflection helpers** in GameReflection.cs: `PublicInstance`, `NonPublicInstance`, `PublicStatic`, `GetLocaText(object)`.
+**Reflection dictionary iteration**: Use reflection-based iteration (get Keys, iterate, use indexer) instead of direct cast to `Dictionary<K,V>` which fails at runtime.
 
-**Lazy initialization**: Game services aren't ready at scene load. Defer initialization until first user interaction (e.g., MapNavigator initializes cursor on first arrow key).
+**Handler chain**: `IsActive` property must be side-effect free. Move cleanup logic to `ProcessKey()`.
 
-**Handler chain**: Implement `IKeyHandler` with `IsActive` property and `ProcessKey(KeyCode, KeyModifiers)`. Register in AccessibilityCore.Start() at appropriate priority. Return true to consume key, false to pass through. **Important**: `IsActive` must be side-effect free - move any cleanup logic to `ProcessKey()`.
+**Worker navigation**: Use `IsValidWorkerIndex(int)` helper to bounds-check before accessing `_workerIds[index]`. Use `BuildingReflection.IsWorkerSlotEmpty()` consistently.
 
-**Reflection files**: Add settlement code to GameReflection.cs, world map to WorldMapReflection.cs, embark to EmbarkReflection.cs, wiki to WikiReflection.cs, building panels to BuildingReflection.cs. Create new file only for new major game screen with 500+ lines.
-
-**Reflection dictionary iteration**: When getting dictionary values via reflection, use reflection-based iteration (get Keys property, iterate, use indexer) instead of direct cast to `Dictionary<K,V>` which fails at runtime.
-
-**Worker navigation**: Use `IsValidWorkerIndex(int)` helper to bounds-check before accessing `_workerIds[index]`. Use `BuildingReflection.IsWorkerSlotEmpty()` consistently (not direct array checks).
-
-**Race caching**: Use `_racesRefreshedForWorkerSection` flag to avoid redundant `GetRacesWithFreeWorkers()` calls. Add `force` parameter to `RefreshAvailableRaces(bool force = false)` for post-assignment refresh.
-
-**Cleanup guards**: Use `_isCleaningUp` flag to prevent double-cleanup when multiple paths can trigger cleanup (event handlers, ProcessKey checks, Dispose).
-
-## Game Internals Reference
-
-See `GAME-INTERNALS.md` for detailed game API documentation. Update that file as new internals are discovered.
+**Lazy initialization**: Game services aren't ready at scene load. Defer until first user interaction.

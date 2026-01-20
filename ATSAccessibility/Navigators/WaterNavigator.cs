@@ -30,6 +30,7 @@ namespace ATSAccessibility
         private string _buildingDescription;
         private bool _isFinished;
         private bool _isSleeping;
+        private bool _canSleep;
 
         // Water data
         private string _waterTypeName;
@@ -98,12 +99,45 @@ namespace ATSAccessibility
             }
         }
 
+        protected override int GetSubItemCount(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return 0;
+
+            // Info section has sub-items for Status (pause/resume)
+            if (_sectionTypes[sectionIndex] == SectionType.Info)
+            {
+                return GetInfoSubItemCount(itemIndex);
+            }
+
+            return 0;
+        }
+
+        protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (_sectionTypes[sectionIndex] == SectionType.Info)
+            {
+                AnnounceInfoSubItem(itemIndex, subItemIndex);
+            }
+        }
+
+        protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (_sectionTypes[sectionIndex] == SectionType.Info)
+            {
+                return PerformInfoSubItemAction(itemIndex, subItemIndex);
+            }
+
+            return false;
+        }
+
         protected override void RefreshData()
         {
             _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Water Building";
             _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
             _isFinished = BuildingReflection.IsBuildingFinished(_building);
             _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
+            _canSleep = BuildingReflection.CanBuildingSleep(_building);
 
             RefreshWaterData();
             RefreshWorkerData();
@@ -187,6 +221,20 @@ namespace ATSAccessibility
             return count;
         }
 
+        private int GetStatusItemIndex()
+        {
+            return string.IsNullOrEmpty(_buildingDescription) ? 1 : 2;
+        }
+
+        private int GetInfoSubItemCount(int itemIndex)
+        {
+            if (itemIndex == GetStatusItemIndex() && _canSleep)
+            {
+                return 1;  // Pause/Resume toggle
+            }
+            return 0;
+        }
+
         private void AnnounceInfoItem(int itemIndex)
         {
             int index = 0;
@@ -213,19 +261,66 @@ namespace ATSAccessibility
             // Status
             if (itemIndex == index)
             {
+                string status;
                 if (!_isFinished)
                 {
-                    Speech.Say("Status: Under construction");
+                    status = "Under construction";
                 }
                 else if (_isSleeping)
                 {
-                    Speech.Say("Status: Paused");
+                    status = "Paused";
                 }
                 else
                 {
-                    Speech.Say("Status: Active");
+                    status = "Active";
+                }
+
+                string announcement = $"Status: {status}";
+                if (_canSleep)
+                {
+                    announcement += _isSleeping ? ", Enter to resume" : ", Enter to pause";
+                }
+                Speech.Say(announcement);
+            }
+        }
+
+        private void AnnounceInfoSubItem(int itemIndex, int subItemIndex)
+        {
+            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
+            {
+                if (_isSleeping)
+                {
+                    Speech.Say("Resume building, Enter to confirm");
+                }
+                else
+                {
+                    Speech.Say("Pause building, workers will be unassigned, Enter to confirm");
                 }
             }
+        }
+
+        private bool PerformInfoSubItemAction(int itemIndex, int subItemIndex)
+        {
+            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
+            {
+                bool wasSleeping = _isSleeping;
+                if (BuildingReflection.ToggleBuildingSleep(_building))
+                {
+                    _isSleeping = !wasSleeping;
+                    if (!wasSleeping)
+                    {
+                        _workerIds = BuildingReflection.GetWorkerIds(_building);
+                    }
+                    Speech.Say(_isSleeping ? "Building paused" : "Building resumed");
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Cannot change building state");
+                    return false;
+                }
+            }
+            return false;
         }
 
         // ========================================

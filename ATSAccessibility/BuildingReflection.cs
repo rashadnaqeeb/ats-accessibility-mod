@@ -2002,6 +2002,84 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Check if building supports being paused (sleep).
+        /// Most finished production buildings with workers can sleep.
+        /// Hearth, Storage, Port, Relic, Road cannot sleep when finished.
+        /// </summary>
+        public static bool CanBuildingSleep(object building)
+        {
+            if (building == null) return false;
+
+            try
+            {
+                var canSleepMethod = building.GetType().GetMethod("CanSleep", GameReflection.PublicInstance);
+                return (bool?)canSleepMethod?.Invoke(building, null) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Pause (sleep) a building. Workers will be unassigned.
+        /// </summary>
+        public static bool SleepBuilding(object building)
+        {
+            if (building == null) return false;
+            if (!CanBuildingSleep(building)) return false;
+            if (IsBuildingSleeping(building)) return false;
+
+            try
+            {
+                var sleepMethod = building.GetType().GetMethod("Sleep", GameReflection.PublicInstance);
+                sleepMethod?.Invoke(building, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Resume (wake up) a paused building.
+        /// </summary>
+        public static bool WakeUpBuilding(object building)
+        {
+            if (building == null) return false;
+            if (!IsBuildingSleeping(building)) return false;
+
+            try
+            {
+                var wakeUpMethod = building.GetType().GetMethod("WakeUp", GameReflection.PublicInstance);
+                wakeUpMethod?.Invoke(building, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Toggle building sleep state. Returns true if state changed.
+        /// </summary>
+        public static bool ToggleBuildingSleep(object building)
+        {
+            if (building == null) return false;
+
+            if (IsBuildingSleeping(building))
+            {
+                return WakeUpBuilding(building);
+            }
+            else
+            {
+                return SleepBuilding(building);
+            }
+        }
+
+        /// <summary>
         /// Check if building is a production building (has workers/recipes).
         /// </summary>
         public static bool IsProductionBuilding(object building)
