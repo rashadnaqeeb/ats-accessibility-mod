@@ -36,6 +36,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 - **WorldMapReflection.cs** - World map internals (hex grid, nodes, biomes)
 - **EmbarkReflection.cs** - Embark/expedition setup screen
 - **WikiReflection.cs** - Encyclopedia/wiki system
+- **BuildingReflection.cs** - Building panel internals (all building types, recipes, workers)
 
 ### Key Handlers (priority order)
 
@@ -43,6 +44,7 @@ Handlers registered in AccessibilityCore.Start(). First handler where `IsActive`
 
 - **InfoPanelMenu.cs** - F1 menu (highest priority)
 - **MenuHub.cs** - F2 quick access menu
+- **BuildingPanelHandler.cs** - Building panel navigation (routes to building-specific navigators)
 - **BuildingMenuPanel.cs** - Tab building selection
 - **BuildModeController.cs** - Building placement (passthrough for arrows)
 - **MoveModeController.cs** - Building relocation (passthrough for arrows)
@@ -86,6 +88,33 @@ Custom panel with selective 3rd level expansion. Navigation: races → details �
 - **WorldMapScanner.cs** - World map feature navigation
 - **WorldMapEffectsPanel.cs** - Single-level panel (not TwoLevelPanel)
 
+### Building Panel Navigation (BuildingSectionNavigator base class)
+
+Section-based navigation for building panels. Up to 4 levels: Sections → Items → Sub-items → Sub-sub-items. Base class provides shared key handling (Up/Down/Enter/Right/Left/Escape/+/-).
+
+To create a new building navigator, inherit from `BuildingSectionNavigator` and implement:
+- `NavigatorName` - for logging
+- `GetSections()`, `GetItemCount()` - navigation bounds
+- `AnnounceSection()`, `AnnounceItem()` - speech output
+- `RefreshData()`, `ClearData()` - data lifecycle
+- Optional: `GetSubItemCount()`, `AnnounceSubItem()`, `PerformItemAction()`, `AdjustItemValue()`
+
+| Navigator | Building Types | Sections |
+|-----------|---------------|----------|
+| ProductionNavigator | Workshop, Mine, Farm, Camp, Collector | Info, Recipes, Output, Workers |
+| HearthNavigator | Hearth (all types) | Info, Fuel, Corruption, Sacrifices |
+| HouseNavigator | House | Info, Residents |
+| RelicNavigator | Relic | Info, Investigation, Rewards |
+| InstitutionNavigator | Tavern, Temple, Clan Hall | Info, Services, Workers |
+| ShrineNavigator | Shrine | Info, Effects |
+| PortNavigator | Port | Info, Expedition, Workers |
+| FishingHutNavigator | FishingHut | Info, Bait, Recipes, Workers |
+| PoroNavigator | Poro | Info, Needs, Products |
+| StorageNavigator | Storage (main warehouse) | Info, Goods, Abilities, Workers |
+| WaterNavigator | RainCatcher, Extractor | Info, Water, Workers |
+| HydrantNavigator | Hydrant | Info, Fuel |
+| SimpleNavigator | Decoration, other basic | Info |
+
 ### Support Components
 
 - **UIElementFinder.cs** - Finds navigable UI elements
@@ -103,7 +132,7 @@ Custom panel with selective 3rd level expansion. Navigation: races → details �
 
 **Handler chain**: Implement `IKeyHandler` with `IsActive` property and `ProcessKey(KeyCode, KeyModifiers)`. Register in AccessibilityCore.Start() at appropriate priority. Return true to consume key, false to pass through.
 
-**Reflection files**: Add settlement code to GameReflection.cs, world map to WorldMapReflection.cs, embark to EmbarkReflection.cs, wiki to WikiReflection.cs. Create new file only for new major game screen with 500+ lines.
+**Reflection files**: Add settlement code to GameReflection.cs, world map to WorldMapReflection.cs, embark to EmbarkReflection.cs, wiki to WikiReflection.cs, building panels to BuildingReflection.cs. Create new file only for new major game screen with 500+ lines.
 
 ## Game Internals Reference
 
