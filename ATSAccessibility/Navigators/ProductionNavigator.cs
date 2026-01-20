@@ -19,6 +19,7 @@ namespace ATSAccessibility
             Info,
             Workers,
             Recipes,
+            Rainpunk, // Rainpunk engine control (workshops only)
             Inputs,   // Ingredients storage (input goods)
             Outputs,  // Production storage (output goods)
             Settings, // Camp mode settings
@@ -63,6 +64,11 @@ namespace ATSAccessibility
         private int _campMode = 0;
         private string[] _campModeNames;
 
+        // Rainpunk data
+        private bool _hasRainpunk = false;
+        private bool _rainpunkUnlocked = false;
+        private int _engineCount = 0;
+
         // ========================================
         // RECIPE INFO STRUCT
         // ========================================
@@ -101,6 +107,8 @@ namespace ATSAccessibility
                     return _maxWorkers;
                 case SectionType.Recipes:
                     return _recipes.Count;
+                case SectionType.Rainpunk:
+                    return _engineCount;
                 case SectionType.Inputs:
                     return _inputGoods.Count > 0 ? _inputGoods.Count : 1;  // At least 1 for "Empty" message
                 case SectionType.Outputs:
@@ -183,6 +191,9 @@ namespace ATSAccessibility
                 case SectionType.Recipes:
                     AnnounceRecipeItem(itemIndex);
                     break;
+                case SectionType.Rainpunk:
+                    AnnounceRainpunkItem(itemIndex);
+                    break;
                 case SectionType.Inputs:
                     AnnounceInputItem(itemIndex);
                     break;
@@ -254,6 +265,11 @@ namespace ATSAccessibility
                 // Shift modifier increases increment to 10
                 int increment = modifiers.Shift ? delta * 10 : delta;
                 AdjustRecipeLimit(itemIndex, increment);
+            }
+            // Rainpunk engine level adjustment
+            else if (_sectionTypes[sectionIndex] == SectionType.Rainpunk && itemIndex < _engineCount)
+            {
+                AdjustEngineLevel(itemIndex, delta);
             }
         }
 
@@ -331,6 +347,11 @@ namespace ATSAccessibility
                 _campModeNames = BuildingReflection.GetCampModeNames();
             }
 
+            // Cache Rainpunk data (workshops only)
+            _hasRainpunk = BuildingReflection.HasRainpunkCapability(_building);
+            _rainpunkUnlocked = BuildingReflection.IsRainpunkUnlocked(_building);
+            _engineCount = _rainpunkUnlocked ? BuildingReflection.GetEngineCount(_building) : 0;
+
             // Build sections list dynamically based on what's available
             var sectionNames = new List<string>();
             var sectionTypes = new List<SectionType>();
@@ -351,6 +372,13 @@ namespace ATSAccessibility
             {
                 sectionNames.Add("Recipes");
                 sectionTypes.Add(SectionType.Recipes);
+            }
+
+            // Add Rainpunk section if workshop has rainpunk unlocked
+            if (_rainpunkUnlocked && _engineCount > 0)
+            {
+                sectionNames.Add("Rainpunk");
+                sectionTypes.Add(SectionType.Rainpunk);
             }
 
             // Add Inputs section if building has IngredientsStorage capability
@@ -408,6 +436,9 @@ namespace ATSAccessibility
             _farmTotalFields = 0;
             _campMode = 0;
             _campModeNames = null;
+            _hasRainpunk = false;
+            _rainpunkUnlocked = false;
+            _engineCount = 0;
         }
 
         // ========================================
@@ -420,6 +451,7 @@ namespace ATSAccessibility
             if (!string.IsNullOrEmpty(_buildingDescription)) count++;  // Description
             count++;  // Status
             count++;  // Worker summary
+            if (_hasRainpunk && !_rainpunkUnlocked) count++;  // Rainpunk unlock
             return count;
         }
 
@@ -429,12 +461,23 @@ namespace ATSAccessibility
             return string.IsNullOrEmpty(_buildingDescription) ? 1 : 2;
         }
 
+        private int GetRainpunkUnlockItemIndex()
+        {
+            // Rainpunk unlock is after Worker summary (which is after Status)
+            return GetStatusItemIndex() + 2;
+        }
+
         private int GetInfoSubItemCount(int itemIndex)
         {
             // Status item has a sub-item for pause/resume if building supports it
             if (itemIndex == GetStatusItemIndex() && _canSleep)
             {
                 return 1;  // Pause/Resume toggle
+            }
+            // Rainpunk unlock item has a sub-item for confirmation
+            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == GetRainpunkUnlockItemIndex())
+            {
+                return 1;  // Unlock confirmation
             }
             return 0;
         }
@@ -477,6 +520,24 @@ namespace ATSAccessibility
                 Speech.Say($"Workers: {workerCount} of {_maxWorkers}");
                 return;
             }
+            index++;
+
+            // Rainpunk unlock (only if has capability but not unlocked)
+            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == index)
+            {
+                var price = BuildingReflection.GetRainpunkUnlockPrice(_building);
+                if (price != null)
+                {
+                    bool canAfford = BuildingReflection.CanAffordRainpunkUnlock(_building);
+                    string affordText = canAfford ? "" : ", not enough resources";
+                    Speech.Say($"Rainpunk: Locked, costs {price.Value.amount} {price.Value.displayName}{affordText}");
+                }
+                else
+                {
+                    Speech.Say("Rainpunk: Locked");
+                }
+                return;
+            }
 
             Speech.Say("Unknown item");
         }
@@ -492,6 +553,18 @@ namespace ATSAccessibility
                 else
                 {
                     Speech.Say("Pause building, workers will be unassigned");
+                }
+            }
+            else if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == GetRainpunkUnlockItemIndex() && subItemIndex == 0)
+            {
+                bool canAfford = BuildingReflection.CanAffordRainpunkUnlock(_building);
+                if (canAfford)
+                {
+                    Speech.Say("Unlock rainpunk");
+                }
+                else
+                {
+                    Speech.Say("Cannot afford, not enough resources");
                 }
             }
         }
@@ -518,6 +591,32 @@ namespace ATSAccessibility
                     return false;
                 }
             }
+
+            // Rainpunk unlock
+            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == GetRainpunkUnlockItemIndex() && subItemIndex == 0)
+            {
+                if (!BuildingReflection.CanAffordRainpunkUnlock(_building))
+                {
+                    Speech.Say("Not enough resources");
+                    return false;
+                }
+
+                if (BuildingReflection.UnlockRainpunk(_building))
+                {
+                    _rainpunkUnlocked = true;
+                    _engineCount = BuildingReflection.GetEngineCount(_building);
+                    Speech.Say("Rainpunk unlocked");
+                    // Refresh data to add Rainpunk section
+                    RefreshData();
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Cannot unlock rainpunk");
+                    return false;
+                }
+            }
+
             return false;
         }
 
@@ -1118,6 +1217,69 @@ namespace ATSAccessibility
                 default:
                     Speech.Say("Unknown field info");
                     break;
+            }
+        }
+
+        // ========================================
+        // RAINPUNK SECTION
+        // ========================================
+
+        private void AnnounceRainpunkItem(int engineIndex)
+        {
+            if (engineIndex >= _engineCount)
+            {
+                Speech.Say("Invalid engine");
+                return;
+            }
+
+            int currentLevel = BuildingReflection.GetEngineCurrentLevel(_building, engineIndex);
+            int requestedLevel = BuildingReflection.GetEngineRequestedLevel(_building, engineIndex);
+            int maxLevel = BuildingReflection.GetEngineMaxLevel(_building, engineIndex);
+
+            string engineName = $"Engine {engineIndex + 1}";
+
+            if (requestedLevel == 0)
+            {
+                Speech.Say($"{engineName}: Off, max {maxLevel}");
+            }
+            else if (currentLevel < requestedLevel)
+            {
+                Speech.Say($"{engineName}: {requestedLevel} of {maxLevel}, low water");
+            }
+            else
+            {
+                Speech.Say($"{engineName}: {requestedLevel} of {maxLevel}");
+            }
+        }
+
+        private void AdjustEngineLevel(int engineIndex, int delta)
+        {
+            if (engineIndex >= _engineCount) return;
+
+            int maxLevel = BuildingReflection.GetEngineMaxLevel(_building, engineIndex);
+            int currentRequested = BuildingReflection.GetEngineRequestedLevel(_building, engineIndex);
+            int newLevel = Mathf.Clamp(currentRequested + delta, 0, maxLevel);
+
+            if (newLevel == currentRequested)
+            {
+                // At limit
+                Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+                return;
+            }
+
+            if (delta > 0)
+            {
+                if (BuildingReflection.IncreaseEngineLevel(_building, engineIndex))
+                {
+                    Speech.Say($"{newLevel}");
+                }
+            }
+            else
+            {
+                if (BuildingReflection.DecreaseEngineLevel(_building, engineIndex))
+                {
+                    Speech.Say($"{newLevel}");
+                }
             }
         }
 

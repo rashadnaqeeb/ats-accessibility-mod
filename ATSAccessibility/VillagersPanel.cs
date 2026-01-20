@@ -24,7 +24,8 @@ namespace ATSAccessibility
         {
             Resolve,
             Need,
-            Villager
+            Villager,
+            Favoring
         }
 
         private class DetailItem
@@ -190,11 +191,19 @@ namespace ATSAccessibility
 
             if (_focusOnDetails)
             {
-                // Try to enter sub-details if available
                 var category = _categories[_currentCategoryIndex];
                 if (_currentDetailIndex < category.Details.Count)
                 {
                     var detail = category.Details[_currentDetailIndex];
+
+                    // Handle Favoring action
+                    if (detail.Type == DetailType.Favoring)
+                    {
+                        PerformFavoringAction();
+                        return;
+                    }
+
+                    // Try to enter sub-details if available
                     if (detail.SubDetails.Count > 0)
                     {
                         _focusOnSubDetails = true;
@@ -271,6 +280,85 @@ namespace ATSAccessibility
         }
 
         // ========================================
+        // FAVORING
+        // ========================================
+
+        private void PerformFavoringAction()
+        {
+            if (_currentCategoryIndex >= _categories.Count) return;
+
+            var category = _categories[_currentCategoryIndex];
+            string raceName = category.RaceName;
+
+            // Check if already favored
+            if (GameReflection.IsFavored(raceName))
+            {
+                // Stop favoring
+                if (GameReflection.StopFavoringRace())
+                {
+                    Speech.Say($"{category.DisplayName} no longer favored");
+                    UpdateFavoringLabel();
+                }
+                else
+                {
+                    Speech.Say("Failed to stop favoring");
+                }
+                return;
+            }
+
+            // Check cooldown
+            if (GameReflection.IsFavoringOnCooldown())
+            {
+                float cooldown = GameReflection.GetFavorCooldownLeft();
+                Speech.Say($"Favoring on cooldown, {Mathf.CeilToInt(cooldown)} seconds remaining");
+                return;
+            }
+
+            // Check if there are other races to penalize (need at least 2 races with villagers)
+            int racesWithVillagers = 0;
+            foreach (var cat in _categories)
+            {
+                if (cat.Population > 0) racesWithVillagers++;
+            }
+            if (racesWithVillagers < 2)
+            {
+                Speech.Say("Need at least two races with villagers to use favoring");
+                return;
+            }
+
+            // Check if this race has any villagers
+            if (category.Population == 0)
+            {
+                Speech.Say("Cannot favor a race with no villagers");
+                return;
+            }
+
+            // Start favoring
+            if (GameReflection.FavorRace(raceName))
+            {
+                Speech.Say($"{category.DisplayName} now favored. Other races penalized");
+                UpdateFavoringLabel();
+            }
+            else
+            {
+                Speech.Say("Failed to favor race");
+            }
+        }
+
+        private void UpdateFavoringLabel()
+        {
+            // Update the Favoring label for all categories to reflect new state
+            foreach (var category in _categories)
+            {
+                var favoringItem = category.Details.Find(d => d.Type == DetailType.Favoring);
+                if (favoringItem != null)
+                {
+                    favoringItem.Label = GetFavoringLabel(category.RaceName);
+                }
+            }
+        }
+
+        // ========================================
         // ANNOUNCEMENTS
         // ========================================
 
@@ -279,7 +367,8 @@ namespace ATSAccessibility
             if (_currentCategoryIndex >= _categories.Count) return;
 
             var category = _categories[_currentCategoryIndex];
-            string message = $"{category.DisplayName}. {category.Population} villagers, {category.FreeWorkers} free, {category.Homeless} homeless";
+            string favoredStatus = GameReflection.IsFavored(category.RaceName) ? ", favored" : "";
+            string message = $"{category.DisplayName}{favoredStatus}. {category.Population} villagers, {category.FreeWorkers} free, {category.Homeless} homeless";
 
             Speech.Say(message);
             Debug.Log($"[ATSAccessibility] Villagers category: {message}");
@@ -404,6 +493,30 @@ namespace ATSAccessibility
                     SubDetails = subDetails,
                     Data = villager
                 });
+            }
+
+            // 4. Favoring option
+            category.Details.Add(new DetailItem
+            {
+                Type = DetailType.Favoring,
+                Label = GetFavoringLabel(raceName)
+            });
+        }
+
+        private string GetFavoringLabel(string raceName)
+        {
+            if (GameReflection.IsFavored(raceName))
+            {
+                return "Favoring: Active. Press Enter to stop";
+            }
+            else if (GameReflection.IsFavoringOnCooldown())
+            {
+                float cooldown = GameReflection.GetFavorCooldownLeft();
+                return $"Favoring: On cooldown, {Mathf.CeilToInt(cooldown)} seconds";
+            }
+            else
+            {
+                return "Favoring: Press Enter to favor this race";
             }
         }
 

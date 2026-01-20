@@ -3,7 +3,7 @@ using UnityEngine;
 namespace ATSAccessibility
 {
     /// <summary>
-    /// Unified menu for accessing information panels (Stats, Resources, Mysteries, Villagers).
+    /// Unified menu for accessing information panels (Stats, Resources, Mysteries, Villagers, Announcements).
     /// Opened with F1 from the settlement map.
     /// </summary>
     public class InfoPanelMenu : IKeyHandler
@@ -13,15 +13,17 @@ namespace ATSAccessibility
             Resources,
             Villagers,
             Stats,
-            Mysteries
+            Mysteries,
+            Announcements
         }
 
-        private static readonly string[] _menuLabels = { "Resources", "Villagers", "Stats", "Mysteries" };
+        private static readonly string[] _menuLabels = { "Resources", "Villagers", "Stats", "Mysteries", "Announcements" };
 
         private readonly StatsPanel _statsPanel;
         private readonly SettlementResourcePanel _resourcePanel;
         private readonly MysteriesPanel _mysteriesPanel;
         private readonly VillagersPanel _villagersPanel;
+        private readonly AnnouncementsSettingsPanel _announcementsPanel;
 
         private bool _isOpen;
         private int _currentIndex;
@@ -42,12 +44,13 @@ namespace ATSAccessibility
         /// </summary>
         public bool IsInChildPanel => _activeChildPanel.HasValue;
 
-        public InfoPanelMenu(StatsPanel statsPanel, SettlementResourcePanel resourcePanel, MysteriesPanel mysteriesPanel, VillagersPanel villagersPanel)
+        public InfoPanelMenu(StatsPanel statsPanel, SettlementResourcePanel resourcePanel, MysteriesPanel mysteriesPanel, VillagersPanel villagersPanel, AnnouncementsSettingsPanel announcementsPanel)
         {
             _statsPanel = statsPanel;
             _resourcePanel = resourcePanel;
             _mysteriesPanel = mysteriesPanel;
             _villagersPanel = villagersPanel;
+            _announcementsPanel = announcementsPanel;
         }
 
         /// <summary>
@@ -170,6 +173,9 @@ namespace ATSAccessibility
                 case MenuPanel.Villagers:
                     _villagersPanel?.Open();
                     break;
+                case MenuPanel.Announcements:
+                    _announcementsPanel?.Open();
+                    break;
             }
 
             _activeChildPanel = panel;
@@ -198,6 +204,10 @@ namespace ATSAccessibility
                     if (_villagersPanel?.IsOpen == true)
                         _villagersPanel.Close();
                     break;
+                case MenuPanel.Announcements:
+                    if (_announcementsPanel?.IsOpen == true)
+                        _announcementsPanel.Close();
+                    break;
             }
 
             _activeChildPanel = null;
@@ -217,6 +227,8 @@ namespace ATSAccessibility
                     return _mysteriesPanel?.ProcessKeyEvent(keyCode) ?? false;
                 case MenuPanel.Villagers:
                     return _villagersPanel?.ProcessKeyEvent(keyCode) ?? false;
+                case MenuPanel.Announcements:
+                    return _announcementsPanel?.ProcessKeyEvent(keyCode) ?? false;
             }
 
             return false;

@@ -69,7 +69,6 @@ namespace ATSAccessibility
                 // Block Cancel once when flag is set (used by StatsPanel close)
                 if (action != null && action.name == "Cancel" && InputBlocker.BlockCancelOnce)
                 {
-                    Debug.Log("[ATSAccessibility] DEBUG: Blocking Cancel action once");
                     InputBlocker.BlockCancelOnce = false;  // Reset after blocking
                     __result = false;
                     return false;
@@ -150,6 +149,88 @@ namespace ATSAccessibility
 
                 // Store velocity back
                 _movementVelocityField?.SetValue(__instance, velocity);
+            }
+            catch { }
+        }
+    }
+
+    /// <summary>
+    /// Patch CameraController.UpdateMovement to add target-following behavior for settlement map.
+    /// Unlike WorldCameraController, the game's CameraController DOES clear the target field
+    /// when keyboard input is detected. So we store our own target in a static field that
+    /// the game can't clear, and implement following in the Postfix.
+    /// </summary>
+    [HarmonyPatch]
+    public static class CameraControllerUpdateMovementPatch
+    {
+        private static FieldInfo _movementVelocityField;
+        private static float _smoothTime = 0.3f;
+        private static float _maxSpeed = 50f;
+
+        // Our own target storage - the game can't clear this
+        private static Transform _accessibilityTarget;
+        private static Vector3 _velocity = Vector3.zero;
+
+        /// <summary>
+        /// Set the camera target for accessibility navigation.
+        /// This stores the target in our own static field that the game can't clear.
+        /// </summary>
+        public static void SetTarget(Transform target)
+        {
+            _accessibilityTarget = target;
+            _velocity = Vector3.zero; // Reset velocity when target changes
+        }
+
+        /// <summary>
+        /// Clear the camera target (e.g., when exiting map navigation).
+        /// </summary>
+        public static void ClearTarget()
+        {
+            _accessibilityTarget = null;
+            _velocity = Vector3.zero;
+        }
+
+        static MethodBase TargetMethod()
+        {
+            var type = AccessTools.TypeByName("Eremite.View.Cameras.CameraController");
+            return AccessTools.Method(type, "UpdateMovement");
+        }
+
+        public static void Postfix(object __instance)
+        {
+            if (__instance == null || _accessibilityTarget == null) return;
+
+            try
+            {
+                // Cache velocity field for smooth movement
+                if (_movementVelocityField == null)
+                {
+                    var type = __instance.GetType();
+                    _movementVelocityField = type.GetField("movementVelocity", BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                var transform = (__instance as MonoBehaviour)?.transform;
+                if (transform == null) return;
+
+                // Get the game's velocity for smooth integration
+                var gameVelocity = (Vector3)(_movementVelocityField?.GetValue(__instance) ?? Vector3.zero);
+
+                // Use our own velocity tracking for smooth following
+                // The settlement camera is 3D, so we follow X/Z and let the game handle Y
+                var targetPos = new Vector3(
+                    _accessibilityTarget.position.x,
+                    transform.position.y,  // Keep current height
+                    _accessibilityTarget.position.z
+                );
+
+                transform.position = Vector3.SmoothDamp(
+                    transform.position,
+                    targetPos,
+                    ref _velocity,
+                    _smoothTime,
+                    _maxSpeed,
+                    Time.unscaledDeltaTime
+                );
             }
             catch { }
         }

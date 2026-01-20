@@ -339,6 +339,24 @@ namespace ATSAccessibility
         private static MethodInfo _rainpunkCountTanksCapacityMethod = null;  // IRainpunkService.CountTanksCapacity(WaterModel)
         private static bool _rainpunkServiceTypesCached = false;
 
+        // Rainpunk engine types (for workshop engine control)
+        private static Type _workshopType = null;
+        private static Type _workshopStateType = null;
+        private static Type _rainpunkEngineStateType = null;
+        private static Type _rainpunkEngineModelType = null;
+        private static Type _buildingRainpunkModelType = null;
+        private static FieldInfo _workshopStateField = null;  // Workshop.state
+        private static FieldInfo _wsRainpunkUnlockedField = null;  // WorkshopState.rainpunkUnlocked
+        private static FieldInfo _wsEnginesField = null;  // WorkshopState.engines
+        private static FieldInfo _workshopModelField = null;  // Workshop.model
+        private static FieldInfo _wmRainpunkField = null;  // WorkshopModel.rainpunk
+        private static FieldInfo _brpEnginesField = null;  // BuildingRainpunkModel.engines
+        private static FieldInfo _engineStateIndexField = null;  // RainpunkEngineState.index
+        private static FieldInfo _engineStateLevelField = null;  // RainpunkEngineState.level
+        private static FieldInfo _engineStateRequestedLevelField = null;  // RainpunkEngineState.requestedLevel
+        private static FieldInfo _engineModelMaxLevelField = null;  // RainpunkEngineModel.maxLevel
+        private static bool _rainpunkEngineTypesCached = false;
+
         // ========================================
         // INITIALIZATION
         // ========================================
@@ -1838,6 +1856,75 @@ namespace ATSAccessibility
             }
 
             _rainpunkServiceTypesCached = true;
+        }
+
+        private static void EnsureRainpunkEngineTypes()
+        {
+            if (_rainpunkEngineTypesCached) return;
+
+            var assembly = GameReflection.GameAssembly;
+            if (assembly == null)
+            {
+                _rainpunkEngineTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Workshop and WorkshopState types
+                _workshopType = assembly.GetType("Eremite.Buildings.Workshop");
+                _workshopStateType = assembly.GetType("Eremite.Buildings.WorkshopState");
+                _rainpunkEngineStateType = assembly.GetType("Eremite.Buildings.RainpunkEngineState");
+                _rainpunkEngineModelType = assembly.GetType("Eremite.Buildings.RainpunkEngineModel");
+                _buildingRainpunkModelType = assembly.GetType("Eremite.Buildings.BuildingRainpunkModel");
+
+                if (_workshopType != null)
+                {
+                    _workshopStateField = _workshopType.GetField("state", GameReflection.PublicInstance);
+                    _workshopModelField = _workshopType.GetField("model", GameReflection.PublicInstance);
+                }
+
+                if (_workshopStateType != null)
+                {
+                    _wsRainpunkUnlockedField = _workshopStateType.GetField("rainpunkUnlocked", GameReflection.PublicInstance);
+                    _wsEnginesField = _workshopStateType.GetField("engines", GameReflection.PublicInstance);
+                }
+
+                // WorkshopModel.rainpunk field
+                var workshopModelType = assembly.GetType("Eremite.Buildings.WorkshopModel");
+                if (workshopModelType != null)
+                {
+                    _wmRainpunkField = workshopModelType.GetField("rainpunk", GameReflection.PublicInstance);
+                }
+
+                // BuildingRainpunkModel.engines field
+                if (_buildingRainpunkModelType != null)
+                {
+                    _brpEnginesField = _buildingRainpunkModelType.GetField("engines", GameReflection.PublicInstance);
+                }
+
+                // RainpunkEngineState fields
+                if (_rainpunkEngineStateType != null)
+                {
+                    _engineStateIndexField = _rainpunkEngineStateType.GetField("index", GameReflection.PublicInstance);
+                    _engineStateLevelField = _rainpunkEngineStateType.GetField("level", GameReflection.PublicInstance);
+                    _engineStateRequestedLevelField = _rainpunkEngineStateType.GetField("requestedLevel", GameReflection.PublicInstance);
+                }
+
+                // RainpunkEngineModel fields
+                if (_rainpunkEngineModelType != null)
+                {
+                    _engineModelMaxLevelField = _rainpunkEngineModelType.GetField("maxLevel", GameReflection.PublicInstance);
+                }
+
+                Debug.Log("[ATSAccessibility] BuildingReflection: Cached RainpunkEngine types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] BuildingReflection rainpunk engine types failed: {ex.Message}");
+            }
+
+            _rainpunkEngineTypesCached = true;
         }
 
         // ========================================
@@ -5799,6 +5886,446 @@ namespace ATSAccessibility
             }
 
             return null;
+        }
+
+        // ========================================
+        // PUBLIC API - RAINPUNK ENGINES (for Workshops)
+        // ========================================
+
+        /// <summary>
+        /// Check if a building is specifically the Workshop class (not just IWorkshop).
+        /// Only Workshop class has rainpunk engines.
+        /// </summary>
+        private static bool IsWorkshopClass(object building)
+        {
+            if (building == null) return false;
+            EnsureRainpunkEngineTypes();
+            return _workshopType != null && _workshopType.IsInstanceOfType(building);
+        }
+
+        /// <summary>
+        /// Check if rainpunk is enabled at the meta/account level.
+        /// This is a progression unlock that must be earned.
+        /// Path: MetaController.Instance.MetaServices.MetaPerksService.IsRainpunkEnabled()
+        /// </summary>
+        public static bool IsRainpunkEnabledGlobally()
+        {
+            try
+            {
+                var assembly = GameReflection.GameAssembly;
+                if (assembly == null) return false;
+
+                // Get MetaController.Instance
+                var metaControllerType = assembly.GetType("Eremite.Controller.MetaController");
+                if (metaControllerType == null)
+                {
+                    Debug.LogError("[ATSAccessibility] IsRainpunkEnabledGlobally: MetaController type not found");
+                    return false;
+                }
+
+                var instanceProp = metaControllerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+                if (instanceProp == null)
+                {
+                    Debug.LogError("[ATSAccessibility] IsRainpunkEnabledGlobally: Instance property not found");
+                    return false;
+                }
+
+                var metaController = instanceProp.GetValue(null);
+                if (metaController == null)
+                {
+                    Debug.LogError("[ATSAccessibility] IsRainpunkEnabledGlobally: MetaController instance is null");
+                    return false;
+                }
+
+                // Get MetaServices
+                var metaServicesProp = metaController.GetType().GetProperty("MetaServices", GameReflection.PublicInstance);
+                if (metaServicesProp == null)
+                {
+                    Debug.LogError("[ATSAccessibility] IsRainpunkEnabledGlobally: MetaServices property not found");
+                    return false;
+                }
+
+                var metaServices = metaServicesProp.GetValue(metaController);
+                if (metaServices == null)
+                {
+                    Debug.LogError("[ATSAccessibility] IsRainpunkEnabledGlobally: MetaServices is null");
+                    return false;
+                }
+
+                // Get MetaPerksService
+                var metaPerksServiceProp = metaServices.GetType().GetProperty("MetaPerksService", GameReflection.PublicInstance);
+                if (metaPerksServiceProp == null)
+                {
+                    Debug.LogError("[ATSAccessibility] IsRainpunkEnabledGlobally: MetaPerksService property not found");
+                    return false;
+                }
+
+                var metaPerksService = metaPerksServiceProp.GetValue(metaServices);
+                if (metaPerksService == null)
+                {
+                    Debug.LogError("[ATSAccessibility] IsRainpunkEnabledGlobally: MetaPerksService is null");
+                    return false;
+                }
+
+                // Call IsRainpunkEnabled()
+                var isRainpunkEnabledMethod = metaPerksService.GetType().GetMethod("IsRainpunkEnabled", GameReflection.PublicInstance);
+                if (isRainpunkEnabledMethod == null)
+                {
+                    Debug.LogError("[ATSAccessibility] IsRainpunkEnabledGlobally: IsRainpunkEnabled method not found");
+                    return false;
+                }
+
+                return (bool?)isRainpunkEnabledMethod.Invoke(metaPerksService, null) ?? false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] IsRainpunkEnabledGlobally exception: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a workshop has rainpunk capability (model has rainpunk defined AND meta unlock obtained).
+        /// </summary>
+        public static bool HasRainpunkCapability(object building)
+        {
+            // First check if rainpunk is enabled at the meta level
+            if (!IsRainpunkEnabledGlobally()) return false;
+            if (!IsWorkshopClass(building)) return false;
+
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                var model = _workshopModelField?.GetValue(building);
+                if (model == null) return false;
+
+                var rainpunkModel = _wmRainpunkField?.GetValue(model);
+                return rainpunkModel != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if rainpunk is unlocked for a workshop.
+        /// </summary>
+        public static bool IsRainpunkUnlocked(object building)
+        {
+            if (!IsWorkshopClass(building)) return false;
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                var state = _workshopStateField?.GetValue(building);
+                if (state == null) return false;
+
+                return (bool?)_wsRainpunkUnlockedField?.GetValue(state) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of engines in a workshop.
+        /// </summary>
+        public static int GetEngineCount(object building)
+        {
+            if (!IsWorkshopClass(building)) return 0;
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                var state = _workshopStateField?.GetValue(building);
+                if (state == null) return 0;
+
+                var engines = _wsEnginesField?.GetValue(state) as Array;
+                return engines?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the current level of an engine (actual level based on water availability).
+        /// </summary>
+        public static int GetEngineCurrentLevel(object building, int engineIndex)
+        {
+            var engineState = GetEngineState(building, engineIndex);
+            if (engineState == null) return 0;
+
+            try
+            {
+                return (int?)_engineStateLevelField?.GetValue(engineState) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the requested level of an engine (player-set level).
+        /// </summary>
+        public static int GetEngineRequestedLevel(object building, int engineIndex)
+        {
+            var engineState = GetEngineState(building, engineIndex);
+            if (engineState == null) return 0;
+
+            try
+            {
+                return (int?)_engineStateRequestedLevelField?.GetValue(engineState) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the maximum level of an engine.
+        /// </summary>
+        public static int GetEngineMaxLevel(object building, int engineIndex)
+        {
+            var engineModel = GetEngineModel(building, engineIndex);
+            if (engineModel == null) return 0;
+
+            try
+            {
+                return (int?)_engineModelMaxLevelField?.GetValue(engineModel) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Increase the requested level of an engine by 1.
+        /// </summary>
+        public static bool IncreaseEngineLevel(object building, int engineIndex)
+        {
+            var engineState = GetEngineState(building, engineIndex);
+            if (engineState == null) return false;
+
+            int maxLevel = GetEngineMaxLevel(building, engineIndex);
+            int currentRequested = GetEngineRequestedLevel(building, engineIndex);
+
+            if (currentRequested >= maxLevel) return false;
+
+            try
+            {
+                _engineStateRequestedLevelField?.SetValue(engineState, currentRequested + 1);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Decrease the requested level of an engine by 1.
+        /// </summary>
+        public static bool DecreaseEngineLevel(object building, int engineIndex)
+        {
+            var engineState = GetEngineState(building, engineIndex);
+            if (engineState == null) return false;
+
+            int currentRequested = GetEngineRequestedLevel(building, engineIndex);
+
+            if (currentRequested <= 0) return false;
+
+            try
+            {
+                _engineStateRequestedLevelField?.SetValue(engineState, currentRequested - 1);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Set the requested level of an engine to a specific value.
+        /// </summary>
+        public static bool SetEngineLevel(object building, int engineIndex, int level)
+        {
+            var engineState = GetEngineState(building, engineIndex);
+            if (engineState == null) return false;
+
+            int maxLevel = GetEngineMaxLevel(building, engineIndex);
+            level = Math.Max(0, Math.Min(level, maxLevel));
+
+            try
+            {
+                _engineStateRequestedLevelField?.SetValue(engineState, level);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the engine state object for a specific engine index.
+        /// </summary>
+        private static object GetEngineState(object building, int engineIndex)
+        {
+            if (!IsWorkshopClass(building)) return null;
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                var state = _workshopStateField?.GetValue(building);
+                if (state == null) return null;
+
+                var engines = _wsEnginesField?.GetValue(state) as Array;
+                if (engines == null || engineIndex < 0 || engineIndex >= engines.Length) return null;
+
+                return engines.GetValue(engineIndex);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the engine model object for a specific engine index.
+        /// </summary>
+        private static object GetEngineModel(object building, int engineIndex)
+        {
+            if (!IsWorkshopClass(building)) return null;
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                var model = _workshopModelField?.GetValue(building);
+                if (model == null) return null;
+
+                var rainpunkModel = _wmRainpunkField?.GetValue(model);
+                if (rainpunkModel == null) return null;
+
+                var engineModels = _brpEnginesField?.GetValue(rainpunkModel) as Array;
+                if (engineModels == null || engineIndex < 0 || engineIndex >= engineModels.Length) return null;
+
+                return engineModels.GetValue(engineIndex);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the rainpunk unlock price for a workshop.
+        /// Returns (goodName, displayName, amount) or null if not applicable.
+        /// </summary>
+        public static (string goodName, string displayName, int amount)? GetRainpunkUnlockPrice(object building)
+        {
+            if (!IsWorkshopClass(building)) return null;
+            if (!HasRainpunkCapability(building)) return null;
+            if (IsRainpunkUnlocked(building)) return null;
+
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                // Get the unlock price via Workshop.GetRainpunkUnlockPrice()
+                var getRainpunkUnlockPriceMethod = building.GetType().GetMethod("GetRainpunkUnlockPrice", GameReflection.PublicInstance);
+                if (getRainpunkUnlockPriceMethod == null) return null;
+
+                var goodObj = getRainpunkUnlockPriceMethod.Invoke(building, null);
+                if (goodObj == null) return null;
+
+                // Good struct has 'name' (string) and 'amount' (int) fields
+                var nameField = goodObj.GetType().GetField("name", GameReflection.PublicInstance);
+                var amountField = goodObj.GetType().GetField("amount", GameReflection.PublicInstance);
+
+                string goodName = nameField?.GetValue(goodObj) as string;
+                int amount = (int?)amountField?.GetValue(goodObj) ?? 0;
+
+                if (string.IsNullOrEmpty(goodName)) return null;
+
+                string displayName = GetGoodDisplayName(goodName) ?? goodName;
+                return (goodName, displayName, amount);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetRainpunkUnlockPrice failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if we have enough resources to unlock rainpunk.
+        /// </summary>
+        public static bool CanAffordRainpunkUnlock(object building)
+        {
+            var price = GetRainpunkUnlockPrice(building);
+            if (price == null) return false;
+
+            int stored = GetMainStorageAmount(price.Value.goodName);
+            return stored >= price.Value.amount;
+        }
+
+        /// <summary>
+        /// Unlock rainpunk for a workshop (pays the cost).
+        /// </summary>
+        public static bool UnlockRainpunk(object building)
+        {
+            if (!IsWorkshopClass(building)) return false;
+            if (!HasRainpunkCapability(building)) return false;
+            if (IsRainpunkUnlocked(building)) return false;
+            if (!CanAffordRainpunkUnlock(building)) return false;
+
+            try
+            {
+                var unlockMethod = building.GetType().GetMethod("UnlockRainpunk", GameReflection.PublicInstance);
+                if (unlockMethod == null) return false;
+
+                unlockMethod.Invoke(building, null);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] UnlockRainpunk failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get amount of a good from the main storage.
+        /// </summary>
+        private static int GetMainStorageAmount(string goodName)
+        {
+            try
+            {
+                var gameServices = GameReflection.GetGameServices();
+                if (gameServices == null) return 0;
+
+                EnsureStorageService2Types();
+                var storageService = _gsStorageService2Property?.GetValue(gameServices);
+                if (storageService == null) return 0;
+
+                var mainStorage = _storageServiceMainProperty?.GetValue(storageService);
+                if (mainStorage == null) return 0;
+
+                return (int?)_mainStorageGetAmountMethod?.Invoke(mainStorage, new object[] { goodName }) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         // ========================================

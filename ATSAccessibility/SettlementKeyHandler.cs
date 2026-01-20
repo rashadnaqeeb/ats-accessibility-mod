@@ -14,6 +14,7 @@ namespace ATSAccessibility
         private readonly MenuHub _menuHub;
         private readonly BuildingMenuPanel _buildingMenuPanel;
         private readonly MoveModeController _moveModeController;
+        private readonly AnnouncementHistoryPanel _announcementHistoryPanel;
 
         public SettlementKeyHandler(
             MapNavigator mapNavigator,
@@ -21,7 +22,8 @@ namespace ATSAccessibility
             InfoPanelMenu infoPanelMenu,
             MenuHub menuHub,
             BuildingMenuPanel buildingMenuPanel,
-            MoveModeController moveModeController)
+            MoveModeController moveModeController,
+            AnnouncementHistoryPanel announcementHistoryPanel)
         {
             _mapNavigator = mapNavigator;
             _mapScanner = mapScanner;
@@ -29,6 +31,7 @@ namespace ATSAccessibility
             _menuHub = menuHub;
             _buildingMenuPanel = buildingMenuPanel;
             _moveModeController = moveModeController;
+            _announcementHistoryPanel = announcementHistoryPanel;
         }
 
         /// <summary>
@@ -163,6 +166,13 @@ namespace ATSAccessibility
                 case KeyCode.Tab:
                     _buildingMenuPanel?.Open();
                     return true;
+                case KeyCode.H:
+                    if (modifiers.Alt)
+                    {
+                        _announcementHistoryPanel?.Open();
+                        return true;
+                    }
+                    return false;
 
                 // Move building mode
                 case KeyCode.M:

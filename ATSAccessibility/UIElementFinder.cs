@@ -149,8 +149,6 @@ namespace ATSAccessibility
 
             if (tabsPanel == null) return false;
 
-            Debug.Log($"[ATSAccessibility] DEBUG: Found TabsPanel: {((Component)tabsPanel).gameObject.name}");
-
             // Get buttons array from TabsPanel
             var buttonsField = GameReflection.TabsPanelButtonsField;
             var tabsButtonArray = buttonsField?.GetValue(tabsPanel) as Array;
@@ -168,8 +166,6 @@ namespace ATSAccessibility
                 if (unityButton != null)
                 {
                     result.TabButtons.Add(unityButton);
-                    var text = unityButton.GetComponentInChildren<TMP_Text>(true)?.text ?? "?";
-                    Debug.Log($"[ATSAccessibility] DEBUG: Found tab button: '{text}'");
                 }
             }
 
@@ -204,14 +200,13 @@ namespace ATSAccessibility
 
                     if (content != null)
                     {
-                        Debug.Log($"[ATSAccessibility] DEBUG: Active tab content: {content.name}");
                         return content.transform;
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                Debug.LogWarning($"[ATSAccessibility] DEBUG: Error getting TabsPanel content: {ex.Message}");
+                // Silently handle errors getting tab content
             }
 
             return null;
@@ -258,7 +253,6 @@ namespace ATSAccessibility
                     Transform searchRoot = activeContentPanel ?? panel.transform;
 
                     var selectables = searchRoot.GetComponentsInChildren<Selectable>(true);
-                    Debug.Log($"[ATSAccessibility] DEBUG: Searching for content in '{searchRoot.name}' ({selectables.Length} selectables)");
 
                     foreach (var sel in selectables)
                     {
@@ -308,12 +302,8 @@ namespace ATSAccessibility
             // For popups, check hidden/demo-only elements (single hierarchy walk)
             if (isPopup)
             {
-                var (filtered, reason) = IsElementFiltered(sel.transform, boundary);
-                if (filtered)
-                {
-                    Debug.Log($"[ATSAccessibility] DEBUG: Skipping '{sel.name}' - {reason}");
-                    return true;
-                }
+                var (filtered, _) = IsElementFiltered(sel.transform, boundary);
+                if (filtered) return true;
             }
 
             if (!sel.interactable) return true;

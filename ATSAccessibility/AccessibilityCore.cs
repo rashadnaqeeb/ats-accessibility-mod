@@ -87,6 +87,15 @@ namespace ATSAccessibility
         // Building panel handler for building accessibility
         private BuildingPanelHandler _buildingPanelHandler;
 
+        // Announcements settings panel
+        private AnnouncementsSettingsPanel _announcementsPanel;
+
+        // Event announcer for game events
+        private EventAnnouncer _eventAnnouncer;
+
+        // Announcement history panel for reviewing recent events
+        private AnnouncementHistoryPanel _announcementHistoryPanel;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -129,8 +138,17 @@ namespace ATSAccessibility
             // Initialize villagers panel
             _villagersPanel = new VillagersPanel();
 
-            // Initialize info panel menu (unified access to stats, resources, mysteries, villagers)
-            _infoPanelMenu = new InfoPanelMenu(_statsPanel, _settlementResourcePanel, _mysteriesPanel, _villagersPanel);
+            // Initialize announcements settings panel
+            _announcementsPanel = new AnnouncementsSettingsPanel();
+
+            // Initialize event announcer
+            _eventAnnouncer = new EventAnnouncer();
+
+            // Initialize announcement history panel
+            _announcementHistoryPanel = new AnnouncementHistoryPanel();
+
+            // Initialize info panel menu (unified access to stats, resources, mysteries, villagers, announcements)
+            _infoPanelMenu = new InfoPanelMenu(_statsPanel, _settlementResourcePanel, _mysteriesPanel, _villagersPanel, _announcementsPanel);
 
             // Initialize menu hub for quick popup access
             _menuHub = new MenuHub();
@@ -155,12 +173,13 @@ namespace ATSAccessibility
 
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
-                _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _buildingMenuPanel, _moveModeController);
+                _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel);
             var worldMapHandler = new WorldMapKeyHandler(_worldMapNavigator, _worldMapScanner);
 
             // Register key handlers in priority order (highest priority first)
             _keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
             _keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
+            _keyboardManager.RegisterHandler(_announcementHistoryPanel); // Alt+H announcement history
             _keyboardManager.RegisterHandler(_buildingPanelHandler); // Building panel accessibility
             _keyboardManager.RegisterHandler(_buildingMenuPanel);   // Tab building menu
             _keyboardManager.RegisterHandler(_buildModeController); // Building placement (selective passthrough)
@@ -219,6 +238,9 @@ namespace ATSAccessibility
 
                 // Try to subscribe to building panel events
                 _buildingPanelHandler?.TrySubscribe();
+
+                // Try to subscribe to game events for announcements
+                _eventAnnouncer?.TrySubscribe();
             }
         }
 
@@ -287,6 +309,9 @@ namespace ATSAccessibility
 
             // Dispose tutorial handler subscription
             _tutorialHandler?.Dispose();
+
+            // Dispose event announcer subscriptions
+            _eventAnnouncer?.Dispose();
 
             // Reset UI navigator state
             _uiNavigator?.Reset();

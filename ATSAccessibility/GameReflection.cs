@@ -524,9 +524,8 @@ namespace ATSAccessibility
         private static PropertyInfo _gsReputationRewardsProperty = null;  // ReputationRewardsService
         private static bool _gameServicesTypesCached = false;
 
-        // Camera controller access
+        // Camera controller access (for GetCameraController utility)
         private static PropertyInfo _gcCameraControllerProperty = null;  // GameController.CameraController
-        private static FieldInfo _ccTargetField = null;                   // CameraController.target
         private static bool _cameraTypesCached = false;
 
         private static void EnsureGameServicesTypes()
@@ -608,32 +607,18 @@ namespace ATSAccessibility
             {
                 // Get MetaController.Instance
                 var metaController = _metaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null)
-                {
-                    Debug.Log("[ATSAccessibility] DEBUG: MetaController.Instance is null");
-                    return null;
-                }
+                if (metaController == null) return null;
 
                 // Get MetaServices
                 var metaServices = _mcMetaServicesProperty?.GetValue(metaController);
-                if (metaServices == null)
-                {
-                    Debug.Log("[ATSAccessibility] DEBUG: MetaServices is null");
-                    return null;
-                }
+                if (metaServices == null) return null;
 
                 // Get TutorialService
                 var tutorialService = _msTutorialServiceProperty?.GetValue(metaServices);
-                if (tutorialService == null)
-                {
-                    Debug.Log("[ATSAccessibility] DEBUG: TutorialService is null");
-                    return null;
-                }
+                if (tutorialService == null) return null;
 
                 // Get Phase (ReactiveProperty<TutorialPhase>)
-                var phase = _tsPhaseProperty?.GetValue(tutorialService);
-                Debug.Log($"[ATSAccessibility] DEBUG: Got TutorialService.Phase: {phase?.GetType().FullName}");
-                return phase;
+                return _tsPhaseProperty?.GetValue(tutorialService);
             }
             catch (Exception ex)
             {
@@ -1237,33 +1222,23 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Set the camera target to make the camera smoothly pan to a transform.
-        /// Uses the game's built-in smooth camera movement system.
+        /// Uses our Harmony patch to implement smooth following that the game can't clear.
         /// </summary>
         public static void SetCameraTarget(Transform target)
         {
             if (target == null) return;
 
-            var cameraController = GetCameraController();
-            if (cameraController == null) return;
+            // Use our Harmony patch's static target storage
+            // This prevents the game from clearing the target when keyboard input is detected
+            CameraControllerUpdateMovementPatch.SetTarget(target);
+        }
 
-            try
-            {
-                // Cache the target field if not already cached
-                if (_ccTargetField == null)
-                {
-                    _ccTargetField = cameraController.GetType().GetField("target",
-                        BindingFlags.Public | BindingFlags.Instance);
-                }
-
-                if (_ccTargetField != null)
-                {
-                    _ccTargetField.SetValue(cameraController, target);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] SetCameraTarget failed: {ex.Message}");
-            }
+        /// <summary>
+        /// Clear the camera target (e.g., when exiting map navigation).
+        /// </summary>
+        public static void ClearCameraTarget()
+        {
+            CameraControllerUpdateMovementPatch.ClearTarget();
         }
 
         // ========================================
@@ -1473,6 +1448,139 @@ namespace ATSAccessibility
             catch
             {
                 return null;
+            }
+        }
+
+        // ========================================
+        // FAVORING (RACE PREFERENCE)
+        // ========================================
+
+        private static MethodInfo _rsFavorRaceMethod = null;
+        private static MethodInfo _rsStopFavoringMethod = null;
+        private static MethodInfo _rsIsFavoredMethod = null;
+        private static MethodInfo _rsIsFavoringOnCooldownMethod = null;
+        private static MethodInfo _rsGetFavorCooldownLeftMethod = null;
+        private static bool _favoringTypesCached = false;
+
+        private static void EnsureFavoringTypes()
+        {
+            if (_favoringTypesCached) return;
+
+            var resolveService = GetResolveService();
+            if (resolveService == null) return;
+
+            try
+            {
+                var type = resolveService.GetType();
+                _rsFavorRaceMethod = type.GetMethod("FavorRace", PublicInstance);
+                _rsStopFavoringMethod = type.GetMethod("StopFavoringRace", PublicInstance);
+                _rsIsFavoredMethod = type.GetMethod("IsFavored", PublicInstance);
+                _rsIsFavoringOnCooldownMethod = type.GetMethod("IsFavoringOnCooldown", PublicInstance);
+                _rsGetFavorCooldownLeftMethod = type.GetMethod("GetFavorCooldownLeft", PublicInstance);
+                _favoringTypesCached = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] EnsureFavoringTypes failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Check if a race is currently being favored.
+        /// </summary>
+        public static bool IsFavored(string raceName)
+        {
+            EnsureFavoringTypes();
+            var resolveService = GetResolveService();
+            if (resolveService == null || _rsIsFavoredMethod == null) return false;
+
+            try
+            {
+                return (bool)_rsIsFavoredMethod.Invoke(resolveService, new object[] { raceName });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Start favoring a race (gives them resolve bonus, penalizes others).
+        /// </summary>
+        public static bool FavorRace(string raceName)
+        {
+            EnsureFavoringTypes();
+            var resolveService = GetResolveService();
+            if (resolveService == null || _rsFavorRaceMethod == null) return false;
+
+            try
+            {
+                _rsFavorRaceMethod.Invoke(resolveService, new object[] { raceName });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] FavorRace failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Stop favoring any race.
+        /// </summary>
+        public static bool StopFavoringRace()
+        {
+            EnsureFavoringTypes();
+            var resolveService = GetResolveService();
+            if (resolveService == null || _rsStopFavoringMethod == null) return false;
+
+            try
+            {
+                _rsStopFavoringMethod.Invoke(resolveService, null);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] StopFavoringRace failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if favoring is on cooldown.
+        /// </summary>
+        public static bool IsFavoringOnCooldown()
+        {
+            EnsureFavoringTypes();
+            var resolveService = GetResolveService();
+            if (resolveService == null || _rsIsFavoringOnCooldownMethod == null) return false;
+
+            try
+            {
+                return (bool)_rsIsFavoringOnCooldownMethod.Invoke(resolveService, null);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get remaining cooldown time for favoring.
+        /// </summary>
+        public static float GetFavorCooldownLeft()
+        {
+            EnsureFavoringTypes();
+            var resolveService = GetResolveService();
+            if (resolveService == null || _rsGetFavorCooldownLeftMethod == null) return 0f;
+
+            try
+            {
+                return (float)_rsGetFavorCooldownLeftMethod.Invoke(resolveService, null);
+            }
+            catch
+            {
+                return 0f;
             }
         }
 
