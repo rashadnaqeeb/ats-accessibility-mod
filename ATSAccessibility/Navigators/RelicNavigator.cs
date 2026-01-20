@@ -344,7 +344,7 @@ namespace ATSAccessibility
 
             if (slotOccupied && subItemIndex == 0)
             {
-                Speech.Say("Unassign worker. Enter to confirm");
+                Speech.Say("Unassign worker");
                 return;
             }
 
@@ -352,7 +352,7 @@ namespace ATSAccessibility
             if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
             {
                 var (raceName, freeCount) = _availableRaces[raceIndex];
-                Speech.Say($"{raceName}: {freeCount} available. Enter to assign");
+                Speech.Say($"{raceName}: {freeCount} available");
             }
             else
             {

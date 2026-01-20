@@ -300,7 +300,7 @@ namespace ATSAccessibility
 
             if (charges > 0)
             {
-                Speech.Say($"{abilityName}: {charges} charges, Enter to use");
+                Speech.Say($"{abilityName}: {charges} charges");
             }
             else
             {

@@ -339,12 +339,7 @@ namespace ATSAccessibility
                     status = "Active";
                 }
 
-                string announcement = $"Status: {status}";
-                if (_canSleep)
-                {
-                    announcement += _isSleeping ? ", Enter to resume" : ", Enter to pause";
-                }
-                Speech.Say(announcement);
+                Speech.Say($"Status: {status}");
             }
         }
 
@@ -354,11 +349,11 @@ namespace ATSAccessibility
             {
                 if (_isSleeping)
                 {
-                    Speech.Say("Resume building, Enter to confirm");
+                    Speech.Say("Resume building");
                 }
                 else
                 {
-                    Speech.Say("Pause building, workers will be unassigned, Enter to confirm");
+                    Speech.Say("Pause building, workers will be unassigned");
                 }
             }
         }
@@ -407,8 +402,7 @@ namespace ATSAccessibility
                 if (service.ConsumesGood)
                 {
                     string goodName = service.CurrentGoodName ?? "Unknown";
-                    string extraInfo = service.AvailableGoodsCount > 1 ? ", Enter to change ingredient" : "";
-                    Speech.Say($"{needName}: using {goodName}{extraInfo}");
+                    Speech.Say($"{needName}: using {goodName}");
                 }
                 else
                 {

@@ -319,12 +319,7 @@ namespace ATSAccessibility
             if (itemIndex == index)
             {
                 string status = GetStatusText();
-                string announcement = $"Status: {status}";
-                if (_canSleep)
-                {
-                    announcement += _isSleeping ? ", Enter to resume" : ", Enter to pause";
-                }
-                Speech.Say(announcement);
+                Speech.Say($"Status: {status}");
                 return;
             }
             index++;
@@ -346,11 +341,11 @@ namespace ATSAccessibility
             {
                 if (_isSleeping)
                 {
-                    Speech.Say("Resume building, Enter to confirm");
+                    Speech.Say("Resume building");
                 }
                 else
                 {
-                    Speech.Say("Pause building, workers will be unassigned, Enter to confirm");
+                    Speech.Say("Pause building, workers will be unassigned");
                 }
             }
         }
@@ -435,7 +430,7 @@ namespace ATSAccessibility
             if (isSelected)
                 Speech.Say($"{modeName}, selected");
             else
-                Speech.Say($"{modeName}. Enter to select");
+                Speech.Say(modeName);
         }
 
         private bool PerformBaitModeSubItemAction(int subItemIndex)
@@ -626,7 +621,7 @@ namespace ATSAccessibility
 
             if (slotOccupied && subItemIndex == 0)
             {
-                Speech.Say("Unassign worker. Enter to confirm");
+                Speech.Say("Unassign worker");
                 return;
             }
 
@@ -634,7 +629,7 @@ namespace ATSAccessibility
             if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
             {
                 var (raceName, freeCount) = _availableRaces[raceIndex];
-                Speech.Say($"{raceName}: {freeCount} available. Enter to assign");
+                Speech.Say($"{raceName}: {freeCount} available");
             }
             else
             {

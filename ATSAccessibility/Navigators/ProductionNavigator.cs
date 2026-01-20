@@ -465,13 +465,7 @@ namespace ATSAccessibility
             // Status
             if (itemIndex == index)
             {
-                string status = GetStatusText();
-                string announcement = $"Status: {status}";
-                if (_canSleep)
-                {
-                    announcement += _isSleeping ? ", Enter to resume" : ", Enter to pause";
-                }
-                Speech.Say(announcement);
+                Speech.Say($"Status: {GetStatusText()}");
                 return;
             }
             index++;
@@ -493,11 +487,11 @@ namespace ATSAccessibility
             {
                 if (_isSleeping)
                 {
-                    Speech.Say("Resume building, Enter to confirm");
+                    Speech.Say("Resume building");
                 }
                 else
                 {
-                    Speech.Say("Pause building, workers will be unassigned, Enter to confirm");
+                    Speech.Say("Pause building, workers will be unassigned");
                 }
             }
         }
@@ -619,7 +613,7 @@ namespace ATSAccessibility
             if (slotOccupied && subItemIndex == 0)
             {
                 // Unassign option
-                Speech.Say("Unassign worker. Enter to confirm");
+                Speech.Say("Unassign worker");
                 return;
             }
 
@@ -628,7 +622,7 @@ namespace ATSAccessibility
             if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
             {
                 var (raceName, freeCount) = _availableRaces[raceIndex];
-                Speech.Say($"{raceName}: {freeCount} available. Enter to assign");
+                Speech.Say($"{raceName}: {freeCount} available");
             }
             else
             {
@@ -822,7 +816,7 @@ namespace ATSAccessibility
 
             if (subItemIndex == 0)
             {
-                Speech.Say($"Return {amount} {displayName} to warehouse. Enter to confirm");
+                Speech.Say($"Return {amount} {displayName} to warehouse");
             }
             else
             {
@@ -903,15 +897,15 @@ namespace ATSAccessibility
             {
                 case 0:
                     if (isForced)
-                        Speech.Say("Transport queued. Enter to cancel");
+                        Speech.Say("Transport queued");
                     else
-                        Speech.Say("Force transport now. Enter to queue");
+                        Speech.Say("Force transport now");
                     break;
                 case 1:
                     if (isConstantForced)
-                        Speech.Say("Auto-deliver when produced: On. Enter to turn off");
+                        Speech.Say("Auto-deliver when produced: On");
                     else
-                        Speech.Say("Auto-deliver when produced: Off. Enter to turn on");
+                        Speech.Say("Auto-deliver when produced: Off");
                     break;
                 default:
                     Speech.Say("Invalid option");
@@ -1077,7 +1071,7 @@ namespace ATSAccessibility
             if (isSelected)
                 Speech.Say($"{modeName}, selected");
             else
-                Speech.Say($"{modeName}. Enter to select");
+                Speech.Say(modeName);
         }
 
         private bool PerformSettingsSubItemAction(int subItemIndex)
@@ -1246,12 +1240,6 @@ namespace ATSAccessibility
             if (disabledItems.Count > 0)
             {
                 announcement += $". Disabled: {string.Join(", ", disabledItems)}";
-            }
-
-            // If there are multiple options, mention that Enter opens the options
-            if (options.Length > 1)
-            {
-                announcement += ". Enter to edit options";
             }
 
             Speech.Say(announcement);

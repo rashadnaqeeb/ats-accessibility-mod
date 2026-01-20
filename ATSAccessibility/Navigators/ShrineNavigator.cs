@@ -121,7 +121,7 @@ namespace ATSAccessibility
             {
                 var tier = _effectTiers[itemIndex];
                 string effectName = BuildingReflection.GetShrineTierEffectName(_building, tier.TierIndex, subItemIndex);
-                Speech.Say($"{effectName ?? "Unknown effect"}, Enter to use");
+                Speech.Say(effectName ?? "Unknown effect");
             }
         }
 
@@ -284,11 +284,11 @@ namespace ATSAccessibility
 
                 if (tier.ChargesLeft > 0)
                 {
-                    Speech.Say($"{label}, {chargesInfo}, Enter to select effect");
+                    Speech.Say($"{label}, {chargesInfo}");
                 }
                 else
                 {
-                    Speech.Say($"{label}, {chargesInfo} (no charges remaining)");
+                    Speech.Say($"{label}, {chargesInfo}, no charges remaining");
                 }
             }
         }

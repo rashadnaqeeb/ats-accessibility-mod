@@ -155,7 +155,7 @@ namespace ATSAccessibility
                 {
                     if (subIndex == 0)
                     {
-                        Speech.Say("Feed, Enter to feed");
+                        Speech.Say("Feed");
                         return;
                     }
                     subIndex--;
@@ -165,12 +165,12 @@ namespace ATSAccessibility
                 if (need.AvailableGoodsCount > 1 && subIndex < need.AvailableGoodsCount)
                 {
                     string goodName = BuildingReflection.GetPoroNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
-                    Speech.Say($"Change to {goodName ?? "Unknown"}, Enter to select");
+                    Speech.Say($"Change to {goodName ?? "Unknown"}");
                 }
             }
             else if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather)
             {
-                Speech.Say($"Collect {_productAmount} {_productName ?? "products"}, Enter to collect");
+                Speech.Say($"Collect {_productAmount} {_productName ?? "products"}");
             }
         }
 
@@ -403,19 +403,7 @@ namespace ATSAccessibility
                 string levelPercent = $"{need.Level:P0}";
                 string currentGood = need.CurrentGoodName ?? "Unknown";
 
-                string announcement = $"{needName}: {levelPercent}, using {currentGood}";
-
-                // Add hints for available actions
-                var hints = new List<string>();
-                if (need.CanFulfill) hints.Add("can feed");
-                if (need.AvailableGoodsCount > 1) hints.Add("can change good");
-
-                if (hints.Count > 0)
-                {
-                    announcement += ", Enter to " + string.Join(" or ", hints);
-                }
-
-                Speech.Say(announcement);
+                Speech.Say($"{needName}: {levelPercent}, using {currentGood}");
             }
         }
 
@@ -430,11 +418,7 @@ namespace ATSAccessibility
                 string productName = _productName ?? "Product";
                 string announcement = $"{productName}: {_productAmount} of {_maxProducts} ready";
 
-                if (_canGather)
-                {
-                    announcement += ", Enter to collect";
-                }
-                else if (_productAmount == 0)
+                if (_productAmount == 0)
                 {
                     announcement += " (none ready)";
                 }
