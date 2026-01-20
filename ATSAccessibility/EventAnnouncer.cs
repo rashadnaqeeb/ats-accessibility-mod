@@ -21,6 +21,22 @@ namespace ATSAccessibility
         // Track last announced values to avoid duplicate announcements
         private int _lastAnnouncedHostilityLevel = -1;
         private HashSet<string> _announcedAlerts = new HashSet<string>();
+        private Queue<string> _announcedAlertsOrder = new Queue<string>();
+        private HashSet<string> _announcedNews = new HashSet<string>();
+
+        // Static compiled regex for stripping rich text tags
+        private static readonly System.Text.RegularExpressions.Regex RichTextTagsRegex =
+            new System.Text.RegularExpressions.Regex("<[^>]+>", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        // Cached reflection for villager removal
+        private static MethodInfo _villagerGetDisplayNameMethod;
+        private static FieldInfo _villagerStateField;
+        private static FieldInfo _villagerStateLossTypeField;
+        private static FieldInfo _villagerStateLossReasonField;
+        private static bool _villagerReflectionCached = false;
+
+        // Cached reflection for glade danger level
+        private static MethodInfo _gladesGetDangerLevelMethod;
 
         // Cached reflection metadata
         private static bool _reflectionCached = false;
@@ -94,6 +110,8 @@ namespace ATSAccessibility
             _subscriptionTime = 0f;
             _lastAnnouncedHostilityLevel = -1;
             _announcedAlerts.Clear();
+            _announcedAlertsOrder.Clear();
+            _announcedNews.Clear();
             Debug.Log("[ATSAccessibility] EventAnnouncer: Disposed all subscriptions");
         }
 
@@ -171,6 +189,7 @@ namespace ATSAccessibility
         private void OnSeasonChanged(object season)
         {
             if (!Plugin.AnnounceSeasonChanged.Value) return;
+            if (IsInGracePeriod()) return;
             string seasonName = season?.ToString() ?? "Unknown";
             Announce($"Season changed to {seasonName}");
         }
@@ -178,10 +197,9 @@ namespace ATSAccessibility
         private void OnYearChanged(object year)
         {
             if (!Plugin.AnnounceYearChanged.Value) return;
+            if (IsInGracePeriod()) return;
             Announce($"Year {year}");
         }
-
-        // VILLAGERS SERVICE - Removed, covered by game's AlertsVillagerLoss
 
         // ========================================
         // NEWCOMERS SERVICE
@@ -205,6 +223,7 @@ namespace ATSAccessibility
         private void OnNewcomersPicked(object _)
         {
             if (!Plugin.AnnounceVillagersArrived.Value) return;
+            if (IsInGracePeriod()) return;
             Announce("Newcomers joined the settlement");
         }
 
@@ -227,6 +246,25 @@ namespace ATSAccessibility
             }
         }
 
+        private void EnsureVillagerReflectionCached(object villager)
+        {
+            if (_villagerReflectionCached || villager == null) return;
+
+            var villagerType = villager.GetType();
+            _villagerGetDisplayNameMethod = villagerType.GetMethod("GetDisplayName");
+            _villagerStateField = villagerType.GetField("state");
+
+            var stateObj = _villagerStateField?.GetValue(villager);
+            if (stateObj != null)
+            {
+                var stateType = stateObj.GetType();
+                _villagerStateLossTypeField = stateType.GetField("lossType");
+                _villagerStateLossReasonField = stateType.GetField("lossReasonKey");
+            }
+
+            _villagerReflectionCached = true;
+        }
+
         private void OnVillagerRemoved(object villager)
         {
             if (!Plugin.AnnounceVillagerLost.Value) return;
@@ -234,20 +272,18 @@ namespace ATSAccessibility
 
             try
             {
-                // Get villager name
-                var getDisplayNameMethod = villager?.GetType().GetMethod("GetDisplayName");
-                string villagerName = getDisplayNameMethod?.Invoke(villager, null) as string ?? "Villager";
+                EnsureVillagerReflectionCached(villager);
 
-                // Get loss type from villager.state.lossType
-                var stateField = villager?.GetType().GetField("state");
-                var state = stateField?.GetValue(villager);
-                var lossTypeField = state?.GetType().GetField("lossType");
-                var lossType = lossTypeField?.GetValue(state);
+                // Get villager name using cached method
+                string villagerName = _villagerGetDisplayNameMethod?.Invoke(villager, null) as string ?? "Villager";
+
+                // Get loss type from villager.state.lossType using cached fields
+                var state = _villagerStateField?.GetValue(villager);
+                var lossType = _villagerStateLossTypeField?.GetValue(state);
                 string lossTypeStr = lossType?.ToString() ?? "Unknown";
 
-                // Get reason from villager.state.lossReasonKey
-                var lossReasonField = state?.GetType().GetField("lossReasonKey");
-                string reasonKey = lossReasonField?.GetValue(state) as string;
+                // Get reason from villager.state.lossReasonKey using cached field
+                string reasonKey = _villagerStateLossReasonField?.GetValue(state) as string;
 
                 string reason = "";
                 if (!string.IsNullOrEmpty(reasonKey))
@@ -273,7 +309,7 @@ namespace ATSAccessibility
             }
             catch (Exception ex)
             {
-                Debug.Log($"[ATSAccessibility] OnVillagerRemoved failed: {ex.Message}");
+                Debug.LogError($"[ATSAccessibility] OnVillagerRemoved failed: {ex.Message}");
                 Announce("Villager lost");
             }
         }
@@ -307,6 +343,7 @@ namespace ATSAccessibility
         private void OnHostilityLevelUp(object level)
         {
             if (!Plugin.AnnounceHostilityLevelChange.Value) return;
+            if (IsInGracePeriod()) return;
             int lvl = level is int i ? i : -1;
             if (lvl != _lastAnnouncedHostilityLevel)
             {
@@ -318,6 +355,7 @@ namespace ATSAccessibility
         private void OnHostilityLevelDown(object level)
         {
             if (!Plugin.AnnounceHostilityLevelChange.Value) return;
+            if (IsInGracePeriod()) return;
             int lvl = level is int i ? i : -1;
             if (lvl != _lastAnnouncedHostilityLevel)
             {
@@ -348,6 +386,7 @@ namespace ATSAccessibility
         private void OnTraderDeparted(object traderVisit)
         {
             if (!Plugin.AnnounceTraderDeparted.Value) return;
+            if (IsInGracePeriod()) return;
             Announce("Trader departed");
         }
 
@@ -381,12 +420,14 @@ namespace ATSAccessibility
         private void OnOrderStarted(object orderState)
         {
             if (!Plugin.AnnounceOrderAvailable.Value) return;
+            if (IsInGracePeriod()) return;
             Announce("New order available");
         }
 
         private void OnOrderFailed(object orderState)
         {
             if (!Plugin.AnnounceOrderFailed.Value) return;
+            if (IsInGracePeriod()) return;
             Announce("Order failed");
         }
 
@@ -411,16 +452,23 @@ namespace ATSAccessibility
         private void OnGladeRevealed(object gladeState)
         {
             if (!Plugin.AnnounceGladeRevealed.Value) return;
+            if (IsInGracePeriod()) return;
 
             string dangerInfo = "";
             try
             {
-                // Get danger level from GladesService
-                var gladesService = _gladesServiceProperty?.GetValue(GameReflection.GetGameServices());
+                // Get danger level from GladesService using cached method
+                var gameServices = GameReflection.GetGameServices();
+                var gladesService = _gladesServiceProperty?.GetValue(gameServices);
                 if (gladesService != null)
                 {
-                    var getDangerLevelMethod = gladesService.GetType().GetMethod("GetDangerLevel");
-                    var dangerLevel = getDangerLevelMethod?.Invoke(gladesService, new[] { gladeState });
+                    // Cache the method on first use
+                    if (_gladesGetDangerLevelMethod == null)
+                    {
+                        _gladesGetDangerLevelMethod = gladesService.GetType().GetMethod("GetDangerLevel");
+                    }
+
+                    var dangerLevel = _gladesGetDangerLevelMethod?.Invoke(gladesService, new[] { gladeState });
                     if (dangerLevel != null)
                     {
                         string level = dangerLevel.ToString();
@@ -465,6 +513,7 @@ namespace ATSAccessibility
         private void OnReputationChanged(object reputationChange)
         {
             if (!Plugin.AnnounceReputationChanged.Value) return;
+            if (IsInGracePeriod()) return;
 
             try
             {
@@ -521,6 +570,7 @@ namespace ATSAccessibility
         private void OnNewsPublished(object newsList)
         {
             if (!Plugin.AnnounceGameWarnings.Value) return;
+            if (IsInGracePeriod()) return;
 
             try
             {
@@ -528,16 +578,30 @@ namespace ATSAccessibility
                 var list = newsList as System.Collections.IList;
                 if (list == null || list.Count == 0) return;
 
-                // Get the most recent news item
-                var news = list[list.Count - 1];
-                var contentProperty = news?.GetType().GetProperty("content");
-                var content = contentProperty?.GetValue(news)?.ToString();
-
-                if (!string.IsNullOrEmpty(content))
+                // Check each news item and announce only new ones
+                foreach (var news in list)
                 {
+                    if (news == null) continue;
+
+                    var contentProperty = news.GetType().GetProperty("content");
+                    var content = contentProperty?.GetValue(news)?.ToString();
+
+                    if (string.IsNullOrEmpty(content)) continue;
+
+                    // Skip if already announced
+                    if (_announcedNews.Contains(content)) continue;
+                    _announcedNews.Add(content);
+
+                    // Clean up if too large
+                    if (_announcedNews.Count > 50)
+                    {
+                        _announcedNews.Clear();
+                        _announcedNews.Add(content);
+                    }
+
                     // Strip any rich text tags like <color>, <b>, etc.
-                    content = System.Text.RegularExpressions.Regex.Replace(content, "<[^>]+>", "");
-                    Announce($"Alert: {content}");
+                    string cleanContent = RichTextTagsRegex.Replace(content, "");
+                    Announce($"Alert: {cleanContent}");
                 }
             }
             catch { }
@@ -552,14 +616,9 @@ namespace ATSAccessibility
         private void SubscribeToGameBlackboard()
         {
             var blackboard = GameReflection.GetGameBlackboardService();
-            if (blackboard == null)
-            {
-                Debug.Log("[ATSAccessibility] EventAnnouncer: GameBlackboardService not available");
-                return;
-            }
+            if (blackboard == null) return;
 
             var blackboardType = blackboard.GetType();
-            Debug.Log($"[ATSAccessibility] EventAnnouncer: Subscribing to GameBlackboardService events");
 
             // BuildingFinished
             var buildingFinishedProp = blackboardType.GetProperty("BuildingFinished");
@@ -569,16 +628,8 @@ namespace ATSAccessibility
                 if (buildingFinished != null)
                 {
                     var sub = GameReflection.SubscribeToObservable(buildingFinished, OnBuildingFinished);
-                    if (sub != null)
-                    {
-                        _subscriptions.Add(sub);
-                        Debug.Log("[ATSAccessibility] EventAnnouncer: Subscribed to BuildingFinished");
-                    }
+                    if (sub != null) _subscriptions.Add(sub);
                 }
-            }
-            else
-            {
-                Debug.LogWarning("[ATSAccessibility] EventAnnouncer: BuildingFinished property not found");
             }
 
             // FinishedBuildingRemoved removed - covered by game's AlertsBuildingLoss
@@ -687,23 +738,23 @@ namespace ATSAccessibility
                     if (!string.IsNullOrEmpty(name)) return name;
                 }
 
-                // Fallback: try BuildingModel.displayName
+                // Fallback: try BuildingModel.displayName (displayName is a field, not property)
                 var modelProperty = building.GetType().GetProperty("BuildingModel");
                 if (modelProperty != null)
                 {
                     var model = modelProperty.GetValue(building);
                     if (model != null)
                     {
-                        var displayNameField = model.GetType().GetProperty("displayName");
+                        var displayNameField = model.GetType().GetField("displayName");
                         var displayName = displayNameField?.GetValue(model);
                         var name = GameReflection.GetLocaText(displayName);
                         if (!string.IsNullOrEmpty(name)) return name;
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                Debug.Log($"[ATSAccessibility] GetBuildingName failed: {ex.Message}");
+                // Failed to get building name, return fallback
             }
 
             return "Building";
@@ -818,11 +869,7 @@ namespace ATSAccessibility
             if (pickPopupRequested != null)
             {
                 var sub = GameReflection.SubscribeToObservable(pickPopupRequested, OnBlueprintPickRequested);
-                if (sub != null)
-                {
-                    _subscriptions.Add(sub);
-                    Debug.Log("[ATSAccessibility] EventAnnouncer: Subscribed to PickPopupRequested (blueprints)");
-                }
+                if (sub != null) _subscriptions.Add(sub);
             }
         }
 
@@ -847,11 +894,7 @@ namespace ATSAccessibility
             if (onPicksChanged != null)
             {
                 var sub = GameReflection.SubscribeToObservable(onPicksChanged, OnCornerstonePicksChanged);
-                if (sub != null)
-                {
-                    _subscriptions.Add(sub);
-                    Debug.Log("[ATSAccessibility] EventAnnouncer: Subscribed to OnPicksChanged (cornerstones)");
-                }
+                if (sub != null) _subscriptions.Add(sub);
             }
         }
 
@@ -869,22 +912,14 @@ namespace ATSAccessibility
         private void SubscribeToMonitors(object gameServices)
         {
             var service = _monitorsServiceProperty?.GetValue(gameServices);
-            if (service == null)
-            {
-                Debug.Log("[ATSAccessibility] EventAnnouncer: MonitorsService not available");
-                return;
-            }
+            if (service == null) return;
 
             // Subscribe to Alerts observable
             var alertsObservable = service.GetType().GetProperty("Alerts")?.GetValue(service);
             if (alertsObservable != null)
             {
                 var sub = GameReflection.SubscribeToObservable(alertsObservable, OnAlertsChanged);
-                if (sub != null)
-                {
-                    _subscriptions.Add(sub);
-                    Debug.Log("[ATSAccessibility] EventAnnouncer: Subscribed to MonitorsService.Alerts");
-                }
+                if (sub != null) _subscriptions.Add(sub);
             }
         }
 
@@ -921,16 +956,17 @@ namespace ATSAccessibility
                     if (!_announcedAlerts.Contains(alertKey))
                     {
                         _announcedAlerts.Add(alertKey);
+                        _announcedAlertsOrder.Enqueue(alertKey);
 
-                        // Clean up old alerts to prevent memory growth
-                        if (_announcedAlerts.Count > 100)
+                        // Evict oldest alerts to prevent memory growth
+                        while (_announcedAlerts.Count > 100)
                         {
-                            _announcedAlerts.Clear();
-                            _announcedAlerts.Add(alertKey);
+                            var oldest = _announcedAlertsOrder.Dequeue();
+                            _announcedAlerts.Remove(oldest);
                         }
 
                         // Strip any rich text tags
-                        text = System.Text.RegularExpressions.Regex.Replace(text, "<[^>]+>", "");
+                        text = RichTextTagsRegex.Replace(text, "");
                         Announce($"Alert: {text}");
                     }
                 }

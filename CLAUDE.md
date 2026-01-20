@@ -44,3 +44,7 @@ cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/ne
 **Worker navigation**: Use `IsValidWorkerIndex(int)` helper to bounds-check before accessing `_workerIds[index]`. Use `BuildingReflection.IsWorkerSlotEmpty()` consistently.
 
 **Lazy initialization**: Game services aren't ready at scene load. Defer until first user interaction.
+
+**Event subscriptions**: Use grace period check (`IsInGracePeriod()`) in event handlers to avoid announcing pre-existing state on game load. Track announced items in HashSet to prevent duplicates.
+
+**Compiled regex**: Use `new Regex(pattern, RegexOptions.Compiled)` as static field for frequently-called string operations.
