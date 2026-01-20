@@ -3744,5 +3744,76 @@ namespace ATSAccessibility
                 return false;
             }
         }
+
+        // ========================================
+        // GOODS HELPERS
+        // ========================================
+
+        // Cache for Settings.GetGood method
+        private static MethodInfo _settingsGetGoodMethodCached = null;
+        private static bool _settingsGetGoodCached = false;
+
+        private static void EnsureSettingsGetGood()
+        {
+            if (_settingsGetGoodCached) return;
+
+            try
+            {
+                var assembly = GameAssembly;
+                if (assembly == null)
+                {
+                    _settingsGetGoodCached = true;
+                    return;
+                }
+
+                var settingsType = assembly.GetType("Eremite.Model.Settings");
+                if (settingsType != null)
+                {
+                    _settingsGetGoodMethodCached = settingsType.GetMethod("GetGood",
+                        new[] { typeof(string) });
+                }
+            }
+            catch
+            {
+                // Ignore
+            }
+
+            _settingsGetGoodCached = true;
+        }
+
+        /// <summary>
+        /// Get the display name for a good by its internal name.
+        /// </summary>
+        public static string GetGoodDisplayName(string goodName)
+        {
+            if (string.IsNullOrEmpty(goodName)) return "Unknown";
+
+            EnsureSettingsGetGood();
+
+            try
+            {
+                var settings = GetSettings();
+                if (settings == null || _settingsGetGoodMethodCached == null) return goodName;
+
+                var goodModel = _settingsGetGoodMethodCached.Invoke(settings, new object[] { goodName });
+                if (goodModel == null) return goodName;
+
+                var displayNameProp = goodModel.GetType().GetProperty("displayName", PublicInstance);
+                var locaText = displayNameProp?.GetValue(goodModel);
+                return GetLocaText(locaText) ?? goodName;
+            }
+            catch
+            {
+                return goodName;
+            }
+        }
+
+        /// <summary>
+        /// Alias for GetAllStoredGoods() for consistency.
+        /// </summary>
+        public static Dictionary<string, int> GetStorageGoods()
+        {
+            return GetAllStoredGoods();
+        }
     }
 }

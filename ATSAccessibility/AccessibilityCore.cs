@@ -84,6 +84,9 @@ namespace ATSAccessibility
         private IDisposable _embarkClosedSubscription;
         private bool _subscribedToEmbark = false;
 
+        // Building panel handler for building accessibility
+        private BuildingPanelHandler _buildingPanelHandler;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -147,6 +150,9 @@ namespace ATSAccessibility
             // Initialize embark panel
             _embarkPanel = new EmbarkPanel();
 
+            // Initialize building panel handler
+            _buildingPanelHandler = new BuildingPanelHandler();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _buildingMenuPanel, _moveModeController);
@@ -155,6 +161,7 @@ namespace ATSAccessibility
             // Register key handlers in priority order (highest priority first)
             _keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
             _keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
+            _keyboardManager.RegisterHandler(_buildingPanelHandler); // Building panel accessibility
             _keyboardManager.RegisterHandler(_buildingMenuPanel);   // Tab building menu
             _keyboardManager.RegisterHandler(_buildModeController); // Building placement (selective passthrough)
             _keyboardManager.RegisterHandler(_moveModeController);  // Building relocation (selective passthrough)
@@ -178,6 +185,9 @@ namespace ATSAccessibility
 
             // Dispose popup subscriptions
             DisposePopupSubscriptions();
+
+            // Dispose building panel handler
+            _buildingPanelHandler?.Dispose();
 
             Speech.Shutdown();
         }
@@ -206,6 +216,9 @@ namespace ATSAccessibility
 
                 // Try to subscribe to tutorial phase changes
                 _tutorialHandler?.TrySubscribe();
+
+                // Try to subscribe to building panel events
+                _buildingPanelHandler?.TrySubscribe();
             }
         }
 
@@ -268,6 +281,9 @@ namespace ATSAccessibility
 
             // Dispose embark subscriptions (WorldBlackboardService is destroyed on scene change)
             DisposeEmbarkSubscriptions();
+
+            // Dispose building panel handler subscriptions
+            _buildingPanelHandler?.Dispose();
 
             // Dispose tutorial handler subscription
             _tutorialHandler?.Dispose();
