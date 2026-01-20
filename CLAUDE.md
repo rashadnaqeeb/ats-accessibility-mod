@@ -130,9 +130,17 @@ To create a new building navigator, inherit from `BuildingSectionNavigator` and 
 
 **Lazy initialization**: Game services aren't ready at scene load. Defer initialization until first user interaction (e.g., MapNavigator initializes cursor on first arrow key).
 
-**Handler chain**: Implement `IKeyHandler` with `IsActive` property and `ProcessKey(KeyCode, KeyModifiers)`. Register in AccessibilityCore.Start() at appropriate priority. Return true to consume key, false to pass through.
+**Handler chain**: Implement `IKeyHandler` with `IsActive` property and `ProcessKey(KeyCode, KeyModifiers)`. Register in AccessibilityCore.Start() at appropriate priority. Return true to consume key, false to pass through. **Important**: `IsActive` must be side-effect free - move any cleanup logic to `ProcessKey()`.
 
 **Reflection files**: Add settlement code to GameReflection.cs, world map to WorldMapReflection.cs, embark to EmbarkReflection.cs, wiki to WikiReflection.cs, building panels to BuildingReflection.cs. Create new file only for new major game screen with 500+ lines.
+
+**Reflection dictionary iteration**: When getting dictionary values via reflection, use reflection-based iteration (get Keys property, iterate, use indexer) instead of direct cast to `Dictionary<K,V>` which fails at runtime.
+
+**Worker navigation**: Use `IsValidWorkerIndex(int)` helper to bounds-check before accessing `_workerIds[index]`. Use `BuildingReflection.IsWorkerSlotEmpty()` consistently (not direct array checks).
+
+**Race caching**: Use `_racesRefreshedForWorkerSection` flag to avoid redundant `GetRacesWithFreeWorkers()` calls. Add `force` parameter to `RefreshAvailableRaces(bool force = false)` for post-assignment refresh.
+
+**Cleanup guards**: Use `_isCleaningUp` flag to prevent double-cleanup when multiple paths can trigger cleanup (event handlers, ProcessKey checks, Dispose).
 
 ## Game Internals Reference
 

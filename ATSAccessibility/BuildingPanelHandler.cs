@@ -24,6 +24,7 @@ namespace ATSAccessibility
 
         private IBuildingNavigator _currentNavigator;
         private object _currentBuilding;
+        private bool _isCleaningUp = false;
 
         // ========================================
         // NAVIGATORS
@@ -49,25 +50,9 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Handler is active when a building panel is open and we have a navigator.
-        /// Also checks the game's panel state to stay in sync.
+        /// Note: This property is side-effect free - cleanup is done in ProcessKey.
         /// </summary>
-        public bool IsActive
-        {
-            get
-            {
-                if (_currentNavigator == null || _currentBuilding == null)
-                    return false;
-
-                // Check if the game's panel is still open - if not, clean up
-                if (!BuildingReflection.IsBuildingPanelOpen())
-                {
-                    CleanupNavigator();
-                    return false;
-                }
-
-                return true;
-            }
-        }
+        public bool IsActive => _currentNavigator != null && _currentBuilding != null;
 
         /// <summary>
         /// Process a key event.
@@ -75,6 +60,13 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!IsActive) return false;
+
+            // Check if the game's panel is still open - if not, clean up
+            if (!BuildingReflection.IsBuildingPanelOpen())
+            {
+                CleanupNavigator();
+                return false;
+            }
 
             return _currentNavigator.ProcessKey(keyCode, modifiers);
         }
@@ -84,10 +76,20 @@ namespace ATSAccessibility
         /// </summary>
         private void CleanupNavigator()
         {
-            Debug.Log("[ATSAccessibility] BuildingPanelHandler: Cleaning up - game panel already closed");
-            _currentNavigator?.Close();
-            _currentNavigator = null;
-            _currentBuilding = null;
+            if (_isCleaningUp || _currentNavigator == null) return;
+
+            _isCleaningUp = true;
+            try
+            {
+                Debug.Log("[ATSAccessibility] BuildingPanelHandler: Cleaning up - game panel already closed");
+                _currentNavigator?.Close();
+                _currentNavigator = null;
+                _currentBuilding = null;
+            }
+            finally
+            {
+                _isCleaningUp = false;
+            }
         }
 
         // ========================================
@@ -148,9 +150,30 @@ namespace ATSAccessibility
             _closedSubscription = null;
             _subscribed = false;
 
-            _currentNavigator?.Close();
+            // Clean up all navigators to release building references
+            CleanupAllNavigators();
             _currentNavigator = null;
             _currentBuilding = null;
+        }
+
+        /// <summary>
+        /// Close all navigators to release stale building references.
+        /// </summary>
+        private void CleanupAllNavigators()
+        {
+            _productionNavigator?.Close();
+            _simpleNavigator?.Close();
+            _hearthNavigator?.Close();
+            _houseNavigator?.Close();
+            _relicNavigator?.Close();
+            _portNavigator?.Close();
+            _fishingHutNavigator?.Close();
+            _storageNavigator?.Close();
+            _institutionNavigator?.Close();
+            _shrineNavigator?.Close();
+            _poroNavigator?.Close();
+            _waterNavigator?.Close();
+            _hydrantNavigator?.Close();
         }
 
         // ========================================
@@ -180,13 +203,23 @@ namespace ATSAccessibility
 
         private void OnBuildingPanelClosed(object building)
         {
-            Debug.Log("[ATSAccessibility] BuildingPanelHandler: Panel closed");
+            if (_isCleaningUp || _currentNavigator == null) return;
 
-            _currentNavigator?.Close();
-            _currentNavigator = null;
-            _currentBuilding = null;
+            _isCleaningUp = true;
+            try
+            {
+                Debug.Log("[ATSAccessibility] BuildingPanelHandler: Panel closed");
 
-            Speech.Say("Panel closed");
+                _currentNavigator?.Close();
+                _currentNavigator = null;
+                _currentBuilding = null;
+
+                Speech.Say("Panel closed");
+            }
+            finally
+            {
+                _isCleaningUp = false;
+            }
         }
 
         // ========================================

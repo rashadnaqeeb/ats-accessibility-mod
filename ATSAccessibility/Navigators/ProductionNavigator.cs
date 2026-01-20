@@ -41,6 +41,7 @@ namespace ATSAccessibility
         private int[] _workerIds;
         private int _maxWorkers;
         private List<(string raceName, int freeCount)> _availableRaces = new List<(string, int)>();
+        private bool _racesRefreshedForWorkerSection = false;
 
         // Recipe data
         private List<RecipeInfo> _recipes = new List<RecipeInfo>();
@@ -377,6 +378,7 @@ namespace ATSAccessibility
             _workerIds = null;
             _recipes.Clear();
             _availableRaces.Clear();
+            _racesRefreshedForWorkerSection = false;
             _inputGoods.Clear();
             _outputGoods.Clear();
             _hasInputStorage = false;
@@ -456,9 +458,14 @@ namespace ATSAccessibility
         // WORKERS SECTION
         // ========================================
 
+        private bool IsValidWorkerIndex(int workerIndex)
+        {
+            return _workerIds != null && workerIndex >= 0 && workerIndex < _workerIds.Length;
+        }
+
         private void AnnounceWorkerItem(int itemIndex)
         {
-            if (itemIndex >= _maxWorkers)
+            if (!IsValidWorkerIndex(itemIndex))
             {
                 Speech.Say("Invalid worker slot");
                 return;
@@ -487,15 +494,25 @@ namespace ATSAccessibility
         // WORKER SUB-ITEMS (ASSIGNMENT)
         // ========================================
 
-        private void RefreshAvailableRaces()
+        private void RefreshAvailableRaces(bool force = false)
         {
+            if (!force && _racesRefreshedForWorkerSection) return;
+
             _availableRaces = BuildingReflection.GetRacesWithFreeWorkers();
+            _racesRefreshedForWorkerSection = true;
             Debug.Log($"[ATSAccessibility] ProductionNavigator: Found {_availableRaces.Count} races with free workers");
+        }
+
+        private void InvalidateRaceCache()
+        {
+            _racesRefreshedForWorkerSection = false;
         }
 
         private int GetWorkerSubItemCount(int workerIndex)
         {
-            // Refresh available races when entering worker submenu
+            if (!IsValidWorkerIndex(workerIndex)) return 0;
+
+            // Refresh available races when entering worker submenu (only if not already cached)
             RefreshAvailableRaces();
 
             bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
@@ -510,6 +527,12 @@ namespace ATSAccessibility
 
         private void AnnounceWorkerSubItem(int workerIndex, int subItemIndex)
         {
+            if (!IsValidWorkerIndex(workerIndex))
+            {
+                Speech.Say("Invalid worker slot");
+                return;
+            }
+
             bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
             int raceOffset = slotOccupied ? 1 : 0;
 
@@ -535,6 +558,8 @@ namespace ATSAccessibility
 
         private bool PerformWorkerSubItemAction(int workerIndex, int subItemIndex)
         {
+            if (!IsValidWorkerIndex(workerIndex)) return false;
+
             bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
             int raceOffset = slotOccupied ? 1 : 0;
 
@@ -545,7 +570,7 @@ namespace ATSAccessibility
                 {
                     // Refresh worker data
                     _workerIds = BuildingReflection.GetWorkerIds(_building);
-                    RefreshAvailableRaces();
+                    RefreshAvailableRaces(force: true);
                     Speech.Say("Worker unassigned");
 
                     // Exit submenu back to worker slot level
@@ -575,11 +600,18 @@ namespace ATSAccessibility
                 {
                     // Refresh worker data
                     _workerIds = BuildingReflection.GetWorkerIds(_building);
-                    RefreshAvailableRaces();
+                    RefreshAvailableRaces(force: true);
 
                     // Announce the new worker
-                    string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
-                    Speech.Say($"Assigned: {workerDesc ?? raceName}");
+                    if (IsValidWorkerIndex(workerIndex))
+                    {
+                        string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
+                        Speech.Say($"Assigned: {workerDesc ?? raceName}");
+                    }
+                    else
+                    {
+                        Speech.Say($"Assigned: {raceName}");
+                    }
 
                     // Exit submenu back to worker slot level
                     _navigationLevel = 1;
@@ -1212,6 +1244,8 @@ namespace ATSAccessibility
                 return;
 
             int slotIndex = subItemIndex - RECIPE_SUBITEM_INGREDIENTS_START;
+            if (slotIndex < 0) return;
+
             var recipe = _recipes[itemIndex];
             var options = BuildingReflection.GetIngredientSlotOptions(recipe.RecipeState, slotIndex);
 
@@ -1239,6 +1273,8 @@ namespace ATSAccessibility
                 return false;
 
             int slotIndex = subItemIndex - RECIPE_SUBITEM_INGREDIENTS_START;
+            if (slotIndex < 0) return false;
+
             var recipe = _recipes[itemIndex];
             var options = BuildingReflection.GetIngredientSlotOptions(recipe.RecipeState, slotIndex);
 

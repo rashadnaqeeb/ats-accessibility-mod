@@ -36,6 +36,7 @@ namespace ATSAccessibility
         private int[] _workerIds;
         private int _maxWorkers;
         private List<(string raceName, int freeCount)> _availableRaces = new List<(string, int)>();
+        private bool _racesRefreshedForWorkerSection = false;
 
         // Bait data
         private int _baitMode;
@@ -240,6 +241,7 @@ namespace ATSAccessibility
             _workerIds = null;
             _recipes.Clear();
             _availableRaces.Clear();
+            _racesRefreshedForWorkerSection = false;
             _baitMode = 0;
             _baitCharges = 0;
             _baitIngredient = null;
@@ -482,9 +484,14 @@ namespace ATSAccessibility
         // WORKERS SECTION
         // ========================================
 
+        private bool IsValidWorkerIndex(int workerIndex)
+        {
+            return _workerIds != null && workerIndex >= 0 && workerIndex < _workerIds.Length;
+        }
+
         private void AnnounceWorkerItem(int itemIndex)
         {
-            if (itemIndex >= _maxWorkers)
+            if (!IsValidWorkerIndex(itemIndex))
             {
                 Speech.Say("Invalid worker slot");
                 return;
@@ -509,13 +516,18 @@ namespace ATSAccessibility
             Speech.Say($"Worker slot {slotNum}: {workerDesc}");
         }
 
-        private void RefreshAvailableRaces()
+        private void RefreshAvailableRaces(bool force = false)
         {
+            if (!force && _racesRefreshedForWorkerSection) return;
+
             _availableRaces = BuildingReflection.GetRacesWithFreeWorkers();
+            _racesRefreshedForWorkerSection = true;
         }
 
         private int GetWorkerSubItemCount(int workerIndex)
         {
+            if (!IsValidWorkerIndex(workerIndex)) return 0;
+
             RefreshAvailableRaces();
 
             bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
@@ -528,6 +540,12 @@ namespace ATSAccessibility
 
         private void AnnounceWorkerSubItem(int workerIndex, int subItemIndex)
         {
+            if (!IsValidWorkerIndex(workerIndex))
+            {
+                Speech.Say("Invalid worker slot");
+                return;
+            }
+
             bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
             int raceOffset = slotOccupied ? 1 : 0;
 
@@ -551,6 +569,8 @@ namespace ATSAccessibility
 
         private bool PerformWorkerSubItemAction(int workerIndex, int subItemIndex)
         {
+            if (!IsValidWorkerIndex(workerIndex)) return false;
+
             bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
             int raceOffset = slotOccupied ? 1 : 0;
 
@@ -560,7 +580,7 @@ namespace ATSAccessibility
                 if (BuildingReflection.UnassignWorkerFromSlot(_building, workerIndex))
                 {
                     _workerIds = BuildingReflection.GetWorkerIds(_building);
-                    RefreshAvailableRaces();
+                    RefreshAvailableRaces(force: true);
                     Speech.Say("Worker unassigned");
 
                     _navigationLevel = 1;
@@ -587,10 +607,17 @@ namespace ATSAccessibility
                 if (BuildingReflection.AssignWorkerToSlot(_building, workerIndex, raceName))
                 {
                     _workerIds = BuildingReflection.GetWorkerIds(_building);
-                    RefreshAvailableRaces();
+                    RefreshAvailableRaces(force: true);
 
-                    string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
-                    Speech.Say($"Assigned: {workerDesc ?? raceName}");
+                    if (IsValidWorkerIndex(workerIndex))
+                    {
+                        string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
+                        Speech.Say($"Assigned: {workerDesc ?? raceName}");
+                    }
+                    else
+                    {
+                        Speech.Say($"Assigned: {raceName}");
+                    }
 
                     _navigationLevel = 1;
                     return true;

@@ -39,6 +39,7 @@ namespace ATSAccessibility
         private int[] _workerIds;
         private int _maxWorkers;
         private List<(string raceName, int freeCount)> _availableRaces = new List<(string, int)>();
+        private bool _racesRefreshedForWorkerSection = false;
 
         // ========================================
         // BASE CLASS IMPLEMENTATION
@@ -172,6 +173,7 @@ namespace ATSAccessibility
             _buildingDescription = null;
             _workerIds = null;
             _availableRaces.Clear();
+            _racesRefreshedForWorkerSection = false;
         }
 
         // ========================================
@@ -276,16 +278,26 @@ namespace ATSAccessibility
         // WORKERS SECTION
         // ========================================
 
-        private void RefreshAvailableRaces()
+        private void RefreshAvailableRaces(bool force = false)
         {
+            if (!force && _racesRefreshedForWorkerSection) return;
+
             _availableRaces = BuildingReflection.GetRacesWithFreeWorkers();
+            _racesRefreshedForWorkerSection = true;
+        }
+
+        private bool IsValidWorkerIndex(int workerIndex)
+        {
+            return _workerIds != null && workerIndex >= 0 && workerIndex < _workerIds.Length;
         }
 
         private int GetWorkerSubItemCount(int workerIndex)
         {
+            if (!IsValidWorkerIndex(workerIndex)) return 0;
+
             RefreshAvailableRaces();
 
-            bool slotOccupied = _workerIds[workerIndex] > 0;
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
             int count = _availableRaces.Count;
             if (slotOccupied) count++;  // Add "Unassign" option
 
@@ -294,7 +306,7 @@ namespace ATSAccessibility
 
         private void AnnounceWorkerItem(int itemIndex)
         {
-            if (itemIndex >= _maxWorkers)
+            if (!IsValidWorkerIndex(itemIndex))
             {
                 Speech.Say("Invalid worker slot");
                 return;
@@ -321,7 +333,13 @@ namespace ATSAccessibility
 
         private void AnnounceWorkerSubItem(int workerIndex, int subItemIndex)
         {
-            bool slotOccupied = _workerIds[workerIndex] > 0;
+            if (!IsValidWorkerIndex(workerIndex))
+            {
+                Speech.Say("Invalid worker slot");
+                return;
+            }
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
             int raceOffset = slotOccupied ? 1 : 0;
 
             if (slotOccupied && subItemIndex == 0)
@@ -344,7 +362,9 @@ namespace ATSAccessibility
 
         private bool PerformWorkerSubItemAction(int workerIndex, int subItemIndex)
         {
-            bool slotOccupied = _workerIds[workerIndex] > 0;
+            if (!IsValidWorkerIndex(workerIndex)) return false;
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
             int raceOffset = slotOccupied ? 1 : 0;
 
             if (slotOccupied && subItemIndex == 0)
@@ -353,7 +373,7 @@ namespace ATSAccessibility
                 if (BuildingReflection.UnassignWorkerFromSlot(_building, workerIndex))
                 {
                     _workerIds = BuildingReflection.GetRelicWorkerIds(_building);
-                    RefreshAvailableRaces();
+                    RefreshAvailableRaces(force: true);
                     Speech.Say("Worker unassigned");
                     _navigationLevel = 1;
                     return true;
@@ -379,10 +399,17 @@ namespace ATSAccessibility
                 if (BuildingReflection.AssignWorkerToSlot(_building, workerIndex, raceName))
                 {
                     _workerIds = BuildingReflection.GetRelicWorkerIds(_building);
-                    RefreshAvailableRaces();
+                    RefreshAvailableRaces(force: true);
 
-                    string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
-                    Speech.Say($"Assigned: {workerDesc ?? raceName}");
+                    if (IsValidWorkerIndex(workerIndex))
+                    {
+                        string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
+                        Speech.Say($"Assigned: {workerDesc ?? raceName}");
+                    }
+                    else
+                    {
+                        Speech.Say($"Assigned: {raceName}");
+                    }
                     _navigationLevel = 1;
                     return true;
                 }

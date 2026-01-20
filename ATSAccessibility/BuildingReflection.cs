@@ -5764,16 +5764,27 @@ namespace ATSAccessibility
                 var goodsCollection = _storageGoodsProperty?.GetValue(storage);
                 if (goodsCollection == null) return result;
 
-                // BuildingGoodsCollection.goods property returns Dictionary<string, int>
-                var goods = _goodsCollectionGoodsProperty?.GetValue(goodsCollection) as Dictionary<string, int>;
-                if (goods != null)
+                // BuildingGoodsCollection.goods property - use reflection to iterate
+                // (direct cast to Dictionary<string, int> fails at runtime)
+                var goodsDict = _goodsCollectionGoodsProperty?.GetValue(goodsCollection);
+                if (goodsDict == null) return result;
+
+                // Iterate through the dictionary using reflection
+                var keysProperty = goodsDict.GetType().GetProperty("Keys");
+                var keys = keysProperty?.GetValue(goodsDict) as System.Collections.IEnumerable;
+                if (keys == null) return result;
+
+                var indexer = goodsDict.GetType().GetProperty("Item");
+
+                foreach (var key in keys)
                 {
-                    foreach (var kvp in goods)
+                    string goodName = key as string;
+                    if (string.IsNullOrEmpty(goodName)) continue;
+
+                    int amount = (int?)indexer?.GetValue(goodsDict, new[] { key }) ?? 0;
+                    if (amount > 0)
                     {
-                        if (kvp.Value > 0)
-                        {
-                            result[kvp.Key] = kvp.Value;
-                        }
+                        result[goodName] = amount;
                     }
                 }
             }
