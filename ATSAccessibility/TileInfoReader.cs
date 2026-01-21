@@ -128,21 +128,21 @@ namespace ATSAccessibility
         {
             if (obj == null || field == null) return 0;
             try { return (int)field.GetValue(obj); }
-            catch { return 0; }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetIntField failed: {ex.Message}"); return 0; }
         }
 
         private static string GetStringProperty(object obj, PropertyInfo prop)
         {
             if (obj == null || prop == null) return null;
             try { return prop.GetValue(obj) as string; }
-            catch { return null; }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetStringProperty failed: {ex.Message}"); return null; }
         }
 
         private static float GetFloatField(object obj, FieldInfo field)
         {
             if (obj == null || field == null) return 0f;
             try { return (float)field.GetValue(obj); }
-            catch { return 0f; }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetFloatField failed: {ex.Message}"); return 0f; }
         }
 
         // ========================================
@@ -175,8 +175,9 @@ namespace ATSAccessibility
                 var locaText = field.GetValue(obj);
                 return GameReflection.GetLocaText(locaText);
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetLocalizedText failed: {ex.Message}");
                 return null;
             }
         }
@@ -211,8 +212,9 @@ namespace ATSAccessibility
                 {
                     buildingList = indexerProp.GetValue(dictionary, new object[] { key });
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Debug.LogWarning($"[ATSAccessibility] GetSourceBuildingNames indexer failed: {ex.Message}");
                     return null;
                 }
 
@@ -235,8 +237,9 @@ namespace ATSAccessibility
 
                 return names.Count > 0 ? string.Join(", ", names) : null;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetSourceBuildingNames failed: {ex.Message}");
                 return null;
             }
         }
@@ -800,8 +803,9 @@ namespace ATSAccessibility
                 // Fallback to type name
                 return obj.GetType().Name;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetGenericObjectInfo failed: {ex.Message}");
                 return null;
             }
         }
@@ -847,7 +851,7 @@ namespace ATSAccessibility
                     return amount > 1 ? $"{amount} {productName}" : productName;
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetMainProductInfo failed: {ex.Message}"); }
 
             return null;
         }
@@ -889,7 +893,7 @@ namespace ATSAccessibility
 
                 return parts.Count > 0 ? string.Join(", ", parts) : null;
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetExtraProductsInfo failed: {ex.Message}"); }
 
             return null;
         }

@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using Eremite.Services;
 using HarmonyLib;
@@ -150,7 +151,7 @@ namespace ATSAccessibility
                 // Store velocity back
                 _movementVelocityField?.SetValue(__instance, velocity);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] WorldCameraController.UpdateMovement patch failed: {ex.Message}"); }
         }
     }
 
@@ -232,7 +233,7 @@ namespace ATSAccessibility
                     Time.unscaledDeltaTime
                 );
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] CameraController.UpdateMovement patch failed: {ex.Message}"); }
         }
     }
 }

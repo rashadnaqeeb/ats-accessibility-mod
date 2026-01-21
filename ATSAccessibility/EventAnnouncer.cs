@@ -112,6 +112,12 @@ namespace ATSAccessibility
             _announcedAlerts.Clear();
             _announcedAlertsOrder.Clear();
             _announcedNews.Clear();
+
+            // Reset reflection cached flags so they get re-cached on next game
+            // (services may have different types/methods in different game versions)
+            _reflectionCached = false;
+            _villagerReflectionCached = false;
+
             Debug.Log("[ATSAccessibility] EventAnnouncer: Disposed all subscriptions");
         }
 
@@ -479,7 +485,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] OnGladeRevealed danger lookup failed: {ex.Message}"); }
 
             Announce($"Glade revealed{dangerInfo}");
         }
@@ -604,7 +610,7 @@ namespace ATSAccessibility
                     Announce($"Alert: {cleanContent}");
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] OnNewsPublished failed: {ex.Message}"); }
         }
 
         // BLIGHT SERVICE - Removed, covered by game's AlertsBlight
@@ -815,7 +821,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] OnGoodDiscovered name lookup failed: {ex.Message}"); }
 
             Announce($"New good discovered: {name}");
         }
@@ -959,7 +965,8 @@ namespace ATSAccessibility
                         _announcedAlertsOrder.Enqueue(alertKey);
 
                         // Evict oldest alerts to prevent memory growth
-                        while (_announcedAlerts.Count > 100)
+                        // Keep HashSet and Queue in sync by checking both
+                        while (_announcedAlerts.Count > 100 && _announcedAlertsOrder.Count > 0)
                         {
                             var oldest = _announcedAlertsOrder.Dequeue();
                             _announcedAlerts.Remove(oldest);

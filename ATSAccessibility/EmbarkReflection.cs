@@ -1284,13 +1284,21 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Find the active EmbarkDifficultyPicker in the scene.
-        /// Uses cached reference if available.
+        /// Uses cached reference if available and still valid.
         /// </summary>
         private static object FindEmbarkDifficultyPicker()
         {
-            // Return cached picker if available
+            // Return cached picker if available and still valid (Unity null check)
+            // Unity objects become null when destroyed, but == null check handles this
             if (_cachedDifficultyPicker != null)
-                return _cachedDifficultyPicker;
+            {
+                // Verify the cached object is still valid (not destroyed)
+                var unityObj = _cachedDifficultyPicker as UnityEngine.Object;
+                if (unityObj != null && unityObj != null) // Double check: C# null and Unity null
+                    return _cachedDifficultyPicker;
+                else
+                    _cachedDifficultyPicker = null; // Clear stale reference
+            }
 
             // Fall back to finding it (expensive)
             return FindEmbarkDifficultyPickerInternal();

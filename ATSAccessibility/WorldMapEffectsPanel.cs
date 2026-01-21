@@ -26,14 +26,20 @@ namespace ATSAccessibility
         {
             if (_isOpen)
             {
-                Close();
-                return;
+                // If same tile, close the panel (toggle off)
+                if (_tilePos == tilePos)
+                {
+                    Close();
+                    return;
+                }
+                // Different tile - refresh items for new position (fall through)
             }
 
             // Don't reveal effects on unexplored tiles
             if (!WorldMapReflection.WorldMapIsRevealed(tilePos))
             {
                 Speech.Say("Unexplored");
+                if (_isOpen) Close();  // Close if was open showing different tile
                 return;
             }
 
@@ -43,6 +49,7 @@ namespace ATSAccessibility
             if (_items.Count == 0)
             {
                 Speech.Say("No effects available");
+                if (_isOpen) Close();  // Close if was open showing different tile
                 return;
             }
 

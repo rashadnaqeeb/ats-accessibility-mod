@@ -2503,7 +2503,8 @@ namespace ATSAccessibility
 
                 foreach (var recipe in recipes)
                 {
-                    result.Add(recipe);
+                    if (recipe != null)
+                        result.Add(recipe);
                 }
             }
             catch
@@ -2917,7 +2918,8 @@ namespace ATSAccessibility
                         {
                             foreach (var recipe in enumerable)
                             {
-                                result.Add(recipe);
+                                if (recipe != null)
+                                    result.Add(recipe);
                             }
                         }
                     }
@@ -2949,7 +2951,8 @@ namespace ATSAccessibility
                             {
                                 foreach (var recipe in enumerable)
                                 {
-                                    result.Add(recipe);
+                                    if (recipe != null)
+                                        result.Add(recipe);
                                 }
                             }
                         }
@@ -3344,7 +3347,7 @@ namespace ATSAccessibility
                 bool current = (bool?)_ingredientAllowedField?.GetValue(ingredientState) ?? false;
                 _ingredientAllowedField?.SetValue(ingredientState, !current);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] ToggleIngredientAllowed failed: {ex.Message}"); }
         }
 
         /// <summary>
@@ -3360,7 +3363,7 @@ namespace ATSAccessibility
             {
                 _recipeLimitField?.SetValue(recipeState, limit);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SetRecipeLimit failed: {ex.Message}"); }
         }
 
         // ========================================
@@ -3970,7 +3973,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetHouseResidents failed: {ex.Message}"); }
 
             return result;
         }

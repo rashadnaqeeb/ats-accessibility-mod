@@ -51,20 +51,23 @@ namespace ATSAccessibility
         /// <summary>
         /// Handler is active when a building panel is open and we have a navigator.
         /// Note: This property is side-effect free - cleanup is done in ProcessKey.
+        /// Also verifies the game's panel is still open to avoid race conditions.
         /// </summary>
-        public bool IsActive => _currentNavigator != null && _currentBuilding != null;
+        public bool IsActive => _currentNavigator != null && _currentBuilding != null && BuildingReflection.IsBuildingPanelOpen();
 
         /// <summary>
         /// Process a key event.
         /// </summary>
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            if (!IsActive) return false;
-
-            // Check if the game's panel is still open - if not, clean up
-            if (!BuildingReflection.IsBuildingPanelOpen())
+            // IsActive now includes BuildingReflection.IsBuildingPanelOpen() check
+            if (!IsActive)
             {
-                CleanupNavigator();
+                // Clean up stale state if we have a navigator but panel is closed
+                if (_currentNavigator != null || _currentBuilding != null)
+                {
+                    CleanupNavigator();
+                }
                 return false;
             }
 

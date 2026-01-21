@@ -114,7 +114,7 @@ namespace ATSAccessibility
                     return true;
 
                 default:
-                    return true;  // Consume all other keys while panel is open
+                    return false;  // Let other handlers process unknown keys
             }
         }
 

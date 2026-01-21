@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -839,7 +840,7 @@ namespace ATSAccessibility
                     return (int?)prioField.GetValue(recipeState) ?? 0;
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetRecipePriority failed: {ex.Message}"); }
             return 0;
         }
 

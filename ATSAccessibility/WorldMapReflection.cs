@@ -56,6 +56,26 @@ namespace ATSAccessibility
         // WorldBlackboardService
         private static PropertyInfo _wbbOnFieldClickedProperty = null;
 
+        // WorldField properties (accessed frequently)
+        private static PropertyInfo _worldFieldBiomeProperty = null;
+        private static PropertyInfo _worldFieldTransformProperty = null;
+
+        // BiomeModel fields (accessed frequently)
+        private static FieldInfo _biomeDisplayNameField = null;
+        private static FieldInfo _biomeDescriptionField = null;
+        private static FieldInfo _biomeEffectsField = null;
+        private static FieldInfo _biomeWantedGoodsField = null;
+        private static MethodInfo _biomeGetDepositsGoodsMethod = null;
+        private static MethodInfo _biomeGetTreesGoodsMethod = null;
+
+        // EffectModel properties (accessed frequently)
+        private static PropertyInfo _effectDisplayNameProperty = null;
+        private static PropertyInfo _effectDescriptionProperty = null;
+        private static PropertyInfo _effectIsPositiveProperty = null;
+
+        // GoodModel fields
+        private static FieldInfo _goodDisplayNameField = null;
+
         private static void EnsureWorldMapTypes()
         {
             if (_worldMapTypesCached) return;
@@ -155,6 +175,58 @@ namespace ATSAccessibility
                 {
                     _wbbOnFieldClickedProperty = worldBlackboardServiceType.GetProperty("OnFieldClicked",
                         BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache WorldField properties
+                var worldFieldType = gameAssembly.GetType("Eremite.WorldMap.WorldField");
+                if (worldFieldType != null)
+                {
+                    _worldFieldBiomeProperty = worldFieldType.GetProperty("Biome",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _worldFieldTransformProperty = worldFieldType.GetProperty("transform",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    Debug.Log("[ATSAccessibility] Cached WorldField properties");
+                }
+
+                // Cache BiomeModel fields/methods
+                var biomeModelType = gameAssembly.GetType("Eremite.Model.BiomeModel");
+                if (biomeModelType != null)
+                {
+                    _biomeDisplayNameField = biomeModelType.GetField("displayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _biomeDescriptionField = biomeModelType.GetField("description",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _biomeEffectsField = biomeModelType.GetField("effects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _biomeWantedGoodsField = biomeModelType.GetField("wantedGoods",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _biomeGetDepositsGoodsMethod = biomeModelType.GetMethod("GetDepositsGoods",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _biomeGetTreesGoodsMethod = biomeModelType.GetMethod("GetTreesGoods",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    Debug.Log("[ATSAccessibility] Cached BiomeModel fields/methods");
+                }
+
+                // Cache EffectModel properties
+                var effectModelType = gameAssembly.GetType("Eremite.Model.Effects.EffectModel");
+                if (effectModelType != null)
+                {
+                    _effectDisplayNameProperty = effectModelType.GetProperty("DisplayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _effectDescriptionProperty = effectModelType.GetProperty("Description",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _effectIsPositiveProperty = effectModelType.GetProperty("IsPositive",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    Debug.Log("[ATSAccessibility] Cached EffectModel properties");
+                }
+
+                // Cache GoodModel fields
+                var goodModelType = gameAssembly.GetType("Eremite.Model.GoodModel");
+                if (goodModelType != null)
+                {
+                    _goodDisplayNameField = goodModelType.GetField("displayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    Debug.Log("[ATSAccessibility] Cached GoodModel fields");
                 }
             }
             catch (Exception ex)
@@ -416,16 +488,12 @@ namespace ATSAccessibility
                 var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
                 if (field == null) return null;
 
-                // Get Biome property
-                var biomeProperty = field.GetType().GetProperty("Biome",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var biome = biomeProperty?.GetValue(field);
+                // Get Biome using cached property
+                var biome = _worldFieldBiomeProperty?.GetValue(field);
                 if (biome == null) return null;
 
-                // Get displayName field
-                var displayNameField = biome.GetType().GetField("displayName",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var displayName = displayNameField?.GetValue(biome);
+                // Get displayName using cached field
+                var displayName = _biomeDisplayNameField?.GetValue(biome);
                 return GameReflection.GetLocaText(displayName);
             }
             catch (Exception ex)
@@ -798,6 +866,8 @@ namespace ATSAccessibility
                 {
                     foreach (var effect in biomeEffects)
                     {
+                        if (effect == null) continue;
+
                         var displayNameProp = effect.GetType().GetProperty("DisplayName",
                             BindingFlags.Public | BindingFlags.Instance);
                         var isPositiveProp = effect.GetType().GetProperty("IsPositive",
@@ -919,6 +989,8 @@ namespace ATSAccessibility
                 var result = new List<string>();
                 foreach (var currency in currencies)
                 {
+                    if (currency == null) continue;
+
                     // MetaCurrency has name (string) and amount (int) fields
                     var nameField = currency.GetType().GetField("name",
                         BindingFlags.Public | BindingFlags.Instance);
@@ -1236,6 +1308,8 @@ namespace ATSAccessibility
                 var result = new List<string>();
                 foreach (var good in wantedGoods)
                 {
+                    if (good == null) continue;
+
                     var displayNameField = good.GetType().GetField("displayName",
                         BindingFlags.Public | BindingFlags.Instance);
                     var displayName = displayNameField?.GetValue(good);
@@ -1268,16 +1342,12 @@ namespace ATSAccessibility
                 var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
                 if (field == null) return null;
 
-                // Get Biome property
-                var biomeProperty = field.GetType().GetProperty("Biome",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var biome = biomeProperty?.GetValue(field);
+                // Get Biome using cached property
+                var biome = _worldFieldBiomeProperty?.GetValue(field);
                 if (biome == null) return null;
 
-                // Get description field
-                var descriptionField = biome.GetType().GetField("description",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var description = descriptionField?.GetValue(biome);
+                // Get description using cached field
+                var description = _biomeDescriptionField?.GetValue(biome);
                 return GameReflection.GetLocaText(description);
             }
             catch (Exception ex)
@@ -1301,25 +1371,23 @@ namespace ATSAccessibility
                 var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
                 if (field == null) return null;
 
-                var biomeProperty = field.GetType().GetProperty("Biome",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var biome = biomeProperty?.GetValue(field);
+                // Use cached property
+                var biome = _worldFieldBiomeProperty?.GetValue(field);
                 if (biome == null) return null;
 
-                // Call GetDepositsGoods() method
-                var getDepositsMethod = biome.GetType().GetMethod("GetDepositsGoods",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (getDepositsMethod == null) return null;
+                // Use cached method
+                if (_biomeGetDepositsGoodsMethod == null) return null;
 
-                var goods = getDepositsMethod.Invoke(biome, null) as System.Collections.IEnumerable;
+                var goods = _biomeGetDepositsGoodsMethod.Invoke(biome, null) as System.Collections.IEnumerable;
                 if (goods == null) return null;
 
                 var result = new List<string>();
                 foreach (var good in goods)
                 {
-                    var displayNameField = good.GetType().GetField("displayName",
-                        BindingFlags.Public | BindingFlags.Instance);
-                    var displayName = displayNameField?.GetValue(good);
+                    if (good == null) continue;
+
+                    // Use cached field
+                    var displayName = _goodDisplayNameField?.GetValue(good);
                     var text = GameReflection.GetLocaText(displayName);
                     if (!string.IsNullOrEmpty(text))
                         result.Add(text);
@@ -1347,25 +1415,23 @@ namespace ATSAccessibility
                 var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
                 if (field == null) return null;
 
-                var biomeProperty = field.GetType().GetProperty("Biome",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var biome = biomeProperty?.GetValue(field);
+                // Use cached property
+                var biome = _worldFieldBiomeProperty?.GetValue(field);
                 if (biome == null) return null;
 
-                // Call GetTreesGoods() method
-                var getTreesMethod = biome.GetType().GetMethod("GetTreesGoods",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (getTreesMethod == null) return null;
+                // Use cached method
+                if (_biomeGetTreesGoodsMethod == null) return null;
 
-                var goods = getTreesMethod.Invoke(biome, null) as System.Collections.IEnumerable;
+                var goods = _biomeGetTreesGoodsMethod.Invoke(biome, null) as System.Collections.IEnumerable;
                 if (goods == null) return null;
 
                 var result = new List<string>();
                 foreach (var good in goods)
                 {
-                    var displayNameField = good.GetType().GetField("displayName",
-                        BindingFlags.Public | BindingFlags.Instance);
-                    var displayName = displayNameField?.GetValue(good);
+                    if (good == null) continue;
+
+                    // Use cached field
+                    var displayName = _goodDisplayNameField?.GetValue(good);
                     var text = GameReflection.GetLocaText(displayName);
                     if (!string.IsNullOrEmpty(text))
                         result.Add(text);
@@ -1413,6 +1479,8 @@ namespace ATSAccessibility
                 {
                     foreach (var effect in biomeEffects)
                     {
+                        if (effect == null) continue;
+
                         var displayNameProp = effect.GetType().GetProperty("DisplayName",
                             BindingFlags.Public | BindingFlags.Instance);
                         var descriptionProp = effect.GetType().GetProperty("Description",

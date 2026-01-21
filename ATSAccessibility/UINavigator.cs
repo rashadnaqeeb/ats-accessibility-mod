@@ -498,6 +498,14 @@ namespace ATSAccessibility
                 return false;
             }
 
+            // Guard against empty dropdown (prevents division by zero)
+            if (_dropdownToggles.Count == 0)
+            {
+                Debug.LogWarning("[ATSAccessibility] Dropdown has no toggles");
+                ClearDropdownState();
+                return false;
+            }
+
             // Navigate with wrapping
             _dropdownIndex = (_dropdownIndex + direction + _dropdownToggles.Count) % _dropdownToggles.Count;
             AnnounceDropdownOption();

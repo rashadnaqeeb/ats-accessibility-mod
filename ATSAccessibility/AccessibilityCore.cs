@@ -15,6 +15,9 @@ namespace ATSAccessibility
         private const int SCENE_GAME = 1;
         private const int SCENE_WORLDMAP = 3;
 
+        // Delay for announcements after scene load (ensures UI is fully initialized)
+        private const float ANNOUNCEMENT_DELAY = 0.5f;
+
         // State tracking
         private bool _speechInitialized = false;
         private bool _announcedMainMenu = false;
@@ -98,6 +101,9 @@ namespace ATSAccessibility
 
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
+
+        // Cached main menu canvas (cleared on scene unload)
+        private GameObject _cachedMainMenuCanvas = null;
 
         private void Start()
         {
@@ -281,6 +287,11 @@ namespace ATSAccessibility
         {
             Debug.Log($"[ATSAccessibility] Scene unloaded: {scene.name} (index: {scene.buildIndex})");
 
+            // Cancel any pending Invoke calls to prevent callbacks on destroyed objects
+            CancelInvoke(nameof(AnnounceMainMenu));
+            CancelInvoke(nameof(SetupWorldMapNavigation));
+            CancelInvoke(nameof(SetupMainMenuNavigation));
+
             // Clear state when leaving scenes
             if (scene.buildIndex == SCENE_GAME)
             {
@@ -291,6 +302,7 @@ namespace ATSAccessibility
             else if (scene.buildIndex == SCENE_MENU)
             {
                 _announcedMainMenu = false;
+                _cachedMainMenuCanvas = null;
             }
             else if (scene.buildIndex == SCENE_WORLDMAP)
             {
@@ -323,7 +335,7 @@ namespace ATSAccessibility
             if (scene.buildIndex == SCENE_MENU && !_announcedMainMenu)
             {
                 // Delay announcement to ensure scene is fully loaded
-                Invoke(nameof(AnnounceMainMenu), 0.5f);
+                Invoke(nameof(AnnounceMainMenu), ANNOUNCEMENT_DELAY);
             }
             else if (scene.buildIndex == SCENE_GAME)
             {
@@ -335,7 +347,7 @@ namespace ATSAccessibility
             {
                 // Delay to allow WorldController to initialize
                 _announcedWorldMap = false;
-                Invoke(nameof(SetupWorldMapNavigation), 0.5f);
+                Invoke(nameof(SetupWorldMapNavigation), ANNOUNCEMENT_DELAY);
             }
         }
 
@@ -350,7 +362,7 @@ namespace ATSAccessibility
                 Debug.Log("[ATSAccessibility] Announced: Main menu");
 
                 // Set up main menu navigation after a short delay (let UI initialize)
-                Invoke(nameof(SetupMainMenuNavigation), 0.5f);
+                Invoke(nameof(SetupMainMenuNavigation), ANNOUNCEMENT_DELAY);
             }
             else
             {
@@ -360,8 +372,15 @@ namespace ATSAccessibility
 
         private void SetupMainMenuNavigation()
         {
-            // Find the main menu Canvas
-            // Look for Canvas objects with buttons - the main menu typically has "MainMenu" or similar in name
+            // Use cached canvas if available and still valid
+            if (_cachedMainMenuCanvas != null && _cachedMainMenuCanvas.activeInHierarchy)
+            {
+                _uiNavigator?.SetupMenuNavigation(_cachedMainMenuCanvas, "Main Menu");
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
+            // Find the main menu Canvas (expensive FindObjectsOfType call - cache the result)
             var canvases = FindObjectsOfType<Canvas>();
 
             GameObject mainMenuRoot = null;
@@ -404,6 +423,7 @@ namespace ATSAccessibility
 
             if (mainMenuRoot != null)
             {
+                _cachedMainMenuCanvas = mainMenuRoot;
                 _uiNavigator?.SetupMenuNavigation(mainMenuRoot, "Main Menu");
                 _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup); // Reuse Popup context for menu
             }
@@ -433,7 +453,7 @@ namespace ATSAccessibility
             {
                 // WorldController not ready yet, retry
                 Debug.Log("[ATSAccessibility] WorldController not ready, retrying...");
-                Invoke(nameof(SetupWorldMapNavigation), 0.5f);
+                Invoke(nameof(SetupWorldMapNavigation), ANNOUNCEMENT_DELAY);
             }
         }
 

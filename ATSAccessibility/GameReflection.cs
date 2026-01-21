@@ -62,21 +62,21 @@ namespace ATSAccessibility
         {
             if (prop == null || instance == null) return null;
             try { return prop.GetValue(instance) as T; }
-            catch { return null; }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] TryGetPropertyValue failed: {ex.Message}"); return null; }
         }
 
         private static object TryInvokeMethod(MethodInfo method, object instance, object[] args = null)
         {
             if (method == null || instance == null) return null;
             try { return method.Invoke(instance, args); }
-            catch { return null; }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] TryInvokeMethod failed: {ex.Message}"); return null; }
         }
 
         private static bool TryInvokeBool(MethodInfo method, object instance, object[] args = null)
         {
             if (method == null || instance == null) return false;
             try { return (bool?)method.Invoke(instance, args) ?? false; }
-            catch { return false; }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] TryInvokeBool failed: {ex.Message}"); return false; }
         }
 
         // ========================================
@@ -916,7 +916,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetMapWidth failed: {ex.Message}"); }
             return 70;
         }
 
@@ -945,7 +945,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetMapHeight failed: {ex.Message}"); }
             return 70;
         }
 
@@ -2295,7 +2295,7 @@ namespace ATSAccessibility
                     return (int)orderField.GetValue(model);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGoodOrder failed: {ex.Message}"); }
             return 0;
         }
 
@@ -2315,7 +2315,7 @@ namespace ATSAccessibility
                     return (bool)isActiveField.GetValue(goodModel);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] IsGoodActive failed: {ex.Message}"); }
             return true; // Default to active
         }
 
@@ -2551,7 +2551,7 @@ namespace ATSAccessibility
                     return (bool)_bmIsInShopField.GetValue(buildingModel);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] IsBuildingInShop failed: {ex.Message}"); }
             return true; // Default to true
         }
 
@@ -2570,7 +2570,7 @@ namespace ATSAccessibility
                     return (Vector2Int)_bmSizeField.GetValue(buildingModel);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingSize failed: {ex.Message}"); }
             return Vector2Int.one;
         }
 
@@ -2600,7 +2600,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingDescription failed: {ex.Message}"); }
             return null;
         }
 
@@ -2619,7 +2619,7 @@ namespace ATSAccessibility
                     return (bool)_bmIsActiveField.GetValue(buildingModel);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] IsBuildingActive failed: {ex.Message}"); }
             return true;
         }
 
@@ -2638,7 +2638,7 @@ namespace ATSAccessibility
                     return (bool)_bcmIsOnHUDField.GetValue(categoryModel);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] IsCategoryOnHUD failed: {ex.Message}"); }
             return true;
         }
 
@@ -3198,7 +3198,7 @@ namespace ATSAccessibility
                     return (bool)shouldShowProp.GetValue(building);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingShouldShowEntrance failed: {ex.Message}"); }
 
             return false;
         }
@@ -3220,7 +3220,7 @@ namespace ATSAccessibility
                 var model = modelProp.GetValue(building);
                 return CanRotateBuildingModel(model);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] CanRotateBuilding failed: {ex.Message}"); }
 
             return false;
         }
@@ -3242,7 +3242,7 @@ namespace ATSAccessibility
                     return (bool)canRotateField.GetValue(buildingModel);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] CanRotateBuildingModel failed: {ex.Message}"); }
 
             return false;
         }

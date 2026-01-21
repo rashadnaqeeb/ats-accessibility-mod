@@ -296,7 +296,7 @@ namespace ATSAccessibility
                 _fieldTypeProperty = fieldType.GetProperty("Type");
                 _fieldIsTraversableProperty = fieldType.GetProperty("IsTraversable");
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureFieldProperties failed: {ex.Message}"); }
 
             _fieldPropertiesCached = true;
         }
@@ -340,8 +340,9 @@ namespace ATSAccessibility
 
                 return result;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetFieldType failed: {ex.Message}");
                 return "unknown";
             }
         }
@@ -355,8 +356,9 @@ namespace ATSAccessibility
             {
                 return (bool)_fieldIsTraversableProperty.GetValue(field);
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetFieldIsTraversable failed: {ex.Message}");
                 return true;
             }
         }
@@ -378,7 +380,7 @@ namespace ATSAccessibility
                 _gladeDangerLevelField = gladeType.GetField("dangerLevel",
                     BindingFlags.Public | BindingFlags.Instance);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureGladeProperties failed: {ex.Message}"); }
 
             _gladePropertiesCached = true;
         }
@@ -394,7 +396,7 @@ namespace ATSAccessibility
                     return (bool)_gladeWasDiscoveredField.GetValue(glade);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}"); }
 
             // Default to discovered (don't hide content if we can't determine state)
             return true;
@@ -425,7 +427,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeDangerLevel failed: {ex.Message}"); }
 
             return "unknown";
         }
@@ -527,8 +529,9 @@ namespace ATSAccessibility
                 // Fallback to type name
                 return objType.Name;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetObjectName failed: {ex.Message}");
                 return null;
             }
         }
@@ -559,7 +562,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureVillagerProperties failed: {ex.Message}"); }
 
             _villagerPropertiesCached = true;
         }
@@ -627,8 +630,9 @@ namespace ATSAccessibility
 
                 return string.Join(", ", parts);
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetVillagersOnTile failed: {ex.Message}");
                 return null;
             }
         }
@@ -644,8 +648,9 @@ namespace ATSAccessibility
 
                 return (Vector3)_actorStatePositionField.GetValue(actorState);
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetVillagerPosition failed: {ex.Message}");
                 return Vector3.zero;
             }
         }
@@ -659,8 +664,9 @@ namespace ATSAccessibility
                 var raceValue = _villagerRaceProperty.GetValue(villager);
                 return raceValue?.ToString();
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetVillagerRace failed: {ex.Message}");
                 return null;
             }
         }
@@ -689,7 +695,7 @@ namespace ATSAccessibility
                     GameReflection.SetCameraTarget(fieldTransform);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SyncCameraToTile failed: {ex.Message}"); }
         }
 
         // ========================================

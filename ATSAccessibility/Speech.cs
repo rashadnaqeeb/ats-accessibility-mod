@@ -7,6 +7,16 @@ namespace ATSAccessibility
 {
     public static class Speech
     {
+        // Static compiled regex patterns for text filtering (reused across calls)
+        private static readonly Regex RichTextTagsRegex =
+            new Regex("<[^>]+>", RegexOptions.Compiled);
+        private static readonly Regex SpriteTagRegex =
+            new Regex(@"<sprite\s+name=([^>]+)>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex TmpSpriteTagRegex =
+            new Regex(@"\[[^\]]+\]\s*", RegexOptions.Compiled);
+        private static readonly Regex WhitespaceRegex =
+            new Regex(@"\s+", RegexOptions.Compiled);
+
         // Tolk P/Invoke declarations
         [DllImport("Tolk.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern void Tolk_Load();
@@ -109,17 +119,17 @@ namespace ATSAccessibility
             text = ConvertSpriteTags(text);
 
             // Remove all remaining rich text tags (anything between < and >)
-            text = Regex.Replace(text, "<[^>]+>", "");
+            text = RichTextTagsRegex.Replace(text, "");
 
             // Remove TextMeshPro shorthand sprite tags like [Food Raw], [Water], etc.
-            text = Regex.Replace(text, @"\[[^\]]+\]\s*", "");
+            text = TmpSpriteTagRegex.Replace(text, "");
 
             // Remove empty brackets/parentheses left behind by sprite tags
             text = text.Replace("[]", "");
             text = text.Replace("()", "");
 
             // Normalize whitespace (collapse multiple spaces/newlines)
-            text = Regex.Replace(text, @"\s+", " ");
+            text = WhitespaceRegex.Replace(text, " ");
 
             return text.Trim();
         }
@@ -134,23 +144,22 @@ namespace ATSAccessibility
 
             // Pattern: <sprite name=...>
             // Grade sprites are named like "[recipe grade] 0", "[recipe grade] 1", etc.
-            return Regex.Replace(
+            return SpriteTagRegex.Replace(
                 text,
-                @"<sprite\s+name=([^>]+)>",
                 match =>
                 {
                     string spriteName = match.Groups[1].Value.Trim();
 
-                    // Check for grade sprites (contain numbers 0-3)
-                    if (spriteName.Contains("0")) return "0 star";
-                    if (spriteName.Contains("1")) return "1 star";
-                    if (spriteName.Contains("2")) return "2 star";
-                    if (spriteName.Contains("3")) return "3 star";
+                    // Check for grade sprites - use EndsWith to avoid matching "10" when looking for "0"
+                    // Sprite names are like "[recipe grade] 0", "[recipe grade] 1", etc.
+                    if (spriteName.EndsWith(" 0") || spriteName.EndsWith("]0")) return "0 star";
+                    if (spriteName.EndsWith(" 1") || spriteName.EndsWith("]1")) return "1 star";
+                    if (spriteName.EndsWith(" 2") || spriteName.EndsWith("]2")) return "2 star";
+                    if (spriteName.EndsWith(" 3") || spriteName.EndsWith("]3")) return "3 star";
 
                     // For other sprites, just remove them
                     return "";
-                },
-                RegexOptions.IgnoreCase
+                }
             );
         }
 

@@ -869,7 +869,7 @@ namespace ATSAccessibility
                 _naturalResourcesProperty = resourcesService.GetType().GetProperty("NaturalResources",
                     BindingFlags.Public | BindingFlags.Instance);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureResourcesProperty failed: {ex.Message}"); }
         }
 
         private void EnsureDepositsProperty(object depositsService)
@@ -881,7 +881,7 @@ namespace ATSAccessibility
                 _depositsProperty = depositsService.GetType().GetProperty("Deposits",
                     BindingFlags.Public | BindingFlags.Instance);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureDepositsProperty failed: {ex.Message}"); }
         }
 
         private void EnsureOresProperty(object oreService)
@@ -893,7 +893,7 @@ namespace ATSAccessibility
                 _oresProperty = oreService.GetType().GetProperty("Ores",
                     BindingFlags.Public | BindingFlags.Instance);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureOresProperty failed: {ex.Message}"); }
         }
 
         private void EnsureSpringsProperty(object springsService)
@@ -905,7 +905,7 @@ namespace ATSAccessibility
                 _springsProperty = springsService.GetType().GetProperty("Springs",
                     BindingFlags.Public | BindingFlags.Instance);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureSpringsProperty failed: {ex.Message}"); }
         }
 
         private void EnsureLakesProperty(object lakesService)
@@ -917,7 +917,7 @@ namespace ATSAccessibility
                 _lakesProperty = lakesService.GetType().GetProperty("Lakes",
                     BindingFlags.Public | BindingFlags.Instance);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureLakesProperty failed: {ex.Message}"); }
         }
 
         private void EnsureBuildingsProperty(object buildingsService)
@@ -929,7 +929,7 @@ namespace ATSAccessibility
                 _buildingsProperty = buildingsService.GetType().GetProperty("Buildings",
                     BindingFlags.Public | BindingFlags.Instance);
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureBuildingsProperty failed: {ex.Message}"); }
         }
 
         private bool GetGladeWasDiscovered(object glade)
@@ -941,7 +941,7 @@ namespace ATSAccessibility
                     return (bool)_gladeWasDiscoveredField.GetValue(glade);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}"); }
             return true;  // Default to discovered
         }
 
@@ -963,7 +963,7 @@ namespace ATSAccessibility
                     };
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeDangerLevel failed: {ex.Message}"); }
             return "Unknown";
         }
 
@@ -980,7 +980,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladePosition failed: {ex.Message}"); }
             return new Vector2Int(-1, -1);
         }
 
@@ -995,7 +995,7 @@ namespace ATSAccessibility
                     return (Vector2Int)fieldProp.GetValue(building);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingPosition failed: {ex.Message}"); }
             return new Vector2Int(-1, -1);
         }
 
@@ -1050,8 +1050,9 @@ namespace ATSAccessibility
                 // Fallback to type name
                 return objType.Name;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ATSAccessibility] GetObjectDisplayName failed: {ex.Message}");
                 return null;
             }
         }

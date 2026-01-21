@@ -622,7 +622,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetPerkDisplayName failed: {ex.Message}"); }
             return null;
         }
 
@@ -668,7 +668,7 @@ namespace ATSAccessibility
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetRaceDisplayName failed: {ex.Message}"); }
             return raceName;
         }
 
@@ -682,7 +682,7 @@ namespace ATSAccessibility
                     return (int)_villGetDefaultProfessionAmountMethod.Invoke(villService, new object[] { raceName });
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetFreeWorkers failed: {ex.Message}"); }
             return 0;
         }
 
@@ -696,7 +696,7 @@ namespace ATSAccessibility
                     return (int)_villGetHomelessAmountMethod.Invoke(villService, new object[] { raceName });
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetHomeless failed: {ex.Message}"); }
             return 0;
         }
 
@@ -825,7 +825,7 @@ namespace ATSAccessibility
                     return nameField?.GetValue(state) as string ?? "Unknown";
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetVillagerName failed: {ex.Message}"); }
             return "Unknown";
         }
 
@@ -842,7 +842,7 @@ namespace ATSAccessibility
                     return GameReflection.GetLocaText(locaText) ?? "Worker";
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetVillagerProfession failed: {ex.Message}"); }
             return "Worker";
         }
     }
