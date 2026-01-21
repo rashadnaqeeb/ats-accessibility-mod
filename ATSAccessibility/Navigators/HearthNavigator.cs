@@ -5,7 +5,7 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Navigator for Hearth buildings (Ancient Hearth, Small Hearth).
-    /// Provides navigation through Info, Fire, Hub, Blight, and Workers sections.
+    /// Provides navigation through Info, Fire, Sacrifice, Upgrades, Blight, and Workers sections.
     /// </summary>
     public class HearthNavigator : BuildingSectionNavigator
     {
@@ -17,7 +17,8 @@ namespace ATSAccessibility
         {
             Info,
             Fire,
-            Hub,
+            Sacrifice,
+            Upgrades,
             Blight,
             Workers
         }
@@ -39,9 +40,8 @@ namespace ATSAccessibility
         private bool _isFireLow;
         private bool _isFireOut;
 
-        // Hub data
-        private int _hubIndex;
-        private float _hubRange;
+        // Upgrades data
+        private List<BuildingReflection.HearthUpgradeInfo> _upgradeInfo = new List<BuildingReflection.HearthUpgradeInfo>();
 
         // Blight data
         private float _corruptionRate;
@@ -51,6 +51,13 @@ namespace ATSAccessibility
         private int _maxWorkers;
         private List<(string raceName, int freeCount)> _availableRaces = new List<(string, int)>();
         private bool _racesRefreshedForWorkerSection = false;
+
+        // Sacrifice data
+        private List<object> _sacrificeRecipes = new List<object>();
+        private List<BuildingReflection.SacrificeRecipeInfo> _sacrificeInfo = new List<BuildingReflection.SacrificeRecipeInfo>();
+
+        // Fuel data
+        private List<BuildingReflection.FuelInfo> _fuelTypes = new List<BuildingReflection.FuelInfo>();
 
         // ========================================
         // BASE CLASS IMPLEMENTATION
@@ -74,8 +81,10 @@ namespace ATSAccessibility
                     return GetInfoItemCount();
                 case SectionType.Fire:
                     return GetFireItemCount();
-                case SectionType.Hub:
-                    return GetHubItemCount();
+                case SectionType.Sacrifice:
+                    return _sacrificeRecipes.Count;
+                case SectionType.Upgrades:
+                    return _upgradeInfo.Count;
                 case SectionType.Blight:
                     return 1;  // Just corruption level
                 case SectionType.Workers:
@@ -90,12 +99,19 @@ namespace ATSAccessibility
             if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
                 return 0;
 
+            // Fire section: Fuel types item (index 2) has sub-items
+            if (_sectionTypes[sectionIndex] == SectionType.Fire && itemIndex == 2)
+            {
+                return _fuelTypes.Count;
+            }
+
             // Workers have sub-items (races to assign, plus unassign if occupied)
             if (_sectionTypes[sectionIndex] == SectionType.Workers && itemIndex < _maxWorkers)
             {
                 return GetWorkerSubItemCount(itemIndex);
             }
 
+            // Sacrifice uses +/- keys, no sub-items
             return 0;
         }
 
@@ -118,8 +134,11 @@ namespace ATSAccessibility
                 case SectionType.Fire:
                     AnnounceFireItem(itemIndex);
                     break;
-                case SectionType.Hub:
-                    AnnounceHubItem(itemIndex);
+                case SectionType.Sacrifice:
+                    AnnounceSacrificeItem(itemIndex);
+                    break;
+                case SectionType.Upgrades:
+                    AnnounceUpgradeItem(itemIndex);
                     break;
                 case SectionType.Blight:
                     AnnounceBlightItem(itemIndex);
@@ -132,6 +151,13 @@ namespace ATSAccessibility
 
         protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
         {
+            // Fire section: Fuel types sub-items
+            if (_sectionTypes[sectionIndex] == SectionType.Fire && itemIndex == 2)
+            {
+                AnnounceFuelSubItem(subItemIndex);
+                return;
+            }
+
             if (_sectionTypes[sectionIndex] == SectionType.Workers && itemIndex < _maxWorkers)
             {
                 AnnounceWorkerSubItem(itemIndex, subItemIndex);
@@ -140,11 +166,29 @@ namespace ATSAccessibility
 
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
         {
+            // Fire section: Toggle fuel type
+            if (_sectionTypes[sectionIndex] == SectionType.Fire && itemIndex == 2)
+            {
+                return ToggleFuel(subItemIndex);
+            }
+
             if (_sectionTypes[sectionIndex] == SectionType.Workers && itemIndex < _maxWorkers)
             {
                 return PerformWorkerSubItemAction(itemIndex, subItemIndex);
             }
             return false;
+        }
+
+        protected override void AdjustItemValue(int sectionIndex, int itemIndex, int delta, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return;
+
+            // Sacrifice section uses +/- to adjust level
+            if (_sectionTypes[sectionIndex] == SectionType.Sacrifice)
+            {
+                AdjustSacrificeLevel(itemIndex, delta);
+            }
         }
 
         protected override void RefreshData()
@@ -160,9 +204,8 @@ namespace ATSAccessibility
             _isFireLow = BuildingReflection.IsHearthFireLow(_building);
             _isFireOut = BuildingReflection.IsHearthFireOut(_building);
 
-            // Hub data
-            _hubIndex = BuildingReflection.GetHearthHubIndex(_building);
-            _hubRange = BuildingReflection.GetHearthRange(_building);
+            // Upgrades data
+            _upgradeInfo = BuildingReflection.GetHearthUpgradeInfo(_building);
 
             // Blight data
             _corruptionRate = BuildingReflection.GetHearthCorruptionRate(_building);
@@ -171,6 +214,13 @@ namespace ATSAccessibility
             _workerIds = BuildingReflection.GetHearthWorkerIds(_building);
             _maxWorkers = _workerIds?.Length ?? 0;
             RefreshAvailableRaces();
+
+            // Sacrifice data
+            _sacrificeRecipes = BuildingReflection.GetHearthSacrificeRecipes(_building);
+            RefreshSacrificeInfo();
+
+            // Fuel data
+            _fuelTypes = BuildingReflection.GetAllFuelTypes();
 
             // Build sections list
             var sectionNames = new List<string>();
@@ -182,8 +232,19 @@ namespace ATSAccessibility
             sectionNames.Add("Fire");
             sectionTypes.Add(SectionType.Fire);
 
-            sectionNames.Add("Hub");
-            sectionTypes.Add(SectionType.Hub);
+            // Sacrifice section only shown if there are sacrifice recipes
+            if (_sacrificeRecipes.Count > 0)
+            {
+                sectionNames.Add("Sacrifice");
+                sectionTypes.Add(SectionType.Sacrifice);
+            }
+
+            // Upgrades section only shown if there are upgrade tiers
+            if (_upgradeInfo.Count > 0)
+            {
+                sectionNames.Add("Upgrades");
+                sectionTypes.Add(SectionType.Upgrades);
+            }
 
             // Blight section only shown for main hearth when blight is active
             if (_isMainHearth && GameReflection.IsBlightActive())
@@ -212,6 +273,10 @@ namespace ATSAccessibility
             _workerIds = null;
             _availableRaces.Clear();
             _racesRefreshedForWorkerSection = false;
+            _sacrificeRecipes.Clear();
+            _sacrificeInfo.Clear();
+            _fuelTypes.Clear();
+            _upgradeInfo.Clear();
         }
 
         // ========================================
@@ -252,7 +317,7 @@ namespace ATSAccessibility
 
         private int GetFireItemCount()
         {
-            return 3;  // Fuel level, Time remaining, Warning status
+            return 3;  // Fuel level, Time remaining, Fuel types
         }
 
         private void AnnounceFireItem(int itemIndex)
@@ -284,39 +349,83 @@ namespace ATSAccessibility
                     }
                     break;
                 case 2:
-                    if (_isFireOut)
-                        Speech.Say("Warning: Fire is out. Villagers cannot warm themselves");
-                    else if (_isFireLow)
-                        Speech.Say("Warning: Fire is low. Add fuel soon");
-                    else
-                        Speech.Say("No warnings");
+                    // Fuel types submenu
+                    int enabledCount = 0;
+                    foreach (var fuel in _fuelTypes)
+                    {
+                        if (fuel.isEnabled) enabledCount++;
+                    }
+                    Speech.Say($"Fuel types: {enabledCount} of {_fuelTypes.Count} enabled");
                     break;
             }
         }
 
         // ========================================
-        // HUB SECTION
+        // UPGRADES SECTION
         // ========================================
 
-        private int GetHubItemCount()
+        private void AnnounceUpgradeItem(int itemIndex)
         {
-            return 2;  // Service status, Range
-        }
-
-        private void AnnounceHubItem(int itemIndex)
-        {
-            switch (itemIndex)
+            if (itemIndex < 0 || itemIndex >= _upgradeInfo.Count)
             {
-                case 0:
-                    if (_hubIndex < 0)
-                        Speech.Say("Hub service: None active");
-                    else
-                        Speech.Say($"Hub service: Service {_hubIndex + 1} active");
-                    break;
-                case 1:
-                    Speech.Say($"Range: {_hubRange:F1} tiles");
-                    break;
+                Speech.Say("Invalid upgrade");
+                return;
             }
+
+            // Refresh upgrade info to get current state
+            _upgradeInfo = BuildingReflection.GetHearthUpgradeInfo(_building);
+            if (itemIndex >= _upgradeInfo.Count)
+            {
+                Speech.Say("Invalid upgrade");
+                return;
+            }
+
+            var info = _upgradeInfo[itemIndex];
+
+            // Build status string
+            string status = info.isAchieved ? "Achieved" : "Available";
+
+            // Build requirements string
+            var reqParts = new List<string>();
+
+            // Housed population
+            if (info.minPopulation > 0)
+            {
+                reqParts.Add($"Housed population {info.currentPopulation} of {info.minPopulation}");
+            }
+
+            // Institutions
+            if (info.minInstitutions > 0)
+            {
+                reqParts.Add($"Institutions {info.currentInstitutions} of {info.minInstitutions}");
+            }
+
+            // Decorations (tier name already includes "decorations" suffix)
+            foreach (var decorReq in info.decorationRequirements)
+            {
+                reqParts.Add($"{decorReq.tierName} {decorReq.current} of {decorReq.required}");
+            }
+
+            string requirements = reqParts.Count > 0 ? string.Join(", ", reqParts) : "None";
+
+            // Build announcement
+            string announcement = $"{info.displayName}: {status}. Requirements: {requirements}";
+
+            // Add effect
+            if (!string.IsNullOrEmpty(info.effectDescription))
+            {
+                announcement += $". Effect: {info.effectDescription}";
+            }
+
+            Speech.Say(announcement);
+        }
+
+        private string GetUpgradeItemName(int itemIndex)
+        {
+            if (itemIndex < 0 || itemIndex >= _upgradeInfo.Count)
+                return null;
+
+            return _upgradeInfo[itemIndex].displayName;
         }
 
         // ========================================
@@ -498,6 +607,195 @@ namespace ATSAccessibility
         }
 
         // ========================================
+        // SACRIFICE SECTION
+        // ========================================
+
+        private void RefreshSacrificeInfo()
+        {
+            _sacrificeInfo.Clear();
+            foreach (var recipe in _sacrificeRecipes)
+            {
+                var info = BuildingReflection.GetSacrificeRecipeInfo(_building, recipe);
+                _sacrificeInfo.Add(info);
+            }
+        }
+
+        private void AnnounceSacrificeItem(int recipeIndex)
+        {
+            if (recipeIndex < 0 || recipeIndex >= _sacrificeInfo.Count)
+            {
+                Speech.Say("Invalid sacrifice recipe");
+                return;
+            }
+
+            // Refresh the info for this recipe to get current state
+            if (recipeIndex < _sacrificeRecipes.Count)
+            {
+                _sacrificeInfo[recipeIndex] = BuildingReflection.GetSacrificeRecipeInfo(_building, _sacrificeRecipes[recipeIndex]);
+            }
+
+            var info = _sacrificeInfo[recipeIndex];
+
+            // Use good name as primary identifier
+            string name = info.goodName;
+            if (string.IsNullOrEmpty(name) || name == "Unknown")
+            {
+                name = info.recipeName;
+            }
+
+            // Get effect description
+            string effect = info.effectDescription;
+            if (string.IsNullOrEmpty(effect))
+            {
+                effect = info.effectName;
+            }
+            if (!string.IsNullOrEmpty(effect))
+            {
+                effect = effect + " per level";
+            }
+
+            if (info.level > 0)
+            {
+                // Active: "{Good}: Level X, {total consumption} per minute, {effect} per level"
+                float totalConsumption = info.consumptionPerMin * info.level;
+                int consumptionRounded = Mathf.RoundToInt(totalConsumption);
+                Speech.Say($"{name}: Level {info.level}, {consumptionRounded} per minute, {effect}");
+            }
+            else
+            {
+                // Off: "{Good}: Off, {effect} per level"
+                Speech.Say($"{name}: Off, {effect}");
+            }
+        }
+
+        private void AdjustSacrificeLevel(int recipeIndex, int delta)
+        {
+            if (recipeIndex < 0 || recipeIndex >= _sacrificeRecipes.Count)
+                return;
+
+            // Refresh info to get current state
+            _sacrificeInfo[recipeIndex] = BuildingReflection.GetSacrificeRecipeInfo(_building, _sacrificeRecipes[recipeIndex]);
+            var info = _sacrificeInfo[recipeIndex];
+            var recipeState = _sacrificeRecipes[recipeIndex];
+
+            int currentLevel = info.level;
+            int newLevel = currentLevel + delta;
+
+            // Clamp to valid range (0 to maxLevel)
+            if (newLevel < 0) newLevel = 0;
+            if (newLevel > info.maxLevel) newLevel = info.maxLevel;
+
+            // No change needed
+            if (newLevel == currentLevel)
+            {
+                if (delta > 0 && currentLevel == info.maxLevel)
+                {
+                    Speech.Say("Maximum level");
+                }
+                else if (delta < 0 && currentLevel == 0)
+                {
+                    Speech.Say("Already off");
+                }
+                return;
+            }
+
+            // Check if can afford when increasing from 0
+            if (currentLevel == 0 && newLevel > 0 && !info.canAfford)
+            {
+                SoundManager.PlayFailed();
+                Speech.Say($"Not enough {info.goodName}");
+                return;
+            }
+
+            // Apply the change
+            if (BuildingReflection.SetHearthSacrificeLevel(_building, recipeState, newLevel))
+            {
+                if (newLevel == 0)
+                {
+                    SoundManager.PlayButtonClick();
+                    Speech.Say("Off");
+                }
+                else if (currentLevel == 0)
+                {
+                    // Enabling from off
+                    SoundManager.PlayBuildingFireButtonStart();
+                    Speech.Say($"Level {newLevel}");
+                }
+                else
+                {
+                    SoundManager.PlayButtonClick();
+                    Speech.Say($"Level {newLevel}");
+                }
+                RefreshSacrificeInfo();
+            }
+        }
+
+        private string GetSacrificeItemName(int recipeIndex)
+        {
+            if (recipeIndex < 0 || recipeIndex >= _sacrificeInfo.Count)
+                return null;
+
+            var info = _sacrificeInfo[recipeIndex];
+            // Use good name for search
+            if (!string.IsNullOrEmpty(info.goodName) && info.goodName != "Unknown")
+            {
+                return info.goodName;
+            }
+            return info.recipeName;
+        }
+
+        // ========================================
+        // FUEL SUB-ITEMS (inside Fire section)
+        // ========================================
+
+        private void AnnounceFuelSubItem(int subItemIndex)
+        {
+            if (subItemIndex < 0 || subItemIndex >= _fuelTypes.Count)
+            {
+                Speech.Say("Invalid fuel type");
+                return;
+            }
+
+            // Refresh the fuel state
+            _fuelTypes = BuildingReflection.GetAllFuelTypes();
+
+            var fuel = _fuelTypes[subItemIndex];
+            string status = fuel.isEnabled ? "Enabled" : "Disabled";
+            Speech.Say($"{fuel.displayName}: {status}");
+        }
+
+        private bool ToggleFuel(int subItemIndex)
+        {
+            if (subItemIndex < 0 || subItemIndex >= _fuelTypes.Count)
+                return false;
+
+            var fuel = _fuelTypes[subItemIndex];
+            bool newState = !fuel.isEnabled;
+
+            if (BuildingReflection.SetFuelEnabled(fuel.name, newState))
+            {
+                SoundManager.PlayButtonClick();
+                Speech.Say(newState ? "Enabled" : "Disabled");
+                _fuelTypes = BuildingReflection.GetAllFuelTypes();
+                return true;
+            }
+            else
+            {
+                SoundManager.PlayFailed();
+                Speech.Say("Cannot change fuel setting");
+                return false;
+            }
+        }
+
+        private string GetFuelSubItemName(int subItemIndex)
+        {
+            if (subItemIndex < 0 || subItemIndex >= _fuelTypes.Count)
+                return null;
+
+            return _fuelTypes[subItemIndex].displayName;
+        }
+
+        // ========================================
         // SEARCH NAME METHODS
         // ========================================
 
@@ -522,11 +820,13 @@ namespace ATSAccessibility
                     {
                         case 0: return "Fuel";
                         case 1: return "Time";
-                        case 2: return "Warning";
+                        case 2: return "Fuel types";
                         default: return null;
                     }
-                case SectionType.Hub:
-                    return itemIndex == 0 ? "Service" : "Range";
+                case SectionType.Sacrifice:
+                    return GetSacrificeItemName(itemIndex);
+                case SectionType.Upgrades:
+                    return GetUpgradeItemName(itemIndex);
                 case SectionType.Blight:
                     return "Corruption";
                 case SectionType.Workers:
@@ -554,26 +854,34 @@ namespace ATSAccessibility
             if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
                 return null;
 
-            // Only workers have sub-items
-            if (_sectionTypes[sectionIndex] != SectionType.Workers)
-                return null;
-
-            if (!IsValidWorkerIndex(itemIndex))
-                return null;
-
-            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, itemIndex);
-            int raceOffset = slotOccupied ? 1 : 0;
-
-            if (slotOccupied && subItemIndex == 0)
+            // Fire section: Fuel types sub-items
+            if (_sectionTypes[sectionIndex] == SectionType.Fire && itemIndex == 2)
             {
-                return "Unassign";
+                return GetFuelSubItemName(subItemIndex);
             }
 
-            int raceIndex = subItemIndex - raceOffset;
-            if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
+            // Workers have sub-items
+            if (_sectionTypes[sectionIndex] == SectionType.Workers)
             {
-                return _availableRaces[raceIndex].raceName;
+                if (!IsValidWorkerIndex(itemIndex))
+                    return null;
+
+                bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, itemIndex);
+                int raceOffset = slotOccupied ? 1 : 0;
+
+                if (slotOccupied && subItemIndex == 0)
+                {
+                    return "Unassign";
+                }
+
+                int raceIndex = subItemIndex - raceOffset;
+                if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
+                {
+                    return _availableRaces[raceIndex].raceName;
+                }
+                return null;
             }
+
             return null;
         }
     }

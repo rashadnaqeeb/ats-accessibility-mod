@@ -527,6 +527,12 @@ namespace ATSAccessibility
                 updatedRecipe.IsActive = newActive;
                 _recipes[itemIndex] = updatedRecipe;
 
+                // Play appropriate sound
+                if (newActive)
+                    SoundManager.PlayRecipeOn();
+                else
+                    SoundManager.PlayRecipeOff();
+
                 string displayName = GetRecipeDisplayName(recipe);
                 Speech.Say($"{displayName}: {(newActive ? "enabled" : "disabled")}");
             }

@@ -25,6 +25,10 @@ Use `cp` with forward slashes and `/c/` prefix. Do NOT use Windows `copy`.
 
 **Base classes**: `TwoLevelPanel` (F1 menu panels), `BuildingSectionNavigator` (building panels)
 
+**Events**: `EventAnnouncer.cs` - game event subscriptions with grace period and deduplication
+
+**Audio**: `SoundManager.cs` - centralized game sound playback via reflection
+
 ---
 
 ## Design Patterns
@@ -152,15 +156,22 @@ private int FindMatchingItem()
 
 ### 5. Event Subscription Pattern
 
-Grace period + deduplication for game events.
+Grace period + FIFO deduplication for game events.
 
 ```csharp
-private float _subscriptionTime;
+private float _gracePeriodEndTime;  // Pre-calculated for consistent checks
 private const float GRACE_PERIOD = 2f;
 private HashSet<string> _announced = new HashSet<string>();
 private Queue<string> _announcedOrder = new Queue<string>();
 
-private bool IsInGracePeriod() => Time.realtimeSinceStartup - _subscriptionTime < GRACE_PERIOD;
+// Calculate end time once at subscription for consistent concurrent event handling
+private void Subscribe()
+{
+    _gracePeriodEndTime = Time.realtimeSinceStartup + GRACE_PERIOD;
+    // ... subscribe to events
+}
+
+private bool IsInGracePeriod() => Time.realtimeSinceStartup < _gracePeriodEndTime;
 
 private void OnEvent(object data)
 {
@@ -172,8 +183,8 @@ private void OnEvent(object data)
     _announced.Add(key);
     _announcedOrder.Enqueue(key);
 
-    // Evict oldest to prevent memory growth
-    while (_announced.Count > 100)
+    // FIFO eviction to prevent memory growth (never use Clear())
+    while (_announced.Count > 100 && _announcedOrder.Count > 0)
         _announced.Remove(_announcedOrder.Dequeue());
 
     Speech.Say(FormatMessage(data));
@@ -184,6 +195,7 @@ public void Dispose()
     foreach (var sub in _subscriptions) sub?.Dispose();
     _subscriptions.Clear();
     _announced.Clear();
+    _announcedOrder.Clear();
 }
 ```
 
@@ -304,3 +316,46 @@ Speech.Say($"Worker slot 2 of 4: {workerName}, press Enter to manage");
 ```
 
 Users already know how navigation works - announce what they need to make decisions, not how to use the interface.
+
+---
+
+## Design Decisions
+
+### Sounds
+
+`SoundManager.cs` provides access to game sounds via reflection. Available methods include:
+- `PlayButtonClick()` - standard UI click
+- `PlayFailed()` - error/warning sound
+- `PlayRecipeOn()`/`PlayRecipeOff()` - recipe toggle
+- `PlayBuildingFireButtonStart()` - sacrifice enable
+- `PlayBuildingSleep()`/`PlayBuildingWakeUp()` - pause toggle
+
+**Policy**: Only add sounds when explicitly requested. Do not proactively add sounds to new features - let the user decide if audio feedback is needed for a particular action.
+
+### Static Instance Management
+
+Classes like `EventAnnouncer` that use static `_instance` for Harmony patch callbacks must clear the reference in `Dispose()` to prevent stale references after scene changes:
+
+```csharp
+public void Dispose()
+{
+    // ... cleanup ...
+    if (_instance == this)
+        _instance = null;
+}
+```
+
+### Reflection Method Return Values
+
+Methods that invoke reflected game methods should return `false` if the method wasn't found, not `true`:
+
+```csharp
+// Correct
+if (_someMethod == null) return false;
+_someMethod.Invoke(...);
+return true;
+
+// Wrong - returns true even if nothing happened
+_someMethod?.Invoke(...);
+return true;
+```

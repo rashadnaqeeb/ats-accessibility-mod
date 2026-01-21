@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using HarmonyLib;
 using UnityEngine;
 
 namespace ATSAccessibility
@@ -14,8 +15,8 @@ namespace ATSAccessibility
         private List<IDisposable> _subscriptions = new List<IDisposable>();
         private bool _subscribed = false;
 
-        // Track subscription time to ignore events during initialization
-        private float _subscriptionTime = 0f;
+        // Track grace period end time to ignore events during initialization
+        private float _gracePeriodEndTime = 0f;
         private const float INITIALIZATION_GRACE_PERIOD = 2f; // Ignore events for 2 seconds after subscribing
 
         // Track last announced values to avoid duplicate announcements
@@ -23,6 +24,7 @@ namespace ATSAccessibility
         private HashSet<string> _announcedAlerts = new HashSet<string>();
         private Queue<string> _announcedAlertsOrder = new Queue<string>();
         private HashSet<string> _announcedNews = new HashSet<string>();
+        private Queue<string> _announcedNewsOrder = new Queue<string>();
 
         // Static compiled regex for stripping rich text tags
         private static readonly System.Text.RegularExpressions.Regex RichTextTagsRegex =
@@ -95,7 +97,8 @@ namespace ATSAccessibility
                 SubscribeToVillagers(gameServices);
 
                 _subscribed = true;
-                _subscriptionTime = Time.realtimeSinceStartup;
+                _gracePeriodEndTime = Time.realtimeSinceStartup + INITIALIZATION_GRACE_PERIOD;
+                SetInstance();  // Set instance for static patch callbacks
                 Debug.Log("[ATSAccessibility] EventAnnouncer: Subscribed to game events");
             }
             catch (Exception ex)
@@ -116,11 +119,12 @@ namespace ATSAccessibility
             }
             _subscriptions.Clear();
             _subscribed = false;
-            _subscriptionTime = 0f;
+            _gracePeriodEndTime = 0f;
             _lastAnnouncedHostilityLevel = -1;
             _announcedAlerts.Clear();
             _announcedAlertsOrder.Clear();
             _announcedNews.Clear();
+            _announcedNewsOrder.Clear();
             _pendingMessages.Clear();
 
             // Reset reflection cached flags so they get re-cached on next game
@@ -128,16 +132,26 @@ namespace ATSAccessibility
             _reflectionCached = false;
             _villagerReflectionCached = false;
 
+            // Clear sacrifice tracking state
+            ClearSacrificeState();
+
+            // Clear static instance to prevent stale reference on scene change
+            if (_instance == this)
+            {
+                _instance = null;
+            }
+
             Debug.Log("[ATSAccessibility] EventAnnouncer: Disposed all subscriptions");
         }
 
         /// <summary>
         /// Check if we're still in the initialization grace period.
         /// Events during this period are ignored to avoid announcing pre-existing state.
+        /// Uses pre-calculated end time for consistent checks across concurrent events.
         /// </summary>
         private bool IsInGracePeriod()
         {
-            return Time.realtimeSinceStartup - _subscriptionTime < INITIALIZATION_GRACE_PERIOD;
+            return Time.realtimeSinceStartup < _gracePeriodEndTime;
         }
 
         /// <summary>
@@ -672,12 +686,13 @@ namespace ATSAccessibility
                     // Skip if already announced
                     if (_announcedNews.Contains(content)) continue;
                     _announcedNews.Add(content);
+                    _announcedNewsOrder.Enqueue(content);
 
-                    // Clean up if too large
-                    if (_announcedNews.Count > 50)
+                    // FIFO eviction to prevent memory growth
+                    while (_announcedNews.Count > 50 && _announcedNewsOrder.Count > 0)
                     {
-                        _announcedNews.Clear();
-                        _announcedNews.Add(content);
+                        var oldest = _announcedNewsOrder.Dequeue();
+                        _announcedNews.Remove(oldest);
                     }
 
                     // Strip any rich text tags like <color>, <b>, etc.
@@ -1061,6 +1076,128 @@ namespace ATSAccessibility
             {
                 Debug.LogError($"[ATSAccessibility] OnAlertsChanged error: {ex.Message}");
             }
+        }
+
+        // ========================================
+        // SACRIFICE STOPPED (Harmony Patch)
+        // ========================================
+        //
+        // Note: Sacrifice detection uses asymmetric approach:
+        // - Sacrifice STARTED: Detected via HearthNavigator UI action (immediate feedback)
+        // - Sacrifice STOPPED: Detected via Harmony patch on HearthView.UpdateSacrificeStatus
+        //   (because sacrifice can stop from goods depletion, not just UI action)
+        //
+        // This asymmetry is intentional - UI actions have immediate feedback, while
+        // automatic stops need to be detected via the game's internal state changes.
+
+        // Track sacrifice state per HearthView instance to detect when it stops.
+        // Note: Uses GetHashCode as key which can theoretically collide, but this is
+        // acceptable for UI tracking where collisions are rare and consequences minor.
+        private static Dictionary<int, bool> _hearthSacrificeStates = new Dictionary<int, bool>();
+        private static EventAnnouncer _instance;
+
+        /// <summary>
+        /// Register the Harmony patch for HearthView.UpdateSacrificeStatus.
+        /// Called from Plugin after Harmony.PatchAll().
+        /// </summary>
+        public static void RegisterSacrificeStoppedPatch(Harmony harmony)
+        {
+            try
+            {
+                var assembly = GameReflection.GameAssembly;
+                if (assembly == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] Cannot register sacrifice patch - game assembly not found");
+                    return;
+                }
+
+                var hearthViewType = assembly.GetType("Eremite.Buildings.HearthView");
+                if (hearthViewType == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] Cannot register sacrifice patch - HearthView type not found");
+                    return;
+                }
+
+                var targetMethod = hearthViewType.GetMethod("UpdateSacrificeStatus", BindingFlags.Public | BindingFlags.Instance);
+                if (targetMethod == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] Cannot register sacrifice patch - UpdateSacrificeStatus method not found");
+                    return;
+                }
+
+                var postfixMethod = typeof(EventAnnouncer).GetMethod(nameof(UpdateSacrificeStatusPostfix), BindingFlags.Static | BindingFlags.NonPublic);
+                if (postfixMethod == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] Cannot register sacrifice patch - postfix method not found");
+                    return;
+                }
+
+                harmony.Patch(targetMethod, postfix: new HarmonyMethod(postfixMethod));
+                Debug.Log("[ATSAccessibility] Registered HearthView.UpdateSacrificeStatus patch for sacrifice stopped announcements");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Failed to register sacrifice patch: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Postfix for HearthView.UpdateSacrificeStatus(bool isOn).
+        /// Announces when sacrifice stops (transitions from on to off).
+        /// </summary>
+        private static void UpdateSacrificeStatusPostfix(object __instance, bool isOn)
+        {
+            try
+            {
+                if (!Plugin.AnnounceSacrificeStopped.Value) return;
+
+                // Use instance hash code as key
+                int key = __instance.GetHashCode();
+
+                // Check if we have a previous state
+                if (_hearthSacrificeStates.TryGetValue(key, out bool wasOn))
+                {
+                    // Detect transition from on to off
+                    if (wasOn && !isOn)
+                    {
+                        // Sacrifice stopped - announce it
+                        if (_instance != null && !_instance.IsInGracePeriod())
+                        {
+                            _instance.Announce("Sacrifice stopped");
+                        }
+                    }
+                }
+
+                // Update state
+                _hearthSacrificeStates[key] = isOn;
+
+                // Cleanup old entries if too many (prevents memory leak)
+                if (_hearthSacrificeStates.Count > 50)
+                {
+                    _hearthSacrificeStates.Clear();
+                    _hearthSacrificeStates[key] = isOn;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] UpdateSacrificeStatusPostfix error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Set the singleton instance for announcements from static patch methods.
+        /// </summary>
+        public void SetInstance()
+        {
+            _instance = this;
+        }
+
+        /// <summary>
+        /// Clear sacrifice tracking state. Called on dispose.
+        /// </summary>
+        public static void ClearSacrificeState()
+        {
+            _hearthSacrificeStates.Clear();
         }
     }
 }

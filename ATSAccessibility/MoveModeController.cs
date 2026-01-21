@@ -59,6 +59,7 @@ namespace ATSAccessibility
             GameReflection.LiftBuilding(building);
 
             _isActive = true;
+            SoundManager.PlayBuildingMoveStarted();
 
             // Get building size for extension announcement
             var buildingModel = GameReflection.GetBuildingModel(building);
@@ -120,6 +121,7 @@ namespace ATSAccessibility
                 // Place building on grid at new position
                 GameReflection.PlaceBuildingOnGrid(_movingBuilding);
 
+                SoundManager.PlayBuildingMoveFinished();
                 Speech.Say($"{_buildingName} moved");
                 Debug.Log($"[ATSAccessibility] Moved {_buildingName} from ({_originalPosition.x}, {_originalPosition.y}) to ({x}, {y})");
             }

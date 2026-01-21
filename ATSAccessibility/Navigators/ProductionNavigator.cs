@@ -109,7 +109,7 @@ namespace ATSAccessibility
                 case SectionType.Recipes:
                     return _recipes.Count;
                 case SectionType.Rainpunk:
-                    return _engineCount;
+                    return GetRainpunkItemCount();
                 case SectionType.Inputs:
                     return _inputGoods.Count > 0 ? _inputGoods.Count : 1;  // At least 1 for "Empty" message
                 case SectionType.Outputs:
@@ -267,8 +267,8 @@ namespace ATSAccessibility
                 int increment = modifiers.Shift ? delta * 10 : delta;
                 AdjustRecipeLimit(itemIndex, increment);
             }
-            // Rainpunk engine level adjustment
-            else if (_sectionTypes[sectionIndex] == SectionType.Rainpunk && itemIndex < _engineCount)
+            // Rainpunk engine level adjustment (only for engine items, not info items)
+            else if (_sectionTypes[sectionIndex] == SectionType.Rainpunk)
             {
                 AdjustEngineLevel(itemIndex, delta);
             }
@@ -606,9 +606,15 @@ namespace ATSAccessibility
                 {
                     _rainpunkUnlocked = true;
                     _engineCount = BuildingReflection.GetEngineCount(_building);
+                    SoundManager.PlayRainpunkUnlock();
                     Speech.Say("Rainpunk unlocked");
                     // Refresh data to add Rainpunk section
                     RefreshData();
+                    // Reset navigation to Info section (the unlock item no longer exists)
+                    _currentSectionIndex = 0;
+                    _currentItemIndex = 0;
+                    _currentSubItemIndex = 0;
+                    _navigationLevel = 0;
                     return true;
                 }
                 else
@@ -1148,6 +1154,12 @@ namespace ATSAccessibility
                 updatedRecipe.IsActive = newActive;
                 _recipes[itemIndex] = updatedRecipe;
 
+                // Play appropriate sound
+                if (newActive)
+                    SoundManager.PlayRecipeOn();
+                else
+                    SoundManager.PlayRecipeOff();
+
                 string displayName = GetRecipeDisplayName(recipe);
                 Speech.Say($"{displayName}: {(newActive ? "enabled" : "disabled")}");
                 Debug.Log($"[ATSAccessibility] ProductionNavigator: Toggled recipe {recipe.ModelName} to {newActive}");
@@ -1241,7 +1253,92 @@ namespace ATSAccessibility
         // RAINPUNK SECTION
         // ========================================
 
-        private void AnnounceRainpunkItem(int engineIndex)
+        // Rainpunk item layout:
+        // 0: Water stored
+        // 1: Water use per second
+        // 2: Blightrot meter (only if blight is active and spawning)
+        // 3+: Engines
+
+        private const int RAINPUNK_ITEM_WATER_STORED = 0;
+        private const int RAINPUNK_ITEM_WATER_USE = 1;
+        private const int RAINPUNK_ITEM_BLIGHT = 2;
+
+        private int GetRainpunkItemCount()
+        {
+            int count = 2;  // Water stored + Water use
+            if (BuildingReflection.GetBlightProgress(_building) >= 0)
+            {
+                count++;  // Blightrot meter
+            }
+            count += _engineCount;  // Engines
+            return count;
+        }
+
+        private int GetRainpunkEngineStartIndex()
+        {
+            // Engines start after water stored, water use, and optionally blight meter
+            if (BuildingReflection.GetBlightProgress(_building) >= 0)
+            {
+                return 3;  // After water stored, water use, blight
+            }
+            return 2;  // After water stored, water use
+        }
+
+        private void AnnounceRainpunkItem(int itemIndex)
+        {
+            int engineStartIndex = GetRainpunkEngineStartIndex();
+
+            if (itemIndex == RAINPUNK_ITEM_WATER_STORED)
+            {
+                int current = BuildingReflection.GetWaterTankCurrent(_building);
+                int capacity = BuildingReflection.GetWaterTankCapacity(_building);
+                Speech.Say($"Water stored: {current} of {capacity}");
+            }
+            else if (itemIndex == RAINPUNK_ITEM_WATER_USE)
+            {
+                float usePerSec = BuildingReflection.GetTotalWaterUsePerSecond(_building);
+                float usePerMin = usePerSec * 60f;
+                if (usePerMin > 0)
+                {
+                    Speech.Say($"Water use: {usePerMin:F1} per minute");
+                }
+                else
+                {
+                    Speech.Say("Water use: None");
+                }
+            }
+            else if (itemIndex == RAINPUNK_ITEM_BLIGHT && engineStartIndex == 3)
+            {
+                int blightProgress = BuildingReflection.GetBlightProgress(_building);
+                Speech.Say($"Blightrot: {blightProgress}%");
+            }
+            else if (itemIndex >= engineStartIndex)
+            {
+                int engineIndex = itemIndex - engineStartIndex;
+                AnnounceEngine(engineIndex);
+            }
+            else
+            {
+                Speech.Say("Unknown");
+            }
+        }
+
+        private string GetRainpunkItemName(int itemIndex)
+        {
+            int engineStartIndex = GetRainpunkEngineStartIndex();
+
+            if (itemIndex == RAINPUNK_ITEM_WATER_STORED)
+                return "Water stored";
+            if (itemIndex == RAINPUNK_ITEM_WATER_USE)
+                return "Water use";
+            if (itemIndex == RAINPUNK_ITEM_BLIGHT && engineStartIndex == 3)
+                return "Blightrot";
+            if (itemIndex >= engineStartIndex)
+                return $"Engine {itemIndex - engineStartIndex + 1}";
+            return null;
+        }
+
+        private void AnnounceEngine(int engineIndex)
         {
             if (engineIndex >= _engineCount)
             {
@@ -1269,8 +1366,12 @@ namespace ATSAccessibility
             }
         }
 
-        private void AdjustEngineLevel(int engineIndex, int delta)
+        private void AdjustEngineLevel(int itemIndex, int delta)
         {
+            int engineStartIndex = GetRainpunkEngineStartIndex();
+            if (itemIndex < engineStartIndex) return;  // Not an engine item
+
+            int engineIndex = itemIndex - engineStartIndex;
             if (engineIndex >= _engineCount) return;
 
             int maxLevel = BuildingReflection.GetEngineMaxLevel(_building, engineIndex);
@@ -1288,10 +1389,12 @@ namespace ATSAccessibility
             if (delta > 0)
             {
                 success = BuildingReflection.IncreaseEngineLevel(_building, engineIndex);
+                if (success) BuildingReflection.PlayEngineUpSound(_building, engineIndex);
             }
             else
             {
                 success = BuildingReflection.DecreaseEngineLevel(_building, engineIndex);
+                if (success) BuildingReflection.PlayEngineDownSound(_building, engineIndex);
             }
 
             if (success)
@@ -1584,7 +1687,7 @@ namespace ATSAccessibility
                 case SectionType.Recipes:
                     return GetRecipeItemName(itemIndex);
                 case SectionType.Rainpunk:
-                    return $"Engine {itemIndex + 1}";
+                    return GetRainpunkItemName(itemIndex);
                 case SectionType.Inputs:
                     return itemIndex < _inputGoods.Count ? _inputGoods[itemIndex].displayName : null;
                 case SectionType.Outputs:

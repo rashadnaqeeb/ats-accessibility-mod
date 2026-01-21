@@ -15,6 +15,7 @@ namespace ATSAccessibility
         private readonly BuildingMenuPanel _buildingMenuPanel;
         private readonly MoveModeController _moveModeController;
         private readonly AnnouncementHistoryPanel _announcementHistoryPanel;
+        private readonly ConfirmationDialog _confirmationDialog;
 
         public SettlementKeyHandler(
             MapNavigator mapNavigator,
@@ -23,7 +24,8 @@ namespace ATSAccessibility
             MenuHub menuHub,
             BuildingMenuPanel buildingMenuPanel,
             MoveModeController moveModeController,
-            AnnouncementHistoryPanel announcementHistoryPanel)
+            AnnouncementHistoryPanel announcementHistoryPanel,
+            ConfirmationDialog confirmationDialog)
         {
             _mapNavigator = mapNavigator;
             _mapScanner = mapScanner;
@@ -32,6 +34,7 @@ namespace ATSAccessibility
             _buildingMenuPanel = buildingMenuPanel;
             _moveModeController = moveModeController;
             _announcementHistoryPanel = announcementHistoryPanel;
+            _confirmationDialog = confirmationDialog;
         }
 
         /// <summary>
@@ -81,6 +84,38 @@ namespace ATSAccessibility
 
                 // Game speed controls
                 case KeyCode.Space:
+                    if (modifiers.Shift)
+                    {
+                        // Shift+Space: destroy building at cursor
+                        var buildingToDestroy = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                        if (buildingToDestroy == null)
+                        {
+                            Speech.Say("No building");
+                        }
+                        else if (!BuildingReflection.CanBeDestroyed(buildingToDestroy))
+                        {
+                            string name = GameReflection.GetDisplayName(GameReflection.GetBuildingModel(buildingToDestroy));
+                            Speech.Say($"Cannot destroy {name}");
+                        }
+                        else
+                        {
+                            string name = GameReflection.GetDisplayName(GameReflection.GetBuildingModel(buildingToDestroy));
+                            var refundGoods = BuildingReflection.GetDestructionRefund(buildingToDestroy);
+                            _confirmationDialog.Show(name, () =>
+                            {
+                                if (BuildingReflection.DestroyBuilding(buildingToDestroy))
+                                {
+                                    SoundManager.PlayBuildingDestroyed();
+                                    Speech.Say($"Destroyed: {name}");
+                                }
+                                else
+                                {
+                                    Speech.Say("Destruction failed");
+                                }
+                            }, refundGoods);
+                        }
+                        return true;
+                    }
                     GameReflection.TogglePause();
                     return true;
                 case KeyCode.Alpha1:
@@ -168,6 +203,22 @@ namespace ATSAccessibility
                 case KeyCode.B:
                     string blightInfo = BlightInfoHelper.GetBlightInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
                     Speech.Say(blightInfo);
+                    return true;
+
+                // Rainpunk info/control
+                case KeyCode.P:
+                    if (modifiers.Shift)
+                    {
+                        string result = RainpunkHelper.StopAllEnginesAtBuilding(
+                            _mapNavigator.CursorX, _mapNavigator.CursorY);
+                        Speech.Say(result);
+                    }
+                    else
+                    {
+                        string info = RainpunkHelper.GetRainpunkInfo(
+                            _mapNavigator.CursorX, _mapNavigator.CursorY);
+                        Speech.Say(info);
+                    }
                     return true;
 
                 // Worker info/management

@@ -25,6 +25,7 @@ namespace ATSAccessibility
         private static PropertyInfo _buildingStateProperty = null;
         private static PropertyInfo _buildingIdProperty = null;
         private static PropertyInfo _buildingDisplayNameProperty = null;  // Building.DisplayName (string)
+        private static MethodInfo _buildingIsFinishedMethod = null;  // Building.IsFinished()
         private static bool _buildingTypesCached = false;
 
         // BuildingModel properties
@@ -184,6 +185,60 @@ namespace ATSAccessibility
         private static MethodInfo _hearthGetRangeMethod = null;  // Hearth.GetRange()
         private static MethodInfo _hearthGetCorruptionRateMethod = null;  // Hearth.GetCorruptionRate()
         private static bool _hearthTypesCached = false;
+
+        // Hearth sacrifice-specific
+        private static FieldInfo _hearthStateSacrificeRecipesField = null;  // HearthState.sacrificeRecipes (List<HearthSacrificeState>)
+        private static Type _hearthSacrificeStateType = null;
+        private static FieldInfo _hssModelField = null;  // HearthSacrificeState.model (string)
+        private static FieldInfo _hssActiveField = null;  // HearthSacrificeState.active (bool)
+        private static FieldInfo _hssLevelField = null;  // HearthSacrificeState.level (int)
+        private static Type _hearthSacrificeRecipeModelType = null;
+        private static FieldInfo _hsrmDisplayNameField = null;  // HearthSacrificeRecipeModel.displayName (LocaText)
+        private static FieldInfo _hsrmMaxLevelField = null;  // HearthSacrificeRecipeModel.maxLevel (int)
+        private static FieldInfo _hsrmGoodPerMinField = null;  // HearthSacrificeRecipeModel.goodPerMin (GoodRef)
+        private static FieldInfo _hsrmEffectField = null;  // HearthSacrificeRecipeModel.effect (EffectModel)
+        private static MethodInfo _hearthGetEffectLevelMethod = null;  // Hearth.GetEffectLevel(HearthSacrificeState)
+        private static MethodInfo _hearthGetMaxLevelForMethod = null;  // Hearth.GetMaxLevelFor(HearthSacrificeState)
+        private static MethodInfo _hearthHaveGoodsForMethod = null;  // Hearth.HaveGoodsFor(HearthSacrificeState)
+        private static MethodInfo _hearthSetSacrificeEffectLevelMethod = null;  // Hearth.SetSacrificeEffectLevel(HearthSacrificeState, int)
+        private static MethodInfo _settingsGetHearthSacrificeRecipeMethod = null;  // Settings.GetHearthSacrificeRecipe(string)
+        private static PropertyInfo _effectModelDescProp = null;  // EffectModel.Description (string)
+        private static MethodInfo _effectsServiceGetHearthSacrificeRateMethod = null;  // IEffectsService.GetHearthSacraficeRate()
+        private static bool _hearthSacrificeTypesCached = false;
+
+        // Hearth fuel-specific
+        private static PropertyInfo _goodsServiceFuelsProperty = null;  // IGoodsService.Fuels (GoodModel[])
+        private static MethodInfo _hearthServiceCanBeBurnedMethod = null;  // IHearthService.CanBeBurned(string)
+        private static MethodInfo _hearthServiceSetCanBeBurnedMethod = null;  // IHearthService.SetCanBeBurned(string, bool)
+        private static PropertyInfo _gsHearthServiceProperty = null;  // IGameServices.HearthService
+        private static PropertyInfo _gsGoodsServiceProperty = null;  // IGameServices.GoodsService
+        private static FieldInfo _goodModelDisplayNameField = null;  // GoodModel.displayName
+        private static PropertyInfo _goodModelNameProperty = null;  // GoodModel.Name
+        private static bool _hearthFuelTypesCached = false;
+
+        // Hearth hub/upgrade-specific
+        private static Type _hubTierType = null;
+        private static FieldInfo _hubTierIndexField = null;  // HubTier.index
+        private static FieldInfo _hubTierEffectField = null;  // HubTier.effect
+        private static FieldInfo _hubTierDisplayNameField = null;  // HubTier.displayName
+        private static FieldInfo _hubTierMinPopulationField = null;  // HubTier.minPopulation
+        private static FieldInfo _hubTierMinInstitutionsField = null;  // HubTier.minInstitutions
+        private static FieldInfo _hubTierDecorationsField = null;  // HubTier.decorations (DecorationRequirement[])
+        private static Type _decorationRequirementType = null;
+        private static FieldInfo _decorReqTierField = null;  // DecorationRequirement.tier
+        private static FieldInfo _decorReqAmountField = null;  // DecorationRequirement.amount
+        private static Type _decorationTierType = null;
+        private static FieldInfo _settingsHubsTiersField = null;  // Settings.hubsTiers
+        private static MethodInfo _metaPerksServiceGetUnlockedHubsMethod = null;  // MetaPerksService.GetUnlockedHubs()
+        private static PropertyInfo _mbMetaPerksServiceProperty = null;  // MB.MetaPerksService
+        private static MethodInfo _hearthIsInRangeMethod = null;  // Hearth.IsInRange(Building)
+        private static PropertyInfo _buildingsServiceHousesProperty = null;  // IBuildingsService.Houses
+        private static PropertyInfo _buildingsServiceInstitutionsProperty = null;  // IBuildingsService.Institutions
+        private static PropertyInfo _buildingsServiceDecorationsProperty = null;  // IBuildingsService.Decorations
+        private static FieldInfo _decorModelHasDecorationTierField = null;  // DecorationModel.hasDecorationTier
+        private static FieldInfo _decorModelTierField = null;  // DecorationModel.tier
+        private static FieldInfo _decorModelDecorationScoreField = null;  // DecorationModel.decorationScore
+        private static bool _hubTierTypesCached = false;
 
         // House-specific
         private static Type _houseType = null;
@@ -352,6 +407,10 @@ namespace ATSAccessibility
         private static PropertyInfo _gsRainpunkServiceProperty = null;  // IGameServices.RainpunkService
         private static MethodInfo _rainpunkCountWaterLeftMethod = null;  // IRainpunkService.CountWaterLeft(WaterModel)
         private static MethodInfo _rainpunkCountTanksCapacityMethod = null;  // IRainpunkService.CountTanksCapacity(WaterModel)
+        private static MethodInfo _rainpunkGetWaterPerCystsMethod = null;  // IRainpunkService.GetWaterPerCysts(Workshop)
+        private static MethodInfo _rainpunkIsWaterSpawningBlightMethod = null;  // IRainpunkService.IsWaterSpawningBlight(Workshop)
+        private static FieldInfo _wsWaterUsedField = null;  // WorkshopState.waterUsed
+        private static FieldInfo _engineModelWaterPerSecField = null;  // RainpunkEngineModel.waterPerSec
         private static bool _rainpunkServiceTypesCached = false;
 
         // Rainpunk engine types (for workshop engine control)
@@ -373,6 +432,10 @@ namespace ATSAccessibility
         private static FieldInfo _engineModelLevelsField = null;  // RainpunkEngineModel.levels (RainpunkEngineLevel[])
         private static FieldInfo _engineLevelPerkField = null;  // RainpunkEngineLevel.perk (BuildingPerkModel)
         private static PropertyInfo _buildingPerkDisplayNameProp = null;  // BuildingPerkModel.DisplayName
+        private static FieldInfo _engineModelUpSoundField = null;  // RainpunkEngineModel.upSound (SoundRef)
+        private static FieldInfo _engineModelDownSoundField = null;  // RainpunkEngineModel.downSound (SoundRef)
+        private static Type _soundRefType = null;
+        private static MethodInfo _soundRefGetNextMethod = null;  // SoundRef.GetNext()
         private static bool _rainpunkEngineTypesCached = false;
 
         // ========================================
@@ -428,6 +491,7 @@ namespace ATSAccessibility
                     _buildingStateProperty = buildingType.GetProperty("BuildingState", GameReflection.PublicInstance);
                     _buildingIdProperty = buildingType.GetProperty("Id", GameReflection.PublicInstance);
                     _buildingDisplayNameProperty = buildingType.GetProperty("DisplayName", GameReflection.PublicInstance);
+                    _buildingIsFinishedMethod = buildingType.GetMethod("IsFinished", GameReflection.PublicInstance);
                     Debug.Log("[ATSAccessibility] BuildingReflection: Cached Building properties");
                 }
             }
@@ -1218,6 +1282,239 @@ namespace ATSAccessibility
             _hearthTypesCached = true;
         }
 
+        private static void EnsureHearthSacrificeTypes()
+        {
+            if (_hearthSacrificeTypesCached) return;
+
+            var assembly = GameReflection.GameAssembly;
+            if (assembly == null)
+            {
+                _hearthSacrificeTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Ensure base hearth types are cached first
+                EnsureHearthTypes();
+
+                // HearthState.sacrificeRecipes field
+                var hearthStateType = assembly.GetType("Eremite.Buildings.HearthState");
+                if (hearthStateType != null)
+                {
+                    _hearthStateSacrificeRecipesField = hearthStateType.GetField("sacrificeRecipes", GameReflection.PublicInstance);
+                }
+
+                // HearthSacrificeState type and fields
+                _hearthSacrificeStateType = assembly.GetType("Eremite.Buildings.HearthSacrificeState");
+                if (_hearthSacrificeStateType != null)
+                {
+                    _hssModelField = _hearthSacrificeStateType.GetField("model", GameReflection.PublicInstance);
+                    _hssActiveField = _hearthSacrificeStateType.GetField("active", GameReflection.PublicInstance);
+                    _hssLevelField = _hearthSacrificeStateType.GetField("level", GameReflection.PublicInstance);
+                }
+
+                // HearthSacrificeRecipeModel type and fields
+                _hearthSacrificeRecipeModelType = assembly.GetType("Eremite.Buildings.HearthSacrificeRecipeModel");
+                if (_hearthSacrificeRecipeModelType != null)
+                {
+                    _hsrmDisplayNameField = _hearthSacrificeRecipeModelType.GetField("displayName", GameReflection.PublicInstance);
+                    _hsrmMaxLevelField = _hearthSacrificeRecipeModelType.GetField("maxLevel", GameReflection.PublicInstance);
+                    _hsrmGoodPerMinField = _hearthSacrificeRecipeModelType.GetField("goodPerMin", GameReflection.PublicInstance);
+                    _hsrmEffectField = _hearthSacrificeRecipeModelType.GetField("effect", GameReflection.PublicInstance);
+                }
+
+                // Hearth methods for sacrifice
+                if (_hearthType != null)
+                {
+                    _hearthGetEffectLevelMethod = _hearthType.GetMethod("GetEffectLevel", GameReflection.PublicInstance);
+                    _hearthGetMaxLevelForMethod = _hearthType.GetMethod("GetMaxLevelFor", GameReflection.PublicInstance);
+                    _hearthHaveGoodsForMethod = _hearthType.GetMethod("HaveGoodsFor", GameReflection.PublicInstance);
+                    _hearthSetSacrificeEffectLevelMethod = _hearthType.GetMethod("SetSacrificeEffectLevel", GameReflection.PublicInstance);
+                }
+
+                // Settings.GetHearthSacrificeRecipe method
+                var settingsType = assembly.GetType("Eremite.Model.Settings");
+                if (settingsType != null)
+                {
+                    _settingsGetHearthSacrificeRecipeMethod = settingsType.GetMethod("GetHearthSacrificeRecipe", GameReflection.PublicInstance);
+                }
+
+                // EffectModel.Description property
+                var effectModelType = assembly.GetType("Eremite.Model.EffectModel");
+                if (effectModelType != null)
+                {
+                    _effectModelDescProp = effectModelType.GetProperty("Description", GameReflection.PublicInstance);
+                }
+
+                // IEffectsService.GetHearthSacraficeRate method
+                var effectsServiceType = assembly.GetType("Eremite.Services.IEffectsService");
+                if (effectsServiceType != null)
+                {
+                    _effectsServiceGetHearthSacrificeRateMethod = effectsServiceType.GetMethod("GetHearthSacraficeRate", GameReflection.PublicInstance);
+                }
+
+                Debug.Log("[ATSAccessibility] BuildingReflection: Cached HearthSacrifice types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] BuildingReflection hearth sacrifice types failed: {ex.Message}");
+            }
+
+            _hearthSacrificeTypesCached = true;
+        }
+
+        private static void EnsureHearthFuelTypes()
+        {
+            if (_hearthFuelTypesCached) return;
+
+            var assembly = GameReflection.GameAssembly;
+            if (assembly == null)
+            {
+                _hearthFuelTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get GoodsService and HearthService properties from IGameServices
+                var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsGoodsServiceProperty = gameServicesType.GetProperty("GoodsService", GameReflection.PublicInstance);
+                    _gsHearthServiceProperty = gameServicesType.GetProperty("HearthService", GameReflection.PublicInstance);
+                }
+
+                // IGoodsService.Fuels property
+                var goodsServiceType = assembly.GetType("Eremite.Services.IGoodsService");
+                if (goodsServiceType != null)
+                {
+                    _goodsServiceFuelsProperty = goodsServiceType.GetProperty("Fuels", GameReflection.PublicInstance);
+                }
+
+                // IHearthService methods
+                var hearthServiceType = assembly.GetType("Eremite.Services.IHearthService");
+                if (hearthServiceType != null)
+                {
+                    _hearthServiceCanBeBurnedMethod = hearthServiceType.GetMethod("CanBeBurned", GameReflection.PublicInstance);
+                    _hearthServiceSetCanBeBurnedMethod = hearthServiceType.GetMethod("SetCanBeBurned", GameReflection.PublicInstance);
+                }
+
+                // GoodModel fields
+                var goodModelType = assembly.GetType("Eremite.Model.GoodModel");
+                if (goodModelType != null)
+                {
+                    _goodModelDisplayNameField = goodModelType.GetField("displayName", GameReflection.PublicInstance);
+                    _goodModelNameProperty = goodModelType.GetProperty("Name", GameReflection.PublicInstance);
+                }
+
+                Debug.Log("[ATSAccessibility] BuildingReflection: Cached HearthFuel types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] BuildingReflection hearth fuel types failed: {ex.Message}");
+            }
+
+            _hearthFuelTypesCached = true;
+        }
+
+        private static void EnsureHubTierTypes()
+        {
+            if (_hubTierTypesCached) return;
+
+            var assembly = GameReflection.GameAssembly;
+            if (assembly == null)
+            {
+                _hubTierTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // HubTier type and fields
+                _hubTierType = assembly.GetType("Eremite.Buildings.HubTier");
+                if (_hubTierType != null)
+                {
+                    _hubTierIndexField = _hubTierType.GetField("index", GameReflection.PublicInstance);
+                    _hubTierEffectField = _hubTierType.GetField("effect", GameReflection.PublicInstance);
+                    _hubTierDisplayNameField = _hubTierType.GetField("displayName", GameReflection.PublicInstance);
+                    _hubTierMinPopulationField = _hubTierType.GetField("minPopulation", GameReflection.PublicInstance);
+                    _hubTierMinInstitutionsField = _hubTierType.GetField("minInstitutions", GameReflection.PublicInstance);
+                    _hubTierDecorationsField = _hubTierType.GetField("decorations", GameReflection.PublicInstance);
+                }
+
+                // DecorationRequirement type and fields
+                _decorationRequirementType = assembly.GetType("Eremite.Buildings.DecorationRequirement");
+                if (_decorationRequirementType != null)
+                {
+                    _decorReqTierField = _decorationRequirementType.GetField("tier", GameReflection.PublicInstance);
+                    _decorReqAmountField = _decorationRequirementType.GetField("amount", GameReflection.PublicInstance);
+                }
+
+                // DecorationTier type (for comparing tiers)
+                _decorationTierType = assembly.GetType("Eremite.Buildings.DecorationTier");
+
+                // Settings.hubsTiers property
+                var settingsType = assembly.GetType("Eremite.Model.Settings");
+                if (settingsType != null)
+                {
+                    _settingsHubsTiersField = settingsType.GetField("hubsTiers", GameReflection.PublicInstance);
+                }
+
+                // MB.MetaPerksService property
+                var mbType = assembly.GetType("Eremite.MB");
+                if (mbType != null)
+                {
+                    _mbMetaPerksServiceProperty = mbType.GetProperty("MetaPerksService", BindingFlags.NonPublic | BindingFlags.Static);
+                }
+
+                // MetaPerksService.GetUnlockedHubs method
+                var metaPerksServiceType = assembly.GetType("Eremite.Services.IMetaPerksService");
+                if (metaPerksServiceType != null)
+                {
+                    _metaPerksServiceGetUnlockedHubsMethod = metaPerksServiceType.GetMethod("GetUnlockedHubs", GameReflection.PublicInstance);
+                }
+
+                // Hearth.IsInRange method
+                EnsureHearthTypes();
+                if (_hearthType != null)
+                {
+                    _hearthIsInRangeMethod = _hearthType.GetMethod("IsInRange", GameReflection.PublicInstance);
+                }
+
+                // Ensure other types are cached (for counting population, institutions, decorations)
+                EnsureHouseTypes();
+                EnsureInstitutionTypes();
+                EnsureDecorationType();
+
+                // BuildingsService properties
+                var buildingsServiceType = assembly.GetType("Eremite.Services.IBuildingsService");
+                if (buildingsServiceType != null)
+                {
+                    _buildingsServiceHousesProperty = buildingsServiceType.GetProperty("Houses", GameReflection.PublicInstance);
+                    _buildingsServiceInstitutionsProperty = buildingsServiceType.GetProperty("Institutions", GameReflection.PublicInstance);
+                    _buildingsServiceDecorationsProperty = buildingsServiceType.GetProperty("Decorations", GameReflection.PublicInstance);
+                }
+
+                // DecorationModel fields
+                var decorModelType = assembly.GetType("Eremite.Buildings.DecorationModel");
+                if (decorModelType != null)
+                {
+                    _decorModelHasDecorationTierField = decorModelType.GetField("hasDecorationTier", GameReflection.PublicInstance);
+                    _decorModelTierField = decorModelType.GetField("tier", GameReflection.PublicInstance);
+                    _decorModelDecorationScoreField = decorModelType.GetField("decorationScore", GameReflection.PublicInstance);
+                }
+
+                Debug.Log("[ATSAccessibility] BuildingReflection: Cached HubTier types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] BuildingReflection hub tier types failed: {ex.Message}");
+            }
+
+            _hubTierTypesCached = true;
+        }
+
         private static void EnsureHouseTypes()
         {
             if (_houseTypesCached) return;
@@ -1955,6 +2252,14 @@ namespace ATSAccessibility
                     _rainpunkCountTanksCapacityMethod = rainpunkServiceType.GetMethod("CountTanksCapacity", GameReflection.PublicInstance, null, new[] { waterModelType }, null);
                 }
 
+                // IRainpunkService.GetWaterPerCysts and IsWaterSpawningBlight (takes Workshop)
+                var workshopType = assembly.GetType("Eremite.Buildings.Workshop");
+                if (rainpunkServiceType != null && workshopType != null)
+                {
+                    _rainpunkGetWaterPerCystsMethod = rainpunkServiceType.GetMethod("GetWaterPerCysts", GameReflection.PublicInstance, null, new[] { workshopType }, null);
+                    _rainpunkIsWaterSpawningBlightMethod = rainpunkServiceType.GetMethod("IsWaterSpawningBlight", GameReflection.PublicInstance, null, new[] { workshopType }, null);
+                }
+
                 Debug.Log("[ATSAccessibility] BuildingReflection: Cached RainpunkService types");
             }
             catch (Exception ex)
@@ -1995,6 +2300,7 @@ namespace ATSAccessibility
                 {
                     _wsRainpunkUnlockedField = _workshopStateType.GetField("rainpunkUnlocked", GameReflection.PublicInstance);
                     _wsEnginesField = _workshopStateType.GetField("engines", GameReflection.PublicInstance);
+                    _wsWaterUsedField = _workshopStateType.GetField("waterUsed", GameReflection.PublicInstance);
                 }
 
                 // WorkshopModel.rainpunk field
@@ -2023,6 +2329,16 @@ namespace ATSAccessibility
                 {
                     _engineModelMaxLevelField = _rainpunkEngineModelType.GetField("maxLevel", GameReflection.PublicInstance);
                     _engineModelLevelsField = _rainpunkEngineModelType.GetField("levels", GameReflection.PublicInstance);
+                    _engineModelUpSoundField = _rainpunkEngineModelType.GetField("upSound", GameReflection.PublicInstance);
+                    _engineModelDownSoundField = _rainpunkEngineModelType.GetField("downSound", GameReflection.PublicInstance);
+                    _engineModelWaterPerSecField = _rainpunkEngineModelType.GetField("waterPerSec", GameReflection.PublicInstance);
+                }
+
+                // SoundRef type and GetNext method for playing engine sounds
+                _soundRefType = assembly.GetType("Eremite.Model.Sound.SoundRef");
+                if (_soundRefType != null)
+                {
+                    _soundRefGetNextMethod = _soundRefType.GetMethod("GetNext", GameReflection.PublicInstance);
                 }
 
                 // RainpunkEngineLevel fields
@@ -4206,6 +4522,641 @@ namespace ATSAccessibility
         }
 
         // ========================================
+        // PUBLIC API - HEARTH UPGRADES (Hub Tiers)
+        // ========================================
+
+        /// <summary>
+        /// Data structure for decoration requirement info.
+        /// </summary>
+        public struct DecorationRequirementInfo
+        {
+            public string tierName;
+            public int required;
+            public int current;
+        }
+
+        /// <summary>
+        /// Data structure for hearth upgrade tier information.
+        /// </summary>
+        public struct HearthUpgradeInfo
+        {
+            public int index;               // Tier index (0, 1, 2)
+            public string displayName;      // "Service 1", "Service 2", "Service 3"
+            public string effectDescription;// Effect granted by this tier
+            public int minPopulation;       // Required population
+            public int currentPopulation;   // Current population in range
+            public int minInstitutions;     // Required institutions
+            public int currentInstitutions; // Current institutions in range
+            public List<DecorationRequirementInfo> decorationRequirements;
+            public bool isUnlockedInMeta;   // Unlocked via metaprogression
+            public bool isAchieved;         // Currently active (requirements met)
+        }
+
+        /// <summary>
+        /// Get the number of hub tiers unlocked via metaprogression.
+        /// </summary>
+        public static int GetUnlockedHubTierCount()
+        {
+            EnsureHubTierTypes();
+
+            try
+            {
+                var metaPerksService = _mbMetaPerksServiceProperty?.GetValue(null);
+                if (metaPerksService == null) return 1;
+
+                var result = _metaPerksServiceGetUnlockedHubsMethod?.Invoke(metaPerksService, null);
+                return (int?)result ?? 1;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetUnlockedHubTierCount failed: {ex.Message}");
+                return 1;
+            }
+        }
+
+        /// <summary>
+        /// Get the total number of hub tiers in the game.
+        /// </summary>
+        public static int GetTotalHubTierCount()
+        {
+            EnsureHubTierTypes();
+
+            try
+            {
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return 0;
+
+                var tiers = _settingsHubsTiersField?.GetValue(settings) as Array;
+                return tiers?.Length ?? 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetTotalHubTierCount failed: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get upgrade info for all hub tiers for a specific hearth.
+        /// </summary>
+        public static List<HearthUpgradeInfo> GetHearthUpgradeInfo(object building)
+        {
+            var result = new List<HearthUpgradeInfo>();
+
+            if (!IsHearth(building)) return result;
+
+            EnsureHubTierTypes();
+
+            try
+            {
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return result;
+
+                var tiers = _settingsHubsTiersField?.GetValue(settings) as Array;
+                if (tiers == null) return result;
+
+                int unlockedCount = GetUnlockedHubTierCount();
+                int currentHubIndex = GetHearthHubIndex(building);
+
+                // Get current counts for this hearth
+                int currentPop = CountPopulationForHearth(building);
+                int currentInst = CountInstitutionsForHearth(building);
+
+                foreach (var tier in tiers)
+                {
+                    int tierIndex = (int?)_hubTierIndexField?.GetValue(tier) ?? 0;
+
+                    // Skip tiers not unlocked in meta progression
+                    if (tierIndex >= unlockedCount)
+                        continue;
+
+                    var info = new HearthUpgradeInfo();
+                    info.decorationRequirements = new List<DecorationRequirementInfo>();
+
+                    info.index = tierIndex;
+                    info.isUnlockedInMeta = true;  // Only unlocked tiers are included
+                    info.isAchieved = currentHubIndex >= info.index;
+
+                    // Display name
+                    var displayNameLoca = _hubTierDisplayNameField?.GetValue(tier);
+                    info.displayName = GameReflection.GetLocaText(displayNameLoca) ?? $"Upgrade {info.index + 1}";
+
+                    // Effect description
+                    var effect = _hubTierEffectField?.GetValue(tier);
+                    if (effect != null)
+                    {
+                        EnsureHearthSacrificeTypes(); // For _effectModelDescProp
+                        info.effectDescription = _effectModelDescProp?.GetValue(effect) as string ?? "";
+                    }
+
+                    // Requirements
+                    info.minPopulation = (int?)_hubTierMinPopulationField?.GetValue(tier) ?? 0;
+                    info.currentPopulation = currentPop;
+                    info.minInstitutions = (int?)_hubTierMinInstitutionsField?.GetValue(tier) ?? 0;
+                    info.currentInstitutions = currentInst;
+
+                    // Decoration requirements
+                    var decorReqs = _hubTierDecorationsField?.GetValue(tier) as Array;
+                    if (decorReqs != null)
+                    {
+                        foreach (var decorReq in decorReqs)
+                        {
+                            var reqInfo = new DecorationRequirementInfo();
+
+                            var decorTier = _decorReqTierField?.GetValue(decorReq);
+                            // Get tier name and append "decorations" for clarity
+                            string tierName = GetDecorationTierName(decorTier);
+                            reqInfo.tierName = tierName + " decorations";
+                            reqInfo.required = (int?)_decorReqAmountField?.GetValue(decorReq) ?? 0;
+                            reqInfo.current = CountDecorationsForHearth(building, decorTier);
+
+                            info.decorationRequirements.Add(reqInfo);
+                        }
+                    }
+
+                    result.Add(info);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetHearthUpgradeInfo failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get the display name of a decoration tier.
+        /// </summary>
+        private static string GetDecorationTierName(object decorTier)
+        {
+            if (decorTier == null) return "Unknown";
+
+            try
+            {
+                // DecorationTier extends LabelModel which has displayName
+                var displayNameField = decorTier.GetType().GetField("displayName", GameReflection.PublicInstance);
+                var displayNameLoca = displayNameField?.GetValue(decorTier);
+                return GameReflection.GetLocaText(displayNameLoca) ?? "Decorations";
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetDecorationTierName failed: {ex.Message}");
+                return "Decorations";
+            }
+        }
+
+        /// <summary>
+        /// Count population (residents in houses) within a hearth's range.
+        /// </summary>
+        private static int CountPopulationForHearth(object hearth)
+        {
+            EnsureHubTierTypes();
+            EnsureHouseTypes();
+            EnsureBuildingTypes();
+
+            try
+            {
+                var houses = GameReflection.GetAllHouses();
+                if (houses == null) return 0;
+
+                int count = 0;
+
+                foreach (var house in houses)
+                {
+                    // Check if finished using cached method
+                    bool isFinished = (bool?)_buildingIsFinishedMethod?.Invoke(house, null) ?? false;
+                    if (!isFinished) continue;
+
+                    // Check if in range
+                    bool inRange = (bool?)_hearthIsInRangeMethod?.Invoke(hearth, new[] { house }) ?? false;
+                    if (!inRange) continue;
+
+                    // Count residents
+                    var state = _houseStateField?.GetValue(house);
+                    if (state != null)
+                    {
+                        var residents = _houseStateResidentsField?.GetValue(state) as System.Collections.IList;
+                        count += residents?.Count ?? 0;
+                    }
+                }
+
+                return count;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CountPopulationForHearth failed: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Count institutions within a hearth's range.
+        /// </summary>
+        private static int CountInstitutionsForHearth(object hearth)
+        {
+            EnsureHubTierTypes();
+            EnsureBuildingTypes();
+
+            try
+            {
+                var institutions = GameReflection.GetAllInstitutions();
+                if (institutions == null) return 0;
+
+                int count = 0;
+
+                foreach (var inst in institutions)
+                {
+                    // Check if finished using cached method
+                    bool isFinished = (bool?)_buildingIsFinishedMethod?.Invoke(inst, null) ?? false;
+                    if (!isFinished) continue;
+
+                    bool inRange = (bool?)_hearthIsInRangeMethod?.Invoke(hearth, new[] { inst }) ?? false;
+                    if (inRange) count++;
+                }
+
+                return count;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CountInstitutionsForHearth failed: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Count decoration score for a specific tier within a hearth's range.
+        /// </summary>
+        private static int CountDecorationsForHearth(object hearth, object decorTier)
+        {
+            EnsureHubTierTypes();
+            EnsureBuildingTypes();
+
+            try
+            {
+                var decorations = GameReflection.GetAllDecorations();
+                if (decorations == null) return 0;
+
+                int score = 0;
+
+                foreach (var decor in decorations)
+                {
+                    // Check if finished using cached method
+                    bool isFinished = (bool?)_buildingIsFinishedMethod?.Invoke(decor, null) ?? false;
+                    if (!isFinished) continue;
+
+                    // Check if decoration has a tier
+                    var model = decor.GetType().GetField("model", GameReflection.PublicInstance)?.GetValue(decor);
+                    if (model == null) continue;
+
+                    bool hasTier = (bool?)_decorModelHasDecorationTierField?.GetValue(model) ?? false;
+                    if (!hasTier) continue;
+
+                    // Check if same tier
+                    var tier = _decorModelTierField?.GetValue(model);
+                    if (tier != decorTier) continue;
+
+                    // Check if in range
+                    bool inRange = (bool?)_hearthIsInRangeMethod?.Invoke(hearth, new[] { decor }) ?? false;
+                    if (!inRange) continue;
+
+                    // Add score
+                    int decorScore = (int?)_decorModelDecorationScoreField?.GetValue(model) ?? 0;
+                    score += decorScore;
+                }
+
+                return score;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CountDecorationsForHearth failed: {ex.Message}");
+                return 0;
+            }
+        }
+
+        // ========================================
+        // PUBLIC API - HEARTH SACRIFICE
+        // ========================================
+
+        /// <summary>
+        /// Data structure for hearth sacrifice recipe information.
+        /// </summary>
+        public struct SacrificeRecipeInfo
+        {
+            public string recipeName;       // HearthSacrificeRecipeModel.displayName.Text
+            public string goodName;         // HearthSacrificeRecipeModel.goodPerMin.good.displayName.Text
+            public float consumptionPerMin; // Actual consumption per minute per level (affected by perks)
+            public string effectName;       // HearthSacrificeRecipeModel.effect.DisplayName
+            public string effectDescription;// HearthSacrificeRecipeModel.effect.Description
+            public int level;               // Current level (0 = off)
+            public int maxLevel;            // Max level allowed
+            public bool active;             // Is currently active
+            public bool canAfford;          // Have goods to enable/continue
+        }
+
+        /// <summary>
+        /// Get the list of sacrifice recipe states from a Hearth building.
+        /// </summary>
+        public static List<object> GetHearthSacrificeRecipes(object building)
+        {
+            var result = new List<object>();
+
+            if (!IsHearth(building)) return result;
+
+            EnsureHearthSacrificeTypes();
+
+            try
+            {
+                var state = _hearthStateField?.GetValue(building);
+                if (state == null) return result;
+
+                var recipes = _hearthStateSacrificeRecipesField?.GetValue(state) as System.Collections.IList;
+                if (recipes == null) return result;
+
+                foreach (var recipe in recipes)
+                {
+                    result.Add(recipe);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetHearthSacrificeRecipes failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get detailed info about a sacrifice recipe.
+        /// </summary>
+        public static SacrificeRecipeInfo GetSacrificeRecipeInfo(object hearth, object recipeState)
+        {
+            var info = new SacrificeRecipeInfo();
+
+            if (hearth == null || recipeState == null) return info;
+
+            EnsureHearthSacrificeTypes();
+            EnsureRaceBonusTypes();  // For LocaText.Text
+            EnsureBlightConfigTypes();  // For GoodRef.DisplayName
+            EnsureRecipeModelTypes();  // For GoodRef.amount
+
+            try
+            {
+                // Get model name from state
+                string modelName = _hssModelField?.GetValue(recipeState) as string;
+                if (string.IsNullOrEmpty(modelName)) return info;
+
+                // Get the recipe model from Settings
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return info;
+
+                var recipeModel = _settingsGetHearthSacrificeRecipeMethod?.Invoke(settings, new object[] { modelName });
+                if (recipeModel == null) return info;
+
+                // Get display name
+                var displayNameLoca = _hsrmDisplayNameField?.GetValue(recipeModel);
+                if (displayNameLoca != null)
+                {
+                    info.recipeName = _locaTextTextProperty?.GetValue(displayNameLoca) as string ?? modelName;
+                }
+                else
+                {
+                    info.recipeName = modelName;
+                }
+
+                // Get good info
+                var goodPerMin = _hsrmGoodPerMinField?.GetValue(recipeModel);
+                if (goodPerMin != null)
+                {
+                    int baseAmount = (int?)_goodRefAmountField?.GetValue(goodPerMin) ?? 0;
+                    info.goodName = _goodRefDisplayNameProperty?.GetValue(goodPerMin) as string ?? "Unknown";
+
+                    // Calculate actual consumption rate (affected by perks)
+                    // Formula: baseAmount / sacrificeRate
+                    float sacrificeRate = GetHearthSacrificeRate();
+                    if (sacrificeRate > 0)
+                    {
+                        info.consumptionPerMin = (float)baseAmount / sacrificeRate;
+                    }
+                    else
+                    {
+                        info.consumptionPerMin = baseAmount;
+                    }
+                }
+
+                // Get max level from model
+                info.maxLevel = (int?)_hsrmMaxLevelField?.GetValue(recipeModel) ?? 4;
+
+                // Get effect info
+                var effect = _hsrmEffectField?.GetValue(recipeModel);
+                if (effect != null)
+                {
+                    info.effectName = _effectModelDisplayNameProperty?.GetValue(effect) as string ?? "";
+                    info.effectDescription = _effectModelDescProp?.GetValue(effect) as string ?? "";
+                }
+
+                // Get current state from hearth methods
+                info.active = (bool?)_hssActiveField?.GetValue(recipeState) ?? false;
+                info.level = (int?)_hearthGetEffectLevelMethod?.Invoke(hearth, new object[] { recipeState }) ?? 0;
+
+                // Get max level from hearth (may differ due to effects)
+                var maxLevelResult = _hearthGetMaxLevelForMethod?.Invoke(hearth, new object[] { recipeState });
+                if (maxLevelResult is int maxLevel)
+                {
+                    info.maxLevel = maxLevel;
+                }
+
+                // Check if can afford
+                var canAffordResult = _hearthHaveGoodsForMethod?.Invoke(hearth, new object[] { recipeState });
+                info.canAfford = (bool?)canAffordResult ?? false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetSacrificeRecipeInfo failed: {ex.Message}");
+            }
+
+            return info;
+        }
+
+        /// <summary>
+        /// Set the sacrifice effect level for a recipe.
+        /// </summary>
+        public static bool SetHearthSacrificeLevel(object hearth, object recipeState, int level)
+        {
+            if (hearth == null || recipeState == null) return false;
+
+            EnsureHearthSacrificeTypes();
+
+            if (_hearthSetSacrificeEffectLevelMethod == null) return false;
+
+            try
+            {
+                _hearthSetSacrificeEffectLevelMethod.Invoke(hearth, new object[] { recipeState, level });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SetHearthSacrificeLevel failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the current hearth sacrifice rate modifier from EffectsService.
+        /// This affects how much goods are consumed per minute for sacrifices.
+        /// </summary>
+        public static float GetHearthSacrificeRate()
+        {
+            EnsureHearthSacrificeTypes();
+
+            try
+            {
+                var effectsService = GameReflection.GetEffectsService();
+                if (effectsService == null) return 1f;
+
+                var result = _effectsServiceGetHearthSacrificeRateMethod?.Invoke(effectsService, null);
+                if (result is float rate)
+                {
+                    return rate;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetHearthSacrificeRate failed: {ex.Message}");
+            }
+
+            return 1f;  // Default rate
+        }
+
+        // ========================================
+        // PUBLIC API - HEARTH FUEL
+        // ========================================
+
+        /// <summary>
+        /// Data structure for fuel type information.
+        /// </summary>
+        public struct FuelInfo
+        {
+            public string name;         // Internal name (GoodModel.Name)
+            public string displayName;  // Display name (GoodModel.displayName.Text)
+            public bool isEnabled;      // Whether this fuel can be burned
+        }
+
+        /// <summary>
+        /// Get list of all fuel types with their enabled status.
+        /// </summary>
+        public static List<FuelInfo> GetAllFuelTypes()
+        {
+            var result = new List<FuelInfo>();
+
+            EnsureHearthFuelTypes();
+            EnsureRaceBonusTypes();  // For LocaText.Text
+
+            try
+            {
+                var gameServices = GameReflection.GetGameServices();
+                if (gameServices == null) return result;
+
+                // Get GoodsService
+                var goodsService = _gsGoodsServiceProperty?.GetValue(gameServices);
+                if (goodsService == null) return result;
+
+                // Get HearthService
+                var hearthService = _gsHearthServiceProperty?.GetValue(gameServices);
+                if (hearthService == null) return result;
+
+                // Get Fuels array
+                var fuels = _goodsServiceFuelsProperty?.GetValue(goodsService) as Array;
+                if (fuels == null) return result;
+
+                foreach (var fuel in fuels)
+                {
+                    if (fuel == null) continue;
+
+                    var info = new FuelInfo();
+
+                    // Get name
+                    info.name = _goodModelNameProperty?.GetValue(fuel) as string ?? "";
+
+                    // Get display name
+                    var displayNameLoca = _goodModelDisplayNameField?.GetValue(fuel);
+                    if (displayNameLoca != null)
+                    {
+                        info.displayName = _locaTextTextProperty?.GetValue(displayNameLoca) as string ?? info.name;
+                    }
+                    else
+                    {
+                        info.displayName = info.name;
+                    }
+
+                    // Check if enabled
+                    var canBeBurned = _hearthServiceCanBeBurnedMethod?.Invoke(hearthService, new object[] { info.name });
+                    info.isEnabled = canBeBurned is bool b && b;
+
+                    result.Add(info);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetAllFuelTypes failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Set whether a fuel type can be burned.
+        /// </summary>
+        public static bool SetFuelEnabled(string fuelName, bool enabled)
+        {
+            EnsureHearthFuelTypes();
+
+            if (_hearthServiceSetCanBeBurnedMethod == null) return false;
+
+            try
+            {
+                var gameServices = GameReflection.GetGameServices();
+                if (gameServices == null) return false;
+
+                var hearthService = _gsHearthServiceProperty?.GetValue(gameServices);
+                if (hearthService == null) return false;
+
+                _hearthServiceSetCanBeBurnedMethod.Invoke(hearthService, new object[] { fuelName, enabled });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SetFuelEnabled failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a fuel type is currently enabled.
+        /// </summary>
+        public static bool IsFuelEnabled(string fuelName)
+        {
+            EnsureHearthFuelTypes();
+
+            try
+            {
+                var gameServices = GameReflection.GetGameServices();
+                if (gameServices == null) return false;
+
+                var hearthService = _gsHearthServiceProperty?.GetValue(gameServices);
+                if (hearthService == null) return false;
+
+                var result = _hearthServiceCanBeBurnedMethod?.Invoke(hearthService, new object[] { fuelName });
+                return result is bool b && b;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] IsFuelEnabled failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ========================================
         // PUBLIC API - HOUSE
         // ========================================
 
@@ -6193,6 +7144,83 @@ namespace ATSAccessibility
             return null;
         }
 
+        /// <summary>
+        /// Get total water consumption per second for all active engines.
+        /// </summary>
+        public static float GetTotalWaterUsePerSecond(object building)
+        {
+            if (!IsWorkshopClass(building)) return 0f;
+            if (!IsRainpunkUnlocked(building)) return 0f;
+
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                int engineCount = GetEngineCount(building);
+                float totalUse = 0f;
+
+                for (int i = 0; i < engineCount; i++)
+                {
+                    int currentLevel = GetEngineCurrentLevel(building, i);
+                    if (currentLevel <= 0) continue;
+
+                    var engineModel = GetEngineModel(building, i);
+                    if (engineModel == null) continue;
+
+                    float waterPerSec = (float?)_engineModelWaterPerSecField?.GetValue(engineModel) ?? 0f;
+                    totalUse += waterPerSec * currentLevel;
+                }
+
+                return totalUse;
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Get blightrot progress as a percentage (0-100).
+        /// Returns -1 if blight is not active or not spawning from this building.
+        /// </summary>
+        public static int GetBlightProgress(object building)
+        {
+            if (!IsWorkshopClass(building)) return -1;
+            if (!IsRainpunkUnlocked(building)) return -1;
+
+            EnsureRainpunkEngineTypes();
+            EnsureRainpunkServiceTypes();
+
+            try
+            {
+                // Get waterUsed from workshop state
+                var state = _workshopStateField?.GetValue(building);
+                if (state == null) return -1;
+
+                int waterUsed = (int?)_wsWaterUsedField?.GetValue(state) ?? 0;
+
+                // Get waterPerCyst from RainpunkService
+                var gameServices = GameReflection.GetGameServices();
+                if (gameServices == null) return -1;
+
+                var rainpunkService = _gsRainpunkServiceProperty?.GetValue(gameServices);
+                if (rainpunkService == null) return -1;
+
+                // Check if blight is spawning from this building
+                bool isSpawning = (bool?)_rainpunkIsWaterSpawningBlightMethod?.Invoke(rainpunkService, new object[] { building }) ?? false;
+                if (!isSpawning) return -1;
+
+                int waterPerCyst = (int?)_rainpunkGetWaterPerCystsMethod?.Invoke(rainpunkService, new object[] { building }) ?? 0;
+                if (waterPerCyst <= 0) return 0;
+
+                return (int)((float)waterUsed / waterPerCyst * 100);
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
         // ========================================
         // PUBLIC API - RAINPUNK ENGINES (for Workshops)
         // ========================================
@@ -6520,6 +7548,73 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Check if any engine in a workshop has requestedLevel > 0 (is running).
+        /// </summary>
+        public static bool HasRunningEngines(object building)
+        {
+            if (!IsRainpunkUnlocked(building)) return false;
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                var state = _workshopStateField?.GetValue(building);
+                if (state == null) return false;
+
+                var engines = _wsEnginesField?.GetValue(state) as Array;
+                if (engines == null || engines.Length == 0) return false;
+
+                for (int i = 0; i < engines.Length; i++)
+                {
+                    var engineState = engines.GetValue(i);
+                    if (engineState != null)
+                    {
+                        int requestedLevel = (int?)_engineStateRequestedLevelField?.GetValue(engineState) ?? 0;
+                        if (requestedLevel > 0)
+                            return true;
+                    }
+                }
+            }
+            catch
+            {
+                return false;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Stop all engines in a workshop by setting requestedLevel = 0 for each.
+        /// </summary>
+        public static bool StopAllEngines(object building)
+        {
+            if (!IsRainpunkUnlocked(building)) return false;
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                var state = _workshopStateField?.GetValue(building);
+                if (state == null) return false;
+
+                var engines = _wsEnginesField?.GetValue(state) as Array;
+                if (engines == null || engines.Length == 0) return false;
+
+                for (int i = 0; i < engines.Length; i++)
+                {
+                    var engineState = engines.GetValue(i);
+                    if (engineState != null)
+                    {
+                        _engineStateRequestedLevelField?.SetValue(engineState, 0);
+                    }
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] StopAllEngines failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Get the engine state object for a specific engine index.
         /// </summary>
         private static object GetEngineState(object building, int engineIndex)
@@ -6567,6 +7662,62 @@ namespace ATSAccessibility
             catch
             {
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Play the engine level increase sound for a specific engine.
+        /// </summary>
+        public static void PlayEngineUpSound(object building, int engineIndex)
+        {
+            PlayEngineSound(building, engineIndex, _engineModelUpSoundField);
+        }
+
+        /// <summary>
+        /// Play the engine level decrease sound for a specific engine.
+        /// </summary>
+        public static void PlayEngineDownSound(object building, int engineIndex)
+        {
+            PlayEngineSound(building, engineIndex, _engineModelDownSoundField);
+        }
+
+        /// <summary>
+        /// Play an engine sound from the engine model.
+        /// </summary>
+        private static void PlayEngineSound(object building, int engineIndex, FieldInfo soundField)
+        {
+            if (soundField == null) return;
+
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                var engineModel = GetEngineModel(building, engineIndex);
+                if (engineModel == null) return;
+
+                // Get the SoundRef from the engine model
+                var soundRef = soundField.GetValue(engineModel);
+                if (soundRef == null) return;
+
+                // Call GetNext() on the SoundRef to get the SoundModel
+                var soundModel = _soundRefGetNextMethod?.Invoke(soundRef, null);
+                if (soundModel == null) return;
+
+                // Get MainController and play the sound
+                var mainController = GameReflection.GetMainControllerInstance();
+                if (mainController == null) return;
+
+                var mainControllerType = mainController.GetType();
+                var soundsManagerProp = mainControllerType.GetProperty("SoundsManager", GameReflection.PublicInstance);
+                var soundsManager = soundsManagerProp?.GetValue(mainController);
+                if (soundsManager == null) return;
+
+                var playSoundMethod = soundsManager.GetType().GetMethod("PlaySoundEffect", GameReflection.PublicInstance);
+                playSoundMethod?.Invoke(soundsManager, new object[] { soundModel });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] PlayEngineSound failed: {ex.Message}");
             }
         }
 
@@ -6753,6 +7904,187 @@ namespace ATSAccessibility
             catch
             {
                 // Return empty dictionary on error
+            }
+
+            return result;
+        }
+
+        // ========================================
+        // BUILDING DESTRUCTION
+        // ========================================
+
+        // Building destruction methods (cached)
+        private static MethodInfo _canBeDestroyedMethod = null;
+        private static MethodInfo _removeMethod = null;
+        private static FieldInfo _deliveredGoodsField = null;  // BuildingState.deliveredGoods
+        private static FieldInfo _deliveredGoodsGoodsField = null;  // LimitedGoodsCollection.goods (Dictionary<string, int>)
+        private static FieldInfo _baseRefundRateField = null;  // BuildingModel.baseRefundRate
+        private static MethodInfo _getBuildingRefundRateMethod = null;  // IEffectsService.GetBuildingRefundRate
+        private static bool _destructionTypesCached = false;
+
+        private static void EnsureDestructionTypes()
+        {
+            if (_destructionTypesCached) return;
+
+            try
+            {
+                var assembly = GameReflection.GameAssembly;
+                if (assembly == null) return;
+
+                var buildingType = assembly.GetType("Eremite.Buildings.Building");
+                if (buildingType != null)
+                {
+                    _canBeDestroyedMethod = buildingType.GetMethod("CanBeDestroyed", GameReflection.PublicInstance);
+                    _removeMethod = buildingType.GetMethod("Remove", GameReflection.PublicInstance, null, new[] { typeof(bool) }, null);
+                }
+
+                // BuildingState.deliveredGoods field
+                var buildingStateType = assembly.GetType("Eremite.Buildings.BuildingState");
+                if (buildingStateType != null)
+                {
+                    _deliveredGoodsField = buildingStateType.GetField("deliveredGoods", GameReflection.PublicInstance);
+                }
+
+                // LimitedGoodsCollection.goods field (Dictionary<string, int>)
+                var limitedGoodsCollectionType = assembly.GetType("Eremite.LimitedGoodsCollection");
+                if (limitedGoodsCollectionType != null)
+                {
+                    _deliveredGoodsGoodsField = limitedGoodsCollectionType.GetField("goods", GameReflection.PublicInstance);
+                }
+
+                // BuildingModel.baseRefundRate field
+                var buildingModelType = assembly.GetType("Eremite.Buildings.BuildingModel");
+                if (buildingModelType != null)
+                {
+                    _baseRefundRateField = buildingModelType.GetField("baseRefundRate", GameReflection.PublicInstance);
+                }
+
+                // IEffectsService.GetBuildingRefundRate method
+                var effectsServiceType = assembly.GetType("Eremite.Services.IEffectsService");
+                if (effectsServiceType != null)
+                {
+                    _getBuildingRefundRateMethod = effectsServiceType.GetMethod("GetBuildingRefundRate", GameReflection.PublicInstance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Failed to cache destruction types: {ex.Message}");
+            }
+
+            _destructionTypesCached = true;
+        }
+
+        /// <summary>
+        /// Check if a building can be destroyed.
+        /// </summary>
+        public static bool CanBeDestroyed(object building)
+        {
+            if (building == null) return false;
+
+            EnsureDestructionTypes();
+
+            try
+            {
+                return (bool?)_canBeDestroyedMethod?.Invoke(building, null) ?? false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CanBeDestroyed failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Destroy a building with material refund.
+        /// </summary>
+        public static bool DestroyBuilding(object building)
+        {
+            if (building == null) return false;
+            if (!CanBeDestroyed(building)) return false;
+
+            EnsureDestructionTypes();
+
+            try
+            {
+                // Remove(true) = refund materials
+                _removeMethod?.Invoke(building, new object[] { true });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] DestroyBuilding failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the materials that will be refunded when destroying a building.
+        /// Returns a list of (displayName, amount) tuples.
+        /// </summary>
+        public static List<(string name, int amount)> GetDestructionRefund(object building)
+        {
+            var result = new List<(string name, int amount)>();
+            if (building == null) return result;
+
+            EnsureDestructionTypes();
+            EnsureBuildingTypes();
+
+            try
+            {
+                // Get BuildingState
+                var state = _buildingStateProperty?.GetValue(building);
+                if (state == null) return result;
+
+                // Get BuildingModel for baseRefundRate
+                var model = _buildingModelProperty?.GetValue(building);
+                if (model == null) return result;
+
+                // Get deliveredGoods from state
+                var deliveredGoods = _deliveredGoodsField?.GetValue(state);
+                if (deliveredGoods == null) return result;
+
+                // Get the goods dictionary from deliveredGoods
+                var goodsDict = _deliveredGoodsGoodsField?.GetValue(deliveredGoods);
+                if (goodsDict == null) return result;
+
+                // Get baseRefundRate from model
+                float baseRefundRate = (float?)_baseRefundRateField?.GetValue(model) ?? 1f;
+
+                // Get the actual refund rate from EffectsService
+                float refundRate = baseRefundRate;
+                var effectsService = GameReflection.GetEffectsService();
+                if (effectsService != null && _getBuildingRefundRateMethod != null)
+                {
+                    refundRate = (float?)_getBuildingRefundRateMethod.Invoke(effectsService, new object[] { baseRefundRate }) ?? baseRefundRate;
+                }
+
+                // Iterate through the goods dictionary using reflection
+                var keysProperty = goodsDict.GetType().GetProperty("Keys");
+                var keys = keysProperty?.GetValue(goodsDict) as System.Collections.IEnumerable;
+                if (keys == null) return result;
+
+                var indexer = goodsDict.GetType().GetProperty("Item");
+
+                foreach (var key in keys)
+                {
+                    string goodName = key as string;
+                    if (string.IsNullOrEmpty(goodName)) continue;
+
+                    int baseAmount = (int?)indexer?.GetValue(goodsDict, new[] { key }) ?? 0;
+                    if (baseAmount <= 0) continue;
+
+                    // Calculate refunded amount (floor of baseAmount * refundRate)
+                    int refundAmount = (int)(baseAmount * refundRate);
+                    if (refundAmount <= 0) continue;
+
+                    // Get display name
+                    string displayName = GetGoodDisplayName(goodName) ?? goodName;
+                    result.Add((displayName, refundAmount));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetDestructionRefund failed: {ex.Message}");
             }
 
             return result;

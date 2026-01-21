@@ -213,6 +213,7 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] BuildingPanelHandler: Panel closed");
 
+                SoundManager.PlayBuildingPanelHide();
                 _currentNavigator?.Close();
                 _currentNavigator = null;
                 _currentBuilding = null;

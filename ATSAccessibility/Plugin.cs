@@ -34,6 +34,7 @@ namespace ATSAccessibility
         public static ConfigEntry<bool> AnnounceHearthLevelChange;
         public static ConfigEntry<bool> AnnounceHearthIgnited;
         public static ConfigEntry<bool> AnnounceHearthCorrupted;
+        public static ConfigEntry<bool> AnnounceSacrificeStopped;
 
         // Exploration
         public static ConfigEntry<bool> AnnounceGladeRevealed;
@@ -96,6 +97,10 @@ namespace ATSAccessibility
                 // Apply Harmony patches to block game input
                 var harmony = new Harmony("com.ats.accessibility");
                 harmony.PatchAll();
+
+                // Register manual patches that need runtime type resolution
+                EventAnnouncer.RegisterSacrificeStoppedPatch(harmony);
+
                 Logger.LogInfo("Harmony patches applied");
 
                 // Create persistent GameObject that survives scene transitions
@@ -129,6 +134,8 @@ namespace ATSAccessibility
                 "HearthIgnited", true, "Announce when hearth is ignited");
             AnnounceHearthCorrupted = Config.Bind("Announcements.Buildings",
                 "HearthCorrupted", true, "Announce when hearth is corrupted");
+            AnnounceSacrificeStopped = Config.Bind("Announcements.Buildings",
+                "SacrificeStopped", true, "Announce when hearth sacrifice stops (ran out of goods)");
 
             // Exploration
             AnnounceGladeRevealed = Config.Bind("Announcements.Exploration",

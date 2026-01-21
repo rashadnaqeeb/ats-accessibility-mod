@@ -99,6 +99,9 @@ namespace ATSAccessibility
         // Announcement history panel for reviewing recent events
         private AnnouncementHistoryPanel _announcementHistoryPanel;
 
+        // Confirmation dialog for destructive actions
+        private ConfirmationDialog _confirmationDialog;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -177,12 +180,16 @@ namespace ATSAccessibility
             // Initialize building panel handler
             _buildingPanelHandler = new BuildingPanelHandler();
 
+            // Initialize confirmation dialog for destructive actions
+            _confirmationDialog = new ConfirmationDialog();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
-                _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel);
+                _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
             var worldMapHandler = new WorldMapKeyHandler(_worldMapNavigator, _worldMapScanner);
 
             // Register key handlers in priority order (highest priority first)
+            _keyboardManager.RegisterHandler(_confirmationDialog);  // Confirmation dialog (blocks all input when active)
             _keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
             _keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
             _keyboardManager.RegisterHandler(_announcementHistoryPanel); // Alt+H announcement history
