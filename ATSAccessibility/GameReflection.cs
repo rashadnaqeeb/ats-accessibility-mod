@@ -4376,5 +4376,1493 @@ namespace ATSAccessibility
                 return 0;
             }
         }
+
+        // ========================================
+        // BUILDING RANGE INFO (for 'd' key)
+        // ========================================
+
+        // Cached types for building type checks
+        private static Type _campModelType = null;
+        private static Type _gathererHutModelType = null;
+        private static Type _fishingHutModelType = null;
+        private static Type _hearthModelType = null;
+        private static Type _workshopModelType = null;
+        private static bool _rangeInfoTypesCached = false;
+
+        // Cached fields for getting building data
+        private static FieldInfo _campRecipesField = null;
+        private static FieldInfo _campMaxDistanceField = null;
+        private static FieldInfo _gathererHutRecipesField = null;
+        private static FieldInfo _gathererHutMaxDistanceField = null;
+        private static FieldInfo _fishingHutRecipesField = null;
+        private static FieldInfo _fishingHutMaxDistanceField = null;
+        private static FieldInfo _hearthHubRangeField = null;
+
+        // Cached fields for recipe goods
+        private static FieldInfo _campRecipeRefGoodField = null;
+        private static FieldInfo _gathererHutRecipeRefGoodField = null;
+        private static FieldInfo _fishingHutRecipeRefGoodField = null;
+        private static FieldInfo _goodRefNameField = null;
+
+        // Cached properties for services
+        private static PropertyInfo _resourcesAvailableProperty = null;
+        private static PropertyInfo _depositsAvailableProperty = null;
+        private static PropertyInfo _lakesAvailableProperty = null;
+        private static PropertyInfo _effectsServiceProperty = null;
+        private static MethodInfo _effectsGetHearthRangeMethod = null;
+
+        private static void EnsureRangeInfoTypes()
+        {
+            if (_rangeInfoTypesCached) return;
+            EnsureAssembly();
+
+            if (_gameAssembly == null)
+            {
+                _rangeInfoTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Cache building model types
+                _campModelType = _gameAssembly.GetType("Eremite.Buildings.CampModel");
+                _gathererHutModelType = _gameAssembly.GetType("Eremite.Buildings.GathererHutModel");
+                _fishingHutModelType = _gameAssembly.GetType("Eremite.Buildings.FishingHutModel");
+                _hearthModelType = _gameAssembly.GetType("Eremite.Buildings.HearthModel");
+                _workshopModelType = _gameAssembly.GetType("Eremite.Buildings.WorkshopModel");
+
+                // Cache CampModel fields
+                if (_campModelType != null)
+                {
+                    _campRecipesField = _campModelType.GetField("recipes", PublicInstance);
+                    _campMaxDistanceField = _campModelType.GetField("maxDistance", PublicInstance);
+                }
+
+                // Cache GathererHutModel fields
+                if (_gathererHutModelType != null)
+                {
+                    _gathererHutRecipesField = _gathererHutModelType.GetField("recipes", PublicInstance);
+                    _gathererHutMaxDistanceField = _gathererHutModelType.GetField("maxDistance", PublicInstance);
+                }
+
+                // Cache FishingHutModel fields
+                if (_fishingHutModelType != null)
+                {
+                    _fishingHutRecipesField = _fishingHutModelType.GetField("recipes", PublicInstance);
+                    _fishingHutMaxDistanceField = _fishingHutModelType.GetField("maxDistance", PublicInstance);
+                }
+
+                // Cache HearthModel fields
+                if (_hearthModelType != null)
+                {
+                    _hearthHubRangeField = _hearthModelType.GetField("hubRange", PublicInstance);
+                }
+
+                // Cache recipe refGood fields
+                var campRecipeType = _gameAssembly.GetType("Eremite.Buildings.CampRecipeModel");
+                if (campRecipeType != null)
+                {
+                    _campRecipeRefGoodField = campRecipeType.GetField("refGood", PublicInstance);
+                }
+
+                var gathererHutRecipeType = _gameAssembly.GetType("Eremite.Buildings.GathererHutRecipeModel");
+                if (gathererHutRecipeType != null)
+                {
+                    _gathererHutRecipeRefGoodField = gathererHutRecipeType.GetField("refGood", PublicInstance);
+                }
+
+                var fishingHutRecipeType = _gameAssembly.GetType("Eremite.Buildings.FishingHutRecipeModel");
+                if (fishingHutRecipeType != null)
+                {
+                    _fishingHutRecipeRefGoodField = fishingHutRecipeType.GetField("refGood", PublicInstance);
+                }
+
+                // Cache GoodRef Name field (note: we use property getter in GetGatheringBuildingGoodNames, not field)
+                var goodRefType = _gameAssembly.GetType("Eremite.Model.GoodRef");
+                if (goodRefType != null)
+                {
+                    // GoodRef has a Name property, not field - we access it dynamically
+                    _goodRefNameField = goodRefType.GetField("name", NonPublicInstance);
+                }
+
+                // Cache service properties for available resources
+                var resourcesServiceType = _gameAssembly.GetType("Eremite.Services.IResourcesService");
+                if (resourcesServiceType != null)
+                {
+                    _resourcesAvailableProperty = resourcesServiceType.GetProperty("AvailableResources", PublicInstance);
+                }
+
+                var depositsServiceType = _gameAssembly.GetType("Eremite.Services.IDepositsService");
+                if (depositsServiceType != null)
+                {
+                    _depositsAvailableProperty = depositsServiceType.GetProperty("AvailableDeposits", PublicInstance);
+                }
+
+                var lakesServiceType = _gameAssembly.GetType("Eremite.Services.ILakesService");
+                if (lakesServiceType != null)
+                {
+                    _lakesAvailableProperty = lakesServiceType.GetProperty("AvailableLakes", PublicInstance);
+                }
+
+                // Cache EffectsService for hearth range
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _effectsServiceProperty = gameServicesType.GetProperty("EffectsService", PublicInstance);
+                }
+
+                var effectsServiceType = _gameAssembly.GetType("Eremite.Services.IEffectsService");
+                if (effectsServiceType != null)
+                {
+                    _effectsGetHearthRangeMethod = effectsServiceType.GetMethod("GetHearthRange", PublicInstance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached range info types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Range info type caching failed: {ex.Message}");
+            }
+
+            _rangeInfoTypesCached = true;
+        }
+
+        /// <summary>
+        /// Check if a building model is a Camp (harvests from NaturalResources).
+        /// </summary>
+        public static bool IsCampModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            EnsureRangeInfoTypes();
+            return _campModelType != null && _campModelType.IsInstanceOfType(buildingModel);
+        }
+
+        /// <summary>
+        /// Check if a building model is a GathererHut (harvests from ResourceDeposits).
+        /// </summary>
+        public static bool IsGathererHutModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            EnsureRangeInfoTypes();
+            return _gathererHutModelType != null && _gathererHutModelType.IsInstanceOfType(buildingModel);
+        }
+
+        /// <summary>
+        /// Check if a building model is a FishingHut (harvests from Lakes).
+        /// </summary>
+        public static bool IsFishingHutModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            EnsureRangeInfoTypes();
+            return _fishingHutModelType != null && _fishingHutModelType.IsInstanceOfType(buildingModel);
+        }
+
+        /// <summary>
+        /// Check if a building model is a Hearth.
+        /// </summary>
+        public static bool IsHearthModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            EnsureRangeInfoTypes();
+            return _hearthModelType != null && _hearthModelType.IsInstanceOfType(buildingModel);
+        }
+
+        /// <summary>
+        /// Check if a building model is a Workshop (production building).
+        /// </summary>
+        public static bool IsWorkshopModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            EnsureRangeInfoTypes();
+            return _workshopModelType != null && _workshopModelType.IsInstanceOfType(buildingModel);
+        }
+
+        /// <summary>
+        /// Check if a building model is a House model (housing building).
+        /// </summary>
+        public static bool IsHouseModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            // HouseModel is the model type for houses
+            return buildingModel.GetType().Name == "HouseModel";
+        }
+
+        /// <summary>
+        /// Check if a building model is an Institution model (service building).
+        /// </summary>
+        public static bool IsInstitutionModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            return buildingModel.GetType().Name == "InstitutionModel";
+        }
+
+        /// <summary>
+        /// Check if a building model is a Decoration model.
+        /// </summary>
+        public static bool IsDecorationModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            return buildingModel.GetType().Name == "DecorationModel";
+        }
+
+        /// <summary>
+        /// Get the maxDistance field from a Camp/GathererHut/FishingHut model.
+        /// Returns 0 if not a gathering building.
+        /// </summary>
+        public static float GetGatheringBuildingMaxDistance(object buildingModel)
+        {
+            if (buildingModel == null) return 0f;
+            EnsureRangeInfoTypes();
+
+            try
+            {
+                if (IsCampModel(buildingModel) && _campMaxDistanceField != null)
+                {
+                    return (float)_campMaxDistanceField.GetValue(buildingModel);
+                }
+                if (IsGathererHutModel(buildingModel) && _gathererHutMaxDistanceField != null)
+                {
+                    return (float)_gathererHutMaxDistanceField.GetValue(buildingModel);
+                }
+                if (IsFishingHutModel(buildingModel) && _fishingHutMaxDistanceField != null)
+                {
+                    return (float)_fishingHutMaxDistanceField.GetValue(buildingModel);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetGatheringBuildingMaxDistance failed: {ex.Message}");
+            }
+
+            return 0f;
+        }
+
+        /// <summary>
+        /// Get the base hubRange from a Hearth model (before effects).
+        /// </summary>
+        public static float GetHearthBaseRange(object buildingModel)
+        {
+            if (buildingModel == null) return 0f;
+            EnsureRangeInfoTypes();
+
+            try
+            {
+                if (IsHearthModel(buildingModel) && _hearthHubRangeField != null)
+                {
+                    return (float)_hearthHubRangeField.GetValue(buildingModel);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetHearthBaseRange failed: {ex.Message}");
+            }
+
+            return 10.5f; // Default hearth range
+        }
+
+        /// <summary>
+        /// Get the effective hearth range (with effects applied).
+        /// </summary>
+        public static float GetEffectiveHearthRange(object buildingModel)
+        {
+            EnsureRangeInfoTypes();
+            float baseRange = GetHearthBaseRange(buildingModel);
+
+            try
+            {
+                var gameServices = GetGameServices();
+                if (gameServices == null) return baseRange;
+
+                var effectsService = _effectsServiceProperty?.GetValue(gameServices);
+                if (effectsService == null || _effectsGetHearthRangeMethod == null) return baseRange;
+
+                return (float)_effectsGetHearthRangeMethod.Invoke(effectsService, new object[] { baseRange });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetEffectiveHearthRange failed: {ex.Message}");
+            }
+
+            return baseRange;
+        }
+
+        /// <summary>
+        /// Get recipe good names for a gathering building.
+        /// Returns list of good names this building can harvest.
+        /// </summary>
+        public static List<string> GetGatheringBuildingGoodNames(object buildingModel)
+        {
+            var goodNames = new List<string>();
+            if (buildingModel == null) return goodNames;
+            EnsureRangeInfoTypes();
+
+            try
+            {
+                Array recipes = null;
+                FieldInfo refGoodField = null;
+
+                if (IsCampModel(buildingModel))
+                {
+                    recipes = _campRecipesField?.GetValue(buildingModel) as Array;
+                    refGoodField = _campRecipeRefGoodField;
+                }
+                else if (IsGathererHutModel(buildingModel))
+                {
+                    recipes = _gathererHutRecipesField?.GetValue(buildingModel) as Array;
+                    refGoodField = _gathererHutRecipeRefGoodField;
+                }
+                else if (IsFishingHutModel(buildingModel))
+                {
+                    recipes = _fishingHutRecipesField?.GetValue(buildingModel) as Array;
+                    refGoodField = _fishingHutRecipeRefGoodField;
+                }
+
+                if (recipes == null || refGoodField == null) return goodNames;
+
+                foreach (var recipe in recipes)
+                {
+                    var refGood = refGoodField.GetValue(recipe);
+                    if (refGood != null)
+                    {
+                        // GoodRef has a Name property that returns the good's name
+                        var nameProp = refGood.GetType().GetProperty("Name", PublicInstance);
+                        var name = nameProp?.GetValue(refGood) as string;
+                        if (!string.IsNullOrEmpty(name) && !goodNames.Contains(name))
+                        {
+                            goodNames.Add(name);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetGatheringBuildingGoodNames failed: {ex.Message}");
+            }
+
+            return goodNames;
+        }
+
+        /// <summary>
+        /// Get AvailableResources dictionary from ResourcesService.
+        /// Dictionary<string, List<NaturalResource>> where key is good name.
+        /// </summary>
+        public static object GetAvailableResources()
+        {
+            EnsureRangeInfoTypes();
+            var resourcesService = GetResourcesService();
+            if (resourcesService == null || _resourcesAvailableProperty == null) return null;
+
+            try
+            {
+                return _resourcesAvailableProperty.GetValue(resourcesService);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAvailableResources failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get AvailableDeposits dictionary from DepositsService.
+        /// Dictionary<string, List<ResourceDeposit>> where key is good name.
+        /// </summary>
+        public static object GetAvailableDeposits()
+        {
+            EnsureRangeInfoTypes();
+            var depositsService = GetDepositsService();
+            if (depositsService == null || _depositsAvailableProperty == null) return null;
+
+            try
+            {
+                return _depositsAvailableProperty.GetValue(depositsService);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAvailableDeposits failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get AvailableLakes dictionary from LakesService.
+        /// Dictionary<string, List<Lake>> where key is good name.
+        /// </summary>
+        public static object GetAvailableLakes()
+        {
+            EnsureRangeInfoTypes();
+            var lakesService = GetLakesService();
+            if (lakesService == null || _lakesAvailableProperty == null) return null;
+
+            try
+            {
+                return _lakesAvailableProperty.GetValue(lakesService);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAvailableLakes failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the display name of a resource node (NaturalResource, ResourceDeposit, or Lake).
+        /// Returns the model's displayName which is the actual node name (e.g., "Lush Tree", "Clay Pit").
+        /// </summary>
+        public static string GetResourceNodeDisplayName(object resource)
+        {
+            if (resource == null) return null;
+
+            try
+            {
+                // Get the Model property (all resource types have this)
+                var modelProp = resource.GetType().GetProperty("Model", PublicInstance);
+                if (modelProp == null) return null;
+
+                var model = modelProp.GetValue(resource);
+                if (model == null) return null;
+
+                // Get displayName field from the model (NaturalResourceModel, ResourceDepositModel, LakeModel all have this)
+                var displayNameField = model.GetType().GetField("displayName", PublicInstance);
+                if (displayNameField != null)
+                {
+                    var locaText = displayNameField.GetValue(model);
+                    if (locaText != null)
+                    {
+                        // LocaText has a Text property that returns the localized string
+                        var textProp = locaText.GetType().GetProperty("Text", PublicInstance);
+                        return textProp?.GetValue(locaText) as string;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetResourceNodeDisplayName failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Get the center position of a building.
+        /// Returns null if building is null or center cannot be determined.
+        /// </summary>
+        public static Vector3? GetBuildingCenter(object building)
+        {
+            if (building == null) return null;
+
+            try
+            {
+                var centerProperty = building.GetType().GetProperty("Center", PublicInstance);
+                if (centerProperty != null)
+                {
+                    return (Vector3)centerProperty.GetValue(building);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetBuildingCenter failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Get Field (position) of a resource/deposit/lake object.
+        /// </summary>
+        public static Vector2Int? GetResourceField(object resource)
+        {
+            if (resource == null) return null;
+
+            try
+            {
+                var fieldProperty = resource.GetType().GetProperty("Field", PublicInstance);
+                if (fieldProperty != null)
+                {
+                    return (Vector2Int)fieldProperty.GetValue(resource);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetResourceField failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Get Size of a resource/deposit/lake object.
+        /// </summary>
+        public static Vector2Int? GetResourceSize(object resource)
+        {
+            if (resource == null) return null;
+
+            try
+            {
+                var sizeProperty = resource.GetType().GetProperty("Size", PublicInstance);
+                if (sizeProperty != null)
+                {
+                    return (Vector2Int)sizeProperty.GetValue(resource);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetResourceSize failed: {ex.Message}");
+            }
+
+            return Vector2Int.one;
+        }
+
+        /// <summary>
+        /// Get all hearths from BuildingsService.
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllHearths()
+        {
+            EnsureMapTypes();
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                // BuildingsService has Hearths property (Dictionary<int, Hearth>)
+                if (_hearthsDictProperty == null)
+                {
+                    _hearthsDictProperty = buildingsService.GetType().GetProperty("Hearths", PublicInstance);
+                }
+
+                var hearthsDict = _hearthsDictProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+                return hearthsDict?.Values;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllHearths failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all houses from BuildingsService.
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllHouses()
+        {
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                var housesProperty = buildingsService.GetType().GetProperty("Houses", PublicInstance);
+                var housesDict = housesProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+                return housesDict?.Values;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllHouses failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all institutions from BuildingsService.
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllInstitutions()
+        {
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                var institutionsProperty = buildingsService.GetType().GetProperty("Institutions", PublicInstance);
+                var institutionsDict = institutionsProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+                return institutionsDict?.Values;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllInstitutions failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all decorations from BuildingsService.
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllDecorations()
+        {
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                var decorationsProperty = buildingsService.GetType().GetProperty("Decorations", PublicInstance);
+                var decorationsDict = decorationsProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+                return decorationsDict?.Values;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllDecorations failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if a building is a House.
+        /// </summary>
+        public static bool IsHouseBuilding(object building)
+        {
+            if (building == null) return false;
+            return building.GetType().Name == "House";
+        }
+
+        /// <summary>
+        /// Check if a given position is within a hearth's range.
+        /// </summary>
+        public static bool IsInHearthRange(object hearth, Vector2Int position)
+        {
+            if (hearth == null) return false;
+
+            try
+            {
+                // Hearth has IsInRange(Vector2Int field) method
+                var isInRangeMethod = hearth.GetType().GetMethod("IsInRange",
+                    new Type[] { typeof(Vector2Int) });
+                if (isInRangeMethod != null)
+                {
+                    return (bool)isInRangeMethod.Invoke(hearth, new object[] { position });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] IsInHearthRange failed: {ex.Message}");
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if a building is in hearth range using the game's IsInRange method.
+        /// Works for House, Institution, Decoration, or any building with a Field property.
+        /// </summary>
+        public static bool IsInHearthRange(object hearth, object building)
+        {
+            if (hearth == null || building == null) return false;
+
+            try
+            {
+                // Hearth.IsInRange(Building building) - uses building's Field property
+                var isInRangeMethod = hearth.GetType().GetMethod("IsInRange",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance,
+                    null,
+                    new Type[] { building.GetType() },
+                    null);
+
+                if (isInRangeMethod != null)
+                {
+                    return (bool)isInRangeMethod.Invoke(hearth, new object[] { building });
+                }
+
+                // Fallback: try with base Building type
+                var buildingType = building.GetType().BaseType;
+                while (buildingType != null && buildingType.Name != "Building")
+                {
+                    buildingType = buildingType.BaseType;
+                }
+
+                if (buildingType != null)
+                {
+                    isInRangeMethod = hearth.GetType().GetMethod("IsInRange",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance,
+                        null,
+                        new Type[] { buildingType },
+                        null);
+
+                    if (isInRangeMethod != null)
+                    {
+                        return (bool)isInRangeMethod.Invoke(hearth, new object[] { building });
+                    }
+                }
+
+                // Last fallback: use Field position
+                var fieldProp = building.GetType().GetProperty("Field", PublicInstance);
+                if (fieldProp != null)
+                {
+                    var field = (Vector2Int)fieldProp.GetValue(building);
+                    return IsInHearthRange(hearth, field);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] IsInHearthRange(building) failed: {ex.Message}");
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Calculate distance between a building center (Vector2) and a resource field (Vector2Int).
+        /// Uses the game's distance formula: distance from (center.x, center.z) - FieldCenter to field.
+        /// </summary>
+        public static float CalculateResourceDistance(Vector2 buildingCenter2D, Vector2Int resourceField)
+        {
+            // Game uses: Vector2.Distance(new Vector2(building.Center.x, building.Center.z) - Constants.FieldCenter, res.Field)
+            // Constants.FieldCenter is (0.5, 0.5)
+            Vector2 adjustedCenter = buildingCenter2D - new Vector2(0.5f, 0.5f);
+            return Vector2.Distance(adjustedCenter, (Vector2)resourceField);
+        }
+
+        /// <summary>
+        /// Calculate distance from building center to the closest tile of a multi-tile deposit/lake.
+        /// </summary>
+        public static float CalculateDepositDistance(Vector2 buildingCenter2D, Vector2Int depositField, Vector2Int depositSize)
+        {
+            // For deposits/lakes, check distance to each tile and return minimum
+            float minDistance = float.MaxValue;
+            Vector2 adjustedCenter = buildingCenter2D - new Vector2(0.5f, 0.5f);
+
+            for (int x = depositField.x; x < depositField.x + depositSize.x; x++)
+            {
+                for (int y = depositField.y; y < depositField.y + depositSize.y; y++)
+                {
+                    float dist = Vector2.Distance(adjustedCenter, new Vector2(x, y));
+                    if (dist < minDistance)
+                    {
+                        minDistance = dist;
+                    }
+                }
+            }
+
+            return minDistance;
+        }
+
+        /// <summary>
+        /// Calculate building center from cursor position and building size.
+        /// </summary>
+        public static Vector2 CalculateBuildingCenter(int cursorX, int cursorY, Vector2Int size)
+        {
+            // Building center is offset from cursor by half the size
+            return new Vector2(
+                cursorX + (size.x - 1) / 2f,
+                cursorY + (size.y - 1) / 2f
+            );
+        }
+
+        // ========================================
+        // SUPPLY CHAIN INFO (for production buildings)
+        // ========================================
+
+        /// <summary>
+        /// Get a building's entrance center position (used for distance calculations).
+        /// </summary>
+        public static Vector2? GetBuildingEntranceCenter(object building)
+        {
+            if (building == null) return null;
+
+            try
+            {
+                var entranceCenterProp = building.GetType().GetProperty("EntranceCenter", PublicInstance);
+                if (entranceCenterProp != null)
+                {
+                    return (Vector2)entranceCenterProp.GetValue(building);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetBuildingEntranceCenter failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Get all main storage buildings (warehouses).
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllStorageBuildings()
+        {
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                var storagesProperty = buildingsService.GetType().GetProperty("Storages", PublicInstance);
+                var storagesDict = storagesProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+                return storagesDict?.Values;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllStorageBuildings failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get local storage distance from game config (default 6 tiles).
+        /// This is the range within which production buildings can pull from each other.
+        /// </summary>
+        public static float GetLocalStorageDistance()
+        {
+            try
+            {
+                var settings = GetSettings();
+                if (settings == null) return 6f;
+
+                var logisticConfigField = settings.GetType().GetField("logisticConfig", PublicInstance);
+                if (logisticConfigField == null) return 6f;
+
+                var logisticConfig = logisticConfigField.GetValue(settings);
+                if (logisticConfig == null) return 6f;
+
+                var maxDistField = logisticConfig.GetType().GetField("maxLocalStorageDistance", PublicInstance);
+                if (maxDistField != null)
+                {
+                    return (float)maxDistField.GetValue(logisticConfig);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetLocalStorageDistance failed: {ex.Message}");
+            }
+
+            return 6f; // Default
+        }
+
+        /// <summary>
+        /// Check if a building is a source of a specific good (can output it).
+        /// Works for production buildings (Workshop, Camp, GathererHut, etc.)
+        /// Checks possible outputs based on recipes, not current inventory.
+        /// </summary>
+        public static bool IsBuildingSourceOf(object building, string goodName)
+        {
+            if (building == null || string.IsNullOrEmpty(goodName)) return false;
+
+            try
+            {
+                // Get the GoodModel from settings
+                var settings = GetSettings();
+                if (settings == null) return false;
+
+                var getGoodMethod = settings.GetType().GetMethod("GetGood", new Type[] { typeof(string) });
+                if (getGoodMethod == null) return false;
+
+                var goodModel = getGoodMethod.Invoke(settings, new object[] { goodName });
+                if (goodModel == null) return false;
+
+                // Get the GoodModel type from the assembly for proper method lookup
+                var goodModelType = GameAssembly.GetType("Eremite.Model.GoodModel");
+                if (goodModelType == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] Could not find GoodModel type");
+                    return false;
+                }
+
+                // Check if building.IsSourceOf(goodModel) returns true
+                var isSourceOfMethod = building.GetType().GetMethod("IsSourceOf",
+                    PublicInstance, null, new Type[] { goodModelType }, null);
+
+                if (isSourceOfMethod != null)
+                {
+                    return (bool)isSourceOfMethod.Invoke(building, new object[] { goodModel });
+                }
+                else
+                {
+                    Debug.Log($"[ATSAccessibility] IsSourceOf method not found on {building.GetType().Name}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] IsBuildingSourceOf failed: {ex.Message}");
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Get all input goods required by a production building (from its recipes).
+        /// Returns list of good names that are needed as inputs.
+        /// </summary>
+        public static List<string> GetBuildingRequiredInputs(object building)
+        {
+            var inputs = new List<string>();
+            if (building == null) return inputs;
+
+            try
+            {
+                // Try to get the state which has recipes
+                var stateProperty = building.GetType().GetProperty("state", PublicInstance);
+                var stateField = building.GetType().GetField("state", PublicInstance);
+
+                object state = null;
+                if (stateProperty != null)
+                    state = stateProperty.GetValue(building);
+                else if (stateField != null)
+                    state = stateField.GetValue(building);
+
+                if (state == null) return inputs;
+
+                // Get recipes array from state
+                var recipesField = state.GetType().GetField("recipes", PublicInstance);
+                if (recipesField == null) return inputs;
+
+                var recipesObj = recipesField.GetValue(state);
+                if (recipesObj == null) return inputs;
+
+                var recipes = recipesObj as System.Collections.IEnumerable;
+                if (recipes == null) return inputs;
+
+                foreach (var recipeState in recipes)
+                {
+                    if (recipeState == null) continue;
+
+                    // Check if recipe is active
+                    var activeField = recipeState.GetType().GetField("active", PublicInstance);
+                    bool isActive = activeField == null || (bool)activeField.GetValue(recipeState);
+
+                    if (!isActive) continue;
+
+                    // Get ingredients from recipe state
+                    var ingredientsField = recipeState.GetType().GetField("ingredients", PublicInstance);
+                    if (ingredientsField == null) continue;
+
+                    var ingredients = ingredientsField.GetValue(recipeState) as Array;
+                    if (ingredients == null) continue;
+
+                    // Ingredients is a 2D array: IngredientState[][]
+                    foreach (var ingredientSet in ingredients)
+                    {
+                        var ingredientArray = ingredientSet as Array;
+                        if (ingredientArray == null) continue;
+
+                        foreach (var ingredientState in ingredientArray)
+                        {
+                            if (ingredientState == null) continue;
+
+                            // Check if allowed
+                            var allowedField = ingredientState.GetType().GetField("allowed", PublicInstance);
+                            bool isAllowed = allowedField == null || (bool)allowedField.GetValue(ingredientState);
+
+                            if (!isAllowed) continue;
+
+                            // Get good name - good is a Good struct with a name field
+                            var goodField = ingredientState.GetType().GetField("good", PublicInstance);
+                            if (goodField != null)
+                            {
+                                var goodStruct = goodField.GetValue(ingredientState);
+                                if (goodStruct != null)
+                                {
+                                    // Get the name field from the Good struct
+                                    var nameField = goodStruct.GetType().GetField("name", PublicInstance);
+                                    if (nameField != null)
+                                    {
+                                        var goodName = nameField.GetValue(goodStruct) as string;
+                                        if (!string.IsNullOrEmpty(goodName) && !inputs.Contains(goodName))
+                                        {
+                                            inputs.Add(goodName);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetBuildingRequiredInputs failed: {ex.Message}");
+            }
+
+            return inputs;
+        }
+
+        /// <summary>
+        /// Get all possible input goods for a building model (all recipes, all ingredients).
+        /// Works on the model itself, so it can be used for both placed buildings and build mode preview.
+        /// </summary>
+        public static List<string> GetModelPossibleInputs(object buildingModel)
+        {
+            var inputs = new List<string>();
+            if (buildingModel == null) return inputs;
+
+            try
+            {
+                // Get recipes array from model (WorkshopModel.recipes, etc.)
+                var recipesField = buildingModel.GetType().GetField("recipes", PublicInstance);
+                if (recipesField == null) return inputs;
+
+                var recipes = recipesField.GetValue(buildingModel) as Array;
+                if (recipes == null) return inputs;
+
+                foreach (var recipe in recipes)
+                {
+                    if (recipe == null) continue;
+
+                    // Get requiredGoods from recipe (GoodsSet[])
+                    var requiredGoodsField = recipe.GetType().GetField("requiredGoods", PublicInstance);
+                    if (requiredGoodsField == null) continue;
+
+                    var requiredGoods = requiredGoodsField.GetValue(recipe) as Array;
+                    if (requiredGoods == null) continue;
+
+                    // Each GoodsSet has a goods array (GoodRef[])
+                    foreach (var goodsSet in requiredGoods)
+                    {
+                        if (goodsSet == null) continue;
+
+                        var goodsField = goodsSet.GetType().GetField("goods", PublicInstance);
+                        if (goodsField == null) continue;
+
+                        var goods = goodsField.GetValue(goodsSet) as Array;
+                        if (goods == null) continue;
+
+                        // Each GoodRef has a good field (GoodModel)
+                        foreach (var goodRef in goods)
+                        {
+                            if (goodRef == null) continue;
+
+                            var goodField = goodRef.GetType().GetField("good", PublicInstance);
+                            if (goodField == null) continue;
+
+                            var goodModel = goodField.GetValue(goodRef);
+                            if (goodModel == null) continue;
+
+                            // Get the Name property from GoodModel
+                            var nameProperty = goodModel.GetType().GetProperty("Name", PublicInstance);
+                            if (nameProperty != null)
+                            {
+                                var goodName = nameProperty.GetValue(goodModel) as string;
+                                if (!string.IsNullOrEmpty(goodName) && !inputs.Contains(goodName))
+                                {
+                                    inputs.Add(goodName);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetModelPossibleInputs failed: {ex.Message}");
+            }
+
+            return inputs;
+        }
+
+        /// <summary>
+        /// Get all production buildings that could supply a specific good.
+        /// Includes Workshops, Camps, GathererHuts, Mines, Farms, etc.
+        /// </summary>
+        public static List<object> GetBuildingsThatProduce(string goodName)
+        {
+            var producers = new List<object>();
+            if (string.IsNullOrEmpty(goodName)) return producers;
+
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return producers;
+
+            try
+            {
+                // Get the Buildings dictionary (all buildings)
+                var buildingsProperty = buildingsService.GetType().GetProperty("Buildings", PublicInstance);
+                var buildingsDict = buildingsProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+
+                if (buildingsDict != null)
+                {
+                    foreach (System.Collections.DictionaryEntry entry in buildingsDict)
+                    {
+                        var building = entry.Value;
+                        if (building == null) continue;
+
+                        // Check if building is finished
+                        var isFinishedMethod = building.GetType().GetMethod("IsFinished", PublicInstance);
+                        bool isFinished = isFinishedMethod != null && (bool)isFinishedMethod.Invoke(building, null);
+
+                        if (!isFinished) continue;
+
+                        // Check if this building produces the good
+                        if (IsBuildingSourceOf(building, goodName))
+                        {
+                            producers.Add(building);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetBuildingsThatProduce failed: {ex.Message}");
+            }
+
+            return producers;
+        }
+
+        /// <summary>
+        /// Check if a building is a production building (Workshop, Camp, Mine, Farm, etc.)
+        /// </summary>
+        public static bool IsProductionBuilding(object building)
+        {
+            if (building == null) return false;
+
+            string typeName = building.GetType().Name;
+            return typeName == "Workshop" || typeName == "Camp" || typeName == "GathererHut" ||
+                   typeName == "FishingHut" || typeName == "Mine" || typeName == "Farm" ||
+                   typeName == "Collector" || typeName == "RainCatcher";
+        }
+
+        /// <summary>
+        /// Get the goods a building can actually output.
+        /// For gathering buildings (Camp, GathererHut, FishingHut), checks what resources are in range.
+        /// For production buildings (Workshop), checks active recipes.
+        /// </summary>
+        public static List<string> GetBuildingActualOutputs(object building)
+        {
+            var outputs = new List<string>();
+            if (building == null) return outputs;
+
+            try
+            {
+                string typeName = building.GetType().Name;
+
+                if (typeName == "Camp")
+                {
+                    outputs = GetCampActualOutputs(building);
+                }
+                else if (typeName == "GathererHut")
+                {
+                    outputs = GetGathererHutActualOutputs(building);
+                }
+                else if (typeName == "FishingHut")
+                {
+                    outputs = GetFishingHutActualOutputs(building);
+                }
+                else if (typeName == "Workshop")
+                {
+                    outputs = GetWorkshopActiveOutputs(building);
+                }
+                else
+                {
+                    // For other buildings, fall back to model-based possible outputs
+                    var model = GetBuildingModel(building);
+                    if (model != null)
+                    {
+                        outputs = GetModelPossibleOutputs(model);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetBuildingActualOutputs failed: {ex.Message}");
+            }
+
+            return outputs;
+        }
+
+        /// <summary>
+        /// Get goods a Camp can actually harvest based on resources in range.
+        /// </summary>
+        private static List<string> GetCampActualOutputs(object camp)
+        {
+            var outputs = new List<string>();
+
+            try
+            {
+                var model = GetBuildingModel(camp);
+                if (model == null) return outputs;
+
+                // Get building center for distance check
+                var center = GetBuildingCenter(camp);
+                if (!center.HasValue) return outputs;
+
+                Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
+                float maxDistance = GetGatheringBuildingMaxDistance(model);
+
+                // Get recipes to know what goods this camp can harvest
+                var goodNames = GetGatheringBuildingGoodNames(model);
+                var availableResources = GetAvailableResources();
+
+                if (availableResources == null) return outputs;
+
+                var dict = availableResources as System.Collections.IDictionary;
+                if (dict == null) return outputs;
+
+                foreach (var goodName in goodNames)
+                {
+                    if (!dict.Contains(goodName)) continue;
+
+                    var resourceList = dict[goodName] as System.Collections.IEnumerable;
+                    if (resourceList == null) continue;
+
+                    // Check if any resource of this type is in range
+                    foreach (var resource in resourceList)
+                    {
+                        var field = GetResourceField(resource);
+                        if (!field.HasValue) continue;
+
+                        float distance = CalculateResourceDistance(center2D, field.Value);
+                        if (distance < maxDistance)
+                        {
+                            if (!outputs.Contains(goodName))
+                            {
+                                outputs.Add(goodName);
+                            }
+                            break; // Found at least one in range, move to next good type
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetCampActualOutputs failed: {ex.Message}");
+            }
+
+            return outputs;
+        }
+
+        /// <summary>
+        /// Get goods a GathererHut can actually harvest based on deposits in range.
+        /// </summary>
+        private static List<string> GetGathererHutActualOutputs(object hut)
+        {
+            var outputs = new List<string>();
+
+            try
+            {
+                var model = GetBuildingModel(hut);
+                if (model == null) return outputs;
+
+                var center = GetBuildingCenter(hut);
+                if (!center.HasValue) return outputs;
+
+                Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
+                float maxDistance = GetGatheringBuildingMaxDistance(model);
+
+                var goodNames = GetGatheringBuildingGoodNames(model);
+                var availableDeposits = GetAvailableDeposits();
+
+                if (availableDeposits == null) return outputs;
+
+                var dict = availableDeposits as System.Collections.IDictionary;
+                if (dict == null) return outputs;
+
+                foreach (var goodName in goodNames)
+                {
+                    if (!dict.Contains(goodName)) continue;
+
+                    var depositList = dict[goodName] as System.Collections.IEnumerable;
+                    if (depositList == null) continue;
+
+                    foreach (var deposit in depositList)
+                    {
+                        var field = GetResourceField(deposit);
+                        if (!field.HasValue) continue;
+
+                        var size = GetResourceSize(deposit) ?? Vector2Int.one;
+                        float distance = CalculateDepositDistance(center2D, field.Value, size);
+                        if (distance < maxDistance)
+                        {
+                            if (!outputs.Contains(goodName))
+                            {
+                                outputs.Add(goodName);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetGathererHutActualOutputs failed: {ex.Message}");
+            }
+
+            return outputs;
+        }
+
+        /// <summary>
+        /// Get goods a FishingHut can actually harvest based on lakes in range.
+        /// </summary>
+        private static List<string> GetFishingHutActualOutputs(object hut)
+        {
+            var outputs = new List<string>();
+
+            try
+            {
+                var model = GetBuildingModel(hut);
+                if (model == null) return outputs;
+
+                var center = GetBuildingCenter(hut);
+                if (!center.HasValue) return outputs;
+
+                Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
+                float maxDistance = GetGatheringBuildingMaxDistance(model);
+
+                var goodNames = GetGatheringBuildingGoodNames(model);
+                var availableLakes = GetAvailableLakes();
+
+                if (availableLakes == null) return outputs;
+
+                var dict = availableLakes as System.Collections.IDictionary;
+                if (dict == null) return outputs;
+
+                foreach (var goodName in goodNames)
+                {
+                    if (!dict.Contains(goodName)) continue;
+
+                    var lakeList = dict[goodName] as System.Collections.IEnumerable;
+                    if (lakeList == null) continue;
+
+                    foreach (var lake in lakeList)
+                    {
+                        var field = GetResourceField(lake);
+                        if (!field.HasValue) continue;
+
+                        var size = GetResourceSize(lake) ?? Vector2Int.one;
+                        float distance = CalculateDepositDistance(center2D, field.Value, size);
+                        if (distance < maxDistance)
+                        {
+                            if (!outputs.Contains(goodName))
+                            {
+                                outputs.Add(goodName);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetFishingHutActualOutputs failed: {ex.Message}");
+            }
+
+            return outputs;
+        }
+
+        /// <summary>
+        /// Get goods a Workshop produces based on active recipes.
+        /// </summary>
+        private static List<string> GetWorkshopActiveOutputs(object workshop)
+        {
+            var outputs = new List<string>();
+
+            try
+            {
+                // Get state.recipes
+                var stateField = workshop.GetType().GetField("state", PublicInstance);
+                if (stateField == null) return outputs;
+
+                var state = stateField.GetValue(workshop);
+                if (state == null) return outputs;
+
+                var recipesField = state.GetType().GetField("recipes", PublicInstance);
+                if (recipesField == null) return outputs;
+
+                var recipes = recipesField.GetValue(state) as System.Collections.IEnumerable;
+                if (recipes == null) return outputs;
+
+                foreach (var recipeState in recipes)
+                {
+                    if (recipeState == null) continue;
+
+                    // Check if active
+                    var activeField = recipeState.GetType().GetField("active", PublicInstance);
+                    bool isActive = activeField == null || (bool)activeField.GetValue(recipeState);
+                    if (!isActive) continue;
+
+                    // Get productName
+                    var productNameField = recipeState.GetType().GetField("productName", PublicInstance);
+                    if (productNameField != null)
+                    {
+                        var productName = productNameField.GetValue(recipeState) as string;
+                        if (!string.IsNullOrEmpty(productName) && !outputs.Contains(productName))
+                        {
+                            outputs.Add(productName);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetWorkshopActiveOutputs failed: {ex.Message}");
+            }
+
+            return outputs;
+        }
+
+        /// <summary>
+        /// Get all possible outputs from a building model (all recipes).
+        /// </summary>
+        private static List<string> GetModelPossibleOutputs(object buildingModel)
+        {
+            var outputs = new List<string>();
+            if (buildingModel == null) return outputs;
+
+            try
+            {
+                // Get recipes array
+                var recipesField = buildingModel.GetType().GetField("recipes", PublicInstance);
+                if (recipesField == null) return outputs;
+
+                var recipes = recipesField.GetValue(buildingModel) as Array;
+                if (recipes == null) return outputs;
+
+                foreach (var recipe in recipes)
+                {
+                    if (recipe == null) continue;
+
+                    // Try producedGood (for WorkshopRecipeModel)
+                    var producedGoodField = recipe.GetType().GetField("producedGood", PublicInstance);
+                    if (producedGoodField != null)
+                    {
+                        var producedGood = producedGoodField.GetValue(recipe);
+                        if (producedGood != null)
+                        {
+                            var goodField = producedGood.GetType().GetField("good", PublicInstance);
+                            if (goodField != null)
+                            {
+                                var goodModel = goodField.GetValue(producedGood);
+                                if (goodModel != null)
+                                {
+                                    var nameProp = goodModel.GetType().GetProperty("Name", PublicInstance);
+                                    if (nameProp != null)
+                                    {
+                                        var name = nameProp.GetValue(goodModel) as string;
+                                        if (!string.IsNullOrEmpty(name) && !outputs.Contains(name))
+                                        {
+                                            outputs.Add(name);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Try refGood (for CampRecipeModel, GathererHutRecipeModel, etc.)
+                    var refGoodField = recipe.GetType().GetField("refGood", PublicInstance);
+                    if (refGoodField != null)
+                    {
+                        var refGood = refGoodField.GetValue(recipe);
+                        if (refGood != null)
+                        {
+                            var goodField = refGood.GetType().GetField("good", PublicInstance);
+                            if (goodField != null)
+                            {
+                                var goodModel = goodField.GetValue(refGood);
+                                if (goodModel != null)
+                                {
+                                    var nameProp = goodModel.GetType().GetProperty("Name", PublicInstance);
+                                    if (nameProp != null)
+                                    {
+                                        var name = nameProp.GetValue(goodModel) as string;
+                                        if (!string.IsNullOrEmpty(name) && !outputs.Contains(name))
+                                        {
+                                            outputs.Add(name);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetModelPossibleOutputs failed: {ex.Message}");
+            }
+
+            return outputs;
+        }
     }
 }

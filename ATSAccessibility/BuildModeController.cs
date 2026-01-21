@@ -121,6 +121,21 @@ namespace ATSAccessibility
                 case KeyCode.I:
                     return false;
 
+                // Building range/orientation info for placement preview
+                case KeyCode.D:
+                    if (_selectedBuildingModel != null)
+                    {
+                        bool canPlace = CanPlaceAtCursor();
+                        string preview = RangeInfoHelper.GetBuildingRangePreview(
+                            _selectedBuildingModel,
+                            _mapNavigator.CursorX,
+                            _mapNavigator.CursorY,
+                            _rotation,
+                            canPlace);
+                        Speech.Say(preview);
+                    }
+                    return true;
+
                 default:
                     // Consume other keys to prevent interference
                     return true;
@@ -303,6 +318,36 @@ namespace ATSAccessibility
                 3 => "West",
                 _ => "Unknown"
             };
+        }
+
+        /// <summary>
+        /// Check if the current building can be placed at the cursor position.
+        /// Creates a temporary building to test placement, then removes it.
+        /// </summary>
+        private bool CanPlaceAtCursor()
+        {
+            if (_selectedBuildingModel == null || _mapNavigator == null)
+                return false;
+
+            // Check if we can still construct this building type
+            if (!GameReflection.CanConstructBuilding(_selectedBuildingModel))
+                return false;
+
+            // Create a temporary building to test placement
+            var building = GameReflection.CreateBuilding(_selectedBuildingModel, _rotation);
+            if (building == null)
+                return false;
+
+            // Set position
+            GameReflection.SetBuildingPosition(building, new Vector2Int(_mapNavigator.CursorX, _mapNavigator.CursorY));
+
+            // Check if placement is valid
+            bool canPlace = GameReflection.CanPlaceBuilding(building);
+
+            // Remove the temporary building (no refund)
+            GameReflection.RemoveBuilding(building, false);
+
+            return canPlace;
         }
     }
 }

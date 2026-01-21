@@ -150,6 +150,20 @@ namespace ATSAccessibility
                     _mapNavigator.RotateBuilding();
                     return true;
 
+                // Building range/orientation info
+                case KeyCode.D:
+                    var buildingAtCursor = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                    if (buildingAtCursor != null)
+                    {
+                        string rangeInfo = RangeInfoHelper.GetBuildingRangeInfo(buildingAtCursor);
+                        Speech.Say(rangeInfo);
+                    }
+                    else
+                    {
+                        Speech.Say("No building");
+                    }
+                    return true;
+
                 // Building activation (opens building panel)
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
