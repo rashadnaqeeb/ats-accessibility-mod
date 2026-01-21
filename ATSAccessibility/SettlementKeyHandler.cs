@@ -184,8 +184,8 @@ namespace ATSAccessibility
                     return true;
 
                 default:
-                    // Don't consume unknown keys - let them pass through
-                    return false;
+                    // Consume all keys - mod has full keyboard control in settlement
+                    return true;
             }
         }
     }

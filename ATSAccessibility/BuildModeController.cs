@@ -104,19 +104,19 @@ namespace ATSAccessibility
                     ExitBuildMode();
                     return true;
 
-                // Let arrow keys pass through to MapNavigator
+                // Pass to MapNavigator for cursor movement
                 case KeyCode.UpArrow:
                 case KeyCode.DownArrow:
                 case KeyCode.LeftArrow:
                 case KeyCode.RightArrow:
                     return false;
 
-                // Let PageUp/Down pass through to MapScanner
+                // Pass to MapScanner for building/resource scanning
                 case KeyCode.PageUp:
                 case KeyCode.PageDown:
                     return false;
 
-                // Let other map keys pass through
+                // Pass to MapNavigator for position/tile info
                 case KeyCode.K:
                 case KeyCode.I:
                     return false;

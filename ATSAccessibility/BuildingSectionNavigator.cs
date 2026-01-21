@@ -118,8 +118,7 @@ namespace ATSAccessibility
                     }
                     else
                     {
-                        // At section level: let the game close the panel
-                        // Don't block cancel, don't consume the key
+                        // Pass to game to close building panel
                         Debug.Log($"[ATSAccessibility] {NavigatorName}: Letting game close panel via Escape");
                         return false;
                     }

@@ -219,6 +219,9 @@ namespace ATSAccessibility
 
         private void Update()
         {
+            // Process pending event announcements (batches messages to prevent interruption)
+            _eventAnnouncer?.ProcessMessageQueue();
+
             // Polling for game state changes (settlement entry)
             // Use unscaledDeltaTime so it works even when game is paused
             _pollTimer += Time.unscaledDeltaTime;

@@ -114,7 +114,8 @@ namespace ATSAccessibility
                         ReturnToCategories();
                         return true;
                     }
-                    return false;  // At root level, let parent handle
+                    // Pass to parent (InfoPanelMenu) to close this panel
+                    return false;
 
                 case KeyCode.Backspace:
                     HandleBackspace();
@@ -128,7 +129,7 @@ namespace ATSAccessibility
                         Speech.Say("Search cleared");
                         return true;
                     }
-                    // No search to clear - let parent handle closing
+                    // Pass to parent to handle panel closing
                     return false;
 
                 default:

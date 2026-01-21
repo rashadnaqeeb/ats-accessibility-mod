@@ -395,9 +395,8 @@ namespace ATSAccessibility
         {
             if (_currentSection == EmbarkSection.TopMenu)
             {
-                // At top menu - let escape through to game (may show confirm dialog)
-                // Panel will close via OnFieldPreviewClosed event if user confirms
-                return false;  // Don't consume - let game receive it
+                // Pass to game to show confirm dialog
+                return false;
             }
             else if (_focusOnDetails)
             {

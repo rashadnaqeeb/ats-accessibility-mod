@@ -154,7 +154,7 @@ namespace ATSAccessibility
                         Speech.Say("Search cleared");
                         return true;
                     }
-                    // No search to clear - let parent handle closing
+                    // Pass to parent to handle panel closing
                     return false;
 
                 default:
@@ -273,7 +273,7 @@ namespace ATSAccessibility
                 return true;
             }
 
-            // At root level, let parent handle (return to InfoPanelMenu)
+            // Pass to parent (InfoPanelMenu) to close this panel
             return false;
         }
 

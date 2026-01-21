@@ -165,7 +165,7 @@ namespace ATSAccessibility
                         Speech.Say("Search cleared");
                         return true;
                     }
-                    // No search to clear - let game handle closing
+                    // Pass to game to close popup
                     return false;
                 default:
                     // Handle A-Z keys for type-ahead search
@@ -174,8 +174,8 @@ namespace ATSAccessibility
                         char c = (char)('a' + (keyCode - KeyCode.A));
                         return HandleSearchKey(c);
                     }
-                    // Don't consume other keys
-                    return false;
+                    // Consume all other keys while popup/menu is active
+                    return true;
             }
         }
 
@@ -702,7 +702,7 @@ namespace ATSAccessibility
         /// </summary>
         private bool HandleBackspace()
         {
-            if (!_search.HasBuffer) return false;
+            if (!_search.HasBuffer) return true;  // Consume even with empty buffer
 
             _search.RemoveChar();
 

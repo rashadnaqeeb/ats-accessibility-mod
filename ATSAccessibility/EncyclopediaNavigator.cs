@@ -73,14 +73,13 @@ namespace ATSAccessibility
                     HandleBackspace();
                     return true;
                 case KeyCode.Escape:
-                    // Only consume Escape if we have a search to clear
                     if (_search.HasBuffer)
                     {
                         ClearSearchBuffer();
-                        InputBlocker.BlockCancelOnce = true;  // Block the Cancel action
+                        InputBlocker.BlockCancelOnce = true;
                         return true;
                     }
-                    // Otherwise let it pass through to close the encyclopedia
+                    // Pass to game to close encyclopedia
                     return false;
                 default:
                     // Check for alphabetic keys (A-Z) for type-ahead search

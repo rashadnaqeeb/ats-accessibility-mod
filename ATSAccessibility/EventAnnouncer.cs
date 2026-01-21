@@ -28,6 +28,15 @@ namespace ATSAccessibility
         private static readonly System.Text.RegularExpressions.Regex RichTextTagsRegex =
             new System.Text.RegularExpressions.Regex("<[^>]+>", System.Text.RegularExpressions.RegexOptions.Compiled);
 
+        // Static compiled regex for stripping "Alert:" or "Alert" prefix from game alerts
+        private static readonly System.Text.RegularExpressions.Regex AlertPrefixRegex =
+            new System.Text.RegularExpressions.Regex(@"^\s*alert:?\s*", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // Message batching to prevent interruption when multiple events fire at once
+        private List<(string message, float time)> _pendingMessages = new List<(string, float)>();
+        private float _batchStartTime = 0f;
+        private const float BATCH_WINDOW = 0.15f; // 150ms batching window
+
         // Cached reflection for villager removal
         private static MethodInfo _villagerGetDisplayNameMethod;
         private static FieldInfo _villagerStateField;
@@ -112,6 +121,7 @@ namespace ATSAccessibility
             _announcedAlerts.Clear();
             _announcedAlertsOrder.Clear();
             _announcedNews.Clear();
+            _pendingMessages.Clear();
 
             // Reset reflection cached flags so they get re-cached on next game
             // (services may have different types/methods in different game versions)
@@ -131,12 +141,77 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Announce a message via speech and add it to the history.
+        /// Queue a message for announcement. Messages are batched to prevent
+        /// interruption when multiple events fire simultaneously.
         /// </summary>
         private void Announce(string message)
         {
-            Speech.Say(message);
-            AnnouncementHistoryPanel.AddMessage(message);
+            float currentTime = Time.realtimeSinceStartup;
+
+            // Start a new batch if this is the first message or batch window has expired
+            if (_pendingMessages.Count == 0)
+            {
+                _batchStartTime = currentTime;
+            }
+
+            _pendingMessages.Add((message, currentTime));
+        }
+
+        /// <summary>
+        /// Process the message queue. Call this from Update loop.
+        /// Groups duplicate messages and combines multiple messages into single announcement.
+        /// </summary>
+        public void ProcessMessageQueue()
+        {
+            if (_pendingMessages.Count == 0) return;
+
+            float currentTime = Time.realtimeSinceStartup;
+
+            // Wait for batch window to complete
+            if (currentTime - _batchStartTime < BATCH_WINDOW) return;
+
+            // Group messages by content and count duplicates
+            var messageCounts = new Dictionary<string, int>();
+            var messageOrder = new List<string>(); // Preserve order of first occurrence
+
+            foreach (var (message, time) in _pendingMessages)
+            {
+                if (messageCounts.ContainsKey(message))
+                {
+                    messageCounts[message]++;
+                }
+                else
+                {
+                    messageCounts[message] = 1;
+                    messageOrder.Add(message);
+                }
+            }
+
+            // Build list of formatted messages (with count suffix if duplicated)
+            var formattedMessages = new List<string>();
+            foreach (var message in messageOrder)
+            {
+                int count = messageCounts[message];
+                string formatted = count > 1 ? $"{message} x{count}" : message;
+                formattedMessages.Add(formatted);
+
+                // Add each message to history individually for review
+                AnnouncementHistoryPanel.AddMessage(formatted);
+            }
+
+            // Combine all messages into single speech output to prevent interruption
+            if (formattedMessages.Count == 1)
+            {
+                Speech.Say(formattedMessages[0]);
+            }
+            else
+            {
+                // Join with period+space for natural pause between messages
+                string combined = string.Join(". ", formattedMessages);
+                Speech.Say(combined);
+            }
+
+            _pendingMessages.Clear();
         }
 
         private void EnsureReflectionCached()
@@ -974,6 +1049,10 @@ namespace ATSAccessibility
 
                         // Strip any rich text tags
                         text = RichTextTagsRegex.Replace(text, "");
+
+                        // Strip "Alert:" or "Alert" prefix if game already includes it
+                        text = AlertPrefixRegex.Replace(text, "");
+
                         Announce($"Alert: {text}");
                     }
                 }
