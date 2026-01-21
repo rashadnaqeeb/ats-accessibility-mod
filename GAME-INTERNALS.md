@@ -515,3 +515,208 @@ GameMB.StorageService.Main.Goods.goods   // All goods
 good.displayName.Text                    // Localized name
 goodRef.DisplayName                      // Shortcut
 ```
+
+---
+
+## World Map System
+
+### Controller Hierarchy
+
+```
+Eremite.Controller.WorldController
+  - Static: Instance (singleton)
+  - Instance: WorldServices
+  - Instance: CameraController (WorldCameraController)
+```
+
+**Access pattern:**
+```
+WorldController.Instance → WorldServices → WorldMapService/WorldStateService/etc.
+```
+
+### World Map Services
+
+| Service | Purpose |
+|---------|---------|
+| WorldMapService | Field access, bounds checking, biome info |
+| WorldStateService | Modifiers, events, seals, city names |
+| WorldBlackboardService | Observables: OnFieldClicked, OnFieldPreviewShown |
+| WorldEmbarkService | Bonus preparation points |
+| WorldSealsService | Seal completion tracking |
+
+### WorldMapService Methods
+
+```csharp
+// Coordinates use Vector3Int (cubic hex)
+GetField(Vector3Int pos)              // Get WorldField
+InBounds(Vector3Int pos)              // Bounds check
+IsRevealed(Vector3Int pos, int dist)  // Fog of war check
+CanBePicked(Vector3Int pos)           // Can embark here
+IsCapital(Vector3Int pos)             // Is (0,0,0)
+IsCity(Vector3Int pos)                // Has settlement
+GetDistanceToStartTown(Vector3Int)    // Distance from capital
+GetMinDifficultyFor(Vector3Int)       // Min difficulty for field
+```
+
+### WorldStateService Methods
+
+```csharp
+HasModifier(Vector3Int pos)           // Has world modifier
+HasEvent(Vector3Int pos)              // Has world event
+HasSeal(Vector3Int pos)               // Has seal nearby
+GetModifierModel(Vector3Int pos)      // Get modifier details
+GetEventModel(Vector3Int pos)         // Get event details
+GetSealModel(Vector3Int pos)          // Get seal details
+GetDisplayNameFor(Vector3Int pos)     // City name
+GetModifiersInfluencing(Vector3Int)   // List of modifier names affecting field
+Fields                                // Dictionary<Vector3Int, WorldFieldState>
+```
+
+### WorldField Properties
+
+```csharp
+field.Biome                           // BiomeModel
+field.transform                       // Unity Transform for world position
+```
+
+### BiomeModel Fields
+
+```csharp
+biome.displayName                     // LocaText
+biome.description                     // LocaText
+biome.effects                         // EffectModel[] - biome effects
+biome.wantedGoods                     // GoodModel[] - for trade routes
+biome.GetDepositsGoods()              // Available deposit goods
+biome.GetTreesGoods()                 // Available tree/natural goods
+biome.seasons                         // SeasonsConfig - seasonal effects
+```
+
+### Cubic Hex Coordinates
+
+World map uses cubic coordinates (Vector3Int where x + y + z = 0).
+
+```csharp
+// Convert cubic to world position
+const float HexSize = 0.62f;
+int q = cubic.x;  // CubicToAxial
+int r = cubic.z;
+float x = HexSize * (1.5f * q);
+float y = HexSize * (Mathf.Sqrt(3f) / 2f * q + Mathf.Sqrt(3f) * r);
+```
+
+---
+
+## Embark System
+
+### State Access
+
+```
+MetaController.Instance.MetaServices.MetaStateService.EmbarkBonuses
+  → EmbarkBonusesState
+```
+
+### EmbarkBonusesState Fields
+
+```csharp
+caravans            // List<EmbarkCaravanState> - 3 caravan options
+effectsOptions      // List<ConditionPickState> - available effect bonuses
+rewardsPicked       // List<ConditionPickState> - selected effect bonuses
+goodsOptions        // List<GoodPickState> - available goods bonuses
+goodsPicked         // List<GoodPickState> - selected goods bonuses
+```
+
+### EmbarkCaravanState Fields
+
+```csharp
+revealedRaces       // int - number of races revealed
+races               // List<string> - race internal names
+villagers           // List<string> - one entry per villager (race name)
+embarkGoods         // List<Good> - base starting goods
+bonusEmbarkGoods    // List<Good> - bonus goods
+embarkEffects       // List<string> - base starting effects
+bonusEmbarkEffects  // List<string> - bonus effects
+```
+
+### ConditionPickState (Effect Bonuses)
+
+```csharp
+name                // string - effect internal name
+cost                // int - preparation points cost
+```
+
+### GoodPickState (Goods Bonuses)
+
+```csharp
+name                // string - good internal name
+amount              // int - quantity
+cost                // int - preparation points cost
+```
+
+### Caravan Selection
+
+```csharp
+// Via WorldBlackboardService
+PickedCaravan       // ReactiveProperty<EmbarkCaravanState>
+```
+
+### Difficulty System
+
+```csharp
+// DifficultyModel fields
+index                       // int - difficulty level (0-20)
+canBePicked                 // bool - available for selection
+positiveEffects             // int - seasonal mysteries (positive)
+negativeEffects             // int - seasonal mysteries (negative)
+rewardsMultiplier           // float - meta currency multiplier
+preparationPointsPenalty    // int - negative modifier to base points
+minEffectCost               // int - min seasonal effect severity
+maxEffectCost               // int - max seasonal effect severity
+sealFramentsForWin          // int - fragments needed to win
+modifiers                   // AscensionModifierModel[] - ascension modifiers
+
+// Methods
+GetDisplayName()            // Localized name (e.g., "Prestige 5")
+```
+
+### Preparation Points
+
+```csharp
+// MetaPerksService
+GetBasePreparationPoints()  // Base points from upgrades
+
+// WorldEmbarkService
+GetBonusPreparationPoints() // Bonus from cycle effects
+
+// Calculation (game uses min difficulty penalty, not selected)
+Total = Max(0, Base + MinDifficultyPenalty) + Bonus
+```
+
+### EmbarkDifficultyPicker
+
+Found via `FindObjectOfType<EmbarkDifficultyPicker>()`.
+
+```csharp
+SetDifficulty(DifficultyModel)   // Set selected difficulty
+GetPickedDifficulty()            // Get current selection
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| World controller | `Eremite.Controller.WorldController` |
+| World services | `Eremite.Services.World.IWorldServices` |
+| World map service | `Eremite.Services.World.IWorldMapService` |
+| World state service | `Eremite.Services.IWorldStateService` |
+| World blackboard | `Eremite.Services.World.IWorldBlackboardService` |
+| World embark service | `Eremite.Services.World.IWorldEmbarkService` |
+| World field | `Eremite.WorldMap.WorldField` |
+| Biome model | `Eremite.Model.BiomeModel` |
+| Embark bonuses state | `Eremite.Model.State.EmbarkBonusesState` |
+| Embark caravan state | `Eremite.Model.State.EmbarkCaravanState` |
+| Condition pick state | `Eremite.Model.State.ConditionPickState` |
+| Good pick state | `Eremite.Model.State.GoodPickState` |
+| Difficulty model | `Eremite.Model.DifficultyModel` |
+| Ascension modifier | `Eremite.Model.AscensionModifierModel` |
+| Difficulty picker | `Eremite.WorldMap.UI.EmbarkDifficultyPicker` |
+| Buildings pick screen | `Eremite.View.Menu.Pick.BuildingsPickScreen` |

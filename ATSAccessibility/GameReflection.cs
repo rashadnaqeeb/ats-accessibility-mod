@@ -2382,6 +2382,9 @@ namespace ATSAccessibility
         private static FieldInfo _bmDescriptionField = null;
         private static PropertyInfo _locaTextProperty = null;
         private static FieldInfo _bcmIsOnHUDField = null;
+        private static FieldInfo _bmRequiredGoodsField = null;
+        private static FieldInfo _goodRefAmountField = null;
+        private static PropertyInfo _goodRefDisplayNameProperty = null;
         private static bool _bmFieldsCached = false;
 
         private static void EnsureBuildingTypes()
@@ -2491,6 +2494,18 @@ namespace ATSAccessibility
                         BindingFlags.Public | BindingFlags.Instance);
                     _bmDescriptionField = buildingModelType.GetField("description",
                         BindingFlags.NonPublic | BindingFlags.Instance);
+                    _bmRequiredGoodsField = buildingModelType.GetField("requiredGoods",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache GoodRef fields for building costs
+                var goodRefType = _gameAssembly.GetType("Eremite.Model.GoodRef");
+                if (goodRefType != null)
+                {
+                    _goodRefAmountField = goodRefType.GetField("amount",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _goodRefDisplayNameProperty = goodRefType.GetProperty("DisplayName",
+                        BindingFlags.Public | BindingFlags.Instance);
                 }
 
                 // Cache BuildingCategoryModel fields
@@ -2640,6 +2655,40 @@ namespace ATSAccessibility
                 }
             }
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingDescription failed: {ex.Message}"); }
+            return null;
+        }
+
+        /// <summary>
+        /// Get the construction costs of a building model as a formatted string.
+        /// Returns format like "2 Wood, 4 Planks" or null if no costs.
+        /// </summary>
+        public static string GetBuildingCosts(object buildingModel)
+        {
+            if (buildingModel == null) return null;
+            EnsureBuildingModelFields();
+
+            try
+            {
+                var requiredGoods = _bmRequiredGoodsField?.GetValue(buildingModel) as Array;
+                if (requiredGoods == null || requiredGoods.Length == 0) return null;
+
+                var costs = new List<string>();
+                foreach (var goodRef in requiredGoods)
+                {
+                    if (goodRef == null) continue;
+
+                    int amount = (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
+                    string displayName = _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
+
+                    if (amount > 0 && !string.IsNullOrEmpty(displayName))
+                    {
+                        costs.Add($"{amount} {displayName}");
+                    }
+                }
+
+                return costs.Count > 0 ? string.Join(", ", costs) : null;
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingCosts failed: {ex.Message}"); }
             return null;
         }
 

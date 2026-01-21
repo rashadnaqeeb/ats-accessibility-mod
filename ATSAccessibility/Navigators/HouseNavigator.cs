@@ -209,5 +209,53 @@ namespace ATSAccessibility
                     break;
             }
         }
+
+        // ========================================
+        // SEARCH NAME METHODS
+        // ========================================
+
+        protected override string GetSectionName(int sectionIndex)
+        {
+            if (_sectionNames != null && sectionIndex >= 0 && sectionIndex < _sectionNames.Length)
+                return _sectionNames[sectionIndex];
+            return null;
+        }
+
+        protected override string GetItemName(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return null;
+
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Info:
+                    return itemIndex == 0 ? "Name" : "Status";
+                case SectionType.Residents:
+                    return GetResidentItemName(itemIndex);
+                case SectionType.Capacity:
+                    return itemIndex == 0 ? "Occupancy" : "Available";
+                default:
+                    return null;
+            }
+        }
+
+        private string GetResidentItemName(int itemIndex)
+        {
+            if (_residentIds.Count == 0)
+                return null;
+
+            if (itemIndex >= _residentIds.Count)
+                return null;
+
+            int residentId = _residentIds[itemIndex];
+            var actor = BuildingReflection.GetActor(residentId);
+
+            if (actor != null)
+            {
+                string name = BuildingReflection.GetActorName(actor) ?? "Unknown";
+                return name;
+            }
+            return null;
+        }
     }
 }

@@ -58,6 +58,9 @@ namespace ATSAccessibility
         private bool _focusOnDetails;
         private bool _focusOnSubDetails;
 
+        // Type-ahead search
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+
         // Cached reflection metadata
         private static PropertyInfo _villRacesProperty;
         private static MethodInfo _villGetDefaultProfessionAmountMethod;
@@ -92,6 +95,7 @@ namespace ATSAccessibility
             _currentSubDetailIndex = 0;
             _focusOnDetails = false;
             _focusOnSubDetails = false;
+            _search.Clear();
 
             AnnounceCategory();
             Debug.Log("[ATSAccessibility] Villagers panel opened");
@@ -103,6 +107,7 @@ namespace ATSAccessibility
 
             _isOpen = false;
             _categories.Clear();
+            _search.Clear();
             InputBlocker.BlockCancelOnce = true;
             Speech.Say("Villagers panel closed");
             Debug.Log("[ATSAccessibility] Villagers panel closed");
@@ -115,6 +120,8 @@ namespace ATSAccessibility
         public bool ProcessKeyEvent(KeyCode keyCode)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -135,12 +142,29 @@ namespace ATSAccessibility
                 case KeyCode.LeftArrow:
                     return NavigateLeft();
 
-                case KeyCode.Escape:
-                    Close();
+                case KeyCode.Backspace:
+                    HandleBackspace();
                     return true;
 
+                case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    }
+                    // No search to clear - let parent handle closing
+                    return false;
+
                 default:
-                    return true;  // Consume all other keys while panel is open
+                    // Handle A-Z keys for type-ahead search
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                    }
+                    return true;  // Consume all keys while panel is open
             }
         }
 
@@ -236,6 +260,7 @@ namespace ATSAccessibility
             if (_focusOnSubDetails)
             {
                 _focusOnSubDetails = false;
+                _search.Clear();
                 AnnounceDetail();
                 return true;
             }
@@ -243,6 +268,7 @@ namespace ATSAccessibility
             if (_focusOnDetails)
             {
                 _focusOnDetails = false;
+                _search.Clear();
                 AnnounceCategory();
                 return true;
             }
@@ -277,6 +303,121 @@ namespace ATSAccessibility
             if (detail.SubDetails.Count == 0) return;
             _currentSubDetailIndex = NavigationUtils.WrapIndex(_currentSubDetailIndex, direction, detail.SubDetails.Count);
             AnnounceSubDetail();
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        /// <summary>
+        /// Handle a search key (A-Z) for type-ahead navigation within current level.
+        /// </summary>
+        private void HandleSearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            if (_focusOnSubDetails)
+            {
+                SearchSubDetails();
+            }
+            else if (_focusOnDetails)
+            {
+                SearchDetails();
+            }
+            else
+            {
+                SearchCategories();
+            }
+        }
+
+        /// <summary>
+        /// Handle backspace key to remove last character from search buffer.
+        /// </summary>
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                return;
+            }
+
+            // Re-search with shortened buffer
+            if (_focusOnSubDetails)
+            {
+                SearchSubDetails();
+            }
+            else if (_focusOnDetails)
+            {
+                SearchDetails();
+            }
+            else
+            {
+                SearchCategories();
+            }
+        }
+
+        private void SearchCategories()
+        {
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < _categories.Count; i++)
+            {
+                if (_categories[i].DisplayName.ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentCategoryIndex = i;
+                    _currentDetailIndex = 0;
+                    _currentSubDetailIndex = 0;
+                    AnnounceCategory();
+                    Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' matched category at index {i}");
+                    return;
+                }
+            }
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' found no category match");
+        }
+
+        private void SearchDetails()
+        {
+            if (_currentCategoryIndex >= _categories.Count) return;
+            var category = _categories[_currentCategoryIndex];
+            string prefix = _search.Buffer.ToLowerInvariant();
+
+            for (int i = 0; i < category.Details.Count; i++)
+            {
+                if (category.Details[i].Label.ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentDetailIndex = i;
+                    _currentSubDetailIndex = 0;
+                    AnnounceDetail();
+                    Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' matched detail at index {i}");
+                    return;
+                }
+            }
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' found no detail match");
+        }
+
+        private void SearchSubDetails()
+        {
+            if (_currentCategoryIndex >= _categories.Count) return;
+            var category = _categories[_currentCategoryIndex];
+            if (_currentDetailIndex >= category.Details.Count) return;
+            var detail = category.Details[_currentDetailIndex];
+
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < detail.SubDetails.Count; i++)
+            {
+                if (detail.SubDetails[i].ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentSubDetailIndex = i;
+                    AnnounceSubDetail();
+                    Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' matched sub-detail at index {i}");
+                    return;
+                }
+            }
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' found no sub-detail match");
         }
 
         // ========================================

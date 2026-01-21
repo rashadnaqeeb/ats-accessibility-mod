@@ -106,5 +106,21 @@ namespace ATSAccessibility
             Speech.Say(detail);
             Debug.Log($"[ATSAccessibility] Detail: {detail}");
         }
+
+        /// <summary>
+        /// Get the searchable name for a detail item.
+        /// Uses the full detail string for searching.
+        /// </summary>
+        protected override string GetCurrentItemName(int index)
+        {
+            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count)
+                return null;
+
+            var category = _categories[_currentCategoryIndex];
+            if (index < 0 || index >= category.Details.Count)
+                return null;
+
+            return category.Details[index];
+        }
     }
 }

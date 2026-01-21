@@ -14,6 +14,9 @@ namespace ATSAccessibility
         private int _currentIndex = 0;
         private Vector3Int _tilePos;
 
+        // Type-ahead search
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+
         /// <summary>
         /// Whether the effects panel is currently open.
         /// </summary>
@@ -55,6 +58,7 @@ namespace ATSAccessibility
 
             _isOpen = true;
             _currentIndex = 0;
+            _search.Clear();
 
             AnnounceCurrentItem();
         }
@@ -68,6 +72,7 @@ namespace ATSAccessibility
 
             _isOpen = false;
             InputBlocker.BlockCancelOnce = true;
+            _search.Clear();
             _items.Clear();
             Speech.Say("Effects panel closed");
         }
@@ -80,6 +85,8 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
+            _search.ClearOnNavigationKey(keyCode);
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -90,11 +97,29 @@ namespace ATSAccessibility
                     NavigateItem(1);
                     return true;
 
+                case KeyCode.Backspace:
+                    HandleBackspace();
+                    return true;
+
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    }
                     Close();
                     return true;
 
                 default:
+                    // Handle A-Z keys for type-ahead search
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                        return true;
+                    }
                     return true;  // Consume all other keys while panel is open
             }
         }
@@ -155,6 +180,67 @@ namespace ATSAccessibility
                 }
             }
 
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        /// <summary>
+        /// Handle a search key (A-Z) for type-ahead navigation.
+        /// </summary>
+        private void HandleSearchKey(char c)
+        {
+            if (_items.Count == 0) return;
+
+            _search.AddChar(c);
+
+            // Search for first matching item
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].name.ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentIndex = i;
+                    AnnounceCurrentItem();
+                    Debug.Log($"[ATSAccessibility] World map effects search '{_search.Buffer}' matched at index {i}");
+                    return;
+                }
+            }
+
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] World map effects search '{_search.Buffer}' found no match");
+        }
+
+        /// <summary>
+        /// Handle backspace key to remove last character from search buffer.
+        /// </summary>
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                Debug.Log("[ATSAccessibility] World map effects search buffer cleared via backspace");
+                return;
+            }
+
+            // Re-search with shortened buffer
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].name.ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentIndex = i;
+                    AnnounceCurrentItem();
+                    Debug.Log($"[ATSAccessibility] World map effects search '{_search.Buffer}' matched at index {i}");
+                    return;
+                }
+            }
+
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] World map effects search '{_search.Buffer}' found no match");
         }
     }
 }

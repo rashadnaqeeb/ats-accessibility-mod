@@ -20,6 +20,9 @@ namespace ATSAccessibility
         private int _currentIndex = 0;
         private bool _isOpen = false;
 
+        // Type-ahead search
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+
         /// <summary>
         /// Whether the announcements panel is currently open.
         /// </summary>
@@ -33,6 +36,7 @@ namespace ATSAccessibility
             _isOpen = true;
             BuildItemList();
             _currentIndex = 0;
+            _search.Clear();
             AnnounceCurrentItem(includeHeader: true);
             Debug.Log("[ATSAccessibility] Announcements settings panel opened");
         }
@@ -44,6 +48,7 @@ namespace ATSAccessibility
         public void Close()
         {
             _isOpen = false;
+            _search.Clear();
             Debug.Log("[ATSAccessibility] Announcements settings panel closed");
         }
 
@@ -54,6 +59,8 @@ namespace ATSAccessibility
         public bool ProcessKeyEvent(KeyCode keyCode)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -75,11 +82,29 @@ namespace ATSAccessibility
                     // Signal to parent to close this panel and return to menu
                     return false;
 
-                case KeyCode.Escape:
-                    Close();
+                case KeyCode.Backspace:
+                    HandleBackspace();
                     return true;
 
+                case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    }
+                    // No search to clear - let parent handle closing
+                    return false;
+
                 default:
+                    // Handle A-Z keys for type-ahead search
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                        return true;
+                    }
                     // Consume other keys while panel is open
                     return true;
             }
@@ -166,6 +191,67 @@ namespace ATSAccessibility
 
             // News/Warnings
             _items.Add(new SettingItem { Label = "Game warnings", ConfigEntry = Plugin.AnnounceGameWarnings });
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        /// <summary>
+        /// Handle a search key (A-Z) for type-ahead navigation.
+        /// </summary>
+        private void HandleSearchKey(char c)
+        {
+            if (_items.Count == 0) return;
+
+            _search.AddChar(c);
+
+            // Search for first matching item
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].Label.ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentIndex = i;
+                    AnnounceCurrentItem(includeHeader: false);
+                    Debug.Log($"[ATSAccessibility] Announcements settings search '{_search.Buffer}' matched at index {i}");
+                    return;
+                }
+            }
+
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Announcements settings search '{_search.Buffer}' found no match");
+        }
+
+        /// <summary>
+        /// Handle backspace key to remove last character from search buffer.
+        /// </summary>
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                Debug.Log("[ATSAccessibility] Announcements settings search buffer cleared via backspace");
+                return;
+            }
+
+            // Re-search with shortened buffer
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].Label.ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentIndex = i;
+                    AnnounceCurrentItem(includeHeader: false);
+                    Debug.Log($"[ATSAccessibility] Announcements settings search '{_search.Buffer}' matched at index {i}");
+                    return;
+                }
+            }
+
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Announcements settings search '{_search.Buffer}' found no match");
         }
     }
 }

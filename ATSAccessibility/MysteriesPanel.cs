@@ -161,6 +161,21 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Mystery item {_currentItemIndex + 1}/{category.Items.Count}: {item.Name}");
         }
 
+        /// <summary>
+        /// Get the searchable name for a mystery/modifier item.
+        /// </summary>
+        protected override string GetCurrentItemName(int index)
+        {
+            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count)
+                return null;
+
+            var category = _categories[_currentCategoryIndex];
+            if (index < 0 || index >= category.Items.Count)
+                return null;
+
+            return category.Items[index].Name;
+        }
+
         // ========================================
         // MYSTERY DATA LOADING
         // ========================================

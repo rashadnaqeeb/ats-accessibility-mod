@@ -60,6 +60,9 @@ namespace ATSAccessibility
         private int _currentDetailIndex = 0;
         private bool _focusOnDetails = false;
 
+        // Type-ahead search
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+
         /// <summary>
         /// Whether the embark panel is currently open.
         /// </summary>
@@ -94,6 +97,7 @@ namespace ATSAccessibility
             _currentCategoryIndex = 0;
             _currentDetailIndex = 0;
             _focusOnDetails = false;
+            _search.Clear();
 
             // Cache expensive instance references (pass field pos for min difficulty calculation)
             EmbarkReflection.CacheInstancesOnOpen(_cachedFieldPos);
@@ -115,6 +119,7 @@ namespace ATSAccessibility
             _currentField = null;
             _cachedFieldPos = Vector3Int.zero;
             _categories.Clear();
+            _search.Clear();
 
             // Clear cached instance references
             EmbarkReflection.ClearInstanceCaches();
@@ -134,6 +139,8 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -158,10 +165,29 @@ namespace ATSAccessibility
                     Activate();
                     return true;
 
+                case KeyCode.Backspace:
+                    HandleBackspace();
+                    return true;
+
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    }
                     return HandleEscape();  // Returns false at top menu to let game handle it
 
                 default:
+                    // Handle A-Z keys for type-ahead search (not at top menu)
+                    if (_currentSection != EmbarkSection.TopMenu &&
+                        keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                        return true;
+                    }
                     // Consume all other keys while panel is open
                     return true;
             }
@@ -221,6 +247,7 @@ namespace ATSAccessibility
                 if (_currentCategoryIndex == 0)
                 {
                     _currentSection = EmbarkSection.TopMenu;
+                    _search.Clear();
                     AnnounceTopMenu();
                 }
                 else
@@ -232,12 +259,14 @@ namespace ATSAccessibility
             {
                 // Return to categories
                 _focusOnDetails = false;
+                _search.Clear();
                 AnnounceCurrentCategory();
             }
             else
             {
                 // At category level, return to top menu
                 _currentSection = EmbarkSection.TopMenu;
+                _search.Clear();
                 AnnounceTopMenu();
             }
         }
@@ -1111,6 +1140,129 @@ namespace ATSAccessibility
             }
 
             return Vector3Int.zero;
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        /// <summary>
+        /// Handle a search key (A-Z) for type-ahead navigation.
+        /// </summary>
+        private void HandleSearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            if (_currentSection == EmbarkSection.SpendPoints)
+            {
+                // Search within current spend points panel's items
+                SearchSpendPointsItems();
+            }
+            else if (_focusOnDetails)
+            {
+                // Search within current category's details
+                SearchDetails();
+            }
+            else
+            {
+                // Search within categories
+                SearchCategories();
+            }
+        }
+
+        /// <summary>
+        /// Handle backspace key to remove last character from search buffer.
+        /// </summary>
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                return;
+            }
+
+            // Re-search with shortened buffer
+            if (_currentSection == EmbarkSection.SpendPoints)
+            {
+                SearchSpendPointsItems();
+            }
+            else if (_focusOnDetails)
+            {
+                SearchDetails();
+            }
+            else
+            {
+                SearchCategories();
+            }
+        }
+
+        private void SearchCategories()
+        {
+            if (_categories.Count == 0) return;
+
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < _categories.Count; i++)
+            {
+                if (_categories[i].Name.ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentCategoryIndex = i;
+                    _currentDetailIndex = 0;
+                    AnnounceCurrentCategory();
+                    Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' matched category at index {i}");
+                    return;
+                }
+            }
+
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' found no category match");
+        }
+
+        private void SearchDetails()
+        {
+            if (_categories.Count == 0) return;
+
+            var category = _categories[_currentCategoryIndex];
+            if (category.Details.Count == 0) return;
+
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < category.Details.Count; i++)
+            {
+                if (category.Details[i].ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentDetailIndex = i;
+                    AnnounceCurrentDetail();
+                    Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' matched detail at index {i}");
+                    return;
+                }
+            }
+
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' found no detail match");
+        }
+
+        private void SearchSpendPointsItems()
+        {
+            if (_categories.Count == 0) return;
+
+            var category = _categories[_currentCategoryIndex];
+            if (category.Details.Count == 0) return;
+
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < category.Details.Count; i++)
+            {
+                if (category.Details[i].ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentDetailIndex = i;
+                    AnnounceSpendPointsItem();
+                    Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' matched spend points item at index {i}");
+                    return;
+                }
+            }
+
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' found no spend points item match");
         }
     }
 }

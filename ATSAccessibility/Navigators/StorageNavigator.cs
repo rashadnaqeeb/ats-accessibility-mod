@@ -381,7 +381,23 @@ namespace ATSAccessibility
             if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
             {
                 var (raceName, freeCount) = _availableRaces[raceIndex];
-                Speech.Say($"{raceName}: {freeCount} available");
+                string bonus = BuildingReflection.GetRaceBonusForBuilding(_building, raceName);
+                if (!string.IsNullOrEmpty(bonus))
+                {
+                    // If bonus contains a comma, it already has a description - don't add "specialist"
+                    if (bonus.Contains(","))
+                    {
+                        Speech.Say($"{raceName}: {freeCount} available, {bonus}");
+                    }
+                    else
+                    {
+                        Speech.Say($"{raceName}: {freeCount} available, {bonus} specialist");
+                    }
+                }
+                else
+                {
+                    Speech.Say($"{raceName}: {freeCount} available");
+                }
             }
             else
             {
@@ -527,6 +543,92 @@ namespace ATSAccessibility
                 Speech.Say($"Cannot use {abilityName}");
                 return true;
             }
+        }
+
+        // ========================================
+        // SEARCH NAME METHODS
+        // ========================================
+
+        protected override string GetSectionName(int sectionIndex)
+        {
+            if (_sectionNames != null && sectionIndex >= 0 && sectionIndex < _sectionNames.Length)
+                return _sectionNames[sectionIndex];
+            return null;
+        }
+
+        protected override string GetItemName(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return null;
+
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Info:
+                    return GetInfoItemName(itemIndex);
+                case SectionType.Goods:
+                    return itemIndex < _goods.Count ? _goods[itemIndex].displayName : null;
+                case SectionType.Workers:
+                    return GetWorkerItemName(itemIndex);
+                case SectionType.Abilities:
+                    return itemIndex < _abilityCount ? BuildingReflection.GetCycleAbilityName(itemIndex) : null;
+                default:
+                    return null;
+            }
+        }
+
+        private string GetInfoItemName(int itemIndex)
+        {
+            int index = 0;
+            if (itemIndex == index) return "Name";
+            index++;
+            if (!string.IsNullOrEmpty(_buildingDescription))
+            {
+                if (itemIndex == index) return "Description";
+                index++;
+            }
+            if (itemIndex == index) return "Status";
+            return null;
+        }
+
+        private string GetWorkerItemName(int itemIndex)
+        {
+            if (!IsValidWorkerIndex(itemIndex))
+                return null;
+
+            int workerId = _workerIds[itemIndex];
+            if (workerId <= 0)
+                return $"Slot {itemIndex + 1}";
+
+            string workerDesc = BuildingReflection.GetWorkerDescription(workerId);
+            return !string.IsNullOrEmpty(workerDesc) ? workerDesc : $"Slot {itemIndex + 1}";
+        }
+
+        protected override string GetSubItemName(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return null;
+
+            // Only workers have sub-items
+            if (_sectionTypes[sectionIndex] != SectionType.Workers)
+                return null;
+
+            if (!IsValidWorkerIndex(itemIndex))
+                return null;
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, itemIndex);
+            int raceOffset = slotOccupied ? 1 : 0;
+
+            if (slotOccupied && subItemIndex == 0)
+            {
+                return "Unassign";
+            }
+
+            int raceIndex = subItemIndex - raceOffset;
+            if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
+            {
+                return _availableRaces[raceIndex].raceName;
+            }
+            return null;
         }
     }
 }

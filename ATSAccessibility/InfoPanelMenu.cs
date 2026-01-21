@@ -29,6 +29,9 @@ namespace ATSAccessibility
         private int _currentIndex;
         private MenuPanel? _activeChildPanel;
 
+        // Type-ahead search for root menu
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+
         /// <summary>
         /// Whether the info panel menu is currently open.
         /// </summary>
@@ -67,6 +70,7 @@ namespace ATSAccessibility
             _isOpen = true;
             _currentIndex = 0;
             _activeChildPanel = null;
+            _search.Clear();
 
             AnnounceCurrentItem(includePrefix: true);
             Debug.Log("[ATSAccessibility] Info panel menu opened");
@@ -83,6 +87,7 @@ namespace ATSAccessibility
             CloseActiveChildPanel();
 
             _isOpen = false;
+            _search.Clear();
             InputBlocker.BlockCancelOnce = true;
             Speech.Say("Information panels closed");
             Debug.Log("[ATSAccessibility] Info panel menu closed");
@@ -95,6 +100,8 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             // If a child panel is open, handle navigation
             if (_activeChildPanel.HasValue)
@@ -113,8 +120,15 @@ namespace ATSAccessibility
                         return true;
 
                     case KeyCode.Escape:
-                        // Close everything
-                        Close();
+                        // Let child panel handle Escape first (e.g., to clear search)
+                        if (ProcessChildPanelKey(keyCode))
+                        {
+                            return true;  // Child handled it (cleared search)
+                        }
+                        // Child didn't handle it, close child and return to menu
+                        CloseActiveChildPanel();
+                        InputBlocker.BlockCancelOnce = true;
+                        AnnounceCurrentItem(includePrefix: false);
                         return true;
 
                     default:
@@ -140,12 +154,29 @@ namespace ATSAccessibility
                     OpenSelectedPanel();
                     return true;
 
+                case KeyCode.Backspace:
+                    HandleBackspace();
+                    return true;
+
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    }
                     Close();
                     return true;
 
                 default:
-                    return true; // Consume other keys while menu is open
+                    // Handle A-Z keys for type-ahead search
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                    }
+                    return true; // Consume all keys while menu is open
             }
         }
 
@@ -240,6 +271,58 @@ namespace ATSAccessibility
 
             string message = includePrefix ? $"Information panels. {label}" : label;
             Speech.Say(message);
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        private void HandleSearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < _menuLabels.Length; i++)
+            {
+                if (_menuLabels[i].ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentIndex = i;
+                    AnnounceCurrentItem(includePrefix: false);
+                    Debug.Log($"[ATSAccessibility] Info menu search '{_search.Buffer}' matched at index {i}");
+                    return;
+                }
+            }
+
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Info menu search '{_search.Buffer}' found no match");
+        }
+
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                Debug.Log("[ATSAccessibility] Info menu search buffer cleared via backspace");
+                return;
+            }
+
+            // Re-search with shortened buffer
+            string prefix = _search.Buffer.ToLowerInvariant();
+            for (int i = 0; i < _menuLabels.Length; i++)
+            {
+                if (_menuLabels[i].ToLowerInvariant().StartsWith(prefix))
+                {
+                    _currentIndex = i;
+                    AnnounceCurrentItem(includePrefix: false);
+                    Debug.Log($"[ATSAccessibility] Info menu search '{_search.Buffer}' matched at index {i}");
+                    return;
+                }
+            }
+
+            Speech.Say($"No match for {_search.Buffer}");
+            Debug.Log($"[ATSAccessibility] Info menu search '{_search.Buffer}' found no match");
         }
     }
 }

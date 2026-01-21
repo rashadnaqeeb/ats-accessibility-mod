@@ -33,6 +33,10 @@ namespace ATSAccessibility
 
         private List<Category> _categories = new List<Category>();
 
+        // Flat list of all resources for cross-category search
+        private List<(int categoryIndex, int itemIndex, string name)> _allResources =
+            new List<(int, int, string)>();
+
         // ========================================
         // ABSTRACT MEMBER IMPLEMENTATIONS
         // ========================================
@@ -132,12 +136,24 @@ namespace ATSAccessibility
                     .ToList();
             }
 
+            // Build flat list of all resources for cross-category search
+            _allResources.Clear();
+            for (int ci = 0; ci < _categories.Count; ci++)
+            {
+                var cat = _categories[ci];
+                for (int ii = 0; ii < cat.Items.Count; ii++)
+                {
+                    _allResources.Add((ci, ii, cat.Items[ii].Name));
+                }
+            }
+
             Debug.Log($"[ATSAccessibility] Resource panel refreshed: {_categories.Count} categories, {storedGoods.Count} goods");
         }
 
         protected override void ClearData()
         {
             _categories.Clear();
+            _allResources.Clear();
         }
 
         protected override void AnnounceCategory()
@@ -160,6 +176,138 @@ namespace ATSAccessibility
             var item = category.Items[_currentItemIndex];
             Speech.Say($"{item.Name}, {item.Amount}");
             Debug.Log($"[ATSAccessibility] Item: {item.Name} x{item.Amount}");
+        }
+
+        // ========================================
+        // CROSS-CATEGORY SEARCH (OVERRIDE BASE)
+        // ========================================
+
+        /// <summary>
+        /// Override ProcessKeyEvent to handle cross-category search.
+        /// Resource panel searches ALL resources across all categories.
+        /// </summary>
+        public new bool ProcessKeyEvent(KeyCode keyCode)
+        {
+            if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
+
+            switch (keyCode)
+            {
+                case KeyCode.UpArrow:
+                    if (_focusOnItems)
+                        NavigateItem(-1);
+                    else
+                        NavigateCategory(-1);
+                    return true;
+
+                case KeyCode.DownArrow:
+                    if (_focusOnItems)
+                        NavigateItem(1);
+                    else
+                        NavigateCategory(1);
+                    return true;
+
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                case KeyCode.RightArrow:
+                    EnterItems();
+                    return true;
+
+                case KeyCode.LeftArrow:
+                    if (_focusOnItems)
+                    {
+                        _focusOnItems = false;
+                        _search.Clear();
+                        AnnounceCategory();
+                        return true;
+                    }
+                    return false;  // At root level, let parent handle
+
+                case KeyCode.Backspace:
+                    HandleBackspace();
+                    return true;
+
+                case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    }
+                    // No search to clear - let parent handle closing
+                    return false;
+
+                default:
+                    // Handle A-Z keys for cross-category type-ahead search
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleCrossSearchKey(c);
+                    }
+                    return true;  // Consume all keys while panel is open
+            }
+        }
+
+        /// <summary>
+        /// Handle a search key (A-Z) for cross-category type-ahead navigation.
+        /// Searches all resources across all categories.
+        /// </summary>
+        private void HandleCrossSearchKey(char c)
+        {
+            if (_allResources.Count == 0) return;
+
+            _search.AddChar(c);
+
+            // Find first resource starting with buffer (case-insensitive)
+            int matchIndex = _search.FindMatch(_allResources, entry => entry.name);
+            if (matchIndex >= 0)
+            {
+                var match = _allResources[matchIndex];
+                _currentCategoryIndex = match.categoryIndex;
+                _currentItemIndex = match.itemIndex;
+                _focusOnItems = true;  // Auto-enter items panel
+                AnnounceItem();
+                Debug.Log($"[ATSAccessibility] Resource search '{_search.Buffer}' matched at category {_currentCategoryIndex}, item {_currentItemIndex}");
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+                Debug.Log($"[ATSAccessibility] Resource search '{_search.Buffer}' found no match");
+            }
+        }
+
+        /// <summary>
+        /// Handle backspace key for cross-category search.
+        /// </summary>
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                Debug.Log("[ATSAccessibility] Resource search buffer cleared via backspace");
+                return;
+            }
+
+            // Re-search with shortened buffer
+            int matchIndex = _search.FindMatch(_allResources, entry => entry.name);
+            if (matchIndex >= 0)
+            {
+                var match = _allResources[matchIndex];
+                _currentCategoryIndex = match.categoryIndex;
+                _currentItemIndex = match.itemIndex;
+                _focusOnItems = true;
+                AnnounceItem();
+                Debug.Log($"[ATSAccessibility] Resource search '{_search.Buffer}' matched at category {_currentCategoryIndex}, item {_currentItemIndex}");
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+                Debug.Log($"[ATSAccessibility] Resource search '{_search.Buffer}' found no match");
+            }
         }
     }
 }

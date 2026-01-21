@@ -140,6 +140,21 @@ namespace ATSAccessibility
         private static PropertyInfo _villagersServiceRacesProperty = null;  // Races dictionary
         private static bool _villagersServiceTypesCached = false;
 
+        // RacesService for race bonuses
+        private static PropertyInfo _racesServiceRacesProperty = null;  // IRacesService.Races (RaceModel[])
+        private static FieldInfo _raceModelCharacteristicsField = null;  // RaceModel.characteristics (RaceCharacteristicModel[])
+        private static FieldInfo _raceCharacteristicTagField = null;  // RaceCharacteristicModel.tag (BuildingTagModel)
+        private static FieldInfo _raceCharacteristicEffectField = null;  // RaceCharacteristicModel.effect (VillagerPerkModel)
+        private static FieldInfo _raceCharacteristicGlobalEffectField = null;  // RaceCharacteristicModel.globalEffect (EffectModel)
+        private static FieldInfo _raceCharacteristicBuildingPerkField = null;  // RaceCharacteristicModel.buildingPerk (BuildingPerkModel)
+        private static FieldInfo _buildingModelTagsField = null;  // BuildingModel.tags (BuildingTagModel[])
+        private static FieldInfo _buildingTagDisplayNameField = null;  // BuildingTagModel.displayName (LocaText)
+        private static FieldInfo _villagerPerkDisplayNameField = null;  // VillagerPerkModel.displayName (LocaText)
+        private static PropertyInfo _effectModelDisplayNameProperty = null;  // EffectModel.DisplayName (string)
+        private static PropertyInfo _buildingPerkDisplayNameProperty = null;  // BuildingPerkModel.DisplayName (string)
+        private static PropertyInfo _locaTextTextProperty = null;  // LocaText.Text (string)
+        private static bool _raceBonusTypesCached = false;
+
         // ProductionBuilding for profession and workplaces
         private static PropertyInfo _professionProperty = null;  // ProductionBuilding.Profession
         private static PropertyInfo _workplacesProperty = null;  // ProductionBuilding.Workplaces
@@ -355,6 +370,9 @@ namespace ATSAccessibility
         private static FieldInfo _engineStateLevelField = null;  // RainpunkEngineState.level
         private static FieldInfo _engineStateRequestedLevelField = null;  // RainpunkEngineState.requestedLevel
         private static FieldInfo _engineModelMaxLevelField = null;  // RainpunkEngineModel.maxLevel
+        private static FieldInfo _engineModelLevelsField = null;  // RainpunkEngineModel.levels (RainpunkEngineLevel[])
+        private static FieldInfo _engineLevelPerkField = null;  // RainpunkEngineLevel.perk (BuildingPerkModel)
+        private static PropertyInfo _buildingPerkDisplayNameProp = null;  // BuildingPerkModel.DisplayName
         private static bool _rainpunkEngineTypesCached = false;
 
         // ========================================
@@ -950,6 +968,95 @@ namespace ATSAccessibility
             }
 
             _villagersServiceTypesCached = true;
+        }
+
+        private static void EnsureRaceBonusTypes()
+        {
+            if (_raceBonusTypesCached) return;
+
+            var assembly = GameReflection.GameAssembly;
+            if (assembly == null)
+            {
+                _raceBonusTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // IRacesService.Races property
+                var racesServiceType = assembly.GetType("Eremite.Services.IRacesService");
+                if (racesServiceType != null)
+                {
+                    _racesServiceRacesProperty = racesServiceType.GetProperty("Races", GameReflection.PublicInstance);
+                }
+
+                // RaceModel.characteristics field
+                var raceModelType = assembly.GetType("Eremite.Model.RaceModel");
+                if (raceModelType != null)
+                {
+                    _raceModelCharacteristicsField = raceModelType.GetField("characteristics", GameReflection.PublicInstance);
+                }
+
+                // RaceCharacteristicModel fields
+                var raceCharacteristicType = assembly.GetType("Eremite.Model.RaceCharacteristicModel");
+                if (raceCharacteristicType != null)
+                {
+                    _raceCharacteristicTagField = raceCharacteristicType.GetField("tag", GameReflection.PublicInstance);
+                    _raceCharacteristicEffectField = raceCharacteristicType.GetField("effect", GameReflection.PublicInstance);
+                    _raceCharacteristicGlobalEffectField = raceCharacteristicType.GetField("globalEffect", GameReflection.PublicInstance);
+                    _raceCharacteristicBuildingPerkField = raceCharacteristicType.GetField("buildingPerk", GameReflection.PublicInstance);
+                }
+
+                // VillagerPerkModel.displayName field
+                var villagerPerkType = assembly.GetType("Eremite.Characters.Villagers.VillagerPerkModel");
+                if (villagerPerkType != null)
+                {
+                    _villagerPerkDisplayNameField = villagerPerkType.GetField("displayName", GameReflection.PublicInstance);
+                }
+
+                // EffectModel.DisplayName property
+                var effectModelType = assembly.GetType("Eremite.Model.EffectModel");
+                if (effectModelType != null)
+                {
+                    _effectModelDisplayNameProperty = effectModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
+                }
+
+                // BuildingPerkModel.DisplayName property
+                var buildingPerkModelType = assembly.GetType("Eremite.Model.BuildingPerkModel");
+                if (buildingPerkModelType != null)
+                {
+                    _buildingPerkDisplayNameProperty = buildingPerkModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
+                }
+
+                // BuildingModel.tags field
+                var buildingModelType = assembly.GetType("Eremite.Buildings.BuildingModel");
+                if (buildingModelType != null)
+                {
+                    _buildingModelTagsField = buildingModelType.GetField("tags", GameReflection.PublicInstance);
+                }
+
+                // BuildingTagModel.displayName field
+                var buildingTagModelType = assembly.GetType("Eremite.Buildings.BuildingTagModel");
+                if (buildingTagModelType != null)
+                {
+                    _buildingTagDisplayNameField = buildingTagModelType.GetField("displayName", GameReflection.PublicInstance);
+                }
+
+                // LocaText.Text property
+                var locaTextType = assembly.GetType("Eremite.Model.LocaText");
+                if (locaTextType != null)
+                {
+                    _locaTextTextProperty = locaTextType.GetProperty("Text", GameReflection.PublicInstance);
+                }
+
+                Debug.Log("[ATSAccessibility] BuildingReflection: Cached RaceBonus types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] BuildingReflection race bonus types failed: {ex.Message}");
+            }
+
+            _raceBonusTypesCached = true;
         }
 
         private static void EnsureProfessionTypes()
@@ -1802,11 +1909,11 @@ namespace ATSAccessibility
                     _storageServiceMainProperty = storageServiceType.GetProperty("Main", GameReflection.PublicInstance);
                 }
 
-                // MainStorage.GetAmount(string)
-                var mainStorageType = assembly.GetType("Eremite.Services.MainStorage");
-                if (mainStorageType != null)
+                // Storage.GetAmount(string) - Main storage is of type Eremite.Buildings.Storage
+                var storageType = assembly.GetType("Eremite.Buildings.Storage");
+                if (storageType != null)
                 {
-                    _mainStorageGetAmountMethod = mainStorageType.GetMethod("GetAmount", GameReflection.PublicInstance, null, new[] { typeof(string) }, null);
+                    _mainStorageGetAmountMethod = storageType.GetMethod("GetAmount", GameReflection.PublicInstance, null, new[] { typeof(string) }, null);
                 }
 
                 Debug.Log("[ATSAccessibility] BuildingReflection: Cached StorageService2 types");
@@ -1915,6 +2022,21 @@ namespace ATSAccessibility
                 if (_rainpunkEngineModelType != null)
                 {
                     _engineModelMaxLevelField = _rainpunkEngineModelType.GetField("maxLevel", GameReflection.PublicInstance);
+                    _engineModelLevelsField = _rainpunkEngineModelType.GetField("levels", GameReflection.PublicInstance);
+                }
+
+                // RainpunkEngineLevel fields
+                var engineLevelType = assembly.GetType("Eremite.Buildings.RainpunkEngineLevel");
+                if (engineLevelType != null)
+                {
+                    _engineLevelPerkField = engineLevelType.GetField("perk", GameReflection.PublicInstance);
+                }
+
+                // BuildingPerkModel.DisplayName property
+                var buildingPerkModelType = assembly.GetType("Eremite.Model.BuildingPerkModel");
+                if (buildingPerkModelType != null)
+                {
+                    _buildingPerkDisplayNameProp = buildingPerkModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
                 }
 
                 Debug.Log("[ATSAccessibility] BuildingReflection: Cached RainpunkEngine types");
@@ -2786,6 +2908,161 @@ namespace ATSAccessibility
             catch
             {
                 return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the racial bonus tag name for a race at a specific building, if any.
+        /// Returns the tag's display name (e.g., "Woodcutters", "Farmers") if the race has a matching bonus,
+        /// or null if no bonus applies to this building.
+        /// </summary>
+        public static string GetRaceBonusForBuilding(object building, string raceName)
+        {
+            if (building == null || string.IsNullOrEmpty(raceName)) return null;
+
+            EnsureRaceBonusTypes();
+            EnsureBuildingTypes();
+
+            try
+            {
+                // Get RacesService
+                var racesService = GameReflection.GetRacesService();
+                if (racesService == null) return null;
+
+                // Get Races array
+                var races = _racesServiceRacesProperty?.GetValue(racesService) as System.Array;
+                if (races == null) return null;
+
+                // Find the RaceModel with matching name
+                object raceModel = null;
+                foreach (var race in races)
+                {
+                    if (race == null) continue;
+
+                    // RaceModel inherits from SO which has Name property
+                    var nameProperty = race.GetType().GetProperty("Name", GameReflection.PublicInstance);
+                    string name = nameProperty?.GetValue(race) as string;
+                    if (name == raceName)
+                    {
+                        raceModel = race;
+                        break;
+                    }
+                }
+
+                if (raceModel == null) return null;
+
+                // Get the building model
+                var buildingModel = _buildingModelProperty?.GetValue(building);
+                if (buildingModel == null) return null;
+
+                // Get building's tags array
+                var tags = _buildingModelTagsField?.GetValue(buildingModel) as System.Array;
+                if (tags == null || tags.Length == 0) return null;
+
+                // Get race's characteristics array
+                var characteristics = _raceModelCharacteristicsField?.GetValue(raceModel) as System.Array;
+                if (characteristics == null || characteristics.Length == 0) return null;
+
+                // For each building tag, check if the race has a characteristic for it
+                foreach (var buildingTag in tags)
+                {
+                    if (buildingTag == null) continue;
+
+                    // Check each characteristic to see if its tag matches
+                    foreach (var characteristic in characteristics)
+                    {
+                        if (characteristic == null) continue;
+
+                        var characteristicTag = _raceCharacteristicTagField?.GetValue(characteristic);
+                        if (characteristicTag == null) continue;
+
+                        // Compare the tags (they should be the same object reference)
+                        if (characteristicTag == buildingTag)
+                        {
+                            // Found a match! Try to get the tag's display name first
+                            var displayNameLoca = _buildingTagDisplayNameField?.GetValue(buildingTag);
+                            if (displayNameLoca != null)
+                            {
+                                string displayName = _locaTextTextProperty?.GetValue(displayNameLoca) as string;
+                                // Check for valid display name (missing localization keys show as ">Missing key<")
+                                if (!string.IsNullOrEmpty(displayName) && !displayName.Contains("Missing key"))
+                                {
+                                    return displayName;
+                                }
+                            }
+
+                            // Try effect's displayName (VillagerPerkModel)
+                            var effect = _raceCharacteristicEffectField?.GetValue(characteristic);
+                            if (effect != null)
+                            {
+                                var effectDisplayNameLoca = _villagerPerkDisplayNameField?.GetValue(effect);
+                                if (effectDisplayNameLoca != null)
+                                {
+                                    string effectDisplayName = _locaTextTextProperty?.GetValue(effectDisplayNameLoca) as string;
+                                    if (!string.IsNullOrEmpty(effectDisplayName) && !effectDisplayName.Contains("Missing key"))
+                                    {
+                                        // Get description too for VillagerPerkModel
+                                        var descProp = effect.GetType().GetProperty("Description", GameReflection.PublicInstance);
+                                        string desc = descProp?.GetValue(effect) as string;
+                                        if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key"))
+                                        {
+                                            return $"{effectDisplayName}, {desc}";
+                                        }
+                                        return effectDisplayName;
+                                    }
+                                }
+                            }
+
+                            // Try buildingPerk's DisplayName (BuildingPerkModel)
+                            var buildingPerk = _raceCharacteristicBuildingPerkField?.GetValue(characteristic);
+                            if (buildingPerk != null)
+                            {
+                                string perkDisplayName = _buildingPerkDisplayNameProperty?.GetValue(buildingPerk) as string;
+                                if (!string.IsNullOrEmpty(perkDisplayName) && !perkDisplayName.Contains("Missing key"))
+                                {
+                                    // Get description too - BuildingPerkModel.GetDescription(Building) but we can pass null
+                                    var getDescMethod = buildingPerk.GetType().GetMethod("GetDescription", new[] { typeof(object).Assembly.GetType("Eremite.Buildings.Building") ?? typeof(object) });
+                                    string desc = null;
+                                    try
+                                    {
+                                        desc = getDescMethod?.Invoke(buildingPerk, new object[] { null }) as string;
+                                    }
+                                    catch { }
+                                    if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key"))
+                                    {
+                                        return $"{perkDisplayName}, {desc}";
+                                    }
+                                    return perkDisplayName;
+                                }
+                            }
+
+                            // Try globalEffect's DisplayName (EffectModel)
+                            var globalEffect = _raceCharacteristicGlobalEffectField?.GetValue(characteristic);
+                            if (globalEffect != null)
+                            {
+                                string globalDisplayName = _effectModelDisplayNameProperty?.GetValue(globalEffect) as string;
+                                if (!string.IsNullOrEmpty(globalDisplayName) && !globalDisplayName.Contains("Missing key"))
+                                {
+                                    // Get description too for EffectModel
+                                    var descProp = globalEffect.GetType().GetProperty("Description", GameReflection.PublicInstance);
+                                    string desc = descProp?.GetValue(globalEffect) as string;
+                                    if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key"))
+                                    {
+                                        return $"{globalDisplayName}, {desc}";
+                                    }
+                                    return globalDisplayName;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetRaceBonusForBuilding failed: {ex.Message}");
+                return null;
             }
         }
 
@@ -6131,6 +6408,45 @@ namespace ATSAccessibility
             catch
             {
                 return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the effect description for a specific engine level.
+        /// Returns the perk's display name (e.g., "+25% production speed").
+        /// </summary>
+        public static string GetEngineLevelEffect(object building, int engineIndex, int level)
+        {
+            if (level <= 0) return null;
+
+            var engineModel = GetEngineModel(building, engineIndex);
+            if (engineModel == null) return null;
+
+            EnsureRainpunkEngineTypes();
+
+            try
+            {
+                // Get the levels array
+                var levels = _engineModelLevelsField?.GetValue(engineModel) as Array;
+                if (levels == null) return null;
+
+                // Find the level entry (levels array is 0-indexed, level 1 is at index 0)
+                int levelIndex = level - 1;
+                if (levelIndex < 0 || levelIndex >= levels.Length) return null;
+
+                var levelEntry = levels.GetValue(levelIndex);
+                if (levelEntry == null) return null;
+
+                // Get the perk from the level
+                var perk = _engineLevelPerkField?.GetValue(levelEntry);
+                if (perk == null) return null;
+
+                // Get the perk's display name
+                return _buildingPerkDisplayNameProp?.GetValue(perk) as string;
+            }
+            catch
+            {
+                return null;
             }
         }
 

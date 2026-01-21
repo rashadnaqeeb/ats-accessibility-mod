@@ -119,5 +119,30 @@ namespace ATSAccessibility
 
             return "Unknown item";
         }
+
+        // ========================================
+        // SEARCH NAME METHODS
+        // ========================================
+
+        protected override string GetSectionName(int sectionIndex)
+        {
+            return sectionIndex == 0 ? "Info" : null;
+        }
+
+        protected override string GetItemName(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex != 0) return null;
+
+            int index = 0;
+            if (itemIndex == index) return "Name";
+            index++;
+            if (!string.IsNullOrEmpty(_buildingDescription))
+            {
+                if (itemIndex == index) return "Description";
+                index++;
+            }
+            if (itemIndex == index) return "Status";
+            return null;
+        }
     }
 }

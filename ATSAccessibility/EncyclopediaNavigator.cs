@@ -32,6 +32,9 @@ namespace ATSAccessibility
         // Track which category panel is currently active
         private object _currentCategoryPanel;
 
+        // Type-ahead search for article navigation
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+
         /// <summary>
         /// Whether this handler is currently active (IKeyHandler).
         /// </summary>
@@ -44,6 +47,8 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!IsActive) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -64,7 +69,27 @@ namespace ATSAccessibility
                 case KeyCode.Space:
                     ActivateCurrentElement();
                     return true;
+                case KeyCode.Backspace:
+                    HandleBackspace();
+                    return true;
+                case KeyCode.Escape:
+                    // Only consume Escape if we have a search to clear
+                    if (_search.HasBuffer)
+                    {
+                        ClearSearchBuffer();
+                        InputBlocker.BlockCancelOnce = true;  // Block the Cancel action
+                        return true;
+                    }
+                    // Otherwise let it pass through to close the encyclopedia
+                    return false;
                 default:
+                    // Check for alphabetic keys (A-Z) for type-ahead search
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                        return true;
+                    }
                     // Consume all other keys while encyclopedia is open
                     return true;
             }
@@ -102,6 +127,7 @@ namespace ATSAccessibility
             _articleSlots.Clear();
             _contentLines.Clear();
             _currentCategoryPanel = null;
+            _search.Clear();
 
             Debug.Log("[ATSAccessibility] EncyclopediaNavigator deactivated");
         }
@@ -125,6 +151,9 @@ namespace ATSAccessibility
 
             if (newPanel != (int)_currentPanel)
             {
+                // Clear search buffer when leaving Articles panel
+                _search.Clear();
+
                 _currentPanel = (WikiPanel)newPanel;
 
                 // When entering Articles panel, rebuild from current category
@@ -866,6 +895,91 @@ namespace ATSAccessibility
             if (_contentLineIndex >= _contentLines.Count) _contentLineIndex = _contentLines.Count - 1;
 
             AnnounceCurrentElement();
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        /// <summary>
+        /// Handle an alphabetic key press for type-ahead search.
+        /// Only active in the Articles panel.
+        /// </summary>
+        private void HandleSearchKey(char c)
+        {
+            // Type-ahead search only works in Articles panel
+            if (_currentPanel != WikiPanel.Articles)
+                return;
+
+            if (_articleSlots.Count == 0)
+                return;
+
+            _search.AddChar(c);
+
+            // Find first article starting with buffer
+            int matchIndex = _search.FindMatch(_articleSlots, slot =>
+            {
+                var comp = slot as Component;
+                return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
+            });
+
+            if (matchIndex >= 0)
+            {
+                _articleIndex = matchIndex;
+                AnnounceArticleElement();
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        /// <summary>
+        /// Handle backspace key - remove last character from search buffer.
+        /// </summary>
+        private void HandleBackspace()
+        {
+            if (_currentPanel != WikiPanel.Articles)
+                return;
+
+            if (!_search.RemoveChar())
+                return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+            }
+            else
+            {
+                // Re-search with shortened buffer
+                int matchIndex = _search.FindMatch(_articleSlots, slot =>
+                {
+                    var comp = slot as Component;
+                    return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
+                });
+
+                if (matchIndex >= 0)
+                {
+                    _articleIndex = matchIndex;
+                    AnnounceArticleElement();
+                }
+                else
+                {
+                    Speech.Say($"No match for {_search.Buffer}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Clear the search buffer.
+        /// </summary>
+        private void ClearSearchBuffer()
+        {
+            if (_search.HasBuffer)
+            {
+                _search.Clear();
+                Speech.Say("Search cleared");
+            }
         }
 
         // ========================================

@@ -46,6 +46,9 @@ namespace ATSAccessibility
         private bool _isEditingTextField = false;
         private TMP_InputField _editingInputField = null;
 
+        // Type-ahead search
+        private TypeAheadSearch _search = new TypeAheadSearch();
+
         /// <summary>
         /// Whether there's an active popup being navigated.
         /// </summary>
@@ -122,6 +125,9 @@ namespace ATSAccessibility
                 }
             }
 
+            // Clear search buffer on navigation keys
+            _search.ClearOnNavigationKey(keyCode);
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -149,9 +155,25 @@ namespace ATSAccessibility
                 case KeyCode.Space:
                     ActivateCurrentElement();
                     return true;
-                // Note: Escape is handled by the game's native handler, not here
-                // (our handler would conflict with the game's toggle logic)
+                case KeyCode.Backspace:
+                    return HandleBackspace();
+                case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    }
+                    // No search to clear - let game handle closing
+                    return false;
                 default:
+                    // Handle A-Z keys for type-ahead search
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        return HandleSearchKey(c);
+                    }
                     // Don't consume other keys
                     return false;
             }
@@ -325,6 +347,7 @@ namespace ATSAccessibility
             _tabsPanelRef = null;
             _currentPanelIndex = 0;
             _currentElementIndex = 0;
+            _search.Clear();
         }
 
         // ========================================
@@ -643,6 +666,65 @@ namespace ATSAccessibility
                 Speech.Say($"{percent} percent");
                 Debug.Log($"[ATSAccessibility] Adjusted slider to {percent}%");
             }
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        /// <summary>
+        /// Handle a character key for type-ahead search.
+        /// </summary>
+        private bool HandleSearchKey(char c)
+        {
+            if (_elements.Count == 0) return false;
+
+            _search.AddChar(c);
+            int matchIndex = _search.FindMatch(_elements, UIElementFinder.GetElementText);
+
+            if (matchIndex >= 0)
+            {
+                _currentElementIndex = matchIndex;
+                AnnounceCurrentElement();
+                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' matched element at index {matchIndex}");
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' - no match");
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Handle backspace to remove last character from search buffer.
+        /// </summary>
+        private bool HandleBackspace()
+        {
+            if (!_search.HasBuffer) return false;
+
+            _search.RemoveChar();
+
+            if (_search.HasBuffer)
+            {
+                int matchIndex = _search.FindMatch(_elements, UIElementFinder.GetElementText);
+                if (matchIndex >= 0)
+                {
+                    _currentElementIndex = matchIndex;
+                    AnnounceCurrentElement();
+                }
+                else
+                {
+                    Speech.Say($"No match for {_search.Buffer}");
+                }
+            }
+            else
+            {
+                Speech.Say("Search cleared");
+            }
+
+            return true;
         }
 
         // ========================================

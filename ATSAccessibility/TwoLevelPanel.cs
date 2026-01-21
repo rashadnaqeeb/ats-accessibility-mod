@@ -18,6 +18,9 @@ namespace ATSAccessibility
         protected int _currentItemIndex;
         protected bool _focusOnItems;
 
+        // Type-ahead search
+        protected readonly TypeAheadSearch _search = new TypeAheadSearch();
+
         // ========================================
         // PUBLIC API
         // ========================================
@@ -52,6 +55,7 @@ namespace ATSAccessibility
             _currentCategoryIndex = 0;
             _currentItemIndex = 0;
             _focusOnItems = false;
+            _search.Clear();
 
             AnnounceCategory();
             Debug.Log($"[ATSAccessibility] {PanelName} opened");
@@ -66,6 +70,7 @@ namespace ATSAccessibility
 
             _isOpen = false;
             InputBlocker.BlockCancelOnce = true;
+            _search.Clear();
             ClearData();
             Speech.Say($"{PanelName} closed");
             Debug.Log($"[ATSAccessibility] {PanelName} closed");
@@ -78,6 +83,8 @@ namespace ATSAccessibility
         public bool ProcessKeyEvent(KeyCode keyCode)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -109,12 +116,34 @@ namespace ATSAccessibility
                     }
                     return false;  // At root level, let parent handle
 
-                case KeyCode.Escape:
-                    Close();
+                case KeyCode.Backspace:
+                    HandleBackspace();
                     return true;
 
+                case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    }
+                    // No search to clear - let parent handle closing
+                    return false;
+
                 default:
-                    return false;  // Let other handlers process unknown keys
+                    // Handle A-Z keys for type-ahead search (only in items panel)
+                    // Always consume A-Z keys to prevent bubbling to other handlers
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        if (_focusOnItems)
+                        {
+                            char c = (char)('a' + (keyCode - KeyCode.A));
+                            HandleSearchKey(c);
+                        }
+                        return true;  // Consume key even if not searching
+                    }
+                    return true;  // Consume all other keys while panel is open
             }
         }
 
@@ -232,7 +261,108 @@ namespace ATSAccessibility
             if (_focusOnItems)
             {
                 _focusOnItems = false;
+                _search.Clear();
                 AnnounceCategory();
+            }
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        /// <summary>
+        /// Get the searchable name for an item at the given index.
+        /// Subclasses must override this to enable type-ahead search.
+        /// </summary>
+        /// <param name="index">The item index within the current category.</param>
+        /// <returns>The searchable name, or null if search is not supported.</returns>
+        protected virtual string GetCurrentItemName(int index)
+        {
+            return null;  // Default: search not supported
+        }
+
+        /// <summary>
+        /// Search for an item matching the current search buffer.
+        /// Returns the index of the first match, or -1 if no match found.
+        /// </summary>
+        private int FindMatchingItem()
+        {
+            if (!_search.HasBuffer) return -1;
+
+            int itemCount = CurrentItemCount;
+            if (itemCount == 0) return -1;
+
+            string lowerBuffer = _search.Buffer.ToLowerInvariant();
+
+            for (int i = 0; i < itemCount; i++)
+            {
+                string name = GetCurrentItemName(i);
+                if (!string.IsNullOrEmpty(name) &&
+                    name.ToLowerInvariant().StartsWith(lowerBuffer))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// Handle a search key (A-Z) for type-ahead navigation within items.
+        /// </summary>
+        private void HandleSearchKey(char c)
+        {
+            if (!_focusOnItems) return;  // Only search in items panel
+
+            int itemCount = CurrentItemCount;
+            if (itemCount == 0) return;
+
+            _search.AddChar(c);
+
+            int matchIndex = FindMatchingItem();
+            if (matchIndex >= 0)
+            {
+                _currentItemIndex = matchIndex;
+                AnnounceItem();
+                Debug.Log($"[ATSAccessibility] {PanelName} search '{_search.Buffer}' matched item at index {matchIndex}");
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+                Debug.Log($"[ATSAccessibility] {PanelName} search '{_search.Buffer}' found no match");
+            }
+        }
+
+        /// <summary>
+        /// Handle backspace key to remove last character from search buffer.
+        /// </summary>
+        private void HandleBackspace()
+        {
+            if (!_focusOnItems) return;  // Only search in items panel
+            if (!_search.RemoveChar())
+            {
+                // No character to remove, but still consume the key
+                return;
+            }
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                Debug.Log($"[ATSAccessibility] {PanelName} search buffer cleared via backspace");
+                return;
+            }
+
+            int matchIndex = FindMatchingItem();
+            if (matchIndex >= 0)
+            {
+                _currentItemIndex = matchIndex;
+                AnnounceItem();
+                Debug.Log($"[ATSAccessibility] {PanelName} search '{_search.Buffer}' matched item at index {matchIndex}");
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+                Debug.Log($"[ATSAccessibility] {PanelName} search '{_search.Buffer}' found no match");
             }
         }
     }

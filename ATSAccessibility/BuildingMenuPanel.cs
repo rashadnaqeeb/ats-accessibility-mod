@@ -37,6 +37,13 @@ namespace ATSAccessibility
         private int _currentBuildingIndex = 0;
         private bool _focusOnBuildings = false;  // Left panel (categories) vs right panel (buildings)
 
+        // Type-ahead search for cross-category building search
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+
+        // Flat list of all buildings for cross-category search
+        private List<(int categoryIndex, int buildingIndex, string name)> _allBuildings =
+            new List<(int, int, string)>();
+
         // Reference to build mode controller for entering build mode
         private BuildModeController _buildModeController;
 
@@ -83,6 +90,7 @@ namespace ATSAccessibility
             _currentCategoryIndex = 0;
             _currentBuildingIndex = 0;
             _focusOnBuildings = false;
+            _search.Clear();
 
             // Announce menu opening with first category in one speech to avoid cutoff
             var category = _categories[_currentCategoryIndex];
@@ -101,6 +109,7 @@ namespace ATSAccessibility
             _isOpen = false;
             InputBlocker.BlockCancelOnce = true;  // Block the Cancel action that will fire this frame
             _categories.Clear();
+            _search.Clear();
             Speech.Say("Building menu closed");
             Debug.Log("[ATSAccessibility] Building menu closed");
         }
@@ -112,6 +121,8 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -145,11 +156,28 @@ namespace ATSAccessibility
                     ReturnToCategories();
                     return true;
 
+                case KeyCode.Backspace:
+                    HandleBackspace();
+                    return true;
+
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        ClearSearchBuffer();
+                        InputBlocker.BlockCancelOnce = true;  // Block the Cancel action
+                        return true;
+                    }
                     Close();
                     return true;
 
                 default:
+                    // Handle A-Z keys for type-ahead search
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                        return true;
+                    }
                     return true;  // Consume all other keys while panel is open
             }
         }
@@ -330,6 +358,17 @@ namespace ATSAccessibility
                     .ToList();
             }
 
+            // Build flat list of all buildings for cross-category search
+            _allBuildings.Clear();
+            for (int ci = 0; ci < _categories.Count; ci++)
+            {
+                var cat = _categories[ci];
+                for (int bi = 0; bi < cat.Buildings.Count; bi++)
+                {
+                    _allBuildings.Add((ci, bi, cat.Buildings[bi].Name));
+                }
+            }
+
             Debug.Log($"[ATSAccessibility] Building menu refreshed: {_categories.Count} categories, {unlockedCount} buildings");
         }
 
@@ -361,6 +400,10 @@ namespace ATSAccessibility
             var size = GameReflection.GetBuildingSize(building.Model);
             string sizeText = $"{size.x}x{size.y}";
 
+            // Get building costs
+            string costs = GameReflection.GetBuildingCosts(building.Model);
+            string costsText = !string.IsNullOrEmpty(costs) ? $" Costs: {costs}." : "";
+
             // Get building description
             string description = GameReflection.GetBuildingDescription(building.Model) ?? "";
 
@@ -368,10 +411,80 @@ namespace ATSAccessibility
             bool canConstruct = GameReflection.CanConstructBuilding(building.Model);
             string status = canConstruct ? "" : ", at maximum";
 
-            // Format: "Name, size. Description"
-            string announcement = $"{building.Name}{status}, {sizeText}. {description}";
+            // Format: "Name, size. Costs: X, Y. Description"
+            string announcement = $"{building.Name}{status}, {sizeText}.{costsText} {description}";
             Speech.Say(announcement);
             Debug.Log($"[ATSAccessibility] Building: {building.Name}{status}, {sizeText}");
+        }
+
+        /// <summary>
+        /// Handle a search key (A-Z) for type-ahead navigation.
+        /// </summary>
+        private void HandleSearchKey(char c)
+        {
+            if (_allBuildings.Count == 0) return;
+
+            _search.AddChar(c);
+
+            // Find first building starting with buffer (case-insensitive)
+            int matchIndex = _search.FindMatch(_allBuildings, entry => entry.name);
+            if (matchIndex >= 0)
+            {
+                var match = _allBuildings[matchIndex];
+                _currentCategoryIndex = match.categoryIndex;
+                _currentBuildingIndex = match.buildingIndex;
+                _focusOnBuildings = true;  // Auto-enter buildings panel
+                AnnounceCurrentBuilding();
+                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' matched building at category {_currentCategoryIndex}, building {_currentBuildingIndex}");
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' found no match");
+            }
+        }
+
+        /// <summary>
+        /// Handle backspace key to remove last character from search buffer.
+        /// </summary>
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar())
+                return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                Debug.Log("[ATSAccessibility] Search buffer cleared via backspace");
+                return;
+            }
+
+            // Re-search with shortened buffer
+            int matchIndex = _search.FindMatch(_allBuildings, entry => entry.name);
+            if (matchIndex >= 0)
+            {
+                var match = _allBuildings[matchIndex];
+                _currentCategoryIndex = match.categoryIndex;
+                _currentBuildingIndex = match.buildingIndex;
+                _focusOnBuildings = true;
+                AnnounceCurrentBuilding();
+                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' matched building at category {_currentCategoryIndex}, building {_currentBuildingIndex}");
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' found no match");
+            }
+        }
+
+        /// <summary>
+        /// Clear the search buffer and announce.
+        /// </summary>
+        private void ClearSearchBuffer()
+        {
+            _search.Clear();
+            Speech.Say("Search cleared");
+            Debug.Log("[ATSAccessibility] Search buffer cleared");
         }
     }
 }

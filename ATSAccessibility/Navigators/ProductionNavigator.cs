@@ -722,7 +722,23 @@ namespace ATSAccessibility
             if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
             {
                 var (raceName, freeCount) = _availableRaces[raceIndex];
-                Speech.Say($"{raceName}: {freeCount} available");
+                string bonus = BuildingReflection.GetRaceBonusForBuilding(_building, raceName);
+                if (!string.IsNullOrEmpty(bonus))
+                {
+                    // If bonus contains a comma, it already has a description - don't add "specialist"
+                    if (bonus.Contains(","))
+                    {
+                        Speech.Say($"{raceName}: {freeCount} available, {bonus}");
+                    }
+                    else
+                    {
+                        Speech.Say($"{raceName}: {freeCount} available, {bonus} specialist");
+                    }
+                }
+                else
+                {
+                    Speech.Say($"{raceName}: {freeCount} available");
+                }
             }
             else
             {
@@ -1268,18 +1284,33 @@ namespace ATSAccessibility
                 return;
             }
 
+            bool success = false;
             if (delta > 0)
             {
-                if (BuildingReflection.IncreaseEngineLevel(_building, engineIndex))
-                {
-                    Speech.Say($"{newLevel}");
-                }
+                success = BuildingReflection.IncreaseEngineLevel(_building, engineIndex);
             }
             else
             {
-                if (BuildingReflection.DecreaseEngineLevel(_building, engineIndex))
+                success = BuildingReflection.DecreaseEngineLevel(_building, engineIndex);
+            }
+
+            if (success)
+            {
+                if (newLevel == 0)
                 {
-                    Speech.Say($"{newLevel}");
+                    Speech.Say("Off");
+                }
+                else
+                {
+                    string effect = BuildingReflection.GetEngineLevelEffect(_building, engineIndex, newLevel);
+                    if (!string.IsNullOrEmpty(effect))
+                    {
+                        Speech.Say($"{newLevel}, {effect}");
+                    }
+                    else
+                    {
+                        Speech.Say($"{newLevel}");
+                    }
                 }
             }
         }
@@ -1525,6 +1556,201 @@ namespace ATSAccessibility
             Speech.Say($"{amount} {name}: {(newAllowed ? "enabled" : "disabled")}");
 
             return true;
+        }
+
+        // ========================================
+        // SEARCH NAME METHODS
+        // ========================================
+
+        protected override string GetSectionName(int sectionIndex)
+        {
+            // Use section names array
+            if (_sectionNames != null && sectionIndex >= 0 && sectionIndex < _sectionNames.Length)
+                return _sectionNames[sectionIndex];
+            return null;
+        }
+
+        protected override string GetItemName(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return null;
+
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Info:
+                    return GetInfoItemName(itemIndex);
+                case SectionType.Workers:
+                    return GetWorkerItemName(itemIndex);
+                case SectionType.Recipes:
+                    return GetRecipeItemName(itemIndex);
+                case SectionType.Rainpunk:
+                    return $"Engine {itemIndex + 1}";
+                case SectionType.Inputs:
+                    return itemIndex < _inputGoods.Count ? _inputGoods[itemIndex].displayName : null;
+                case SectionType.Outputs:
+                    return itemIndex < _outputGoods.Count ? _outputGoods[itemIndex].displayName : null;
+                case SectionType.Settings:
+                    return "Cutting mode";
+                case SectionType.Fields:
+                    return itemIndex == 0 ? "Sown" : "Plowed";
+                default:
+                    return null;
+            }
+        }
+
+        private string GetInfoItemName(int itemIndex)
+        {
+            int index = 0;
+            if (itemIndex == index) return "Name";
+            index++;
+            if (!string.IsNullOrEmpty(_buildingDescription))
+            {
+                if (itemIndex == index) return "Description";
+                index++;
+            }
+            if (itemIndex == index) return "Status";
+            index++;
+            if (itemIndex == index) return "Workers";
+            index++;
+            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == index) return "Rainpunk";
+            return null;
+        }
+
+        private string GetWorkerItemName(int itemIndex)
+        {
+            if (!IsValidWorkerIndex(itemIndex))
+                return null;
+
+            int workerId = _workerIds[itemIndex];
+            if (workerId <= 0)
+                return $"Slot {itemIndex + 1}";
+
+            // Return worker race/name for search
+            string workerDesc = BuildingReflection.GetWorkerDescription(workerId);
+            return !string.IsNullOrEmpty(workerDesc) ? workerDesc : $"Slot {itemIndex + 1}";
+        }
+
+        private string GetRecipeItemName(int itemIndex)
+        {
+            if (itemIndex >= _recipes.Count)
+                return null;
+
+            var recipe = _recipes[itemIndex];
+            return GetRecipeDisplayName(recipe);
+        }
+
+        protected override string GetSubItemName(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return null;
+
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Info:
+                    return GetInfoSubItemName(itemIndex, subItemIndex);
+                case SectionType.Workers:
+                    return GetWorkerSubItemName(itemIndex, subItemIndex);
+                case SectionType.Recipes:
+                    return GetRecipeSubItemName(itemIndex, subItemIndex);
+                case SectionType.Outputs:
+                    return subItemIndex == 0 ? "Transport" : "Auto-deliver";
+                case SectionType.Inputs:
+                    return "Return";
+                case SectionType.Settings:
+                    return GetSettingsSubItemName(subItemIndex);
+                default:
+                    return null;
+            }
+        }
+
+        private string GetInfoSubItemName(int itemIndex, int subItemIndex)
+        {
+            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
+            {
+                return _isSleeping ? "Resume" : "Pause";
+            }
+            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == GetRainpunkUnlockItemIndex() && subItemIndex == 0)
+            {
+                return "Unlock";
+            }
+            return null;
+        }
+
+        private string GetWorkerSubItemName(int workerIndex, int subItemIndex)
+        {
+            if (!IsValidWorkerIndex(workerIndex))
+                return null;
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
+            int raceOffset = slotOccupied ? 1 : 0;
+
+            if (slotOccupied && subItemIndex == 0)
+            {
+                return "Unassign";
+            }
+
+            int raceIndex = subItemIndex - raceOffset;
+            if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
+            {
+                return _availableRaces[raceIndex].raceName;
+            }
+            return null;
+        }
+
+        private string GetRecipeSubItemName(int recipeIndex, int subItemIndex)
+        {
+            if (recipeIndex >= _recipes.Count)
+                return null;
+
+            switch (subItemIndex)
+            {
+                case RECIPE_SUBITEM_STATUS:
+                    return "Status";
+                case RECIPE_SUBITEM_PRODUCTION:
+                    return "Production";
+                case RECIPE_SUBITEM_LIMIT:
+                    return "Limit";
+                default:
+                    // Ingredient slots
+                    int slotIndex = subItemIndex - RECIPE_SUBITEM_INGREDIENTS_START;
+                    return $"Ingredient {slotIndex + 1}";
+            }
+        }
+
+        private string GetSettingsSubItemName(int subItemIndex)
+        {
+            if (_campModeNames != null && subItemIndex >= 0 && subItemIndex < _campModeNames.Length)
+            {
+                return _campModeNames[subItemIndex];
+            }
+            return null;
+        }
+
+        protected override string GetSubSubItemName(int sectionIndex, int itemIndex, int subItemIndex, int subSubItemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return null;
+
+            // Only recipe ingredient slots have sub-sub-items
+            if (_sectionTypes[sectionIndex] != SectionType.Recipes)
+                return null;
+
+            if (itemIndex >= _recipes.Count)
+                return null;
+
+            if (subItemIndex < RECIPE_SUBITEM_INGREDIENTS_START)
+                return null;
+
+            int slotIndex = subItemIndex - RECIPE_SUBITEM_INGREDIENTS_START;
+            var recipe = _recipes[itemIndex];
+            var options = BuildingReflection.GetIngredientSlotOptions(recipe.RecipeState, slotIndex);
+
+            if (subSubItemIndex >= options.Length)
+                return null;
+
+            var option = options[subSubItemIndex];
+            string name = BuildingReflection.GetIngredientGoodName(option);
+            return !string.IsNullOrEmpty(name) ? CleanupName(name) : null;
         }
     }
 }
