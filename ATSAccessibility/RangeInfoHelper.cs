@@ -12,6 +12,48 @@ namespace ATSAccessibility
     public static class RangeInfoHelper
     {
         /// <summary>
+        /// Check if a building is finished (not under construction).
+        /// </summary>
+        private static bool IsBuildingFinished(object building)
+        {
+            if (building == null) return false;
+            var method = building.GetType().GetMethod("IsFinished",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            return method != null && (bool)method.Invoke(building, null);
+        }
+
+        /// <summary>
+        /// Find the nearest finished storage building to a position.
+        /// </summary>
+        private static (string name, float distance)? FindNearestStorage(Vector2 position)
+        {
+            var storages = GameReflection.GetAllStorageBuildings();
+            if (storages == null) return null;
+
+            float nearestDist = float.MaxValue;
+            string nearestName = null;
+
+            foreach (var storage in storages)
+            {
+                if (storage == null) continue;
+                if (!IsBuildingFinished(storage)) continue;
+
+                var entrance = GameReflection.GetBuildingEntranceCenter(storage);
+                if (!entrance.HasValue) continue;
+
+                float dist = Vector2.Distance(position, entrance.Value);
+                if (dist < nearestDist)
+                {
+                    nearestDist = dist;
+                    var model = GameReflection.GetBuildingModel(storage);
+                    nearestName = model != null ? GameReflection.GetDisplayName(model) : "Storage";
+                }
+            }
+
+            return nearestName != null ? (nearestName, nearestDist) : null;
+        }
+
+        /// <summary>
         /// Get range info for a placed building.
         /// </summary>
         public static string GetBuildingRangeInfo(object building)
@@ -41,7 +83,7 @@ namespace ATSAccessibility
             }
             else if (GameReflection.IsHearthModel(model))
             {
-                return GetHearthRangeInfo(building, center2D);
+                return GetHearthRangeInfo(building);
             }
             else if (GameReflection.IsProductionBuilding(building))
             {
@@ -111,92 +153,59 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get resource info for a Camp (harvests NaturalResources).
-        /// Groups by resource node display name (e.g., "Lush Tree") instead of good type.
+        /// Get resource info for gathering buildings (Camp, GathererHut, FishingHut).
+        /// Groups by resource node display name.
         /// </summary>
+        private static string GetGatheringBuildingRangeInfo(
+            object model, Vector2 center2D, object resourceDict,
+            bool isDeposit, string resourceTypeName)
+        {
+            float maxDistance = GameReflection.GetGatheringBuildingMaxDistance(model);
+            var goodNames = GameReflection.GetGatheringBuildingGoodNames(model);
+
+            if (resourceDict == null || goodNames.Count == 0)
+                return $"No {resourceTypeName} available";
+
+            var nodeInfo = CountResourcesByNodeName(resourceDict, goodNames, center2D, maxDistance, isDeposit);
+
+            if (nodeInfo.Count == 0)
+                return $"No {resourceTypeName} in range";
+
+            var results = new List<string>();
+            foreach (var kvp in nodeInfo)
+            {
+                results.Add($"{kvp.Key}: {kvp.Value.count}, closest {kvp.Value.closestDistance:F0} tiles");
+            }
+
+            return string.Join(". ", results);
+        }
+
         private static string GetCampRangeInfo(object campModel, Vector2 center2D)
         {
-            float maxDistance = GameReflection.GetGatheringBuildingMaxDistance(campModel);
-            var goodNames = GameReflection.GetGatheringBuildingGoodNames(campModel);
-            var availableResources = GameReflection.GetAvailableResources();
-
-            if (availableResources == null || goodNames.Count == 0)
-                return "No resources available";
-
-            // Count resources by node display name (e.g., "Lush Tree", "Mushrooms")
-            var nodeInfo = CountResourcesByNodeName(availableResources, goodNames, center2D, maxDistance, isDeposit: false);
-
-            if (nodeInfo.Count == 0)
-                return "No resources in range";
-
-            var results = new List<string>();
-            foreach (var kvp in nodeInfo)
-            {
-                results.Add($"{kvp.Key}: {kvp.Value.count}, closest {kvp.Value.closestDistance:F0} tiles");
-            }
-
-            return string.Join(". ", results);
+            return GetGatheringBuildingRangeInfo(
+                campModel, center2D, GameReflection.GetAvailableResources(),
+                isDeposit: false, "resources");
         }
 
-        /// <summary>
-        /// Get resource info for a GathererHut (harvests ResourceDeposits).
-        /// Groups by deposit display name.
-        /// </summary>
         private static string GetGathererHutRangeInfo(object hutModel, Vector2 center2D)
         {
-            float maxDistance = GameReflection.GetGatheringBuildingMaxDistance(hutModel);
-            var goodNames = GameReflection.GetGatheringBuildingGoodNames(hutModel);
-            var availableDeposits = GameReflection.GetAvailableDeposits();
-
-            if (availableDeposits == null || goodNames.Count == 0)
-                return "No deposits available";
-
-            var nodeInfo = CountResourcesByNodeName(availableDeposits, goodNames, center2D, maxDistance, isDeposit: true);
-
-            if (nodeInfo.Count == 0)
-                return "No deposits in range";
-
-            var results = new List<string>();
-            foreach (var kvp in nodeInfo)
-            {
-                results.Add($"{kvp.Key}: {kvp.Value.count}, closest {kvp.Value.closestDistance:F0} tiles");
-            }
-
-            return string.Join(". ", results);
+            return GetGatheringBuildingRangeInfo(
+                hutModel, center2D, GameReflection.GetAvailableDeposits(),
+                isDeposit: true, "deposits");
         }
 
-        /// <summary>
-        /// Get resource info for a FishingHut (harvests Lakes).
-        /// Groups by lake display name.
-        /// </summary>
         private static string GetFishingHutRangeInfo(object hutModel, Vector2 center2D)
         {
-            float maxDistance = GameReflection.GetGatheringBuildingMaxDistance(hutModel);
-            var goodNames = GameReflection.GetGatheringBuildingGoodNames(hutModel);
-            var availableLakes = GameReflection.GetAvailableLakes();
-
-            if (availableLakes == null || goodNames.Count == 0)
-                return "No lakes available";
-
-            var nodeInfo = CountResourcesByNodeName(availableLakes, goodNames, center2D, maxDistance, isDeposit: true);
-
-            if (nodeInfo.Count == 0)
-                return "No lakes in range";
-
-            var results = new List<string>();
-            foreach (var kvp in nodeInfo)
-            {
-                results.Add($"{kvp.Key}: {kvp.Value.count}, closest {kvp.Value.closestDistance:F0} tiles");
-            }
-
-            return string.Join(". ", results);
+            return GetGatheringBuildingRangeInfo(
+                hutModel, center2D, GameReflection.GetAvailableLakes(),
+                isDeposit: true, "lakes");
         }
 
         /// <summary>
         /// Get info about buildings in hearth range.
         /// Only counts Houses, Institutions, and Decorations (what matters for hub level).
         /// </summary>
-        private static string GetHearthRangeInfo(object hearth, Vector2 center2D)
+        private static string GetHearthRangeInfo(object hearth)
         {
             int housesCount = 0;
             int institutionsCount = 0;
@@ -212,12 +221,7 @@ namespace ATSAccessibility
                     {
                         if (house == null) continue;
 
-                        // Check if finished
-                        var isFinishedMethod = house.GetType().GetMethod("IsFinished",
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        bool isFinished = isFinishedMethod != null && (bool)isFinishedMethod.Invoke(house, null);
-
-                        if (isFinished && GameReflection.IsInHearthRange(hearth, house))
+                        if (IsBuildingFinished(house) && GameReflection.IsInHearthRange(hearth, house))
                         {
                             housesCount++;
                         }
@@ -232,11 +236,7 @@ namespace ATSAccessibility
                     {
                         if (institution == null) continue;
 
-                        var isFinishedMethod = institution.GetType().GetMethod("IsFinished",
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        bool isFinished = isFinishedMethod != null && (bool)isFinishedMethod.Invoke(institution, null);
-
-                        if (isFinished && GameReflection.IsInHearthRange(hearth, institution))
+                        if (IsBuildingFinished(institution) && GameReflection.IsInHearthRange(hearth, institution))
                         {
                             institutionsCount++;
                         }
@@ -251,11 +251,7 @@ namespace ATSAccessibility
                     {
                         if (decoration == null) continue;
 
-                        var isFinishedMethod = decoration.GetType().GetMethod("IsFinished",
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        bool isFinished = isFinishedMethod != null && (bool)isFinishedMethod.Invoke(decoration, null);
-
-                        if (isFinished && GameReflection.IsInHearthRange(hearth, decoration))
+                        if (IsBuildingFinished(decoration) && GameReflection.IsInHearthRange(hearth, decoration))
                         {
                             decorationsCount++;
                         }
@@ -309,41 +305,10 @@ namespace ATSAccessibility
                 }
 
                 // 2. Find nearest storage (warehouse) and its distance
-                var storages = GameReflection.GetAllStorageBuildings();
-                float nearestStorageDist = float.MaxValue;
-                string nearestStorageName = null;
-
-                if (storages != null)
+                var nearestStorage = FindNearestStorage(buildingPos);
+                if (nearestStorage.HasValue)
                 {
-                    foreach (var storage in storages)
-                    {
-                        if (storage == null) continue;
-
-                        var isFinishedMethod = storage.GetType().GetMethod("IsFinished",
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        bool isFinished = isFinishedMethod != null && (bool)isFinishedMethod.Invoke(storage, null);
-
-                        if (!isFinished) continue;
-
-                        var storageEntrance = GameReflection.GetBuildingEntranceCenter(storage);
-                        if (storageEntrance.HasValue)
-                        {
-                            float dist = Vector2.Distance(buildingPos, storageEntrance.Value);
-                            if (dist < nearestStorageDist)
-                            {
-                                nearestStorageDist = dist;
-                                var storageModel = GameReflection.GetBuildingModel(storage);
-                                nearestStorageName = storageModel != null
-                                    ? GameReflection.GetDisplayName(storageModel)
-                                    : "Storage";
-                            }
-                        }
-                    }
-                }
-
-                if (nearestStorageName != null)
-                {
-                    results.Add($"{nearestStorageName}: {nearestStorageDist:F0} tiles");
+                    results.Add($"{nearestStorage.Value.name}: {nearestStorage.Value.distance:F0} tiles");
                 }
             }
             catch (Exception ex)
@@ -372,8 +337,13 @@ namespace ATSAccessibility
             }
 
             float localStorageRange = GameReflection.GetLocalStorageDistance();
-            // Track multiple goods per supplier: producerKey -> (list of goods, distance)
-            var nearbySuppliers = new Dictionary<string, (List<string> goods, float distance)>();
+
+            // Cache per-producer data to avoid redundant calculations when a building produces multiple goods
+            // Key: producer object, Value: (name, distance, actual outputs if needed)
+            var producerCache = new Dictionary<object, (string name, float distance, List<string> actualOutputs)>();
+
+            // Track goods per producer name (for display grouping)
+            var nearbySuppliers = new Dictionary<string, (List<string> goods, float minDistance)>();
 
             foreach (var inputGood in requiredInputs)
             {
@@ -382,46 +352,60 @@ namespace ATSAccessibility
                 {
                     if (excludeBuilding != null && producer == excludeBuilding) continue;
 
-                    var producerEntrance = GameReflection.GetBuildingEntranceCenter(producer);
-                    if (!producerEntrance.HasValue) continue;
-
-                    float dist = Vector2.Distance(buildingPos, producerEntrance.Value);
-
-                    // Only include if within local storage range
-                    if (dist <= localStorageRange)
+                    // Check cache first to avoid redundant distance/name calculations
+                    if (!producerCache.TryGetValue(producer, out var cached))
                     {
-                        // If useActualOutputs, check what the producer can actually output
-                        if (useActualOutputs)
-                        {
-                            var actualOutputs = GameReflection.GetBuildingActualOutputs(producer);
-                            if (!actualOutputs.Contains(inputGood))
-                            {
-                                continue; // This producer can't actually output this good
-                            }
-                        }
+                        var producerEntrance = GameReflection.GetBuildingEntranceCenter(producer);
+                        if (!producerEntrance.HasValue) continue;
+
+                        float dist = Vector2.Distance(buildingPos, producerEntrance.Value);
+
+                        // Skip if outside local storage range
+                        if (dist > localStorageRange) continue;
 
                         var producerModel = GameReflection.GetBuildingModel(producer);
                         string producerName = producerModel != null
                             ? GameReflection.GetDisplayName(producerModel) ?? "Building"
                             : "Building";
 
-                        // Get good display name
-                        string goodDisplayName = GetGoodDisplayName(inputGood) ?? inputGood;
+                        // Get actual outputs once if needed
+                        List<string> actualOutputs = useActualOutputs
+                            ? GameReflection.GetBuildingActualOutputs(producer)
+                            : null;
 
-                        // Use producer name + distance as key to group same buildings
-                        string key = $"{producerName}_{dist:F1}";
+                        cached = (producerName, dist, actualOutputs);
+                        producerCache[producer] = cached;
+                    }
+                    else if (cached.distance > localStorageRange)
+                    {
+                        // Previously cached but out of range
+                        continue;
+                    }
 
-                        if (!nearbySuppliers.ContainsKey(key))
-                        {
-                            nearbySuppliers[key] = (new List<string>(), dist);
-                        }
+                    // Check if this producer can actually output this good
+                    if (useActualOutputs && (cached.actualOutputs == null || !cached.actualOutputs.Contains(inputGood)))
+                    {
+                        continue;
+                    }
 
-                        var entry = nearbySuppliers[key];
-                        if (!entry.goods.Contains(goodDisplayName))
-                        {
-                            entry.goods.Add(goodDisplayName);
-                        }
-                        nearbySuppliers[key] = entry;
+                    // Get good display name
+                    string goodDisplayName = GetGoodDisplayName(inputGood) ?? inputGood;
+
+                    // Track by producer name - merge goods and keep minimum distance
+                    if (!nearbySuppliers.ContainsKey(cached.name))
+                    {
+                        nearbySuppliers[cached.name] = (new List<string>(), cached.distance);
+                    }
+
+                    var entry = nearbySuppliers[cached.name];
+                    if (!entry.goods.Contains(goodDisplayName))
+                    {
+                        entry.goods.Add(goodDisplayName);
+                    }
+                    // Keep the minimum distance for this producer type
+                    if (cached.distance < entry.minDistance)
+                    {
+                        nearbySuppliers[cached.name] = (entry.goods, cached.distance);
                     }
                 }
             }
@@ -429,46 +413,10 @@ namespace ATSAccessibility
             if (nearbySuppliers.Count > 0)
             {
                 var supplierParts = new List<string>();
-                // Group by producer name (remove the distance suffix for display)
-                var groupedByName = new Dictionary<string, (List<string> goods, float distance)>();
                 foreach (var kvp in nearbySuppliers)
                 {
-                    string producerName = kvp.Key.Substring(0, kvp.Key.LastIndexOf('_'));
-                    if (!groupedByName.ContainsKey(producerName) || groupedByName[producerName].distance > kvp.Value.distance)
-                    {
-                        // Merge goods lists if same producer at different distances
-                        if (groupedByName.ContainsKey(producerName))
-                        {
-                            var existing = groupedByName[producerName];
-                            foreach (var g in kvp.Value.goods)
-                            {
-                                if (!existing.goods.Contains(g))
-                                    existing.goods.Add(g);
-                            }
-                            groupedByName[producerName] = (existing.goods, Math.Min(existing.distance, kvp.Value.distance));
-                        }
-                        else
-                        {
-                            groupedByName[producerName] = kvp.Value;
-                        }
-                    }
-                    else
-                    {
-                        // Merge goods from farther instance
-                        var existing = groupedByName[producerName];
-                        foreach (var g in kvp.Value.goods)
-                        {
-                            if (!existing.goods.Contains(g))
-                                existing.goods.Add(g);
-                        }
-                        groupedByName[producerName] = existing;
-                    }
-                }
-
-                foreach (var kvp in groupedByName)
-                {
                     string goodsList = string.Join(", ", kvp.Value.goods);
-                    supplierParts.Add($"{kvp.Key} ({goodsList}): {kvp.Value.distance:F0} tiles");
+                    supplierParts.Add($"{kvp.Key} ({goodsList}): {kvp.Value.minDistance:F0} tiles");
                 }
                 return "Nearby: " + string.Join(", ", supplierParts);
             }
@@ -484,8 +432,11 @@ namespace ATSAccessibility
         /// </summary>
         private static string GetBuildingHearthConnection(object building)
         {
+            // Cache type to avoid repeated GetType() calls
+            var buildingType = building.GetType();
+
             // Check if this building type is affected by hearth range
-            string typeName = building.GetType().Name;
+            string typeName = buildingType.Name;
             bool isHearthRelevant = typeName == "House" || typeName == "Institution" || typeName == "Decoration";
 
             if (!isHearthRelevant)
@@ -494,11 +445,13 @@ namespace ATSAccessibility
             }
 
             // Get building's field position
-            var fieldProp = building.GetType().GetProperty("Field",
+            var fieldProp = buildingType.GetProperty("Field",
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             if (fieldProp == null) return "Cannot determine position";
 
-            var field = (Vector2Int)fieldProp.GetValue(building);
+            var fieldValue = fieldProp.GetValue(building);
+            if (fieldValue == null) return "Cannot determine position";
+            var field = (Vector2Int)fieldValue;
             return GetPositionHearthConnection(field.x, field.y);
         }
 
@@ -641,41 +594,10 @@ namespace ATSAccessibility
                 }
 
                 // 2. Find nearest storage (warehouse) and its distance
-                var storages = GameReflection.GetAllStorageBuildings();
-                float nearestStorageDist = float.MaxValue;
-                string nearestStorageName = null;
-
-                if (storages != null)
+                var nearestStorage = FindNearestStorage(buildingPos);
+                if (nearestStorage.HasValue)
                 {
-                    foreach (var storage in storages)
-                    {
-                        if (storage == null) continue;
-
-                        var isFinishedMethod = storage.GetType().GetMethod("IsFinished",
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        bool isFinished = isFinishedMethod != null && (bool)isFinishedMethod.Invoke(storage, null);
-
-                        if (!isFinished) continue;
-
-                        var storageEntrance = GameReflection.GetBuildingEntranceCenter(storage);
-                        if (storageEntrance.HasValue)
-                        {
-                            float dist = Vector2.Distance(buildingPos, storageEntrance.Value);
-                            if (dist < nearestStorageDist)
-                            {
-                                nearestStorageDist = dist;
-                                var storageModel = GameReflection.GetBuildingModel(storage);
-                                nearestStorageName = storageModel != null
-                                    ? GameReflection.GetDisplayName(storageModel)
-                                    : "Storage";
-                            }
-                        }
-                    }
-                }
-
-                if (nearestStorageName != null)
-                {
-                    results.Add($"{nearestStorageName}: {nearestStorageDist:F0} tiles");
+                    results.Add($"{nearestStorage.Value.name}: {nearestStorage.Value.distance:F0} tiles");
                 }
                 else
                 {
