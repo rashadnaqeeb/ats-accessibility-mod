@@ -4440,6 +4440,31 @@ namespace ATSAccessibility
             return _storageType.IsInstanceOfType(building);
         }
 
+        /// <summary>
+        /// Check if workplaces are active for a building.
+        /// For Storage buildings, this checks if haulers are unlocked via meta progression.
+        /// For other ProductionBuildings, this is typically always true.
+        /// </summary>
+        public static bool AreWorkplacesActive(object building)
+        {
+            if (building == null) return false;
+            if (!IsProductionBuilding(building)) return false;
+
+            try
+            {
+                var areWorkplacesActiveProp = building.GetType().GetProperty("AreWorkplacesActive",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (areWorkplacesActiveProp != null)
+                {
+                    return (bool)areWorkplacesActiveProp.GetValue(building);
+                }
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] AreWorkplacesActive failed: {ex.Message}"); }
+
+            // Default to true for non-Storage production buildings
+            return true;
+        }
+
         // ========================================
         // PUBLIC API - INSTITUTION
         // ========================================
