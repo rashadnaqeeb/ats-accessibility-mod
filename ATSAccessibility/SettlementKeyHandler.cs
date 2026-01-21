@@ -170,6 +170,38 @@ namespace ATSAccessibility
                     Speech.Say(blightInfo);
                     return true;
 
+                // Worker info/management
+                case KeyCode.W:
+                    var workerBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                    Speech.Say(WorkerInfoHelper.GetWorkerSummary(workerBuilding));
+                    return true;
+
+                case KeyCode.Equals:
+                case KeyCode.KeypadPlus:
+                    if (modifiers.Shift)
+                    {
+                        var addBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                        Speech.Say(WorkerInfoHelper.AddWorker(addBuilding));
+                    }
+                    else
+                    {
+                        Speech.Say(WorkerInfoHelper.CycleRace(1));
+                    }
+                    return true;
+
+                case KeyCode.Minus:
+                case KeyCode.KeypadMinus:
+                    if (modifiers.Shift)
+                    {
+                        var removeBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                        Speech.Say(WorkerInfoHelper.RemoveWorker(removeBuilding));
+                    }
+                    else
+                    {
+                        Speech.Say(WorkerInfoHelper.CycleRace(-1));
+                    }
+                    return true;
+
                 // Building activation (opens building panel)
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
