@@ -645,6 +645,8 @@ namespace ATSAccessibility
         private static PropertyInfo _gsSpringsServiceProperty = null;
         private static PropertyInfo _gsLakesServiceProperty = null;
         private static PropertyInfo _gsBuildingsServiceProperty = null;
+        private static PropertyInfo _gsConditionsServiceProperty = null;
+        private static MethodInfo _conditionsIsBlightActiveMethod = null;
         private static PropertyInfo _gsGladesProperty = null;  // GladesService.Glades list
         private static PropertyInfo _mapFieldsProperty = null;  // MapService.Fields (Map<Field>)
         private static FieldInfo _mapWidthField = null;         // Fields.width
@@ -686,6 +688,16 @@ namespace ATSAccessibility
                     _gsLakesServiceProperty = gameServicesType.GetProperty("LakesService",
                         BindingFlags.Public | BindingFlags.Instance);
                     _gsBuildingsServiceProperty = gameServicesType.GetProperty("BuildingsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsConditionsServiceProperty = gameServicesType.GetProperty("ConditionsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get IsBlightActive method from IConditionsService
+                var conditionsServiceType = _gameAssembly.GetType("Eremite.Services.IConditionsService");
+                if (conditionsServiceType != null)
+                {
+                    _conditionsIsBlightActiveMethod = conditionsServiceType.GetMethod("IsBlightActive",
                         BindingFlags.Public | BindingFlags.Instance);
                 }
 
@@ -879,6 +891,33 @@ namespace ATSAccessibility
         {
             EnsureMapTypes();
             return TryGetPropertyValue<object>(_gsBuildingsServiceProperty, GetGameServices());
+        }
+
+        /// <summary>
+        /// Get ConditionsService from GameServices.
+        /// </summary>
+        public static object GetConditionsService()
+        {
+            EnsureMapTypes();
+            return TryGetPropertyValue<object>(_gsConditionsServiceProperty, GetGameServices());
+        }
+
+        /// <summary>
+        /// Check if blight is currently active in the game.
+        /// </summary>
+        public static bool IsBlightActive()
+        {
+            EnsureMapTypes();
+
+            try
+            {
+                var conditionsService = GetConditionsService();
+                if (conditionsService == null || _conditionsIsBlightActiveMethod == null) return false;
+
+                return (bool)_conditionsIsBlightActiveMethod.Invoke(conditionsService, null);
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] IsBlightActive failed: {ex.Message}"); }
+            return false;
         }
 
         /// <summary>

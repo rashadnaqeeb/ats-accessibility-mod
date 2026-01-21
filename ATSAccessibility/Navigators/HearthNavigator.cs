@@ -185,8 +185,12 @@ namespace ATSAccessibility
             sectionNames.Add("Hub");
             sectionTypes.Add(SectionType.Hub);
 
-            sectionNames.Add("Blight");
-            sectionTypes.Add(SectionType.Blight);
+            // Blight section only shown for main hearth when blight is active
+            if (_isMainHearth && GameReflection.IsBlightActive())
+            {
+                sectionNames.Add("Blight");
+                sectionTypes.Add(SectionType.Blight);
+            }
 
             if (_maxWorkers > 0)
             {
