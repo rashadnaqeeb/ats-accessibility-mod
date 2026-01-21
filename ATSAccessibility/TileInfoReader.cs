@@ -183,6 +183,26 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get the Description property from a model object.
+        /// For NaturalResourceModel/ResourceDepositModel, this includes the grade requirement text with sprite tags.
+        /// </summary>
+        private static string GetDescriptionProperty(object model)
+        {
+            if (model == null) return null;
+
+            try
+            {
+                var descProp = model.GetType().GetProperty("Description", BindingFlags.Public | BindingFlags.Instance);
+                return descProp?.GetValue(model) as string;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetDescriptionProperty failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Get names from a dictionary of building models.
         /// Shared logic for CampsMatrix and HutsMatrix lookups.
         /// </summary>
@@ -428,8 +448,9 @@ namespace ATSAccessibility
                     parts.Add(chargesInfo);
                 }
 
-                // Description - NaturalResourceModel uses a 'description' field (LocaText), not a property
-                string desc = GetLocalizedText(model, "description");
+                // Description - NaturalResourceModel has a Description property that includes grade requirement
+                // (unlike LocaText fields, this property returns the full formatted string with sprite tags)
+                string desc = GetDescriptionProperty(model);
                 if (!string.IsNullOrEmpty(desc))
                 {
                     parts.Add(desc);
@@ -755,8 +776,8 @@ namespace ATSAccessibility
                     }
                 }
 
-                // Description
-                string desc = GetLocalizedText(model, "description");
+                // Description - LakeModel has a Description property that includes grade requirement
+                string desc = GetDescriptionProperty(model);
                 if (!string.IsNullOrEmpty(desc))
                 {
                     parts.Add(desc);

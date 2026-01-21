@@ -136,26 +136,32 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Convert sprite tags to readable text.
-        /// E.g., recipe grade sprites like "[recipe grade] 1" become "1 star".
+        /// E.g., recipe grade sprites become "0 star", "1 star", etc.
         /// </summary>
         private static string ConvertSpriteTags(string text)
         {
             if (string.IsNullOrEmpty(text)) return text;
 
             // Pattern: <sprite name=...>
-            // Grade sprites are named like "[recipe grade] 0", "[recipe grade] 1", etc.
+            // Grade sprites use asset names like "grade0", "grade1", "grade2", "grade3"
             return SpriteTagRegex.Replace(
                 text,
                 match =>
                 {
-                    string spriteName = match.Groups[1].Value.Trim();
+                    string spriteName = match.Groups[1].Value.Trim().ToLowerInvariant();
 
-                    // Check for grade sprites - use EndsWith to avoid matching "10" when looking for "0"
-                    // Sprite names are like "[recipe grade] 0", "[recipe grade] 1", etc.
-                    if (spriteName.EndsWith(" 0") || spriteName.EndsWith("]0")) return "0 star";
-                    if (spriteName.EndsWith(" 1") || spriteName.EndsWith("]1")) return "1 star";
-                    if (spriteName.EndsWith(" 2") || spriteName.EndsWith("]2")) return "2 star";
-                    if (spriteName.EndsWith(" 3") || spriteName.EndsWith("]3")) return "3 star";
+                    // Check for grade sprites by name pattern
+                    // Primary format: "grade0", "grade1", "grade2", "grade3"
+                    if (spriteName == "grade0" || spriteName.EndsWith("grade0")) return "0 star";
+                    if (spriteName == "grade1" || spriteName.EndsWith("grade1")) return "1 star";
+                    if (spriteName == "grade2" || spriteName.EndsWith("grade2")) return "2 star";
+                    if (spriteName == "grade3" || spriteName.EndsWith("grade3")) return "3 star";
+
+                    // Fallback patterns: "0 star", "1 star", etc. or just numbers
+                    if (spriteName == "0 star" || spriteName == "0") return "0 star";
+                    if (spriteName == "1 star" || spriteName == "1") return "1 star";
+                    if (spriteName == "2 star" || spriteName == "2") return "2 star";
+                    if (spriteName == "3 star" || spriteName == "3") return "3 star";
 
                     // For other sprites, just remove them
                     return "";
