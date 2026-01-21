@@ -4011,5 +4011,370 @@ namespace ATSAccessibility
         {
             return GetAllStoredGoods();
         }
+
+        // ========================================
+        // MODIFIERS PANEL (Effects, Cornerstones, Perks)
+        // ========================================
+
+        private static PropertyInfo _gsEffectsServiceProperty = null;
+        private static PropertyInfo _gsPerksServiceProperty = null;
+        private static MethodInfo _esGetAllConditionsMethod = null;
+        private static PropertyInfo _psSortedPerksProperty = null;
+        private static PropertyInfo _ssCornerstonesProperty = null;
+        private static FieldInfo _csActiveCornerstonesField = null;
+        private static bool _modifiersPanelTypesCached = false;
+
+        private static void EnsureModifiersPanelTypes()
+        {
+            if (_modifiersPanelTypesCached) return;
+            EnsureGameServicesTypes();
+            EnsureMysteriesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _modifiersPanelTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get EffectsService and PerksService from IGameServices
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsEffectsServiceProperty = gameServicesType.GetProperty("EffectsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _gsPerksServiceProperty = gameServicesType.GetProperty("PerksService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get GetAllConditions method from IEffectsService
+                var effectsServiceType = _gameAssembly.GetType("Eremite.Services.IEffectsService");
+                if (effectsServiceType != null)
+                {
+                    _esGetAllConditionsMethod = effectsServiceType.GetMethod("GetAllConditions",
+                        Type.EmptyTypes);
+                }
+
+                // Get SortedPerks property from IPerksService
+                var perksServiceType = _gameAssembly.GetType("Eremite.Services.IPerksService");
+                if (perksServiceType != null)
+                {
+                    _psSortedPerksProperty = perksServiceType.GetProperty("SortedPerks",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get Cornerstones property from IStateService
+                var stateServiceType = _gameAssembly.GetType("Eremite.Services.IStateService");
+                if (stateServiceType != null)
+                {
+                    _ssCornerstonesProperty = stateServiceType.GetProperty("Cornerstones",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get activeCornerstones field from CornerstonesState
+                var cornerstonesStateType = _gameAssembly.GetType("Eremite.Model.State.CornerstonesState");
+                if (cornerstonesStateType != null)
+                {
+                    _csActiveCornerstonesField = cornerstonesStateType.GetField("activeCornerstones",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached modifiers panel types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Modifiers panel type caching failed: {ex.Message}");
+            }
+
+            _modifiersPanelTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get EffectsService from GameServices.
+        /// </summary>
+        public static object GetEffectsService()
+        {
+            EnsureModifiersPanelTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsEffectsServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get PerksService from GameServices.
+        /// </summary>
+        public static object GetPerksService()
+        {
+            EnsureModifiersPanelTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsPerksServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get CornerstonesState from StateService.
+        /// </summary>
+        public static object GetCornerstonesState()
+        {
+            EnsureModifiersPanelTypes();
+            var stateService = GetStateService();
+            if (stateService == null) return null;
+
+            try
+            {
+                return _ssCornerstonesProperty?.GetValue(stateService);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all active conditions/effects via EffectsService.GetAllConditions().
+        /// Returns IEnumerable of EffectModel objects.
+        /// Includes: biome effects, difficulty modifiers, embark effects, event effects.
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllConditions()
+        {
+            EnsureModifiersPanelTypes();
+            var effectsService = GetEffectsService();
+            if (effectsService == null || _esGetAllConditionsMethod == null) return null;
+
+            try
+            {
+                return _esGetAllConditionsMethod.Invoke(effectsService, null) as System.Collections.IEnumerable;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetAllConditions failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the list of active cornerstone effect names.
+        /// Returns List of effect name strings.
+        /// </summary>
+        public static List<string> GetActiveCornerstones()
+        {
+            EnsureModifiersPanelTypes();
+            var cornerstonesState = GetCornerstonesState();
+            if (cornerstonesState == null || _csActiveCornerstonesField == null) return null;
+
+            try
+            {
+                return _csActiveCornerstonesField.GetValue(cornerstonesState) as List<string>;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetActiveCornerstones failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the sorted perks list from PerksService.
+        /// Returns List of PerkState objects with name, stacks, hidden fields.
+        /// </summary>
+        public static System.Collections.IList GetSortedPerks()
+        {
+            EnsureModifiersPanelTypes();
+            var perksService = GetPerksService();
+            if (perksService == null || _psSortedPerksProperty == null) return null;
+
+            try
+            {
+                return _psSortedPerksProperty.GetValue(perksService) as System.Collections.IList;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetSortedPerks failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        // Cached PerkState field info
+        private static FieldInfo _perkStateNameField = null;
+        private static FieldInfo _perkStateStacksField = null;
+        private static FieldInfo _perkStateHiddenField = null;
+        private static bool _perkStateFieldsCached = false;
+
+        private static void EnsurePerkStateFields(object firstPerk)
+        {
+            if (_perkStateFieldsCached || firstPerk == null) return;
+
+            try
+            {
+                var perkType = firstPerk.GetType();
+                _perkStateNameField = perkType.GetField("name", BindingFlags.Public | BindingFlags.Instance);
+                _perkStateStacksField = perkType.GetField("stacks", BindingFlags.Public | BindingFlags.Instance);
+                _perkStateHiddenField = perkType.GetField("hidden", BindingFlags.Public | BindingFlags.Instance);
+                Debug.Log("[ATSAccessibility] Cached PerkState fields");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] EnsurePerkStateFields failed: {ex.Message}");
+            }
+
+            _perkStateFieldsCached = true;
+        }
+
+        /// <summary>
+        /// Extract perk info from a PerkState object.
+        /// Returns tuple of (name, stacks, hidden).
+        /// </summary>
+        public static (string name, int stacks, bool hidden) GetPerkInfo(object perkState)
+        {
+            if (perkState == null) return (null, 0, true);
+
+            EnsurePerkStateFields(perkState);
+
+            try
+            {
+                string name = _perkStateNameField?.GetValue(perkState) as string ?? "";
+                int stacks = (int?)_perkStateStacksField?.GetValue(perkState) ?? 1;
+                bool hidden = (bool?)_perkStateHiddenField?.GetValue(perkState) ?? false;
+                return (name, stacks, hidden);
+            }
+            catch
+            {
+                return (null, 0, true);
+            }
+        }
+
+        // Cached EffectModel property for IsPerk check
+        private static PropertyInfo _effectModelIsPerkProperty = null;
+        private static PropertyInfo _effectModelNameProperty = null;
+        private static bool _effectModelPropsCached = false;
+
+        private static void EnsureEffectModelProps(object effectModel)
+        {
+            if (_effectModelPropsCached || effectModel == null) return;
+
+            try
+            {
+                var effectType = effectModel.GetType();
+                _effectModelIsPerkProperty = effectType.GetProperty("IsPerk", BindingFlags.Public | BindingFlags.Instance);
+                _effectModelNameProperty = effectType.GetProperty("Name", BindingFlags.Public | BindingFlags.Instance);
+                Debug.Log("[ATSAccessibility] Cached EffectModel IsPerk/Name properties");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] EnsureEffectModelProps failed: {ex.Message}");
+            }
+
+            _effectModelPropsCached = true;
+        }
+
+        /// <summary>
+        /// Check if an EffectModel is a perk (IsPerk property).
+        /// Effects with IsPerk=true get added to perks list when applied.
+        /// </summary>
+        public static bool GetEffectIsPerk(object effectModel)
+        {
+            if (effectModel == null) return false;
+
+            EnsureEffectModelProps(effectModel);
+
+            try
+            {
+                return (bool?)_effectModelIsPerkProperty?.GetValue(effectModel) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the internal Name property from an EffectModel.
+        /// </summary>
+        public static string GetEffectName(object effectModel)
+        {
+            if (effectModel == null) return null;
+
+            EnsureEffectModelProps(effectModel);
+
+            try
+            {
+                return _effectModelNameProperty?.GetValue(effectModel) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the wrapped EffectModel from a SimpleSeasonalEffectModel.
+        /// Only SimpleSeasonalEffectModel has an "effect" field - ConditionalSeasonalEffectModel does not.
+        /// </summary>
+        public static object GetSeasonalEffectWrappedEffect(object seasonalEffectModel)
+        {
+            if (seasonalEffectModel == null) return null;
+
+            try
+            {
+                // Get the effect field directly from this model instance
+                // SimpleSeasonalEffectModel has "effect" field, ConditionalSeasonalEffectModel does not
+                var modelType = seasonalEffectModel.GetType();
+                var effectField = modelType.GetField("effect", BindingFlags.Public | BindingFlags.Instance);
+                return effectField?.GetValue(seasonalEffectModel);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the internal name of the wrapped effect inside a seasonal effect model.
+        /// This is the name that appears in PerksService when the mystery is active.
+        /// Only works for SimpleSeasonalEffectModel which has an "effect" field.
+        /// </summary>
+        public static string GetSeasonalEffectWrappedEffectName(object seasonalEffectModel)
+        {
+            var wrappedEffect = GetSeasonalEffectWrappedEffect(seasonalEffectModel);
+            return GetEffectName(wrappedEffect);
+        }
+
+        /// <summary>
+        /// Get the hostility level required for a seasonal effect model.
+        /// Both SimpleSeasonalEffectModel and ConditionalSeasonalEffectModel have this field.
+        /// Returns 0 if no hostility level requirement.
+        /// </summary>
+        public static int GetSeasonalEffectHostilityLevel(object seasonalEffectModel)
+        {
+            if (seasonalEffectModel == null) return 0;
+
+            try
+            {
+                var modelType = seasonalEffectModel.GetType();
+                var hostilityField = modelType.GetField("hostilityLevel", BindingFlags.Public | BindingFlags.Instance);
+                return (int?)hostilityField?.GetValue(seasonalEffectModel) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
     }
 }

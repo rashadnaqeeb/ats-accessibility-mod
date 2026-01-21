@@ -7,13 +7,24 @@ using UnityEngine;
 namespace ATSAccessibility
 {
     /// <summary>
-    /// Virtual speech panel for forest mysteries (seasonal effects) and modifiers.
-    /// Three categories: Positive Mysteries, Negative Mysteries, Modifiers.
+    /// Virtual speech panel for settlement modifiers.
+    /// Five categories: Positive Mysteries, Negative Mysteries, Effects, Cornerstones, Perks.
     /// </summary>
     public class MysteriesPanel : TwoLevelPanel
     {
         /// <summary>
-        /// Represents a single mystery or modifier item.
+        /// The type of item in a category, used for formatting announcements.
+        /// </summary>
+        private enum ItemType
+        {
+            Mystery,      // Seasonal effects with active/inactive status
+            Effect,       // Biome/difficulty/embark effects
+            Cornerstone,  // Active cornerstones
+            Perk          // Perks with stacks
+        }
+
+        /// <summary>
+        /// Represents a single modifier item.
         /// </summary>
         private class MysteryItem
         {
@@ -24,6 +35,8 @@ namespace ATSAccessibility
             public bool IsActive { get; set; }
             public bool IsConditional { get; set; }
             public string ConditionText { get; set; }
+            public ItemType Type { get; set; } = ItemType.Mystery;
+            public int Stacks { get; set; } = 1;  // For perks
         }
 
         /// <summary>
@@ -32,6 +45,7 @@ namespace ATSAccessibility
         private class Category
         {
             public string Name { get; set; }
+            public ItemType Type { get; set; } = ItemType.Mystery;
             public List<MysteryItem> Items { get; set; } = new List<MysteryItem>();
         }
 
@@ -60,8 +74,8 @@ namespace ATSAccessibility
         // ABSTRACT MEMBER IMPLEMENTATIONS
         // ========================================
 
-        protected override string PanelName => "Mysteries panel";
-        protected override string EmptyMessage => "No mysteries or modifiers active";
+        protected override string PanelName => "Modifiers";
+        protected override string EmptyMessage => "No modifiers active";
         protected override int CategoryCount => _categories.Count;
         protected override int CurrentItemCount =>
             _currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count
@@ -82,31 +96,67 @@ namespace ATSAccessibility
         {
             _categories.Clear();
 
-            // Get all mysteries split by positive/negative
-            var (positiveMysteries, negativeMysteries) = GetMysteriesByType();
+            // Build exclusion sets for perks category
+            var mysteryNames = new HashSet<string>();
+            var cornerstoneNames = new HashSet<string>();
+            var effectNames = new HashSet<string>();
 
-            // Category 1: Positive Mysteries
+            // Category 1-2: Get all mysteries split by positive/negative
+            // Also collects mystery model names AND wrapped effect names for exclusion
+            var (positiveMysteries, negativeMysteries) = GetMysteriesByType(mysteryNames);
+
             _categories.Add(new Category
             {
                 Name = "Positive Mysteries",
+                Type = ItemType.Mystery,
                 Items = positiveMysteries
             });
 
-            // Category 2: Negative Mysteries
             _categories.Add(new Category
             {
                 Name = "Negative Mysteries",
+                Type = ItemType.Mystery,
                 Items = negativeMysteries
             });
 
-            // Category 3: Modifiers
+            // Category 3: Effects (biome, difficulty, embark, events)
+            // Excludes IsPerk=true effects (those show under Perks)
+            // Also collects effect names for exclusion from perks
             _categories.Add(new Category
             {
-                Name = "Modifiers",
-                Items = GetActiveModifiers()
+                Name = "Effects",
+                Type = ItemType.Effect,
+                Items = GetActiveEffects(effectNames)
             });
 
-            Debug.Log($"[ATSAccessibility] Mysteries panel refreshed: Positive={_categories[0].Items.Count}, Negative={_categories[1].Items.Count}, Modifiers={_categories[2].Items.Count}");
+            // Category 4: Cornerstones
+            // Also collect cornerstone names for exclusion from perks
+            var cornerstones = GameReflection.GetActiveCornerstones();
+            if (cornerstones != null)
+            {
+                foreach (var name in cornerstones)
+                {
+                    if (!string.IsNullOrEmpty(name))
+                        cornerstoneNames.Add(name);
+                }
+            }
+
+            _categories.Add(new Category
+            {
+                Name = "Cornerstones",
+                Type = ItemType.Cornerstone,
+                Items = GetCornerstoneItems(cornerstones)
+            });
+
+            // Category 5: Perks (exclude mysteries + cornerstones + effects)
+            _categories.Add(new Category
+            {
+                Name = "Perks",
+                Type = ItemType.Perk,
+                Items = GetActivePerks(mysteryNames, cornerstoneNames, effectNames)
+            });
+
+            Debug.Log($"[ATSAccessibility] Modifiers panel refreshed: PosMyst={_categories[0].Items.Count}, NegMyst={_categories[1].Items.Count}, Effects={_categories[2].Items.Count}, Cornerstones={_categories[3].Items.Count}, Perks={_categories[4].Items.Count}");
         }
 
         protected override void ClearData()
@@ -123,7 +173,7 @@ namespace ATSAccessibility
 
             string message = $"{category.Name}, {count}";
             Speech.Say(message);
-            Debug.Log($"[ATSAccessibility] Mysteries category {_currentCategoryIndex + 1}/{_categories.Count}: {message}");
+            Debug.Log($"[ATSAccessibility] Modifiers category {_currentCategoryIndex + 1}/{_categories.Count}: {message}");
         }
 
         protected override void AnnounceItem()
@@ -134,31 +184,44 @@ namespace ATSAccessibility
             var item = category.Items[_currentItemIndex];
             var parts = new List<string>();
 
-            // Modifiers category uses different format (no active/inactive status)
-            if (category.Name == "Modifiers")
+            switch (item.Type)
             {
-                // Format: "Name. Description"
-                parts.Add(item.Name + ".");
-                if (!string.IsNullOrEmpty(item.Description))
-                    parts.Add(item.Description);
-            }
-            else
-            {
-                // Mysteries format: "Active/Inactive, Name, Season. Description Condition"
-                // (description already has trailing period from game localization)
-                string status = item.IsActive ? "Active" : "Inactive";
-                parts.Add($"{status}, {item.Name}, {item.Season}.");
+                case ItemType.Mystery:
+                    // Mysteries format: "Active/Inactive, Name, Season. Description Condition"
+                    string status = item.IsActive ? "Active" : "Inactive";
+                    parts.Add($"{status}, {item.Name}, {item.Season}.");
 
-                if (!string.IsNullOrEmpty(item.Description))
-                    parts.Add(item.Description);
+                    if (!string.IsNullOrEmpty(item.Description))
+                        parts.Add(item.Description);
 
-                if (item.IsConditional && !string.IsNullOrEmpty(item.ConditionText))
-                    parts.Add(item.ConditionText);
+                    // Show condition text if present (hostility level, need categories, etc.)
+                    if (!string.IsNullOrEmpty(item.ConditionText))
+                        parts.Add(item.ConditionText);
+                    break;
+
+                case ItemType.Effect:
+                case ItemType.Cornerstone:
+                    // Effects/Cornerstones format: "Name. Description"
+                    parts.Add(item.Name + ".");
+                    if (!string.IsNullOrEmpty(item.Description))
+                        parts.Add(item.Description);
+                    break;
+
+                case ItemType.Perk:
+                    // Perks format: "Name x3. Description" or "Name. Description" if stacks=1
+                    if (item.Stacks > 1)
+                        parts.Add($"{item.Name} x{item.Stacks}.");
+                    else
+                        parts.Add(item.Name + ".");
+
+                    if (!string.IsNullOrEmpty(item.Description))
+                        parts.Add(item.Description);
+                    break;
             }
 
             string message = string.Join(" ", parts);
             Speech.Say(message);
-            Debug.Log($"[ATSAccessibility] Mystery item {_currentItemIndex + 1}/{category.Items.Count}: {item.Name}");
+            Debug.Log($"[ATSAccessibility] Modifier item {_currentItemIndex + 1}/{category.Items.Count}: {item.Name}");
         }
 
         /// <summary>
@@ -182,8 +245,9 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Get all mysteries split by positive/negative.
+        /// Also collects mystery model names AND wrapped effect names in outMysteryNames for exclusion from perks.
         /// </summary>
-        private (List<MysteryItem> positive, List<MysteryItem> negative) GetMysteriesByType()
+        private (List<MysteryItem> positive, List<MysteryItem> negative) GetMysteriesByType(HashSet<string> outMysteryNames)
         {
             var positive = new List<MysteryItem>();
             var negative = new List<MysteryItem>();
@@ -202,6 +266,26 @@ namespace ATSAccessibility
                 var state = entry.Value;
                 if (state == null) continue;
 
+                // Collect the model name (internal name) for exclusion from perks
+                string modelName = _sesModelField?.GetValue(state)?.ToString();
+                if (!string.IsNullOrEmpty(modelName))
+                {
+                    outMysteryNames.Add(modelName);
+
+                    // Also collect the wrapped effect's internal name
+                    // This is what actually gets added to PerksService when the mystery is active
+                    object model = GameReflection.GetSimpleSeasonalEffectModel(modelName);
+                    if (model == null)
+                        model = GameReflection.GetConditionalSeasonalEffectModel(modelName);
+
+                    if (model != null)
+                    {
+                        string wrappedEffectName = GameReflection.GetSeasonalEffectWrappedEffectName(model);
+                        if (!string.IsNullOrEmpty(wrappedEffectName))
+                            outMysteryNames.Add(wrappedEffectName);
+                    }
+                }
+
                 var item = CreateMysteryItem(entry.Key?.ToString(), state);
                 if (item == null) continue;
 
@@ -216,37 +300,101 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get active modifiers (early + late effects from ConditionsState).
+        /// Get active effects (biome, difficulty, embark, events) via EffectsService.GetAllConditions().
+        /// Excludes effects where IsPerk=true (those show under Perks category instead).
+        /// Also collects internal effect names in outEffectNames for exclusion from perks.
         /// </summary>
-        private List<MysteryItem> GetActiveModifiers()
+        private List<MysteryItem> GetActiveEffects(HashSet<string> outEffectNames)
         {
             var items = new List<MysteryItem>();
 
-            var earlyEffects = GameReflection.GetEarlyEffects();
-            var lateEffects = GameReflection.GetLateEffects();
+            var conditions = GameReflection.GetAllConditions();
+            if (conditions == null) return items;
 
             EnsureModelFields();
 
-            // Process early effects
-            if (earlyEffects != null)
+            // Track effect names to avoid duplicates
+            var seenDisplayNames = new HashSet<string>();
+
+            foreach (var effectModel in conditions)
             {
-                foreach (var effectName in earlyEffects)
+                if (effectModel == null) continue;
+
+                // Skip effects that are perks - they'll show under Perks category
+                if (GameReflection.GetEffectIsPerk(effectModel))
+                    continue;
+
+                // Collect the internal effect name for exclusion from perks
+                string internalName = GameReflection.GetEffectName(effectModel);
+                if (!string.IsNullOrEmpty(internalName))
+                    outEffectNames.Add(internalName);
+
+                var item = CreateEffectItem(effectModel);
+                if (item != null && !seenDisplayNames.Contains(item.Name))
                 {
-                    var item = CreateModifierItem(effectName);
-                    if (item != null)
-                        items.Add(item);
+                    seenDisplayNames.Add(item.Name);
+                    items.Add(item);
                 }
             }
 
-            // Process late effects
-            if (lateEffects != null)
+            return items;
+        }
+
+        /// <summary>
+        /// Get active cornerstones as modifier items.
+        /// </summary>
+        private List<MysteryItem> GetCornerstoneItems(List<string> cornerstones)
+        {
+            var items = new List<MysteryItem>();
+
+            if (cornerstones == null) return items;
+
+            EnsureModelFields();
+
+            foreach (var effectName in cornerstones)
             {
-                foreach (var effectName in lateEffects)
-                {
-                    var item = CreateModifierItem(effectName);
-                    if (item != null)
-                        items.Add(item);
-                }
+                if (string.IsNullOrEmpty(effectName)) continue;
+
+                var item = CreateCornerstoneItem(effectName);
+                if (item != null)
+                    items.Add(item);
+            }
+
+            return items;
+        }
+
+        /// <summary>
+        /// Get active perks as modifier items, excluding items shown in other categories.
+        /// Excludes: hidden perks, mysteries (by model name), cornerstones, effects.
+        /// </summary>
+        private List<MysteryItem> GetActivePerks(HashSet<string> mysteryNames, HashSet<string> cornerstoneNames, HashSet<string> effectNames)
+        {
+            var items = new List<MysteryItem>();
+
+            var sortedPerks = GameReflection.GetSortedPerks();
+            if (sortedPerks == null) return items;
+
+            EnsureModelFields();
+
+            foreach (var perkState in sortedPerks)
+            {
+                if (perkState == null) continue;
+
+                var (name, stacks, hidden) = GameReflection.GetPerkInfo(perkState);
+                if (string.IsNullOrEmpty(name) || hidden) continue;
+
+                // Skip mysteries - they're shown in Positive/Negative Mysteries categories
+                if (mysteryNames.Contains(name)) continue;
+
+                // Skip cornerstones - they're shown in Cornerstones category
+                if (cornerstoneNames.Contains(name)) continue;
+
+                // Skip effects - they're shown in Effects category
+                if (effectNames.Contains(name)) continue;
+
+                var item = CreatePerkItem(name, stacks);
+                if (item != null)
+                    items.Add(item);
             }
 
             return items;
@@ -379,10 +527,14 @@ namespace ATSAccessibility
                 {
                     model = GameReflection.GetConditionalSeasonalEffectModel(modelName);
                     if (model != null)
-                    {
                         isConditional = true;
-                        conditionText = GetConditionText(model);
-                    }
+                }
+
+                // Get condition text for both simple and conditional models
+                // (both can have hostility level requirements)
+                if (model != null)
+                {
+                    conditionText = GetConditionText(model);
                 }
 
                 string displayName = modelName;
@@ -465,46 +617,56 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get the condition text for a conditional seasonal effect model.
+        /// Get the condition text for a seasonal effect model.
+        /// Includes hostility level requirement and need category conditions.
+        /// Works for both SimpleSeasonalEffectModel and ConditionalSeasonalEffectModel.
         /// </summary>
-        private string GetConditionText(object conditionalModel)
+        private string GetConditionText(object seasonalEffectModel)
         {
-            if (conditionalModel == null) return "";
+            if (seasonalEffectModel == null) return "";
 
             try
             {
-                // Get conditions array from ConditionalSeasonalEffectModel (it's a field, not property)
-                var conditionsField = conditionalModel.GetType().GetField("conditions",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var conditions = conditionsField?.GetValue(conditionalModel) as Array;
-
-                if (conditions == null || conditions.Length == 0)
-                    return "";
-
                 var parts = new List<string>();
-                bool firstCondition = true;
 
-                foreach (var condition in conditions)
+                // Check hostility level requirement (both Simple and Conditional models have this)
+                int hostilityLevel = GameReflection.GetSeasonalEffectHostilityLevel(seasonalEffectModel);
+                if (hostilityLevel > 0)
                 {
-                    if (condition == null) continue;
+                    parts.Add($"Hostility level {hostilityLevel}");
+                }
 
-                    // Cache condition fields on first iteration
-                    if (firstCondition)
+                // Check need category conditions (ConditionalSeasonalEffectModel only)
+                var conditionsField = seasonalEffectModel.GetType().GetField("conditions",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var conditions = conditionsField?.GetValue(seasonalEffectModel) as Array;
+
+                if (conditions != null && conditions.Length > 0)
+                {
+                    bool firstCondition = true;
+
+                    foreach (var condition in conditions)
                     {
-                        EnsureConditionFields(condition);
-                        firstCondition = false;
-                    }
+                        if (condition == null) continue;
 
-                    var category = _conditionCategoryField?.GetValue(condition);
-                    var amount = _conditionAmountField?.GetValue(condition);
+                        // Cache condition fields on first iteration
+                        if (firstCondition)
+                        {
+                            EnsureConditionFields(condition);
+                            firstCondition = false;
+                        }
 
-                    if (category != null)
-                    {
-                        var displayName = _categoryDisplayNameField?.GetValue(category);
-                        string text = GameReflection.GetLocaText(displayName) ?? "";
+                        var category = _conditionCategoryField?.GetValue(condition);
+                        var amount = _conditionAmountField?.GetValue(condition);
 
-                        if (!string.IsNullOrEmpty(text))
-                            parts.Add($"{text} x{amount}");
+                        if (category != null)
+                        {
+                            var displayName = _categoryDisplayNameField?.GetValue(category);
+                            string text = GameReflection.GetLocaText(displayName) ?? "";
+
+                            if (!string.IsNullOrEmpty(text))
+                                parts.Add($"{text} x{amount}");
+                        }
                     }
                 }
 
@@ -518,9 +680,49 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Create a MysteryItem from an effect name (for modifiers).
+        /// Create a MysteryItem from an EffectModel object (for effects from GetAllConditions).
         /// </summary>
-        private MysteryItem CreateModifierItem(string effectName)
+        private MysteryItem CreateEffectItem(object effectModel)
+        {
+            if (effectModel == null) return null;
+
+            try
+            {
+                EnsureModelFields();
+
+                string displayName = "";
+                string description = "";
+
+                var nameObj = _effectDisplayNameProperty?.GetValue(effectModel);
+                if (nameObj != null)
+                    displayName = nameObj.ToString();
+
+                var descObj = _effectDescriptionProperty?.GetValue(effectModel);
+                if (descObj != null)
+                    description = descObj.ToString();
+
+                // Skip effects without display names
+                if (string.IsNullOrEmpty(displayName)) return null;
+
+                return new MysteryItem
+                {
+                    Name = displayName,
+                    Description = description,
+                    Type = ItemType.Effect,
+                    IsActive = true
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CreateEffectItem failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Create a MysteryItem from a cornerstone effect name.
+        /// </summary>
+        private MysteryItem CreateCornerstoneItem(string effectName)
         {
             if (string.IsNullOrEmpty(effectName)) return null;
 
@@ -548,15 +750,56 @@ namespace ATSAccessibility
                 {
                     Name = displayName,
                     Description = description,
-                    Season = "",  // Modifiers don't have seasons
-                    IsActive = true,  // Modifiers are always active
-                    IsConditional = false,
-                    ConditionText = ""
+                    Type = ItemType.Cornerstone,
+                    IsActive = true
                 };
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[ATSAccessibility] CreateModifierItem failed: {ex.Message}");
+                Debug.LogError($"[ATSAccessibility] CreateCornerstoneItem failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Create a MysteryItem from a perk name and stack count.
+        /// </summary>
+        private MysteryItem CreatePerkItem(string effectName, int stacks)
+        {
+            if (string.IsNullOrEmpty(effectName)) return null;
+
+            try
+            {
+                object model = GameReflection.GetEffectModel(effectName);
+
+                string displayName = effectName;
+                string description = "";
+
+                if (model != null)
+                {
+                    EnsureModelFields();
+
+                    var nameObj = _effectDisplayNameProperty?.GetValue(model);
+                    if (nameObj != null)
+                        displayName = nameObj.ToString();
+
+                    var descObj = _effectDescriptionProperty?.GetValue(model);
+                    if (descObj != null)
+                        description = descObj.ToString();
+                }
+
+                return new MysteryItem
+                {
+                    Name = displayName,
+                    Description = description,
+                    Type = ItemType.Perk,
+                    Stacks = stacks,
+                    IsActive = true
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CreatePerkItem failed: {ex.Message}");
                 return null;
             }
         }

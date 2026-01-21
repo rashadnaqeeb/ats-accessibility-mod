@@ -13,11 +13,11 @@ namespace ATSAccessibility
             Resources,
             Villagers,
             Stats,
-            Mysteries,
+            Modifiers,
             Announcements
         }
 
-        private static readonly string[] _menuLabels = { "Resources", "Villagers", "Stats", "Mysteries", "Announcements" };
+        private static readonly string[] _menuLabels = { "Resources", "Villagers", "Stats", "Modifiers", "Announcements" };
 
         private readonly StatsPanel _statsPanel;
         private readonly SettlementResourcePanel _resourcePanel;
@@ -198,7 +198,7 @@ namespace ATSAccessibility
                 case MenuPanel.Resources:
                     _resourcePanel?.Open();
                     break;
-                case MenuPanel.Mysteries:
+                case MenuPanel.Modifiers:
                     _mysteriesPanel?.Open();
                     break;
                 case MenuPanel.Villagers:
@@ -227,7 +227,7 @@ namespace ATSAccessibility
                     if (_resourcePanel?.IsOpen == true)
                         _resourcePanel.Close();
                     break;
-                case MenuPanel.Mysteries:
+                case MenuPanel.Modifiers:
                     if (_mysteriesPanel?.IsOpen == true)
                         _mysteriesPanel.Close();
                     break;
@@ -254,7 +254,7 @@ namespace ATSAccessibility
                     return _statsPanel?.ProcessKeyEvent(keyCode) ?? false;
                 case MenuPanel.Resources:
                     return _resourcePanel?.ProcessKeyEvent(keyCode) ?? false;
-                case MenuPanel.Mysteries:
+                case MenuPanel.Modifiers:
                     return _mysteriesPanel?.ProcessKeyEvent(keyCode) ?? false;
                 case MenuPanel.Villagers:
                     return _villagersPanel?.ProcessKeyEvent(keyCode) ?? false;
