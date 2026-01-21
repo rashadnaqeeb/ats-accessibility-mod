@@ -164,6 +164,12 @@ namespace ATSAccessibility
                     }
                     return true;
 
+                // Blight info
+                case KeyCode.B:
+                    string blightInfo = BlightInfoHelper.GetBlightInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                    Speech.Say(blightInfo);
+                    return true;
+
                 // Building activation (opens building panel)
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:

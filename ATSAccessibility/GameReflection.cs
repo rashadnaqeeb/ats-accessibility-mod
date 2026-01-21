@@ -647,6 +647,14 @@ namespace ATSAccessibility
         private static PropertyInfo _gsBuildingsServiceProperty = null;
         private static PropertyInfo _gsConditionsServiceProperty = null;
         private static MethodInfo _conditionsIsBlightActiveMethod = null;
+        private static PropertyInfo _gsBlightServiceProperty = null;  // BlightService
+        private static MethodInfo _blightGetGlobalActiveCystsMethod = null;  // BlightService.GetGlobalActiveCysts()
+        private static MethodInfo _blightGetPredictedPercentageCorruptionMethod = null;  // BlightService.GetPredictedPercentageCorruption()
+        private static PropertyInfo _buildingsBlightsProperty = null;  // BuildingsService.BuildingsBlights
+        private static MethodInfo _buildingsGetMainHearthMethod = null;  // BuildingsService.GetMainHearth()
+        private static MethodInfo _buildingBlightGetActiveCystsMethod = null;  // BuildingBlight.GetActiveCysts()
+        private static PropertyInfo _buildingBlightOwnerProperty = null;  // BuildingBlight.Owner
+        private static MethodInfo _hearthGetCorruptionRateMethod = null;  // Hearth.GetCorruptionRate()
         private static PropertyInfo _gsGladesProperty = null;  // GladesService.Glades list
         private static PropertyInfo _mapFieldsProperty = null;  // MapService.Fields (Map<Field>)
         private static FieldInfo _mapWidthField = null;         // Fields.width
@@ -698,6 +706,51 @@ namespace ATSAccessibility
                 if (conditionsServiceType != null)
                 {
                     _conditionsIsBlightActiveMethod = conditionsServiceType.GetMethod("IsBlightActive",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get BlightService from IGameServices
+                if (gameServicesType != null)
+                {
+                    _gsBlightServiceProperty = gameServicesType.GetProperty("BlightService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get BlightService methods from IBlightService
+                var blightServiceType = _gameAssembly.GetType("Eremite.Services.IBlightService");
+                if (blightServiceType != null)
+                {
+                    _blightGetGlobalActiveCystsMethod = blightServiceType.GetMethod("GetGlobalActiveCysts",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _blightGetPredictedPercentageCorruptionMethod = blightServiceType.GetMethod("GetPredictedPercentageCorruption",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get BuildingsBlights and GetMainHearth from IBuildingsService
+                var buildingsServiceType = _gameAssembly.GetType("Eremite.Services.IBuildingsService");
+                if (buildingsServiceType != null)
+                {
+                    _buildingsBlightsProperty = buildingsServiceType.GetProperty("BuildingsBlights",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _buildingsGetMainHearthMethod = buildingsServiceType.GetMethod("GetMainHearth",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get BuildingBlight methods
+                var buildingBlightType = _gameAssembly.GetType("Eremite.Buildings.BuildingBlight");
+                if (buildingBlightType != null)
+                {
+                    _buildingBlightGetActiveCystsMethod = buildingBlightType.GetMethod("GetActiveCysts",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _buildingBlightOwnerProperty = buildingBlightType.GetProperty("Owner",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get Hearth.GetCorruptionRate method
+                var hearthType = _gameAssembly.GetType("Eremite.Buildings.Hearth");
+                if (hearthType != null)
+                {
+                    _hearthGetCorruptionRateMethod = hearthType.GetMethod("GetCorruptionRate",
                         BindingFlags.Public | BindingFlags.Instance);
                 }
 
@@ -918,6 +971,133 @@ namespace ATSAccessibility
             }
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] IsBlightActive failed: {ex.Message}"); }
             return false;
+        }
+
+        /// <summary>
+        /// Get BlightService from GameServices.
+        /// </summary>
+        public static object GetBlightService()
+        {
+            EnsureMapTypes();
+            return TryGetPropertyValue<object>(_gsBlightServiceProperty, GetGameServices());
+        }
+
+        /// <summary>
+        /// Get total active cysts in the settlement.
+        /// Returns 0 if not in game or blight is not active.
+        /// </summary>
+        public static int GetGlobalActiveCysts()
+        {
+            EnsureMapTypes();
+
+            try
+            {
+                var blightService = GetBlightService();
+                if (blightService == null || _blightGetGlobalActiveCystsMethod == null) return 0;
+
+                return (int)_blightGetGlobalActiveCystsMethod.Invoke(blightService, null);
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGlobalActiveCysts failed: {ex.Message}"); }
+            return 0;
+        }
+
+        /// <summary>
+        /// Get predicted corruption percentage (0-1).
+        /// Returns 0 if not in game or blight is not active.
+        /// </summary>
+        public static float GetPredictedCorruptionPercentage()
+        {
+            EnsureMapTypes();
+
+            try
+            {
+                var blightService = GetBlightService();
+                if (blightService == null || _blightGetPredictedPercentageCorruptionMethod == null) return 0f;
+
+                return (float)_blightGetPredictedPercentageCorruptionMethod.Invoke(blightService, null);
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetPredictedCorruptionPercentage failed: {ex.Message}"); }
+            return 0f;
+        }
+
+        /// <summary>
+        /// Get all BuildingBlight components from BuildingsService.
+        /// Returns null if not in game.
+        /// </summary>
+        public static object GetBuildingsBlights()
+        {
+            EnsureMapTypes();
+            return TryGetPropertyValue<object>(_buildingsBlightsProperty, GetBuildingsService());
+        }
+
+        /// <summary>
+        /// Get the main hearth building.
+        /// Returns null if not in game.
+        /// </summary>
+        public static object GetMainHearth()
+        {
+            EnsureMapTypes();
+
+            try
+            {
+                var buildingsService = GetBuildingsService();
+                if (buildingsService == null || _buildingsGetMainHearthMethod == null) return null;
+
+                return _buildingsGetMainHearthMethod.Invoke(buildingsService, null);
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetMainHearth failed: {ex.Message}"); }
+            return null;
+        }
+
+        /// <summary>
+        /// Get the active cyst count for a BuildingBlight component.
+        /// </summary>
+        public static int GetBlightActiveCysts(object buildingBlight)
+        {
+            EnsureMapTypes();
+
+            if (buildingBlight == null || _buildingBlightGetActiveCystsMethod == null) return 0;
+
+            try
+            {
+                return (int)_buildingBlightGetActiveCystsMethod.Invoke(buildingBlight, null);
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBlightActiveCysts failed: {ex.Message}"); }
+            return 0;
+        }
+
+        /// <summary>
+        /// Get the owner Building from a BuildingBlight component.
+        /// </summary>
+        public static object GetBlightOwner(object buildingBlight)
+        {
+            EnsureMapTypes();
+
+            if (buildingBlight == null || _buildingBlightOwnerProperty == null) return null;
+
+            try
+            {
+                return _buildingBlightOwnerProperty.GetValue(buildingBlight);
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBlightOwner failed: {ex.Message}"); }
+            return null;
+        }
+
+        /// <summary>
+        /// Get the corruption rate (0-1) from a Hearth building.
+        /// </summary>
+        public static float GetHearthCorruptionRate(object hearth)
+        {
+            EnsureMapTypes();
+
+            if (hearth == null || _hearthGetCorruptionRateMethod == null) return 0f;
+
+            try
+            {
+                return (float)_hearthGetCorruptionRateMethod.Invoke(hearth, null);
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetHearthCorruptionRate failed: {ex.Message}"); }
+            return 0f;
         }
 
         /// <summary>
