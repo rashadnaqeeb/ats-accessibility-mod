@@ -164,7 +164,7 @@ namespace ATSAccessibility
 
         // BuildingStorage (ProductionStorage) for output goods
         private static PropertyInfo _storageGoodsProperty = null;  // BuildingStorage.Goods
-        private static PropertyInfo _goodsCollectionGoodsProperty = null;  // BuildingGoodsCollection.goods (Dictionary<string, int>)
+        // Note: _goodsCollectionGoodsField is shared with IngredientsStorage (defined above)
         private static MethodInfo _storageGetDeliveryStateMethod = null;  // BuildingGoodsCollection.GetDeliveryState(string)
         private static MethodInfo _storageSwitchForceDeliveryMethod = null;  // BuildingStorage.SwitchForceDelivery(string, GoodDeliveryState)
         private static MethodInfo _storageSwitchConstantForceDeliveryMethod = null;  // BuildingStorage.SwitchConstantForceDelivery(string, GoodDeliveryState)
@@ -1197,8 +1197,15 @@ namespace ATSAccessibility
                 var goodsCollectionType = assembly.GetType("Eremite.Buildings.BuildingGoodsCollection");
                 if (goodsCollectionType != null)
                 {
-                    _goodsCollectionGoodsProperty = goodsCollectionType.GetProperty("goods", GameReflection.PublicInstance);
                     _storageGetDeliveryStateMethod = goodsCollectionType.GetMethod("GetDeliveryState", GameReflection.PublicInstance);
+                }
+
+                // goods field is on GoodsCollection base class, not BuildingGoodsCollection
+                var baseGoodsCollectionType = assembly.GetType("Eremite.GoodsCollection");
+                if (baseGoodsCollectionType != null)
+                {
+                    _goodsCollectionGoodsField = baseGoodsCollectionType.GetField("goods", GameReflection.PublicInstance);
+                    Debug.Log($"[ATSAccessibility] BuildingReflection: Found GoodsCollection.goods field: {_goodsCollectionGoodsField != null}");
                 }
 
                 var deliveryStateType = assembly.GetType("Eremite.Buildings.GoodDeliveryState");
@@ -4100,7 +4107,7 @@ namespace ATSAccessibility
                 if (goodsCollection == null) return result;
 
                 // Get the goods dictionary (Dictionary<string, int>)
-                var goodsDict = _goodsCollectionGoodsProperty?.GetValue(goodsCollection);
+                var goodsDict = _goodsCollectionGoodsField?.GetValue(goodsCollection);
                 if (goodsDict == null) return result;
 
                 // Iterate through the dictionary
@@ -8101,7 +8108,7 @@ namespace ATSAccessibility
 
                 // BuildingGoodsCollection.goods property - use reflection to iterate
                 // (direct cast to Dictionary<string, int> fails at runtime)
-                var goodsDict = _goodsCollectionGoodsProperty?.GetValue(goodsCollection);
+                var goodsDict = _goodsCollectionGoodsField?.GetValue(goodsCollection);
                 if (goodsDict == null) return result;
 
                 // Iterate through the dictionary using reflection
