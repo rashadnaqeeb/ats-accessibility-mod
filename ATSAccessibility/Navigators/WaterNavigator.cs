@@ -17,7 +17,8 @@ namespace ATSAccessibility
         {
             Info,
             Water,
-            Workers
+            Workers,
+            Upgrades
         }
 
         // ========================================
@@ -69,6 +70,8 @@ namespace ATSAccessibility
                     return GetWaterItemCount();
                 case SectionType.Workers:
                     return _maxWorkers;
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetItemCount();
                 default:
                     return 0;
             }
@@ -96,6 +99,9 @@ namespace ATSAccessibility
                 case SectionType.Workers:
                     AnnounceWorkerItem(itemIndex);
                     break;
+                case SectionType.Upgrades:
+                    _upgradesSection.AnnounceItem(itemIndex);
+                    break;
             }
         }
 
@@ -110,6 +116,12 @@ namespace ATSAccessibility
                 return GetInfoSubItemCount(itemIndex);
             }
 
+            // Upgrades section has sub-items (perks)
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.GetSubItemCount(itemIndex);
+            }
+
             return 0;
         }
 
@@ -119,6 +131,10 @@ namespace ATSAccessibility
             {
                 AnnounceInfoSubItem(itemIndex, subItemIndex);
             }
+            else if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
+            }
         }
 
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
@@ -126,6 +142,11 @@ namespace ATSAccessibility
             if (_sectionTypes[sectionIndex] == SectionType.Info)
             {
                 return PerformInfoSubItemAction(itemIndex, subItemIndex);
+            }
+
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
             }
 
             return false;
@@ -152,6 +173,7 @@ namespace ATSAccessibility
             _workerIds = null;
             _sectionNames = null;
             _sectionTypes = null;
+            ClearUpgradesSection();
         }
 
         // ========================================
@@ -203,6 +225,13 @@ namespace ATSAccessibility
             {
                 sections.Add("Workers");
                 types.Add(SectionType.Workers);
+            }
+
+            // Add Upgrades section if available
+            if (TryInitializeUpgradesSection())
+            {
+                sections.Add("Upgrades");
+                types.Add(SectionType.Upgrades);
             }
 
             _sectionNames = sections.ToArray();

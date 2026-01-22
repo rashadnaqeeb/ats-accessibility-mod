@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
@@ -437,6 +438,25 @@ namespace ATSAccessibility
         private static Type _soundRefType = null;
         private static MethodInfo _soundRefGetNextMethod = null;  // SoundRef.GetNext()
         private static bool _rainpunkEngineTypesCached = false;
+
+        // Building Upgrades (UpgradableBuilding system)
+        private static Type _upgradableBuildingType = null;
+        private static Type _upgradableBuildingModelType = null;
+        private static Type _upgradableBuildingStateType = null;
+        private static Type _buildingLevelModelType = null;
+        private static Type _goodsSetType = null;
+        private static PropertyInfo _upgradableModelProperty = null;  // UpgradableBuilding.UpgradableModel
+        private static PropertyInfo _upgradableStateProperty = null;  // UpgradableBuilding.UpgradableState
+        private static PropertyInfo _hasUpgradesProperty = null;  // UpgradableBuilding.HasUpgrades
+        private static FieldInfo _upgradableModelLevelsField = null;  // UpgradableBuildingModel.levels (BuildingLevelModel[])
+        private static FieldInfo _upgradableStateLevelField = null;  // UpgradableBuildingState.level
+        private static FieldInfo _upgradableStateUpgradesField = null;  // UpgradableBuildingState.upgrades (bool[][])
+        private static FieldInfo _levelModelRequiredGoodsField = null;  // BuildingLevelModel.requiredGoods (GoodsSet[])
+        private static FieldInfo _levelModelOptionsField = null;  // BuildingLevelModel.options (BuildingPerkModel[])
+        private static FieldInfo _goodsSetGoodsField = null;  // GoodsSet.goods (GoodRef[])
+        private static FieldInfo _buildingPerkDescField = null;  // BuildingPerkModel.description (LocaText)
+        private static MethodInfo _buildingPerkGetDescMethod = null;  // BuildingPerkModel.GetDescription(building)
+        private static bool _upgradeTypesCached = false;
 
         // ========================================
         // INITIALIZATION
@@ -2363,6 +2383,77 @@ namespace ATSAccessibility
             }
 
             _rainpunkEngineTypesCached = true;
+        }
+
+        private static void EnsureUpgradeTypes()
+        {
+            if (_upgradeTypesCached) return;
+
+            var assembly = GameReflection.GameAssembly;
+            if (assembly == null)
+            {
+                _upgradeTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // UpgradableBuilding type and properties
+                _upgradableBuildingType = assembly.GetType("Eremite.Buildings.UpgradableBuilding");
+                if (_upgradableBuildingType != null)
+                {
+                    _upgradableModelProperty = _upgradableBuildingType.GetProperty("UpgradableModel", GameReflection.PublicInstance);
+                    _upgradableStateProperty = _upgradableBuildingType.GetProperty("UpgradableState", GameReflection.PublicInstance);
+                    _hasUpgradesProperty = _upgradableBuildingType.GetProperty("HasUpgrades", GameReflection.PublicInstance);
+                }
+
+                // UpgradableBuildingModel type
+                _upgradableBuildingModelType = assembly.GetType("Eremite.Buildings.UpgradableBuildingModel");
+                if (_upgradableBuildingModelType != null)
+                {
+                    _upgradableModelLevelsField = _upgradableBuildingModelType.GetField("levels", GameReflection.PublicInstance);
+                }
+
+                // UpgradableBuildingState type
+                _upgradableBuildingStateType = assembly.GetType("Eremite.Buildings.UpgradableBuildingState");
+                if (_upgradableBuildingStateType != null)
+                {
+                    _upgradableStateLevelField = _upgradableBuildingStateType.GetField("level", GameReflection.PublicInstance);
+                    _upgradableStateUpgradesField = _upgradableBuildingStateType.GetField("upgrades", GameReflection.PublicInstance);
+                }
+
+                // BuildingLevelModel type
+                _buildingLevelModelType = assembly.GetType("Eremite.Buildings.BuildingLevelModel");
+                if (_buildingLevelModelType != null)
+                {
+                    _levelModelRequiredGoodsField = _buildingLevelModelType.GetField("requiredGoods", GameReflection.PublicInstance);
+                    _levelModelOptionsField = _buildingLevelModelType.GetField("options", GameReflection.PublicInstance);
+                }
+
+                // GoodsSet type
+                _goodsSetType = assembly.GetType("Eremite.Model.GoodsSet");
+                if (_goodsSetType != null)
+                {
+                    _goodsSetGoodsField = _goodsSetType.GetField("goods", GameReflection.PublicInstance);
+                }
+
+                // BuildingPerkModel - DisplayName property, description field, and GetDescription method
+                var buildingPerkModelType = assembly.GetType("Eremite.Model.BuildingPerkModel");
+                if (buildingPerkModelType != null)
+                {
+                    _buildingPerkDisplayNameProp = buildingPerkModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
+                    _buildingPerkDescField = buildingPerkModelType.GetField("description", BindingFlags.NonPublic | BindingFlags.Instance);
+                    _buildingPerkGetDescMethod = buildingPerkModelType.GetMethod("GetDescription", GameReflection.PublicInstance);
+                }
+
+                Debug.Log("[ATSAccessibility] BuildingReflection: Cached Upgrade types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] BuildingReflection upgrade types failed: {ex.Message}");
+            }
+
+            _upgradeTypesCached = true;
         }
 
         // ========================================
@@ -8088,6 +8179,538 @@ namespace ATSAccessibility
             }
 
             return result;
+        }
+
+        // ========================================
+        // PUBLIC API - BUILDING UPGRADES
+        // ========================================
+
+        /// <summary>
+        /// Data structure for goods cost information.
+        /// </summary>
+        public struct GoodsCost
+        {
+            public string goodName;    // Internal name for storage lookup
+            public string displayName; // Localized display name
+            public int required;       // Amount needed
+            public int available;      // Amount in warehouse
+        }
+
+        /// <summary>
+        /// Data structure for upgrade perk information.
+        /// </summary>
+        public struct UpgradePerkInfo
+        {
+            public int perkIndex;
+            public string displayName;
+            public string description;
+            public bool isChosen;      // This perk was selected for this level
+        }
+
+        /// <summary>
+        /// Data structure for upgrade level information.
+        /// </summary>
+        public struct UpgradeLevelInfo
+        {
+            public int levelIndex;              // 0-based index
+            public string levelName;            // "Level I", "Level II", etc.
+            public bool isAchieved;             // Level already purchased
+            public bool canAfford;              // Player has required goods
+            public List<GoodsCost> requiredGoods;  // Cost items (first option from each GoodsSet)
+            public List<UpgradePerkInfo> perks; // Available perk choices
+        }
+
+        /// <summary>
+        /// Check if a building is an upgradable building and has upgrades available.
+        /// </summary>
+        public static bool HasUpgradesAvailable(object building)
+        {
+            if (building == null) return false;
+
+            EnsureUpgradeTypes();
+
+            try
+            {
+                // Check if it's an UpgradableBuilding
+                if (_upgradableBuildingType == null ||
+                    !_upgradableBuildingType.IsAssignableFrom(building.GetType()))
+                    return false;
+
+                // Check HasUpgrades property (includes AreUpgradesUnlockd check)
+                return (bool?)_hasUpgradesProperty?.GetValue(building) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the current upgrade level of a building (0 = base, 1 = Level I purchased, etc.).
+        /// </summary>
+        public static int GetCurrentUpgradeLevel(object building)
+        {
+            if (building == null) return 0;
+
+            EnsureUpgradeTypes();
+
+            try
+            {
+                if (_upgradableBuildingType == null ||
+                    !_upgradableBuildingType.IsAssignableFrom(building.GetType()))
+                    return 0;
+
+                var state = _upgradableStateProperty?.GetValue(building);
+                if (state == null) return 0;
+
+                return (int?)_upgradableStateLevelField?.GetValue(state) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the total number of upgrade levels available for a building.
+        /// </summary>
+        public static int GetUpgradeLevelCount(object building)
+        {
+            if (building == null) return 0;
+
+            EnsureUpgradeTypes();
+
+            try
+            {
+                if (_upgradableBuildingType == null ||
+                    !_upgradableBuildingType.IsAssignableFrom(building.GetType()))
+                    return 0;
+
+                var model = _upgradableModelProperty?.GetValue(building);
+                if (model == null) return 0;
+
+                var levels = _upgradableModelLevelsField?.GetValue(model) as Array;
+                return levels?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Check if a specific perk was chosen for a level.
+        /// </summary>
+        public static bool IsPerkChosen(object building, int levelIndex, int perkIndex)
+        {
+            if (building == null) return false;
+
+            EnsureUpgradeTypes();
+
+            try
+            {
+                if (_upgradableBuildingType == null ||
+                    !_upgradableBuildingType.IsAssignableFrom(building.GetType()))
+                    return false;
+
+                var state = _upgradableStateProperty?.GetValue(building);
+                if (state == null) return false;
+
+                // upgrades is bool[][] - jagged array
+                var upgrades = _upgradableStateUpgradesField?.GetValue(state);
+                if (upgrades == null) return false;
+
+                // Access as jagged array using reflection
+                var outerArray = upgrades as Array;
+                if (outerArray == null || levelIndex < 0 || levelIndex >= outerArray.Length)
+                    return false;
+
+                var innerArray = outerArray.GetValue(levelIndex) as bool[];
+                if (innerArray == null || perkIndex < 0 || perkIndex >= innerArray.Length)
+                    return false;
+
+                return innerArray[perkIndex];
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get detailed upgrade information for all levels of a building.
+        /// </summary>
+        public static List<UpgradeLevelInfo> GetUpgradeLevelsInfo(object building)
+        {
+            var result = new List<UpgradeLevelInfo>();
+
+            if (building == null) return result;
+            if (!HasUpgradesAvailable(building)) return result;
+
+            EnsureUpgradeTypes();
+
+            try
+            {
+                var model = _upgradableModelProperty?.GetValue(building);
+                if (model == null) return result;
+
+                var levels = _upgradableModelLevelsField?.GetValue(model) as Array;
+                if (levels == null) return result;
+
+                int currentLevel = GetCurrentUpgradeLevel(building);
+
+                for (int i = 0; i < levels.Length; i++)
+                {
+                    var levelModel = levels.GetValue(i);
+                    if (levelModel == null) continue;
+
+                    // Check perks first - skip levels with no perks (base level placeholders)
+                    var perksArray = _levelModelOptionsField?.GetValue(levelModel) as Array;
+                    int perkCount = perksArray?.Length ?? 0;
+                    if (perkCount == 0)
+                    {
+                        // This is a base level with no choices - skip it
+                        // But count it as achieved for subsequent level calculations
+                        continue;
+                    }
+
+                    var info = new UpgradeLevelInfo
+                    {
+                        levelIndex = i,
+                        levelName = GetRomanNumeral(i + 1),  // Level I, II, III, etc.
+                        isAchieved = currentLevel > i,
+                        requiredGoods = new List<GoodsCost>(),
+                        perks = new List<UpgradePerkInfo>()
+                    };
+
+                    // Get required goods (GoodsSet[] - each GoodsSet is an OR group)
+                    var requiredGoodsSets = _levelModelRequiredGoodsField?.GetValue(levelModel) as Array;
+                    if (requiredGoodsSets != null)
+                    {
+                        bool canAffordAll = true;
+                        foreach (var goodsSet in requiredGoodsSets)
+                        {
+                            if (goodsSet == null) continue;
+
+                            // Get goods from GoodsSet (GoodRef[])
+                            var goods = _goodsSetGoodsField?.GetValue(goodsSet) as Array;
+                            if (goods == null || goods.Length == 0) continue;
+
+                            // Take the first GoodRef as the primary option
+                            var firstGood = goods.GetValue(0);
+                            if (firstGood == null) continue;
+
+                            var cost = ParseGoodRef(firstGood);
+                            if (cost.HasValue)
+                            {
+                                info.requiredGoods.Add(cost.Value);
+                                if (cost.Value.available < cost.Value.required)
+                                    canAffordAll = false;
+                            }
+                        }
+                        info.canAfford = canAffordAll;
+                    }
+
+                    // Get perk options (BuildingPerkModel[])
+                    var perks = _levelModelOptionsField?.GetValue(levelModel) as Array;
+                    if (perks != null)
+                    {
+                        for (int j = 0; j < perks.Length; j++)
+                        {
+                            var perk = perks.GetValue(j);
+                            if (perk == null) continue;
+
+                            var perkInfo = new UpgradePerkInfo
+                            {
+                                perkIndex = j,
+                                displayName = GetPerkDisplayName(perk),
+                                description = GetPerkDescription(perk, building),
+                                isChosen = IsPerkChosen(building, i, j)
+                            };
+                            info.perks.Add(perkInfo);
+                        }
+                    }
+
+                    result.Add(info);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetUpgradeLevelsInfo failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Parse a GoodRef into a GoodsCost structure.
+        /// </summary>
+        private static GoodsCost? ParseGoodRef(object goodRef)
+        {
+            if (goodRef == null) return null;
+
+            try
+            {
+                // Get good field (GoodModel)
+                var goodModel = goodRef.GetType().GetField("good", GameReflection.PublicInstance)?.GetValue(goodRef);
+                if (goodModel == null) return null;
+
+                // Get amount
+                int amount = (int?)goodRef.GetType().GetField("amount", GameReflection.PublicInstance)?.GetValue(goodRef) ?? 0;
+
+                // Get good name (internal ID)
+                string goodName = goodModel.GetType().GetProperty("Name", GameReflection.PublicInstance)?.GetValue(goodModel) as string;
+                if (string.IsNullOrEmpty(goodName)) return null;
+
+                // Get display name
+                string displayName = GetGoodDisplayName(goodName);
+                if (string.IsNullOrEmpty(displayName))
+                {
+                    var displayNameField = goodModel.GetType().GetField("displayName", GameReflection.PublicInstance)?.GetValue(goodModel);
+                    displayName = GameReflection.GetLocaText(displayNameField) ?? goodName;
+                }
+
+                // Get available amount from warehouse
+                int available = GetMainStorageAmount(goodName);
+
+                return new GoodsCost
+                {
+                    goodName = goodName,
+                    displayName = displayName,
+                    required = amount,
+                    available = available
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get display name from a BuildingPerkModel.
+        /// </summary>
+        private static string GetPerkDisplayName(object perk)
+        {
+            if (perk == null) return "Unknown";
+
+            EnsureUpgradeTypes();
+
+            try
+            {
+                // Use DisplayName property
+                return _buildingPerkDisplayNameProp?.GetValue(perk) as string ?? "Unknown";
+            }
+            catch
+            {
+                return "Unknown";
+            }
+        }
+
+        /// <summary>
+        /// Get description from a BuildingPerkModel.
+        /// </summary>
+        private static string GetPerkDescription(object perk, object building)
+        {
+            if (perk == null) return "";
+
+            try
+            {
+                // Try GetDescription method first (takes building for context)
+                if (_buildingPerkGetDescMethod != null)
+                {
+                    var desc = _buildingPerkGetDescMethod.Invoke(perk, new[] { building }) as string;
+                    if (!string.IsNullOrEmpty(desc)) return desc;
+                }
+
+                // Fall back to description field
+                if (_buildingPerkDescField != null)
+                {
+                    var descLoca = _buildingPerkDescField.GetValue(perk);
+                    return GameReflection.GetLocaText(descLoca) ?? "";
+                }
+            }
+            catch
+            {
+                // Fall through
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Purchase an upgrade for a building using the game's Upgrade method.
+        /// Creates a Func<int, Good> delegate at runtime to pass to the game.
+        /// </summary>
+        /// <param name="building">The upgradable building.</param>
+        /// <param name="levelIndex">The upgrade level index (0-based).</param>
+        /// <param name="perkIndex">The perk index to choose for this level.</param>
+        /// <returns>True if upgrade was purchased successfully.</returns>
+        public static bool PurchaseUpgrade(object building, int levelIndex, int perkIndex)
+        {
+            if (building == null) return false;
+
+            EnsureUpgradeTypes();
+
+            try
+            {
+                if (_upgradableBuildingType == null ||
+                    !_upgradableBuildingType.IsAssignableFrom(building.GetType()))
+                    return false;
+
+                // Get the required goods for this level to create the delegate
+                var costs = GetRequiredGoodsForLevel(building, levelIndex);
+
+                // Get the Good type from game assembly
+                var goodType = GameReflection.GameAssembly?.GetType("Eremite.Model.Good");
+                if (goodType == null)
+                {
+                    Debug.LogError("[ATSAccessibility] PurchaseUpgrade: Could not find Good type");
+                    return false;
+                }
+
+                // Create the Func<int, Good> delegate type
+                var funcType = typeof(Func<,>).MakeGenericType(typeof(int), goodType);
+
+                // Create the goodPicker delegate
+                object goodPicker = CreateGoodPickerDelegate(costs, goodType, funcType);
+                if (goodPicker == null)
+                {
+                    Debug.LogError("[ATSAccessibility] PurchaseUpgrade: Failed to create goodPicker delegate");
+                    return false;
+                }
+
+                // Find the Upgrade method on UpgradableBuilding
+                // Signature: void Upgrade(int level, int upgradeIndex, Func<int, Good> goodPicker)
+                var upgradeMethod = _upgradableBuildingType.GetMethod("Upgrade",
+                    new[] { typeof(int), typeof(int), funcType });
+
+                if (upgradeMethod == null)
+                {
+                    Debug.LogError("[ATSAccessibility] PurchaseUpgrade: Could not find Upgrade method");
+                    return false;
+                }
+
+                // Call Upgrade(levelIndex, perkIndex, goodPicker)
+                upgradeMethod.Invoke(building, new object[] { levelIndex, perkIndex, goodPicker });
+
+                Debug.Log($"[ATSAccessibility] PurchaseUpgrade: Successfully purchased upgrade level {levelIndex} perk {perkIndex}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] PurchaseUpgrade failed: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Debug.LogError($"[ATSAccessibility] Inner exception: {ex.InnerException.Message}");
+                }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Create a Func<int, Good> delegate that returns the appropriate Good for each cost index.
+        /// Uses Expression.Lambda to create the delegate at runtime with the correct game type.
+        /// </summary>
+        private static object CreateGoodPickerDelegate(List<GoodsCost> costs, Type goodType, Type funcType)
+        {
+            try
+            {
+                // Find the Good constructor: Good(string name, int amount)
+                var goodConstructor = goodType.GetConstructor(new[] { typeof(string), typeof(int) });
+                if (goodConstructor == null)
+                {
+                    Debug.LogError("[ATSAccessibility] CreateGoodPickerDelegate: Could not find Good constructor");
+                    return null;
+                }
+
+                // Prepare the goods data arrays
+                var goodNames = costs.Select(c => c.goodName).ToArray();
+                var amounts = costs.Select(c => c.required).ToArray();
+
+                // Build expression: (int index) => new Good(goodNames[index], amounts[index])
+                var indexParam = System.Linq.Expressions.Expression.Parameter(typeof(int), "index");
+
+                // Create constants for the arrays
+                var goodNamesConst = System.Linq.Expressions.Expression.Constant(goodNames);
+                var amountsConst = System.Linq.Expressions.Expression.Constant(amounts);
+
+                // Array access expressions
+                var nameAccess = System.Linq.Expressions.Expression.ArrayIndex(goodNamesConst, indexParam);
+                var amountAccess = System.Linq.Expressions.Expression.ArrayIndex(amountsConst, indexParam);
+
+                // New Good(name, amount) expression
+                var newGood = System.Linq.Expressions.Expression.New(goodConstructor, nameAccess, amountAccess);
+
+                // Create and compile the lambda
+                var lambda = System.Linq.Expressions.Expression.Lambda(funcType, newGood, indexParam);
+                var compiledDelegate = lambda.Compile();
+
+                Debug.Log($"[ATSAccessibility] CreateGoodPickerDelegate: Created delegate for {costs.Count} goods");
+                return compiledDelegate;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CreateGoodPickerDelegate failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the required goods for a specific upgrade level.
+        /// Returns the first option from each GoodsSet (default behavior matching game UI).
+        /// </summary>
+        private static List<GoodsCost> GetRequiredGoodsForLevel(object building, int levelIndex)
+        {
+            var result = new List<GoodsCost>();
+
+            try
+            {
+                var model = _upgradableModelProperty?.GetValue(building);
+                if (model == null) return result;
+
+                var levels = _upgradableModelLevelsField?.GetValue(model) as Array;
+                if (levels == null || levelIndex >= levels.Length) return result;
+
+                var levelModel = levels.GetValue(levelIndex);
+                var requiredGoodsSets = _levelModelRequiredGoodsField?.GetValue(levelModel) as Array;
+                if (requiredGoodsSets == null) return result;
+
+                foreach (var goodsSet in requiredGoodsSets)
+                {
+                    if (goodsSet == null) continue;
+                    var goods = _goodsSetGoodsField?.GetValue(goodsSet) as Array;
+                    if (goods == null || goods.Length == 0) continue;
+
+                    // Take first option from each GoodsSet (default behavior)
+                    var firstGood = goods.GetValue(0);
+                    var cost = ParseGoodRef(firstGood);
+                    if (cost.HasValue)
+                        result.Add(cost.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetRequiredGoodsForLevel failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Convert number to Roman numeral for level names.
+        /// </summary>
+        private static string GetRomanNumeral(int number)
+        {
+            switch (number)
+            {
+                case 1: return "Level I";
+                case 2: return "Level II";
+                case 3: return "Level III";
+                case 4: return "Level IV";
+                case 5: return "Level V";
+                default: return $"Level {number}";
+            }
         }
     }
 }

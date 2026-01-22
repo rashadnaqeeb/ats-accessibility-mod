@@ -17,7 +17,8 @@ namespace ATSAccessibility
         {
             Info,
             Status,
-            Rewards
+            Rewards,
+            Upgrades
         }
 
         // ========================================
@@ -63,9 +64,22 @@ namespace ATSAccessibility
                     return GetStatusItemCount();
                 case SectionType.Rewards:
                     return GetRewardsItemCount();
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetItemCount();
                 default:
                     return 0;
             }
+        }
+
+        protected override int GetSubItemCount(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return 0;
+
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+                return _upgradesSection.GetSubItemCount(itemIndex);
+
+            return 0;
         }
 
         protected override void AnnounceSection(int sectionIndex)
@@ -90,7 +104,27 @@ namespace ATSAccessibility
                 case SectionType.Rewards:
                     AnnounceRewardsItem(itemIndex);
                     break;
+                case SectionType.Upgrades:
+                    _upgradesSection.AnnounceItem(itemIndex);
+                    break;
             }
+        }
+
+        protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
+            }
+        }
+
+        protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
+            }
+            return false;
         }
 
         protected override void RefreshData()
@@ -125,6 +159,13 @@ namespace ATSAccessibility
                 sectionTypes.Add(SectionType.Rewards);
             }
 
+            // Add Upgrades section if available
+            if (TryInitializeUpgradesSection())
+            {
+                sectionNames.Add("Upgrades");
+                sectionTypes.Add(SectionType.Upgrades);
+            }
+
             _sectionNames = sectionNames.ToArray();
             _sectionTypes = sectionTypes.ToArray();
 
@@ -138,6 +179,49 @@ namespace ATSAccessibility
             _buildingName = null;
             _blueprintReward = null;
             _perkReward = null;
+            ClearUpgradesSection();
+        }
+
+        // ========================================
+        // SEARCH NAME METHODS
+        // ========================================
+
+        protected override string GetSectionName(int sectionIndex)
+        {
+            if (_sectionNames != null && sectionIndex >= 0 && sectionIndex < _sectionNames.Length)
+                return _sectionNames[sectionIndex];
+            return null;
+        }
+
+        protected override string GetItemName(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return null;
+
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Info:
+                    return itemIndex == 0 ? "Name" : "Expedition level";
+                case SectionType.Status:
+                    return "Status";
+                case SectionType.Rewards:
+                    return "Reward";
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetItemName(itemIndex);
+                default:
+                    return null;
+            }
+        }
+
+        protected override string GetSubItemName(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return null;
+
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+                return _upgradesSection.GetSubItemName(itemIndex, subItemIndex);
+
+            return null;
         }
 
         // ========================================

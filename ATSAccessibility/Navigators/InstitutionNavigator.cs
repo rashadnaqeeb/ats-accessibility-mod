@@ -19,7 +19,8 @@ namespace ATSAccessibility
             Info,
             Services,
             Storage,
-            Workers
+            Workers,
+            Upgrades
         }
 
         // ========================================
@@ -83,6 +84,8 @@ namespace ATSAccessibility
                     return _storageGoods.Count > 0 ? _storageGoods.Count : 1;
                 case SectionType.Workers:
                     return _maxWorkers;
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetItemCount();
                 default:
                     return 0;
             }
@@ -108,6 +111,12 @@ namespace ATSAccessibility
                 {
                     return service.AvailableGoodsCount;
                 }
+            }
+
+            // Upgrades have sub-items (perks)
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.GetSubItemCount(itemIndex);
             }
 
             return 0;
@@ -138,6 +147,9 @@ namespace ATSAccessibility
                 case SectionType.Workers:
                     AnnounceWorkerItem(itemIndex);
                     break;
+                case SectionType.Upgrades:
+                    _upgradesSection.AnnounceItem(itemIndex);
+                    break;
             }
         }
 
@@ -152,6 +164,10 @@ namespace ATSAccessibility
                 var service = _services[itemIndex];
                 string goodName = BuildingReflection.GetInstitutionAvailableGoodName(_building, service.RecipeIndex, subItemIndex);
                 Speech.Say($"Option {subItemIndex + 1}: {goodName ?? "Unknown"}");
+            }
+            else if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
             }
         }
 
@@ -173,6 +189,12 @@ namespace ATSAccessibility
                     return true;
                 }
             }
+
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
+            }
+
             return false;
         }
 
@@ -199,6 +221,7 @@ namespace ATSAccessibility
             _workerIds = null;
             _sectionNames = null;
             _sectionTypes = null;
+            ClearUpgradesSection();
         }
 
         // ========================================
@@ -267,6 +290,13 @@ namespace ATSAccessibility
             {
                 sections.Add("Workers");
                 types.Add(SectionType.Workers);
+            }
+
+            // Add Upgrades section if available
+            if (TryInitializeUpgradesSection())
+            {
+                sections.Add("Upgrades");
+                types.Add(SectionType.Upgrades);
             }
 
             _sectionNames = sections.ToArray();

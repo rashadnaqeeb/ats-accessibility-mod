@@ -17,7 +17,8 @@ namespace ATSAccessibility
         {
             Info,
             Residents,
-            Capacity
+            Capacity,
+            Upgrades
         }
 
         // ========================================
@@ -59,6 +60,8 @@ namespace ATSAccessibility
                     return _residentIds.Count > 0 ? _residentIds.Count : 1;  // At least "Empty" message
                 case SectionType.Capacity:
                     return 2;  // Occupancy, Available
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetItemCount();
                 default:
                     return 0;
             }
@@ -86,7 +89,38 @@ namespace ATSAccessibility
                 case SectionType.Capacity:
                     AnnounceCapacityItem(itemIndex);
                     break;
+                case SectionType.Upgrades:
+                    _upgradesSection.AnnounceItem(itemIndex);
+                    break;
             }
+        }
+
+        protected override int GetSubItemCount(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return 0;
+
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+                return _upgradesSection.GetSubItemCount(itemIndex);
+
+            return 0;
+        }
+
+        protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
+            }
+        }
+
+        protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
+            }
+            return false;
         }
 
         protected override void RefreshData()
@@ -113,6 +147,13 @@ namespace ATSAccessibility
             sectionNames.Add("Capacity");
             sectionTypes.Add(SectionType.Capacity);
 
+            // Add Upgrades section if available
+            if (TryInitializeUpgradesSection())
+            {
+                sectionNames.Add("Upgrades");
+                sectionTypes.Add(SectionType.Upgrades);
+            }
+
             _sectionNames = sectionNames.ToArray();
             _sectionTypes = sectionTypes.ToArray();
 
@@ -125,6 +166,7 @@ namespace ATSAccessibility
             _sectionTypes = null;
             _buildingName = null;
             _residentIds.Clear();
+            ClearUpgradesSection();
         }
 
         // ========================================
@@ -234,9 +276,22 @@ namespace ATSAccessibility
                     return GetResidentItemName(itemIndex);
                 case SectionType.Capacity:
                     return itemIndex == 0 ? "Occupancy" : "Available";
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetItemName(itemIndex);
                 default:
                     return null;
             }
+        }
+
+        protected override string GetSubItemName(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return null;
+
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+                return _upgradesSection.GetSubItemName(itemIndex, subItemIndex);
+
+            return null;
         }
 
         private string GetResidentItemName(int itemIndex)

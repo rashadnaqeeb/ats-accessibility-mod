@@ -518,6 +518,153 @@ goodRef.DisplayName                      // Shortcut
 
 ---
 
+## Building Upgrade System
+
+### Overview
+
+Many buildings support upgrades that add perks/bonuses. The upgrade system uses `UpgradableBuilding` as a base class.
+
+### Class Hierarchy
+
+```
+Building (base)
+└── UpgradableBuilding
+    ├── ProductionBuilding (Workshop, Farm, Mine, Camp, etc.)
+    ├── House
+    ├── Storage
+    ├── Port
+    ├── FishingHut
+    ├── Relic
+    ├── RainCatcher
+    ├── Extractor
+    ├── Institution
+    └── Decoration
+```
+
+**NOT upgradable (extend Building directly):**
+- Hearth (uses separate hub tier system)
+- Shrine (uses tiered effects system)
+- Poro (uses needs/happiness system)
+- Hydrant (blight management only)
+
+### Data Model
+
+```csharp
+// UpgradableBuilding
+building.UpgradableModel               // UpgradableBuildingModel
+building.UpgradableState               // UpgradableBuildingState
+building.HasUpgrades                   // bool - true if upgrades available AND unlocked
+
+// UpgradableBuildingModel
+model.levels                           // BuildingLevelModel[] - upgrade tiers
+
+// UpgradableBuildingState
+state.level                            // int - current level (0 = base, 1 = Level I, etc.)
+state.upgrades                         // bool[][] - jagged array: upgrades[level][perkIndex]
+
+// BuildingLevelModel
+levelModel.requiredGoods               // GoodsSet[] - cost (each GoodsSet is OR options)
+levelModel.options                     // BuildingPerkModel[] - perk choices (pick exactly 1)
+
+// BuildingPerkModel
+perk.DisplayName                       // string - localized name
+perk.GetDescription(building)          // string - localized description with context
+```
+
+### Upgrade Unlock Gating
+
+Different building types have different unlock requirements:
+
+| Gating Type | Check | Buildings |
+|-------------|-------|-----------|
+| Event-based | `StateService.Effects.campsUpgradesActive` | Camps |
+| Per-building meta | `MetaPerksService.AreHouseUpgradesUnlocked(model)` | Houses |
+| Global meta | `MetaPerksService.AreMineUpgradesUnlocked()` | Mines |
+| Global meta | `MetaPerksService.AreBlightPostUpgradesUnlocked()` | BlightPosts |
+| Always true | Default `AreUpgradesUnlocked()` | Everything else |
+
+The `HasUpgrades` property on `UpgradableBuilding` handles all these checks internally.
+
+### The goodPicker Problem
+
+**Problem:** The game's `Upgrade()` method requires a `Func<int, Good>` delegate parameter. Creating this delegate via reflection fails due to type mismatches - you can't directly cast a reflected delegate to the game's internal `Func<int, Good>` type.
+
+**Solution:** Use `System.Linq.Expressions.Expression.Lambda()` to create a strongly-typed delegate at runtime:
+
+```csharp
+// Build expression: (int index) => new Good(goodNames[index], amounts[index])
+var indexParam = Expression.Parameter(typeof(int), "index");
+var goodNamesConst = Expression.Constant(goodNames);  // string[]
+var amountsConst = Expression.Constant(amounts);       // int[]
+
+var nameAccess = Expression.ArrayIndex(goodNamesConst, indexParam);
+var amountAccess = Expression.ArrayIndex(amountsConst, indexParam);
+
+var goodConstructor = goodType.GetConstructor(new[] { typeof(string), typeof(int) });
+var newGood = Expression.New(goodConstructor, nameAccess, amountAccess);
+
+var funcType = typeof(Func<,>).MakeGenericType(typeof(int), goodType);
+var lambda = Expression.Lambda(funcType, newGood, indexParam);
+var compiledDelegate = lambda.Compile();  // This can be passed to Upgrade()
+```
+
+**Why this approach:**
+- Let the game handle all upgrade logic (removes goods, applies perks, fires events)
+- Single reflection call instead of reimplementing 6+ steps manually
+- Game manages its own UI and state updates
+- No risk of missing steps or state desync
+
+### Affordability Check
+
+Instead of calling the game's `CanUpgrade()` (which also needs the delegate), check affordability directly:
+
+```csharp
+// Get required goods from BuildingLevelModel.requiredGoods
+// Check warehouse via GetMainStorageAmount(goodName)
+// Compare amounts to determine if player can afford
+```
+
+### Timing Issue with State Updates
+
+**Problem:** After calling `Upgrade()`, the game's `UpgradableBuildingState.level` may not update synchronously. If you immediately re-read the state, you may see the old value.
+
+**Solution:** Track purchases locally in addition to reading game state:
+
+```csharp
+private HashSet<int> _purchasedThisSession = new HashSet<int>();
+
+// When checking if level is achieved:
+bool isAchieved = level.isAchieved || _purchasedThisSession.Contains(levelIndex);
+
+// After successful purchase:
+_purchasedThisSession.Add(levelIndex);
+```
+
+### Good Type
+
+The `Good` struct represents a quantity of a specific good:
+
+```csharp
+// Eremite.Model.Good
+var good = Activator.CreateInstance(goodType, new object[] { goodName, amount });
+// Constructor: Good(string name, int amount)
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Upgradable building base | `Eremite.Buildings.UpgradableBuilding` |
+| Upgradable model | `Eremite.Buildings.UpgradableBuildingModel` |
+| Upgradable state | `Eremite.Buildings.UpgradableBuildingState` |
+| Level model | `Eremite.Buildings.BuildingLevelModel` |
+| Perk model | `Eremite.Model.BuildingPerkModel` |
+| Goods set | `Eremite.Model.GoodsSet` |
+| Good struct | `Eremite.Model.Good` |
+| Good reference | `Eremite.Model.GoodRef` |
+
+---
+
 ## World Map System
 
 ### Controller Hierarchy

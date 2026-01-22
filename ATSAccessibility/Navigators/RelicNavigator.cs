@@ -17,7 +17,8 @@ namespace ATSAccessibility
         {
             Info,
             Status,
-            Workers
+            Workers,
+            Upgrades
         }
 
         // ========================================
@@ -65,6 +66,8 @@ namespace ATSAccessibility
                     return GetStatusItemCount();
                 case SectionType.Workers:
                     return _maxWorkers;
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetItemCount();
                 default:
                     return 0;
             }
@@ -79,6 +82,12 @@ namespace ATSAccessibility
             if (_sectionTypes[sectionIndex] == SectionType.Workers && itemIndex < _maxWorkers)
             {
                 return GetWorkerSubItemCount(itemIndex);
+            }
+
+            // Upgrades have sub-items (perks)
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.GetSubItemCount(itemIndex);
             }
 
             return 0;
@@ -106,6 +115,9 @@ namespace ATSAccessibility
                 case SectionType.Workers:
                     AnnounceWorkerItem(itemIndex);
                     break;
+                case SectionType.Upgrades:
+                    _upgradesSection.AnnounceItem(itemIndex);
+                    break;
             }
         }
 
@@ -115,6 +127,10 @@ namespace ATSAccessibility
             {
                 AnnounceWorkerSubItem(itemIndex, subItemIndex);
             }
+            else if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
+            }
         }
 
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
@@ -122,6 +138,10 @@ namespace ATSAccessibility
             if (_sectionTypes[sectionIndex] == SectionType.Workers && itemIndex < _maxWorkers)
             {
                 return PerformWorkerSubItemAction(itemIndex, subItemIndex);
+            }
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
             }
             return false;
         }
@@ -159,6 +179,13 @@ namespace ATSAccessibility
                 sectionTypes.Add(SectionType.Workers);
             }
 
+            // Add Upgrades section if available
+            if (TryInitializeUpgradesSection())
+            {
+                sectionNames.Add("Upgrades");
+                sectionTypes.Add(SectionType.Upgrades);
+            }
+
             _sectionNames = sectionNames.ToArray();
             _sectionTypes = sectionTypes.ToArray();
 
@@ -174,6 +201,7 @@ namespace ATSAccessibility
             _workerIds = null;
             _availableRaces.Clear();
             _racesRefreshedForWorkerSection = false;
+            ClearUpgradesSection();
         }
 
         // ========================================

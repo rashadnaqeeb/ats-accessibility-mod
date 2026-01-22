@@ -24,7 +24,8 @@ namespace ATSAccessibility
             Inputs,   // Ingredients storage (input goods)
             Outputs,  // Production storage (output goods)
             Settings, // Camp mode settings
-            Fields    // Farm field capacity
+            Fields,   // Farm field capacity
+            Upgrades  // Building upgrades
         }
 
         // ========================================
@@ -118,6 +119,8 @@ namespace ATSAccessibility
                     return 1;  // Single item showing current mode
                 case SectionType.Fields:
                     return 2;  // Sown fields and Plowed fields
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetItemCount();
                 default:
                     return 0;
             }
@@ -167,6 +170,12 @@ namespace ATSAccessibility
                 return _campModeNames?.Length ?? 0;
             }
 
+            // Upgrades section has sub-items (perks)
+            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.GetSubItemCount(itemIndex);
+            }
+
             return 0;
         }
 
@@ -206,6 +215,9 @@ namespace ATSAccessibility
                     break;
                 case SectionType.Fields:
                     AnnounceFieldsItem(itemIndex);
+                    break;
+                case SectionType.Upgrades:
+                    _upgradesSection.AnnounceItem(itemIndex);
                     break;
             }
         }
@@ -255,6 +267,10 @@ namespace ATSAccessibility
             else if (_sectionTypes[sectionIndex] == SectionType.Settings)
             {
                 AnnounceSettingsSubItem(subItemIndex);
+            }
+            else if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
             }
         }
 
@@ -307,6 +323,10 @@ namespace ATSAccessibility
             else if (_sectionTypes[sectionIndex] == SectionType.Settings)
             {
                 return PerformSettingsSubItemAction(subItemIndex);
+            }
+            else if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            {
+                return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
             }
             return false;
         }
@@ -410,6 +430,13 @@ namespace ATSAccessibility
                 sectionTypes.Add(SectionType.Fields);
             }
 
+            // Add Upgrades section if available
+            if (TryInitializeUpgradesSection())
+            {
+                sectionNames.Add("Upgrades");
+                sectionTypes.Add(SectionType.Upgrades);
+            }
+
             _sectionNames = sectionNames.ToArray();
             _sectionTypes = sectionTypes.ToArray();
 
@@ -440,6 +467,7 @@ namespace ATSAccessibility
             _hasRainpunk = false;
             _rainpunkUnlocked = false;
             _engineCount = 0;
+            ClearUpgradesSection();
         }
 
         // ========================================
@@ -1696,6 +1724,8 @@ namespace ATSAccessibility
                     return "Cutting mode";
                 case SectionType.Fields:
                     return itemIndex == 0 ? "Sown" : "Plowed";
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetItemName(itemIndex);
                 default:
                     return null;
             }
@@ -1761,6 +1791,8 @@ namespace ATSAccessibility
                     return "Return";
                 case SectionType.Settings:
                     return GetSettingsSubItemName(subItemIndex);
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetSubItemName(itemIndex, subItemIndex);
                 default:
                     return null;
             }

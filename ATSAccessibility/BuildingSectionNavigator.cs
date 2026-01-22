@@ -29,6 +29,9 @@ namespace ATSAccessibility
         // Type-ahead search
         protected readonly TypeAheadSearch _search = new TypeAheadSearch();
 
+        // Shared upgrades section handler
+        protected readonly BuildingUpgradesSection _upgradesSection = new BuildingUpgradesSection();
+
         // ========================================
         // IBUILDINGNAVIGATOR IMPLEMENTATION
         // ========================================
@@ -682,6 +685,33 @@ namespace ATSAccessibility
                     SearchSubSubItems(prefix);
                     break;
             }
+        }
+
+        // ========================================
+        // UPGRADES SECTION HELPERS
+        // ========================================
+
+        /// <summary>
+        /// Try to add an Upgrades section if the building supports upgrades.
+        /// Call this in RefreshData() when building the section list.
+        /// Returns true if upgrades were added (caller should add to section types).
+        /// </summary>
+        protected bool TryInitializeUpgradesSection()
+        {
+            if (_building == null) return false;
+            if (!BuildingReflection.HasUpgradesAvailable(_building)) return false;
+
+            _upgradesSection.Initialize(_building);
+            return _upgradesSection.HasUpgrades();
+        }
+
+        /// <summary>
+        /// Clear the upgrades section data.
+        /// Call this in ClearData().
+        /// </summary>
+        protected void ClearUpgradesSection()
+        {
+            _upgradesSection.Clear();
         }
     }
 }

@@ -10,19 +10,15 @@ namespace ATSAccessibility
     public class SimpleNavigator : BuildingSectionNavigator
     {
         // ========================================
-        // SECTIONS
-        // ========================================
-
-        private static readonly string[] SECTIONS = new[] { "Info" };
-
-        // ========================================
         // CACHED DATA
         // ========================================
 
+        private string[] _sectionNames;
         private string _buildingName;
         private string _buildingDescription;
         private bool _isFinished;
         private bool _isSleeping;
+        private bool _hasUpgrades;
 
         // ========================================
         // BASE CLASS IMPLEMENTATION
@@ -32,7 +28,7 @@ namespace ATSAccessibility
 
         protected override string[] GetSections()
         {
-            return SECTIONS;
+            return _sectionNames;
         }
 
         protected override int GetItemCount(int sectionIndex)
@@ -45,14 +41,31 @@ namespace ATSAccessibility
                 count++;  // Status
                 return count;
             }
+
+            // Upgrades section
+            if (_hasUpgrades && sectionIndex == 1)
+            {
+                return _upgradesSection.GetItemCount();
+            }
+
+            return 0;
+        }
+
+        protected override int GetSubItemCount(int sectionIndex, int itemIndex)
+        {
+            // Upgrades section has sub-items (perks)
+            if (_hasUpgrades && sectionIndex == 1)
+            {
+                return _upgradesSection.GetSubItemCount(itemIndex);
+            }
             return 0;
         }
 
         protected override void AnnounceSection(int sectionIndex)
         {
-            if (sectionIndex == 0)
+            if (_sectionNames != null && sectionIndex >= 0 && sectionIndex < _sectionNames.Length)
             {
-                Speech.Say("Info");
+                Speech.Say(_sectionNames[sectionIndex]);
             }
         }
 
@@ -63,6 +76,27 @@ namespace ATSAccessibility
                 string item = GetInfoItem(itemIndex);
                 Speech.Say(item);
             }
+            else if (_hasUpgrades && sectionIndex == 1)
+            {
+                _upgradesSection.AnnounceItem(itemIndex);
+            }
+        }
+
+        protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (_hasUpgrades && sectionIndex == 1)
+            {
+                _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
+            }
+        }
+
+        protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (_hasUpgrades && sectionIndex == 1)
+            {
+                return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
+            }
+            return false;
         }
 
         protected override void RefreshData()
@@ -72,6 +106,19 @@ namespace ATSAccessibility
             _isFinished = BuildingReflection.IsBuildingFinished(_building);
             _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
 
+            // Build sections list
+            var sections = new System.Collections.Generic.List<string>();
+            sections.Add("Info");
+
+            // Add Upgrades section if available
+            _hasUpgrades = TryInitializeUpgradesSection();
+            if (_hasUpgrades)
+            {
+                sections.Add("Upgrades");
+            }
+
+            _sectionNames = sections.ToArray();
+
             Debug.Log($"[ATSAccessibility] SimpleNavigator: Refreshed data for {_buildingName}");
         }
 
@@ -79,6 +126,9 @@ namespace ATSAccessibility
         {
             _buildingName = null;
             _buildingDescription = null;
+            _sectionNames = null;
+            _hasUpgrades = false;
+            ClearUpgradesSection();
         }
 
         // ========================================
@@ -126,22 +176,41 @@ namespace ATSAccessibility
 
         protected override string GetSectionName(int sectionIndex)
         {
-            return sectionIndex == 0 ? "Info" : null;
+            if (_sectionNames != null && sectionIndex >= 0 && sectionIndex < _sectionNames.Length)
+                return _sectionNames[sectionIndex];
+            return null;
         }
 
         protected override string GetItemName(int sectionIndex, int itemIndex)
         {
-            if (sectionIndex != 0) return null;
-
-            int index = 0;
-            if (itemIndex == index) return "Name";
-            index++;
-            if (!string.IsNullOrEmpty(_buildingDescription))
+            if (sectionIndex == 0)
             {
-                if (itemIndex == index) return "Description";
+                int index = 0;
+                if (itemIndex == index) return "Name";
                 index++;
+                if (!string.IsNullOrEmpty(_buildingDescription))
+                {
+                    if (itemIndex == index) return "Description";
+                    index++;
+                }
+                if (itemIndex == index) return "Status";
+                return null;
             }
-            if (itemIndex == index) return "Status";
+
+            if (_hasUpgrades && sectionIndex == 1)
+            {
+                return _upgradesSection.GetItemName(itemIndex);
+            }
+
+            return null;
+        }
+
+        protected override string GetSubItemName(int sectionIndex, int itemIndex, int subItemIndex)
+        {
+            if (_hasUpgrades && sectionIndex == 1)
+            {
+                return _upgradesSection.GetSubItemName(itemIndex, subItemIndex);
+            }
             return null;
         }
     }
