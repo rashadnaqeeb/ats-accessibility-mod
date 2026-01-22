@@ -8670,7 +8670,7 @@ namespace ATSAccessibility
                 if (model == null) return result;
 
                 var levels = _upgradableModelLevelsField?.GetValue(model) as Array;
-                if (levels == null || levelIndex >= levels.Length) return result;
+                if (levels == null || levelIndex < 0 || levelIndex >= levels.Length) return result;
 
                 var levelModel = levels.GetValue(levelIndex);
                 var requiredGoodsSets = _levelModelRequiredGoodsField?.GetValue(levelModel) as Array;

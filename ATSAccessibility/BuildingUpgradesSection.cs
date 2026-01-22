@@ -50,13 +50,6 @@ namespace ATSAccessibility
             }
 
             _initialized = true;
-
-            Debug.Log($"[ATSAccessibility] BuildingUpgradesSection: Initialized with {_levels.Count} upgrade levels, next available index: {_nextAvailableIndex}");
-            for (int i = 0; i < _levels.Count; i++)
-            {
-                var lvl = _levels[i];
-                Debug.Log($"[ATSAccessibility]   {lvl.levelName}: isAchieved={lvl.isAchieved}, canAfford={lvl.canAfford}, perks={lvl.perks.Count}, costs={lvl.requiredGoods.Count}");
-            }
         }
 
         /// <summary>
@@ -112,10 +105,7 @@ namespace ATSAccessibility
 
             var level = _levels[levelIndex];
 
-            // Check both game state AND our local tracking
-            bool isAchieved = level.isAchieved || _purchasedThisSession.Contains(levelIndex);
-
-            if (isAchieved)
+            if (IsLevelAchieved(levelIndex))
             {
                 // Level already purchased - show which perk was chosen
                 string chosenPerk = GetChosenPerkName(level);
@@ -163,11 +153,8 @@ namespace ATSAccessibility
 
             var perk = level.perks[perkIndex];
 
-            // Check both game state AND our local tracking
-            bool isAchieved = level.isAchieved || _purchasedThisSession.Contains(levelIndex);
-
             string statusText;
-            if (isAchieved)
+            if (IsLevelAchieved(levelIndex))
             {
                 // Level achieved - show if this perk was chosen or not
                 statusText = perk.isChosen ? "Chosen" : "Not chosen";
@@ -204,8 +191,7 @@ namespace ATSAccessibility
 
             var level = _levels[levelIndex];
 
-            // Check both game state AND our local tracking (game state may have timing delays)
-            if (level.isAchieved || _purchasedThisSession.Contains(levelIndex))
+            if (IsLevelAchieved(levelIndex))
             {
                 Speech.Say("Upgrade already purchased");
                 return false;
@@ -273,6 +259,16 @@ namespace ATSAccessibility
                 return null;
 
             return level.perks[perkIndex].displayName;
+        }
+
+        /// <summary>
+        /// Check if a level is achieved (either from game state or purchased this session).
+        /// </summary>
+        private bool IsLevelAchieved(int levelIndex)
+        {
+            if (levelIndex < 0 || levelIndex >= _levels.Count)
+                return false;
+            return _levels[levelIndex].isAchieved || _purchasedThisSession.Contains(levelIndex);
         }
 
         /// <summary>
