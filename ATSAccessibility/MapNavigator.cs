@@ -206,9 +206,32 @@ namespace ATSAccessibility
                 bool wasDiscovered = GetGladeWasDiscovered(glade);
                 if (!wasDiscovered)
                 {
-                    // Unrevealed glade - only announce type
+                    // Unrevealed glade - announce type with optional contents and marker
                     string dangerLevel = GetGladeDangerLevel(glade);
-                    return $"glade-{dangerLevel.ToLower()}";
+                    string baseName = $"glade-{dangerLevel.ToLower()}";
+
+                    // Add glade contents if glade info active (uses shared helper)
+                    if (GameReflection.HasGladeInfo())
+                    {
+                        string contents = GameReflection.GetGladeContentsSummary(glade);
+                        if (!string.IsNullOrEmpty(contents))
+                            baseName += $": {contents}";
+                    }
+
+                    // Add location marker if present
+                    string markerType = GameReflection.GetLocationMarkerType(x, y);
+                    if (!string.IsNullOrEmpty(markerType))
+                        baseName = $"{baseName}, {markerType}";
+
+                    // Add highlighted relic info if present (from Short Range Scanner, etc)
+                    string highlightedRelic = GameReflection.GetHighlightedRelicAt(x, y);
+                    if (!string.IsNullOrEmpty(highlightedRelic))
+                    {
+                        string relicDisplayName = GameReflection.GetRelicDisplayName(highlightedRelic);
+                        baseName = $"{baseName}, highlighted: {relicDisplayName}";
+                    }
+
+                    return baseName;
                 }
             }
 

@@ -4192,6 +4192,65 @@ namespace ATSAccessibility
             return GetAllStoredGoods();
         }
 
+        // Cache for Settings.GetRelic method
+        private static MethodInfo _settingsGetRelicMethodCached = null;
+        private static bool _settingsGetRelicCached = false;
+
+        private static void EnsureSettingsGetRelic()
+        {
+            if (_settingsGetRelicCached) return;
+
+            try
+            {
+                var assembly = GameAssembly;
+                if (assembly == null)
+                {
+                    _settingsGetRelicCached = true;
+                    return;
+                }
+
+                var settingsType = assembly.GetType("Eremite.Model.Settings");
+                if (settingsType != null)
+                {
+                    _settingsGetRelicMethodCached = settingsType.GetMethod("GetRelic",
+                        new[] { typeof(string) });
+                }
+            }
+            catch
+            {
+                // Ignore
+            }
+
+            _settingsGetRelicCached = true;
+        }
+
+        /// <summary>
+        /// Get the display name for a relic by its internal model name.
+        /// </summary>
+        public static string GetRelicDisplayName(string relicModelName)
+        {
+            if (string.IsNullOrEmpty(relicModelName)) return "Unknown";
+
+            EnsureSettingsGetRelic();
+
+            try
+            {
+                var settings = GetSettings();
+                if (settings == null || _settingsGetRelicMethodCached == null) return relicModelName;
+
+                var relicModel = _settingsGetRelicMethodCached.Invoke(settings, new object[] { relicModelName });
+                if (relicModel == null) return relicModelName;
+
+                var displayNameField = relicModel.GetType().GetField("displayName", PublicInstance);
+                var locaText = displayNameField?.GetValue(relicModel);
+                return GetLocaText(locaText) ?? relicModelName;
+            }
+            catch
+            {
+                return relicModelName;
+            }
+        }
+
         // ========================================
         // MODIFIERS PANEL (Effects, Cornerstones, Perks)
         // ========================================
@@ -6043,6 +6102,548 @@ namespace ATSAccessibility
             }
 
             return outputs;
+        }
+
+        // ========================================
+        // GLADE INFO STATE
+        // ========================================
+
+        // Cached reflection for glade info
+        private static PropertyInfo _ssEffectsProperty = null;
+        private static FieldInfo _effectsGladeInfoOwnersField = null;
+        private static FieldInfo _effectsRevealedGrassLocationsField = null;
+        private static FieldInfo _effectsRevealedSpringsLocationsField = null;
+        private static FieldInfo _effectsRevealedRelicsLocationsField = null;
+        private static bool _gladeInfoTypesCached = false;
+
+        private static void EnsureGladeInfoTypes()
+        {
+            if (_gladeInfoTypesCached) return;
+            EnsureAssembly();
+
+            if (_gameAssembly == null)
+            {
+                _gladeInfoTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get Effects property from IStateService
+                var stateServiceType = _gameAssembly.GetType("Eremite.Services.IStateService");
+                if (stateServiceType != null)
+                {
+                    _ssEffectsProperty = stateServiceType.GetProperty("Effects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get fields from EffectsState
+                var effectsStateType = _gameAssembly.GetType("Eremite.Model.State.EffectsState");
+                if (effectsStateType != null)
+                {
+                    _effectsGladeInfoOwnersField = effectsStateType.GetField("gladeInfoOwners",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _effectsRevealedGrassLocationsField = effectsStateType.GetField("revealedGrassLocations",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _effectsRevealedSpringsLocationsField = effectsStateType.GetField("revealedSpringsLocations",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _effectsRevealedRelicsLocationsField = effectsStateType.GetField("revealedRelicsByTagLocations",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached glade info types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Glade info type caching failed: {ex.Message}");
+            }
+
+            _gladeInfoTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get EffectsState from StateService.
+        /// Contains glade info owners and revealed locations.
+        /// </summary>
+        public static object GetEffectsState()
+        {
+            EnsureGladeInfoTypes();
+            var stateService = GetStateService();
+            if (stateService == null) return null;
+
+            try
+            {
+                return _ssEffectsProperty?.GetValue(stateService);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if full glade info is active (gladeInfoOwners list is non-empty).
+        /// When active, shows glade contents in scanner and map navigator.
+        /// </summary>
+        public static bool HasGladeInfo()
+        {
+            EnsureGladeInfoTypes();
+            var effectsState = GetEffectsState();
+            if (effectsState == null || _effectsGladeInfoOwnersField == null) return false;
+
+            try
+            {
+                var gladeInfoOwners = _effectsGladeInfoOwnersField.GetValue(effectsState) as System.Collections.IList;
+                return gladeInfoOwners != null && gladeInfoOwners.Count > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get revealed grass locations (from Human's locate fertile soil ability).
+        /// </summary>
+        public static List<Vector2Int> GetRevealedGrassLocations()
+        {
+            EnsureGladeInfoTypes();
+            var effectsState = GetEffectsState();
+            if (effectsState == null || _effectsRevealedGrassLocationsField == null) return null;
+
+            try
+            {
+                return _effectsRevealedGrassLocationsField.GetValue(effectsState) as List<Vector2Int>;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get revealed springs locations (from locate spring ability).
+        /// </summary>
+        public static List<Vector2Int> GetRevealedSpringsLocations()
+        {
+            EnsureGladeInfoTypes();
+            var effectsState = GetEffectsState();
+            if (effectsState == null || _effectsRevealedSpringsLocationsField == null) return null;
+
+            try
+            {
+                return _effectsRevealedSpringsLocationsField.GetValue(effectsState) as List<Vector2Int>;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get revealed relic locations (from dig site/archaeology abilities).
+        /// </summary>
+        public static List<Vector2Int> GetRevealedRelicLocations()
+        {
+            EnsureGladeInfoTypes();
+            var effectsState = GetEffectsState();
+            if (effectsState == null || _effectsRevealedRelicsLocationsField == null) return null;
+
+            try
+            {
+                return _effectsRevealedRelicsLocationsField.GetValue(effectsState) as List<Vector2Int>;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if a position has a location marker.
+        /// Returns "grass marker", "spring marker", or "relic marker" if found, null otherwise.
+        /// </summary>
+        public static string GetLocationMarkerType(int x, int y)
+        {
+            var pos = new Vector2Int(x, y);
+
+            var grassLocations = GetRevealedGrassLocations();
+            if (grassLocations != null && grassLocations.Contains(pos))
+                return "grass marker";
+
+            var springsLocations = GetRevealedSpringsLocations();
+            if (springsLocations != null && springsLocations.Contains(pos))
+                return "spring marker";
+
+            var relicLocations = GetRevealedRelicLocations();
+            if (relicLocations != null && relicLocations.Contains(pos))
+                return "relic marker";
+
+            return null;
+        }
+
+        // Cached reflection for glade contents
+        private static FieldInfo _gladeDepositsField = null;
+        private static FieldInfo _gladeRelicsField = null;
+        private static FieldInfo _gladeBuildingsField = null;
+        private static FieldInfo _gladeSpringsField = null;
+        private static FieldInfo _gladeLakesField = null;
+        private static FieldInfo _gladeOreField = null;
+        private static bool _gladeContentsFieldsCached = false;
+
+        private static void EnsureGladeContentsFields(object glade)
+        {
+            if (_gladeContentsFieldsCached || glade == null) return;
+
+            try
+            {
+                var gladeType = glade.GetType();
+                _gladeDepositsField = gladeType.GetField("deposits", BindingFlags.Public | BindingFlags.Instance);
+                _gladeRelicsField = gladeType.GetField("relics", BindingFlags.Public | BindingFlags.Instance);
+                _gladeBuildingsField = gladeType.GetField("buildings", BindingFlags.Public | BindingFlags.Instance);
+                _gladeSpringsField = gladeType.GetField("springs", BindingFlags.Public | BindingFlags.Instance);
+                _gladeLakesField = gladeType.GetField("lakes", BindingFlags.Public | BindingFlags.Instance);
+                _gladeOreField = gladeType.GetField("ore", BindingFlags.Public | BindingFlags.Instance);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] EnsureGladeContentsFields failed: {ex.Message}");
+            }
+
+            _gladeContentsFieldsCached = true;
+        }
+
+        /// <summary>
+        /// Get a formatted summary of glade contents (e.g., "2 deposits, 1 relic").
+        /// Shared by MapScanner and MapNavigator for consistent formatting.
+        /// </summary>
+        public static string GetGladeContentsSummary(object glade)
+        {
+            if (glade == null) return null;
+
+            EnsureGladeContentsFields(glade);
+
+            var parts = new List<string>();
+
+            try
+            {
+                // Deposits
+                var deposits = _gladeDepositsField?.GetValue(glade) as System.Collections.IList;
+                if (deposits != null && deposits.Count > 0)
+                    parts.Add($"{deposits.Count} deposit{(deposits.Count > 1 ? "s" : "")}");
+
+                // Relics
+                var relics = _gladeRelicsField?.GetValue(glade) as System.Collections.IList;
+                if (relics != null && relics.Count > 0)
+                    parts.Add($"{relics.Count} relic{(relics.Count > 1 ? "s" : "")}");
+
+                // Buildings (abandoned structures)
+                var buildings = _gladeBuildingsField?.GetValue(glade) as System.Collections.IList;
+                if (buildings != null && buildings.Count > 0)
+                    parts.Add($"{buildings.Count} building{(buildings.Count > 1 ? "s" : "")}");
+
+                // Springs
+                var springs = _gladeSpringsField?.GetValue(glade) as System.Collections.IList;
+                if (springs != null && springs.Count > 0)
+                    parts.Add($"{springs.Count} spring{(springs.Count > 1 ? "s" : "")}");
+
+                // Lakes
+                var lakes = _gladeLakesField?.GetValue(glade) as System.Collections.IList;
+                if (lakes != null && lakes.Count > 0)
+                    parts.Add($"{lakes.Count} lake{(lakes.Count > 1 ? "s" : "")}");
+
+                // Ore
+                var ore = _gladeOreField?.GetValue(glade) as System.Collections.IList;
+                if (ore != null && ore.Count > 0)
+                    parts.Add($"{ore.Count} ore");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetGladeContentsSummary failed: {ex.Message}");
+            }
+
+            return parts.Count > 0 ? string.Join(", ", parts) : "empty";
+        }
+
+        // ========================================
+        // LOCATION MARKER EVENT SUBSCRIPTION
+        // ========================================
+
+        // Cached reflection for location events
+        private static PropertyInfo _esOnGrassLocationRequestedProperty = null;
+        private static PropertyInfo _esOnSpringsLocationRequestedProperty = null;
+        private static PropertyInfo _esOnRelicLocationRequestedProperty = null;
+        private static bool _locationEventTypesCached = false;
+
+        private static void EnsureLocationEventTypes()
+        {
+            if (_locationEventTypesCached) return;
+            EnsureAssembly();
+
+            if (_gameAssembly == null)
+            {
+                _locationEventTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get event properties from IEffectsService
+                var effectsServiceType = _gameAssembly.GetType("Eremite.Services.IEffectsService");
+                if (effectsServiceType != null)
+                {
+                    _esOnGrassLocationRequestedProperty = effectsServiceType.GetProperty("OnGrassLocationRequested",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _esOnSpringsLocationRequestedProperty = effectsServiceType.GetProperty("OnSpringsLocationRequested",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _esOnRelicLocationRequestedProperty = effectsServiceType.GetProperty("OnRelicLocationRequested",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached location event types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Location event type caching failed: {ex.Message}");
+            }
+
+            _locationEventTypesCached = true;
+        }
+
+        /// <summary>
+        /// Subscribe to grass location revealed event (from Human's locate fertile soil ability).
+        /// </summary>
+        public static IDisposable SubscribeToGrassLocationRequested(Action callback)
+        {
+            EnsureLocationEventTypes();
+            var effectsService = GetEffectsService();
+            if (effectsService == null || _esOnGrassLocationRequestedProperty == null) return null;
+
+            try
+            {
+                var observable = _esOnGrassLocationRequestedProperty.GetValue(effectsService);
+                if (observable != null)
+                {
+                    return SubscribeToObservable(observable, _ => callback());
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SubscribeToGrassLocationRequested failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Subscribe to springs location revealed event.
+        /// </summary>
+        public static IDisposable SubscribeToSpringsLocationRequested(Action callback)
+        {
+            EnsureLocationEventTypes();
+            var effectsService = GetEffectsService();
+            if (effectsService == null || _esOnSpringsLocationRequestedProperty == null) return null;
+
+            try
+            {
+                var observable = _esOnSpringsLocationRequestedProperty.GetValue(effectsService);
+                if (observable != null)
+                {
+                    return SubscribeToObservable(observable, _ => callback());
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SubscribeToSpringsLocationRequested failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Subscribe to relic location revealed event (dig site/archaeology abilities).
+        /// </summary>
+        public static IDisposable SubscribeToRelicLocationRequested(Action callback)
+        {
+            EnsureLocationEventTypes();
+            var effectsService = GetEffectsService();
+            if (effectsService == null || _esOnRelicLocationRequestedProperty == null) return null;
+
+            try
+            {
+                var observable = _esOnRelicLocationRequestedProperty.GetValue(effectsService);
+                if (observable != null)
+                {
+                    return SubscribeToObservable(observable, _ => callback());
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SubscribeToRelicLocationRequested failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        // ========================================
+        // RELICS HIGHLIGHT SYSTEM (Short Range Scanner)
+        // ========================================
+
+        // Cached reflection for RelicsService
+        private static PropertyInfo _gsRelicsServiceProperty = null;
+        private static PropertyInfo _rsOnRelicsHighlightRequestedProperty = null;
+        private static MethodInfo _rsFindRelicForMethod = null;
+        private static bool _relicsHighlightTypesCached = false;
+
+        // Track highlighted relics (position -> relic name)
+        private static Dictionary<Vector2Int, string> _highlightedRelics = new Dictionary<Vector2Int, string>();
+
+        private static void EnsureRelicsHighlightTypes()
+        {
+            if (_relicsHighlightTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _relicsHighlightTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // Get RelicsService from IGameServices
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsRelicsServiceProperty = gameServicesType.GetProperty("RelicsService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get OnRelicsHighlightRequested and FindRelicFor from IRelicsService
+                var relicsServiceType = _gameAssembly.GetType("Eremite.Services.IRelicsService");
+                if (relicsServiceType != null)
+                {
+                    _rsOnRelicsHighlightRequestedProperty = relicsServiceType.GetProperty("OnRelicsHighlightRequested",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _rsFindRelicForMethod = relicsServiceType.GetMethod("FindRelicFor",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached RelicsService highlight types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] RelicsService type caching failed: {ex.Message}");
+            }
+
+            _relicsHighlightTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get RelicsService from GameServices.
+        /// </summary>
+        public static object GetRelicsService()
+        {
+            EnsureRelicsHighlightTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return null;
+
+            try
+            {
+                return _gsRelicsServiceProperty?.GetValue(gameServices);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Subscribe to relic highlight events (from Short Range Scanner, etc).
+        /// Callback receives the relic name and position when a relic is highlighted.
+        /// </summary>
+        public static IDisposable SubscribeToRelicsHighlightRequested(Action<string, Vector2Int> callback)
+        {
+            EnsureRelicsHighlightTypes();
+            var relicsService = GetRelicsService();
+            if (relicsService == null || _rsOnRelicsHighlightRequestedProperty == null) return null;
+
+            try
+            {
+                var observable = _rsOnRelicsHighlightRequestedProperty.GetValue(relicsService);
+                if (observable != null)
+                {
+                    // Subscribe with a handler that extracts the relic info
+                    return SubscribeToObservable(observable, request =>
+                    {
+                        try
+                        {
+                            // Call FindRelicFor to get the actual relic state
+                            if (_rsFindRelicForMethod != null)
+                            {
+                                var relicState = _rsFindRelicForMethod.Invoke(relicsService, new[] { request });
+                                if (relicState != null)
+                                {
+                                    // Get the relic's name and position
+                                    var nameField = relicState.GetType().GetField("name",
+                                        BindingFlags.Public | BindingFlags.Instance);
+                                    var fieldField = relicState.GetType().GetField("field",
+                                        BindingFlags.Public | BindingFlags.Instance);
+
+                                    string name = nameField?.GetValue(relicState) as string ?? "Unknown";
+                                    var field = fieldField?.GetValue(relicState);
+
+                                    if (field != null)
+                                    {
+                                        // field is a Vector2Int
+                                        var pos = (Vector2Int)field;
+                                        _highlightedRelics[pos] = name;
+                                        callback(name, pos);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError($"[ATSAccessibility] RelicsHighlightRequested handler failed: {ex.Message}");
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SubscribeToRelicsHighlightRequested failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Get all currently highlighted relic positions.
+        /// </summary>
+        public static Dictionary<Vector2Int, string> GetHighlightedRelics()
+        {
+            return _highlightedRelics;
+        }
+
+        /// <summary>
+        /// Check if a position has a highlighted relic.
+        /// Returns the relic name if found, null otherwise.
+        /// </summary>
+        public static string GetHighlightedRelicAt(int x, int y)
+        {
+            var pos = new Vector2Int(x, y);
+            if (_highlightedRelics.TryGetValue(pos, out string name))
+                return name;
+            return null;
+        }
+
+        /// <summary>
+        /// Clear highlighted relics (call when game ends or new game starts).
+        /// </summary>
+        public static void ClearHighlightedRelics()
+        {
+            _highlightedRelics.Clear();
         }
     }
 }

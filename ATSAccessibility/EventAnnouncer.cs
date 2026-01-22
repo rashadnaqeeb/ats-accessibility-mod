@@ -95,6 +95,7 @@ namespace ATSAccessibility
                 SubscribeToCornerstones(gameServices);
                 SubscribeToMonitors(gameServices);
                 SubscribeToVillagers(gameServices);
+                SubscribeToLocateEvents();
 
                 _subscribed = true;
                 _gracePeriodEndTime = Time.realtimeSinceStartup + INITIALIZATION_GRACE_PERIOD;
@@ -134,6 +135,9 @@ namespace ATSAccessibility
 
             // Clear sacrifice tracking state
             ClearSacrificeState();
+
+            // Clear highlighted relics tracking
+            GameReflection.ClearHighlightedRelics();
 
             // Clear static instance to prevent stale reference on scene change
             if (_instance == this)
@@ -949,6 +953,62 @@ namespace ATSAccessibility
             if (!Plugin.AnnouncePortExpeditionFinished.Value) return;
             if (IsInGracePeriod()) return;
             Announce("Port expedition finished");
+        }
+
+        // ========================================
+        // LOCATE EVENTS (Grass/Springs/Relic Location Markers)
+        // ========================================
+
+        private IDisposable _grassLocationSub;
+        private IDisposable _springsLocationSub;
+        private IDisposable _relicLocationSub;
+        private IDisposable _relicHighlightSub;
+
+        private void SubscribeToLocateEvents()
+        {
+            _grassLocationSub = GameReflection.SubscribeToGrassLocationRequested(OnGrassLocationRevealed);
+            if (_grassLocationSub != null) _subscriptions.Add(_grassLocationSub);
+
+            _springsLocationSub = GameReflection.SubscribeToSpringsLocationRequested(OnSpringsLocationRevealed);
+            if (_springsLocationSub != null) _subscriptions.Add(_springsLocationSub);
+
+            _relicLocationSub = GameReflection.SubscribeToRelicLocationRequested(OnRelicLocationRevealed);
+            if (_relicLocationSub != null) _subscriptions.Add(_relicLocationSub);
+
+            // Subscribe to relic highlight events (Short Range Scanner, etc)
+            _relicHighlightSub = GameReflection.SubscribeToRelicsHighlightRequested(OnRelicHighlighted);
+            if (_relicHighlightSub != null) _subscriptions.Add(_relicHighlightSub);
+        }
+
+        private void OnGrassLocationRevealed()
+        {
+            if (!Plugin.AnnounceLocateMarkers.Value) return;
+            if (IsInGracePeriod()) return;
+            Announce("Fertile soil location revealed");
+        }
+
+        private void OnSpringsLocationRevealed()
+        {
+            if (!Plugin.AnnounceLocateMarkers.Value) return;
+            if (IsInGracePeriod()) return;
+            Announce("Spring location revealed");
+        }
+
+        private void OnRelicLocationRevealed()
+        {
+            if (!Plugin.AnnounceLocateMarkers.Value) return;
+            if (IsInGracePeriod()) return;
+            Announce("Relic location revealed");
+        }
+
+        private void OnRelicHighlighted(string relicName, UnityEngine.Vector2Int position)
+        {
+            if (!Plugin.AnnounceLocateMarkers.Value) return;
+            if (IsInGracePeriod()) return;
+
+            // Get a friendly name for the relic
+            string friendlyName = GameReflection.GetRelicDisplayName(relicName);
+            Announce($"Relic highlighted: {friendlyName}");
         }
 
         // ========================================

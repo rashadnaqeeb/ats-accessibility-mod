@@ -40,6 +40,7 @@ namespace ATSAccessibility
         public static ConfigEntry<bool> AnnounceGladeRevealed;
         public static ConfigEntry<bool> AnnounceRelicResolved;
         public static ConfigEntry<bool> AnnounceRewardChase;
+        public static ConfigEntry<bool> AnnounceLocateMarkers;
 
         // Villagers (newcomers joined not covered by game alerts)
         public static ConfigEntry<bool> AnnounceVillagersArrived;
@@ -144,6 +145,8 @@ namespace ATSAccessibility
                 "RelicResolved", true, "Announce when a relic is resolved");
             AnnounceRewardChase = Config.Bind("Announcements.Exploration",
                 "RewardChase", true, "Announce reward chase start/end");
+            AnnounceLocateMarkers = Config.Bind("Announcements.Exploration",
+                "LocateMarkers", true, "Announce when locate abilities reveal glade locations");
 
             // Villagers (newcomers joined not covered by game alerts)
             AnnounceVillagersArrived = Config.Bind("Announcements.Villagers",

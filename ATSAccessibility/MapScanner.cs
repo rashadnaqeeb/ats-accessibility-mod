@@ -436,6 +436,7 @@ namespace ATSAccessibility
             var groups = new Dictionary<string, ItemGroup>();
             int cursorX = _mapNavigator.CursorX;
             int cursorY = _mapNavigator.CursorY;
+            bool hasGladeInfo = GameReflection.HasGladeInfo();
 
             try
             {
@@ -456,7 +457,18 @@ namespace ATSAccessibility
 
                     // Get danger level for grouping
                     string dangerLevel = GetGladeDangerLevel(glade);
-                    string groupName = $"{dangerLevel} glade";
+
+                    // Build group name with contents if glade info is active
+                    string groupName;
+                    if (hasGladeInfo)
+                    {
+                        string contents = GameReflection.GetGladeContentsSummary(glade);
+                        groupName = $"{dangerLevel} glade: {contents}";
+                    }
+                    else
+                    {
+                        groupName = $"{dangerLevel} glade";
+                    }
 
                     // Get position (first field in glade)
                     Vector2Int position = GetGladePosition(glade);
@@ -474,6 +486,9 @@ namespace ATSAccessibility
 
                     group.Items.Add(new ScannedItem(position, distance));
                 }
+
+                // Add location marker groups (grass/spring markers)
+                ScanLocationMarkers(groups, cursorX, cursorY);
             }
             catch (Exception ex)
             {
@@ -488,6 +503,106 @@ namespace ATSAccessibility
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Scan for location markers (grass/spring/relic) and add them as groups.
+        /// Only includes markers in unrevealed glades.
+        /// </summary>
+        private void ScanLocationMarkers(Dictionary<string, ItemGroup> groups, int cursorX, int cursorY)
+        {
+            // Grass markers
+            var grassLocations = GameReflection.GetRevealedGrassLocations();
+            if (grassLocations != null && grassLocations.Count > 0)
+            {
+                var group = new ItemGroup("Grass marker");
+                foreach (var pos in grassLocations)
+                {
+                    // Only include if in unrevealed glade
+                    if (IsInsideUnrevealedGlade(pos.x, pos.y))
+                    {
+                        int dx = Math.Abs(pos.x - cursorX);
+                        int dy = Math.Abs(pos.y - cursorY);
+                        group.Items.Add(new ScannedItem(pos, Math.Max(dx, dy)));
+                    }
+                }
+                if (group.Items.Count > 0)
+                {
+                    group.Items.Sort(CompareItemsByDistance);
+                    groups["Grass marker"] = group;
+                }
+            }
+
+            // Spring markers
+            var springsLocations = GameReflection.GetRevealedSpringsLocations();
+            if (springsLocations != null && springsLocations.Count > 0)
+            {
+                var group = new ItemGroup("Spring marker");
+                foreach (var pos in springsLocations)
+                {
+                    // Only include if in unrevealed glade
+                    if (IsInsideUnrevealedGlade(pos.x, pos.y))
+                    {
+                        int dx = Math.Abs(pos.x - cursorX);
+                        int dy = Math.Abs(pos.y - cursorY);
+                        group.Items.Add(new ScannedItem(pos, Math.Max(dx, dy)));
+                    }
+                }
+                if (group.Items.Count > 0)
+                {
+                    group.Items.Sort(CompareItemsByDistance);
+                    groups["Spring marker"] = group;
+                }
+            }
+
+            // Relic markers (dig site/archaeology)
+            var relicLocations = GameReflection.GetRevealedRelicLocations();
+            if (relicLocations != null && relicLocations.Count > 0)
+            {
+                var group = new ItemGroup("Relic marker");
+                foreach (var pos in relicLocations)
+                {
+                    // Only include if in unrevealed glade
+                    if (IsInsideUnrevealedGlade(pos.x, pos.y))
+                    {
+                        int dx = Math.Abs(pos.x - cursorX);
+                        int dy = Math.Abs(pos.y - cursorY);
+                        group.Items.Add(new ScannedItem(pos, Math.Max(dx, dy)));
+                    }
+                }
+                if (group.Items.Count > 0)
+                {
+                    group.Items.Sort(CompareItemsByDistance);
+                    groups["Relic marker"] = group;
+                }
+            }
+
+            // Highlighted relics (from Short Range Scanner, etc)
+            var highlightedRelics = GameReflection.GetHighlightedRelics();
+            if (highlightedRelics != null && highlightedRelics.Count > 0)
+            {
+                foreach (var kvp in highlightedRelics)
+                {
+                    var pos = kvp.Key;
+                    var relicName = kvp.Value;
+
+                    // Only include if in unrevealed glade
+                    if (IsInsideUnrevealedGlade(pos.x, pos.y))
+                    {
+                        // Get display name for the relic
+                        string displayName = GameReflection.GetRelicDisplayName(relicName);
+                        string groupName = $"Highlighted: {displayName}";
+                        if (!groups.ContainsKey(groupName))
+                        {
+                            var group = new ItemGroup(groupName);
+                            int dx = Math.Abs(pos.x - cursorX);
+                            int dy = Math.Abs(pos.y - cursorY);
+                            group.Items.Add(new ScannedItem(pos, Math.Max(dx, dy)));
+                            groups[groupName] = group;
+                        }
+                    }
+                }
+            }
         }
 
         private List<ItemGroup> ScanResources()
