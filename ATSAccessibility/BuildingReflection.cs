@@ -6185,6 +6185,40 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Check if a specific effect in a shrine tier can be used (is visible to sighted players).
+        /// Effects may be hidden if requirements aren't met (e.g., no villagers of that species).
+        /// </summary>
+        public static bool CanShrineTierEffectBeDrawn(object building, int tierIndex, int effectIndex)
+        {
+            if (!IsShrine(building)) return false;
+
+            EnsureShrineTypes();
+
+            try
+            {
+                var model = _shrineModelField?.GetValue(building);
+                if (model == null) return false;
+
+                var effectTiers = _shrineModelEffectsField?.GetValue(model) as Array;
+                if (effectTiers == null || tierIndex >= effectTiers.Length) return false;
+
+                var effectModel = effectTiers.GetValue(tierIndex);
+                var effects = _shrineEffectsModelEffectsField?.GetValue(effectModel) as Array;
+                if (effects == null || effectIndex >= effects.Length) return false;
+
+                var effect = effects.GetValue(effectIndex);
+                var canBeDrawnMethod = effect.GetType().GetMethod("CanBeDrawn", GameReflection.PublicInstance);
+                if (canBeDrawnMethod == null) return true;  // Assume drawable if method not found
+
+                return (bool)canBeDrawnMethod.Invoke(effect, null);
+            }
+            catch
+            {
+                return true;  // Assume drawable on error
+            }
+        }
+
+        /// <summary>
         /// Get an effect name from a shrine tier.
         /// </summary>
         public static string GetShrineTierEffectName(object building, int tierIndex, int effectIndex)
@@ -6206,7 +6240,22 @@ namespace ATSAccessibility
                 if (effects == null || effectIndex >= effects.Length) return null;
 
                 var effect = effects.GetValue(effectIndex);
-                return GameReflection.GetLocaText(effect.GetType().GetProperty("displayName", GameReflection.PublicInstance)?.GetValue(effect));
+                var effectType = effect.GetType();
+
+                var displayNameProp = effectType.GetProperty("DisplayName", GameReflection.PublicInstance);
+                var descriptionProp = effectType.GetProperty("Description", GameReflection.PublicInstance);
+
+                string displayName = displayNameProp?.GetValue(effect) as string;
+                string description = descriptionProp?.GetValue(effect) as string;
+
+                // Try to extract species to differentiate effects that share the same DisplayName
+                string species = ExtractSpeciesFromEffect(effect, effectType, description);
+                if (!string.IsNullOrEmpty(species) && !string.IsNullOrEmpty(displayName))
+                {
+                    return $"{displayName} {species}";
+                }
+
+                return displayName;
             }
             catch
             {
@@ -6215,38 +6264,116 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Try to extract species name from an effect, using multiple strategies.
+        /// </summary>
+        private static string ExtractSpeciesFromEffect(object effect, Type effectType, string description)
+        {
+            // Strategy 1: Look for species in parentheses in description (e.g., "(Human)")
+            if (!string.IsNullOrEmpty(description))
+            {
+                int parenStart = description.IndexOf('(');
+                int parenEnd = description.IndexOf(')');
+                if (parenStart >= 0 && parenEnd > parenStart)
+                {
+                    string content = description.Substring(parenStart + 1, parenEnd - parenStart - 1);
+                    // Only use if it looks like a species name (single word, not too long, not a number)
+                    if (!string.IsNullOrEmpty(content) && content.Length < 20 &&
+                        !content.Contains(" ") && !char.IsDigit(content[0]))
+                    {
+                        return content;
+                    }
+                }
+            }
+
+            // Strategy 2: Look for a 'race' or 'specificRace' field on the effect
+            var raceField = effectType.GetField("race", GameReflection.PublicInstance) ??
+                           effectType.GetField("specificRace", GameReflection.PublicInstance);
+            if (raceField != null)
+            {
+                var raceModel = raceField.GetValue(effect);
+                if (raceModel != null)
+                {
+                    // Get the race's display name
+                    var raceDisplayNameProp = raceModel.GetType().GetProperty("displayName", GameReflection.PublicInstance);
+                    if (raceDisplayNameProp != null)
+                    {
+                        var locaText = raceDisplayNameProp.GetValue(raceModel);
+                        if (locaText != null)
+                        {
+                            var textProp = locaText.GetType().GetProperty("Text", GameReflection.PublicInstance);
+                            return textProp?.GetValue(locaText) as string;
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Use an effect from a shrine tier.
         /// </summary>
         public static bool UseShrineEffect(object building, int tierIndex, int effectIndex)
         {
-            if (!IsShrine(building)) return false;
+            if (!IsShrine(building))
+            {
+                Debug.Log($"[ATSAccessibility] UseShrineEffect: Not a shrine");
+                return false;
+            }
 
             EnsureShrineTypes();
 
             try
             {
-                // Check if charges are available
-                if (GetShrineTierChargesLeft(building, tierIndex) <= 0)
+                // Check if charges are available (maxCharges <= 0 means unlimited)
+                int maxCharges = GetShrineTierMaxCharges(building, tierIndex);
+                int chargesLeft = GetShrineTierChargesLeft(building, tierIndex);
+                Debug.Log($"[ATSAccessibility] UseShrineEffect: tier={tierIndex}, effect={effectIndex}, maxCharges={maxCharges}, chargesLeft={chargesLeft}");
+
+                if (maxCharges > 0 && chargesLeft <= 0)
+                {
+                    Debug.Log($"[ATSAccessibility] UseShrineEffect: No charges remaining");
                     return false;
+                }
 
                 var state = _shrineStateField?.GetValue(building);
                 var model = _shrineModelField?.GetValue(building);
-                if (state == null || model == null) return false;
+                if (state == null || model == null)
+                {
+                    Debug.Log($"[ATSAccessibility] UseShrineEffect: state={state != null}, model={model != null}");
+                    return false;
+                }
 
                 var stateEffects = _shrineStateEffectsField?.GetValue(state) as Array;
                 var modelEffects = _shrineModelEffectsField?.GetValue(model) as Array;
-                if (stateEffects == null || modelEffects == null) return false;
-                if (tierIndex >= stateEffects.Length || tierIndex >= modelEffects.Length) return false;
+                if (stateEffects == null || modelEffects == null)
+                {
+                    Debug.Log($"[ATSAccessibility] UseShrineEffect: stateEffects={stateEffects != null}, modelEffects={modelEffects != null}");
+                    return false;
+                }
+                if (tierIndex >= stateEffects.Length || tierIndex >= modelEffects.Length)
+                {
+                    Debug.Log($"[ATSAccessibility] UseShrineEffect: tierIndex out of bounds (stateEffects.Length={stateEffects.Length}, modelEffects.Length={modelEffects.Length})");
+                    return false;
+                }
 
                 var effectState = stateEffects.GetValue(tierIndex);
                 var effectModel = modelEffects.GetValue(tierIndex);
 
-                _shrineUseEffectMethod?.Invoke(building, new object[] { effectState, effectModel, effectIndex });
+                if (_shrineUseEffectMethod == null)
+                {
+                    Debug.Log($"[ATSAccessibility] UseShrineEffect: UseEffect method not found");
+                    return false;
+                }
+
+                Debug.Log($"[ATSAccessibility] UseShrineEffect: Invoking UseEffect({effectState?.GetType().Name}, {effectModel?.GetType().Name}, {effectIndex})");
+                _shrineUseEffectMethod.Invoke(building, new object[] { effectState, effectModel, effectIndex });
+                Debug.Log($"[ATSAccessibility] UseShrineEffect: Success");
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[ATSAccessibility] UseShrineEffect failed: {ex.Message}");
+                Debug.LogError($"[ATSAccessibility] UseShrineEffect failed: {ex.Message}\n{ex.StackTrace}");
                 return false;
             }
         }

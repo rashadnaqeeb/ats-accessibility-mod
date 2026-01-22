@@ -35,16 +35,17 @@ namespace ATSAccessibility
         private List<EffectTierInfo> _effectTiers = new List<EffectTierInfo>();
 
         // ========================================
-        // EFFECT TIER INFO STRUCT
+        // EFFECT TIER INFO CLASS
         // ========================================
 
-        private struct EffectTierInfo
+        private class EffectTierInfo
         {
             public int TierIndex;
             public string Label;
             public int ChargesLeft;
             public int MaxCharges;
-            public int EffectCount;
+            // List of effect indices that can be drawn (visible to sighted players)
+            public List<int> DrawableEffectIndices = new List<int>();
         }
 
         // ========================================
@@ -83,10 +84,10 @@ namespace ATSAccessibility
             if (_sectionTypes[sectionIndex] == SectionType.Effects && itemIndex < _effectTiers.Count)
             {
                 var tier = _effectTiers[itemIndex];
-                // Only show effects if there are charges left
-                if (tier.ChargesLeft > 0)
+                // Show effects if unlimited (MaxCharges == 0) or has charges left
+                if (tier.MaxCharges <= 0 || tier.ChargesLeft > 0)
                 {
-                    return tier.EffectCount;
+                    return tier.DrawableEffectIndices.Count;
                 }
             }
 
@@ -120,8 +121,12 @@ namespace ATSAccessibility
             if (_sectionTypes[sectionIndex] == SectionType.Effects && itemIndex < _effectTiers.Count)
             {
                 var tier = _effectTiers[itemIndex];
-                string effectName = BuildingReflection.GetShrineTierEffectName(_building, tier.TierIndex, subItemIndex);
-                Speech.Say(effectName ?? "Unknown effect");
+                if (subItemIndex < tier.DrawableEffectIndices.Count)
+                {
+                    int actualEffectIndex = tier.DrawableEffectIndices[subItemIndex];
+                    string effectName = BuildingReflection.GetShrineTierEffectName(_building, tier.TierIndex, actualEffectIndex);
+                    Speech.Say(effectName ?? "Unknown effect");
+                }
             }
         }
 
@@ -130,17 +135,23 @@ namespace ATSAccessibility
             if (_sectionTypes[sectionIndex] == SectionType.Effects && itemIndex < _effectTiers.Count)
             {
                 var tier = _effectTiers[itemIndex];
-                if (tier.ChargesLeft <= 0)
+                // Check if usable: unlimited (MaxCharges == 0) or has charges left
+                if (tier.MaxCharges > 0 && tier.ChargesLeft <= 0)
                 {
                     Speech.Say("No charges remaining");
                     return false;
                 }
 
-                if (BuildingReflection.UseShrineEffect(_building, tier.TierIndex, subItemIndex))
+                if (subItemIndex >= tier.DrawableEffectIndices.Count)
+                    return false;
+
+                int actualEffectIndex = tier.DrawableEffectIndices[subItemIndex];
+
+                if (BuildingReflection.UseShrineEffect(_building, tier.TierIndex, actualEffectIndex))
                 {
-                    string effectName = BuildingReflection.GetShrineTierEffectName(_building, tier.TierIndex, subItemIndex);
+                    string effectName = BuildingReflection.GetShrineTierEffectName(_building, tier.TierIndex, actualEffectIndex);
                     Speech.Say($"Used {effectName ?? "effect"}");
-                    RefreshEffectData();  // Refresh to update charges
+                    RefreshEffectData();  // Refresh to update charges and drawable effects
                     return true;
                 }
                 else
@@ -161,7 +172,10 @@ namespace ATSAccessibility
             RefreshEffectData();
             BuildSections();
 
-            Debug.Log($"[ATSAccessibility] ShrineNavigator: Refreshed data - {_effectTiers.Count} effect tiers");
+            int totalDrawable = 0;
+            foreach (var tier in _effectTiers)
+                totalDrawable += tier.DrawableEffectIndices.Count;
+            Debug.Log($"[ATSAccessibility] ShrineNavigator: Refreshed data - {_effectTiers.Count} tiers, {totalDrawable} drawable effects");
         }
 
         protected override void ClearData()
@@ -187,9 +201,19 @@ namespace ATSAccessibility
                     TierIndex = i,
                     Label = BuildingReflection.GetShrineTierLabel(_building, i),
                     ChargesLeft = BuildingReflection.GetShrineTierChargesLeft(_building, i),
-                    MaxCharges = BuildingReflection.GetShrineTierMaxCharges(_building, i),
-                    EffectCount = BuildingReflection.GetShrineTierEffectCount(_building, i)
+                    MaxCharges = BuildingReflection.GetShrineTierMaxCharges(_building, i)
                 };
+
+                // Only include effects that can be drawn (visible to sighted players)
+                int effectCount = BuildingReflection.GetShrineTierEffectCount(_building, i);
+                for (int j = 0; j < effectCount; j++)
+                {
+                    if (BuildingReflection.CanShrineTierEffectBeDrawn(_building, i, j))
+                    {
+                        tier.DrawableEffectIndices.Add(j);
+                    }
+                }
+
                 _effectTiers.Add(tier);
             }
         }
@@ -203,8 +227,8 @@ namespace ATSAccessibility
             sections.Add("Info");
             types.Add(SectionType.Info);
 
-            // Effects section
-            sections.Add("Effects");
+            // Abilities section
+            sections.Add("Abilities");
             types.Add(SectionType.Effects);
 
             _sectionNames = sections.ToArray();
@@ -280,15 +304,19 @@ namespace ATSAccessibility
             {
                 var tier = _effectTiers[itemIndex];
                 string label = tier.Label ?? $"Tier {tier.TierIndex + 1}";
-                string chargesInfo = $"{tier.ChargesLeft} of {tier.MaxCharges} charges";
 
-                if (tier.ChargesLeft > 0)
+                // MaxCharges == 0 means unlimited uses
+                if (tier.MaxCharges <= 0)
                 {
-                    Speech.Say($"{label}, {chargesInfo}");
+                    Speech.Say($"{label}, unlimited");
+                }
+                else if (tier.ChargesLeft > 0)
+                {
+                    Speech.Say($"{label}, {tier.ChargesLeft} of {tier.MaxCharges} charges");
                 }
                 else
                 {
-                    Speech.Say($"{label}, {chargesInfo}, no charges remaining");
+                    Speech.Say($"{label}, no charges remaining");
                 }
             }
         }
