@@ -47,7 +47,8 @@ namespace ATSAccessibility
         private List<ScannedItem> _cachedItems = new List<ScannedItem>();
         private readonly WorldMapNavigator _navigator;
 
-        // Hex directions for direction calculation (same as WorldMapNavigator)
+        // Hex directions for direction calculation
+        // Duplicated from WorldMapNavigator for encapsulation (hex directions are stable)
         private static readonly Vector3Int[] HexDirections = new Vector3Int[]
         {
             new Vector3Int(-1, 0, 1),   // 0: NW
@@ -73,8 +74,6 @@ namespace ATSAccessibility
             return a.Distance.CompareTo(b.Distance);
         }
 
-        private const int TYPE_COUNT = 6;
-
         // ========================================
         // CONSTRUCTOR
         // ========================================
@@ -93,7 +92,8 @@ namespace ATSAccessibility
         /// </summary>
         public void ChangeType(int direction)
         {
-            _currentType = (ScanType)NavigationUtils.WrapIndex((int)_currentType, direction, TYPE_COUNT);
+            int typeCount = Enum.GetValues(typeof(ScanType)).Length;
+            _currentType = (ScanType)NavigationUtils.WrapIndex((int)_currentType, direction, typeCount);
 
             // Rescan and reset index
             ScanCurrentType();
@@ -123,6 +123,12 @@ namespace ATSAccessibility
         public void AnnounceDirection()
         {
             if (_cachedItems.Count == 0)
+            {
+                AnnounceEmpty();
+                return;
+            }
+
+            if (_currentItemIndex < 0 || _currentItemIndex >= _cachedItems.Count)
             {
                 AnnounceEmpty();
                 return;
@@ -270,6 +276,7 @@ namespace ATSAccessibility
                 var item = _cachedItems[_currentItemIndex];
                 int itemNum = _currentItemIndex + 1;
                 int total = _cachedItems.Count;
+                // Intentional: "X of Y" position context is useful for scanner navigation
                 Speech.Say($"{typeName}, {item.Name}, {itemNum} of {total}");
             }
         }
@@ -285,6 +292,7 @@ namespace ATSAccessibility
             var item = _cachedItems[_currentItemIndex];
             int itemNum = _currentItemIndex + 1;
             int total = _cachedItems.Count;
+            // Intentional: "X of Y" position context is useful for scanner navigation
             Speech.Say($"{item.Name}, {itemNum} of {total}");
         }
 

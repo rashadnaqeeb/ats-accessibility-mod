@@ -48,6 +48,7 @@ namespace ATSAccessibility
         private static MethodInfo _wssHasEventMethod = null;
         private static MethodInfo _wssHasSealMethod = null;
         private static MethodInfo _wssGetModifierModelMethod = null;
+        private static bool _wssGetModifierModelMethodLookedUp = false;  // Tracks if concrete lookup was attempted
         private static MethodInfo _wssGetEventModelMethod = null;
         private static MethodInfo _wssGetSealModelMethod = null;
         private static MethodInfo _wssGetDisplayNameForMethod = null;
@@ -531,16 +532,21 @@ namespace ATSAccessibility
             var wss = GetWorldStateService();
             if (wss == null) return null;
 
-            // Try interface method first, fallback to concrete class
-            if (_wssGetModifierModelMethod == null)
+            // Try interface method first, fallback to concrete class (cached lookup)
+            if (_wssGetModifierModelMethod == null && !_wssGetModifierModelMethodLookedUp)
             {
+                _wssGetModifierModelMethodLookedUp = true;
                 var concreteMethod = wss.GetType().GetMethod("GetModifierModel",
                     new Type[] { typeof(Vector3Int) });
                 if (concreteMethod != null)
+                {
                     _wssGetModifierModelMethod = concreteMethod;
-                else
-                    return null;
+                    Debug.Log("[ATSAccessibility] Cached GetModifierModel from concrete type");
+                }
             }
+
+            if (_wssGetModifierModelMethod == null)
+                return null;
 
             try
             {
@@ -833,92 +839,94 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get the field effects (biome effects + modifier effects) for a world map position.
-        /// Returns effect names, sorted with negative effects first.
+        /// Internal helper to get field effects with all data.
+        /// Returns list of (name, description, isPositive) tuples, sorted with negative effects first.
         /// </summary>
-        public static string[] WorldMapGetFieldEffects(Vector3Int cubicPos)
+        private static List<(string name, string description, bool isPositive)> GetFieldEffectsInternal(Vector3Int cubicPos)
         {
-            EnsureWorldMapTypes();
             var wms = GetWorldMapService();
             var wss = GetWorldStateService();
             if (wms == null) return null;
 
-            try
+            // Get WorldField
+            var field = _wmsGetFieldMethod?.Invoke(wms, new object[] { cubicPos });
+            if (field == null) return null;
+
+            // Get Biome.effects
+            var biomeProperty = field.GetType().GetProperty("Biome",
+                BindingFlags.Public | BindingFlags.Instance);
+            var biome = biomeProperty?.GetValue(field);
+            if (biome == null) return null;
+
+            var effectsField = biome.GetType().GetField("effects",
+                BindingFlags.Public | BindingFlags.Instance);
+            var biomeEffects = effectsField?.GetValue(biome) as System.Collections.IEnumerable;
+
+            var effectsList = new List<(string name, string description, bool isPositive)>();
+
+            // Add biome effects
+            if (biomeEffects != null)
             {
-                // Get WorldField
-                var field = _wmsGetFieldMethod?.Invoke(wms, new object[] { cubicPos });
-                if (field == null) return null;
-
-                // Get Biome.effects
-                var biomeProperty = field.GetType().GetProperty("Biome",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var biome = biomeProperty?.GetValue(field);
-                if (biome == null) return null;
-
-                var effectsField = biome.GetType().GetField("effects",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var biomeEffects = effectsField?.GetValue(biome) as System.Collections.IEnumerable;
-
-                var effectsList = new List<(string name, bool isPositive)>();
-
-                // Add biome effects
-                if (biomeEffects != null)
+                foreach (var effect in biomeEffects)
                 {
-                    foreach (var effect in biomeEffects)
-                    {
-                        if (effect == null) continue;
+                    if (effect == null) continue;
 
-                        var displayNameProp = effect.GetType().GetProperty("DisplayName",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        var isPositiveProp = effect.GetType().GetProperty("IsPositive",
-                            BindingFlags.Public | BindingFlags.Instance);
+                    var displayNameProp = effect.GetType().GetProperty("DisplayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    var descriptionProp = effect.GetType().GetProperty("Description",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    var isPositiveProp = effect.GetType().GetProperty("IsPositive",
+                        BindingFlags.Public | BindingFlags.Instance);
 
-                        var name = displayNameProp?.GetValue(effect) as string;
-                        var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
+                    var name = displayNameProp?.GetValue(effect) as string;
+                    var description = descriptionProp?.GetValue(effect) as string ?? "";
+                    var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
 
-                        if (!string.IsNullOrEmpty(name))
-                            effectsList.Add((name, isPositive));
-                    }
+                    if (!string.IsNullOrEmpty(name))
+                        effectsList.Add((name, description, isPositive));
                 }
+            }
 
-                // Get modifier effects from GetModifiersInfluencing
-                if (wss != null)
+            // Get modifier effects from GetModifiersInfluencing
+            if (wss != null)
+            {
+                var getModifiers = wss.GetType().GetMethod("GetModifiersInfluencing",
+                    new Type[] { typeof(Vector3Int) });
+                if (getModifiers != null)
                 {
-                    var getModifiers = wss.GetType().GetMethod("GetModifiersInfluencing",
-                        new Type[] { typeof(Vector3Int) });
-                    if (getModifiers != null)
+                    var modifierNames = getModifiers.Invoke(wss, new object[] { cubicPos }) as List<string>;
+                    if (modifierNames != null)
                     {
-                        var modifierNames = getModifiers.Invoke(wss, new object[] { cubicPos }) as List<string>;
-                        if (modifierNames != null)
+                        var settings = GameReflection.GetSettings();
+                        if (settings != null)
                         {
-                            var settings = GameReflection.GetSettings();
-                            if (settings != null)
+                            var getModifier = settings.GetType().GetMethod("GetModifier",
+                                new Type[] { typeof(string) });
+                            if (getModifier != null)
                             {
-                                var getModifier = settings.GetType().GetMethod("GetModifier",
-                                    new Type[] { typeof(string) });
-                                if (getModifier != null)
+                                foreach (var modName in modifierNames)
                                 {
-                                    foreach (var modName in modifierNames)
+                                    var modifier = getModifier.Invoke(settings, new object[] { modName });
+                                    if (modifier != null)
                                     {
-                                        var modifier = getModifier.Invoke(settings, new object[] { modName });
-                                        if (modifier != null)
+                                        var effectField = modifier.GetType().GetField("effect",
+                                            BindingFlags.Public | BindingFlags.Instance);
+                                        var effect = effectField?.GetValue(modifier);
+                                        if (effect != null)
                                         {
-                                            var effectField = modifier.GetType().GetField("effect",
+                                            var displayNameProp = effect.GetType().GetProperty("DisplayName",
                                                 BindingFlags.Public | BindingFlags.Instance);
-                                            var effect = effectField?.GetValue(modifier);
-                                            if (effect != null)
-                                            {
-                                                var displayNameProp = effect.GetType().GetProperty("DisplayName",
-                                                    BindingFlags.Public | BindingFlags.Instance);
-                                                var isPositiveProp = effect.GetType().GetProperty("IsPositive",
-                                                    BindingFlags.Public | BindingFlags.Instance);
+                                            var descriptionProp = effect.GetType().GetProperty("Description",
+                                                BindingFlags.Public | BindingFlags.Instance);
+                                            var isPositiveProp = effect.GetType().GetProperty("IsPositive",
+                                                BindingFlags.Public | BindingFlags.Instance);
 
-                                                var name = displayNameProp?.GetValue(effect) as string;
-                                                var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
+                                            var name = displayNameProp?.GetValue(effect) as string;
+                                            var description = descriptionProp?.GetValue(effect) as string ?? "";
+                                            var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
 
-                                                if (!string.IsNullOrEmpty(name))
-                                                    effectsList.Add((name, isPositive));
-                                            }
+                                            if (!string.IsNullOrEmpty(name))
+                                                effectsList.Add((name, description, isPositive));
                                         }
                                     }
                                 }
@@ -926,16 +934,33 @@ namespace ATSAccessibility
                         }
                     }
                 }
+            }
 
-                // Sort: negative effects first, then positive
-                effectsList.Sort((a, b) => a.isPositive.CompareTo(b.isPositive));
+            // Sort: negative effects first, then positive
+            effectsList.Sort((a, b) => a.isPositive.CompareTo(b.isPositive));
 
-                return effectsList.ConvertAll(e => e.name).ToArray();
+            return effectsList;
+        }
+
+        /// <summary>
+        /// Get the field effects (biome effects + modifier effects) for a world map position.
+        /// Returns effect names, sorted with negative effects first.
+        /// </summary>
+        public static string[] WorldMapGetFieldEffects(Vector3Int cubicPos)
+        {
+            EnsureWorldMapTypes();
+
+            try
+            {
+                var effects = GetFieldEffectsInternal(cubicPos);
+                if (effects == null) return Array.Empty<string>();
+
+                return effects.ConvertAll(e => e.name).ToArray();
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] WorldMapGetFieldEffects failed: {ex.Message}");
-                return null;
+                return Array.Empty<string>();
             }
         }
 
@@ -951,40 +976,40 @@ namespace ATSAccessibility
             {
                 // Get MetaController.Instance.MetaServices.MetaEconomyService
                 var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
+                if (metaController == null) return Array.Empty<string>();
 
                 var metaServices = GameReflection.McMetaServicesProperty?.GetValue(metaController);
-                if (metaServices == null) return null;
+                if (metaServices == null) return Array.Empty<string>();
 
                 // Get MetaEconomyService
                 var mesProp = metaServices.GetType().GetProperty("MetaEconomyService",
                     BindingFlags.Public | BindingFlags.Instance);
                 var metaEconomyService = mesProp?.GetValue(metaServices);
-                if (metaEconomyService == null) return null;
+                if (metaEconomyService == null) return Array.Empty<string>();
 
                 // Get min difficulty for this field
                 var wms = GetWorldMapService();
-                if (wms == null) return null;
+                if (wms == null) return Array.Empty<string>();
 
                 var getMinDiff = wms.GetType().GetMethod("GetMinDifficultyFor",
                     new Type[] { typeof(Vector3Int) });
                 var difficulty = getMinDiff?.Invoke(wms, new object[] { cubicPos });
-                if (difficulty == null) return null;
+                if (difficulty == null) return Array.Empty<string>();
 
                 // Get GetCurrenciesFor(Vector3Int cubicPos, DifficultyModel difficulty)
                 var getCurrencies = metaEconomyService.GetType().GetMethod("GetCurrenciesFor",
                     new Type[] { typeof(Vector3Int), difficulty.GetType() });
-                if (getCurrencies == null) return null;
+                if (getCurrencies == null) return Array.Empty<string>();
 
                 var currencies = getCurrencies.Invoke(metaEconomyService, new object[] { cubicPos, difficulty }) as System.Collections.IList;
-                if (currencies == null || currencies.Count == 0) return null;
+                if (currencies == null || currencies.Count == 0) return Array.Empty<string>();
 
                 var settings = GameReflection.GetSettings();
-                if (settings == null) return null;
+                if (settings == null) return Array.Empty<string>();
 
                 var getMetaCurrency = settings.GetType().GetMethod("GetMetaCurrency",
                     new Type[] { typeof(string) });
-                if (getMetaCurrency == null) return null;
+                if (getMetaCurrency == null) return Array.Empty<string>();
 
                 var result = new List<string>();
                 foreach (var currency in currencies)
@@ -1019,7 +1044,7 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] WorldMapGetMetaCurrencies failed: {ex.Message}");
-                return null;
+                return Array.Empty<string>();
             }
         }
 
@@ -1273,37 +1298,37 @@ namespace ATSAccessibility
             {
                 // Check if trade routes are enabled
                 var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
+                if (metaController == null) return Array.Empty<string>();
 
                 var metaServices = GameReflection.McMetaServicesProperty?.GetValue(metaController);
-                if (metaServices == null) return null;
+                if (metaServices == null) return Array.Empty<string>();
 
                 var mpsProp = metaServices.GetType().GetProperty("MetaPerksService",
                     BindingFlags.Public | BindingFlags.Instance);
                 var metaPerksService = mpsProp?.GetValue(metaServices);
-                if (metaPerksService == null) return null;
+                if (metaPerksService == null) return Array.Empty<string>();
 
                 var areTradeRoutes = metaPerksService.GetType().GetMethod("AreTradeRoutesEnabled",
                     BindingFlags.Public | BindingFlags.Instance);
                 if (areTradeRoutes == null || !(bool)areTradeRoutes.Invoke(metaPerksService, null))
-                    return null;
+                    return Array.Empty<string>();
 
                 // Get biome's wanted goods
                 var wms = GetWorldMapService();
-                if (wms == null) return null;
+                if (wms == null) return Array.Empty<string>();
 
                 var field = _wmsGetFieldMethod?.Invoke(wms, new object[] { cubicPos });
-                if (field == null) return null;
+                if (field == null) return Array.Empty<string>();
 
                 var biomeProperty = field.GetType().GetProperty("Biome",
                     BindingFlags.Public | BindingFlags.Instance);
                 var biome = biomeProperty?.GetValue(field);
-                if (biome == null) return null;
+                if (biome == null) return Array.Empty<string>();
 
                 var wantedGoodsField = biome.GetType().GetField("wantedGoods",
                     BindingFlags.Public | BindingFlags.Instance);
                 var wantedGoods = wantedGoodsField?.GetValue(biome) as System.Array;
-                if (wantedGoods == null || wantedGoods.Length == 0) return null;
+                if (wantedGoods == null || wantedGoods.Length == 0) return Array.Empty<string>();
 
                 var result = new List<string>();
                 foreach (var good in wantedGoods)
@@ -1323,7 +1348,7 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] WorldMapGetWantedGoods failed: {ex.Message}");
-                return null;
+                return Array.Empty<string>();
             }
         }
 
@@ -1447,114 +1472,23 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Get field effects with their descriptions for a world map position.
-        /// Returns list of (name, description) tuples.
+        /// Returns list of (name, description) tuples, sorted with negative effects first.
         /// </summary>
         public static List<(string name, string description)> WorldMapGetFieldEffectsWithDescriptions(Vector3Int cubicPos)
         {
             EnsureWorldMapTypes();
-            var wms = GetWorldMapService();
-            var wss = GetWorldStateService();
-            if (wms == null) return null;
 
             try
             {
-                // Get WorldField
-                var field = _wmsGetFieldMethod?.Invoke(wms, new object[] { cubicPos });
-                if (field == null) return null;
+                var effects = GetFieldEffectsInternal(cubicPos);
+                if (effects == null) return new List<(string, string)>();
 
-                // Get Biome.effects
-                var biomeProperty = field.GetType().GetProperty("Biome",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var biome = biomeProperty?.GetValue(field);
-                if (biome == null) return null;
-
-                var effectsField = biome.GetType().GetField("effects",
-                    BindingFlags.Public | BindingFlags.Instance);
-                var biomeEffects = effectsField?.GetValue(biome) as System.Collections.IEnumerable;
-
-                var effectsList = new List<(string name, string description, bool isPositive)>();
-
-                // Add biome effects
-                if (biomeEffects != null)
-                {
-                    foreach (var effect in biomeEffects)
-                    {
-                        if (effect == null) continue;
-
-                        var displayNameProp = effect.GetType().GetProperty("DisplayName",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        var descriptionProp = effect.GetType().GetProperty("Description",
-                            BindingFlags.Public | BindingFlags.Instance);
-                        var isPositiveProp = effect.GetType().GetProperty("IsPositive",
-                            BindingFlags.Public | BindingFlags.Instance);
-
-                        var name = displayNameProp?.GetValue(effect) as string;
-                        var description = descriptionProp?.GetValue(effect) as string;
-                        var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
-
-                        if (!string.IsNullOrEmpty(name))
-                            effectsList.Add((name, description ?? "", isPositive));
-                    }
-                }
-
-                // Get modifier effects from GetModifiersInfluencing
-                if (wss != null)
-                {
-                    var getModifiers = wss.GetType().GetMethod("GetModifiersInfluencing",
-                        new Type[] { typeof(Vector3Int) });
-                    if (getModifiers != null)
-                    {
-                        var modifierNames = getModifiers.Invoke(wss, new object[] { cubicPos }) as List<string>;
-                        if (modifierNames != null)
-                        {
-                            var settings = GameReflection.GetSettings();
-                            if (settings != null)
-                            {
-                                var getModifier = settings.GetType().GetMethod("GetModifier",
-                                    new Type[] { typeof(string) });
-                                if (getModifier != null)
-                                {
-                                    foreach (var modName in modifierNames)
-                                    {
-                                        var modifier = getModifier.Invoke(settings, new object[] { modName });
-                                        if (modifier != null)
-                                        {
-                                            var effectField = modifier.GetType().GetField("effect",
-                                                BindingFlags.Public | BindingFlags.Instance);
-                                            var effect = effectField?.GetValue(modifier);
-                                            if (effect != null)
-                                            {
-                                                var displayNameProp = effect.GetType().GetProperty("DisplayName",
-                                                    BindingFlags.Public | BindingFlags.Instance);
-                                                var descriptionProp = effect.GetType().GetProperty("Description",
-                                                    BindingFlags.Public | BindingFlags.Instance);
-                                                var isPositiveProp = effect.GetType().GetProperty("IsPositive",
-                                                    BindingFlags.Public | BindingFlags.Instance);
-
-                                                var name = displayNameProp?.GetValue(effect) as string;
-                                                var description = descriptionProp?.GetValue(effect) as string;
-                                                var isPositive = (bool)(isPositiveProp?.GetValue(effect) ?? true);
-
-                                                if (!string.IsNullOrEmpty(name))
-                                                    effectsList.Add((name, description ?? "", isPositive));
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Sort: negative effects first, then positive
-                effectsList.Sort((a, b) => a.isPositive.CompareTo(b.isPositive));
-
-                return effectsList.ConvertAll(e => (e.name, e.description));
+                return effects.ConvertAll(e => (e.name, e.description));
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] WorldMapGetFieldEffectsWithDescriptions failed: {ex.Message}");
-                return null;
+                return new List<(string, string)>();
             }
         }
     }

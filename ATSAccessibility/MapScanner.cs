@@ -147,6 +147,27 @@ namespace ATSAccessibility
             return a.Distance.CompareTo(b.Distance);
         }
 
+        /// <summary>
+        /// Calculate Chebyshev distance (max of dx, dy) from cursor to position.
+        /// </summary>
+        private static int CalculateDistance(Vector2Int pos, int cursorX, int cursorY)
+        {
+            return Math.Max(Math.Abs(pos.x - cursorX), Math.Abs(pos.y - cursorY));
+        }
+
+        /// <summary>
+        /// Finalize group dictionary into sorted list (sort items within each group by distance).
+        /// </summary>
+        private static List<ItemGroup> FinalizeGroups(Dictionary<string, ItemGroup> groups)
+        {
+            var result = new List<ItemGroup>(groups.Values);
+            foreach (var group in result)
+            {
+                group.Items.Sort(CompareItemsByDistance);
+            }
+            return result;
+        }
+
         // ========================================
         // PUBLIC API
         // ========================================
@@ -206,6 +227,7 @@ namespace ATSAccessibility
                     var currentGroup = _cachedGroups[_currentGroupIndex];
                     int itemNum = _currentItemIndex + 1;
                     int itemTotal = currentGroup.Items.Count;
+                    // Intentional: "X of Y" position context is useful for scanner navigation
                     Speech.Say($"{categoryName}, {SubcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
                 }
             }
@@ -223,6 +245,7 @@ namespace ATSAccessibility
                     var currentGroup = _cachedGroups[_currentGroupIndex];
                     int itemNum = _currentItemIndex + 1;
                     int itemTotal = currentGroup.Items.Count;
+                    // Intentional: "X of Y" position context is useful for scanner navigation
                     Speech.Say($"{categoryName}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
                 }
             }
@@ -474,9 +497,7 @@ namespace ATSAccessibility
                     Vector2Int position = GetGladePosition(glade);
                     if (position.x < 0 || position.y < 0) continue;
 
-                    int dx = Math.Abs(position.x - cursorX);
-                    int dy = Math.Abs(position.y - cursorY);
-                    int distance = Math.Max(dx, dy);
+                    int distance = CalculateDistance(position, cursorX, cursorY);
 
                     if (!groups.TryGetValue(groupName, out var group))
                     {
@@ -495,14 +516,34 @@ namespace ATSAccessibility
                 Debug.LogWarning($"[ATSAccessibility] ScanGlades failed: {ex.Message}");
             }
 
-            // Sort items within each group by distance
-            var result = new List<ItemGroup>(groups.Values);
-            foreach (var group in result)
+            return FinalizeGroups(groups);
+        }
+
+        /// <summary>
+        /// Helper to scan a single type of location marker and add to groups.
+        /// </summary>
+        private void ScanLocationMarkerType(
+            List<Vector2Int> locations,
+            string groupName,
+            Dictionary<string, ItemGroup> groups,
+            int cursorX, int cursorY)
+        {
+            if (locations == null || locations.Count == 0) return;
+
+            var group = new ItemGroup(groupName);
+            foreach (var pos in locations)
+            {
+                // Only include if in unrevealed glade
+                if (IsInsideUnrevealedGlade(pos))
+                {
+                    group.Items.Add(new ScannedItem(pos, CalculateDistance(pos, cursorX, cursorY)));
+                }
+            }
+            if (group.Items.Count > 0)
             {
                 group.Items.Sort(CompareItemsByDistance);
+                groups[groupName] = group;
             }
-
-            return result;
         }
 
         /// <summary>
@@ -511,71 +552,10 @@ namespace ATSAccessibility
         /// </summary>
         private void ScanLocationMarkers(Dictionary<string, ItemGroup> groups, int cursorX, int cursorY)
         {
-            // Grass markers
-            var grassLocations = GameReflection.GetRevealedGrassLocations();
-            if (grassLocations != null && grassLocations.Count > 0)
-            {
-                var group = new ItemGroup("Grass marker");
-                foreach (var pos in grassLocations)
-                {
-                    // Only include if in unrevealed glade
-                    if (IsInsideUnrevealedGlade(pos.x, pos.y))
-                    {
-                        int dx = Math.Abs(pos.x - cursorX);
-                        int dy = Math.Abs(pos.y - cursorY);
-                        group.Items.Add(new ScannedItem(pos, Math.Max(dx, dy)));
-                    }
-                }
-                if (group.Items.Count > 0)
-                {
-                    group.Items.Sort(CompareItemsByDistance);
-                    groups["Grass marker"] = group;
-                }
-            }
-
-            // Spring markers
-            var springsLocations = GameReflection.GetRevealedSpringsLocations();
-            if (springsLocations != null && springsLocations.Count > 0)
-            {
-                var group = new ItemGroup("Spring marker");
-                foreach (var pos in springsLocations)
-                {
-                    // Only include if in unrevealed glade
-                    if (IsInsideUnrevealedGlade(pos.x, pos.y))
-                    {
-                        int dx = Math.Abs(pos.x - cursorX);
-                        int dy = Math.Abs(pos.y - cursorY);
-                        group.Items.Add(new ScannedItem(pos, Math.Max(dx, dy)));
-                    }
-                }
-                if (group.Items.Count > 0)
-                {
-                    group.Items.Sort(CompareItemsByDistance);
-                    groups["Spring marker"] = group;
-                }
-            }
-
-            // Relic markers (dig site/archaeology)
-            var relicLocations = GameReflection.GetRevealedRelicLocations();
-            if (relicLocations != null && relicLocations.Count > 0)
-            {
-                var group = new ItemGroup("Relic marker");
-                foreach (var pos in relicLocations)
-                {
-                    // Only include if in unrevealed glade
-                    if (IsInsideUnrevealedGlade(pos.x, pos.y))
-                    {
-                        int dx = Math.Abs(pos.x - cursorX);
-                        int dy = Math.Abs(pos.y - cursorY);
-                        group.Items.Add(new ScannedItem(pos, Math.Max(dx, dy)));
-                    }
-                }
-                if (group.Items.Count > 0)
-                {
-                    group.Items.Sort(CompareItemsByDistance);
-                    groups["Relic marker"] = group;
-                }
-            }
+            // Scan location marker types (grass/spring/relic)
+            ScanLocationMarkerType(GameReflection.GetRevealedGrassLocations(), "Grass marker", groups, cursorX, cursorY);
+            ScanLocationMarkerType(GameReflection.GetRevealedSpringsLocations(), "Spring marker", groups, cursorX, cursorY);
+            ScanLocationMarkerType(GameReflection.GetRevealedRelicLocations(), "Relic marker", groups, cursorX, cursorY);
 
             // Highlighted relics (from Short Range Scanner, etc)
             var highlightedRelics = GameReflection.GetHighlightedRelics();
@@ -587,18 +567,16 @@ namespace ATSAccessibility
                     var relicName = kvp.Value;
 
                     // Only include if in unrevealed glade
-                    if (IsInsideUnrevealedGlade(pos.x, pos.y))
+                    if (IsInsideUnrevealedGlade(pos))
                     {
                         // Get display name for the relic
                         string displayName = GameReflection.GetRelicDisplayName(relicName);
-                        string groupName = $"Highlighted: {displayName}";
-                        if (!groups.ContainsKey(groupName))
+                        string highlightedGroupName = $"Highlighted: {displayName}";
+                        if (!groups.ContainsKey(highlightedGroupName))
                         {
-                            var group = new ItemGroup(groupName);
-                            int dx = Math.Abs(pos.x - cursorX);
-                            int dy = Math.Abs(pos.y - cursorY);
-                            group.Items.Add(new ScannedItem(pos, Math.Max(dx, dy)));
-                            groups[groupName] = group;
+                            var group = new ItemGroup(highlightedGroupName);
+                            group.Items.Add(new ScannedItem(pos, CalculateDistance(pos, cursorX, cursorY)));
+                            groups[highlightedGroupName] = group;
                         }
                     }
                 }
@@ -629,14 +607,12 @@ namespace ATSAccessibility
                                 var resource = entry.Value;
 
                                 // Skip if inside unrevealed glade
-                                if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+                                if (IsInsideUnrevealedGlade(pos)) continue;
 
                                 string displayName = GetObjectDisplayName(resource);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
-                                int dx = Math.Abs(pos.x - cursorX);
-                                int dy = Math.Abs(pos.y - cursorY);
-                                int distance = Math.Max(dx, dy);
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
 
                                 if (!groups.TryGetValue(displayName, out var group))
                                 {
@@ -666,14 +642,12 @@ namespace ATSAccessibility
                                 var deposit = entry.Value;
 
                                 // Skip if inside unrevealed glade
-                                if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+                                if (IsInsideUnrevealedGlade(pos)) continue;
 
                                 string displayName = GetObjectDisplayName(deposit);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
-                                int dx = Math.Abs(pos.x - cursorX);
-                                int dy = Math.Abs(pos.y - cursorY);
-                                int distance = Math.Max(dx, dy);
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
 
                                 if (!groups.TryGetValue(displayName, out var depositGroup))
                                 {
@@ -703,14 +677,12 @@ namespace ATSAccessibility
                                 var ore = entry.Value;
 
                                 // Skip if inside unrevealed glade
-                                if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+                                if (IsInsideUnrevealedGlade(pos)) continue;
 
                                 string displayName = GetObjectDisplayName(ore);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
-                                int dx = Math.Abs(pos.x - cursorX);
-                                int dy = Math.Abs(pos.y - cursorY);
-                                int distance = Math.Max(dx, dy);
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
 
                                 if (!groups.TryGetValue(displayName, out var oreGroup))
                                 {
@@ -740,14 +712,12 @@ namespace ATSAccessibility
                                 var spring = entry.Value;
 
                                 // Skip if inside unrevealed glade
-                                if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+                                if (IsInsideUnrevealedGlade(pos)) continue;
 
                                 string displayName = GetObjectDisplayName(spring);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
-                                int dx = Math.Abs(pos.x - cursorX);
-                                int dy = Math.Abs(pos.y - cursorY);
-                                int distance = Math.Max(dx, dy);
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
 
                                 if (!groups.TryGetValue(displayName, out var springGroup))
                                 {
@@ -777,14 +747,12 @@ namespace ATSAccessibility
                                 var lake = entry.Value;
 
                                 // Skip if inside unrevealed glade
-                                if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+                                if (IsInsideUnrevealedGlade(pos)) continue;
 
                                 string displayName = GetObjectDisplayName(lake);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
-                                int dx = Math.Abs(pos.x - cursorX);
-                                int dy = Math.Abs(pos.y - cursorY);
-                                int distance = Math.Max(dx, dy);
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
 
                                 if (!groups.TryGetValue(displayName, out var lakeGroup))
                                 {
@@ -803,14 +771,7 @@ namespace ATSAccessibility
                 Debug.LogWarning($"[ATSAccessibility] ScanResources failed: {ex.Message}");
             }
 
-            // Sort items within each group by distance
-            var result = new List<ItemGroup>(groups.Values);
-            foreach (var group in result)
-            {
-                group.Items.Sort(CompareItemsByDistance);
-            }
-
-            return result;
+            return FinalizeGroups(groups);
         }
 
         private List<ItemGroup> ScanBuildings()
@@ -840,14 +801,12 @@ namespace ATSAccessibility
                                 if (pos.x < 0 || pos.y < 0) continue;
 
                                 // Skip if inside unrevealed glade
-                                if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+                                if (IsInsideUnrevealedGlade(pos)) continue;
 
                                 string displayName = GetBuildingDisplayName(building);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
-                                int dx = Math.Abs(pos.x - cursorX);
-                                int dy = Math.Abs(pos.y - cursorY);
-                                int distance = Math.Max(dx, dy);
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
 
                                 if (!groups.TryGetValue(displayName, out var group))
                                 {
@@ -867,14 +826,7 @@ namespace ATSAccessibility
                 Debug.LogWarning($"[ATSAccessibility] ScanBuildings failed: {ex.Message}");
             }
 
-            // Sort items within each group by distance
-            var result = new List<ItemGroup>(groups.Values);
-            foreach (var group in result)
-            {
-                group.Items.Sort(CompareItemsByDistance);
-            }
-
-            return result;
+            return FinalizeGroups(groups);
         }
 
         // ========================================
@@ -898,6 +850,7 @@ namespace ATSAccessibility
 
             int itemNum = _currentItemIndex + 1;
             int itemTotal = currentGroup.Items.Count;
+            // Intentional: "X of Y" position context is useful for scanner navigation
             Speech.Say($"{currentGroup.TypeName}, {itemNum} of {itemTotal}");
         }
 
@@ -1172,18 +1125,26 @@ namespace ATSAccessibility
             }
         }
 
-        private bool IsInsideUnrevealedGlade(int x, int y)
+        /// <summary>
+        /// Check if position is inside an unrevealed glade (Vector2Int overload, avoids allocation in hot path).
+        /// </summary>
+        private bool IsInsideUnrevealedGlade(Vector2Int pos)
         {
             // Use cached HashSet for O(1) lookup
             if (_unrevealedGladeTiles != null)
             {
-                return _unrevealedGladeTiles.Contains(new Vector2Int(x, y));
+                return _unrevealedGladeTiles.Contains(pos);
             }
 
             // Fallback if cache not built (shouldn't happen in normal flow)
-            var glade = GameReflection.GetGlade(x, y);
+            var glade = GameReflection.GetGlade(pos.x, pos.y);
             if (glade == null) return false;
             return !GetGladeWasDiscovered(glade);
+        }
+
+        private bool IsInsideUnrevealedGlade(int x, int y)
+        {
+            return IsInsideUnrevealedGlade(new Vector2Int(x, y));
         }
 
         // ========================================
@@ -1222,14 +1183,14 @@ namespace ATSAccessibility
         private int GetBuildingSubcategoryIndex(object building)
         {
             var typeName = GetBuildingTypeName(building);
-            if (typeName == null) return SubcategoryNames.Length - 1; // Default to Misc
+            if (typeName == null) return SubcategoryNames.Length - 1; // Default to last (Roads)
 
             if (BuildingTypeToSubcategory.TryGetValue(typeName, out int index))
             {
                 return index;
             }
 
-            // Default to Misc for unknown types
+            // Default to last (Roads) for unknown types
             return SubcategoryNames.Length - 1;
         }
 
@@ -1347,7 +1308,7 @@ namespace ATSAccessibility
                     if (pos.x < 0 || pos.y < 0) continue;
 
                     // Skip if inside unrevealed glade
-                    if (IsInsideUnrevealedGlade(pos.x, pos.y)) continue;
+                    if (IsInsideUnrevealedGlade(pos)) continue;
 
                     // Get building info
                     string displayName = GetBuildingDisplayName(building);
@@ -1356,9 +1317,7 @@ namespace ATSAccessibility
                     string buildingTypeName = GetBuildingTypeName(building);
                     int subcategoryIndex = GetBuildingSubcategoryIndex(building);
 
-                    int dx = Math.Abs(pos.x - cursorX);
-                    int dy = Math.Abs(pos.y - cursorY);
-                    int distance = Math.Max(dx, dy);
+                    int distance = CalculateDistance(pos, cursorX, cursorY);
 
                     var key = (subcategoryIndex, displayName);
                     if (!groupsByKey.TryGetValue(key, out var group))
@@ -1435,6 +1394,7 @@ namespace ATSAccessibility
                     var currentGroup = _cachedGroups[_currentGroupIndex];
                     int itemNum = _currentItemIndex + 1;
                     int itemTotal = currentGroup.Items.Count;
+                    // Intentional: "X of Y" position context is useful for scanner navigation
                     Speech.Say($"{SubcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
                     return;
                 }

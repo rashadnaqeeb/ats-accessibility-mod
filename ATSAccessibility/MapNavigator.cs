@@ -17,21 +17,21 @@ namespace ATSAccessibility
         private int _cursorX = -1;
         private int _cursorY = -1;
 
-        // Cached reflection info for Field properties
-        private PropertyInfo _fieldTypeProperty = null;
-        private PropertyInfo _fieldIsTraversableProperty = null;
-        private bool _fieldPropertiesCached = false;
+        // Cached reflection info for Field properties (static per CLAUDE.md Pattern #6)
+        private static PropertyInfo _fieldTypeProperty = null;
+        private static PropertyInfo _fieldIsTraversableProperty = null;
+        private static bool _fieldPropertiesCached = false;
 
-        // Cached reflection info for Glade fields
-        private FieldInfo _gladeWasDiscoveredField = null;
-        private FieldInfo _gladeDangerLevelField = null;
-        private bool _gladePropertiesCached = false;
+        // Cached reflection info for Glade fields (static per CLAUDE.md Pattern #6)
+        private static FieldInfo _gladeWasDiscoveredField = null;
+        private static FieldInfo _gladeDangerLevelField = null;
+        private static bool _gladePropertiesCached = false;
 
-        // Cached reflection info for Villager properties
-        private PropertyInfo _villagerActorStateProperty = null;
-        private FieldInfo _actorStatePositionField = null;
-        private PropertyInfo _villagerRaceProperty = null;
-        private bool _villagerPropertiesCached = false;
+        // Cached reflection info for Villager properties (static per CLAUDE.md Pattern #6)
+        private static PropertyInfo _villagerActorStateProperty = null;
+        private static FieldInfo _actorStatePositionField = null;
+        private static PropertyInfo _villagerRaceProperty = null;
+        private static bool _villagerPropertiesCached = false;
 
         /// <summary>
         /// Current cursor X position.
@@ -44,15 +44,20 @@ namespace ATSAccessibility
         public int CursorY => _cursorY;
 
         /// <summary>
+        /// Ensure cursor is initialized (to hearth or map center).
+        /// </summary>
+        private void EnsureCursorInitialized()
+        {
+            if (_cursorX < 0 || _cursorY < 0)
+                ResetCursor();
+        }
+
+        /// <summary>
         /// Move the cursor by delta and announce the new tile.
         /// </summary>
         public void MoveCursor(int dx, int dy)
         {
-            // Initialize cursor to center if not yet set
-            if (_cursorX < 0 || _cursorY < 0)
-            {
-                ResetCursor();
-            }
+            EnsureCursorInitialized();
 
             int newX = _cursorX + dx;
             int newY = _cursorY + dy;
@@ -97,11 +102,7 @@ namespace ATSAccessibility
         /// </summary>
         public void SkipToNextChange(int dx, int dy)
         {
-            // Initialize cursor to center if not yet set
-            if (_cursorX < 0 || _cursorY < 0)
-            {
-                ResetCursor();
-            }
+            EnsureCursorInitialized();
 
             // Get current tile's announcement as baseline (exclude villagers for comparison)
             var currentField = GameReflection.GetField(_cursorX, _cursorY);
@@ -642,7 +643,7 @@ namespace ATSAccessibility
                     string race = kvp.Key.ToLower();
                     int count = kvp.Value;
 
-                    // Simple pluralization
+                    // Pluralize if count > 1 and doesn't already end in 's'
                     if (count > 1 && !race.EndsWith("s"))
                     {
                         race += "s";
@@ -731,11 +732,7 @@ namespace ATSAccessibility
         /// </summary>
         public bool ActivateBuilding()
         {
-            // Initialize cursor if needed
-            if (_cursorX < 0 || _cursorY < 0)
-            {
-                ResetCursor();
-            }
+            EnsureCursorInitialized();
 
             // Get object at cursor position
             var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
@@ -774,11 +771,7 @@ namespace ATSAccessibility
         /// </summary>
         public void AnnounceEntrance()
         {
-            // Initialize cursor if needed
-            if (_cursorX < 0 || _cursorY < 0)
-            {
-                ResetCursor();
-            }
+            EnsureCursorInitialized();
 
             // Get object at cursor position
             var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
@@ -865,11 +858,7 @@ namespace ATSAccessibility
         /// </summary>
         public void RotateBuilding()
         {
-            // Initialize cursor if needed
-            if (_cursorX < 0 || _cursorY < 0)
-            {
-                ResetCursor();
-            }
+            EnsureCursorInitialized();
 
             // Get object at cursor position
             var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);

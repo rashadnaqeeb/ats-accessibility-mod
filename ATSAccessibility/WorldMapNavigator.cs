@@ -74,6 +74,7 @@ namespace ATSAccessibility
             // Check if in bounds
             if (!WorldMapReflection.WorldMapInBounds(newPos))
             {
+                Debug.Log($"[ATSAccessibility] WorldMapNavigator: edge of map at {newPos}");
                 Speech.Say("Edge of map");
                 return;
             }
@@ -104,7 +105,8 @@ namespace ATSAccessibility
             {
                 // Use z coordinate for parity since NE/NW both change z but not necessarily x
                 // This ensures zigzag alternates with each up/down press
-                bool evenZ = ((_cursorPos.z % 2) + 2) % 2 == 0;
+                // Bitwise AND handles negative numbers correctly
+                bool evenZ = (_cursorPos.z & 1) == 0;
 
                 if (dy > 0)  // Up
                 {
@@ -127,7 +129,11 @@ namespace ATSAccessibility
         /// </summary>
         public void SetCursorPosition(Vector3Int pos)
         {
-            if (!WorldMapReflection.WorldMapInBounds(pos)) return;
+            if (!WorldMapReflection.WorldMapInBounds(pos))
+            {
+                Debug.Log($"[ATSAccessibility] WorldMapNavigator: SetCursorPosition out of bounds at {pos}");
+                return;
+            }
             _cursorPos = pos;
             SyncCameraToTile();
             CacheTileInfo();
@@ -330,7 +336,19 @@ namespace ATSAccessibility
             if (_cachedTileType == TileType.Seal)
                 return BuildSealTooltip();
 
-            // For all other revealed tiles, show the playable field tooltip
+            // Modifier tiles - show modifier effect info
+            if (_cachedTileType == TileType.Modifier)
+                return BuildModifierTooltip();
+
+            // Event tiles - show event info
+            if (_cachedTileType == TileType.Event)
+                return BuildEventTooltip();
+
+            // Out of reach tiles - show limited info
+            if (_cachedTileType == TileType.OutOfReach)
+                return BuildOutOfReachTooltip();
+
+            // Playable field tiles - show full field info
             return BuildPlayableFieldTooltip();
         }
 
