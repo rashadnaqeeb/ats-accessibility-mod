@@ -189,7 +189,7 @@ namespace ATSAccessibility
                 }
 
                 // Cache BiomeModel fields/methods
-                var biomeModelType = gameAssembly.GetType("Eremite.Model.BiomeModel");
+                var biomeModelType = gameAssembly.GetType("Eremite.WorldMap.BiomeModel");
                 if (biomeModelType != null)
                 {
                     _biomeDisplayNameField = biomeModelType.GetField("displayName",
