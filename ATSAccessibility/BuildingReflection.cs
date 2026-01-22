@@ -1495,11 +1495,15 @@ namespace ATSAccessibility
                     _metaPerksServiceGetUnlockedHubsMethod = metaPerksServiceType.GetMethod("GetUnlockedHubs", GameReflection.PublicInstance);
                 }
 
-                // Hearth.IsInRange method
+                // Hearth.IsInRange(IMapObject) method - specify parameter type to avoid ambiguous match
                 EnsureHearthTypes();
                 if (_hearthType != null)
                 {
-                    _hearthIsInRangeMethod = _hearthType.GetMethod("IsInRange", GameReflection.PublicInstance);
+                    var mapObjectType = assembly.GetType("Eremite.IMapObject");
+                    if (mapObjectType != null)
+                    {
+                        _hearthIsInRangeMethod = _hearthType.GetMethod("IsInRange", new[] { mapObjectType });
+                    }
                 }
 
                 // Ensure other types are cached (for counting population, institutions, decorations)
@@ -4809,7 +4813,7 @@ namespace ATSAccessibility
             try
             {
                 var houses = GameReflection.GetAllHouses();
-                if (houses == null) return 0;
+                if (houses == null || _hearthIsInRangeMethod == null) return 0;
 
                 int count = 0;
 
@@ -4886,7 +4890,7 @@ namespace ATSAccessibility
             try
             {
                 var decorations = GameReflection.GetAllDecorations();
-                if (decorations == null) return 0;
+                if (decorations == null || _hearthIsInRangeMethod == null) return 0;
 
                 int score = 0;
 

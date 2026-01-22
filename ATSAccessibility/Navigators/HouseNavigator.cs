@@ -17,7 +17,6 @@ namespace ATSAccessibility
         {
             Info,
             Residents,
-            Capacity,
             Upgrades
         }
 
@@ -57,9 +56,8 @@ namespace ATSAccessibility
                 case SectionType.Info:
                     return 2;  // Name, Status
                 case SectionType.Residents:
-                    return _residentIds.Count > 0 ? _residentIds.Count : 1;  // At least "Empty" message
-                case SectionType.Capacity:
-                    return 2;  // Occupancy, Available
+                    // Item 0: Capacity, Items 1+: residents (or "None" if empty)
+                    return 1 + (_residentIds.Count > 0 ? _residentIds.Count : 1);
                 case SectionType.Upgrades:
                     return _upgradesSection.GetItemCount();
                 default:
@@ -85,9 +83,6 @@ namespace ATSAccessibility
                     break;
                 case SectionType.Residents:
                     AnnounceResidentItem(itemIndex);
-                    break;
-                case SectionType.Capacity:
-                    AnnounceCapacityItem(itemIndex);
                     break;
                 case SectionType.Upgrades:
                     _upgradesSection.AnnounceItem(itemIndex);
@@ -144,9 +139,6 @@ namespace ATSAccessibility
             sectionNames.Add("Residents");
             sectionTypes.Add(SectionType.Residents);
 
-            sectionNames.Add("Capacity");
-            sectionTypes.Add(SectionType.Capacity);
-
             // Add Upgrades section if available
             if (TryInitializeUpgradesSection())
             {
@@ -200,19 +192,29 @@ namespace ATSAccessibility
 
         private void AnnounceResidentItem(int itemIndex)
         {
-            if (_residentIds.Count == 0)
+            // Item 0: Capacity
+            if (itemIndex == 0)
             {
-                Speech.Say("No residents");
+                Speech.Say($"Capacity: {_residentIds.Count} of {_currentCapacity}");
                 return;
             }
 
-            if (itemIndex >= _residentIds.Count)
+            // Items 1+: Residents
+            int residentIndex = itemIndex - 1;
+
+            if (_residentIds.Count == 0)
+            {
+                Speech.Say("None");
+                return;
+            }
+
+            if (residentIndex >= _residentIds.Count)
             {
                 Speech.Say("Invalid resident");
                 return;
             }
 
-            int residentId = _residentIds[itemIndex];
+            int residentId = _residentIds[residentIndex];
             var actor = BuildingReflection.GetActor(residentId);
 
             if (actor != null)
@@ -221,34 +223,13 @@ namespace ATSAccessibility
                 string race = BuildingReflection.GetActorRace(actor);
 
                 if (!string.IsNullOrEmpty(race))
-                    Speech.Say($"{itemIndex + 1}. {name}, {race}");
+                    Speech.Say($"{name}, {race}");
                 else
-                    Speech.Say($"{itemIndex + 1}. {name}");
+                    Speech.Say(name);
             }
             else
             {
-                Speech.Say($"{itemIndex + 1}. Unknown villager");
-            }
-        }
-
-        // ========================================
-        // CAPACITY SECTION
-        // ========================================
-
-        private void AnnounceCapacityItem(int itemIndex)
-        {
-            switch (itemIndex)
-            {
-                case 0:
-                    Speech.Say($"Occupancy: {_residentIds.Count} of {_currentCapacity}");
-                    break;
-                case 1:
-                    int available = _currentCapacity - _residentIds.Count;
-                    if (available <= 0)
-                        Speech.Say("Available: None (full)");
-                    else
-                        Speech.Say($"Available: {available} spaces");
-                    break;
+                Speech.Say("Unknown villager");
             }
         }
 
@@ -274,8 +255,6 @@ namespace ATSAccessibility
                     return itemIndex == 0 ? "Name" : "Status";
                 case SectionType.Residents:
                     return GetResidentItemName(itemIndex);
-                case SectionType.Capacity:
-                    return itemIndex == 0 ? "Occupancy" : "Available";
                 case SectionType.Upgrades:
                     return _upgradesSection.GetItemName(itemIndex);
                 default:
@@ -296,19 +275,24 @@ namespace ATSAccessibility
 
         private string GetResidentItemName(int itemIndex)
         {
+            // Item 0 is Capacity
+            if (itemIndex == 0)
+                return "Capacity";
+
+            int residentIndex = itemIndex - 1;
+
             if (_residentIds.Count == 0)
+                return "None";
+
+            if (residentIndex >= _residentIds.Count)
                 return null;
 
-            if (itemIndex >= _residentIds.Count)
-                return null;
-
-            int residentId = _residentIds[itemIndex];
+            int residentId = _residentIds[residentIndex];
             var actor = BuildingReflection.GetActor(residentId);
 
             if (actor != null)
             {
-                string name = BuildingReflection.GetActorName(actor) ?? "Unknown";
-                return name;
+                return BuildingReflection.GetActorName(actor) ?? "Unknown";
             }
             return null;
         }
