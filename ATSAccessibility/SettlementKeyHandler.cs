@@ -12,6 +12,7 @@ namespace ATSAccessibility
         private readonly MapScanner _mapScanner;
         private readonly InfoPanelMenu _infoPanelMenu;
         private readonly MenuHub _menuHub;
+        private readonly RewardsPanel _rewardsPanel;
         private readonly BuildingMenuPanel _buildingMenuPanel;
         private readonly MoveModeController _moveModeController;
         private readonly AnnouncementHistoryPanel _announcementHistoryPanel;
@@ -22,6 +23,7 @@ namespace ATSAccessibility
             MapScanner mapScanner,
             InfoPanelMenu infoPanelMenu,
             MenuHub menuHub,
+            RewardsPanel rewardsPanel,
             BuildingMenuPanel buildingMenuPanel,
             MoveModeController moveModeController,
             AnnouncementHistoryPanel announcementHistoryPanel,
@@ -31,6 +33,7 @@ namespace ATSAccessibility
             _mapScanner = mapScanner;
             _infoPanelMenu = infoPanelMenu;
             _menuHub = menuHub;
+            _rewardsPanel = rewardsPanel;
             _buildingMenuPanel = buildingMenuPanel;
             _moveModeController = moveModeController;
             _announcementHistoryPanel = announcementHistoryPanel;
@@ -265,6 +268,9 @@ namespace ATSAccessibility
                     return true;
                 case KeyCode.F2:
                     _menuHub?.Open();
+                    return true;
+                case KeyCode.F3:
+                    _rewardsPanel?.Open();
                     return true;
                 case KeyCode.Tab:
                     _buildingMenuPanel?.Open();

@@ -3846,10 +3846,72 @@ namespace ATSAccessibility
             }
         }
 
+        // Cached Unit.Default value
+        private static object _unitDefault = null;
+        private static bool _unitDefaultCached = false;
+
+        /// <summary>
+        /// Get UniRx.Unit.Default value for Subject&lt;Unit&gt; OnNext calls.
+        /// </summary>
+        public static object GetUnitDefault()
+        {
+            if (_unitDefaultCached) return _unitDefault;
+
+            try
+            {
+                Type unitType = Type.GetType("UniRx.Unit, UniRx");
+                if (unitType == null)
+                {
+                    foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                    {
+                        unitType = assembly.GetType("UniRx.Unit");
+                        if (unitType != null) break;
+                    }
+                }
+
+                if (unitType != null)
+                {
+                    // Try as a field first
+                    var defaultField = unitType.GetField("Default", BindingFlags.Public | BindingFlags.Static);
+                    if (defaultField != null)
+                    {
+                        _unitDefault = defaultField.GetValue(null);
+                    }
+                    else
+                    {
+                        // Try as a property
+                        var defaultProperty = unitType.GetProperty("Default", BindingFlags.Public | BindingFlags.Static);
+                        if (defaultProperty != null)
+                        {
+                            _unitDefault = defaultProperty.GetValue(null);
+                        }
+                        else
+                        {
+                            // Unit is a struct - default(Unit) works, so create an instance
+                            _unitDefault = Activator.CreateInstance(unitType);
+                        }
+                    }
+                }
+
+                _unitDefaultCached = true;
+                if (_unitDefault == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] Could not get UniRx.Unit.Default - type not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetUnitDefault failed: {ex.Message}");
+                _unitDefaultCached = true;
+            }
+
+            return _unitDefault;
+        }
+
         /// <summary>
         /// Helper to invoke OnNext on a UniRx Subject property.
         /// </summary>
-        private static bool InvokeSubjectOnNext(object blackboardService, string subjectPropertyName, object parameter)
+        public static bool InvokeSubjectOnNext(object blackboardService, string subjectPropertyName, object parameter)
         {
             if (blackboardService == null) return false;
 

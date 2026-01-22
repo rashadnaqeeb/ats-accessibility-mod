@@ -67,6 +67,9 @@ namespace ATSAccessibility
         // Menu hub for quick popup access
         private MenuHub _menuHub;
 
+        // Rewards panel for quick reward selection
+        private RewardsPanel _rewardsPanel;
+
         // Building menu panel for construction
         private BuildingMenuPanel _buildingMenuPanel;
 
@@ -162,6 +165,9 @@ namespace ATSAccessibility
             // Initialize menu hub for quick popup access
             _menuHub = new MenuHub();
 
+            // Initialize rewards panel for quick reward selection
+            _rewardsPanel = new RewardsPanel();
+
             // Initialize building menu panel and build mode controller
             _buildingMenuPanel = new BuildingMenuPanel();
             _buildModeController = new BuildModeController(_mapNavigator, _buildingMenuPanel);
@@ -185,13 +191,14 @@ namespace ATSAccessibility
 
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
-                _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
+                _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
             var worldMapHandler = new WorldMapKeyHandler(_worldMapNavigator, _worldMapScanner);
 
             // Register key handlers in priority order (highest priority first)
             _keyboardManager.RegisterHandler(_confirmationDialog);  // Confirmation dialog (blocks all input when active)
             _keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
             _keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
+            _keyboardManager.RegisterHandler(_rewardsPanel);        // F3 rewards panel
             _keyboardManager.RegisterHandler(_announcementHistoryPanel); // Alt+H announcement history
             _keyboardManager.RegisterHandler(_buildingPanelHandler); // Building panel accessibility
             _keyboardManager.RegisterHandler(_buildingMenuPanel);   // Tab building menu
