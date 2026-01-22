@@ -61,6 +61,12 @@ namespace ATSAccessibility
         private static PropertyInfo _wbbOnFieldPreviewClosedProperty = null;
         private static PropertyInfo _wbbPickedCaravanProperty = null;
 
+        // CaravanPickPanel for proper slot selection
+        private static Type _caravanPickPanelType = null;
+        private static FieldInfo _cppSlotsField = null;
+        private static FieldInfo _cppCurrentField = null;
+        private static MethodInfo _cppPickMethod = null;
+
         // DifficultyModel access
         private static Type _difficultyModelType = null;
         private static PropertyInfo _dmIndexProperty = null;
@@ -302,6 +308,19 @@ namespace ATSAccessibility
             {
                 _wesGetBonusPreparationPointsMethod = worldEmbarkServiceType.GetMethod("GetBonusPreparationPoints",
                     BindingFlags.Public | BindingFlags.Instance);
+            }
+
+            // CaravanPickPanel for triggering UI slot selection
+            _caravanPickPanelType = gameAssembly.GetType("Eremite.View.Menu.Pick.CaravanPickPanel");
+            if (_caravanPickPanelType != null)
+            {
+                _cppSlotsField = _caravanPickPanelType.GetField("slots",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                _cppCurrentField = _caravanPickPanelType.GetField("current",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                _cppPickMethod = _caravanPickPanelType.GetMethod("Pick",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                Debug.Log("[ATSAccessibility] Cached CaravanPickPanel types");
             }
         }
 
@@ -992,7 +1011,16 @@ namespace ATSAccessibility
                 // Get Value from ReactiveProperty<EmbarkCaravanState>
                 var valueProp = reactiveProp.GetType().GetProperty("Value",
                     BindingFlags.Public | BindingFlags.Instance);
-                return valueProp?.GetValue(reactiveProp);
+                var caravan = valueProp?.GetValue(reactiveProp);
+
+                // Log for debugging
+                if (caravan != null)
+                {
+                    var villagers = GetCaravanVillagers(caravan);
+                    Debug.Log($"[ATSAccessibility] GetPickedCaravan: Retrieved caravan with {villagers.Count} villagers: {string.Join(", ", villagers)}");
+                }
+
+                return caravan;
             }
             catch
             {
@@ -1001,8 +1029,8 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Set the picked caravan in WorldBlackboardService.
-        /// This updates the game's reactive property, triggering UI updates.
+        /// Set the picked caravan by triggering the game's UI selection.
+        /// This properly updates both the reactive property AND the UI state.
         /// </summary>
         public static void SetPickedCaravan(object caravanState)
         {
@@ -1010,18 +1038,43 @@ namespace ATSAccessibility
 
             try
             {
-                var wbb = WorldMapReflection.GetWorldBlackboardService();
-                if (wbb == null || _wbbPickedCaravanProperty == null) return;
+                if (caravanState == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] SetPickedCaravan: caravanState is null!");
+                    return;
+                }
 
-                var reactiveProp = _wbbPickedCaravanProperty.GetValue(wbb);
-                if (reactiveProp == null) return;
+                var villagers = GetCaravanVillagers(caravanState);
+                Debug.Log($"[ATSAccessibility] SetPickedCaravan: Setting caravan with {villagers.Count} villagers: {string.Join(", ", villagers)}");
 
-                // Set Value on ReactiveProperty<EmbarkCaravanState>
-                var valueProp = reactiveProp.GetType().GetProperty("Value",
-                    BindingFlags.Public | BindingFlags.Instance);
-                valueProp?.SetValue(reactiveProp, caravanState);
+                // Find the caravan index
+                var caravans = GetCaravans();
+                int targetIndex = -1;
+                for (int i = 0; i < caravans.Count; i++)
+                {
+                    if (ReferenceEquals(caravans[i], caravanState))
+                    {
+                        targetIndex = i;
+                        break;
+                    }
+                }
 
-                Debug.Log("[ATSAccessibility] Caravan selection updated");
+                if (targetIndex < 0)
+                {
+                    Debug.LogError("[ATSAccessibility] SetPickedCaravan: Caravan not found in list!");
+                    return;
+                }
+
+                // Try to use CaravanPickPanel.Pick() for proper UI state update
+                if (SetPickedCaravanViaUI(targetIndex))
+                {
+                    Debug.Log($"[ATSAccessibility] SetPickedCaravan: Successfully set via UI (index {targetIndex})");
+                    return;
+                }
+
+                // Fallback: set directly on reactive property (may not persist)
+                Debug.LogWarning("[ATSAccessibility] SetPickedCaravan: UI method failed, falling back to direct set");
+                SetPickedCaravanDirect(caravanState);
             }
             catch (Exception ex)
             {
@@ -1030,19 +1083,99 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Set caravan via the game's CaravanPickPanel UI.
+        /// </summary>
+        private static bool SetPickedCaravanViaUI(int slotIndex)
+        {
+            if (_caravanPickPanelType == null || _cppSlotsField == null || _cppPickMethod == null)
+            {
+                Debug.Log("[ATSAccessibility] SetPickedCaravanViaUI: CaravanPickPanel types not cached");
+                return false;
+            }
+
+            try
+            {
+                // Find CaravanPickPanel in scene
+                var findMethod = typeof(UnityEngine.Object).GetMethod("FindObjectOfType",
+                    BindingFlags.Public | BindingFlags.Static,
+                    null,
+                    new Type[] { typeof(Type) },
+                    null);
+                var panel = findMethod?.Invoke(null, new object[] { _caravanPickPanelType });
+
+                if (panel == null)
+                {
+                    Debug.Log("[ATSAccessibility] SetPickedCaravanViaUI: CaravanPickPanel not found in scene");
+                    return false;
+                }
+
+                // Get slots list
+                var slots = _cppSlotsField.GetValue(panel) as IList;
+                if (slots == null || slotIndex >= slots.Count)
+                {
+                    Debug.Log($"[ATSAccessibility] SetPickedCaravanViaUI: Invalid slot index {slotIndex}, slots count: {slots?.Count}");
+                    return false;
+                }
+
+                var targetSlot = slots[slotIndex];
+                if (targetSlot == null)
+                {
+                    Debug.Log("[ATSAccessibility] SetPickedCaravanViaUI: Target slot is null");
+                    return false;
+                }
+
+                // Call Pick(CaravanPickSlot slot) on the panel
+                _cppPickMethod.Invoke(panel, new object[] { targetSlot });
+                Debug.Log($"[ATSAccessibility] SetPickedCaravanViaUI: Called Pick on slot {slotIndex}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SetPickedCaravanViaUI failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Direct fallback: set caravan on reactive property (may not persist if UI resets).
+        /// </summary>
+        private static void SetPickedCaravanDirect(object caravanState)
+        {
+            var wbb = WorldMapReflection.GetWorldBlackboardService();
+            if (wbb == null || _wbbPickedCaravanProperty == null) return;
+
+            var reactiveProp = _wbbPickedCaravanProperty.GetValue(wbb);
+            if (reactiveProp == null) return;
+
+            var valueProp = reactiveProp.GetType().GetProperty("Value",
+                BindingFlags.Public | BindingFlags.Instance);
+            valueProp?.SetValue(reactiveProp, caravanState);
+        }
+
+        /// <summary>
         /// Get the index of the currently picked caravan (0-2), or -1 if none.
         /// </summary>
         public static int GetPickedCaravanIndex()
         {
             var picked = GetPickedCaravan();
-            if (picked == null) return -1;
+            if (picked == null)
+            {
+                Debug.Log("[ATSAccessibility] GetPickedCaravanIndex: No caravan picked (null)");
+                return -1;
+            }
 
             var caravans = GetCaravans();
+            Debug.Log($"[ATSAccessibility] GetPickedCaravanIndex: Checking {caravans.Count} caravans");
+
             for (int i = 0; i < caravans.Count; i++)
             {
-                if (ReferenceEquals(caravans[i], picked))
+                bool isMatch = ReferenceEquals(caravans[i], picked);
+                Debug.Log($"[ATSAccessibility] GetPickedCaravanIndex: Caravan[{i}] ReferenceEquals={isMatch}, same hash={caravans[i]?.GetHashCode() == picked?.GetHashCode()}");
+                if (isMatch)
                     return i;
             }
+
+            Debug.LogWarning("[ATSAccessibility] GetPickedCaravanIndex: Picked caravan not found in caravans list!");
             return -1;
         }
 
