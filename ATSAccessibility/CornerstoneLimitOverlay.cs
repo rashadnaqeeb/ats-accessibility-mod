@@ -195,6 +195,7 @@ namespace ATSAccessibility
 
         private void Cancel()
         {
+            Speech.Say("Cancelled");
             CornerstoneReflection.CancelLimitPopup(_popup);
             // Popup hides → OnPopupHidden → Close()
         }

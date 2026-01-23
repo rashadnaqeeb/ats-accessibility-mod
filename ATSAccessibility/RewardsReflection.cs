@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -47,6 +48,7 @@ namespace ATSAccessibility
         private static void EnsureCached()
         {
             if (_cached) return;
+            _cached = true;
 
             try
             {
@@ -84,7 +86,6 @@ namespace ATSAccessibility
                     _nsGetCurrentNewcomersMethod = nsType.GetMethod("GetCurrentNewcomers");
                 }
 
-                _cached = true;
                 Debug.Log("[ATSAccessibility] RewardsReflection cached successfully");
             }
             catch (Exception ex)
@@ -328,6 +329,336 @@ namespace ATSAccessibility
                 Debug.LogError($"[ATSAccessibility] OpenNewcomersPopup failed: {ex.Message}");
                 return false;
             }
+        }
+
+        // ========================================
+        // UNAVAILABILITY INFO
+        // ========================================
+
+        private static bool _unavailTypesCached = false;
+
+        // IReputationService.Reputation (ReactiveProperty<float>)
+        private static PropertyInfo _repReputationProperty = null;
+
+        // HasRewardFor(int) on concrete ReputationRewardsService
+        private static MethodInfo _rrsHasRewardForMethod = null;
+
+        // INewcomersService.GetTimeToNextVisit()
+        private static MethodInfo _nsGetTimeToNextVisitMethod = null;
+
+        // BiomeService access for cornerstone dates
+        private static PropertyInfo _gsBiomeServiceProperty = null;
+        private static PropertyInfo _bsCurrentBiomeProperty = null;
+        private static FieldInfo _bmSeasonsField = null;
+        private static FieldInfo _scSeasonRewardsField = null;
+
+        // CalendarService Quarter property
+        private static PropertyInfo _calQuarterProperty = null;
+
+        // SeasonRewardModel fields
+        private static FieldInfo _srmYearField = null;
+        private static FieldInfo _srmSeasonField = null;
+        private static FieldInfo _srmQuarterField = null;
+
+        private static void EnsureUnavailTypeCached()
+        {
+            if (_unavailTypesCached) return;
+            _unavailTypesCached = true;
+
+            try
+            {
+                var assembly = GameReflection.GameAssembly;
+                if (assembly == null) return;
+
+                // IReputationService.Reputation property
+                var repServiceType = assembly.GetType("Eremite.Services.IReputationService");
+                if (repServiceType != null)
+                {
+                    _repReputationProperty = repServiceType.GetProperty("Reputation",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // HasRewardFor on concrete ReputationRewardsService (public method)
+                var rrsConcreteType = assembly.GetType("Eremite.Services.ReputationRewardsService");
+                if (rrsConcreteType != null)
+                {
+                    _rrsHasRewardForMethod = rrsConcreteType.GetMethod("HasRewardFor",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // INewcomersService.GetTimeToNextVisit
+                var nsType = assembly.GetType("Eremite.Services.INewcomersService");
+                if (nsType != null)
+                {
+                    _nsGetTimeToNextVisitMethod = nsType.GetMethod("GetTimeToNextVisit",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // BiomeService from IGameServices
+                var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsBiomeServiceProperty = gameServicesType.GetProperty("BiomeService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // IBiomeService.CurrentBiome
+                var biomeServiceType = assembly.GetType("Eremite.Services.IBiomeService");
+                if (biomeServiceType != null)
+                {
+                    _bsCurrentBiomeProperty = biomeServiceType.GetProperty("CurrentBiome",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // BiomeModel.seasons field
+                var biomeModelType = assembly.GetType("Eremite.WorldMap.BiomeModel");
+                if (biomeModelType != null)
+                {
+                    _bmSeasonsField = biomeModelType.GetField("seasons",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // SeasonsConfig.SeasonRewards field
+                var seasonsConfigType = assembly.GetType("Eremite.Model.Configs.SeasonsConfig");
+                if (seasonsConfigType != null)
+                {
+                    _scSeasonRewardsField = seasonsConfigType.GetField("SeasonRewards",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // CalendarService Quarter property
+                var calServiceType = assembly.GetType("Eremite.Services.ICalendarService");
+                if (calServiceType != null)
+                {
+                    _calQuarterProperty = calServiceType.GetProperty("Quarter",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // SeasonRewardModel fields
+                var srmType = assembly.GetType("Eremite.Model.SeasonRewardModel");
+                if (srmType != null)
+                {
+                    _srmYearField = srmType.GetField("year", BindingFlags.Public | BindingFlags.Instance);
+                    _srmSeasonField = srmType.GetField("season", BindingFlags.Public | BindingFlags.Instance);
+                    _srmQuarterField = srmType.GetField("quarter", BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] RewardsReflection unavailability types cached");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Unavailability type caching failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get the next reputation threshold that grants a blueprint reward.
+        /// Returns (nextThreshold, currentRep) or null if not determinable.
+        /// </summary>
+        public static (int nextThreshold, int currentRep)? GetNextBlueprintThreshold()
+        {
+            EnsureCached();
+            EnsureUnavailTypeCached();
+
+            try
+            {
+                var gameServices = GameReflection.GetGameServices();
+                if (gameServices == null) return null;
+
+                // Get current reputation value
+                var repService = GameReflection.GetReputationService();
+                if (repService == null) return null;
+
+                var repReactive = _repReputationProperty?.GetValue(repService);
+                if (repReactive == null) return null;
+
+                // Get Value from ReactiveProperty<float>
+                var valueProp = repReactive.GetType().GetProperty("Value");
+                var repValue = valueProp?.GetValue(repReactive);
+                if (!(repValue is float repFloat)) return null;
+
+                int currentRep = (int)repFloat;
+
+                // Get ReputationRewardsService instance
+                var rewardsService = _gsReputationRewardsServiceProperty?.GetValue(gameServices);
+                if (rewardsService == null || _rrsHasRewardForMethod == null) return null;
+
+                // Search for next threshold (reputation rewards are typically 1-20)
+                var args = new object[1];
+                for (int i = currentRep + 1; i <= 30; i++)
+                {
+                    args[0] = i;
+                    var result = _rrsHasRewardForMethod.Invoke(rewardsService, args);
+                    if (result is bool hasReward && hasReward)
+                    {
+                        return (i, currentRep);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetNextBlueprintThreshold failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        private static readonly string[] SeasonNames = { "Drizzle", "Clearance", "Storm" };
+
+        /// <summary>
+        /// Get the next cornerstone reward date.
+        /// Returns (season name, year) or null if not determinable.
+        /// </summary>
+        public static (string season, int year)? GetNextCornerstoneDate()
+        {
+            EnsureUnavailTypeCached();
+
+            try
+            {
+                var gameServices = GameReflection.GetGameServices();
+                if (gameServices == null) return null;
+
+                // Get current game date from CalendarService
+                var calService = GameReflection.GetCalendarService();
+                if (calService == null) return null;
+
+                int curYear = GameReflection.GetYear();
+                int curSeason = GameReflection.GetSeason();
+                int curQuarter = -1;
+
+                if (_calQuarterProperty != null)
+                {
+                    var quarterVal = _calQuarterProperty.GetValue(calService);
+                    if (quarterVal != null)
+                        curQuarter = (int)quarterVal;
+                }
+
+                if (curYear <= 0 || curSeason < 0 || curQuarter < 0) return null;
+
+                // Get biome's SeasonRewards list
+                var biomeService = _gsBiomeServiceProperty?.GetValue(gameServices);
+                if (biomeService == null) return null;
+
+                var currentBiome = _bsCurrentBiomeProperty?.GetValue(biomeService);
+                if (currentBiome == null) return null;
+
+                var seasonsConfig = _bmSeasonsField?.GetValue(currentBiome);
+                if (seasonsConfig == null) return null;
+
+                var seasonRewardsList = _scSeasonRewardsField?.GetValue(seasonsConfig);
+                if (seasonRewardsList == null) return null;
+
+                // Iterate the list to find next reward date after current date
+                var enumerable = seasonRewardsList as IEnumerable;
+                if (enumerable == null) return null;
+
+                int bestYear = int.MaxValue;
+                int bestSeason = int.MaxValue;
+                int bestQuarter = int.MaxValue;
+                bool found = false;
+
+                foreach (var srm in enumerable)
+                {
+                    if (srm == null) continue;
+
+                    var yVal = _srmYearField?.GetValue(srm);
+                    var sVal = _srmSeasonField?.GetValue(srm);
+                    var qVal = _srmQuarterField?.GetValue(srm);
+
+                    if (yVal == null || sVal == null || qVal == null) continue;
+
+                    int y = (int)yVal;
+                    int s = (int)sVal;
+                    int q = (int)qVal;
+
+                    // Check if this date is in the future
+                    if (!IsDateAfter(y, s, q, curYear, curSeason, curQuarter)) continue;
+
+                    // Check if this is earlier than current best
+                    if (!found || IsDateAfter(bestYear, bestSeason, bestQuarter, y, s, q))
+                    {
+                        bestYear = y;
+                        bestSeason = s;
+                        bestQuarter = q;
+                        found = true;
+                    }
+                }
+
+                if (found && bestSeason >= 0 && bestSeason < SeasonNames.Length)
+                {
+                    return (SeasonNames[bestSeason], bestYear);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetNextCornerstoneDate failed: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Returns true if date (y1,s1,q1) is strictly after (y2,s2,q2).
+        /// </summary>
+        private static bool IsDateAfter(int y1, int s1, int q1, int y2, int s2, int q2)
+        {
+            if (y1 != y2) return y1 > y2;
+            if (s1 != s2) return s1 > s2;
+            return q1 > q2;
+        }
+
+        /// <summary>
+        /// Get time in seconds until next newcomers visit, or -1 if unavailable.
+        /// </summary>
+        public static float GetTimeToNextNewcomers()
+        {
+            EnsureCached();
+            EnsureUnavailTypeCached();
+
+            try
+            {
+                var gameServices = GameReflection.GetGameServices();
+                if (gameServices == null) return -1f;
+
+                var newcomersService = _gsNewcomersServiceProperty?.GetValue(gameServices);
+                if (newcomersService == null) return -1f;
+
+                if (_nsGetTimeToNextVisitMethod == null) return -1f;
+
+                var result = _nsGetTimeToNextVisitMethod.Invoke(newcomersService, null);
+                if (result is float time)
+                {
+                    return time;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetTimeToNextNewcomers failed: {ex.Message}");
+            }
+
+            return -1f;
+        }
+
+        /// <summary>
+        /// Format game time in seconds to a readable string.
+        /// Rounds to nearest 5 seconds for cleaner output.
+        /// </summary>
+        public static string FormatGameTime(float seconds)
+        {
+            if (seconds <= 0) return "soon";
+
+            // Round to nearest 5 seconds
+            int totalSeconds = (int)(Mathf.Round(seconds / 5f) * 5f);
+            if (totalSeconds <= 0) totalSeconds = 5;
+
+            int minutes = totalSeconds / 60;
+            int secs = totalSeconds % 60;
+
+            if (minutes > 0 && secs > 0)
+                return $"{minutes} minute{(minutes != 1 ? "s" : "")} {secs} seconds";
+            if (minutes > 0)
+                return $"{minutes} minute{(minutes != 1 ? "s" : "")}";
+            return $"{secs} seconds";
         }
     }
 }

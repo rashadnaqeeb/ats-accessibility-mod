@@ -128,6 +128,7 @@ namespace ATSAccessibility
                 if (popup == null || !popup.activeInHierarchy ||
                     !popup.name.Contains("MetaRewards"))
                 {
+                    _isPolling = false;
                     Debug.Log("[ATSAccessibility] MetaRewardsPopup closed during polling");
                     yield break;
                 }

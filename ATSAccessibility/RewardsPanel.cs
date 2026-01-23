@@ -5,8 +5,9 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// F3 Rewards panel for quick access to pending rewards.
-    /// Lists available reward categories (Blueprints, Cornerstones, Newcomers)
-    /// and opens the game's popup when selected.
+    /// Always shows all three reward categories (Blueprints, Cornerstones, Newcomers).
+    /// Available rewards open the game's popup when selected.
+    /// Unavailable rewards show when they will next be available.
     /// </summary>
     public class RewardsPanel : IKeyHandler
     {
@@ -17,15 +18,15 @@ namespace ATSAccessibility
             Newcomers
         }
 
-        private static readonly string[] _rewardLabels =
+        private struct RewardItem
         {
-            "Blueprints",
-            "Cornerstones",
-            "Newcomers"
-        };
+            public RewardType Type;
+            public bool Available;
+            public string Label;
+        }
 
         private bool _isOpen;
-        private List<RewardType> _availableRewards = new List<RewardType>();
+        private List<RewardItem> _items = new List<RewardItem>();
         private int _currentIndex;
 
         /// <summary>
@@ -39,7 +40,7 @@ namespace ATSAccessibility
         public bool IsActive => _isOpen;
 
         /// <summary>
-        /// Open the rewards panel. If no rewards available, announces and returns.
+        /// Open the rewards panel. Always opens with all 3 reward types.
         /// </summary>
         public void Open()
         {
@@ -50,19 +51,12 @@ namespace ATSAccessibility
                 return;
             }
 
-            RefreshAvailableRewards();
-
-            if (_availableRewards.Count == 0)
-            {
-                Speech.Say("No rewards available");
-                return;
-            }
+            RefreshItems();
 
             _isOpen = true;
             _currentIndex = 0;
 
             SoundManager.PlayPopupShow();
-            AnnouncePanel();
             AnnounceCurrentReward();
             Debug.Log("[ATSAccessibility] Rewards panel opened");
         }
@@ -75,7 +69,7 @@ namespace ATSAccessibility
             if (!_isOpen) return;
 
             _isOpen = false;
-            _availableRewards.Clear();
+            _items.Clear();
             InputBlocker.BlockCancelOnce = true;
             Speech.Say("Closed");
             Debug.Log("[ATSAccessibility] Rewards panel closed");
@@ -101,7 +95,7 @@ namespace ATSAccessibility
 
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
-                    OpenSelectedReward();
+                    ActivateSelected();
                     return true;
 
                 case KeyCode.Escape:
@@ -121,47 +115,81 @@ namespace ATSAccessibility
             }
         }
 
-        private void RefreshAvailableRewards()
+        private void RefreshItems()
         {
-            _availableRewards.Clear();
+            _items.Clear();
 
+            // Blueprints
             if (RewardsReflection.HasPendingBlueprints())
             {
-                _availableRewards.Add(RewardType.Blueprints);
+                _items.Add(new RewardItem { Type = RewardType.Blueprints, Available = true, Label = "Blueprints" });
+            }
+            else
+            {
+                var threshold = RewardsReflection.GetNextBlueprintThreshold();
+                string label = threshold.HasValue
+                    ? $"Blueprints, next at {threshold.Value.nextThreshold} reputation"
+                    : "Blueprints, unavailable";
+                _items.Add(new RewardItem { Type = RewardType.Blueprints, Available = false, Label = label });
             }
 
+            // Cornerstones
             if (RewardsReflection.HasPendingCornerstones())
             {
-                _availableRewards.Add(RewardType.Cornerstones);
+                _items.Add(new RewardItem { Type = RewardType.Cornerstones, Available = true, Label = "Cornerstones" });
+            }
+            else
+            {
+                var nextDate = RewardsReflection.GetNextCornerstoneDate();
+                string label = nextDate.HasValue
+                    ? $"Cornerstones, next at {nextDate.Value.season}, Year {nextDate.Value.year}"
+                    : "Cornerstones, unavailable";
+                _items.Add(new RewardItem { Type = RewardType.Cornerstones, Available = false, Label = label });
             }
 
+            // Newcomers
             if (RewardsReflection.HasPendingNewcomers())
             {
-                _availableRewards.Add(RewardType.Newcomers);
+                _items.Add(new RewardItem { Type = RewardType.Newcomers, Available = true, Label = "Newcomers" });
+            }
+            else
+            {
+                float time = RewardsReflection.GetTimeToNextNewcomers();
+                string label = time > 0
+                    ? $"Newcomers, arriving in {RewardsReflection.FormatGameTime(time)}"
+                    : "Newcomers, unavailable";
+                _items.Add(new RewardItem { Type = RewardType.Newcomers, Available = false, Label = label });
             }
 
-            Debug.Log($"[ATSAccessibility] Found {_availableRewards.Count} available rewards");
+            Debug.Log($"[ATSAccessibility] Rewards panel refreshed: {_items.Count} items");
         }
 
         private void Navigate(int direction)
         {
-            if (_availableRewards.Count == 0) return;
+            if (_items.Count == 0) return;
 
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _availableRewards.Count);
+            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
             AnnounceCurrentReward();
         }
 
-        private void OpenSelectedReward()
+        private void ActivateSelected()
         {
-            if (_availableRewards.Count == 0 || _currentIndex >= _availableRewards.Count) return;
+            if (_items.Count == 0 || _currentIndex >= _items.Count) return;
 
-            var rewardType = _availableRewards[_currentIndex];
-            string label = _rewardLabels[(int)rewardType];
-            Debug.Log($"[ATSAccessibility] Opening {label} from Rewards panel");
+            var item = _items[_currentIndex];
+
+            if (!item.Available)
+            {
+                // Re-announce the label for read-only items
+                Speech.Say(item.Label);
+                return;
+            }
+
+            Debug.Log($"[ATSAccessibility] Opening {item.Label} from Rewards panel");
 
             bool success = false;
 
-            switch (rewardType)
+            switch (item.Type)
             {
                 case RewardType.Blueprints:
                     success = RewardsReflection.OpenBlueprintsPopup();
@@ -178,31 +206,22 @@ namespace ATSAccessibility
 
             if (success)
             {
-                // Close panel after opening popup
                 _isOpen = false;
-                _availableRewards.Clear();
-                Debug.Log($"[ATSAccessibility] Successfully opened {label}");
+                _items.Clear();
+                Debug.Log($"[ATSAccessibility] Successfully opened {item.Label}");
             }
             else
             {
-                Speech.Say($"{label} unavailable");
-                Debug.Log($"[ATSAccessibility] Failed to open {label}");
+                Speech.Say($"{item.Label} unavailable");
+                Debug.Log($"[ATSAccessibility] Failed to open {item.Label}");
             }
-        }
-
-        private void AnnouncePanel()
-        {
-            int count = _availableRewards.Count;
-            Speech.Say($"Rewards, {count} available");
         }
 
         private void AnnounceCurrentReward()
         {
-            if (_availableRewards.Count == 0 || _currentIndex >= _availableRewards.Count) return;
+            if (_items.Count == 0 || _currentIndex >= _items.Count) return;
 
-            var rewardType = _availableRewards[_currentIndex];
-            string label = _rewardLabels[(int)rewardType];
-            Speech.Say(label);
+            Speech.Say(_items[_currentIndex].Label);
         }
     }
 }

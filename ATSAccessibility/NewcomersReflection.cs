@@ -51,6 +51,7 @@ namespace ATSAccessibility
         private static void EnsureCached()
         {
             if (_cached) return;
+            _cached = true;
 
             try
             {
@@ -98,7 +99,6 @@ namespace ATSAccessibility
                     _popupHideMethod = popupType.GetMethod("Hide", GameReflection.PublicInstance);
                 }
 
-                _cached = true;
                 Debug.Log("[ATSAccessibility] NewcomersReflection cached successfully");
             }
             catch (Exception ex)
