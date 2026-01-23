@@ -4,20 +4,20 @@ using UnityEngine;
 namespace ATSAccessibility
 {
     /// <summary>
-    /// Accessible overlay for the ReputationRewardsPopup (mid-game blueprint reward selection).
-    /// Provides flat list navigation through building choices plus extend and reroll options.
+    /// Accessible overlay for the RewardPickPopup (mid-game cornerstone/perk selection).
+    /// Provides flat list navigation through NPC dialogue, cornerstone choices, extend, reroll, and skip.
     /// </summary>
-    public class ReputationRewardOverlay : IKeyHandler
+    public class CornerstoneOverlay : IKeyHandler
     {
         // Navigation item types
-        private enum ItemType { Building, Extend, Reroll }
+        private enum ItemType { Dialogue, Cornerstone, Extend, Reroll, Skip }
 
         private class NavItem
         {
             public ItemType Type;
-            public object Model;       // BuildingModel (for Building type only)
+            public object Model;       // EffectModel (for Cornerstone type only)
             public string Label;       // Announcement text
-            public string SearchName;  // Name for type-ahead (buildings only)
+            public string SearchName;  // Name for type-ahead (cornerstones only)
         }
 
         // State
@@ -91,7 +91,7 @@ namespace ATSAccessibility
         // ========================================
 
         /// <summary>
-        /// Open the overlay when a ReputationRewardsPopup is shown.
+        /// Open the overlay when a RewardPickPopup is shown.
         /// </summary>
         public void Open(object popup)
         {
@@ -106,14 +106,14 @@ namespace ATSAccessibility
 
             if (_items.Count > 0)
             {
-                Speech.Say($"Reputation reward. {_items[0].Label}");
+                Speech.Say($"Cornerstone. {_items[0].Label}");
             }
             else
             {
-                Speech.Say("Reputation reward. No options available");
+                Speech.Say("Cornerstone. No options available");
             }
 
-            Debug.Log($"[ATSAccessibility] ReputationRewardOverlay opened, {_items.Count} items");
+            Debug.Log($"[ATSAccessibility] CornerstoneOverlay opened, {_items.Count} items");
         }
 
         /// <summary>
@@ -128,7 +128,23 @@ namespace ATSAccessibility
             _search.Clear();
             _items.Clear();
 
-            Debug.Log("[ATSAccessibility] ReputationRewardOverlay closed");
+            Debug.Log("[ATSAccessibility] CornerstoneOverlay closed");
+        }
+
+        /// <summary>
+        /// Refresh data after the limit popup closes.
+        /// If options changed (new pick loaded), announce the new state.
+        /// </summary>
+        public void RefreshAfterLimit()
+        {
+            if (!_isOpen) return;
+
+            RefreshData();
+            _currentIndex = GetFirstCornerstoneIndex();
+            if (_items.Count > 0)
+            {
+                AnnounceCurrentItem();
+            }
         }
 
         // ========================================
@@ -139,19 +155,40 @@ namespace ATSAccessibility
         {
             _items.Clear();
 
-            // Add buildings
-            var options = ReputationRewardReflection.GetCurrentOptions();
+            // 1. NPC dialogue item
+            var (npcName, dialogue) = CornerstoneReflection.GetNpcDialogue(_popup);
+            if (!string.IsNullOrEmpty(npcName) || !string.IsNullOrEmpty(dialogue))
+            {
+                string dialogueLabel = !string.IsNullOrEmpty(npcName)
+                    ? $"{npcName}: {dialogue}"
+                    : dialogue;
+
+                _items.Add(new NavItem
+                {
+                    Type = ItemType.Dialogue,
+                    Model = null,
+                    Label = dialogueLabel,
+                    SearchName = null
+                });
+            }
+
+            // 2. Cornerstone options
+            var options = CornerstoneReflection.GetCurrentOptions();
             if (options != null)
             {
                 foreach (var option in options)
                 {
+                    string rarityText = option.Rarity;
+                    if (option.IsEthereal)
+                        rarityText += ", ethereal";
+
                     string label = !string.IsNullOrEmpty(option.Description)
-                        ? $"{option.DisplayName}. {option.Description}"
-                        : option.DisplayName;
+                        ? $"{option.DisplayName}, {rarityText}. {option.Description}"
+                        : $"{option.DisplayName}, {rarityText}";
 
                     _items.Add(new NavItem
                     {
-                        Type = ItemType.Building,
+                        Type = ItemType.Cornerstone,
                         Model = option.Model,
                         Label = label,
                         SearchName = option.DisplayName
@@ -159,11 +196,11 @@ namespace ATSAccessibility
                 }
             }
 
-            // Add extend option if available
-            if (ReputationRewardReflection.CanExtend())
+            // 3. Extend option (if available)
+            if (CornerstoneReflection.CanExtend())
             {
-                var (extAmount, extGoodName) = ReputationRewardReflection.GetExtendCost();
-                string extendLabel = ReputationRewardReflection.CanAffordExtend()
+                var (extAmount, extGoodName) = CornerstoneReflection.GetExtendCost();
+                string extendLabel = CornerstoneReflection.CanAffordExtend()
                     ? $"Extend, {extAmount} {extGoodName}"
                     : $"Extend, {extAmount} {extGoodName}, cannot afford";
 
@@ -176,23 +213,32 @@ namespace ATSAccessibility
                 });
             }
 
-            // Add reroll option
+            // 4. Reroll option (if rerolls remaining)
+            int rerolls = CornerstoneReflection.GetRerollsLeft();
+            if (rerolls > 0)
             {
-                var (rerollAmount, rerollGoodName) = ReputationRewardReflection.GetRerollCost();
-                string rerollLabel = ReputationRewardReflection.CanAffordReroll()
-                    ? $"Reroll, {rerollAmount} {rerollGoodName}"
-                    : $"Reroll, {rerollAmount} {rerollGoodName}, cannot afford";
-
                 _items.Add(new NavItem
                 {
                     Type = ItemType.Reroll,
                     Model = null,
-                    Label = rerollLabel,
+                    Label = $"Reroll, {rerolls} remaining",
                     SearchName = null
                 });
             }
 
-            Debug.Log($"[ATSAccessibility] ReputationRewardOverlay refreshed: {_items.Count} items");
+            // 5. Skip option (always available)
+            {
+                var (skipAmount, skipGoodName) = CornerstoneReflection.GetDeclinePayoff();
+                _items.Add(new NavItem
+                {
+                    Type = ItemType.Skip,
+                    Model = null,
+                    Label = $"Skip, receive {skipAmount} {skipGoodName}",
+                    SearchName = null
+                });
+            }
+
+            Debug.Log($"[ATSAccessibility] CornerstoneOverlay refreshed: {_items.Count} items");
         }
 
         // ========================================
@@ -224,8 +270,13 @@ namespace ATSAccessibility
             var item = _items[_currentIndex];
             switch (item.Type)
             {
-                case ItemType.Building:
-                    ActivateBuilding(item);
+                case ItemType.Dialogue:
+                    // Read-only, re-announce for clarity
+                    AnnounceCurrentItem();
+                    break;
+
+                case ItemType.Cornerstone:
+                    ActivateCornerstone(item);
                     break;
 
                 case ItemType.Extend:
@@ -235,12 +286,16 @@ namespace ATSAccessibility
                 case ItemType.Reroll:
                     ActivateReroll();
                     break;
+
+                case ItemType.Skip:
+                    ActivateSkip();
+                    break;
             }
         }
 
-        private void ActivateBuilding(NavItem item)
+        private void ActivateCornerstone(NavItem item)
         {
-            if (!ReputationRewardReflection.PickBuilding(_popup, item.Model))
+            if (!CornerstoneReflection.PickCornerstone(_popup, item.Model))
             {
                 Speech.Say("Cannot select");
                 SoundManager.PlayFailed();
@@ -249,35 +304,37 @@ namespace ATSAccessibility
 
             SoundManager.PlayButtonClick();
 
-            // After pick: popup either refreshed (more rewards) or hiding (done)
-            var newOptions = ReputationRewardReflection.GetCurrentOptions();
+            // After pick: popup either rebuilt (more picks), hidden (done),
+            // or limit popup opened (at limit).
+            var newOptions = CornerstoneReflection.GetCurrentOptions();
             if (newOptions != null && newOptions.Count > 0)
             {
-                Speech.Say("Unlocked");
+                Speech.Say("Picked");
                 RefreshData();
-                _currentIndex = 0;
+                _currentIndex = GetFirstCornerstoneIndex();
                 AnnounceCurrentItem();
             }
             else
             {
-                Speech.Say("Unlocked");
+                Speech.Say("Picked");
                 // Popup hides → OnPopupHidden → Close()
+                // OR limit popup opened → handled by CornerstoneLimitOverlay
             }
         }
 
         private void ActivateExtend()
         {
-            if (!ReputationRewardReflection.CanAffordExtend())
+            if (!CornerstoneReflection.CanAffordExtend())
             {
-                var (amount, goodName) = ReputationRewardReflection.GetExtendCost();
+                var (amount, goodName) = CornerstoneReflection.GetExtendCost();
                 Speech.Say($"Cannot afford, need {amount} {goodName}");
                 SoundManager.PlayFailed();
                 return;
             }
 
-            int prevBuildingCount = CountBuildings();
+            int prevCount = CountCornerstones();
 
-            if (!ReputationRewardReflection.Extend())
+            if (!CornerstoneReflection.Extend())
             {
                 Speech.Say("Cannot extend");
                 SoundManager.PlayFailed();
@@ -287,31 +344,21 @@ namespace ATSAccessibility
             SoundManager.PlayButtonClick();
             RefreshData();
 
-            int newBuildingCount = CountBuildings();
-            if (newBuildingCount > prevBuildingCount)
+            int newCount = CountCornerstones();
+            if (newCount > prevCount)
             {
-                // Navigate to the newly added building (last one)
-                _currentIndex = GetLastBuildingIndex();
+                _currentIndex = GetLastCornerstoneIndex();
                 AnnounceCurrentItem();
             }
             else
             {
-                // Extend succeeded (cost paid) but no building was available to add
                 Speech.Say("No new option available");
             }
         }
 
         private void ActivateReroll()
         {
-            if (!ReputationRewardReflection.CanAffordReroll())
-            {
-                var (amount, goodName) = ReputationRewardReflection.GetRerollCost();
-                Speech.Say($"Cannot afford, need {amount} {goodName}");
-                SoundManager.PlayFailed();
-                return;
-            }
-
-            if (!ReputationRewardReflection.Reroll(_popup))
+            if (!CornerstoneReflection.Reroll(_popup))
             {
                 Speech.Say("Cannot reroll");
                 SoundManager.PlayFailed();
@@ -320,35 +367,61 @@ namespace ATSAccessibility
 
             SoundManager.PlayReroll();
             RefreshData();
-            _currentIndex = 0;
+            _currentIndex = GetFirstCornerstoneIndex();
             AnnounceCurrentItem();
         }
 
-        /// <summary>
-        /// Count the number of building items in the current nav list.
-        /// </summary>
-        private int CountBuildings()
+        private void ActivateSkip()
+        {
+            if (!CornerstoneReflection.Skip(_popup))
+            {
+                Speech.Say("Cannot skip");
+                SoundManager.PlayFailed();
+                return;
+            }
+
+            SoundManager.PlayDecline();
+
+            // After skip: popup either rebuilt (more picks) or hidden (done)
+            var afterSkip = CornerstoneReflection.GetCurrentOptions();
+            if (afterSkip != null && afterSkip.Count > 0)
+            {
+                Speech.Say("Skipped");
+                RefreshData();
+                _currentIndex = GetFirstCornerstoneIndex();
+                AnnounceCurrentItem();
+            }
+            else
+            {
+                Speech.Say("Skipped");
+                // Popup hides → Close()
+            }
+        }
+
+        // ========================================
+        // HELPERS
+        // ========================================
+
+        private int GetFirstCornerstoneIndex()
+        {
+            for (int i = 0; i < _items.Count; i++)
+                if (_items[i].Type == ItemType.Cornerstone) return i;
+            return 0;
+        }
+
+        private int GetLastCornerstoneIndex()
+        {
+            for (int i = _items.Count - 1; i >= 0; i--)
+                if (_items[i].Type == ItemType.Cornerstone) return i;
+            return 0;
+        }
+
+        private int CountCornerstones()
         {
             int count = 0;
             for (int i = 0; i < _items.Count; i++)
-            {
-                if (_items[i].Type == ItemType.Building)
-                    count++;
-            }
+                if (_items[i].Type == ItemType.Cornerstone) count++;
             return count;
-        }
-
-        /// <summary>
-        /// Find the index of the last building item (before extend/reroll).
-        /// </summary>
-        private int GetLastBuildingIndex()
-        {
-            for (int i = _items.Count - 1; i >= 0; i--)
-            {
-                if (_items[i].Type == ItemType.Building)
-                    return i;
-            }
-            return 0;
         }
 
         // ========================================
@@ -359,7 +432,7 @@ namespace ATSAccessibility
         {
             _search.AddChar(c);
 
-            int matchIndex = FindBuildingMatch();
+            int matchIndex = FindCornerstoneMatch();
             if (matchIndex >= 0)
             {
                 _currentIndex = matchIndex;
@@ -381,7 +454,7 @@ namespace ATSAccessibility
                 return;
             }
 
-            int matchIndex = FindBuildingMatch();
+            int matchIndex = FindCornerstoneMatch();
             if (matchIndex >= 0)
             {
                 _currentIndex = matchIndex;
@@ -394,10 +467,9 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Find the first building item whose name starts with the search buffer.
-        /// Only searches building items, not extend/reroll.
+        /// Find the first cornerstone item whose name starts with the search buffer.
         /// </summary>
-        private int FindBuildingMatch()
+        private int FindCornerstoneMatch()
         {
             if (!_search.HasBuffer || _items.Count == 0) return -1;
 
@@ -405,7 +477,7 @@ namespace ATSAccessibility
 
             for (int i = 0; i < _items.Count; i++)
             {
-                if (_items[i].Type != ItemType.Building) continue;
+                if (_items[i].Type != ItemType.Cornerstone) continue;
                 if (string.IsNullOrEmpty(_items[i].SearchName)) continue;
 
                 if (_items[i].SearchName.ToLowerInvariant().StartsWith(lowerPrefix))

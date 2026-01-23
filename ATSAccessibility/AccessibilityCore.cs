@@ -114,6 +114,10 @@ namespace ATSAccessibility
         // Reputation reward popup overlay for blueprint rewards
         private ReputationRewardOverlay _reputationRewardOverlay;
 
+        // Cornerstone popup overlays for perk selection
+        private CornerstoneOverlay _cornerstoneOverlay;
+        private CornerstoneLimitOverlay _cornerstoneLimitOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -207,6 +211,10 @@ namespace ATSAccessibility
             // Initialize reputation reward overlay for blueprint rewards popup
             _reputationRewardOverlay = new ReputationRewardOverlay();
 
+            // Initialize cornerstone overlays for perk selection popups
+            _cornerstoneOverlay = new CornerstoneOverlay();
+            _cornerstoneLimitOverlay = new CornerstoneLimitOverlay();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
@@ -225,6 +233,8 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_encyclopediaNavigator); // Wiki popup
             _keyboardManager.RegisterHandler(_recipesOverlay);      // Recipes popup overlay
             _keyboardManager.RegisterHandler(_wildcardOverlay);    // Wildcard popup overlay
+            _keyboardManager.RegisterHandler(_cornerstoneLimitOverlay);   // Cornerstone limit popup overlay
+            _keyboardManager.RegisterHandler(_cornerstoneOverlay);       // Cornerstone pick popup overlay
             _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
@@ -700,6 +710,19 @@ namespace ATSAccessibility
                 return;
             }
 
+            if (CornerstoneReflection.IsRewardPickPopup(popup))
+            {
+                _cornerstoneOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+            if (CornerstoneReflection.IsCornerstonesLimitPickPopup(popup))
+            {
+                _cornerstoneLimitOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Standard popup handling
             _uiNavigator?.OnPopupShown(popup);
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
@@ -738,6 +761,22 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Reputation rewards popup closed");
                 _reputationRewardOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check cornerstone pick popup
+            else if (CornerstoneReflection.IsRewardPickPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Cornerstone pick popup closed");
+                _cornerstoneOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check cornerstone limit popup
+            else if (CornerstoneReflection.IsCornerstonesLimitPickPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Cornerstone limit popup closed");
+                _cornerstoneLimitOverlay?.Close();
+                // Refresh main overlay in case a new pick loaded after limit removal
+                _cornerstoneOverlay?.RefreshAfterLimit();
                 // Fall through to handle context change
             }
             else

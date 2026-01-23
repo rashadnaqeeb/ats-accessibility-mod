@@ -331,6 +331,8 @@ namespace ATSAccessibility
                 return;
             }
 
+            SoundManager.PlayButtonClick();
+
             // Update local selection tracking
             if (_selectedModels.Contains(building.Model))
                 _selectedModels.Remove(building.Model);
@@ -364,6 +366,7 @@ namespace ATSAccessibility
             bool confirmed = WildcardReflection.Confirm(_popup);
             if (confirmed)
             {
+                SoundManager.PlayButtonClick();
                 Speech.Say("Blueprints unlocked");
                 // Popup hides itself → OnPopupHidden → Close()
             }

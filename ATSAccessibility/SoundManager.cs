@@ -39,6 +39,9 @@ namespace ATSAccessibility
         private static PropertyInfo _consumptionPopupShowProperty = null;
         private static PropertyInfo _traderPanelOpenedProperty = null;
 
+        // Season rewards sounds
+        private static PropertyInfo _seasonRewardsPopupSlotProperty = null;
+
         private static void EnsureCached()
         {
             if (_cached) return;
@@ -89,6 +92,9 @@ namespace ATSAccessibility
                     _popupShowProperty = soundReferencesType.GetProperty("PopupShow", GameReflection.PublicInstance);
                     _consumptionPopupShowProperty = soundReferencesType.GetProperty("ConsumptionPopupShow", GameReflection.PublicInstance);
                     _traderPanelOpenedProperty = soundReferencesType.GetProperty("TraderPanelOpened", GameReflection.PublicInstance);
+
+                    // Season rewards sounds
+                    _seasonRewardsPopupSlotProperty = soundReferencesType.GetProperty("SeasonRewardsPopupSlot", GameReflection.PublicInstance);
                 }
             }
             catch (Exception ex)
@@ -338,6 +344,31 @@ namespace ATSAccessibility
             PlaySound(_traderPanelOpenedProperty);
         }
 
+        /// <summary>
+        /// Play the season rewards popup slot sound (slot reveal).
+        /// </summary>
+        public static void PlaySeasonRewardsSlot()
+        {
+            EnsureCached();
+            PlaySound(_seasonRewardsPopupSlotProperty);
+        }
+
+        /// <summary>
+        /// Play the reroll sound.
+        /// </summary>
+        public static void PlayReroll()
+        {
+            PlaySoundByClipName("reroll");
+        }
+
+        /// <summary>
+        /// Play the decline/skip sound.
+        /// </summary>
+        public static void PlayDecline()
+        {
+            PlaySoundByClipName("decline");
+        }
+
         // ========================================
         // MENU BUTTON SOUNDS (by clip name)
         // ========================================
@@ -374,26 +405,134 @@ namespace ATSAccessibility
             PlaySoundByClipName("menu_trade_routes");
         }
 
-        // Cached AudioClip type
+        // Cached AudioClip type and AudioSource type
         private static Type _audioClipType = null;
+        private static Type _audioSourceType = null;
+
+        // Cached clip lookups to avoid repeated Resources.FindObjectsOfTypeAll calls
+        private static System.Collections.Generic.Dictionary<string, object> _clipCache =
+            new System.Collections.Generic.Dictionary<string, object>();
+
+        // Volume access: MainController.AppServices.ClientPrefsService.EffectsVolume.Value
+        private static PropertyInfo _appServicesProperty = null;
+        private static PropertyInfo _clientPrefsServiceProperty = null;
+        private static PropertyInfo _effectsVolumeProperty = null;
+        private static PropertyInfo _reactiveValueProperty = null;
+        private static bool _volumeCached = false;
+
+        // Our own AudioSource to avoid conflicts with game's buttonAudioSource
+        private static object _modAudioSource = null;
+        private static MethodInfo _playOneShotWithVolumeMethod = null;
+
+        private static object GetModAudioSource()
+        {
+            if (_modAudioSource == null)
+            {
+                if (_audioSourceType == null)
+                {
+                    _audioSourceType = Type.GetType("UnityEngine.AudioSource, UnityEngine.AudioModule");
+                    if (_audioSourceType == null)
+                    {
+                        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                        {
+                            _audioSourceType = asm.GetType("UnityEngine.AudioSource");
+                            if (_audioSourceType != null) break;
+                        }
+                    }
+                }
+                if (_audioSourceType == null) return null;
+
+                var go = GameObject.Find("ATSAccessibilityCore");
+                if (go == null)
+                {
+                    go = new GameObject("ATSAccessibilityCore_Audio");
+                    go.hideFlags = HideFlags.HideAndDontSave;
+                    UnityEngine.Object.DontDestroyOnLoad(go);
+                }
+
+                _modAudioSource = go.GetComponent(_audioSourceType);
+                if (_modAudioSource == null)
+                    _modAudioSource = go.AddComponent(_audioSourceType);
+            }
+            return _modAudioSource;
+        }
+
+        private static void EnsureVolumeCached()
+        {
+            if (_volumeCached) return;
+            _volumeCached = true;
+
+            try
+            {
+                var assembly = GameReflection.GameAssembly;
+                if (assembly == null) return;
+
+                var mainControllerType = assembly.GetType("Eremite.Controller.MainController");
+                if (mainControllerType != null)
+                    _appServicesProperty = mainControllerType.GetProperty("AppServices", GameReflection.PublicInstance);
+
+                var servicesType = assembly.GetType("Eremite.Services.IServices");
+                if (servicesType != null)
+                    _clientPrefsServiceProperty = servicesType.GetProperty("ClientPrefsService", GameReflection.PublicInstance);
+
+                var clientPrefsType = assembly.GetType("Eremite.Services.IClientPrefsService");
+                if (clientPrefsType != null)
+                    _effectsVolumeProperty = clientPrefsType.GetProperty("EffectsVolume", GameReflection.PublicInstance);
+
+                // ReactiveProperty<float>.Value
+                if (_effectsVolumeProperty != null)
+                {
+                    var rpType = _effectsVolumeProperty.PropertyType;
+                    _reactiveValueProperty = rpType.GetProperty("Value", GameReflection.PublicInstance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] SoundManager volume cache failed: {ex.Message}");
+            }
+        }
+
+        private static float GetEffectsVolume()
+        {
+            try
+            {
+                EnsureVolumeCached();
+                var mainController = GameReflection.GetMainControllerInstance();
+                if (mainController == null) return 1f;
+
+                var appServices = _appServicesProperty?.GetValue(mainController);
+                if (appServices == null) return 1f;
+
+                var clientPrefs = _clientPrefsServiceProperty?.GetValue(appServices);
+                if (clientPrefs == null) return 1f;
+
+                var effectsVolume = _effectsVolumeProperty?.GetValue(clientPrefs);
+                if (effectsVolume == null) return 1f;
+
+                var value = _reactiveValueProperty?.GetValue(effectsVolume);
+                if (value is float f) return f;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetEffectsVolume failed: {ex.Message}");
+            }
+            return 1f;
+        }
 
         /// <summary>
         /// Play a sound by finding its AudioClip by name.
-        /// Used for sounds that aren't exposed through SoundReferences properties.
+        /// Uses our own AudioSource to avoid conflicts with game's sound system.
         /// </summary>
         private static void PlaySoundByClipName(string clipName)
         {
             try
             {
-                EnsureCached();
-
-                // Get AudioClip type via reflection
+                // Get AudioClip type via reflection (once)
                 if (_audioClipType == null)
                 {
                     _audioClipType = Type.GetType("UnityEngine.AudioClip, UnityEngine.AudioModule");
                     if (_audioClipType == null)
                     {
-                        // Fallback: search loaded assemblies
                         foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
                         {
                             _audioClipType = asm.GetType("UnityEngine.AudioClip");
@@ -408,49 +547,38 @@ namespace ATSAccessibility
                     return;
                 }
 
-                // Find all AudioClips and search by name
-                var clips = Resources.FindObjectsOfTypeAll(_audioClipType);
-                object targetClip = null;
-
-                foreach (var clip in clips)
+                // Check cache first, then search loaded clips
+                if (!_clipCache.TryGetValue(clipName, out object targetClip) || targetClip == null)
                 {
-                    if (clip != null && clip.name == clipName)
+                    var clips = Resources.FindObjectsOfTypeAll(_audioClipType);
+                    foreach (var clip in clips)
                     {
-                        targetClip = clip;
-                        break;
+                        if (clip != null && clip.name == clipName)
+                        {
+                            targetClip = clip;
+                            break;
+                        }
                     }
+
+                    if (targetClip == null)
+                    {
+                        Debug.LogWarning($"[ATSAccessibility] Sound clip not found: {clipName}");
+                        return;
+                    }
+
+                    _clipCache[clipName] = targetClip;
                 }
 
-                if (targetClip == null)
-                {
-                    Debug.LogWarning($"[ATSAccessibility] Sound clip not found: {clipName}");
-                    return;
-                }
+                // Play on our own AudioSource via PlayOneShot with game's effects volume
+                var source = GetModAudioSource();
+                if (source == null) return;
 
-                // Get the SoundsManager and play via AudioSource
-                var mainController = GameReflection.GetMainControllerInstance();
-                if (mainController == null) return;
+                if (_playOneShotWithVolumeMethod == null)
+                    _playOneShotWithVolumeMethod = _audioSourceType.GetMethod("PlayOneShot",
+                        new[] { _audioClipType, typeof(float) });
 
-                var soundsManager = _soundsManagerProperty?.GetValue(mainController);
-                if (soundsManager == null) return;
-
-                // The SoundsManager has a buttonAudioSource we can use
-                var smType = soundsManager.GetType();
-                var buttonSourceField = smType.GetField("buttonAudioSource", BindingFlags.NonPublic | BindingFlags.Instance);
-                var audioSource = buttonSourceField?.GetValue(soundsManager);
-
-                if (audioSource != null)
-                {
-                    // Set clip and play via reflection
-                    var asType = audioSource.GetType();
-                    var clipProp = asType.GetProperty("clip");
-                    var volumeProp = asType.GetProperty("volume");
-                    var playMethod = asType.GetMethod("Play", Type.EmptyTypes);
-
-                    clipProp?.SetValue(audioSource, targetClip);
-                    volumeProp?.SetValue(audioSource, 1.0f);
-                    playMethod?.Invoke(audioSource, null);
-                }
+                float volume = GetEffectsVolume();
+                _playOneShotWithVolumeMethod?.Invoke(source, new object[] { targetClip, volume });
             }
             catch (Exception ex)
             {
