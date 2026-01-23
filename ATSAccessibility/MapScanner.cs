@@ -117,6 +117,8 @@ namespace ATSAccessibility
         private PropertyInfo _springsProperty = null;
         private PropertyInfo _lakesProperty = null;
         private PropertyInfo _buildingsProperty = null;
+        private PropertyInfo _fieldTypeProperty = null;
+        private bool _fieldTypeCached = false;
         private bool _reflectionCached = false;
 
         // Unrevealed glade tiles cache (rebuilt each scan)
@@ -765,6 +767,36 @@ namespace ATSAccessibility
                         }
                     }
                 }
+
+                // Scan Fertile Soil (fields with type "Grass")
+                int mapWidth = GameReflection.GetMapWidth();
+                int mapHeight = GameReflection.GetMapHeight();
+                var fertileSoilGroup = new ItemGroup("Fertile Soil");
+
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    for (int y = 0; y < mapHeight; y++)
+                    {
+                        var pos = new Vector2Int(x, y);
+                        if (IsInsideUnrevealedGlade(pos)) continue;
+
+                        var field = GameReflection.GetField(x, y);
+                        if (field == null) continue;
+
+                        string typeName = GetFieldTypeName(field);
+                        if (typeName == "Grass")
+                        {
+                            int distance = CalculateDistance(pos, cursorX, cursorY);
+                            fertileSoilGroup.Items.Add(new ScannedItem(pos, distance));
+                        }
+                    }
+                }
+
+                if (fertileSoilGroup.Items.Count > 0)
+                {
+                    fertileSoilGroup.Items.Sort(CompareItemsByDistance);
+                    groups["Fertile Soil"] = fertileSoilGroup;
+                }
             }
             catch (Exception ex)
             {
@@ -1065,6 +1097,53 @@ namespace ATSAccessibility
             }
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingPosition failed: {ex.Message}"); }
             return new Vector2Int(-1, -1);
+        }
+
+        private string GetFieldTypeName(object field)
+        {
+            if (field == null) return null;
+
+            if (!_fieldTypeCached)
+            {
+                _fieldTypeProperty = field.GetType().GetProperty("Type");
+                _fieldTypeCached = true;
+            }
+
+            if (_fieldTypeProperty == null) return null;
+
+            try
+            {
+                var typeValue = _fieldTypeProperty.GetValue(field);
+                if (typeValue == null) return null;
+
+                var typeType = typeValue.GetType();
+
+                // Try displayName first (matches navigator's approach)
+                var displayNameProp = typeType.GetProperty("displayName");
+                if (displayNameProp != null)
+                {
+                    var displayName = displayNameProp.GetValue(typeValue);
+                    if (displayName != null)
+                    {
+                        string text = displayName.ToString();
+                        if (!string.IsNullOrEmpty(text)) return text;
+                    }
+                }
+
+                // Fallback to name
+                var nameProp = typeType.GetProperty("name");
+                if (nameProp != null)
+                {
+                    var name = nameProp.GetValue(typeValue);
+                    if (name != null) return name.ToString();
+                }
+
+                // Final fallback to ToString()
+                return typeValue.ToString();
+            }
+            catch { }
+
+            return null;
         }
 
         private string GetObjectDisplayName(object obj)
