@@ -111,6 +111,9 @@ namespace ATSAccessibility
         // Wildcard popup overlay for blueprint selection
         private WildcardOverlay _wildcardOverlay;
 
+        // Reputation reward popup overlay for blueprint rewards
+        private ReputationRewardOverlay _reputationRewardOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -201,6 +204,9 @@ namespace ATSAccessibility
             // Initialize wildcard overlay for blueprint selection popup
             _wildcardOverlay = new WildcardOverlay();
 
+            // Initialize reputation reward overlay for blueprint rewards popup
+            _reputationRewardOverlay = new ReputationRewardOverlay();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
@@ -219,6 +225,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_encyclopediaNavigator); // Wiki popup
             _keyboardManager.RegisterHandler(_recipesOverlay);      // Recipes popup overlay
             _keyboardManager.RegisterHandler(_wildcardOverlay);    // Wildcard popup overlay
+            _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_tutorialHandler);     // Tutorial tooltips (passthrough)
@@ -684,6 +691,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check reputation reward popup - it has its own overlay
+            if (ReputationRewardReflection.IsReputationRewardsPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Reputation rewards popup detected, using ReputationReward overlay");
+                _reputationRewardOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Standard popup handling
             _uiNavigator?.OnPopupShown(popup);
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
@@ -715,6 +731,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Wildcard popup closed");
                 _wildcardOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check reputation reward popup
+            else if (ReputationRewardReflection.IsReputationRewardsPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Reputation rewards popup closed");
+                _reputationRewardOverlay?.Close();
                 // Fall through to handle context change
             }
             else
