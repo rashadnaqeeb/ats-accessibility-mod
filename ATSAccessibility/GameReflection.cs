@@ -3327,7 +3327,6 @@ namespace ATSAccessibility
         {
             if (building == null) return null;
             EnsureConstructionTypes();
-            EnsureBuildingModelFields();
 
             try
             {

@@ -773,10 +773,14 @@ namespace ATSAccessibility
             float progress = GameReflection.GetBuildingProgress(building);
             int percent = (int)(progress * 100);
 
+            if (percent > 0)
+            {
+                Speech.Say($"{percent}%");
+                return;
+            }
+
+            // 0% progress - announce remaining materials if any
             var materials = GameReflection.GetConstructionMaterials(building);
-
-            string announcement = $"Under construction, {percent}%";
-
             if (materials != null && materials.Count > 0)
             {
                 var parts = new List<string>();
@@ -784,10 +788,12 @@ namespace ATSAccessibility
                 {
                     parts.Add($"{name} {delivered} of {required}");
                 }
-                announcement += ". " + string.Join(", ", parts);
+                Speech.Say(string.Join(", ", parts));
             }
-
-            Speech.Say(announcement);
+            else
+            {
+                Speech.Say("0%");
+            }
         }
 
         // ========================================
