@@ -121,6 +121,10 @@ namespace ATSAccessibility
         // Newcomers popup overlay for group selection
         private NewcomersOverlay _newcomersOverlay;
 
+        // Orders popup overlays for order navigation and pick selection
+        private OrdersOverlay _ordersOverlay;
+        private OrderPickOverlay _orderPickOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -221,6 +225,10 @@ namespace ATSAccessibility
             // Initialize newcomers overlay for group selection popup
             _newcomersOverlay = new NewcomersOverlay();
 
+            // Initialize orders overlays for order navigation and pick selection
+            _ordersOverlay = new OrdersOverlay();
+            _orderPickOverlay = new OrderPickOverlay();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
@@ -242,6 +250,8 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_cornerstoneLimitOverlay);   // Cornerstone limit popup overlay
             _keyboardManager.RegisterHandler(_cornerstoneOverlay);       // Cornerstone pick popup overlay
             _keyboardManager.RegisterHandler(_newcomersOverlay);         // Newcomers group selection overlay
+            _keyboardManager.RegisterHandler(_orderPickOverlay);         // Order pick popup overlay (higher priority - child popup)
+            _keyboardManager.RegisterHandler(_ordersOverlay);            // Orders popup overlay
             _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
@@ -739,6 +749,24 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check orders popup - it has its own overlay
+            if (OrdersReflection.IsOrdersPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Orders popup detected, using Orders overlay");
+                _ordersOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
+            // Check order pick popup - it has its own overlay
+            if (OrdersReflection.IsOrderPickPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Order pick popup detected, using OrderPick overlay");
+                _orderPickOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Standard popup handling
             _uiNavigator?.OnPopupShown(popup);
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
@@ -800,6 +828,22 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Newcomers popup closed");
                 _newcomersOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check orders popup
+            else if (OrdersReflection.IsOrdersPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Orders popup closed");
+                _ordersOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check order pick popup
+            else if (OrdersReflection.IsOrderPickPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Order pick popup closed");
+                _orderPickOverlay?.Close();
+                // Refresh orders overlay since picked order is now active
+                _ordersOverlay?.RefreshAfterPick();
                 // Fall through to handle context change
             }
             else

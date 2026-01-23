@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility
@@ -208,6 +210,11 @@ namespace ATSAccessibility
                     Speech.Say(blightInfo);
                     return true;
 
+                // Tracked orders objectives
+                case KeyCode.O:
+                    AnnounceTrackedOrders();
+                    return true;
+
                 // Rainpunk info/control
                 case KeyCode.P:
                     if (modifiers.Shift)
@@ -296,6 +303,47 @@ namespace ATSAccessibility
                     // Consume all keys - mod has full keyboard control in settlement
                     return true;
             }
+        }
+
+        private void AnnounceTrackedOrders()
+        {
+            var orders = OrdersReflection.GetOrders();
+            if (orders == null || orders.Count == 0)
+            {
+                Speech.Say("No orders");
+                return;
+            }
+
+            var parts = new List<string>();
+            foreach (var orderState in orders)
+            {
+                if (orderState == null) continue;
+                if (!OrdersReflection.IsTracked(orderState)) continue;
+                if (!OrdersReflection.IsStarted(orderState)) continue;
+                if (!OrdersReflection.IsPicked(orderState)) continue;
+                if (OrdersReflection.IsCompleted(orderState)) continue;
+                if (OrdersReflection.IsFailed(orderState)) continue;
+
+                var model = OrdersReflection.GetOrderModel(orderState);
+                if (model == null) continue;
+
+                string name = OrdersReflection.GetOrderDisplayName(model) ?? "Unknown";
+                var objectives = OrdersReflection.GetObjectiveTexts(model, orderState);
+                string objText = objectives.Count > 0 ? string.Join(", ", objectives) : "";
+
+                if (!string.IsNullOrEmpty(objText))
+                    parts.Add($"{name}: {objText}");
+                else
+                    parts.Add(name);
+            }
+
+            if (parts.Count == 0)
+            {
+                Speech.Say("No tracked orders");
+                return;
+            }
+
+            Speech.Say(string.Join(". ", parts));
         }
     }
 }

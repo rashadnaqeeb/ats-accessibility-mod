@@ -19,11 +19,13 @@ Use `cp` with forward slashes and `/c/` prefix. Do NOT use Windows `copy`.
 
 ## Code Organization
 
-**Reflection** (game API access): `GameReflection.cs`, `WorldMapReflection.cs`, `EmbarkReflection.cs`, `BuildingReflection.cs`
+**Reflection** (game API access): `GameReflection.cs`, `WorldMapReflection.cs`, `EmbarkReflection.cs`, `BuildingReflection.cs`, `OrdersReflection.cs`, `RecipesReflection.cs`, `RewardsReflection.cs`, `ReputationRewardReflection.cs`, `CornerstoneReflection.cs`, `NewcomersReflection.cs`, `WildcardReflection.cs`, `WikiReflection.cs`
 
 **Key handlers**: `KeyboardManager.cs` - priority chain, first active handler wins. Register in `AccessibilityCore.Start()`.
 
 **Base classes**: `TwoLevelPanel` (F1 menu panels), `BuildingSectionNavigator` (building panels)
+
+**Overlays** (popup navigation): `OrdersOverlay.cs`, `OrderPickOverlay.cs`, `RecipesOverlay.cs`, `CornerstoneOverlay.cs`, `CornerstoneLimitOverlay.cs`, `ReputationRewardOverlay.cs`, `WildcardOverlay.cs`, `NewcomersOverlay.cs`
 
 **Events**: `EventAnnouncer.cs` - game event subscriptions with grace period and deduplication
 

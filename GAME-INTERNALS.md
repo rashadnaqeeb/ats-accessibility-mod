@@ -45,6 +45,40 @@ MetaController.Instance → MetaServices → TutorialService
 | ModeService | Game mode state (Idle property) |
 | InputService | Input handling, lock mechanism |
 | ReputationRewardsService | Reputation rewards popup, RequestPopup() |
+| OrdersService | Orders list, completion, tracking, picks |
+| GameTimeService | Current game time (Time property) |
+| GameBlackboardService | Observables: OnBuildingPanelShown, OrderPickPopupRequested |
+| WorkshopsService | Global production limits (GetGlobalLimitFor, SetGlobalLimitFor) |
+| StorageService | Warehouse amounts (GetAmount) |
+| RecipesService | Recipe lookup (GetRecipesFor) |
+| GameContentService | Unlock checking (IsUnlocked) |
+| ConstructionService | Building display order (GetShowIndex) |
+| BiomeService | Current biome, blueprints config |
+| EffectsService | Wildcard picks remaining (GetWildcardPicksLeft) |
+| CornerstonesService | Cornerstone picks, reroll, extend, decline |
+| NewcomersService | Newcomer group arrival and selection |
+| TimeScaleService | Game speed control |
+| CalendarService | Season tracking, time of year |
+| StateService | Game state, active effects |
+| ReputationService | Reputation points and thresholds |
+| HostilityService | Hostility level and events |
+| ResolveService | Villager resolve/morale |
+| RacesService | Race data and species info |
+| BlightService | Blight state and management |
+| RelicsService | Relic investigation state |
+| TradeService | Trade routes and deals |
+| PerksService | Active perks |
+| OreService | Ore deposits dictionary |
+| SpringsService | Springs dictionary |
+| LakesService | Lakes dictionary |
+| ConditionsService | Game condition checks |
+| ActorsService | Worker task descriptions (GetActor) |
+| GoodsService | Goods management |
+| HearthService | Hearth fuel and fire management |
+| GameModelService | Game model access |
+| RainpunkService | Rainpunk/engine state |
+| NewsService | Game event notifications |
+| MonitorsService | Condition monitoring and alerts |
 
 ### AppServices
 
@@ -57,6 +91,38 @@ MetaController.Instance → MetaServices → TutorialService
 | Service | Purpose |
 |---------|---------|
 | TutorialService | Tutorial state and progression |
+| MetaConditionsService | Unlock checks for buildings (IsUnlocked) |
+| MetaPerksService | Upgrade unlock gating, preparation points |
+
+---
+
+## Settings Access
+
+Static model data is accessed via `Eremite.MB.Settings` (protected static property).
+
+**Reflection access:**
+```csharp
+var mbType = assembly.GetType("Eremite.MB");
+var settingsProperty = mbType.GetProperty("Settings", BindingFlags.NonPublic | BindingFlags.Static);
+var settings = settingsProperty.GetValue(null);  // Eremite.Model.Settings
+```
+
+**Common lookup methods on Settings:**
+```csharp
+GetOrder(string name)                        // OrderModel
+GetEffect(string name)                       // EffectModel
+GetBuilding(string name)                     // BuildingModel
+GetGood(string name)                         // GoodModel
+GetWorkshopRecipe(string name)               // WorkshopRecipeModel
+GetCornerstonesViewConfiguration(string name) // CornerstonesViewConfiguration
+```
+
+**Settings fields:**
+```csharp
+workshops           // BuildingModel[] - all workshop building models
+blightPosts         // BuildingModel[] - all blight post models
+goods               // GoodModel[] - all good models
+```
 
 ---
 
@@ -867,3 +933,503 @@ GetPickedDifficulty()            // Get current selection
 | Ascension modifier | `Eremite.Model.AscensionModifierModel` |
 | Difficulty picker | `Eremite.WorldMap.UI.EmbarkDifficultyPicker` |
 | Buildings pick screen | `Eremite.View.Menu.Pick.BuildingsPickScreen` |
+
+---
+
+## Orders System
+
+### Service Access
+
+```
+GameController.Instance → GameServices → OrdersService
+GameController.Instance → GameServices → GameTimeService
+```
+
+### IOrdersService Methods/Properties
+
+```csharp
+Orders                              // IList<OrderState> - all current orders
+CanComplete(OrderState)             // bool - all objectives met
+CompleteOrder(OrderState, OrderModel, bool force)  // Complete an order
+OrderPicked(OrderState, OrderPickState)            // Confirm a pick selection
+GetPicksFor(OrderState)             // IList<OrderPickState> - pick options
+SwitchOrderTracking(OrderState)     // Toggle tracking on/off
+GetCurrentlyPickedOrder()           // OrderState - order pending pick
+```
+
+### OrderState Fields (Eremite.Model.Orders.OrderState)
+
+Inherits from `BaseOrderState`.
+
+```csharp
+// BaseOrderState fields
+started             // bool - order has been activated
+objectives          // ObjectiveState[] - progress per objective
+startTime           // float - game time when started
+
+// OrderState fields
+model               // string - internal name (resolve via Settings.GetOrder)
+picked              // bool - player has chosen an option from picks
+completed           // bool - order fulfilled
+isFailed            // bool - order expired
+timeLeft            // float - remaining time (if failable)
+tracked             // bool - pinned to HUD
+picks               // IList<OrderPickState> - pick options
+rewards             // string[] - effect names (resolve via Settings.GetEffect)
+shouldBeFailable    // bool - timer active
+```
+
+### OrderModel Fields (Eremite.Model.Orders.OrderModel)
+
+```csharp
+displayName         // LocaText
+canBeFailed         // bool - has failure timer
+timeToFail          // float - duration before failure
+reputationReward    // float - rep gained on completion
+unlockAfter         // OrderModel - prerequisite order (nullable)
+logicsSets          // OrderLogicsSet[] - objective definitions
+
+// Methods
+GetLogics(OrderState)   // OrderLogic[] - resolved objectives for state
+GetLogics(int setIndex) // OrderLogic[] - objectives for a specific set
+```
+
+### OrderLogic (Eremite.Model.Orders.OrderLogic)
+
+Base class for objective types. Concrete subclasses determine behavior.
+
+```csharp
+// Properties
+DisplayName         // string - short name (e.g. "Amber", "Shelter")
+Description         // string - may contain full sentence with amount placement
+
+// Methods
+GetObjectiveText(ObjectiveState)  // string - formatted progress text
+GetAmountText()                   // string - required amount (e.g. "10")
+IsCompleted(ObjectiveState)       // bool
+```
+
+**Key subclass types** (by `GetType().Name`):
+- Types containing `"Building"` - building construction objectives (e.g. "Build 3 Shelter")
+- `"GoodLogic"` - goods delivery objectives
+- Others - verb+noun patterns (e.g. "Produce Pipes", "Complete events")
+
+**Description property caveat**: For Building and GoodLogic types, `Description` returns unrelated flavor text (building/good descriptions), not objective text. Skip it and use fallback formatting for these types.
+
+### OrderPickState Fields (Eremite.Model.Orders.OrderPickState)
+
+```csharp
+model               // string - order model name
+setIndex            // int - which logics set to use
+failed              // bool - this pick option has expired
+rewards             // string[] - effect names for this pick
+```
+
+### OrderLogicsSet (Eremite.Model.Orders.OrderLogicsSet)
+
+```csharp
+logics              // OrderLogic[] - objectives in this set
+```
+
+### Popup Types
+
+```csharp
+Eremite.View.HUD.Orders.OrdersPopup      // Main orders list
+Eremite.View.HUD.Orders.OrderPickPopup    // Pick selection popup
+```
+
+`OrderPickPopup` fields:
+```csharp
+order               // OrderState (private) - the order being picked
+```
+
+### Events (via GameBlackboardService)
+
+```csharp
+OrderPickPopupRequested  // Observable - fires when pick popup should open
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Orders service | `Eremite.Services.IOrdersService` |
+| Game time service | `Eremite.Services.IGameTimeService` |
+| Order state | `Eremite.Model.Orders.OrderState` |
+| Base order state | `Eremite.Model.Orders.BaseOrderState` |
+| Order model | `Eremite.Model.Orders.OrderModel` |
+| Order logic (base) | `Eremite.Model.Orders.OrderLogic` |
+| Objective state | `Eremite.Model.Orders.ObjectiveState` |
+| Order logics set | `Eremite.Model.Orders.OrderLogicsSet` |
+| Order pick state | `Eremite.Model.Orders.OrderPickState` |
+| Orders popup | `Eremite.View.HUD.Orders.OrdersPopup` |
+| Order pick popup | `Eremite.View.HUD.Orders.OrderPickPopup` |
+| Effect model | `Eremite.Model.EffectModel` |
+
+---
+
+## Recipes/Workshop System
+
+### IWorkshop Interface (Eremite.Buildings.IWorkshop)
+
+Implemented by all production buildings (Workshop, Farm, Mine, Camp, etc.).
+
+```csharp
+Recipes             // IList<WorkshopRecipeState> - current recipe states
+BaseModel           // BuildingModel
+Base                // Building instance
+SwitchProductionOf(WorkshopRecipeState)  // Toggle recipe on/off
+```
+
+### WorkshopRecipeState (Eremite.Buildings.WorkshopRecipeState)
+
+```csharp
+model               // string - recipe internal name
+active              // bool - is production enabled
+```
+
+### WorkshopRecipeModel (Eremite.Buildings.WorkshopRecipeModel)
+
+Extends `RecipeModel`.
+
+```csharp
+producedGood        // GoodRef - output good and amount
+requiredGoods       // GoodsSet[] - ingredient slots (each GoodsSet is OR options)
+productionTime      // float - base production time
+```
+
+### RecipeModel (Eremite.Buildings.RecipeModel)
+
+```csharp
+grade               // RecipeGradeModel - recipe tier/quality
+```
+
+### RecipeGradeModel (Eremite.Buildings.RecipeGradeModel)
+
+```csharp
+level               // int - grade level (0 = zero star, 1 = one star, 2 = two star, 3 = three star)
+```
+
+### IWorkshopsService
+
+```csharp
+GetGlobalLimitFor(string goodName)           // int - global production limit (-1 = unlimited)
+SetGlobalLimitFor(string goodName, int limit) // Set global limit
+```
+
+### IRecipesService
+
+```csharp
+GetRecipesFor(string goodName)  // WorkshopRecipeModel[] - all recipes that produce this good
+```
+
+### IBuildingsService Additional Properties
+
+```csharp
+Workshops           // Dictionary<int, IWorkshop> - all workshop buildings
+BlightPosts         // Dictionary<int, IWorkshop> - all blight posts
+```
+
+### Settings Recipe Access
+
+```csharp
+Settings.GetWorkshopRecipe(string name)  // WorkshopRecipeModel lookup
+Settings.GetGood(string name)            // GoodModel lookup
+Settings.workshops                       // BuildingModel[] - all workshop models
+Settings.blightPosts                     // BuildingModel[] - all blight post models
+Settings.goods                           // GoodModel[] - all goods
+```
+
+### GoodModel (Eremite.Model.GoodModel)
+
+```csharp
+displayName         // LocaText
+Name                // string (property) - internal name
+category            // GoodCategoryModel
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Workshop interface | `Eremite.Buildings.IWorkshop` |
+| Recipe state | `Eremite.Buildings.WorkshopRecipeState` |
+| Recipe model | `Eremite.Buildings.WorkshopRecipeModel` |
+| Recipe base model | `Eremite.Buildings.RecipeModel` |
+| Recipe grade | `Eremite.Buildings.RecipeGradeModel` |
+| Good model | `Eremite.Model.GoodModel` |
+| Workshops service | `Eremite.Services.IWorkshopsService` |
+| Recipes service | `Eremite.Services.IRecipesService` |
+| Storage service | `Eremite.Services.IStorageService` |
+| Game content service | `Eremite.Services.IGameContentService` |
+| Construction service | `Eremite.Services.IConstructionService` |
+
+---
+
+## Cornerstones System
+
+### ICornerstonesService
+
+```csharp
+GetCurrentPick()            // RewardPickState - current pick options
+GetRerollsLeft()            // int - remaining rerolls
+CanExtend()                 // bool - extension available
+CanAffordExtend()           // bool - can pay extend cost
+Extend()                    // Execute extend
+GetDeclinePayoff()          // Good - reward for declining
+RemoveFromActive(EffectModel)  // Remove a cornerstone (limit popup)
+```
+
+### RewardPickState (Eremite.Model.RewardPickState)
+
+```csharp
+options             // EffectModel[] - available cornerstone choices
+viewConfiguration   // string - NPC dialogue config name
+```
+
+### EffectModel (Eremite.Model.EffectModel)
+
+```csharp
+// Properties
+DisplayName         // string - localized name
+Description         // string - localized description
+
+// Fields
+rarity              // RarityModel - Common, Uncommon, Rare, Epic, Legendary
+isEthereal          // bool - temporary cornerstone (removed after season)
+
+// Methods
+Remove()            // Remove this effect
+GetAmountText()     // string - amount/intensity text
+```
+
+### NPC Dialogue (CornerstonesViewConfiguration)
+
+```csharp
+Settings.GetCornerstonesViewConfiguration(string name)  // Lookup by name
+// Fields:
+npcName             // LocaText
+npcDialogue         // LocaText
+```
+
+### Extend Cost Path
+
+```
+BiomeService.CurrentBiome.seasons.seasonRewardsExtendPrice  // GoodRef
+```
+
+### Popup Types
+
+```csharp
+Eremite.View.HUD.Windfalls.RewardPickPopup       // Cornerstone pick popup
+Eremite.View.HUD.CornerstonesLimitPickPopup      // Choose-one-to-remove popup
+```
+
+`RewardPickPopup` methods (private):
+```csharp
+OnRewardPicked(int index)    // Pick cornerstone by index
+Reroll()                     // Reroll options
+Skip()                       // Decline/skip
+```
+
+`CornerstonesLimitPickPopup` methods (private):
+```csharp
+FinishTask(int index)        // Remove cornerstone by index
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Cornerstones service | `Eremite.Services.ICornerstonesService` |
+| Reward pick state | `Eremite.Model.RewardPickState` |
+| Effect model | `Eremite.Model.EffectModel` |
+| View configuration | `Eremite.Model.ViewsConfigurations.CornerstonesViewConfiguration` |
+| Biome service | `Eremite.Services.IBiomeService` |
+| Seasons config | `Eremite.Model.Configs.SeasonsConfig` |
+| Reward pick popup | `Eremite.View.HUD.Windfalls.RewardPickPopup` |
+| Limit pick popup | `Eremite.View.HUD.CornerstonesLimitPickPopup` |
+
+---
+
+## Reputation Rewards System
+
+### IReputationRewardsService
+
+```csharp
+RewardsToCollect            // ReactiveProperty<int> - pending blueprint count
+RequestPopup()              // Open the reward selection popup
+GetCurrentPicks()           // ReputationReward[] - current blueprint options
+CanAffordReroll()           // bool
+Reroll()                    // Reroll options
+GetRerollPrice()            // Good - reroll cost
+CanExtend()                 // bool
+CanAffordExtend()           // bool
+Extend()                    // Add more options
+```
+
+### ReputationReward
+
+```csharp
+building            // string - building model name
+```
+
+Resolve via `Settings.GetBuilding(string name)` → `BuildingModel`.
+
+### BuildingModel Additional Properties
+
+```csharp
+ListDescription     // string (virtual property) - description for selection lists
+```
+
+### Extend Cost Path
+
+```
+BiomeService.Blueprints.extendCost  // GoodRef
+```
+
+### Popup Type
+
+```csharp
+Eremite.View.HUD.ReputationRewardsPopup
+```
+
+Methods (private):
+```csharp
+OnBuildingPicked(BuildingModel)  // Pick a building
+Reroll()                         // Reroll options
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Rewards service | `Eremite.Services.IReputationRewardsService` |
+| Reputation reward | `Eremite.Model.ReputationReward` |
+| Rewards popup | `Eremite.View.HUD.ReputationRewardsPopup` |
+
+---
+
+## Newcomers System
+
+### INewcomersService
+
+```csharp
+AreNewcomersWaitning()      // bool - note: typo in game API ("Waitning")
+GetCurrentNewcomers()       // NewcomersGroup[] - available group choices
+PickGroup(NewcomersGroup)   // Select a group
+```
+
+### NewcomersGroup (Eremite.Model.State.NewcomersGroup)
+
+```csharp
+races               // string[] - race internal names in this group
+goods               // Good[] - goods this group brings
+```
+
+### Popup Type
+
+```csharp
+Eremite.View.HUD.NewcomersPopup
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Newcomers service | `Eremite.Services.INewcomersService` |
+| Newcomers group | `Eremite.Model.State.NewcomersGroup` |
+| Newcomers popup | `Eremite.View.HUD.NewcomersPopup` |
+
+---
+
+## Wildcard System
+
+### Overview
+
+Wildcards let the player choose additional blueprints during a settlement. The available pool comes from the biome's wildcard config.
+
+### BiomeBlueprintsConfig
+
+```
+BiomeService.Blueprints.wildcards  // BuildingWeightedChance[] - available wildcard pool
+```
+
+### BuildingWeightedChance
+
+```csharp
+building            // string - building model name
+```
+
+### IEffectsService
+
+```csharp
+GetWildcardPicksLeft()  // int - remaining wildcard selections
+```
+
+### WildcardPopup (Eremite.View.HUD.WildcardPopup)
+
+Fields (private):
+```csharp
+slots               // WildcardSlot[] - UI slot components
+picks               // List<BuildingModel> - current selections
+```
+
+Methods (private):
+```csharp
+OnSlotClicked(int index)  // Toggle selection of a slot
+Confirm()                  // Confirm and apply picks
+```
+
+### WildcardSlot
+
+```csharp
+GetModel()          // BuildingModel - the building in this slot
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Effects service | `Eremite.Services.IEffectsService` |
+| Meta conditions service | `Eremite.Services.IMetaConditionsService` |
+| Wildcard popup | `Eremite.View.HUD.WildcardPopup` |
+| Wildcard slot | `Eremite.View.HUD.WildcardSlot` |
+| Building weighted chance | `Eremite.Model.BuildingWeightedChance` |
+
+---
+
+## Wiki/Encyclopedia System
+
+### WikiPopup (Eremite.View.UI.Wiki.WikiPopup)
+
+Fields (private):
+```csharp
+categoryButtons     // List<WikiCategoryButton> - category tab buttons
+current             // WikiCategoryPanel - currently active panel
+panels              // WikiCategoryPanel[] - all category panels
+```
+
+### WikiCategoryButton (Eremite.View.UI.Wiki.WikiCategoryButton)
+
+```csharp
+button              // Button (private) - Unity UI button
+Panel               // WikiCategoryPanel (property) - associated panel
+```
+
+### WikiSlot (Eremite.View.UI.Wiki.WikiSlot)
+
+Base class for encyclopedia entries.
+
+```csharp
+button              // Button (private) - Unity UI button
+IsUnlocked()        // bool - entry has been discovered
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Wiki popup | `Eremite.View.UI.Wiki.WikiPopup` |
+| Category button | `Eremite.View.UI.Wiki.WikiCategoryButton` |
+| Wiki slot | `Eremite.View.UI.Wiki.WikiSlot` |
