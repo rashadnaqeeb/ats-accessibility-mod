@@ -365,6 +365,14 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Play the newcomers banner accept sound.
+        /// </summary>
+        public static void PlayNewcomersBannerAccept()
+        {
+            PlaySoundByClipName("newcomers banner accept");
+        }
+
+        /// <summary>
         /// Play the reroll sound.
         /// </summary>
         public static void PlayReroll()

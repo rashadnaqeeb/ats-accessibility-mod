@@ -118,6 +118,9 @@ namespace ATSAccessibility
         private CornerstoneOverlay _cornerstoneOverlay;
         private CornerstoneLimitOverlay _cornerstoneLimitOverlay;
 
+        // Newcomers popup overlay for group selection
+        private NewcomersOverlay _newcomersOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -215,6 +218,9 @@ namespace ATSAccessibility
             _cornerstoneOverlay = new CornerstoneOverlay();
             _cornerstoneLimitOverlay = new CornerstoneLimitOverlay();
 
+            // Initialize newcomers overlay for group selection popup
+            _newcomersOverlay = new NewcomersOverlay();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
@@ -235,6 +241,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_wildcardOverlay);    // Wildcard popup overlay
             _keyboardManager.RegisterHandler(_cornerstoneLimitOverlay);   // Cornerstone limit popup overlay
             _keyboardManager.RegisterHandler(_cornerstoneOverlay);       // Cornerstone pick popup overlay
+            _keyboardManager.RegisterHandler(_newcomersOverlay);         // Newcomers group selection overlay
             _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
@@ -723,6 +730,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check newcomers popup - it has its own overlay
+            if (NewcomersReflection.IsNewcomersPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Newcomers popup detected, using Newcomers overlay");
+                _newcomersOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Standard popup handling
             _uiNavigator?.OnPopupShown(popup);
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
@@ -777,6 +793,13 @@ namespace ATSAccessibility
                 _cornerstoneLimitOverlay?.Close();
                 // Refresh main overlay in case a new pick loaded after limit removal
                 _cornerstoneOverlay?.RefreshAfterLimit();
+                // Fall through to handle context change
+            }
+            // Check newcomers popup
+            else if (NewcomersReflection.IsNewcomersPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Newcomers popup closed");
+                _newcomersOverlay?.Close();
                 // Fall through to handle context change
             }
             else
