@@ -2846,28 +2846,50 @@ namespace ATSAccessibility
         public static string GetBuildingCosts(object buildingModel)
         {
             if (buildingModel == null) return null;
-            EnsureBuildingModelFields();
+            EnsureConstructionTypes();
 
             try
             {
-                var requiredGoods = _bmRequiredGoodsField?.GetValue(buildingModel) as Array;
-                if (requiredGoods == null || requiredGoods.Length == 0) return null;
-
-                var costs = new List<string>();
-                foreach (var goodRef in requiredGoods)
+                // Use ConstructionService.GetConstructionCostFor to get rate-adjusted costs
+                var constructionService = GetConstructionService();
+                if (constructionService != null && _csGetConstructionCostForMethod != null &&
+                    _goodStructNameField != null && _goodStructAmountField != null)
                 {
-                    if (goodRef == null) continue;
-
-                    int amount = (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
-                    string displayName = _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
-
-                    if (amount > 0 && !string.IsNullOrEmpty(displayName))
+                    var requiredGoods = _csGetConstructionCostForMethod.Invoke(
+                        constructionService, new[] { buildingModel }) as Array;
+                    if (requiredGoods != null && requiredGoods.Length > 0)
                     {
-                        costs.Add($"{amount} {displayName}");
+                        var costs = new List<string>();
+                        foreach (var good in requiredGoods)
+                        {
+                            if (good == null) continue;
+                            string goodName = _goodStructNameField.GetValue(good) as string;
+                            int amount = (int)_goodStructAmountField.GetValue(good);
+                            if (amount > 0 && !string.IsNullOrEmpty(goodName))
+                            {
+                                string displayName = GetGoodDisplayName(goodName);
+                                costs.Add($"{amount} {displayName}");
+                            }
+                        }
+                        if (costs.Count > 0) return string.Join(", ", costs);
                     }
                 }
 
-                return costs.Count > 0 ? string.Join(", ", costs) : null;
+                // Fallback: read base costs from model if service unavailable
+                EnsureBuildingModelFields();
+                var rawGoods = _bmRequiredGoodsField?.GetValue(buildingModel) as Array;
+                if (rawGoods == null || rawGoods.Length == 0) return null;
+
+                var fallbackCosts = new List<string>();
+                foreach (var goodRef in rawGoods)
+                {
+                    if (goodRef == null) continue;
+                    int amount = (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
+                    string displayName = _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
+                    if (amount > 0 && !string.IsNullOrEmpty(displayName))
+                        fallbackCosts.Add($"{amount} {displayName}");
+                }
+                return fallbackCosts.Count > 0 ? string.Join(", ", fallbackCosts) : null;
             }
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingCosts failed: {ex.Message}"); }
             return null;
@@ -3247,8 +3269,10 @@ namespace ATSAccessibility
 
         private static FieldInfo _buildingProgressField = null;
         private static FieldInfo _deliveredGoodsField = null;
-        private static FieldInfo _limitedGoodsLimitsField = null;
         private static FieldInfo _constructionGoodsField = null;  // goods dict on GoodsCollection base
+        private static MethodInfo _csGetConstructionCostForMethod = null;
+        private static FieldInfo _goodStructNameField = null;
+        private static FieldInfo _goodStructAmountField = null;
         private static bool _constructionTypesCached = false;
 
         private static void EnsureConstructionTypes()
@@ -3271,18 +3295,28 @@ namespace ATSAccessibility
                     _deliveredGoodsField = buildingStateType.GetField("deliveredGoods", PublicInstance);
                 }
 
-                // LimitedGoodsCollection.limits (private)
-                var limitedGoodsType = _gameAssembly.GetType("Eremite.LimitedGoodsCollection");
-                if (limitedGoodsType != null)
-                {
-                    _limitedGoodsLimitsField = limitedGoodsType.GetField("limits", NonPublicInstance);
-                }
-
-                // GoodsCollection.goods (public, base class)
+                // GoodsCollection.goods (public, base class) for delivered amounts
                 var goodsCollectionType = _gameAssembly.GetType("Eremite.GoodsCollection");
                 if (goodsCollectionType != null)
                 {
                     _constructionGoodsField = goodsCollectionType.GetField("goods", PublicInstance);
+                }
+
+                // ConstructionService.GetConstructionCostFor(BuildingModel) for required amounts
+                var constructionServiceType = _gameAssembly.GetType("Eremite.Services.IConstructionService");
+                var buildingModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingModel");
+                if (constructionServiceType != null && buildingModelType != null)
+                {
+                    _csGetConstructionCostForMethod = constructionServiceType.GetMethod("GetConstructionCostFor",
+                        new Type[] { buildingModelType });
+                }
+
+                // Good struct fields (name, amount)
+                var goodType = _gameAssembly.GetType("Eremite.Model.Good");
+                if (goodType != null)
+                {
+                    _goodStructNameField = goodType.GetField("name", PublicInstance);
+                    _goodStructAmountField = goodType.GetField("amount", PublicInstance);
                 }
 
                 Debug.Log("[ATSAccessibility] Cached construction types");
@@ -3321,6 +3355,7 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Get construction materials with delivered and required amounts.
+        /// Uses ConstructionService.GetConstructionCostFor (same as game UI) for required amounts.
         /// Returns list of (displayName, delivered, required).
         /// </summary>
         public static List<(string name, int delivered, int required)> GetConstructionMaterials(object building)
@@ -3330,58 +3365,47 @@ namespace ATSAccessibility
 
             try
             {
-                // Get BuildingState
+                // Get required amounts from ConstructionService (matches game UI)
+                var buildingModel = GetBuildingModel(building);
+                var constructionService = GetConstructionService();
+                if (buildingModel == null || constructionService == null ||
+                    _csGetConstructionCostForMethod == null ||
+                    _goodStructNameField == null || _goodStructAmountField == null)
+                    return null;
+
+                var requiredGoods = _csGetConstructionCostForMethod.Invoke(
+                    constructionService, new[] { buildingModel }) as Array;
+                if (requiredGoods == null || requiredGoods.Length == 0) return null;
+
+                // Get delivered amounts from BuildingState.deliveredGoods.goods dict
+                Dictionary<string, int> deliveredDict = null;
                 var stateProperty = building.GetType().GetProperty("BuildingState", PublicInstance);
-                if (stateProperty == null) return null;
-                var state = stateProperty.GetValue(building);
-                if (state == null) return null;
-
-                // Get deliveredGoods (LimitedGoodsCollection)
-                if (_deliveredGoodsField == null) return null;
-                var deliveredGoods = _deliveredGoodsField.GetValue(state);
-                if (deliveredGoods == null) return null;
-
-                // Get limits dict (required amounts) via reflection iteration
-                if (_limitedGoodsLimitsField == null) return null;
-                var limitsObj = _limitedGoodsLimitsField.GetValue(deliveredGoods);
-                if (limitsObj == null) return null;
-
-                // Get goods dict (delivered amounts)
-                var goodsObj = _constructionGoodsField?.GetValue(deliveredGoods);
-
-                // Iterate limits dictionary using reflection
-                var keysProperty = limitsObj.GetType().GetProperty("Keys");
-                var keys = keysProperty?.GetValue(limitsObj) as IEnumerable;
-                if (keys == null) return null;
-
-                var limitsIndexer = limitsObj.GetType().GetMethod("get_Item");
-                var goodsIndexer = goodsObj?.GetType().GetMethod("get_Item");
-
-                // Build a set of goods keys for lookup
-                var goodsKeys = new HashSet<string>();
-                if (goodsObj != null)
+                if (stateProperty != null)
                 {
-                    var goodsKeysProperty = goodsObj.GetType().GetProperty("Keys");
-                    var gKeys = goodsKeysProperty?.GetValue(goodsObj) as IEnumerable;
-                    if (gKeys != null)
+                    var state = stateProperty.GetValue(building);
+                    if (state != null && _deliveredGoodsField != null)
                     {
-                        foreach (var k in gKeys)
-                            goodsKeys.Add(k as string);
+                        var deliveredGoods = _deliveredGoodsField.GetValue(state);
+                        if (deliveredGoods != null && _constructionGoodsField != null)
+                        {
+                            deliveredDict = _constructionGoodsField.GetValue(deliveredGoods)
+                                as Dictionary<string, int>;
+                        }
                     }
                 }
 
                 var result = new List<(string name, int delivered, int required)>();
-                foreach (var key in keys)
+                foreach (var good in requiredGoods)
                 {
-                    string goodName = key as string;
-                    if (string.IsNullOrEmpty(goodName)) continue;
+                    if (good == null) continue;
 
-                    int required = (int)limitsIndexer.Invoke(limitsObj, new[] { key });
+                    string goodName = _goodStructNameField.GetValue(good) as string;
+                    int required = (int)_goodStructAmountField.GetValue(good);
+                    if (string.IsNullOrEmpty(goodName) || required <= 0) continue;
+
                     int delivered = 0;
-                    if (goodsIndexer != null && goodsKeys.Contains(goodName))
-                    {
-                        delivered = (int)goodsIndexer.Invoke(goodsObj, new[] { key });
-                    }
+                    if (deliveredDict != null && deliveredDict.ContainsKey(goodName))
+                        delivered = deliveredDict[goodName];
 
                     string displayName = GetGoodDisplayName(goodName);
                     result.Add((displayName, delivered, required));
