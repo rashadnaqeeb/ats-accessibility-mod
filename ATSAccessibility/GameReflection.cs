@@ -4036,6 +4036,21 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Open the Payments popup via GameBlackboardService.PaymentsPopupRequested.
+        /// </summary>
+        public static bool OpenPaymentsPopup()
+        {
+            var blackboardService = GetGameBlackboardService();
+            if (blackboardService == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] OpenPaymentsPopup: GameBlackboardService not available");
+                return false;
+            }
+
+            return InvokeSubjectOnNext(blackboardService, "PaymentsPopupRequested", true);
+        }
+
+        /// <summary>
         /// Open the Trends popup via GameBlackboardService.TrendsPopupRequested.
         /// </summary>
         public static bool OpenTrendsPopup()

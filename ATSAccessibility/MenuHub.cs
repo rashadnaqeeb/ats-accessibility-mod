@@ -13,9 +13,9 @@ namespace ATSAccessibility
             "Recipes",
             "Orders",
             "Trade Routes",
+            "Payments",
             "Consumption Control",
             "Trends",
-            "Villagers",
             "Trader"
         };
 
@@ -116,21 +116,27 @@ namespace ATSAccessibility
             {
                 case 0: // Recipes
                     success = GameReflection.OpenRecipesPopup();
+                    if (success) SoundManager.PlayMenuRecipes();
                     break;
                 case 1: // Orders
                     success = GameReflection.OpenOrdersPopup();
+                    if (success) SoundManager.PlayMenuOrders();
                     break;
                 case 2: // Trade Routes
                     success = GameReflection.OpenTradeRoutesPopup();
+                    if (success) SoundManager.PlayMenuTradeRoutes();
                     break;
-                case 3: // Consumption Control
+                case 3: // Payments
+                    success = GameReflection.OpenPaymentsPopup();
+                    if (success) SoundManager.PlayMenuRecipes();  // Shares sound with Recipes
+                    break;
+                case 4: // Consumption Control
                     success = GameReflection.OpenConsumptionPopup();
+                    if (success) SoundManager.PlayConsumptionPopupShow();
                     break;
-                case 4: // Trends
+                case 5: // Trends
                     success = GameReflection.OpenTrendsPopup();
-                    break;
-                case 5: // Villagers
-                    success = GameReflection.OpenVillagersPopup();
+                    if (success) SoundManager.PlayMenuTrends();
                     break;
                 case 6: // Trader
                     success = GameReflection.OpenTraderPanel();

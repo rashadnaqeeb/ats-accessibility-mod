@@ -105,6 +105,9 @@ namespace ATSAccessibility
         // Confirmation dialog for destructive actions
         private ConfirmationDialog _confirmationDialog;
 
+        // Recipes popup overlay for recipe management
+        private RecipesOverlay _recipesOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -189,6 +192,9 @@ namespace ATSAccessibility
             // Initialize confirmation dialog for destructive actions
             _confirmationDialog = new ConfirmationDialog();
 
+            // Initialize recipes overlay for Recipes popup
+            _recipesOverlay = new RecipesOverlay();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
@@ -205,6 +211,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_buildModeController); // Building placement (selective passthrough)
             _keyboardManager.RegisterHandler(_moveModeController);  // Building relocation (selective passthrough)
             _keyboardManager.RegisterHandler(_encyclopediaNavigator); // Wiki popup
+            _keyboardManager.RegisterHandler(_recipesOverlay);      // Recipes popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_tutorialHandler);     // Tutorial tooltips (passthrough)
@@ -652,6 +659,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check recipes popup - it has its own overlay
+            if (RecipesReflection.IsRecipesPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Recipes popup detected, using Recipes overlay");
+                _recipesOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Standard popup handling
             _uiNavigator?.OnPopupShown(popup);
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
@@ -669,6 +685,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Wiki popup closed");
                 _encyclopediaNavigator?.OnWikiPopupHidden();
+                // Fall through to handle context change
+            }
+            // Check recipes popup
+            else if (RecipesReflection.IsRecipesPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Recipes popup closed");
+                _recipesOverlay?.Close();
                 // Fall through to handle context change
             }
             else

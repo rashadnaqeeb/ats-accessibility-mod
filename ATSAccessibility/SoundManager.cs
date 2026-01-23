@@ -34,6 +34,11 @@ namespace ATSAccessibility
         private static PropertyInfo _rainpunkStopButtonProperty = null;
         private static PropertyInfo _buildingFireButtonStartProperty = null;
 
+        // Popup sounds
+        private static PropertyInfo _popupShowProperty = null;
+        private static PropertyInfo _consumptionPopupShowProperty = null;
+        private static PropertyInfo _traderPanelOpenedProperty = null;
+
         private static void EnsureCached()
         {
             if (_cached) return;
@@ -79,6 +84,11 @@ namespace ATSAccessibility
                     _rainpunkUnlockProperty = soundReferencesType.GetProperty("RainpunkUnlock", GameReflection.PublicInstance);
                     _rainpunkStopButtonProperty = soundReferencesType.GetProperty("RainpunkStopButton", GameReflection.PublicInstance);
                     _buildingFireButtonStartProperty = soundReferencesType.GetProperty("BuildingFireButtonStart", GameReflection.PublicInstance);
+
+                    // Popup sounds
+                    _popupShowProperty = soundReferencesType.GetProperty("PopupShow", GameReflection.PublicInstance);
+                    _consumptionPopupShowProperty = soundReferencesType.GetProperty("ConsumptionPopupShow", GameReflection.PublicInstance);
+                    _traderPanelOpenedProperty = soundReferencesType.GetProperty("TraderPanelOpened", GameReflection.PublicInstance);
                 }
             }
             catch (Exception ex)
@@ -295,6 +305,157 @@ namespace ATSAccessibility
         {
             EnsureCached();
             PlaySound(_rainpunkStopButtonProperty);
+        }
+
+        // ========================================
+        // POPUP SOUNDS
+        // ========================================
+
+        /// <summary>
+        /// Play the generic popup show sound.
+        /// </summary>
+        public static void PlayPopupShow()
+        {
+            EnsureCached();
+            PlaySound(_popupShowProperty);
+        }
+
+        /// <summary>
+        /// Play the consumption popup show sound.
+        /// </summary>
+        public static void PlayConsumptionPopupShow()
+        {
+            EnsureCached();
+            PlaySound(_consumptionPopupShowProperty);
+        }
+
+        /// <summary>
+        /// Play the trader panel opened sound.
+        /// </summary>
+        public static void PlayTraderPanelOpened()
+        {
+            EnsureCached();
+            PlaySound(_traderPanelOpenedProperty);
+        }
+
+        // ========================================
+        // MENU BUTTON SOUNDS (by clip name)
+        // ========================================
+
+        /// <summary>
+        /// Play the recipes menu button sound.
+        /// </summary>
+        public static void PlayMenuRecipes()
+        {
+            PlaySoundByClipName("menu_recipes");
+        }
+
+        /// <summary>
+        /// Play the orders menu button sound.
+        /// </summary>
+        public static void PlayMenuOrders()
+        {
+            PlaySoundByClipName("menu_orders");
+        }
+
+        /// <summary>
+        /// Play the trends menu button sound.
+        /// </summary>
+        public static void PlayMenuTrends()
+        {
+            PlaySoundByClipName("trends_window");
+        }
+
+        /// <summary>
+        /// Play the trade routes menu button sound.
+        /// </summary>
+        public static void PlayMenuTradeRoutes()
+        {
+            PlaySoundByClipName("menu_trade_routes");
+        }
+
+        // Cached AudioClip type
+        private static Type _audioClipType = null;
+
+        /// <summary>
+        /// Play a sound by finding its AudioClip by name.
+        /// Used for sounds that aren't exposed through SoundReferences properties.
+        /// </summary>
+        private static void PlaySoundByClipName(string clipName)
+        {
+            try
+            {
+                EnsureCached();
+
+                // Get AudioClip type via reflection
+                if (_audioClipType == null)
+                {
+                    _audioClipType = Type.GetType("UnityEngine.AudioClip, UnityEngine.AudioModule");
+                    if (_audioClipType == null)
+                    {
+                        // Fallback: search loaded assemblies
+                        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                        {
+                            _audioClipType = asm.GetType("UnityEngine.AudioClip");
+                            if (_audioClipType != null) break;
+                        }
+                    }
+                }
+
+                if (_audioClipType == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] AudioClip type not found");
+                    return;
+                }
+
+                // Find all AudioClips and search by name
+                var clips = Resources.FindObjectsOfTypeAll(_audioClipType);
+                object targetClip = null;
+
+                foreach (var clip in clips)
+                {
+                    if (clip != null && clip.name == clipName)
+                    {
+                        targetClip = clip;
+                        break;
+                    }
+                }
+
+                if (targetClip == null)
+                {
+                    Debug.LogWarning($"[ATSAccessibility] Sound clip not found: {clipName}");
+                    return;
+                }
+
+                // Get the SoundsManager and play via AudioSource
+                var mainController = GameReflection.GetMainControllerInstance();
+                if (mainController == null) return;
+
+                var soundsManager = _soundsManagerProperty?.GetValue(mainController);
+                if (soundsManager == null) return;
+
+                // The SoundsManager has a buttonAudioSource we can use
+                var smType = soundsManager.GetType();
+                var buttonSourceField = smType.GetField("buttonAudioSource", BindingFlags.NonPublic | BindingFlags.Instance);
+                var audioSource = buttonSourceField?.GetValue(soundsManager);
+
+                if (audioSource != null)
+                {
+                    // Set clip and play via reflection
+                    var asType = audioSource.GetType();
+                    var clipProp = asType.GetProperty("clip");
+                    var volumeProp = asType.GetProperty("volume");
+                    var playMethod = asType.GetMethod("Play", Type.EmptyTypes);
+
+                    clipProp?.SetValue(audioSource, targetClip);
+                    volumeProp?.SetValue(audioSource, 1.0f);
+                    playMethod?.Invoke(audioSource, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] PlaySoundByClipName({clipName}) failed: {ex.Message}");
+            }
         }
     }
 }

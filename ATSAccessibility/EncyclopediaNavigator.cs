@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using TMPro;
 using UnityEngine;
 
@@ -631,12 +630,13 @@ namespace ATSAccessibility
                 var productionTime = WikiReflection.GetRecipeProductionTime(recipe);
                 var gradeLevel = WikiReflection.GetRecipeGradeLevel(recipe);
 
-                // Build inputs string using new recipe format
+                // Build inputs string
                 var requiredGoods = WikiReflection.GetRecipeRequiredGoods(recipe);
-                var inputs = FormatRecipeIngredients(requiredGoods);
+                var inputs = RecipeFormatter.FormatIngredients(requiredGoods,
+                    WikiReflection.GetGoodsSetGoods, WikiReflection.GetGoodRefDisplayName, WikiReflection.GetGoodRefAmount);
 
                 // Format time
-                var time = FormatRecipeTime(productionTime);
+                var time = RecipeFormatter.FormatTime(productionTime);
 
                 // Format stars
                 var stars = gradeLevel > 0 ? $" {gradeLevel} star{(gradeLevel > 1 ? "s" : "")}." : "";
@@ -645,69 +645,6 @@ namespace ATSAccessibility
             }
         }
 
-        /// <summary>
-        /// Format recipe ingredients in the new readable format.
-        /// Same amounts: "3 x one of Herbs, Insects, Resin."
-        /// Different amounts: "One of Stone x 4, Clay x 4, Salt x 3."
-        /// </summary>
-        private string FormatRecipeIngredients(Array goodsSets)
-        {
-            if (goodsSets == null || goodsSets.Length == 0) return "nothing.";
-
-            var parts = new List<string>();
-            foreach (var goodsSet in goodsSets)
-            {
-                var goods = WikiReflection.GetGoodsSetGoods(goodsSet);
-                if (goods == null || goods.Length == 0) continue;
-
-                // Collect names and amounts
-                var items = new List<(string name, int amount)>();
-                foreach (var goodRef in goods)
-                {
-                    var name = WikiReflection.GetGoodRefDisplayName(goodRef);
-                    var amount = WikiReflection.GetGoodRefAmount(goodRef);
-                    if (!string.IsNullOrEmpty(name))
-                        items.Add((name, amount));
-                }
-
-                if (items.Count == 0) continue;
-
-                if (items.Count == 1)
-                {
-                    // Single item, no alternatives
-                    parts.Add($"{items[0].name} x {items[0].amount}.");
-                }
-                else
-                {
-                    // Multiple alternatives - check if all amounts are the same
-                    bool sameAmounts = items.All(i => i.amount == items[0].amount);
-
-                    if (sameAmounts)
-                    {
-                        // Same amounts: "3 x one of Herbs, Insects, Resin."
-                        var names = string.Join(", ", items.Select(i => i.name));
-                        parts.Add($"{items[0].amount} x one of {names}.");
-                    }
-                    else
-                    {
-                        // Different amounts: "One of Stone x 4, Clay x 4, Salt x 3."
-                        var itemStrs = items.Select(i => $"{i.name} x {i.amount}");
-                        parts.Add($"One of {string.Join(", ", itemStrs)}.");
-                    }
-                }
-            }
-
-            return parts.Count > 0 ? string.Join(" ", parts) : "nothing.";
-        }
-
-        /// <summary>
-        /// Format production time for recipes.
-        /// </summary>
-        private string FormatRecipeTime(float totalSeconds)
-        {
-            int secs = (int)totalSeconds;
-            return $"Takes {secs} sec.";
-        }
 
         /// <summary>
         /// Build upgrade information for an upgradable building.
