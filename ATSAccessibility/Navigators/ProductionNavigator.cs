@@ -82,6 +82,7 @@ namespace ATSAccessibility
             public string ProductName;  // The good being produced
             public bool IsActive;
             public int Limit;
+            public bool IsLimitLocal;
             public int Priority;
         }
 
@@ -224,15 +225,12 @@ namespace ATSAccessibility
 
         protected override bool PerformItemAction(int sectionIndex, int itemIndex)
         {
-            // For Camp/gathering buildings, toggle recipe directly (no submenu)
-            if (_sectionTypes[sectionIndex] == SectionType.Recipes && _isCamp && itemIndex < _recipes.Count)
+            if (_sectionTypes[sectionIndex] == SectionType.Recipes && itemIndex < _recipes.Count)
             {
                 ToggleRecipe(itemIndex);
                 return true;
             }
 
-            // For other buildings, recipes have sub-items so Enter enters sub-items
-            // (handled by base class)
             return false;
         }
 
@@ -871,6 +869,7 @@ namespace ATSAccessibility
                     ProductName = BuildingReflection.GetRecipeProductName(recipeState),
                     IsActive = BuildingReflection.IsRecipeActive(recipeState),
                     Limit = BuildingReflection.GetRecipeLimit(recipeState),
+                    IsLimitLocal = BuildingReflection.IsRecipeLimitLocal(recipeState),
                     Priority = GetRecipePriority(recipeState)
                 };
                 _recipes.Add(info);
@@ -1120,12 +1119,10 @@ namespace ATSAccessibility
 
             string status = recipe.IsActive ? "enabled" : "disabled";
 
-            // In the game, limit 0 means "no limit" (unlimited)
-            // limit > 0 means a specific production cap
             string limitText = "";
             if (recipe.Limit > 0)
             {
-                limitText = $", limit {recipe.Limit}";
+                limitText = recipe.IsLimitLocal ? $", limit {recipe.Limit}" : $", global limit {recipe.Limit}";
             }
 
             Speech.Say($"{displayName}: {status}{limitText}");
@@ -1491,7 +1488,12 @@ namespace ATSAccessibility
 
                 case RECIPE_SUBITEM_LIMIT:
                     int limit = BuildingReflection.GetRecipeLimit(recipe.RecipeState);
-                    string limitText = limit > 0 ? limit.ToString() : "unlimited";
+                    bool isLocal = BuildingReflection.IsRecipeLimitLocal(recipe.RecipeState);
+                    string limitText;
+                    if (limit > 0)
+                        limitText = isLocal ? limit.ToString() : $"global {limit}";
+                    else
+                        limitText = "unlimited";
                     Speech.Say($"Limit: {limitText}. Plus/minus to adjust");
                     break;
 
@@ -1591,9 +1593,10 @@ namespace ATSAccessibility
 
             BuildingReflection.SetRecipeLimit(recipe.RecipeState, newLimit);
 
-            // Update cached value
+            // Update cached values (SetRecipeLimit marks as local)
             var updatedRecipe = recipe;
             updatedRecipe.Limit = newLimit;
+            updatedRecipe.IsLimitLocal = true;
             _recipes[recipeIndex] = updatedRecipe;
 
             string limitText = newLimit > 0 ? newLimit.ToString() : "unlimited";

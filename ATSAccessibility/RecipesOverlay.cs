@@ -293,6 +293,16 @@ namespace ATSAccessibility
             RecipesReflection.SetGlobalLimit(currentGood.Name, newLimit);
             currentGood.Limit = newLimit;
 
+            // Push to all built workshops' recipe states that follow the global limit
+            foreach (var recipe in currentGood.Recipes)
+            {
+                if (recipe.IsBuilt && recipe.RecipeState != null &&
+                    !BuildingReflection.IsRecipeLimitLocal(recipe.RecipeState))
+                {
+                    BuildingReflection.SetRecipeLimitFromGlobal(recipe.RecipeState, newLimit);
+                }
+            }
+
             if (newLimit == 0)
             {
                 Speech.Say("No limit");

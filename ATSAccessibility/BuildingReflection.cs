@@ -92,6 +92,7 @@ namespace ATSAccessibility
         private static FieldInfo _recipePrioField = null;
         // WorkshopRecipeState fields
         private static FieldInfo _recipeLimitField = null;
+        private static FieldInfo _isLimitLocalField = null;
         private static FieldInfo _recipeProductNameField = null;
         private static FieldInfo _recipeIngredientsField = null;  // IngredientState[][]
         private static bool _recipeTypesCached = false;
@@ -784,6 +785,7 @@ namespace ATSAccessibility
                 if (workshopRecipeStateType != null)
                 {
                     _recipeLimitField = workshopRecipeStateType.GetField("limit", GameReflection.PublicInstance);
+                    _isLimitLocalField = workshopRecipeStateType.GetField("isLimitLocal", GameReflection.PublicInstance);
                     _recipeProductNameField = workshopRecipeStateType.GetField("productName", GameReflection.PublicInstance);
                     _recipeIngredientsField = workshopRecipeStateType.GetField("ingredients", GameReflection.PublicInstance);
                     Debug.Log("[ATSAccessibility] BuildingReflection: Cached WorkshopRecipeState fields");
@@ -2810,11 +2812,11 @@ namespace ATSAccessibility
             // These correspond to CampMode enum: None, OnlyMarked, NoGlades, OnlyMarkedGlades, NoGladesAndOnlyMarked
             return new string[]
             {
-                "No restrictions",
-                "Only marked trees",
-                "Avoid glades",
-                "Only marked in glades",
-                "Avoid glades and only marked"
+                "Fell All Trees",
+                "Only Marked Trees",
+                "Avoid Glades",
+                "Avoid Glades (except marked)",
+                "Only Marked Trees & Avoid Glades"
             };
         }
 
@@ -3750,6 +3752,25 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Check if a recipe's limit is local (true) or follows the global limit (false).
+        /// </summary>
+        public static bool IsRecipeLimitLocal(object recipeState)
+        {
+            if (recipeState == null) return true;
+
+            EnsureRecipeTypes();
+
+            try
+            {
+                return (bool?)_isLimitLocalField?.GetValue(recipeState) ?? true;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
         /// Get recipe model name (used to look up display name).
         /// </summary>
         public static string GetRecipeModelName(object recipeState)
@@ -4057,8 +4078,27 @@ namespace ATSAccessibility
             try
             {
                 _recipeLimitField?.SetValue(recipeState, limit);
+                _isLimitLocalField?.SetValue(recipeState, true);
             }
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SetRecipeLimit failed: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Set recipe limit as a global limit (isLimitLocal = false).
+        /// Used when pushing a global limit change to individual recipe states.
+        /// </summary>
+        public static void SetRecipeLimitFromGlobal(object recipeState, int limit)
+        {
+            if (recipeState == null) return;
+
+            EnsureRecipeTypes();
+
+            try
+            {
+                _recipeLimitField?.SetValue(recipeState, limit);
+                _isLimitLocalField?.SetValue(recipeState, false);
+            }
+            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SetRecipeLimitFromGlobal failed: {ex.Message}"); }
         }
 
         // ========================================
