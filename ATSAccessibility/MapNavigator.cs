@@ -749,6 +749,13 @@ namespace ATSAccessibility
                 return false;
             }
 
+            // Announce construction progress instead of opening panel for unfinished buildings
+            if (GameReflection.IsBuildingUnfinished(objectOn))
+            {
+                AnnounceConstruction(objectOn);
+                return true;
+            }
+
             // Try to pick the building (opens its panel)
             if (GameReflection.PickBuilding(objectOn))
             {
@@ -759,6 +766,28 @@ namespace ATSAccessibility
                 Speech.Say("Cannot open building");
                 return false;
             }
+        }
+
+        private void AnnounceConstruction(object building)
+        {
+            float progress = GameReflection.GetBuildingProgress(building);
+            int percent = (int)(progress * 100);
+
+            var materials = GameReflection.GetConstructionMaterials(building);
+
+            string announcement = $"Under construction, {percent}%";
+
+            if (materials != null && materials.Count > 0)
+            {
+                var parts = new List<string>();
+                foreach (var (name, delivered, required) in materials)
+                {
+                    parts.Add($"{name} {delivered} of {required}");
+                }
+                announcement += ". " + string.Join(", ", parts);
+            }
+
+            Speech.Say(announcement);
         }
 
         // ========================================

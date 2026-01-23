@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -3237,6 +3238,162 @@ namespace ATSAccessibility
             catch
             {
                 return false;
+            }
+        }
+
+        // ========================================
+        // CONSTRUCTION PROGRESS REFLECTION
+        // ========================================
+
+        private static FieldInfo _buildingProgressField = null;
+        private static FieldInfo _deliveredGoodsField = null;
+        private static FieldInfo _limitedGoodsLimitsField = null;
+        private static FieldInfo _constructionGoodsField = null;  // goods dict on GoodsCollection base
+        private static bool _constructionTypesCached = false;
+
+        private static void EnsureConstructionTypes()
+        {
+            if (_constructionTypesCached) return;
+
+            if (_gameAssembly == null)
+            {
+                _constructionTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // BuildingState fields
+                var buildingStateType = _gameAssembly.GetType("Eremite.Buildings.BuildingState");
+                if (buildingStateType != null)
+                {
+                    _buildingProgressField = buildingStateType.GetField("buildingProgress", PublicInstance);
+                    _deliveredGoodsField = buildingStateType.GetField("deliveredGoods", PublicInstance);
+                }
+
+                // LimitedGoodsCollection.limits (private)
+                var limitedGoodsType = _gameAssembly.GetType("Eremite.LimitedGoodsCollection");
+                if (limitedGoodsType != null)
+                {
+                    _limitedGoodsLimitsField = limitedGoodsType.GetField("limits", NonPublicInstance);
+                }
+
+                // GoodsCollection.goods (public, base class)
+                var goodsCollectionType = _gameAssembly.GetType("Eremite.GoodsCollection");
+                if (goodsCollectionType != null)
+                {
+                    _constructionGoodsField = goodsCollectionType.GetField("goods", PublicInstance);
+                }
+
+                Debug.Log("[ATSAccessibility] Cached construction types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Construction type caching failed: {ex.Message}");
+            }
+
+            _constructionTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get building construction progress (0-1 float).
+        /// </summary>
+        public static float GetBuildingProgress(object building)
+        {
+            if (building == null) return 0f;
+            EnsureConstructionTypes();
+
+            try
+            {
+                var stateProperty = building.GetType().GetProperty("BuildingState", PublicInstance);
+                if (stateProperty == null) return 0f;
+
+                var state = stateProperty.GetValue(building);
+                if (state == null || _buildingProgressField == null) return 0f;
+
+                return (float)_buildingProgressField.GetValue(state);
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Get construction materials with delivered and required amounts.
+        /// Returns list of (displayName, delivered, required).
+        /// </summary>
+        public static List<(string name, int delivered, int required)> GetConstructionMaterials(object building)
+        {
+            if (building == null) return null;
+            EnsureConstructionTypes();
+            EnsureBuildingModelFields();
+
+            try
+            {
+                // Get BuildingState
+                var stateProperty = building.GetType().GetProperty("BuildingState", PublicInstance);
+                if (stateProperty == null) return null;
+                var state = stateProperty.GetValue(building);
+                if (state == null) return null;
+
+                // Get deliveredGoods (LimitedGoodsCollection)
+                if (_deliveredGoodsField == null) return null;
+                var deliveredGoods = _deliveredGoodsField.GetValue(state);
+                if (deliveredGoods == null) return null;
+
+                // Get limits dict (required amounts) via reflection iteration
+                if (_limitedGoodsLimitsField == null) return null;
+                var limitsObj = _limitedGoodsLimitsField.GetValue(deliveredGoods);
+                if (limitsObj == null) return null;
+
+                // Get goods dict (delivered amounts)
+                var goodsObj = _constructionGoodsField?.GetValue(deliveredGoods);
+
+                // Iterate limits dictionary using reflection
+                var keysProperty = limitsObj.GetType().GetProperty("Keys");
+                var keys = keysProperty?.GetValue(limitsObj) as IEnumerable;
+                if (keys == null) return null;
+
+                var limitsIndexer = limitsObj.GetType().GetMethod("get_Item");
+                var goodsIndexer = goodsObj?.GetType().GetMethod("get_Item");
+
+                // Build a set of goods keys for lookup
+                var goodsKeys = new HashSet<string>();
+                if (goodsObj != null)
+                {
+                    var goodsKeysProperty = goodsObj.GetType().GetProperty("Keys");
+                    var gKeys = goodsKeysProperty?.GetValue(goodsObj) as IEnumerable;
+                    if (gKeys != null)
+                    {
+                        foreach (var k in gKeys)
+                            goodsKeys.Add(k as string);
+                    }
+                }
+
+                var result = new List<(string name, int delivered, int required)>();
+                foreach (var key in keys)
+                {
+                    string goodName = key as string;
+                    if (string.IsNullOrEmpty(goodName)) continue;
+
+                    int required = (int)limitsIndexer.Invoke(limitsObj, new[] { key });
+                    int delivered = 0;
+                    if (goodsIndexer != null && goodsKeys.Contains(goodName))
+                    {
+                        delivered = (int)goodsIndexer.Invoke(goodsObj, new[] { key });
+                    }
+
+                    string displayName = GetGoodDisplayName(goodName);
+                    result.Add((displayName, delivered, required));
+                }
+
+                return result.Count > 0 ? result : null;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetConstructionMaterials failed: {ex.Message}");
+                return null;
             }
         }
 
