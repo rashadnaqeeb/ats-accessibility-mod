@@ -73,6 +73,7 @@ namespace ATSAccessibility
         {
             if (_isOpen)
             {
+                SoundManager.PlayButtonClick();
                 Close();
                 return;
             }
@@ -92,6 +93,7 @@ namespace ATSAccessibility
             _focusOnBuildings = false;
             _search.Clear();
 
+            SoundManager.PlayPopupShow();
             // Announce menu opening with first category in one speech to avoid cutoff
             var category = _categories[_currentCategoryIndex];
             int buildingCount = category.Buildings.Count;
@@ -167,6 +169,7 @@ namespace ATSAccessibility
                         InputBlocker.BlockCancelOnce = true;  // Block the Cancel action
                         return true;
                     }
+                    SoundManager.PlayButtonClick();
                     Close();
                     return true;
 
@@ -262,6 +265,7 @@ namespace ATSAccessibility
             }
 
             // Close menu and enter build mode
+            SoundManager.PlayButtonClick();
             _isOpen = false;
             _categories.Clear();
 

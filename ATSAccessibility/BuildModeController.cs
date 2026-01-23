@@ -68,6 +68,7 @@ namespace ATSAccessibility
             _selectedBuildingName = null;
             _rotation = 0;
 
+            SoundManager.PlayBuildingPanelHide();
             InputBlocker.BlockCancelOnce = true;
             Speech.Say("Exited build mode");
             Debug.Log("[ATSAccessibility] Exited build mode");

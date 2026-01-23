@@ -45,6 +45,7 @@ namespace ATSAccessibility
         {
             if (_isOpen)
             {
+                SoundManager.PlayButtonClick();
                 Close();
                 return;
             }
@@ -60,6 +61,7 @@ namespace ATSAccessibility
             _isOpen = true;
             _currentIndex = 0;
 
+            SoundManager.PlayPopupShow();
             AnnouncePanel();
             AnnounceCurrentReward();
             Debug.Log("[ATSAccessibility] Rewards panel opened");
@@ -104,10 +106,12 @@ namespace ATSAccessibility
 
                 case KeyCode.Escape:
                 case KeyCode.LeftArrow:
+                    SoundManager.PlayButtonClick();
                     Close();
                     return true;
 
                 case KeyCode.F3:
+                    SoundManager.PlayButtonClick();
                     Close();
                     return true;
 

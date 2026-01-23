@@ -39,6 +39,7 @@ namespace ATSAccessibility
         {
             if (_isOpen)
             {
+                SoundManager.PlayButtonClick();
                 Close();
                 return;
             }
@@ -46,6 +47,7 @@ namespace ATSAccessibility
             _isOpen = true;
             _currentIndex = 0;
 
+            SoundManager.PlayPopupShow();
             AnnounceCurrentItem(withPrefix: true);
             Debug.Log("[ATSAccessibility] Menu Hub opened");
         }
@@ -87,10 +89,12 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
+                    SoundManager.PlayButtonClick();
                     Close();
                     return true;
 
                 case KeyCode.F2:
+                    SoundManager.PlayButtonClick();
                     Close();
                     return true;
 

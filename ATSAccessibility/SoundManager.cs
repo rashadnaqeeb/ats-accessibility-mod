@@ -36,6 +36,7 @@ namespace ATSAccessibility
 
         // Popup sounds
         private static PropertyInfo _popupShowProperty = null;
+        private static PropertyInfo _homePopupHideProperty = null;
         private static PropertyInfo _consumptionPopupShowProperty = null;
         private static PropertyInfo _traderPanelOpenedProperty = null;
 
@@ -90,6 +91,7 @@ namespace ATSAccessibility
 
                     // Popup sounds
                     _popupShowProperty = soundReferencesType.GetProperty("PopupShow", GameReflection.PublicInstance);
+                    _homePopupHideProperty = soundReferencesType.GetProperty("HomePopupHide", GameReflection.PublicInstance);
                     _consumptionPopupShowProperty = soundReferencesType.GetProperty("ConsumptionPopupShow", GameReflection.PublicInstance);
                     _traderPanelOpenedProperty = soundReferencesType.GetProperty("TraderPanelOpened", GameReflection.PublicInstance);
 
@@ -316,6 +318,15 @@ namespace ATSAccessibility
         // ========================================
         // POPUP SOUNDS
         // ========================================
+
+        /// <summary>
+        /// Play the popup/menu hide sound.
+        /// </summary>
+        public static void PlayHomePopupHide()
+        {
+            EnsureCached();
+            PlaySound(_homePopupHideProperty);
+        }
 
         /// <summary>
         /// Play the generic popup show sound.

@@ -63,6 +63,7 @@ namespace ATSAccessibility
         {
             if (_isOpen)
             {
+                SoundManager.PlayButtonClick();
                 Close();
                 return;
             }
@@ -72,6 +73,7 @@ namespace ATSAccessibility
             _activeChildPanel = null;
             _search.Clear();
 
+            SoundManager.PlayPopupShow();
             AnnounceCurrentItem(includePrefix: true);
             Debug.Log("[ATSAccessibility] Info panel menu opened");
         }
@@ -89,7 +91,7 @@ namespace ATSAccessibility
             _isOpen = false;
             _search.Clear();
             InputBlocker.BlockCancelOnce = true;
-            Speech.Say("Information panels closed");
+            Speech.Say("Closed");
             Debug.Log("[ATSAccessibility] Info panel menu closed");
         }
 
@@ -125,10 +127,9 @@ namespace ATSAccessibility
                         {
                             return true;  // Child handled it (cleared search)
                         }
-                        // Child didn't handle it, close child and return to menu
-                        CloseActiveChildPanel();
-                        InputBlocker.BlockCancelOnce = true;
-                        AnnounceCurrentItem(includePrefix: false);
+                        // Close entire overlay
+                        SoundManager.PlayButtonClick();
+                        Close();
                         return true;
 
                     default:
@@ -158,6 +159,11 @@ namespace ATSAccessibility
                     HandleBackspace();
                     return true;
 
+                case KeyCode.F1:
+                    SoundManager.PlayButtonClick();
+                    Close();
+                    return true;
+
                 case KeyCode.Escape:
                     if (_search.HasBuffer)
                     {
@@ -166,6 +172,7 @@ namespace ATSAccessibility
                         Speech.Say("Search cleared");
                         return true;
                     }
+                    SoundManager.PlayButtonClick();
                     Close();
                     return true;
 
