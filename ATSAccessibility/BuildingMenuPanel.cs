@@ -404,9 +404,9 @@ namespace ATSAccessibility
             var size = GameReflection.GetBuildingSize(building.Model);
             string sizeText = $"{size.x}x{size.y}";
 
-            // Get building costs
+            // Get building costs (includes "not enough" annotations for insufficient goods)
             string costs = GameReflection.GetBuildingCosts(building.Model);
-            string costsText = !string.IsNullOrEmpty(costs) ? $" Costs: {costs}." : "";
+            string costsText = !string.IsNullOrEmpty(costs) ? $" {costs}." : "";
 
             // Get building description
             string description = GameReflection.GetBuildingDescription(building.Model) ?? "";
@@ -415,7 +415,7 @@ namespace ATSAccessibility
             bool canConstruct = GameReflection.CanConstructBuilding(building.Model);
             string status = canConstruct ? "" : ", at maximum";
 
-            // Format: "Name, size. Costs: X, Y. Description"
+            // Format: "Name, size. 5 Planks, not enough, 3 Bricks. Description"
             string announcement = $"{building.Name}{status}, {sizeText}.{costsText} {description}";
             Speech.Say(announcement);
             Debug.Log($"[ATSAccessibility] Building: {building.Name}{status}, {sizeText}");

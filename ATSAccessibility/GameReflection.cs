@@ -2859,6 +2859,7 @@ namespace ATSAccessibility
                         constructionService, new[] { buildingModel }) as Array;
                     if (requiredGoods != null && requiredGoods.Length > 0)
                     {
+                        var storedGoods = GetAllStoredGoods();
                         var costs = new List<string>();
                         foreach (var good in requiredGoods)
                         {
@@ -2868,7 +2869,12 @@ namespace ATSAccessibility
                             if (amount > 0 && !string.IsNullOrEmpty(goodName))
                             {
                                 string displayName = GetGoodDisplayName(goodName);
-                                costs.Add($"{amount} {displayName}");
+                                int stored = 0;
+                                storedGoods.TryGetValue(goodName, out stored);
+                                if (stored < amount)
+                                    costs.Add($"{amount} {displayName}, not enough");
+                                else
+                                    costs.Add($"{amount} {displayName}");
                             }
                         }
                         if (costs.Count > 0) return string.Join(", ", costs);
