@@ -108,6 +108,9 @@ namespace ATSAccessibility
         // Recipes popup overlay for recipe management
         private RecipesOverlay _recipesOverlay;
 
+        // Wildcard popup overlay for blueprint selection
+        private WildcardOverlay _wildcardOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -195,6 +198,9 @@ namespace ATSAccessibility
             // Initialize recipes overlay for Recipes popup
             _recipesOverlay = new RecipesOverlay();
 
+            // Initialize wildcard overlay for blueprint selection popup
+            _wildcardOverlay = new WildcardOverlay();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
@@ -212,6 +218,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_moveModeController);  // Building relocation (selective passthrough)
             _keyboardManager.RegisterHandler(_encyclopediaNavigator); // Wiki popup
             _keyboardManager.RegisterHandler(_recipesOverlay);      // Recipes popup overlay
+            _keyboardManager.RegisterHandler(_wildcardOverlay);    // Wildcard popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_tutorialHandler);     // Tutorial tooltips (passthrough)
@@ -668,6 +675,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check wildcard popup - it has its own overlay
+            if (WildcardReflection.IsWildcardPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Wildcard popup detected, using Wildcard overlay");
+                _wildcardOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Standard popup handling
             _uiNavigator?.OnPopupShown(popup);
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
@@ -692,6 +708,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Recipes popup closed");
                 _recipesOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check wildcard popup
+            else if (WildcardReflection.IsWildcardPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Wildcard popup closed");
+                _wildcardOverlay?.Close();
                 // Fall through to handle context change
             }
             else
