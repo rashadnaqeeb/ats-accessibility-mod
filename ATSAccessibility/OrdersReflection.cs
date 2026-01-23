@@ -131,6 +131,9 @@ namespace ATSAccessibility
         private static PropertyInfo _olDescriptionProperty = null;
         private static MethodInfo _olGetAmountTextMethod = null;  // GetAmountText() no args
         private static MethodInfo _olIsCompletedMethod = null;
+        private static PropertyInfo _olHasStoredAmountProperty = null;
+        private static PropertyInfo _olGetStoredAmountProperty = null;
+        private static MethodInfo _olGetWarningTextMethod = null;
 
         // EffectModel properties
         private static PropertyInfo _emDisplayNameProperty = null;
@@ -333,6 +336,9 @@ namespace ATSAccessibility
 
                 _olDisplayNameProperty = type.GetProperty("DisplayName", GameReflection.PublicInstance);
                 _olDescriptionProperty = type.GetProperty("Description", GameReflection.PublicInstance);
+                _olHasStoredAmountProperty = type.GetProperty("HasStoredAmount", GameReflection.PublicInstance);
+                _olGetStoredAmountProperty = type.GetProperty("GetStoredAmount", GameReflection.PublicInstance);
+                _olGetWarningTextMethod = type.GetMethod("GetWarningText", Type.EmptyTypes);
 
                 // GetAmountText() - no parameters
                 _olGetAmountTextMethod = type.GetMethod("GetAmountText", Type.EmptyTypes);
@@ -713,6 +719,89 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogWarning($"[ATSAccessibility] GetPickObjectiveTexts failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get stored amounts for pick objectives (e.g. "Planks: 5 in storage").
+        /// Only returns entries for objectives that have stored amounts.
+        /// </summary>
+        public static List<string> GetPickStoredAmounts(object orderModel, int setIndex)
+        {
+            EnsureCached();
+            var result = new List<string>();
+            if (orderModel == null || _olHasStoredAmountProperty == null || _olGetStoredAmountProperty == null)
+                return result;
+
+            try
+            {
+                Array logics = null;
+                if (_omGetLogicsIntMethod != null)
+                {
+                    _args1[0] = setIndex;
+                    logics = _omGetLogicsIntMethod.Invoke(orderModel, _args1) as Array;
+                }
+                if (logics == null) return result;
+
+                foreach (var logic in logics)
+                {
+                    if (logic == null) continue;
+
+                    bool hasStored = (bool)_olHasStoredAmountProperty.GetValue(logic);
+                    if (!hasStored) continue;
+
+                    int stored = (int)_olGetStoredAmountProperty.GetValue(logic);
+                    string displayName = _olDisplayNameProperty?.GetValue(logic) as string;
+                    if (string.IsNullOrEmpty(displayName)) continue;
+
+                    result.Add($"{displayName}: {stored}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetPickStoredAmounts failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get warning texts for pick objectives (e.g. missing building warnings).
+        /// Only returns non-null warnings.
+        /// </summary>
+        public static List<string> GetPickWarningTexts(object orderModel, int setIndex)
+        {
+            EnsureCached();
+            var result = new List<string>();
+            if (orderModel == null || _olGetWarningTextMethod == null) return result;
+
+            try
+            {
+                Array logics = null;
+                if (_omGetLogicsIntMethod != null)
+                {
+                    _args1[0] = setIndex;
+                    logics = _omGetLogicsIntMethod.Invoke(orderModel, _args1) as Array;
+                }
+                if (logics == null) return result;
+
+                foreach (var logic in logics)
+                {
+                    if (logic == null) continue;
+
+                    string warning = _olGetWarningTextMethod.Invoke(logic, null) as string;
+                    if (string.IsNullOrEmpty(warning)) continue;
+
+                    string stripped = StripRichText(warning).Trim();
+                    if (!string.IsNullOrEmpty(stripped))
+                        result.Add(stripped);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetPickWarningTexts failed: {ex.Message}");
             }
 
             return result;

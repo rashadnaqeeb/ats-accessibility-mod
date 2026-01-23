@@ -50,6 +50,10 @@ namespace ATSAccessibility
                     ActivateCurrent();
                     return true;
 
+                case KeyCode.S:
+                    AnnounceStoredAmounts();
+                    return true;
+
                 case KeyCode.Escape:
                     // Pass to game to close popup (OnPopupHidden will close our overlay)
                     return false;
@@ -188,6 +192,11 @@ namespace ATSAccessibility
             if (!string.IsNullOrEmpty(rewardText))
                 parts.Add(rewardText);
 
+            // Add warnings (e.g. "Missing building")
+            var warnings = OrdersReflection.GetPickWarningTexts(orderModel, setIndex);
+            if (warnings.Count > 0)
+                parts.Add("Warning: " + string.Join(", ", warnings));
+
             return string.Join(". ", parts);
         }
 
@@ -245,6 +254,29 @@ namespace ATSAccessibility
                 Speech.Say("Cannot select");
                 SoundManager.PlayFailed();
             }
+        }
+
+        private void AnnounceStoredAmounts()
+        {
+            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
+
+            var item = _items[_currentIndex];
+            if (item.Failed)
+            {
+                Speech.Say("Expired");
+                return;
+            }
+
+            int setIndex = OrdersReflection.GetPickSetIndex(item.PickState);
+            var amounts = OrdersReflection.GetPickStoredAmounts(item.OrderModel, setIndex);
+
+            if (amounts.Count == 0)
+            {
+                Speech.Say("No storage info");
+                return;
+            }
+
+            Speech.Say(string.Join(", ", amounts));
         }
 
         // ========================================
