@@ -142,6 +142,22 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get all races present in the settlement with their free worker counts.
+        /// Unlike GetRacesWithFreeWorkers, this includes races with 0 free workers.
+        /// </summary>
+        private static List<(string raceName, int freeCount)> GetPresentRacesWithFreeCounts()
+        {
+            var presentRaces = StatsReader.GetPresentRaces();
+            var result = new List<(string, int)>();
+            foreach (var race in presentRaces)
+            {
+                int freeCount = BuildingReflection.GetFreeWorkerCount(race);
+                result.Add((race, freeCount));
+            }
+            return result;
+        }
+
+        /// <summary>
         /// Refresh the race list if the cache has expired.
         /// </summary>
         private static void RefreshRacesIfNeeded()
@@ -149,7 +165,7 @@ namespace ATSAccessibility
             float now = Time.realtimeSinceStartup;
             if (now - _lastRaceRefreshTime > RACE_CACHE_DURATION)
             {
-                _cachedRaces = BuildingReflection.GetRacesWithFreeWorkers(includeEmpty: true);
+                _cachedRaces = GetPresentRacesWithFreeCounts();
                 _lastRaceRefreshTime = now;
 
                 // Clamp selected index if race count changed
