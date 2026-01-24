@@ -133,6 +133,7 @@ namespace ATSAccessibility
 
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
+        private CapitalUpgradeOverlay _capitalUpgradeOverlay;
         private IDisposable _capitalEnabledSubscription;
         private IDisposable _capitalClosedSubscription;
         private bool _subscribedToCapital = false;
@@ -252,6 +253,7 @@ namespace ATSAccessibility
 
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
+            _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
 
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
@@ -282,6 +284,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
+            _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
             _keyboardManager.RegisterHandler(_capitalOverlay);     // Capital screen overlay
             _keyboardManager.RegisterHandler(_tutorialHandler);     // Tutorial tooltips (passthrough)
             _keyboardManager.RegisterHandler(settlementHandler);    // Settlement map navigation (fallback)
@@ -872,6 +875,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check capital upgrade popup - it has its own overlay
+            if (CapitalUpgradeReflection.IsCapitalUpgradePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Capital upgrade popup detected, using CapitalUpgrade overlay");
+                _capitalUpgradeOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Check consumption popup - it has its own overlay
             if (ConsumptionReflection.IsConsumptionPopup(popup))
             {
@@ -982,6 +994,13 @@ namespace ATSAccessibility
                 _orderPickOverlay?.Close();
                 // Refresh orders overlay since picked order is now active
                 _ordersOverlay?.RefreshAfterPick();
+                // Fall through to handle context change
+            }
+            // Check capital upgrade popup
+            else if (CapitalUpgradeReflection.IsCapitalUpgradePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Capital upgrade popup closed");
+                _capitalUpgradeOverlay?.Close();
                 // Fall through to handle context change
             }
             // Check consumption popup

@@ -43,6 +43,9 @@ namespace ATSAccessibility
         // Season rewards sounds
         private static PropertyInfo _seasonRewardsPopupSlotProperty = null;
 
+        // Capital upgrade sounds
+        private static PropertyInfo _capitalUpgradeBoughtProperty = null;
+
         private static void EnsureCached()
         {
             if (_cached) return;
@@ -97,6 +100,9 @@ namespace ATSAccessibility
 
                     // Season rewards sounds
                     _seasonRewardsPopupSlotProperty = soundReferencesType.GetProperty("SeasonRewardsPopupSlot", GameReflection.PublicInstance);
+
+                    // Capital upgrade sounds
+                    _capitalUpgradeBoughtProperty = soundReferencesType.GetProperty("CapitalUpgradeBought", GameReflection.PublicInstance);
                 }
             }
             catch (Exception ex)
@@ -362,6 +368,15 @@ namespace ATSAccessibility
         {
             EnsureCached();
             PlaySound(_seasonRewardsPopupSlotProperty);
+        }
+
+        /// <summary>
+        /// Play the capital upgrade purchased sound.
+        /// </summary>
+        public static void PlayCapitalUpgradeBought()
+        {
+            EnsureCached();
+            PlaySound(_capitalUpgradeBoughtProperty);
         }
 
         /// <summary>
