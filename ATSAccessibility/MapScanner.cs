@@ -68,6 +68,7 @@ namespace ATSAccessibility
         // Building subcategory state
         private int _currentSubcategoryIndex = 0;
         private Dictionary<int, List<ItemGroup>> _cachedBuildingsBySubcategory = null;
+        private Dictionary<int, List<ItemGroup>> _cachedResourcesBySubcategory = null;
 
         private readonly MapNavigator _mapNavigator;
 
@@ -105,6 +106,13 @@ namespace ATSAccessibility
             { "Relic", 8 },
             // Roads (9)
             { "Road", 9 }
+        };
+
+        private static readonly string[] ResourceSubcategoryNames = new string[]
+        {
+            "Natural Resources",
+            "Extracted Resources",
+            "Collected Resources"
         };
 
         // Reflection cache for scanning
@@ -185,6 +193,7 @@ namespace ATSAccessibility
             // Reset subcategory state
             _currentSubcategoryIndex = 0;
             _cachedBuildingsBySubcategory = null;
+            _cachedResourcesBySubcategory = null;
             _currentGroupIndex = 0;
             _currentItemIndex = 0;
 
@@ -233,9 +242,43 @@ namespace ATSAccessibility
                     Speech.Say($"{categoryName}, {SubcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
                 }
             }
+            else if (_currentCategory == ScanCategory.Resources)
+            {
+                // Resources use subcategory system
+                EnsureReflectionCache();
+                BuildUnrevealedGladeTilesMap();
+                ScanResourcesWithSubcategories();
+                _unrevealedGladeTiles = null;
+
+                // Find first non-empty subcategory
+                bool foundSubcategory = false;
+                for (int i = 0; i < ResourceSubcategoryNames.Length; i++)
+                {
+                    if (_cachedResourcesBySubcategory.TryGetValue(i, out var groups) && groups.Count > 0)
+                    {
+                        _currentSubcategoryIndex = i;
+                        _cachedGroups = groups;
+                        foundSubcategory = true;
+                        break;
+                    }
+                }
+
+                if (!foundSubcategory || _cachedGroups == null || _cachedGroups.Count == 0)
+                {
+                    Speech.Say($"{categoryName}, none");
+                }
+                else
+                {
+                    var currentGroup = _cachedGroups[_currentGroupIndex];
+                    int itemNum = _currentItemIndex + 1;
+                    int itemTotal = currentGroup.Items.Count;
+                    // Intentional: "X of Y" position context is useful for scanner navigation
+                    Speech.Say($"{categoryName}, {ResourceSubcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+                }
+            }
             else
             {
-                // For Glades and Resources, use standard scanning
+                // For Glades, use standard scanning
                 ScanCurrentCategory();
 
                 if (_cachedGroups == null || _cachedGroups.Count == 0 || _cachedGroups[0].Items.Count == 0)
@@ -284,9 +327,31 @@ namespace ATSAccessibility
                 _currentGroupIndex = NavigationUtils.WrapIndex(_currentGroupIndex, direction, _cachedGroups.Count);
                 AnnounceCurrentItem();
             }
+            else if (_currentCategory == ScanCategory.Resources)
+            {
+                // Rescan if needed
+                if (_cachedResourcesBySubcategory == null)
+                {
+                    EnsureReflectionCache();
+                    BuildUnrevealedGladeTilesMap();
+                    ScanResourcesWithSubcategories();
+                    _unrevealedGladeTiles = null;
+                }
+
+                // Get groups from current subcategory
+                if (!_cachedResourcesBySubcategory.TryGetValue(_currentSubcategoryIndex, out var subcategoryGroups) || subcategoryGroups.Count == 0)
+                {
+                    AnnounceEmpty();
+                    return;
+                }
+
+                _cachedGroups = subcategoryGroups;
+                _currentGroupIndex = NavigationUtils.WrapIndex(_currentGroupIndex, direction, _cachedGroups.Count);
+                AnnounceCurrentItem();
+            }
             else
             {
-                // For Glades and Resources, use standard scanning
+                // For Glades, use standard scanning
                 ScanCurrentCategory();
 
                 if (_cachedGroups == null || _cachedGroups.Count == 0)
@@ -994,7 +1059,7 @@ namespace ATSAccessibility
 
             try
             {
-                _oresProperty = oreService.GetType().GetProperty("Ores",
+                _oresProperty = oreService.GetType().GetProperty("Ore",
                     BindingFlags.Public | BindingFlags.Instance);
             }
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureOresProperty failed: {ex.Message}"); }
@@ -1438,38 +1503,305 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Scan all resources and organize them by subcategory.
+        /// Subcategory 0 (Natural Resources): NaturalResources + Fertile Soil
+        /// Subcategory 1 (Extracted Resources): Ores + Springs
+        /// Subcategory 2 (Collected Resources): Deposits + Lakes
+        /// </summary>
+        private void ScanResourcesWithSubcategories()
+        {
+            _cachedResourcesBySubcategory = new Dictionary<int, List<ItemGroup>>();
+            int cursorX = _mapNavigator.CursorX;
+            int cursorY = _mapNavigator.CursorY;
+
+            for (int i = 0; i < ResourceSubcategoryNames.Length; i++)
+            {
+                _cachedResourcesBySubcategory[i] = new List<ItemGroup>();
+            }
+
+            // One group dictionary per subcategory
+            var naturalGroups = new Dictionary<string, ItemGroup>();
+            var extractedGroups = new Dictionary<string, ItemGroup>();
+            var collectedGroups = new Dictionary<string, ItemGroup>();
+
+            try
+            {
+                // === Subcategory 0: Natural Resources ===
+
+                // NaturalResources service
+                var resourcesService = GameReflection.GetResourcesService();
+                if (resourcesService != null)
+                {
+                    EnsureResourcesProperty(resourcesService);
+                    if (_naturalResourcesProperty != null)
+                    {
+                        var resources = _naturalResourcesProperty.GetValue(resourcesService) as IDictionary;
+                        if (resources != null)
+                        {
+                            foreach (DictionaryEntry entry in resources)
+                            {
+                                var pos = (Vector2Int)entry.Key;
+                                var resource = entry.Value;
+
+                                if (IsInsideUnrevealedGlade(pos)) continue;
+
+                                string displayName = GetObjectDisplayName(resource);
+                                if (string.IsNullOrEmpty(displayName)) continue;
+
+                                bool isMarked = GameReflection.IsNaturalResourceMarked(resource);
+                                string groupName = isMarked ? $"Marked {displayName}" : displayName;
+
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
+
+                                if (!naturalGroups.TryGetValue(groupName, out var group))
+                                {
+                                    group = new ItemGroup(groupName);
+                                    naturalGroups[groupName] = group;
+                                }
+
+                                group.Items.Add(new ScannedItem(pos, distance));
+                            }
+                        }
+                    }
+                }
+
+                // Fertile Soil
+                int mapWidth = GameReflection.GetMapWidth();
+                int mapHeight = GameReflection.GetMapHeight();
+                var fertileSoilGroup = new ItemGroup("Fertile Soil");
+
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    for (int y = 0; y < mapHeight; y++)
+                    {
+                        var pos = new Vector2Int(x, y);
+                        if (IsInsideUnrevealedGlade(pos)) continue;
+
+                        var field = GameReflection.GetField(x, y);
+                        if (field == null) continue;
+
+                        string typeName = GetFieldTypeName(field);
+                        if (typeName == "Grass")
+                        {
+                            int distance = CalculateDistance(pos, cursorX, cursorY);
+                            fertileSoilGroup.Items.Add(new ScannedItem(pos, distance));
+                        }
+                    }
+                }
+
+                if (fertileSoilGroup.Items.Count > 0)
+                {
+                    fertileSoilGroup.Items.Sort(CompareItemsByDistance);
+                    naturalGroups["Fertile Soil"] = fertileSoilGroup;
+                }
+
+                // === Subcategory 1: Extracted Resources ===
+
+                // Ores service
+                var oreService = GameReflection.GetOreService();
+                if (oreService != null)
+                {
+                    EnsureOresProperty(oreService);
+                    if (_oresProperty != null)
+                    {
+                        var ores = _oresProperty.GetValue(oreService) as IDictionary;
+                        if (ores != null)
+                        {
+                            foreach (DictionaryEntry entry in ores)
+                            {
+                                var pos = (Vector2Int)entry.Key;
+                                var ore = entry.Value;
+
+                                if (IsInsideUnrevealedGlade(pos)) continue;
+
+                                string displayName = GetObjectDisplayName(ore);
+                                if (string.IsNullOrEmpty(displayName)) continue;
+
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
+
+                                if (!extractedGroups.TryGetValue(displayName, out var oreGroup))
+                                {
+                                    oreGroup = new ItemGroup(displayName);
+                                    extractedGroups[displayName] = oreGroup;
+                                }
+
+                                oreGroup.Items.Add(new ScannedItem(pos, distance));
+                            }
+                        }
+                    }
+                }
+
+                // Springs service
+                var springsService = GameReflection.GetSpringsService();
+                if (springsService != null)
+                {
+                    EnsureSpringsProperty(springsService);
+                    if (_springsProperty != null)
+                    {
+                        var springs = _springsProperty.GetValue(springsService) as IDictionary;
+                        if (springs != null)
+                        {
+                            foreach (DictionaryEntry entry in springs)
+                            {
+                                var pos = (Vector2Int)entry.Key;
+                                var spring = entry.Value;
+
+                                if (IsInsideUnrevealedGlade(pos)) continue;
+
+                                string displayName = GetObjectDisplayName(spring);
+                                if (string.IsNullOrEmpty(displayName)) continue;
+
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
+
+                                if (!extractedGroups.TryGetValue(displayName, out var springGroup))
+                                {
+                                    springGroup = new ItemGroup(displayName);
+                                    extractedGroups[displayName] = springGroup;
+                                }
+
+                                springGroup.Items.Add(new ScannedItem(pos, distance));
+                            }
+                        }
+                    }
+                }
+
+                // === Subcategory 2: Collected Resources ===
+
+                // Deposits service
+                var depositsService = GameReflection.GetDepositsService();
+                if (depositsService != null)
+                {
+                    EnsureDepositsProperty(depositsService);
+                    if (_depositsProperty != null)
+                    {
+                        var deposits = _depositsProperty.GetValue(depositsService) as IDictionary;
+                        if (deposits != null)
+                        {
+                            foreach (DictionaryEntry entry in deposits)
+                            {
+                                var pos = (Vector2Int)entry.Key;
+                                var deposit = entry.Value;
+
+                                if (IsInsideUnrevealedGlade(pos)) continue;
+
+                                string displayName = GetObjectDisplayName(deposit);
+                                if (string.IsNullOrEmpty(displayName)) continue;
+
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
+
+                                if (!collectedGroups.TryGetValue(displayName, out var depositGroup))
+                                {
+                                    depositGroup = new ItemGroup(displayName);
+                                    collectedGroups[displayName] = depositGroup;
+                                }
+
+                                depositGroup.Items.Add(new ScannedItem(pos, distance));
+                            }
+                        }
+                    }
+                }
+
+                // Lakes service
+                var lakesService = GameReflection.GetLakesService();
+                if (lakesService != null)
+                {
+                    EnsureLakesProperty(lakesService);
+                    if (_lakesProperty != null)
+                    {
+                        var lakes = _lakesProperty.GetValue(lakesService) as IDictionary;
+                        if (lakes != null)
+                        {
+                            foreach (DictionaryEntry entry in lakes)
+                            {
+                                var pos = (Vector2Int)entry.Key;
+                                var lake = entry.Value;
+
+                                if (IsInsideUnrevealedGlade(pos)) continue;
+
+                                string displayName = GetObjectDisplayName(lake);
+                                if (string.IsNullOrEmpty(displayName)) continue;
+
+                                int distance = CalculateDistance(pos, cursorX, cursorY);
+
+                                if (!collectedGroups.TryGetValue(displayName, out var lakeGroup))
+                                {
+                                    lakeGroup = new ItemGroup(displayName);
+                                    collectedGroups[displayName] = lakeGroup;
+                                }
+
+                                lakeGroup.Items.Add(new ScannedItem(pos, distance));
+                            }
+                        }
+                    }
+                }
+
+                // Finalize and sort each subcategory
+                var naturalList = FinalizeGroups(naturalGroups);
+                naturalList.Sort(CompareGroupsByDistance);
+                _cachedResourcesBySubcategory[0] = naturalList;
+
+                var extractedList = FinalizeGroups(extractedGroups);
+                extractedList.Sort(CompareGroupsByDistance);
+                _cachedResourcesBySubcategory[1] = extractedList;
+
+                var collectedList = FinalizeGroups(collectedGroups);
+                collectedList.Sort(CompareGroupsByDistance);
+                _cachedResourcesBySubcategory[2] = collectedList;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] ScanResourcesWithSubcategories failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Navigate to next/previous subcategory (Shift+PageUp/Down).
-        /// Only applies to Buildings category. Skips empty subcategories.
+        /// Applies to Buildings and Resources categories. Skips empty subcategories.
         /// </summary>
         public void ChangeSubcategory(int direction)
         {
-            // Only works for Buildings category
-            if (_currentCategory != ScanCategory.Buildings)
+            if (_currentCategory == ScanCategory.Buildings)
             {
-                Speech.Say("Subcategories only available in Buildings");
-                return;
-            }
+                // Rescan if needed
+                if (_cachedBuildingsBySubcategory == null)
+                {
+                    ScanBuildingsWithSubcategories();
+                }
 
-            // Rescan if needed
-            if (_cachedBuildingsBySubcategory == null)
+                ChangeSubcategoryInternal(direction, SubcategoryNames, _cachedBuildingsBySubcategory, "No buildings in any subcategory");
+            }
+            else if (_currentCategory == ScanCategory.Resources)
             {
-                ScanBuildingsWithSubcategories();
-            }
+                // Rescan if needed
+                if (_cachedResourcesBySubcategory == null)
+                {
+                    EnsureReflectionCache();
+                    BuildUnrevealedGladeTilesMap();
+                    ScanResourcesWithSubcategories();
+                    _unrevealedGladeTiles = null;
+                }
 
-            // Find next non-empty subcategory
+                ChangeSubcategoryInternal(direction, ResourceSubcategoryNames, _cachedResourcesBySubcategory, "No resources in any subcategory");
+            }
+            else
+            {
+                Speech.Say("No subcategories");
+            }
+        }
+
+        private void ChangeSubcategoryInternal(int direction, string[] subcategoryNames, Dictionary<int, List<ItemGroup>> cache, string emptyMessage)
+        {
             int startIndex = _currentSubcategoryIndex;
             int attempts = 0;
-            int maxAttempts = SubcategoryNames.Length;
+            int maxAttempts = subcategoryNames.Length;
 
             do
             {
-                _currentSubcategoryIndex = NavigationUtils.WrapIndex(_currentSubcategoryIndex, direction, SubcategoryNames.Length);
+                _currentSubcategoryIndex = NavigationUtils.WrapIndex(_currentSubcategoryIndex, direction, subcategoryNames.Length);
                 attempts++;
 
-                // Check if current subcategory has items
-                if (_cachedBuildingsBySubcategory.TryGetValue(_currentSubcategoryIndex, out var groups) && groups.Count > 0)
+                if (cache.TryGetValue(_currentSubcategoryIndex, out var groups) && groups.Count > 0)
                 {
-                    // Found a non-empty subcategory
                     _cachedGroups = groups;
                     _currentGroupIndex = 0;
                     _currentItemIndex = 0;
@@ -1478,15 +1810,14 @@ namespace ATSAccessibility
                     int itemNum = _currentItemIndex + 1;
                     int itemTotal = currentGroup.Items.Count;
                     // Intentional: "X of Y" position context is useful for scanner navigation
-                    Speech.Say($"{SubcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+                    Speech.Say($"{subcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
                     return;
                 }
             }
             while (attempts < maxAttempts && _currentSubcategoryIndex != startIndex);
 
-            // All subcategories are empty
             _currentSubcategoryIndex = startIndex;
-            Speech.Say("No buildings in any subcategory");
+            Speech.Say(emptyMessage);
         }
     }
 }
