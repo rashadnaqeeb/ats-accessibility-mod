@@ -134,6 +134,9 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.RightArrow:
+                    DrillIn();
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     NavigateRight();
@@ -201,6 +204,41 @@ namespace ATSAccessibility
             else
             {
                 NavigateCategoryInternal(1);
+            }
+        }
+
+        private void DrillIn()
+        {
+            if (_focusOnSubDetails)
+            {
+                return;
+            }
+
+            if (_focusOnDetails)
+            {
+                var category = _categories[_currentCategoryIndex];
+                if (_currentDetailIndex < category.Details.Count)
+                {
+                    var detail = category.Details[_currentDetailIndex];
+
+                    // Only drill into sub-details, never trigger actions
+                    if (detail.SubDetails.Count > 0)
+                    {
+                        _focusOnSubDetails = true;
+                        _currentSubDetailIndex = 0;
+                        AnnounceSubDetail();
+                    }
+                }
+                return;
+            }
+
+            // Enter details from category level
+            var cat = _categories[_currentCategoryIndex];
+            if (cat.Details.Count > 0)
+            {
+                _focusOnDetails = true;
+                _currentDetailIndex = 0;
+                AnnounceDetail();
             }
         }
 

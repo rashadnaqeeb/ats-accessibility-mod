@@ -84,8 +84,11 @@ namespace ATSAccessibility
 
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
-                case KeyCode.RightArrow:
                     EnterLevel();
+                    return true;
+
+                case KeyCode.RightArrow:
+                    DrillIn();
                     return true;
 
                 case KeyCode.LeftArrow:
@@ -191,6 +194,15 @@ namespace ATSAccessibility
         protected virtual void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
         {
             // Default: do nothing
+        }
+
+        /// <summary>
+        /// Perform action at the section level (Enter/Right when section has no items).
+        /// Returns true if action was performed.
+        /// </summary>
+        protected virtual bool PerformSectionAction(int sectionIndex)
+        {
+            return false;  // Default: no action
         }
 
         /// <summary>
@@ -404,7 +416,8 @@ namespace ATSAccessibility
                     int itemCount = GetItemCount(_currentSectionIndex);
                     if (itemCount == 0)
                     {
-                        Speech.Say("No items in this section");
+                        if (!PerformSectionAction(_currentSectionIndex))
+                            Speech.Say("No items in this section");
                         return;
                     }
                     _navigationLevel = 1;
@@ -445,6 +458,42 @@ namespace ATSAccessibility
                 case 3:
                     // At sub-sub-item level, perform action
                     PerformSubSubItemAction(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex, _currentSubSubItemIndex);
+                    break;
+            }
+        }
+
+        private void DrillIn()
+        {
+            switch (_navigationLevel)
+            {
+                case 0:
+                    int itemCount = GetItemCount(_currentSectionIndex);
+                    if (itemCount > 0)
+                    {
+                        _navigationLevel = 1;
+                        _currentItemIndex = 0;
+                        AnnounceItem(_currentSectionIndex, _currentItemIndex);
+                    }
+                    break;
+
+                case 1:
+                    int subItemCount = GetSubItemCount(_currentSectionIndex, _currentItemIndex);
+                    if (subItemCount > 0)
+                    {
+                        _navigationLevel = 2;
+                        _currentSubItemIndex = 0;
+                        AnnounceSubItem(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex);
+                    }
+                    break;
+
+                case 2:
+                    int subSubItemCount = GetSubSubItemCount(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex);
+                    if (subSubItemCount > 0)
+                    {
+                        _navigationLevel = 3;
+                        _currentSubSubItemIndex = 0;
+                        AnnounceSubSubItem(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex, _currentSubSubItemIndex);
+                    }
                     break;
             }
         }

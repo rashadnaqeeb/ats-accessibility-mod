@@ -266,6 +266,58 @@ namespace ATSAccessibility
         private static MethodInfo _relicGetRequriedGoodsMethod = null;  // Relic.GetRequriedGoods()
         private static MethodInfo _relicGetCurrentDecisionPickedGoodForMethod = null;  // Relic.GetCurrentDecisionPickedGoodFor()
         private static PropertyInfo _relicDifficultyProperty = null;  // Relic.Difficulty
+
+        // Relic decision/action methods
+        private static MethodInfo _relicStartInvestigationMethod = null;  // Relic.StartInvestigation()
+        private static MethodInfo _relicCancelMethod = null;  // Relic.Cancel()
+        private static MethodInfo _relicCanCancelMethod = null;  // Relic.CanCancel()
+        private static MethodInfo _relicHasAnyWorkplaceMethod = null;  // Relic.HasAnyWorkplace()
+        private static MethodInfo _relicHasOrderMethod = null;  // Relic.HasOrder()
+        private static MethodInfo _relicIsOrderCompletedMethod = null;  // Relic.IsOrderCompleted()
+        private static MethodInfo _relicGetWorkingEffectsMethod = null;  // Relic.GetWorkingEffects()
+        private static MethodInfo _relicGetSafeDecisionIndexMethod = null;  // Relic.GetSafeDecisionIndex()
+
+        // RelicState decision/goods fields
+        private static FieldInfo _relicStateDecisionIndexField = null;  // RelicState.decisionIndex (int)
+        private static FieldInfo _relicStatePickedGoodsField = null;  // RelicState.pickedGoods (int[][])
+        private static FieldInfo _relicStateRewardsSetsField = null;  // RelicState.rewardsSets (List<string>[])
+        private static FieldInfo _relicStateRewardsTiersField = null;  // RelicState.rewardsTiers (List<string>[])
+        private static FieldInfo _relicStateCurrentDynamicRewardField = null;  // RelicState.currentDynamicReward (int)
+
+        // RelicModel fields
+        private static FieldInfo _relicModelDifficultiesField = null;  // RelicModel.difficulties (RelicDifficulty[])
+        private static FieldInfo _relicModelDecisionsRewardsField = null;  // RelicModel.decisionsRewards (EffectsTable[])
+        private static FieldInfo _relicModelHasDynamicRewardsField = null;  // RelicModel.hasDynamicRewards (bool)
+        private static FieldInfo _relicModelActiveEffectsField = null;  // RelicModel.activeEffects (EffectModel[])
+        private static FieldInfo _relicModelAreEffectsPermanentField = null;  // RelicModel.areEffectsPermanent (bool)
+        private static FieldInfo _relicModelForceRequirementsField = null;  // RelicModel.forceRequirements (bool)
+        private static FieldInfo _relicModelWorkplacesField = null;  // RelicModel.workplaces (WorkplaceModel[])
+        private static PropertyInfo _relicModelHasDecisionProperty = null;  // RelicModel.HasDecision (bool)
+
+        // RelicDifficulty
+        private static FieldInfo _relicDifficultyDecisionsField = null;  // RelicDifficulty.decisions (RelicDecision[])
+
+        // RelicDecision fields
+        private static FieldInfo _relicDecisionLabelField = null;  // RelicDecision.label (LabelModel)
+        private static FieldInfo _relicDecisionWorkingTimeField = null;  // RelicDecision.workingTime (float)
+        private static FieldInfo _relicDecisionWorkingEffectsField = null;  // RelicDecision.workingEffects (EffectModel[])
+        private static FieldInfo _relicDecisionReqGoodsField = null;  // RelicDecision.requriedGoods (GoodsSetTable)
+        private static FieldInfo _relicDecisionDecisionTagField = null;  // RelicDecision.decisionTag (DecisionTag)
+
+        // GoodsSetTable (GoodsSet.goods is cached in upgrade types section)
+        private static FieldInfo _goodsSetTableSetsField = null;  // GoodsSetTable.sets (GoodsSet[])
+
+        // LabelModel / DecisionTag
+        private static FieldInfo _labelModelDisplayNameField = null;  // LabelModel.displayName (LocaText)
+        private static FieldInfo _decisionTagDisplayNameField = null;  // DecisionTag.displayName (LocaText)
+
+        // EffectModel Description and IsPositive
+        private static PropertyInfo _effectModelDescriptionProperty = null;  // EffectModel.Description (string)
+        private static PropertyInfo _effectModelIsPositiveProperty = null;  // EffectModel.IsPositive (bool)
+
+        // LimitedGoodsCollection.GetFullAmount for delivery tracking
+        private static MethodInfo _goodsCollectionGetAmountMethod = null;  // GoodsCollection.GetAmount(string)
+
         private static bool _relicTypesCached = false;
 
         // Port-specific
@@ -1609,6 +1661,16 @@ namespace ATSAccessibility
                     _relicGetRequriedGoodsMethod = _relicType.GetMethod("GetRequriedGoods", GameReflection.PublicInstance);
                     _relicGetCurrentDecisionPickedGoodForMethod = _relicType.GetMethod("GetCurrentDecisionPickedGoodFor", GameReflection.PublicInstance);
                     _relicDifficultyProperty = _relicType.GetProperty("Difficulty", GameReflection.PublicInstance);
+
+                    // Action methods
+                    _relicStartInvestigationMethod = _relicType.GetMethod("StartInvestigation", GameReflection.PublicInstance);
+                    _relicCancelMethod = _relicType.GetMethod("Cancel", GameReflection.PublicInstance);
+                    _relicCanCancelMethod = _relicType.GetMethod("CanCancel", GameReflection.PublicInstance);
+                    _relicHasAnyWorkplaceMethod = _relicType.GetMethod("HasAnyWorkplace", GameReflection.PublicInstance);
+                    _relicHasOrderMethod = _relicType.GetMethod("HasOrder", GameReflection.PublicInstance);
+                    _relicIsOrderCompletedMethod = _relicType.GetMethod("IsOrderCompleted", GameReflection.PublicInstance);
+                    _relicGetWorkingEffectsMethod = _relicType.GetMethod("GetWorkingEffects", GameReflection.PublicInstance);
+                    _relicGetSafeDecisionIndexMethod = _relicType.GetMethod("GetSafeDecisionIndex", GameReflection.PublicInstance);
                 }
 
                 var relicStateType = assembly.GetType("Eremite.Buildings.RelicState");
@@ -1620,6 +1682,86 @@ namespace ATSAccessibility
                     _relicStateRelicGoodsField = relicStateType.GetField("relicGoods", GameReflection.PublicInstance);
                     _relicStateRewardsField = relicStateType.GetField("rewards", GameReflection.PublicInstance);
                     _relicStateWorkersField = relicStateType.GetField("workers", GameReflection.PublicInstance);
+                    _relicStateDecisionIndexField = relicStateType.GetField("decisionIndex", GameReflection.PublicInstance);
+                    _relicStatePickedGoodsField = relicStateType.GetField("pickedGoods", GameReflection.PublicInstance);
+                    _relicStateRewardsSetsField = relicStateType.GetField("rewardsSets", GameReflection.PublicInstance);
+                    _relicStateRewardsTiersField = relicStateType.GetField("rewardsTiers", GameReflection.PublicInstance);
+                    _relicStateCurrentDynamicRewardField = relicStateType.GetField("currentDynamicReward", GameReflection.PublicInstance);
+                }
+
+                // RelicModel fields
+                var relicModelType = assembly.GetType("Eremite.Buildings.RelicModel");
+                if (relicModelType != null)
+                {
+                    _relicModelDifficultiesField = relicModelType.GetField("difficulties", GameReflection.PublicInstance);
+                    _relicModelDecisionsRewardsField = relicModelType.GetField("decisionsRewards", GameReflection.PublicInstance);
+                    _relicModelHasDynamicRewardsField = relicModelType.GetField("hasDynamicRewards", GameReflection.PublicInstance);
+                    _relicModelActiveEffectsField = relicModelType.GetField("activeEffects", GameReflection.PublicInstance);
+                    _relicModelAreEffectsPermanentField = relicModelType.GetField("areEffectsPermanent", GameReflection.PublicInstance);
+                    _relicModelForceRequirementsField = relicModelType.GetField("forceRequirements", GameReflection.PublicInstance);
+                    _relicModelWorkplacesField = relicModelType.GetField("workplaces", GameReflection.PublicInstance);
+                    _relicModelHasDecisionProperty = relicModelType.GetProperty("HasDecision", GameReflection.PublicInstance);
+                }
+
+                // RelicDifficulty fields
+                var relicDifficultyType = assembly.GetType("Eremite.Buildings.RelicDifficulty");
+                if (relicDifficultyType != null)
+                {
+                    _relicDifficultyDecisionsField = relicDifficultyType.GetField("decisions", GameReflection.PublicInstance);
+                }
+
+                // RelicDecision fields
+                var relicDecisionType = assembly.GetType("Eremite.Buildings.RelicDecision");
+                if (relicDecisionType != null)
+                {
+                    _relicDecisionLabelField = relicDecisionType.GetField("label", GameReflection.PublicInstance);
+                    _relicDecisionWorkingTimeField = relicDecisionType.GetField("workingTime", GameReflection.PublicInstance);
+                    _relicDecisionWorkingEffectsField = relicDecisionType.GetField("workingEffects", GameReflection.PublicInstance);
+                    _relicDecisionReqGoodsField = relicDecisionType.GetField("requriedGoods", GameReflection.PublicInstance);
+                    _relicDecisionDecisionTagField = relicDecisionType.GetField("decisionTag", GameReflection.PublicInstance);
+                }
+
+                // GoodsSetTable.sets
+                var goodsSetTableType = assembly.GetType("Eremite.Model.GoodsSetTable");
+                if (goodsSetTableType != null)
+                {
+                    _goodsSetTableSetsField = goodsSetTableType.GetField("sets", GameReflection.PublicInstance);
+                }
+
+                // GoodsSet.goods
+                var goodsSetType = assembly.GetType("Eremite.Model.GoodsSet");
+                if (goodsSetType != null)
+                {
+                    _goodsSetGoodsField = goodsSetType.GetField("goods", GameReflection.PublicInstance);
+                }
+
+                // LabelModel.displayName
+                var labelModelType = assembly.GetType("Eremite.Model.LabelModel");
+                if (labelModelType != null)
+                {
+                    _labelModelDisplayNameField = labelModelType.GetField("displayName", GameReflection.PublicInstance);
+                }
+
+                // DecisionTag.displayName
+                var decisionTagType = assembly.GetType("Eremite.Model.DecisionTag");
+                if (decisionTagType != null)
+                {
+                    _decisionTagDisplayNameField = decisionTagType.GetField("displayName", GameReflection.PublicInstance);
+                }
+
+                // EffectModel.Description and IsPositive properties
+                var effectModelType = assembly.GetType("Eremite.Model.EffectModel");
+                if (effectModelType != null)
+                {
+                    _effectModelDescriptionProperty = effectModelType.GetProperty("Description", GameReflection.PublicInstance);
+                    _effectModelIsPositiveProperty = effectModelType.GetProperty("IsPositive", GameReflection.PublicInstance);
+                }
+
+                // GoodsCollection.GetAmount(string) for delivery tracking
+                var goodsCollectionType = assembly.GetType("Eremite.GoodsCollection");
+                if (goodsCollectionType != null)
+                {
+                    _goodsCollectionGetAmountMethod = goodsCollectionType.GetMethod("GetAmount", GameReflection.PublicInstance, null, new[] { typeof(string) }, null);
                 }
 
                 Debug.Log("[ATSAccessibility] BuildingReflection: Cached Relic types");
@@ -5484,6 +5626,821 @@ namespace ATSAccessibility
             catch
             {
                 return new int[0];
+            }
+        }
+
+        // ========================================
+        // PUBLIC API - RELIC DECISIONS & EVENTS
+        // ========================================
+
+        public struct RelicEffectInfo
+        {
+            public string Name;
+            public string Description;
+            public bool IsPositive;
+        }
+
+        public struct RelicRewardInfo
+        {
+            public string Name;
+            public string Description;
+        }
+
+        /// <summary>
+        /// Check if relic model has multiple decisions (HasDecision property).
+        /// </summary>
+        public static bool RelicHasMultipleDecisions(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return false;
+                return (bool?)_relicModelHasDecisionProperty?.GetValue(model) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get number of decisions for the current difficulty.
+        /// </summary>
+        public static int GetRelicDecisionCount(object building)
+        {
+            if (!IsRelic(building)) return 0;
+            EnsureRelicTypes();
+
+            try
+            {
+                var difficulty = _relicDifficultyProperty?.GetValue(building);
+                if (difficulty == null) return 0;
+
+                var decisions = _relicDifficultyDecisionsField?.GetValue(difficulty) as Array;
+                return decisions?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the current decision index from state (-1 means none selected).
+        /// </summary>
+        public static int GetRelicDecisionIndex(object building)
+        {
+            if (!IsRelic(building)) return -1;
+            EnsureRelicTypes();
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return -1;
+                return (int?)_relicStateDecisionIndexField?.GetValue(state) ?? -1;
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Set the decision index on the relic state.
+        /// </summary>
+        public static bool SetRelicDecisionIndex(object building, int index)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null || _relicStateDecisionIndexField == null) return false;
+                _relicStateDecisionIndexField.SetValue(state, index);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the label text for a decision at the given index.
+        /// </summary>
+        public static string GetRelicDecisionLabel(object building, int decisionIndex)
+        {
+            if (!IsRelic(building)) return null;
+            EnsureRelicTypes();
+            EnsureRaceBonusTypes();  // For _locaTextTextProperty
+
+            try
+            {
+                var difficulty = _relicDifficultyProperty?.GetValue(building);
+                if (difficulty == null) return null;
+
+                var decisions = _relicDifficultyDecisionsField?.GetValue(difficulty) as Array;
+                if (decisions == null || decisionIndex < 0 || decisionIndex >= decisions.Length) return null;
+
+                var decision = decisions.GetValue(decisionIndex);
+                if (decision == null) return null;
+
+                // Get label text
+                var label = _relicDecisionLabelField?.GetValue(decision);
+                string labelText = null;
+                if (label != null)
+                {
+                    var displayNameLoca = _labelModelDisplayNameField?.GetValue(label);
+                    if (displayNameLoca != null)
+                        labelText = _locaTextTextProperty?.GetValue(displayNameLoca) as string;
+                }
+
+                // Get decision tag text
+                var decisionTag = _relicDecisionDecisionTagField?.GetValue(decision);
+                string tagText = null;
+                if (decisionTag != null)
+                {
+                    var tagDisplayNameLoca = _decisionTagDisplayNameField?.GetValue(decisionTag);
+                    if (tagDisplayNameLoca != null)
+                        tagText = _locaTextTextProperty?.GetValue(tagDisplayNameLoca) as string;
+                }
+
+                if (!string.IsNullOrEmpty(tagText) && !string.IsNullOrEmpty(labelText))
+                    return $"{labelText} ({tagText})";
+                return labelText ?? tagText ?? $"Decision {decisionIndex + 1}";
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the working time for a decision at the given index.
+        /// </summary>
+        public static float GetRelicDecisionWorkingTime(object building, int decisionIndex)
+        {
+            if (!IsRelic(building)) return 0f;
+            EnsureRelicTypes();
+
+            try
+            {
+                var difficulty = _relicDifficultyProperty?.GetValue(building);
+                if (difficulty == null) return 0f;
+
+                var decisions = _relicDifficultyDecisionsField?.GetValue(difficulty) as Array;
+                if (decisions == null || decisionIndex < 0 || decisionIndex >= decisions.Length) return 0f;
+
+                var decision = decisions.GetValue(decisionIndex);
+                if (decision == null) return 0f;
+
+                return (float?)_relicDecisionWorkingTimeField?.GetValue(decision) ?? 0f;
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of goods sets (requirement groups) for a given decision.
+        /// </summary>
+        public static int GetRelicGoodsSetCount(object building, int decisionIndex)
+        {
+            if (!IsRelic(building)) return 0;
+            EnsureRelicTypes();
+
+            try
+            {
+                var decision = GetRelicDecisionObject(building, decisionIndex);
+                if (decision == null) return 0;
+
+                var reqGoods = _relicDecisionReqGoodsField?.GetValue(decision);
+                if (reqGoods == null) return 0;
+
+                var sets = _goodsSetTableSetsField?.GetValue(reqGoods) as Array;
+                return sets?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of alternative goods in a goods set.
+        /// </summary>
+        public static int GetRelicGoodsAlternativeCount(object building, int decisionIndex, int setIndex)
+        {
+            if (!IsRelic(building)) return 0;
+            EnsureRelicTypes();
+
+            try
+            {
+                var goodsSet = GetRelicGoodsSetObject(building, decisionIndex, setIndex);
+                if (goodsSet == null) return 0;
+
+                var goods = _goodsSetGoodsField?.GetValue(goodsSet) as Array;
+                return goods?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get display name of a good at [decisionIndex][setIndex][goodIndex].
+        /// </summary>
+        public static string GetRelicGoodDisplayName(object building, int decisionIndex, int setIndex, int goodIndex)
+        {
+            if (!IsRelic(building)) return null;
+            EnsureRelicTypes();
+            EnsureBlightConfigTypes();  // For _goodRefDisplayNameProperty
+
+            try
+            {
+                var goodRef = GetRelicGoodRefObject(building, decisionIndex, setIndex, goodIndex);
+                if (goodRef == null) return null;
+
+                return _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the name (internal ID) of a good at [decisionIndex][setIndex][goodIndex].
+        /// </summary>
+        public static string GetRelicGoodName(object building, int decisionIndex, int setIndex, int goodIndex)
+        {
+            if (!IsRelic(building)) return null;
+            EnsureRelicTypes();
+            EnsureBlightConfigTypes();  // For _goodRefNameProperty
+
+            try
+            {
+                var goodRef = GetRelicGoodRefObject(building, decisionIndex, setIndex, goodIndex);
+                if (goodRef == null) return null;
+
+                return _goodRefNameProperty?.GetValue(goodRef) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get amount of a good at [decisionIndex][setIndex][goodIndex].
+        /// </summary>
+        public static int GetRelicGoodAmount(object building, int decisionIndex, int setIndex, int goodIndex)
+        {
+            if (!IsRelic(building)) return 0;
+            EnsureRelicTypes();
+            EnsureRecipeModelTypes();  // For _goodRefAmountField
+
+            try
+            {
+                var goodRef = GetRelicGoodRefObject(building, decisionIndex, setIndex, goodIndex);
+                if (goodRef == null) return 0;
+
+                return (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the picked good index for a goods set in the current decision.
+        /// </summary>
+        public static int GetRelicPickedGoodIndex(object building, int decisionIndex, int setIndex)
+        {
+            if (!IsRelic(building)) return 0;
+            EnsureRelicTypes();
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return 0;
+
+                var pickedGoods = _relicStatePickedGoodsField?.GetValue(state);
+                if (pickedGoods == null) return 0;
+
+                // pickedGoods is int[][]
+                var outerArray = pickedGoods as int[][];
+                if (outerArray == null || decisionIndex < 0 || decisionIndex >= outerArray.Length) return 0;
+
+                var innerArray = outerArray[decisionIndex];
+                if (innerArray == null || setIndex < 0 || setIndex >= innerArray.Length) return 0;
+
+                return innerArray[setIndex];
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Set the picked good index for a goods set.
+        /// </summary>
+        public static bool SetRelicPickedGoodIndex(object building, int decisionIndex, int setIndex, int goodIndex)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return false;
+
+                var pickedGoods = _relicStatePickedGoodsField?.GetValue(state) as int[][];
+                if (pickedGoods == null || decisionIndex < 0 || decisionIndex >= pickedGoods.Length) return false;
+
+                var innerArray = pickedGoods[decisionIndex];
+                if (innerArray == null || setIndex < 0 || setIndex >= innerArray.Length) return false;
+
+                innerArray[setIndex] = goodIndex;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get working effects for the selected decision.
+        /// </summary>
+        public static RelicEffectInfo[] GetRelicWorkingEffects(object building)
+        {
+            if (!IsRelic(building)) return new RelicEffectInfo[0];
+            EnsureRelicTypes();
+
+            try
+            {
+                // Use Relic.GetWorkingEffects() which already handles difficulty/decision
+                var effects = _relicGetWorkingEffectsMethod?.Invoke(building, null) as Array;
+                if (effects == null || effects.Length == 0) return new RelicEffectInfo[0];
+
+                return ExtractEffectInfos(effects);
+            }
+            catch
+            {
+                return new RelicEffectInfo[0];
+            }
+        }
+
+        /// <summary>
+        /// Get active effects from the relic model (static active effects).
+        /// </summary>
+        public static RelicEffectInfo[] GetRelicActiveEffects(object building)
+        {
+            if (!IsRelic(building)) return new RelicEffectInfo[0];
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return new RelicEffectInfo[0];
+
+                var effects = _relicModelActiveEffectsField?.GetValue(model) as Array;
+                if (effects == null || effects.Length == 0) return new RelicEffectInfo[0];
+
+                return ExtractEffectInfos(effects);
+            }
+            catch
+            {
+                return new RelicEffectInfo[0];
+            }
+        }
+
+        /// <summary>
+        /// Check if relic effects are permanent.
+        /// </summary>
+        public static bool RelicAreEffectsPermanent(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return false;
+                return (bool?)_relicModelAreEffectsPermanentField?.GetValue(model) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if relic has dynamic rewards.
+        /// </summary>
+        public static bool RelicHasDynamicRewards(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return false;
+                return (bool?)_relicModelHasDynamicRewardsField?.GetValue(model) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get rewards for a given decision (from state.rewardsSets).
+        /// Resolves effect names to display names via GameModelService.
+        /// </summary>
+        public static RelicRewardInfo[] GetRelicDecisionRewards(object building, int decisionIndex)
+        {
+            if (!IsRelic(building)) return new RelicRewardInfo[0];
+            EnsureRelicTypes();
+            EnsureRaceBonusTypes();  // For _effectModelDisplayNameProperty
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return new RelicRewardInfo[0];
+
+                // Check if using dynamic rewards
+                var model = _relicModelField?.GetValue(building);
+                bool hasDynamic = (bool?)_relicModelHasDynamicRewardsField?.GetValue(model) ?? false;
+
+                if (hasDynamic)
+                {
+                    // Dynamic rewards: read from state.rewardsTiers[currentDynamicReward]
+                    int currentTier = (int?)_relicStateCurrentDynamicRewardField?.GetValue(state) ?? -1;
+                    if (currentTier < 0) currentTier = 0;  // Default to first tier
+
+                    var rewardsTiers = _relicStateRewardsTiersField?.GetValue(state) as Array;
+                    if (rewardsTiers == null || currentTier >= rewardsTiers.Length) return new RelicRewardInfo[0];
+
+                    var tierList = rewardsTiers.GetValue(currentTier) as System.Collections.Generic.List<string>;
+                    if (tierList == null) return new RelicRewardInfo[0];
+
+                    return ResolveEffectNames(tierList);
+                }
+                else
+                {
+                    // Decision-based rewards: read from state.rewardsSets[decisionIndex]
+                    var rewardsSets = _relicStateRewardsSetsField?.GetValue(state) as Array;
+                    if (rewardsSets == null || decisionIndex < 0 || decisionIndex >= rewardsSets.Length) return new RelicRewardInfo[0];
+
+                    var setList = rewardsSets.GetValue(decisionIndex) as System.Collections.Generic.List<string>;
+                    if (setList == null) return new RelicRewardInfo[0];
+
+                    return ResolveEffectNames(setList);
+                }
+            }
+            catch
+            {
+                return new RelicRewardInfo[0];
+            }
+        }
+
+        /// <summary>
+        /// Check if the relic has any decision-based rewards (decisionsRewards array not empty).
+        /// </summary>
+        public static bool RelicHasDecisionRewards(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return false;
+
+                var decisionsRewards = _relicModelDecisionsRewardsField?.GetValue(model) as Array;
+                return decisionsRewards != null && decisionsRewards.Length > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get delivered amount of a good for a relic (from state.relicGoods).
+        /// </summary>
+        public static int GetRelicDeliveredAmount(object building, string goodName)
+        {
+            if (!IsRelic(building) || string.IsNullOrEmpty(goodName)) return 0;
+            EnsureRelicTypes();
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return 0;
+
+                var relicGoods = _relicStateRelicGoodsField?.GetValue(state);
+                if (relicGoods == null) return 0;
+
+                if (_goodsCollectionGetAmountMethod == null) return 0;
+                var result = _goodsCollectionGetAmountMethod.Invoke(relicGoods, new object[] { goodName });
+                return (int?)result ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Check if the relic has any workplace slots.
+        /// </summary>
+        public static bool RelicHasAnyWorkplace(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                if (_relicHasAnyWorkplaceMethod == null) return false;
+                return (bool?)_relicHasAnyWorkplaceMethod.Invoke(building, null) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if the relic can start investigation, returning a blocking reason if not.
+        /// </summary>
+        public static bool RelicCanStart(object building, out string blockingReason)
+        {
+            blockingReason = null;
+            if (!IsRelic(building)) { blockingReason = "Not a relic"; return false; }
+            EnsureRelicTypes();
+
+            try
+            {
+                // Already started?
+                bool started = (bool?)_relicStateInvestigationStartedField?.GetValue(_relicStateField?.GetValue(building)) ?? false;
+                if (started) { blockingReason = "Already started"; return false; }
+
+                // Decision required?
+                bool hasMultipleDecisions = RelicHasMultipleDecisions(building);
+                if (hasMultipleDecisions)
+                {
+                    int decisionIndex = GetRelicDecisionIndex(building);
+                    if (decisionIndex < 0)
+                    {
+                        blockingReason = "Select a decision first";
+                        return false;
+                    }
+                }
+
+                // Force requirements check (for instant-goods relics without workplaces)
+                var model = _relicModelField?.GetValue(building);
+                bool forceReqs = (bool?)_relicModelForceRequirementsField?.GetValue(model) ?? false;
+                bool hasWorkplace = RelicHasAnyWorkplace(building);
+
+                if (forceReqs && !hasWorkplace)
+                {
+                    // Check if goods are available in storage
+                    int safeDecision = GetRelicSafeDecisionIndex(building);
+                    int setCount = GetRelicGoodsSetCount(building, safeDecision);
+                    for (int i = 0; i < setCount; i++)
+                    {
+                        int pickedIndex = GetRelicPickedGoodIndex(building, safeDecision, i);
+                        string goodName = GetRelicGoodName(building, safeDecision, i, pickedIndex);
+                        int amount = GetRelicGoodAmount(building, safeDecision, i, pickedIndex);
+                        if (!string.IsNullOrEmpty(goodName) && amount > 0)
+                        {
+                            int stored = GetStoredGoodAmount(goodName);
+                            if (stored < amount)
+                            {
+                                blockingReason = "Required goods not available";
+                                return false;
+                            }
+                        }
+                    }
+                }
+
+                // Order check
+                bool hasOrder = (bool?)_relicHasOrderMethod?.Invoke(building, null) ?? false;
+                if (hasOrder)
+                {
+                    bool orderCompleted = (bool?)_relicIsOrderCompletedMethod?.Invoke(building, null) ?? false;
+                    if (!orderCompleted)
+                    {
+                        blockingReason = "Complete the order first";
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                blockingReason = $"Error: {ex.Message}";
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Start the relic investigation.
+        /// </summary>
+        public static bool RelicStartInvestigation(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                if (_relicStartInvestigationMethod == null) return false;
+                _relicStartInvestigationMethod.Invoke(building, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if the relic investigation can be cancelled.
+        /// </summary>
+        public static bool RelicCanCancel(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                if (_relicCanCancelMethod == null) return false;
+                return (bool?)_relicCanCancelMethod.Invoke(building, null) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Cancel the relic investigation.
+        /// </summary>
+        public static bool RelicCancelInvestigation(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                if (_relicCancelMethod == null) return false;
+                _relicCancelMethod.Invoke(building, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the safe decision index (max of 0 and state.decisionIndex).
+        /// </summary>
+        public static int GetRelicSafeDecisionIndex(object building)
+        {
+            if (!IsRelic(building)) return 0;
+            EnsureRelicTypes();
+
+            try
+            {
+                if (_relicGetSafeDecisionIndexMethod != null)
+                    return (int?)_relicGetSafeDecisionIndexMethod.Invoke(building, null) ?? 0;
+
+                // Fallback: manual implementation
+                int idx = GetRelicDecisionIndex(building);
+                return idx < 0 ? 0 : idx;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        // ========================================
+        // RELIC PRIVATE HELPERS
+        // ========================================
+
+        private static object GetRelicDecisionObject(object building, int decisionIndex)
+        {
+            var difficulty = _relicDifficultyProperty?.GetValue(building);
+            if (difficulty == null) return null;
+
+            var decisions = _relicDifficultyDecisionsField?.GetValue(difficulty) as Array;
+            if (decisions == null || decisionIndex < 0 || decisionIndex >= decisions.Length) return null;
+
+            return decisions.GetValue(decisionIndex);
+        }
+
+        private static object GetRelicGoodsSetObject(object building, int decisionIndex, int setIndex)
+        {
+            var decision = GetRelicDecisionObject(building, decisionIndex);
+            if (decision == null) return null;
+
+            var reqGoods = _relicDecisionReqGoodsField?.GetValue(decision);
+            if (reqGoods == null) return null;
+
+            var sets = _goodsSetTableSetsField?.GetValue(reqGoods) as Array;
+            if (sets == null || setIndex < 0 || setIndex >= sets.Length) return null;
+
+            return sets.GetValue(setIndex);
+        }
+
+        private static object GetRelicGoodRefObject(object building, int decisionIndex, int setIndex, int goodIndex)
+        {
+            var goodsSet = GetRelicGoodsSetObject(building, decisionIndex, setIndex);
+            if (goodsSet == null) return null;
+
+            var goods = _goodsSetGoodsField?.GetValue(goodsSet) as Array;
+            if (goods == null || goodIndex < 0 || goodIndex >= goods.Length) return null;
+
+            return goods.GetValue(goodIndex);
+        }
+
+        private static RelicEffectInfo[] ExtractEffectInfos(Array effects)
+        {
+            EnsureRaceBonusTypes();  // For _effectModelDisplayNameProperty
+
+            var result = new RelicEffectInfo[effects.Length];
+            for (int i = 0; i < effects.Length; i++)
+            {
+                var effect = effects.GetValue(i);
+                if (effect == null) continue;
+
+                result[i] = new RelicEffectInfo
+                {
+                    Name = _effectModelDisplayNameProperty?.GetValue(effect) as string ?? "Unknown",
+                    Description = _effectModelDescriptionProperty?.GetValue(effect) as string ?? "",
+                    IsPositive = (bool?)_effectModelIsPositiveProperty?.GetValue(effect) ?? true
+                };
+            }
+            return result;
+        }
+
+        private static RelicRewardInfo[] ResolveEffectNames(System.Collections.Generic.List<string> effectNames)
+        {
+            EnsureGameModelServiceTypes();
+
+            var result = new RelicRewardInfo[effectNames.Count];
+            for (int i = 0; i < effectNames.Count; i++)
+            {
+                var effectModel = GetEffectModel(effectNames[i]);
+                if (effectModel != null)
+                {
+                    result[i] = new RelicRewardInfo
+                    {
+                        Name = _effectModelDisplayNameProperty?.GetValue(effectModel) as string ?? effectNames[i],
+                        Description = _effectModelDescriptionProperty?.GetValue(effectModel) as string ?? ""
+                    };
+                }
+                else
+                {
+                    result[i] = new RelicRewardInfo { Name = effectNames[i], Description = "" };
+                }
+            }
+            return result;
+        }
+
+        private static int GetStoredGoodAmount(string goodName)
+        {
+            EnsureStorageService2Types();
+
+            try
+            {
+                var storageService = GetStorageServiceInternal();
+                if (storageService == null) return 0;
+
+                var mainStorage = _storageServiceMainProperty?.GetValue(storageService);
+                if (mainStorage == null) return 0;
+
+                var result = _mainStorageGetAmountMethod?.Invoke(mainStorage, new object[] { goodName });
+                return (int?)result ?? 0;
+            }
+            catch
+            {
+                return 0;
             }
         }
 
