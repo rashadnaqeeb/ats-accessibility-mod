@@ -275,7 +275,7 @@ namespace ATSAccessibility
                         }
                         else if (typeName == "NaturalResource" && GameReflection.IsNaturalResourceMarked(objectOn))
                         {
-                            objectName = "marked, " + objectName;
+                            objectName = "Marked " + objectName;
                         }
                         parts.Add(objectName);
                         hasRealObject = true;
