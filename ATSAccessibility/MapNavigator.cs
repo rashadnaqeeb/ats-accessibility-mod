@@ -44,6 +44,12 @@ namespace ATSAccessibility
         public int CursorY => _cursorY;
 
         /// <summary>
+        /// Optional prefix callback for tile announcements.
+        /// Returns a prefix string (e.g. "selected") or null for no prefix.
+        /// </summary>
+        public Func<int, int, string> AnnouncementPrefix { get; set; }
+
+        /// <summary>
         /// Ensure cursor is initialized (to hearth or map center).
         /// </summary>
         private void EnsureCursorInitialized()
@@ -190,6 +196,9 @@ namespace ATSAccessibility
             string announcement = GetTileAnnouncement(_cursorX, _cursorY, field);
             if (!string.IsNullOrEmpty(announcement))
             {
+                string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
+                if (!string.IsNullOrEmpty(prefix))
+                    announcement = $"{prefix}, {announcement}";
                 Speech.Say(announcement);
             }
         }
@@ -263,6 +272,10 @@ namespace ATSAccessibility
                             {
                                 objectName += ", ruin";
                             }
+                        }
+                        else if (typeName == "NaturalResource" && GameReflection.IsNaturalResourceMarked(objectOn))
+                        {
+                            objectName = "marked, " + objectName;
                         }
                         parts.Add(objectName);
                         hasRealObject = true;

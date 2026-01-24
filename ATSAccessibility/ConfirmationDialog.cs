@@ -49,6 +49,19 @@ namespace ATSAccessibility
             Speech.Say(message.ToString());
         }
 
+        /// <summary>
+        /// Show the confirmation dialog with a custom message.
+        /// </summary>
+        /// <param name="message">Full message to announce</param>
+        /// <param name="onConfirm">Action to execute when confirmed</param>
+        public void ShowMessage(string message, Action onConfirm)
+        {
+            _isOpen = true;
+            _itemName = null;
+            _onConfirm = onConfirm;
+            Speech.Say(message);
+        }
+
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             switch (keyCode)

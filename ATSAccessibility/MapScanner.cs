@@ -614,12 +614,16 @@ namespace ATSAccessibility
                                 string displayName = GetObjectDisplayName(resource);
                                 if (string.IsNullOrEmpty(displayName)) continue;
 
+                                // Separate marked (for woodcutting) from unmarked
+                                bool isMarked = GameReflection.IsNaturalResourceMarked(resource);
+                                string groupName = isMarked ? $"Marked {displayName}" : displayName;
+
                                 int distance = CalculateDistance(pos, cursorX, cursorY);
 
-                                if (!groups.TryGetValue(displayName, out var group))
+                                if (!groups.TryGetValue(groupName, out var group))
                                 {
-                                    group = new ItemGroup(displayName);
-                                    groups[displayName] = group;
+                                    group = new ItemGroup(groupName);
+                                    groups[groupName] = group;
                                 }
 
                                 group.Items.Add(new ScannedItem(pos, distance));

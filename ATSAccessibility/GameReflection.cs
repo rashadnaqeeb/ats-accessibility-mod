@@ -6908,5 +6908,238 @@ namespace ATSAccessibility
         {
             _highlightedRelics.Clear();
         }
+
+        // Cached reflection for NaturalResource marked state
+        private static PropertyInfo _naturalResourceStateProperty = null;
+        private static FieldInfo _nrsIsMarkedField = null;
+        private static bool _naturalResourceMarkedCached = false;
+
+        private static void EnsureNaturalResourceMarkedCache(object resource)
+        {
+            if (_naturalResourceMarkedCached) return;
+            _naturalResourceMarkedCached = true;
+
+            try
+            {
+                var resourceType = resource.GetType();
+                _naturalResourceStateProperty = resourceType.GetProperty("State",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (_naturalResourceStateProperty != null)
+                {
+                    var stateType = _naturalResourceStateProperty.PropertyType;
+                    _nrsIsMarkedField = stateType.GetField("isMarked",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] EnsureNaturalResourceMarkedCache failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Check if a NaturalResource is marked for woodcutting/harvesting.
+        /// </summary>
+        public static bool IsNaturalResourceMarked(object resource)
+        {
+            if (resource == null) return false;
+            EnsureNaturalResourceMarkedCache(resource);
+            if (_naturalResourceStateProperty == null || _nrsIsMarkedField == null) return false;
+            try
+            {
+                var state = _naturalResourceStateProperty.GetValue(resource);
+                if (state == null) return false;
+                return (bool)_nrsIsMarkedField.GetValue(state);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // ========================================
+        // HARVEST MARK/UNMARK REFLECTION
+        // ========================================
+
+        private static MethodInfo _naturalResourceMarkMethod = null;
+        private static MethodInfo _naturalResourceUnmarkMethod = null;
+        private static FieldInfo _nrsIsGladeEdgeField = null;
+        private static PropertyInfo _resourcesNaturalResourcesProperty = null;
+        private static bool _harvestReflectionCached = false;
+
+        private static void EnsureHarvestReflectionCache(object resource)
+        {
+            if (_harvestReflectionCached) return;
+            _harvestReflectionCached = true;
+
+            try
+            {
+                var resourceType = resource.GetType();
+                _naturalResourceMarkMethod = resourceType.GetMethod("Mark", PublicInstance);
+                _naturalResourceUnmarkMethod = resourceType.GetMethod("Unmark", PublicInstance);
+
+                // Get isGladeEdge from State type (already cached _naturalResourceStateProperty)
+                EnsureNaturalResourceMarkedCache(resource);
+                if (_naturalResourceStateProperty != null)
+                {
+                    var stateType = _naturalResourceStateProperty.PropertyType;
+                    _nrsIsGladeEdgeField = stateType.GetField("isGladeEdge", PublicInstance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] EnsureHarvestReflectionCache failed: {ex.Message}");
+            }
+        }
+
+        private static void EnsureResourcesNaturalResourcesProperty(object resourcesService)
+        {
+            if (_resourcesNaturalResourcesProperty != null) return;
+
+            try
+            {
+                _resourcesNaturalResourcesProperty = resourcesService.GetType().GetProperty("NaturalResources",
+                    PublicInstance);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] EnsureResourcesNaturalResourcesProperty failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get the NaturalResource object at a map position.
+        /// Returns null if no resource at that position.
+        /// </summary>
+        public static object GetNaturalResourceAt(Vector2Int pos)
+        {
+            var resourcesService = GetResourcesService();
+            if (resourcesService == null) return null;
+
+            EnsureResourcesNaturalResourcesProperty(resourcesService);
+            if (_resourcesNaturalResourcesProperty == null) return null;
+
+            try
+            {
+                var dict = _resourcesNaturalResourcesProperty.GetValue(resourcesService) as IDictionary;
+                if (dict == null) return null;
+                if (dict.Contains(pos))
+                    return dict[pos];
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if there is a NaturalResource at a map position.
+        /// </summary>
+        public static bool HasNaturalResourceAt(Vector2Int pos)
+        {
+            return GetNaturalResourceAt(pos) != null;
+        }
+
+        /// <summary>
+        /// Mark a NaturalResource at the given position.
+        /// Returns true if successfully marked.
+        /// </summary>
+        public static bool MarkNaturalResourceAt(Vector2Int pos)
+        {
+            var resource = GetNaturalResourceAt(pos);
+            if (resource == null) return false;
+
+            EnsureHarvestReflectionCache(resource);
+            if (_naturalResourceMarkMethod == null) return false;
+
+            try
+            {
+                _naturalResourceMarkMethod.Invoke(resource, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Unmark a NaturalResource at the given position.
+        /// Returns true if successfully unmarked.
+        /// </summary>
+        public static bool UnmarkNaturalResourceAt(Vector2Int pos)
+        {
+            var resource = GetNaturalResourceAt(pos);
+            if (resource == null) return false;
+
+            EnsureHarvestReflectionCache(resource);
+            if (_naturalResourceUnmarkMethod == null) return false;
+
+            try
+            {
+                _naturalResourceUnmarkMethod.Invoke(resource, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a NaturalResource at the given position is on a glade edge.
+        /// </summary>
+        public static bool IsNaturalResourceGladeEdge(Vector2Int pos)
+        {
+            var resource = GetNaturalResourceAt(pos);
+            if (resource == null) return false;
+
+            EnsureNaturalResourceMarkedCache(resource);
+            EnsureHarvestReflectionCache(resource);
+            if (_naturalResourceStateProperty == null || _nrsIsGladeEdgeField == null) return false;
+
+            try
+            {
+                var state = _naturalResourceStateProperty.GetValue(resource);
+                if (state == null) return false;
+                return (bool)_nrsIsGladeEdgeField.GetValue(state);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get all NaturalResource positions on the map.
+        /// Returns empty list if not in game.
+        /// </summary>
+        public static List<Vector2Int> GetAllNaturalResourcePositions()
+        {
+            var result = new List<Vector2Int>();
+            var resourcesService = GetResourcesService();
+            if (resourcesService == null) return result;
+
+            EnsureResourcesNaturalResourcesProperty(resourcesService);
+            if (_resourcesNaturalResourcesProperty == null) return result;
+
+            try
+            {
+                var dict = _resourcesNaturalResourcesProperty.GetValue(resourcesService) as IDictionary;
+                if (dict == null) return result;
+
+                foreach (DictionaryEntry entry in dict)
+                {
+                    result.Add((Vector2Int)entry.Key);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllNaturalResourcePositions failed: {ex.Message}");
+            }
+
+            return result;
+        }
     }
 }

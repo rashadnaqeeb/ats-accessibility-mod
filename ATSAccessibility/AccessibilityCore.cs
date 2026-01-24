@@ -199,6 +199,9 @@ namespace ATSAccessibility
             // Initialize move mode controller
             _moveModeController = new MoveModeController(_mapNavigator);
 
+            // Initialize harvest mark handler for tree marking/unmarking
+            var harvestMarkHandler = new HarvestMarkHandler(_mapNavigator);
+
             // Initialize world map navigator and scanner
             _worldMapNavigator = new WorldMapNavigator();
             _worldMapScanner = new WorldMapScanner(_worldMapNavigator);
@@ -237,7 +240,7 @@ namespace ATSAccessibility
 
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
-                _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
+                _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog, harvestMarkHandler);
             var worldMapHandler = new WorldMapKeyHandler(_worldMapNavigator, _worldMapScanner);
 
             // Register key handlers in priority order (highest priority first)
@@ -250,6 +253,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_buildingMenuPanel);   // Tab building menu
             _keyboardManager.RegisterHandler(_buildModeController); // Building placement (selective passthrough)
             _keyboardManager.RegisterHandler(_moveModeController);  // Building relocation (selective passthrough)
+            _keyboardManager.RegisterHandler(harvestMarkHandler);    // Tree mark/unmark selection
             _keyboardManager.RegisterHandler(_encyclopediaNavigator); // Wiki popup
             _keyboardManager.RegisterHandler(_recipesOverlay);      // Recipes popup overlay
             _keyboardManager.RegisterHandler(_wildcardOverlay);    // Wildcard popup overlay

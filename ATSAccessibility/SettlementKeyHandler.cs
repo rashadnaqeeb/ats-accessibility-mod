@@ -19,6 +19,7 @@ namespace ATSAccessibility
         private readonly MoveModeController _moveModeController;
         private readonly AnnouncementHistoryPanel _announcementHistoryPanel;
         private readonly ConfirmationDialog _confirmationDialog;
+        private readonly HarvestMarkHandler _harvestMarkHandler;
 
         public SettlementKeyHandler(
             MapNavigator mapNavigator,
@@ -29,7 +30,8 @@ namespace ATSAccessibility
             BuildingMenuPanel buildingMenuPanel,
             MoveModeController moveModeController,
             AnnouncementHistoryPanel announcementHistoryPanel,
-            ConfirmationDialog confirmationDialog)
+            ConfirmationDialog confirmationDialog,
+            HarvestMarkHandler harvestMarkHandler)
         {
             _mapNavigator = mapNavigator;
             _mapScanner = mapScanner;
@@ -40,6 +42,7 @@ namespace ATSAccessibility
             _moveModeController = moveModeController;
             _announcementHistoryPanel = announcementHistoryPanel;
             _confirmationDialog = confirmationDialog;
+            _harvestMarkHandler = harvestMarkHandler;
         }
 
         /// <summary>
@@ -263,9 +266,16 @@ namespace ATSAccessibility
                     }
                     return true;
 
-                // Building activation (opens building panel)
+                // Building activation or harvest mark mode
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
+                    var objectAtCursor = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                    if (objectAtCursor != null && objectAtCursor.GetType().Name == "NaturalResource")
+                    {
+                        bool isMarked = GameReflection.IsNaturalResourceMarked(objectAtCursor);
+                        _harvestMarkHandler.EnterMode(isMarked);
+                        return true;
+                    }
                     _mapNavigator.ActivateBuilding();
                     return true;
 
