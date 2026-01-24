@@ -149,7 +149,7 @@ namespace ATSAccessibility
             float now = Time.realtimeSinceStartup;
             if (now - _lastRaceRefreshTime > RACE_CACHE_DURATION)
             {
-                _cachedRaces = BuildingReflection.GetRacesWithFreeWorkers();
+                _cachedRaces = BuildingReflection.GetRacesWithFreeWorkers(includeEmpty: true);
                 _lastRaceRefreshTime = now;
 
                 // Clamp selected index if race count changed
