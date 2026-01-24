@@ -11,6 +11,12 @@ namespace ATSAccessibility
     public class BuildingPanelHandler : IKeyHandler
     {
         // ========================================
+        // DEPENDENCIES
+        // ========================================
+
+        private KeyboardManager _keyboardManager;
+
+        // ========================================
         // EVENT SUBSCRIPTIONS
         // ========================================
 
@@ -52,8 +58,11 @@ namespace ATSAccessibility
         /// Handler is active when a building panel is open and we have a navigator.
         /// Note: This property is side-effect free - cleanup is done in ProcessKey.
         /// Also verifies the game's panel is still open to avoid race conditions.
+        /// Yields to popups when one is shown on top of the building panel.
         /// </summary>
-        public bool IsActive => _currentNavigator != null && _currentBuilding != null && BuildingReflection.IsBuildingPanelOpen();
+        public bool IsActive => _currentNavigator != null && _currentBuilding != null
+            && BuildingReflection.IsBuildingPanelOpen()
+            && (_keyboardManager == null || _keyboardManager.CurrentContext != KeyboardManager.NavigationContext.Popup);
 
         /// <summary>
         /// Process a key event.
@@ -99,8 +108,9 @@ namespace ATSAccessibility
         // INITIALIZATION
         // ========================================
 
-        public BuildingPanelHandler()
+        public BuildingPanelHandler(KeyboardManager keyboardManager)
         {
+            _keyboardManager = keyboardManager;
             // Create navigators
             _productionNavigator = new ProductionNavigator();
             _simpleNavigator = new SimpleNavigator();

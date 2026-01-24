@@ -260,7 +260,7 @@ namespace ATSAccessibility
                 sectionTypes.Add(SectionType.Blight);
             }
 
-            if (_maxWorkers > 0)
+            if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
             {
                 sectionNames.Add("Workers");
                 sectionTypes.Add(SectionType.Workers);

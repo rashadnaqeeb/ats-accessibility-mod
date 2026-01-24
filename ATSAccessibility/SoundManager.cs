@@ -50,6 +50,11 @@ namespace ATSAccessibility
         private static PropertyInfo _relicStartWithWorkingEffectsProperty = null;
         private static PropertyInfo _relicStopWithWorkingEffectsProperty = null;
 
+        // Port sounds
+        private static PropertyInfo _portStartClickProperty = null;
+        private static PropertyInfo _portCancelClickProperty = null;
+        private static PropertyInfo _portRewardsClickProperty = null;
+
         private static void EnsureCached()
         {
             if (_cached) return;
@@ -111,6 +116,11 @@ namespace ATSAccessibility
                     // Relic sounds
                     _relicStartWithWorkingEffectsProperty = soundReferencesType.GetProperty("RelicStartWithWorkingEffects", GameReflection.PublicInstance);
                     _relicStopWithWorkingEffectsProperty = soundReferencesType.GetProperty("RelicStopWithWorkingEffects", GameReflection.PublicInstance);
+
+                    // Port sounds
+                    _portStartClickProperty = soundReferencesType.GetProperty("PortStartClick", GameReflection.PublicInstance);
+                    _portCancelClickProperty = soundReferencesType.GetProperty("PortCancelClick", GameReflection.PublicInstance);
+                    _portRewardsClickProperty = soundReferencesType.GetProperty("PortRewardsClick", GameReflection.PublicInstance);
                 }
             }
             catch (Exception ex)
@@ -401,6 +411,24 @@ namespace ATSAccessibility
         {
             EnsureCached();
             PlaySound(_relicStopWithWorkingEffectsProperty);
+        }
+
+        public static void PlayPortStartClick()
+        {
+            EnsureCached();
+            PlaySound(_portStartClickProperty);
+        }
+
+        public static void PlayPortCancelClick()
+        {
+            EnsureCached();
+            PlaySound(_portCancelClickProperty);
+        }
+
+        public static void PlayPortRewardsClick()
+        {
+            EnsureCached();
+            PlaySound(_portRewardsClickProperty);
         }
 
         public static void PlaySoundEffect(object soundModel)

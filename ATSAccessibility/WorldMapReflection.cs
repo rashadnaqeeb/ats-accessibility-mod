@@ -209,7 +209,7 @@ namespace ATSAccessibility
                 }
 
                 // Cache EffectModel properties
-                var effectModelType = gameAssembly.GetType("Eremite.Model.Effects.EffectModel");
+                var effectModelType = gameAssembly.GetType("Eremite.Model.EffectModel");
                 if (effectModelType != null)
                 {
                     _effectDisplayNameProperty = effectModelType.GetProperty("DisplayName",

@@ -131,6 +131,9 @@ namespace ATSAccessibility
         // Deeds popup overlay for goals navigation
         private DeedsOverlay _deedsOverlay;
 
+        // Rewards pack popup overlay (port expedition rewards)
+        private RewardsPackOverlay _rewardsPackOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -220,7 +223,7 @@ namespace ATSAccessibility
             _embarkPanel = new EmbarkPanel();
 
             // Initialize building panel handler
-            _buildingPanelHandler = new BuildingPanelHandler();
+            _buildingPanelHandler = new BuildingPanelHandler(_keyboardManager);
 
             // Initialize confirmation dialog for destructive actions
             _confirmationDialog = new ConfirmationDialog();
@@ -250,6 +253,9 @@ namespace ATSAccessibility
 
             // Initialize deeds overlay for goals popup
             _deedsOverlay = new DeedsOverlay();
+
+            // Initialize rewards pack overlay (port expedition rewards)
+            _rewardsPackOverlay = new RewardsPackOverlay();
 
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
@@ -282,6 +288,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_consumptionOverlay);       // Consumption control popup overlay
             _keyboardManager.RegisterHandler(_deedsOverlay);             // Deeds (goals) popup overlay
             _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
+            _keyboardManager.RegisterHandler(_rewardsPackOverlay);  // Rewards pack popup overlay (port rewards)
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -902,6 +909,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check rewards pack popup (port expedition rewards)
+            if (RewardsPackOverlay.IsRewardsPackPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Rewards pack popup detected, using RewardsPack overlay");
+                _rewardsPackOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1015,6 +1031,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Goals popup closed");
                 _deedsOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check rewards pack popup
+            else if (RewardsPackOverlay.IsRewardsPackPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Rewards pack popup closed");
+                _rewardsPackOverlay?.Close();
                 // Fall through to handle context change
             }
             else

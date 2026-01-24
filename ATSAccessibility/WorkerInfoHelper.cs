@@ -39,9 +39,9 @@ namespace ATSAccessibility
                 return "No worker slots";
             }
 
-            if (!BuildingReflection.AreWorkplacesActive(building))
+            if (!BuildingReflection.ShouldAllowWorkerManagement(building))
             {
-                return "Workers locked";
+                return "Workers not needed";
             }
 
             int currentWorkers = BuildingReflection.GetWorkerCount(building);
@@ -201,9 +201,9 @@ namespace ATSAccessibility
                 return "No worker slots";
             }
 
-            if (!BuildingReflection.AreWorkplacesActive(building))
+            if (!BuildingReflection.ShouldAllowWorkerManagement(building))
             {
-                return "Workers locked";
+                return "Workers not needed";
             }
 
             // Find first empty slot
@@ -277,9 +277,9 @@ namespace ATSAccessibility
                 return "No worker slots";
             }
 
-            if (!BuildingReflection.AreWorkplacesActive(building))
+            if (!BuildingReflection.ShouldAllowWorkerManagement(building))
             {
-                return "Workers locked";
+                return "Workers not needed";
             }
 
             var workerIds = BuildingReflection.GetWorkerIds(building);

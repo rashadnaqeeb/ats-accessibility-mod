@@ -68,7 +68,7 @@ namespace ATSAccessibility
         public static ConfigEntry<bool> AnnounceCornerstoneAvailable;
 
         // Resources
-        public static ConfigEntry<bool> AnnouncePortExpeditionFinished;
+        public static ConfigEntry<bool> AnnouncePortExpeditionStarted;
 
         // News/Warnings
         public static ConfigEntry<bool> AnnounceGameWarnings;
@@ -187,8 +187,8 @@ namespace ATSAccessibility
                 "CornerstoneAvailable", true, "Announce when a new cornerstone is available to pick");
 
             // Resources
-            AnnouncePortExpeditionFinished = Config.Bind("Announcements.Resources",
-                "PortExpeditionFinished", true, "Announce when a port expedition finishes");
+            AnnouncePortExpeditionStarted = Config.Bind("Announcements.Resources",
+                "PortExpeditionStarted", true, "Announce when a port expedition departs");
 
             // News/Warnings
             AnnounceGameWarnings = Config.Bind("Announcements.Alerts",

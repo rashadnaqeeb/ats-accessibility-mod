@@ -292,8 +292,8 @@ namespace ATSAccessibility
             sections.Add("Storage");
             types.Add(SectionType.Storage);
 
-            // Workers section (only if building has workplaces)
-            if (_maxWorkers > 0)
+            // Workers section (only if building currently accepts worker assignment)
+            if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
             {
                 sections.Add("Workers");
                 types.Add(SectionType.Workers);

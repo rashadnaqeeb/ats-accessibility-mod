@@ -368,11 +368,11 @@ namespace ATSAccessibility
 
             if (_investigationFinished)
             {
-                // Phase C: Info, Status, Workers (remove-only), Storage
+                // Phase C: Info, Status, Storage
                 sectionNames.Add("Status");
                 sectionTypes.Add(SectionType.Status);
 
-                if (_maxWorkers > 0)
+                if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
                 {
                     sectionNames.Add("Workers");
                     sectionTypes.Add(SectionType.Workers);
@@ -390,7 +390,7 @@ namespace ATSAccessibility
                 sectionNames.Add("Status");
                 sectionTypes.Add(SectionType.Status);
 
-                if (_maxWorkers > 0)
+                if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
                 {
                     sectionNames.Add("Workers");
                     sectionTypes.Add(SectionType.Workers);
@@ -1139,6 +1139,7 @@ namespace ATSAccessibility
                 if (slotOccupied)
                 {
                     BuildingReflection.UnassignWorkerFromSlot(_building, workerIndex);
+                    _workerIds = BuildingReflection.GetRelicWorkerIds(_building);
                 }
 
                 if (BuildingReflection.AssignWorkerToSlot(_building, workerIndex, raceName))

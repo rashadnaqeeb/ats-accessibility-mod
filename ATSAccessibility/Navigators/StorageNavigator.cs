@@ -240,8 +240,8 @@ namespace ATSAccessibility
                 types.Add(SectionType.Abilities);
             }
 
-            // Workers section (only if building has workplaces AND haulers are unlocked via meta progression)
-            if (_maxWorkers > 0 && BuildingReflection.AreWorkplacesActive(_building))
+            // Workers section (only if building currently accepts worker assignment)
+            if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
             {
                 sections.Add("Workers");
                 types.Add(SectionType.Workers);

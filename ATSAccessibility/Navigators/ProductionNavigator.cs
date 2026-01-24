@@ -386,8 +386,8 @@ namespace ATSAccessibility
             sectionNames.Add("Info");
             sectionTypes.Add(SectionType.Info);
 
-            // Only add Workers if building has worker slots
-            if (_maxWorkers > 0)
+            // Only add Workers if building currently accepts worker assignment
+            if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
             {
                 sectionNames.Add("Workers");
                 sectionTypes.Add(SectionType.Workers);

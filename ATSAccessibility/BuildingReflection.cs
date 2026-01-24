@@ -344,6 +344,38 @@ namespace ATSAccessibility
         private static MethodInfo _portGetCurrentExpeditionMethod = null;  // Port.GetCurrentExpedition()
         private static MethodInfo _portGetPickedStriderGoodMethod = null;  // Port.GetPickedStriderGood(int)
         private static MethodInfo _portGetPickedCrewGoodMethod = null;  // Port.GetPickedCrewGood(int)
+        // Port action methods
+        private static MethodInfo _portWasDecisionMadeMethod = null;  // Port.WasDecisionMade()
+        private static MethodInfo _portLockDecisionMethod = null;  // Port.LockDecision()
+        private static MethodInfo _portCancelDecisionMethod = null;  // Port.CancelDecision()
+        private static MethodInfo _portAcceptRewardsMethod = null;  // Port.AcceptRewards()
+        private static MethodInfo _portChangeLevelMethod = null;  // Port.ChangeLevel(int)
+        private static MethodInfo _portAllGoodsDeliveredMethod = null;  // Port.AllExpeditionGoodsDelivered()
+        private static MethodInfo _portIsBlockedByUnpickedCategoryMethod = null;  // Port.IsBlockedByUnpickedCategory()
+        private static MethodInfo _portGetCurrentExpeditionModelMethod = null;  // Port.GetCurrentExpeditionModel()
+        private static MethodInfo _portCalculateDurationMethod = null;  // Port.CalculateDuration()
+        // PortState fields
+        private static FieldInfo _portStateWasDecisionMadeField = null;  // PortState.wasDecisionMade
+        private static FieldInfo _portStatePickedCategoryField = null;  // PortState.pickedCategory
+        private static FieldInfo _portStateStriderPickedGoodsField = null;  // PortState.striderPickedGoods (List<int>)
+        private static FieldInfo _portStateCrewPickedGoodsField = null;  // PortState.crewPickedGoods (List<int>)
+        // PortExpeditionModel fields
+        private static FieldInfo _portExpedModelMaxLevelField = null;  // PortExpeditionModel.maxLevel
+        private static FieldInfo _portExpedModelBlueprintsField = null;  // PortExpeditionModel.blueprints
+        private static FieldInfo _portExpedModelChancesField = null;  // PortExpeditionModel.chances (PortRewardChance[])
+        // PortExpedition fields
+        private static FieldInfo _portExpedStriderGoodsField = null;  // PortExpedition.striderGoods (GoodsSet[])
+        private static FieldInfo _portExpedCrewGoodsField = null;  // PortExpedition.crewGoods (GoodsSet[])
+        private static FieldInfo _portExpedChancesField = null;  // PortExpedition.chances (List<PortRewardChance>)
+        // PortRewardChance fields
+        private static FieldInfo _portRewardChanceRarityField = null;  // PortRewardChance.rarity
+        private static FieldInfo _portRewardChanceChanceField = null;  // PortRewardChance.chance
+        // BuildingsDropTable / category
+        private static FieldInfo _buildingsDropTableBuildingsField = null;  // BuildingsDropTable.buildings
+        private static FieldInfo _buildingTableEntityBuildingField = null;  // BuildingTableEntity.building
+        private static FieldInfo _buildingModelCategoryField = null;  // BuildingModel.category
+        // LimitedGoodsCollection
+        private static MethodInfo _limitedGoodsGetFullAmountMethod = null;  // LimitedGoodsCollection.GetFullAmount(string)
         private static bool _portTypesCached = false;
 
         // Decoration-specific
@@ -1829,6 +1861,15 @@ namespace ATSAccessibility
                     _portGetCurrentExpeditionMethod = _portType.GetMethod("GetCurrentExpedition", GameReflection.PublicInstance);
                     _portGetPickedStriderGoodMethod = _portType.GetMethod("GetPickedStriderGood", GameReflection.PublicInstance);
                     _portGetPickedCrewGoodMethod = _portType.GetMethod("GetPickedCrewGood", GameReflection.PublicInstance);
+                    _portWasDecisionMadeMethod = _portType.GetMethod("WasDecisionMade", GameReflection.PublicInstance);
+                    _portLockDecisionMethod = _portType.GetMethod("LockDecision", GameReflection.PublicInstance);
+                    _portCancelDecisionMethod = _portType.GetMethod("CancelDecision", GameReflection.PublicInstance);
+                    _portAcceptRewardsMethod = _portType.GetMethod("AcceptRewards", GameReflection.PublicInstance);
+                    _portChangeLevelMethod = _portType.GetMethod("ChangeLevel", GameReflection.PublicInstance);
+                    _portAllGoodsDeliveredMethod = _portType.GetMethod("AllExpeditionGoodsDelivered", GameReflection.PublicInstance);
+                    _portIsBlockedByUnpickedCategoryMethod = _portType.GetMethod("IsBlockedByUnpickedCategory", GameReflection.PublicInstance);
+                    _portGetCurrentExpeditionModelMethod = _portType.GetMethod("GetCurrentExpeditionModel", GameReflection.PublicInstance);
+                    _portCalculateDurationMethod = _portType.GetMethod("CalculateDuration", GameReflection.PublicInstance);
                 }
 
                 var portStateType = assembly.GetType("Eremite.Buildings.PortState");
@@ -1840,6 +1881,65 @@ namespace ATSAccessibility
                     _portStatePerkRewardField = portStateType.GetField("perkReward", GameReflection.PublicInstance);
                     _portStateExpeditionGoodsField = portStateType.GetField("expeditionGoods", GameReflection.PublicInstance);
                     _portStateWorkersField = portStateType.GetField("workers", GameReflection.PublicInstance);
+                    _portStateWasDecisionMadeField = portStateType.GetField("wasDecisionMade", GameReflection.PublicInstance);
+                    _portStatePickedCategoryField = portStateType.GetField("pickedCategory", GameReflection.PublicInstance);
+                    _portStateStriderPickedGoodsField = portStateType.GetField("striderPickedGoods", GameReflection.PublicInstance);
+                    _portStateCrewPickedGoodsField = portStateType.GetField("crewPickedGoods", GameReflection.PublicInstance);
+                }
+
+                var portExpedModelType = assembly.GetType("Eremite.Buildings.PortExpeditionModel");
+                if (portExpedModelType != null)
+                {
+                    _portExpedModelMaxLevelField = portExpedModelType.GetField("maxLevel", GameReflection.PublicInstance);
+                    _portExpedModelBlueprintsField = portExpedModelType.GetField("blueprints", GameReflection.PublicInstance);
+                    _portExpedModelChancesField = portExpedModelType.GetField("chances", GameReflection.PublicInstance);
+                }
+
+                var portExpedType = assembly.GetType("Eremite.Buildings.PortExpedition");
+                if (portExpedType != null)
+                {
+                    _portExpedStriderGoodsField = portExpedType.GetField("striderGoods", GameReflection.PublicInstance);
+                    _portExpedCrewGoodsField = portExpedType.GetField("crewGoods", GameReflection.PublicInstance);
+                    _portExpedChancesField = portExpedType.GetField("chances", GameReflection.PublicInstance);
+                }
+
+                var portRewardChanceType = assembly.GetType("Eremite.Buildings.PortRewardChance");
+                if (portRewardChanceType != null)
+                {
+                    _portRewardChanceRarityField = portRewardChanceType.GetField("rarity", GameReflection.PublicInstance);
+                    _portRewardChanceChanceField = portRewardChanceType.GetField("chance", GameReflection.PublicInstance);
+                }
+
+                var buildingsDropTableType = assembly.GetType("Eremite.Model.BuildingsDropTable");
+                if (buildingsDropTableType != null)
+                {
+                    _buildingsDropTableBuildingsField = buildingsDropTableType.GetField("buildings", GameReflection.PublicInstance);
+                }
+
+                var buildingTableEntityType = assembly.GetType("Eremite.Model.BuildingTableEntity");
+                if (buildingTableEntityType != null)
+                {
+                    _buildingTableEntityBuildingField = buildingTableEntityType.GetField("building", GameReflection.PublicInstance);
+                }
+
+                var buildingModelType = assembly.GetType("Eremite.Buildings.BuildingModel");
+                if (buildingModelType != null)
+                {
+                    _buildingModelCategoryField = buildingModelType.GetField("category", GameReflection.PublicInstance);
+                }
+
+                var limitedGoodsType = assembly.GetType("Eremite.LimitedGoodsCollection");
+                if (limitedGoodsType != null)
+                {
+                    _limitedGoodsGetFullAmountMethod = limitedGoodsType.GetMethod("GetFullAmount", new[] { typeof(string) });
+                }
+
+                // GoodsSet.goods (also cached in EnsureRelicTypes/EnsureUpgradeTypes, but port needs it independently)
+                if (_goodsSetGoodsField == null)
+                {
+                    var goodsSetType = assembly.GetType("Eremite.Model.GoodsSet");
+                    if (goodsSetType != null)
+                        _goodsSetGoodsField = goodsSetType.GetField("goods", GameReflection.PublicInstance);
                 }
 
                 Debug.Log("[ATSAccessibility] BuildingReflection: Cached Port types");
@@ -6628,8 +6728,6 @@ namespace ATSAccessibility
         {
             if (!IsPort(building)) return 0;
 
-            EnsurePortTypes();
-
             try
             {
                 var state = _portStateField?.GetValue(building);
@@ -6650,8 +6748,6 @@ namespace ATSAccessibility
         {
             if (!IsPort(building)) return false;
 
-            EnsurePortTypes();
-
             try
             {
                 var result = _portWasExpeditionStartedMethod?.Invoke(building, null);
@@ -6669,8 +6765,6 @@ namespace ATSAccessibility
         public static bool ArePortRewardsWaiting(object building)
         {
             if (!IsPort(building)) return false;
-
-            EnsurePortTypes();
 
             try
             {
@@ -6690,8 +6784,6 @@ namespace ATSAccessibility
         {
             if (!IsPort(building)) return 0f;
 
-            EnsurePortTypes();
-
             try
             {
                 var result = _portCalculateProgressMethod?.Invoke(building, null);
@@ -6710,8 +6802,6 @@ namespace ATSAccessibility
         {
             if (!IsPort(building)) return 0f;
 
-            EnsurePortTypes();
-
             try
             {
                 var result = _portCalculateTimeLeftMethod?.Invoke(building, null);
@@ -6729,8 +6819,6 @@ namespace ATSAccessibility
         public static string GetPortBlueprintReward(object building)
         {
             if (!IsPort(building)) return null;
-
-            EnsurePortTypes();
 
             try
             {
@@ -6752,14 +6840,786 @@ namespace ATSAccessibility
         {
             if (!IsPort(building)) return null;
 
-            EnsurePortTypes();
-
             try
             {
                 var state = _portStateField?.GetValue(building);
                 if (state == null) return null;
 
                 return _portStatePerkRewardField?.GetValue(state) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if port decision was made (goods locked in).
+        /// </summary>
+        public static bool WasPortDecisionMade(object building)
+        {
+            if (!IsPort(building)) return false;
+
+            try
+            {
+                var result = _portWasDecisionMadeMethod?.Invoke(building, null);
+                return (bool?)result ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if all expedition goods have been delivered.
+        /// </summary>
+        public static bool AllPortGoodsDelivered(object building)
+        {
+            if (!IsPort(building)) return false;
+
+            try
+            {
+                var result = _portAllGoodsDeliveredMethod?.Invoke(building, null);
+                return (bool?)result ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if port is blocked by unpicked category.
+        /// </summary>
+        public static bool IsPortBlockedByUnpickedCategory(object building)
+        {
+            if (!IsPort(building)) return false;
+
+            try
+            {
+                var result = _portIsBlockedByUnpickedCategoryMethod?.Invoke(building, null);
+                return (bool?)result ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Lock the port decision (confirm goods selection).
+        /// </summary>
+        public static bool PortLockDecision(object building)
+        {
+            if (!IsPort(building)) return false;
+            if (_portLockDecisionMethod == null) return false;
+
+            try
+            {
+                _portLockDecisionMethod.Invoke(building, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Cancel the port decision (return goods).
+        /// </summary>
+        public static bool PortCancelDecision(object building)
+        {
+            if (!IsPort(building)) return false;
+            if (_portCancelDecisionMethod == null) return false;
+
+            try
+            {
+                _portCancelDecisionMethod.Invoke(building, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Accept port expedition rewards.
+        /// </summary>
+        public static bool PortAcceptRewards(object building)
+        {
+            if (!IsPort(building)) return false;
+            if (_portAcceptRewardsMethod == null) return false;
+
+            try
+            {
+                _portAcceptRewardsMethod.Invoke(building, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Change port expedition level.
+        /// </summary>
+        public static bool PortChangeLevel(object building, int level)
+        {
+            if (!IsPort(building)) return false;
+            if (_portChangeLevelMethod == null) return false;
+
+            try
+            {
+                _portChangeLevelMethod.Invoke(building, new object[] { level });
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the maximum expedition level for the current expedition model.
+        /// </summary>
+        public static int GetPortMaxLevel(object building)
+        {
+            if (!IsPort(building)) return 1;
+
+            try
+            {
+                var expedModel = _portGetCurrentExpeditionModelMethod?.Invoke(building, null);
+                if (expedModel == null) return 1;
+
+                return (int?)_portExpedModelMaxLevelField?.GetValue(expedModel) ?? 1;
+            }
+            catch
+            {
+                return 1;
+            }
+        }
+
+        /// <summary>
+        /// Get the calculated expedition duration in seconds.
+        /// </summary>
+        public static float GetPortDuration(object building)
+        {
+            if (!IsPort(building)) return 0f;
+
+            try
+            {
+                var result = _portCalculateDurationMethod?.Invoke(building, null);
+                return (float?)result ?? 0f;
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of strider goods sets in the current expedition.
+        /// </summary>
+        public static int GetPortStriderGoodSetCount(object building)
+        {
+            if (!IsPort(building)) return 0;
+
+            try
+            {
+                var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+                if (expedition == null) return 0;
+
+                var goodsSets = _portExpedStriderGoodsField?.GetValue(expedition) as Array;
+                return goodsSets?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of alternatives in a strider goods set.
+        /// </summary>
+        public static int GetPortStriderAlternativeCount(object building, int setIndex)
+        {
+            var goodsSet = GetPortStriderGoodsSetObject(building, setIndex);
+            if (goodsSet == null) return 0;
+
+            try
+            {
+                var goods = _goodsSetGoodsField?.GetValue(goodsSet) as Array;
+                return goods?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the display name of a strider good alternative.
+        /// </summary>
+        public static string GetPortStriderGoodDisplayName(object building, int setIndex, int altIndex)
+        {
+            EnsureBlightConfigTypes();  // For _goodRefDisplayNameProperty
+            var goodRef = GetPortStriderGoodRefObject(building, setIndex, altIndex);
+            if (goodRef == null) return null;
+
+            try
+            {
+                return _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the internal name of a strider good alternative.
+        /// </summary>
+        public static string GetPortStriderGoodName(object building, int setIndex, int altIndex)
+        {
+            EnsureBlightConfigTypes();  // For _goodRefNameProperty
+            var goodRef = GetPortStriderGoodRefObject(building, setIndex, altIndex);
+            if (goodRef == null) return null;
+
+            try
+            {
+                return _goodRefNameProperty?.GetValue(goodRef) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the amount of a strider good alternative.
+        /// </summary>
+        public static int GetPortStriderGoodAmount(object building, int setIndex, int altIndex)
+        {
+            EnsureRecipeModelTypes();  // For _goodRefAmountField
+            var goodRef = GetPortStriderGoodRefObject(building, setIndex, altIndex);
+            if (goodRef == null) return 0;
+
+            try
+            {
+                return (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the picked index for a strider goods set.
+        /// </summary>
+        public static int GetPortStriderPickedIndex(object building, int setIndex)
+        {
+            if (!IsPort(building)) return 0;
+
+            try
+            {
+                var state = _portStateField?.GetValue(building);
+                if (state == null) return 0;
+
+                var pickedGoods = _portStateStriderPickedGoodsField?.GetValue(state);
+                if (pickedGoods == null) return 0;
+
+                var list = pickedGoods as System.Collections.IList;
+                if (list == null || setIndex < 0 || setIndex >= list.Count) return 0;
+
+                return (int)list[setIndex];
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Set the picked index for a strider goods set.
+        /// </summary>
+        public static bool SetPortStriderPickedIndex(object building, int setIndex, int altIndex)
+        {
+            if (!IsPort(building)) return false;
+
+            try
+            {
+                var state = _portStateField?.GetValue(building);
+                if (state == null) return false;
+
+                var pickedGoods = _portStateStriderPickedGoodsField?.GetValue(state);
+                if (pickedGoods == null) return false;
+
+                var list = pickedGoods as System.Collections.IList;
+                if (list == null || setIndex < 0 || setIndex >= list.Count) return false;
+
+                list[setIndex] = altIndex;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of crew goods sets in the current expedition.
+        /// </summary>
+        public static int GetPortCrewGoodSetCount(object building)
+        {
+            if (!IsPort(building)) return 0;
+
+            try
+            {
+                var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+                if (expedition == null) return 0;
+
+                var goodsSets = _portExpedCrewGoodsField?.GetValue(expedition) as Array;
+                return goodsSets?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of alternatives in a crew goods set.
+        /// </summary>
+        public static int GetPortCrewAlternativeCount(object building, int setIndex)
+        {
+            var goodsSet = GetPortCrewGoodsSetObject(building, setIndex);
+            if (goodsSet == null) return 0;
+
+            try
+            {
+                var goods = _goodsSetGoodsField?.GetValue(goodsSet) as Array;
+                return goods?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the display name of a crew good alternative.
+        /// </summary>
+        public static string GetPortCrewGoodDisplayName(object building, int setIndex, int altIndex)
+        {
+            EnsureBlightConfigTypes();
+            var goodRef = GetPortCrewGoodRefObject(building, setIndex, altIndex);
+            if (goodRef == null) return null;
+
+            try
+            {
+                return _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the internal name of a crew good alternative.
+        /// </summary>
+        public static string GetPortCrewGoodName(object building, int setIndex, int altIndex)
+        {
+            EnsureBlightConfigTypes();
+            var goodRef = GetPortCrewGoodRefObject(building, setIndex, altIndex);
+            if (goodRef == null) return null;
+
+            try
+            {
+                return _goodRefNameProperty?.GetValue(goodRef) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the amount of a crew good alternative.
+        /// </summary>
+        public static int GetPortCrewGoodAmount(object building, int setIndex, int altIndex)
+        {
+            EnsureRecipeModelTypes();
+            var goodRef = GetPortCrewGoodRefObject(building, setIndex, altIndex);
+            if (goodRef == null) return 0;
+
+            try
+            {
+                return (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the picked index for a crew goods set.
+        /// </summary>
+        public static int GetPortCrewPickedIndex(object building, int setIndex)
+        {
+            if (!IsPort(building)) return 0;
+
+            try
+            {
+                var state = _portStateField?.GetValue(building);
+                if (state == null) return 0;
+
+                var pickedGoods = _portStateCrewPickedGoodsField?.GetValue(state);
+                if (pickedGoods == null) return 0;
+
+                var list = pickedGoods as System.Collections.IList;
+                if (list == null || setIndex < 0 || setIndex >= list.Count) return 0;
+
+                return (int)list[setIndex];
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Set the picked index for a crew goods set.
+        /// </summary>
+        public static bool SetPortCrewPickedIndex(object building, int setIndex, int altIndex)
+        {
+            if (!IsPort(building)) return false;
+
+            try
+            {
+                var state = _portStateField?.GetValue(building);
+                if (state == null) return false;
+
+                var pickedGoods = _portStateCrewPickedGoodsField?.GetValue(state);
+                if (pickedGoods == null) return false;
+
+                var list = pickedGoods as System.Collections.IList;
+                if (list == null || setIndex < 0 || setIndex >= list.Count) return false;
+
+                list[setIndex] = altIndex;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the delivered amount of a good in the port's expedition goods collection.
+        /// </summary>
+        public static int GetPortGoodDeliveredAmount(object building, string goodName)
+        {
+            if (!IsPort(building) || string.IsNullOrEmpty(goodName)) return 0;
+
+            try
+            {
+                var state = _portStateField?.GetValue(building);
+                if (state == null) return 0;
+
+                var expedGoods = _portStateExpeditionGoodsField?.GetValue(state);
+                if (expedGoods == null) return 0;
+
+                var result = _limitedGoodsGetFullAmountMethod?.Invoke(expedGoods, new object[] { goodName });
+                return (int?)result ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get available building categories from the expedition blueprints drop table.
+        /// Returns display names.
+        /// </summary>
+        public static List<string> GetPortAvailableCategories(object building)
+        {
+            if (!IsPort(building)) return new List<string>();
+
+            try
+            {
+                var expedModel = _portGetCurrentExpeditionModelMethod?.Invoke(building, null);
+                if (expedModel == null) return new List<string>();
+
+                var blueprints = _portExpedModelBlueprintsField?.GetValue(expedModel);
+                if (blueprints == null) return new List<string>();
+
+                var buildingsArray = _buildingsDropTableBuildingsField?.GetValue(blueprints) as Array;
+                if (buildingsArray == null) return new List<string>();
+
+                var categories = new HashSet<string>();
+                var result = new List<string>();
+
+                for (int i = 0; i < buildingsArray.Length; i++)
+                {
+                    var entity = buildingsArray.GetValue(i);
+                    if (entity == null) continue;
+
+                    var buildingModel = _buildingTableEntityBuildingField?.GetValue(entity);
+                    if (buildingModel == null) continue;
+
+                    var category = _buildingModelCategoryField?.GetValue(buildingModel);
+                    if (category == null) continue;
+
+                    var displayNameField = category.GetType().GetField("displayName", GameReflection.PublicInstance);
+                    var displayNameObj = displayNameField?.GetValue(category);
+                    string displayName = GameReflection.GetLocaText(displayNameObj);
+                    if (!string.IsNullOrEmpty(displayName) && categories.Add(displayName))
+                    {
+                        result.Add(displayName);
+                    }
+                }
+
+                return result;
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Get available building category internal names from the expedition blueprints drop table.
+        /// </summary>
+        public static List<string> GetPortCategoryInternalNames(object building)
+        {
+            if (!IsPort(building)) return new List<string>();
+
+            try
+            {
+                var expedModel = _portGetCurrentExpeditionModelMethod?.Invoke(building, null);
+                if (expedModel == null) return new List<string>();
+
+                var blueprints = _portExpedModelBlueprintsField?.GetValue(expedModel);
+                if (blueprints == null) return new List<string>();
+
+                var buildingsArray = _buildingsDropTableBuildingsField?.GetValue(blueprints) as Array;
+                if (buildingsArray == null) return new List<string>();
+
+                var categories = new HashSet<string>();
+                var result = new List<string>();
+
+                for (int i = 0; i < buildingsArray.Length; i++)
+                {
+                    var entity = buildingsArray.GetValue(i);
+                    if (entity == null) continue;
+
+                    var buildingModel = _buildingTableEntityBuildingField?.GetValue(entity);
+                    if (buildingModel == null) continue;
+
+                    var category = _buildingModelCategoryField?.GetValue(buildingModel);
+                    if (category == null) continue;
+
+                    // SO.Name property gives internal name
+                    var nameProp = category.GetType().GetProperty("Name", GameReflection.PublicInstance);
+                    string name = nameProp?.GetValue(category) as string;
+                    if (!string.IsNullOrEmpty(name) && categories.Add(name))
+                    {
+                        result.Add(name);
+                    }
+                }
+
+                return result;
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Get the currently picked category name.
+        /// </summary>
+        public static string GetPortPickedCategory(object building)
+        {
+            if (!IsPort(building)) return null;
+
+            try
+            {
+                var state = _portStateField?.GetValue(building);
+                if (state == null) return null;
+
+                return _portStatePickedCategoryField?.GetValue(state) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Set the picked category (internal name).
+        /// </summary>
+        public static bool SetPortPickedCategory(object building, string categoryName)
+        {
+            if (!IsPort(building)) return false;
+
+            try
+            {
+                var state = _portStateField?.GetValue(building);
+                if (state == null) return false;
+
+                _portStatePickedCategoryField?.SetValue(state, categoryName);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if the expedition model has a blueprint reward (needs category selection).
+        /// </summary>
+        public static bool PortHasBlueprintReward(object building)
+        {
+            if (!IsPort(building)) return false;
+
+            try
+            {
+                var expedModel = _portGetCurrentExpeditionModelMethod?.Invoke(building, null);
+                if (expedModel == null) return false;
+
+                var blueprints = _portExpedModelBlueprintsField?.GetValue(expedModel);
+                return blueprints != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the reward chances for the current expedition.
+        /// Returns list of (rarity name, chance percentage).
+        /// </summary>
+        public static List<(string rarity, int chance)> GetPortRewardChances(object building)
+        {
+            if (!IsPort(building)) return new List<(string, int)>();
+
+            try
+            {
+                var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+                if (expedition == null) return new List<(string, int)>();
+
+                var chances = _portExpedChancesField?.GetValue(expedition);
+                if (chances == null) return new List<(string, int)>();
+
+                var result = new List<(string, int)>();
+                var list = chances as System.Collections.IList;
+                if (list == null) return result;
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var chance = list[i];
+                    if (chance == null) continue;
+
+                    var rarityObj = _portRewardChanceRarityField?.GetValue(chance);
+                    int chanceValue = (int?)_portRewardChanceChanceField?.GetValue(chance) ?? 0;
+
+                    string rarityName = rarityObj?.ToString() ?? "Unknown";
+                    if (chanceValue > 0)
+                    {
+                        result.Add((rarityName, chanceValue));
+                    }
+                }
+
+                return result;
+            }
+            catch
+            {
+                return new List<(string, int)>();
+            }
+        }
+
+        // ---- Port helper methods ----
+
+        private static object GetPortStriderGoodsSetObject(object building, int setIndex)
+        {
+            if (!IsPort(building)) return null;
+
+            try
+            {
+                var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+                if (expedition == null) return null;
+
+                var goodsSets = _portExpedStriderGoodsField?.GetValue(expedition) as Array;
+                if (goodsSets == null || setIndex < 0 || setIndex >= goodsSets.Length) return null;
+
+                return goodsSets.GetValue(setIndex);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static object GetPortStriderGoodRefObject(object building, int setIndex, int altIndex)
+        {
+            var goodsSet = GetPortStriderGoodsSetObject(building, setIndex);
+            if (goodsSet == null) return null;
+
+            try
+            {
+                var goods = _goodsSetGoodsField?.GetValue(goodsSet) as Array;
+                if (goods == null || altIndex < 0 || altIndex >= goods.Length) return null;
+
+                return goods.GetValue(altIndex);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static object GetPortCrewGoodsSetObject(object building, int setIndex)
+        {
+            if (!IsPort(building)) return null;
+
+            try
+            {
+                var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+                if (expedition == null) return null;
+
+                var goodsSets = _portExpedCrewGoodsField?.GetValue(expedition) as Array;
+                if (goodsSets == null || setIndex < 0 || setIndex >= goodsSets.Length) return null;
+
+                return goodsSets.GetValue(setIndex);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static object GetPortCrewGoodRefObject(object building, int setIndex, int altIndex)
+        {
+            var goodsSet = GetPortCrewGoodsSetObject(building, setIndex);
+            if (goodsSet == null) return null;
+
+            try
+            {
+                var goods = _goodsSetGoodsField?.GetValue(goodsSet) as Array;
+                if (goods == null || altIndex < 0 || altIndex >= goods.Length) return null;
+
+                return goods.GetValue(altIndex);
             }
             catch
             {
@@ -6879,6 +7739,33 @@ namespace ATSAccessibility
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] AreWorkplacesActive failed: {ex.Message}"); }
 
             // Default to true for non-Storage production buildings
+            return true;
+        }
+
+        /// <summary>
+        /// Check if a building currently needs/accepts worker assignment.
+        /// This is a higher-level check than AreWorkplacesActive:
+        /// - Port: only during Phase 2 (decision made, expedition not started)
+        /// - Relic: only during investigation (started, not finished)
+        /// - Storage: only when haulers are unlocked (via AreWorkplacesActive)
+        /// - Other buildings: whenever workplaces are active
+        /// </summary>
+        public static bool ShouldAllowWorkerManagement(object building)
+        {
+            if (building == null) return false;
+            if (!IsProductionBuilding(building)) return false;
+            if (!AreWorkplacesActive(building)) return false;
+
+            if (IsPort(building))
+            {
+                return WasPortDecisionMade(building) && !IsPortExpeditionStarted(building);
+            }
+
+            if (IsRelic(building))
+            {
+                return IsRelicInvestigationStarted(building) && !IsRelicInvestigationFinished(building);
+            }
+
             return true;
         }
 

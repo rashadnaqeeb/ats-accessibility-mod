@@ -268,6 +268,14 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Adjust a value at section level (+/- keys when not navigated into items).
+        /// </summary>
+        protected virtual void AdjustSectionValue(int sectionIndex, int delta, KeyboardManager.KeyModifiers modifiers)
+        {
+            // Default: do nothing
+        }
+
+        /// <summary>
         /// Get the searchable name for a section at the given index.
         /// Subclasses can override this to enable type-ahead search at Level 0.
         /// </summary>
@@ -557,6 +565,10 @@ namespace ATSAccessibility
             if (_navigationLevel >= 1)
             {
                 AdjustItemValue(_currentSectionIndex, _currentItemIndex, delta, modifiers);
+            }
+            else
+            {
+                AdjustSectionValue(_currentSectionIndex, delta, modifiers);
             }
         }
 

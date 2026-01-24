@@ -5,7 +5,11 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Navigator for Port buildings (expeditions).
-    /// Provides navigation through Info, Status, and Rewards sections.
+    /// Provides phase-based navigation:
+    /// - Phase 1 (Planning): Pick goods, adjust level, pick category, confirm
+    /// - Phase 2 (Collecting): View delivery progress, cancel
+    /// - Phase 3 (In Progress): View progress/time (read-only)
+    /// - Phase 4 (Rewards): View rewards, accept
     /// </summary>
     public class PortNavigator : BuildingSectionNavigator
     {
@@ -16,8 +20,17 @@ namespace ATSAccessibility
         private enum SectionType
         {
             Info,
+            Level,
+            Workers,
+            Goods,
+            Category,
+            RewardsPreview,
+            Confirm,
+            GoodsProgress,
+            Cancel,
             Status,
             Rewards,
+            AcceptRewards,
             Upgrades
         }
 
@@ -29,16 +42,64 @@ namespace ATSAccessibility
         private SectionType[] _sectionTypes;
         private string _buildingName;
 
-        // Status data
-        private int _expeditionLevel;
+        // Phase state
+        private bool _wasDecisionMade;
         private bool _expeditionStarted;
         private bool _rewardsWaiting;
-        private float _progress;  // 0-1
-        private float _timeLeft;
 
-        // Reward data
+        // Info
+        private int _expeditionLevel;
+        private int _maxLevel;
+        private float _duration;
+
+        // Goods
+        private struct GoodsSetData
+        {
+            public int alternativeCount;
+            public string[] goodDisplayNames;
+            public string[] goodNames;
+            public int[] goodAmounts;
+            public int pickedIndex;
+        }
+
+        private GoodsSetData[] _striderSets;
+        private int _striderSetCount;
+        private GoodsSetData[] _crewSets;
+        private int _crewSetCount;
+
+        // Workers
+        private int[] _workerIds;
+        private int _maxWorkers;
+        private List<(string raceName, int freeCount)> _availableRaces;
+        private bool _racesRefreshedForWorkerSection;
+
+        // Delivery tracking (Phase 2)
+        private struct DeliveryItem
+        {
+            public string displayName;
+            public string name;
+            public int delivered;
+            public int needed;
+        }
+        private DeliveryItem[] _deliveryItems;
+        private int _deliveryItemCount;
+
+        // Categories
+        private List<string> _categoryDisplayNames;
+        private List<string> _categoryInternalNames;
+        private string _pickedCategory;
+        private bool _hasBlueprintReward;
+
+        // Rewards preview
+        private List<(string rarity, int chance)> _rewardChances;
+
+        // Rewards (Phase 4)
         private string _blueprintReward;
         private string _perkReward;
+
+        // Status (Phase 3)
+        private float _progress;
+        private float _timeLeft;
 
         // ========================================
         // BASE CLASS IMPLEMENTATION
@@ -59,11 +120,29 @@ namespace ATSAccessibility
             switch (_sectionTypes[sectionIndex])
             {
                 case SectionType.Info:
-                    return 2;  // Name, Expedition level
+                    return GetInfoItemCount();
+                case SectionType.Level:
+                    return 0;
+                case SectionType.Workers:
+                    return _maxWorkers;
+                case SectionType.Goods:
+                    return _striderSetCount + _crewSetCount;
+                case SectionType.Category:
+                    return _categoryDisplayNames?.Count ?? 0;
+                case SectionType.RewardsPreview:
+                    return _rewardChances?.Count ?? 0;
+                case SectionType.Confirm:
+                    return 0;  // Section-level action
+                case SectionType.GoodsProgress:
+                    return _deliveryItemCount;
+                case SectionType.Cancel:
+                    return 0;  // Section-level action
                 case SectionType.Status:
                     return GetStatusItemCount();
                 case SectionType.Rewards:
                     return GetRewardsItemCount();
+                case SectionType.AcceptRewards:
+                    return 0;  // Section-level action
                 case SectionType.Upgrades:
                     return _upgradesSection.GetItemCount();
                 default:
@@ -76,16 +155,48 @@ namespace ATSAccessibility
             if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
                 return 0;
 
-            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
-                return _upgradesSection.GetSubItemCount(itemIndex);
-
-            return 0;
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Workers:
+                    return GetWorkerSubItemCount(itemIndex);
+                case SectionType.Goods:
+                    return GetGoodsSubItemCount(itemIndex);
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetSubItemCount(itemIndex);
+                default:
+                    return 0;
+            }
         }
 
         protected override void AnnounceSection(int sectionIndex)
         {
-            string sectionName = _sectionNames[sectionIndex];
-            Speech.Say(sectionName);
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return;
+
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Level:
+                    if (_maxLevel > 1)
+                        Speech.Say($"Level {_expeditionLevel} of {_maxLevel}, duration {FormatDuration(_duration)}");
+                    else
+                        Speech.Say($"Level {_expeditionLevel}, duration {FormatDuration(_duration)}");
+                    break;
+                case SectionType.Confirm:
+                    if (BuildingReflection.IsPortBlockedByUnpickedCategory(_building))
+                        Speech.Say("Confirm, pick a category first");
+                    else
+                        Speech.Say("Confirm Expedition");
+                    break;
+                case SectionType.Cancel:
+                    Speech.Say("Cancel Expedition");
+                    break;
+                case SectionType.AcceptRewards:
+                    Speech.Say("Accept Rewards");
+                    break;
+                default:
+                    Speech.Say(_sectionNames[sectionIndex]);
+                    break;
+            }
         }
 
         protected override void AnnounceItem(int sectionIndex, int itemIndex)
@@ -97,6 +208,21 @@ namespace ATSAccessibility
             {
                 case SectionType.Info:
                     AnnounceInfoItem(itemIndex);
+                    break;
+                case SectionType.Workers:
+                    AnnounceWorkerItem(itemIndex);
+                    break;
+                case SectionType.Goods:
+                    AnnounceGoodsItemCombined(itemIndex);
+                    break;
+                case SectionType.Category:
+                    AnnounceCategoryItem(itemIndex);
+                    break;
+                case SectionType.RewardsPreview:
+                    AnnounceRewardsPreviewItem(itemIndex);
+                    break;
+                case SectionType.GoodsProgress:
+                    AnnounceGoodsProgressItem(itemIndex);
                     break;
                 case SectionType.Status:
                     AnnounceStatusItem(itemIndex);
@@ -112,74 +238,94 @@ namespace ATSAccessibility
 
         protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
         {
-            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return;
+
+            switch (_sectionTypes[sectionIndex])
             {
-                _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
+                case SectionType.Workers:
+                    AnnounceWorkerSubItem(itemIndex, subItemIndex);
+                    break;
+                case SectionType.Goods:
+                    AnnounceGoodsSubItemCombined(itemIndex, subItemIndex);
+                    break;
+                case SectionType.Upgrades:
+                    _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
+                    break;
+            }
+        }
+
+        protected override bool PerformSectionAction(int sectionIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return false;
+
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Confirm:
+                    return PerformConfirmAction();
+                case SectionType.Cancel:
+                    return PerformCancelAction();
+                case SectionType.AcceptRewards:
+                    return PerformAcceptRewardsAction();
+                default:
+                    return false;
+            }
+        }
+
+        protected override bool PerformItemAction(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return false;
+
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Category:
+                    return PerformCategoryAction(itemIndex);
+                default:
+                    return false;
             }
         }
 
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
         {
-            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return false;
+
+            switch (_sectionTypes[sectionIndex])
             {
-                return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
+                case SectionType.Workers:
+                    return PerformWorkerSubItemAction(itemIndex, subItemIndex);
+                case SectionType.Goods:
+                    return PerformGoodsSubItemAction(itemIndex, subItemIndex);
+                case SectionType.Upgrades:
+                    return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
+                default:
+                    return false;
             }
-            return false;
         }
 
-        protected override void RefreshData()
+        protected override void AdjustSectionValue(int sectionIndex, int delta, KeyboardManager.KeyModifiers modifiers)
         {
-            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Port";
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return;
 
-            // Status data
-            _expeditionLevel = BuildingReflection.GetPortExpeditionLevel(_building);
-            _expeditionStarted = BuildingReflection.IsPortExpeditionStarted(_building);
-            _rewardsWaiting = BuildingReflection.ArePortRewardsWaiting(_building);
-            _progress = BuildingReflection.GetPortProgress(_building);
-            _timeLeft = BuildingReflection.GetPortTimeLeft(_building);
-
-            // Reward data
-            _blueprintReward = BuildingReflection.GetPortBlueprintReward(_building);
-            _perkReward = BuildingReflection.GetPortPerkReward(_building);
-
-            // Build sections list
-            var sectionNames = new List<string>();
-            var sectionTypes = new List<SectionType>();
-
-            sectionNames.Add("Info");
-            sectionTypes.Add(SectionType.Info);
-
-            sectionNames.Add("Status");
-            sectionTypes.Add(SectionType.Status);
-
-            // Only show Rewards if rewards are waiting
-            if (_rewardsWaiting && (!string.IsNullOrEmpty(_blueprintReward) || !string.IsNullOrEmpty(_perkReward)))
+            if (_sectionTypes[sectionIndex] == SectionType.Level)
             {
-                sectionNames.Add("Rewards");
-                sectionTypes.Add(SectionType.Rewards);
+                int newLevel = Mathf.Clamp(_expeditionLevel + delta, 1, _maxLevel);
+                if (newLevel == _expeditionLevel)
+                {
+                    SoundManager.PlayFailed();
+                    return;
+                }
+
+                if (BuildingReflection.PortChangeLevel(_building, newLevel))
+                {
+                    SoundManager.PlayButtonClick();
+                    RefreshData();
+                    Speech.Say($"Level {_expeditionLevel} of {_maxLevel}, duration {FormatDuration(_duration)}");
+                }
             }
-
-            // Add Upgrades section if available
-            if (TryInitializeUpgradesSection())
-            {
-                sectionNames.Add("Upgrades");
-                sectionTypes.Add(SectionType.Upgrades);
-            }
-
-            _sectionNames = sectionNames.ToArray();
-            _sectionTypes = sectionTypes.ToArray();
-
-            Debug.Log($"[ATSAccessibility] PortNavigator: Refreshed data for {_buildingName}");
-        }
-
-        protected override void ClearData()
-        {
-            _sectionNames = null;
-            _sectionTypes = null;
-            _buildingName = null;
-            _blueprintReward = null;
-            _perkReward = null;
-            ClearUpgradesSection();
         }
 
         // ========================================
@@ -200,12 +346,18 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return itemIndex == 0 ? "Name" : "Expedition level";
-                case SectionType.Status:
-                    return "Status";
-                case SectionType.Rewards:
-                    return "Reward";
+                case SectionType.Workers:
+                    return GetWorkerItemName(itemIndex);
+                case SectionType.Goods:
+                    return GetGoodsItemName(itemIndex);
+                case SectionType.Category:
+                    if (_categoryDisplayNames != null && itemIndex >= 0 && itemIndex < _categoryDisplayNames.Count)
+                        return _categoryDisplayNames[itemIndex];
+                    return null;
+                case SectionType.GoodsProgress:
+                    if (_deliveryItems != null && itemIndex >= 0 && itemIndex < _deliveryItemCount)
+                        return _deliveryItems[itemIndex].displayName;
+                    return null;
                 case SectionType.Upgrades:
                     return _upgradesSection.GetItemName(itemIndex);
                 default:
@@ -218,67 +370,777 @@ namespace ATSAccessibility
             if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
                 return null;
 
-            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
-                return _upgradesSection.GetSubItemName(itemIndex, subItemIndex);
+            switch (_sectionTypes[sectionIndex])
+            {
+                case SectionType.Workers:
+                    return GetWorkerSubItemName(itemIndex, subItemIndex);
+                case SectionType.Goods:
+                    return GetGoodsSubItemName(itemIndex, subItemIndex);
+                case SectionType.Upgrades:
+                    return _upgradesSection.GetSubItemName(itemIndex, subItemIndex);
+                default:
+                    return null;
+            }
+        }
 
-            return null;
+        // ========================================
+        // DATA MANAGEMENT
+        // ========================================
+
+        protected override void RefreshData()
+        {
+            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Port";
+
+            // Phase detection
+            _wasDecisionMade = BuildingReflection.WasPortDecisionMade(_building);
+            _expeditionStarted = BuildingReflection.IsPortExpeditionStarted(_building);
+            _rewardsWaiting = BuildingReflection.ArePortRewardsWaiting(_building);
+
+            // Info
+            _expeditionLevel = BuildingReflection.GetPortExpeditionLevel(_building);
+            _maxLevel = BuildingReflection.GetPortMaxLevel(_building);
+            _duration = BuildingReflection.GetPortDuration(_building);
+
+            // Status (Phase 3)
+            _progress = BuildingReflection.GetPortProgress(_building);
+            _timeLeft = BuildingReflection.GetPortTimeLeft(_building);
+
+            // Rewards (Phase 4)
+            _blueprintReward = BuildingReflection.GetPortBlueprintReward(_building);
+            _perkReward = BuildingReflection.GetPortPerkReward(_building);
+
+            // Goods and categories (Phase 1)
+            if (!_wasDecisionMade)
+            {
+                RefreshGoodsSets();
+                RefreshCategories();
+                RefreshRewardChances();
+            }
+            else if (!_expeditionStarted)
+            {
+                // Phase 2: Delivery tracking + workers
+                RefreshDeliveryItems();
+                _workerIds = BuildingReflection.GetWorkerIds(_building);
+                _maxWorkers = _workerIds?.Length ?? 0;
+                _racesRefreshedForWorkerSection = false;
+            }
+
+            BuildSections();
+
+            Debug.Log($"[ATSAccessibility] PortNavigator: Refreshed data for {_buildingName}, phase={GetPhaseString()}");
+        }
+
+        protected override void ClearData()
+        {
+            _sectionNames = null;
+            _sectionTypes = null;
+            _buildingName = null;
+            _striderSets = null;
+            _striderSetCount = 0;
+            _crewSets = null;
+            _crewSetCount = 0;
+            _workerIds = null;
+            _maxWorkers = 0;
+            _availableRaces = null;
+            _racesRefreshedForWorkerSection = false;
+            _deliveryItems = null;
+            _deliveryItemCount = 0;
+            _categoryDisplayNames = null;
+            _categoryInternalNames = null;
+            _rewardChances = null;
+            _blueprintReward = null;
+            _perkReward = null;
+            ClearUpgradesSection();
+        }
+
+        private string GetPhaseString()
+        {
+            if (_rewardsWaiting) return "4-Rewards";
+            if (_expeditionStarted) return "3-InProgress";
+            if (_wasDecisionMade) return "2-Collecting";
+            return "1-Planning";
+        }
+
+        // ========================================
+        // SECTION BUILDING
+        // ========================================
+
+        private void BuildSections()
+        {
+            var sectionNames = new List<string>();
+            var sectionTypes = new List<SectionType>();
+
+            if (_rewardsWaiting)
+            {
+                // Phase 4: Rewards
+                sectionNames.Add("Info");
+                sectionTypes.Add(SectionType.Info);
+                if (!string.IsNullOrEmpty(_blueprintReward) || !string.IsNullOrEmpty(_perkReward))
+                {
+                    sectionNames.Add("Rewards");
+                    sectionTypes.Add(SectionType.Rewards);
+                }
+                sectionNames.Add("Accept Rewards");
+                sectionTypes.Add(SectionType.AcceptRewards);
+            }
+            else if (_expeditionStarted)
+            {
+                // Phase 3: In Progress
+                sectionNames.Add("Info");
+                sectionTypes.Add(SectionType.Info);
+                sectionNames.Add("Status");
+                sectionTypes.Add(SectionType.Status);
+            }
+            else if (_wasDecisionMade)
+            {
+                // Phase 2: Collecting
+                sectionNames.Add("Info");
+                sectionTypes.Add(SectionType.Info);
+                if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
+                {
+                    sectionNames.Add("Workers");
+                    sectionTypes.Add(SectionType.Workers);
+                }
+                if (_deliveryItemCount > 0)
+                {
+                    sectionNames.Add("Goods Progress");
+                    sectionTypes.Add(SectionType.GoodsProgress);
+                }
+                sectionNames.Add("Cancel");
+                sectionTypes.Add(SectionType.Cancel);
+            }
+            else
+            {
+                // Phase 1: Planning - no Info, start with Level
+                sectionNames.Add("Level");
+                sectionTypes.Add(SectionType.Level);
+                if (_striderSetCount + _crewSetCount > 0)
+                {
+                    sectionNames.Add("Food Choices");
+                    sectionTypes.Add(SectionType.Goods);
+                }
+                if (_hasBlueprintReward && _categoryDisplayNames != null && _categoryDisplayNames.Count > 0)
+                {
+                    sectionNames.Add("Choose Blueprint Reward Category");
+                    sectionTypes.Add(SectionType.Category);
+                }
+                else
+                {
+                    sectionNames.Add("No blueprint reward this expedition");
+                    sectionTypes.Add(SectionType.Category);
+                }
+                if (_rewardChances != null && _rewardChances.Count > 0)
+                {
+                    sectionNames.Add("Rewards Preview");
+                    sectionTypes.Add(SectionType.RewardsPreview);
+                }
+                sectionNames.Add("Confirm");
+                sectionTypes.Add(SectionType.Confirm);
+            }
+
+            // Upgrades in all phases
+            if (TryInitializeUpgradesSection())
+            {
+                sectionNames.Add("Upgrades");
+                sectionTypes.Add(SectionType.Upgrades);
+            }
+
+            _sectionNames = sectionNames.ToArray();
+            _sectionTypes = sectionTypes.ToArray();
+        }
+
+        // ========================================
+        // GOODS DATA REFRESH
+        // ========================================
+
+        private void RefreshGoodsSets()
+        {
+            // Strider goods
+            _striderSetCount = BuildingReflection.GetPortStriderGoodSetCount(_building);
+            if (_striderSetCount > 0)
+            {
+                _striderSets = new GoodsSetData[_striderSetCount];
+                for (int i = 0; i < _striderSetCount; i++)
+                {
+                    _striderSets[i] = FetchGoodsSetData(true, i);
+                }
+            }
+            else
+            {
+                _striderSets = null;
+            }
+
+            // Crew goods
+            _crewSetCount = BuildingReflection.GetPortCrewGoodSetCount(_building);
+            if (_crewSetCount > 0)
+            {
+                _crewSets = new GoodsSetData[_crewSetCount];
+                for (int i = 0; i < _crewSetCount; i++)
+                {
+                    _crewSets[i] = FetchGoodsSetData(false, i);
+                }
+            }
+            else
+            {
+                _crewSets = null;
+            }
+        }
+
+        private GoodsSetData FetchGoodsSetData(bool isStrider, int setIndex)
+        {
+            int altCount = isStrider
+                ? BuildingReflection.GetPortStriderAlternativeCount(_building, setIndex)
+                : BuildingReflection.GetPortCrewAlternativeCount(_building, setIndex);
+            int pickedIndex = isStrider
+                ? BuildingReflection.GetPortStriderPickedIndex(_building, setIndex)
+                : BuildingReflection.GetPortCrewPickedIndex(_building, setIndex);
+
+            var displayNames = new string[altCount];
+            var names = new string[altCount];
+            var amounts = new int[altCount];
+
+            for (int j = 0; j < altCount; j++)
+            {
+                if (isStrider)
+                {
+                    displayNames[j] = BuildingReflection.GetPortStriderGoodDisplayName(_building, setIndex, j) ?? "Unknown";
+                    names[j] = BuildingReflection.GetPortStriderGoodName(_building, setIndex, j);
+                    amounts[j] = BuildingReflection.GetPortStriderGoodAmount(_building, setIndex, j);
+                }
+                else
+                {
+                    displayNames[j] = BuildingReflection.GetPortCrewGoodDisplayName(_building, setIndex, j) ?? "Unknown";
+                    names[j] = BuildingReflection.GetPortCrewGoodName(_building, setIndex, j);
+                    amounts[j] = BuildingReflection.GetPortCrewGoodAmount(_building, setIndex, j);
+                }
+            }
+
+            return new GoodsSetData
+            {
+                alternativeCount = altCount,
+                goodDisplayNames = displayNames,
+                goodNames = names,
+                goodAmounts = amounts,
+                pickedIndex = pickedIndex
+            };
+        }
+
+        // ========================================
+        // DELIVERY TRACKING (Phase 2)
+        // ========================================
+
+        private void RefreshDeliveryItems()
+        {
+            var items = new List<DeliveryItem>();
+
+            // Gather picked strider goods
+            int striderCount = BuildingReflection.GetPortStriderGoodSetCount(_building);
+            for (int i = 0; i < striderCount; i++)
+            {
+                int pickedIndex = BuildingReflection.GetPortStriderPickedIndex(_building, i);
+                string name = BuildingReflection.GetPortStriderGoodName(_building, i, pickedIndex);
+                string displayName = BuildingReflection.GetPortStriderGoodDisplayName(_building, i, pickedIndex) ?? "Unknown";
+                int amount = BuildingReflection.GetPortStriderGoodAmount(_building, i, pickedIndex);
+                int delivered = !string.IsNullOrEmpty(name)
+                    ? BuildingReflection.GetPortGoodDeliveredAmount(_building, name)
+                    : 0;
+
+                items.Add(new DeliveryItem
+                {
+                    displayName = displayName,
+                    name = name,
+                    delivered = delivered,
+                    needed = amount
+                });
+            }
+
+            // Gather picked crew goods
+            int crewCount = BuildingReflection.GetPortCrewGoodSetCount(_building);
+            for (int i = 0; i < crewCount; i++)
+            {
+                int pickedIndex = BuildingReflection.GetPortCrewPickedIndex(_building, i);
+                string name = BuildingReflection.GetPortCrewGoodName(_building, i, pickedIndex);
+                string displayName = BuildingReflection.GetPortCrewGoodDisplayName(_building, i, pickedIndex) ?? "Unknown";
+                int amount = BuildingReflection.GetPortCrewGoodAmount(_building, i, pickedIndex);
+                int delivered = !string.IsNullOrEmpty(name)
+                    ? BuildingReflection.GetPortGoodDeliveredAmount(_building, name)
+                    : 0;
+
+                items.Add(new DeliveryItem
+                {
+                    displayName = displayName,
+                    name = name,
+                    delivered = delivered,
+                    needed = amount
+                });
+            }
+
+            _deliveryItems = items.ToArray();
+            _deliveryItemCount = items.Count;
+        }
+
+        // ========================================
+        // CATEGORIES
+        // ========================================
+
+        private void RefreshCategories()
+        {
+            _hasBlueprintReward = BuildingReflection.PortHasBlueprintReward(_building);
+            if (_hasBlueprintReward)
+            {
+                _categoryDisplayNames = BuildingReflection.GetPortAvailableCategories(_building);
+                _categoryInternalNames = BuildingReflection.GetPortCategoryInternalNames(_building);
+                _pickedCategory = BuildingReflection.GetPortPickedCategory(_building);
+            }
+            else
+            {
+                _categoryDisplayNames = null;
+                _categoryInternalNames = null;
+                _pickedCategory = null;
+            }
+        }
+
+        // ========================================
+        // REWARD CHANCES
+        // ========================================
+
+        private void RefreshRewardChances()
+        {
+            _rewardChances = BuildingReflection.GetPortRewardChances(_building);
         }
 
         // ========================================
         // INFO SECTION
         // ========================================
 
+        private int GetInfoItemCount()
+        {
+            if (_rewardsWaiting)
+                return 1;  // Just name
+            return 2;  // Name, Level
+        }
+
         private void AnnounceInfoItem(int itemIndex)
         {
             switch (itemIndex)
             {
                 case 0:
-                    Speech.Say($"Name: {_buildingName}");
+                    Speech.Say(_buildingName);
                     break;
                 case 1:
-                    Speech.Say($"Expedition level: {_expeditionLevel}");
+                    Speech.Say($"Level {_expeditionLevel}, duration {FormatDuration(_duration)}");
                     break;
             }
         }
 
         // ========================================
-        // STATUS SECTION
+        // GOODS SECTION (Phase 1)
+        // ========================================
+
+        /// <summary>
+        /// Resolve a combined goods item index to the appropriate set and local index.
+        /// Items 0..striderSetCount-1 are strider, then crewSetCount crew items follow.
+        /// </summary>
+        private bool ResolveGoodsIndex(int itemIndex, out GoodsSetData[] sets, out int localIndex, out bool isStrider)
+        {
+            if (itemIndex >= 0 && itemIndex < _striderSetCount && _striderSets != null)
+            {
+                sets = _striderSets;
+                localIndex = itemIndex;
+                isStrider = true;
+                return true;
+            }
+
+            int crewIndex = itemIndex - _striderSetCount;
+            if (crewIndex >= 0 && crewIndex < _crewSetCount && _crewSets != null)
+            {
+                sets = _crewSets;
+                localIndex = crewIndex;
+                isStrider = false;
+                return true;
+            }
+
+            sets = null;
+            localIndex = -1;
+            isStrider = false;
+            return false;
+        }
+
+        private int GetGoodsSubItemCount(int itemIndex)
+        {
+            if (!ResolveGoodsIndex(itemIndex, out var sets, out int localIndex, out _))
+                return 0;
+            if (sets[localIndex].alternativeCount > 1)
+                return sets[localIndex].alternativeCount;
+            return 0;
+        }
+
+        private void AnnounceGoodsItemCombined(int itemIndex)
+        {
+            if (!ResolveGoodsIndex(itemIndex, out var sets, out int localIndex, out bool isStrider))
+                return;
+
+            var set = sets[localIndex];
+            if (set.alternativeCount == 0) return;
+
+            int pickedIndex = set.pickedIndex;
+            if (pickedIndex < 0 || pickedIndex >= set.alternativeCount) pickedIndex = 0;
+
+            string prefix = isStrider ? "Strider food" : "Crew food";
+            string displayName = set.goodDisplayNames[pickedIndex];
+            int amount = set.goodAmounts[pickedIndex];
+            int inStorage = BuildingReflection.GetStoredGoodAmount(set.goodNames[pickedIndex]);
+
+            string announcement = $"{prefix}: {displayName}, {amount} ({inStorage} in storage)";
+            if (set.alternativeCount > 1)
+                announcement += $", {set.alternativeCount - 1} other options";
+
+            Speech.Say(announcement);
+        }
+
+        private void AnnounceGoodsSubItemCombined(int itemIndex, int subItemIndex)
+        {
+            if (!ResolveGoodsIndex(itemIndex, out var sets, out int localIndex, out _))
+                return;
+
+            var set = sets[localIndex];
+            if (subItemIndex < 0 || subItemIndex >= set.alternativeCount) return;
+
+            string displayName = set.goodDisplayNames[subItemIndex];
+            int amount = set.goodAmounts[subItemIndex];
+            int inStorage = BuildingReflection.GetStoredGoodAmount(set.goodNames[subItemIndex]);
+            string announcement = $"{displayName}: {amount} ({inStorage} in storage)";
+
+            if (subItemIndex == set.pickedIndex)
+                announcement += ", selected";
+
+            Speech.Say(announcement);
+        }
+
+        private bool PerformGoodsSubItemAction(int itemIndex, int subItemIndex)
+        {
+            if (!ResolveGoodsIndex(itemIndex, out var sets, out int localIndex, out bool isStrider))
+                return false;
+
+            var set = sets[localIndex];
+            if (subItemIndex < 0 || subItemIndex >= set.alternativeCount) return false;
+
+            bool success = isStrider
+                ? BuildingReflection.SetPortStriderPickedIndex(_building, localIndex, subItemIndex)
+                : BuildingReflection.SetPortCrewPickedIndex(_building, localIndex, subItemIndex);
+
+            if (success)
+            {
+                sets[localIndex].pickedIndex = subItemIndex;
+                Speech.Say($"Picked: {set.goodDisplayNames[subItemIndex]}");
+                SoundManager.PlayButtonClick();
+                _navigationLevel = 1;
+                return true;
+            }
+
+            Speech.Say("Cannot pick good");
+            return false;
+        }
+
+        private string GetGoodsItemName(int itemIndex)
+        {
+            if (!ResolveGoodsIndex(itemIndex, out var sets, out int localIndex, out _))
+                return null;
+            var set = sets[localIndex];
+            int picked = set.pickedIndex;
+            if (picked >= 0 && picked < set.goodDisplayNames.Length)
+                return set.goodDisplayNames[picked];
+            return null;
+        }
+
+        private string GetGoodsSubItemName(int itemIndex, int subItemIndex)
+        {
+            if (!ResolveGoodsIndex(itemIndex, out var sets, out int localIndex, out _))
+                return null;
+            var set = sets[localIndex];
+            if (subItemIndex >= 0 && subItemIndex < set.alternativeCount)
+                return set.goodDisplayNames[subItemIndex];
+            return null;
+        }
+
+        // ========================================
+        // CATEGORY SECTION (Phase 1)
+        // ========================================
+
+        private void AnnounceCategoryItem(int itemIndex)
+        {
+            if (_categoryDisplayNames == null || itemIndex < 0 || itemIndex >= _categoryDisplayNames.Count)
+                return;
+
+            string displayName = _categoryDisplayNames[itemIndex];
+            string announcement = displayName;
+
+            // Check if this category is picked
+            if (_categoryInternalNames != null && itemIndex < _categoryInternalNames.Count
+                && !string.IsNullOrEmpty(_pickedCategory)
+                && _categoryInternalNames[itemIndex] == _pickedCategory)
+            {
+                announcement += ", selected";
+            }
+
+            Speech.Say(announcement);
+        }
+
+        private bool PerformCategoryAction(int itemIndex)
+        {
+            if (_categoryInternalNames == null || itemIndex < 0 || itemIndex >= _categoryInternalNames.Count)
+                return false;
+
+            string internalName = _categoryInternalNames[itemIndex];
+            if (BuildingReflection.SetPortPickedCategory(_building, internalName))
+            {
+                _pickedCategory = internalName;
+                string displayName = _categoryDisplayNames[itemIndex];
+                Speech.Say($"Picked: {displayName}");
+                SoundManager.PlayButtonClick();
+                return true;
+            }
+
+            Speech.Say("Cannot pick category");
+            return false;
+        }
+
+        // ========================================
+        // REWARDS PREVIEW SECTION (Phase 1)
+        // ========================================
+
+        private void AnnounceRewardsPreviewItem(int itemIndex)
+        {
+            if (_rewardChances == null || itemIndex < 0 || itemIndex >= _rewardChances.Count)
+                return;
+
+            var (rarity, chance) = _rewardChances[itemIndex];
+            Speech.Say($"{rarity}: {chance} percent");
+        }
+
+        // ========================================
+        // GOODS PROGRESS SECTION (Phase 2)
+        // ========================================
+
+        private void AnnounceGoodsProgressItem(int itemIndex)
+        {
+            if (_deliveryItems == null || itemIndex < 0 || itemIndex >= _deliveryItemCount)
+                return;
+
+            var item = _deliveryItems[itemIndex];
+            Speech.Say($"{item.displayName}, {item.delivered} of {item.needed}");
+        }
+
+        // ========================================
+        // WORKERS SECTION (Phase 2)
+        // ========================================
+
+        private bool IsValidWorkerIndex(int workerIndex)
+        {
+            return _workerIds != null && workerIndex >= 0 && workerIndex < _workerIds.Length;
+        }
+
+        private void AnnounceWorkerItem(int itemIndex)
+        {
+            if (!IsValidWorkerIndex(itemIndex))
+            {
+                Speech.Say("Invalid worker slot");
+                return;
+            }
+
+            int workerId = _workerIds[itemIndex];
+            int slotNum = itemIndex + 1;
+
+            if (workerId <= 0)
+            {
+                Speech.Say($"Worker slot {slotNum}: Empty");
+                return;
+            }
+
+            string workerDesc = BuildingReflection.GetWorkerDescription(workerId);
+            if (string.IsNullOrEmpty(workerDesc))
+            {
+                Speech.Say($"Worker slot {slotNum}: Assigned");
+                return;
+            }
+
+            Speech.Say($"Worker slot {slotNum}: {workerDesc}");
+        }
+
+        private void RefreshAvailableRaces(bool force = false)
+        {
+            if (!force && _racesRefreshedForWorkerSection) return;
+
+            _availableRaces = BuildingReflection.GetRacesWithFreeWorkers();
+            _racesRefreshedForWorkerSection = true;
+            Debug.Log($"[ATSAccessibility] PortNavigator: Found {_availableRaces.Count} races with free workers");
+        }
+
+        private int GetWorkerSubItemCount(int workerIndex)
+        {
+            if (!IsValidWorkerIndex(workerIndex)) return 0;
+
+            RefreshAvailableRaces();
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
+
+            int count = _availableRaces?.Count ?? 0;
+            if (slotOccupied) count++;
+            return count;
+        }
+
+        private void AnnounceWorkerSubItem(int workerIndex, int subItemIndex)
+        {
+            if (!IsValidWorkerIndex(workerIndex))
+            {
+                Speech.Say("Invalid worker slot");
+                return;
+            }
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
+            int raceOffset = slotOccupied ? 1 : 0;
+
+            if (slotOccupied && subItemIndex == 0)
+            {
+                Speech.Say("Unassign worker");
+                return;
+            }
+
+            int raceIndex = subItemIndex - raceOffset;
+            if (_availableRaces != null && raceIndex >= 0 && raceIndex < _availableRaces.Count)
+            {
+                var (raceName, freeCount) = _availableRaces[raceIndex];
+                string bonus = BuildingReflection.GetRaceBonusForBuilding(_building, raceName);
+                if (!string.IsNullOrEmpty(bonus))
+                {
+                    if (bonus.Contains(","))
+                        Speech.Say($"{raceName}: {freeCount} available, {bonus}");
+                    else
+                        Speech.Say($"{raceName}: {freeCount} available, {bonus} specialist");
+                }
+                else
+                {
+                    Speech.Say($"{raceName}: {freeCount} available");
+                }
+            }
+            else
+            {
+                Speech.Say("Invalid option");
+            }
+        }
+
+        private bool PerformWorkerSubItemAction(int workerIndex, int subItemIndex)
+        {
+            if (!IsValidWorkerIndex(workerIndex)) return false;
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
+            int raceOffset = slotOccupied ? 1 : 0;
+
+            if (slotOccupied && subItemIndex == 0)
+            {
+                if (BuildingReflection.UnassignWorkerFromSlot(_building, workerIndex))
+                {
+                    _workerIds = BuildingReflection.GetWorkerIds(_building);
+                    RefreshAvailableRaces(force: true);
+                    Speech.Say("Worker unassigned");
+                    _navigationLevel = 1;
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Cannot unassign worker");
+                    return false;
+                }
+            }
+
+            int raceIndex = subItemIndex - raceOffset;
+            if (_availableRaces != null && raceIndex >= 0 && raceIndex < _availableRaces.Count)
+            {
+                var (raceName, _) = _availableRaces[raceIndex];
+
+                if (slotOccupied)
+                {
+                    BuildingReflection.UnassignWorkerFromSlot(_building, workerIndex);
+                    _workerIds = BuildingReflection.GetWorkerIds(_building);
+                }
+
+                if (BuildingReflection.AssignWorkerToSlot(_building, workerIndex, raceName))
+                {
+                    _workerIds = BuildingReflection.GetWorkerIds(_building);
+                    RefreshAvailableRaces(force: true);
+
+                    if (IsValidWorkerIndex(workerIndex))
+                    {
+                        string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
+                        Speech.Say($"Assigned: {workerDesc ?? raceName}");
+                    }
+                    else
+                    {
+                        Speech.Say($"Assigned: {raceName}");
+                    }
+
+                    _navigationLevel = 1;
+                    return true;
+                }
+                else
+                {
+                    Speech.Say($"Cannot assign {raceName}");
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        private string GetWorkerItemName(int itemIndex)
+        {
+            if (!IsValidWorkerIndex(itemIndex))
+                return null;
+
+            int workerId = _workerIds[itemIndex];
+            if (workerId <= 0)
+                return $"Slot {itemIndex + 1}";
+
+            string workerDesc = BuildingReflection.GetWorkerDescription(workerId);
+            return !string.IsNullOrEmpty(workerDesc) ? workerDesc : $"Slot {itemIndex + 1}";
+        }
+
+        private string GetWorkerSubItemName(int workerIndex, int subItemIndex)
+        {
+            if (!IsValidWorkerIndex(workerIndex))
+                return null;
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
+            int raceOffset = slotOccupied ? 1 : 0;
+
+            if (slotOccupied && subItemIndex == 0)
+                return "Unassign";
+
+            int raceIndex = subItemIndex - raceOffset;
+            if (_availableRaces != null && raceIndex >= 0 && raceIndex < _availableRaces.Count)
+                return _availableRaces[raceIndex].raceName;
+
+            return null;
+        }
+
+        // ========================================
+        // STATUS SECTION (Phase 3)
         // ========================================
 
         private int GetStatusItemCount()
         {
-            if (_rewardsWaiting)
-                return 1;  // "Rewards waiting"
-            if (_expeditionStarted)
-                return 3;  // State, Progress, Time left
-            return 1;  // "Not started"
+            return 2;  // Progress, Time left
         }
 
         private void AnnounceStatusItem(int itemIndex)
         {
-            if (_rewardsWaiting)
-            {
-                Speech.Say("Expedition: Complete. Rewards waiting to be collected");
-                return;
-            }
-
-            if (!_expeditionStarted)
-            {
-                Speech.Say("Expedition: Not started. Open port panel to begin");
-                return;
-            }
-
-            // Expedition in progress
             switch (itemIndex)
             {
                 case 0:
-                    Speech.Say("Expedition: In progress");
-                    break;
-                case 1:
                     int percentage = Mathf.RoundToInt(_progress * 100f);
                     Speech.Say($"Progress: {percentage} percent");
                     break;
-                case 2:
+                case 1:
                     AnnounceTimeLeft();
                     break;
             }
@@ -307,7 +1169,7 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // REWARDS SECTION
+        // REWARDS SECTION (Phase 4)
         // ========================================
 
         private int GetRewardsItemCount()
@@ -315,7 +1177,7 @@ namespace ATSAccessibility
             int count = 0;
             if (!string.IsNullOrEmpty(_blueprintReward)) count++;
             if (!string.IsNullOrEmpty(_perkReward)) count++;
-            return count > 0 ? count : 1;  // At least "No rewards" message
+            return count > 0 ? count : 1;
         }
 
         private void AnnounceRewardsItem(int itemIndex)
@@ -324,14 +1186,12 @@ namespace ATSAccessibility
 
             if (!string.IsNullOrEmpty(_blueprintReward))
             {
-                // Try to get display name for blueprint
                 string displayName = GetBuildingDisplayName(_blueprintReward);
                 rewards.Add($"Blueprint: {displayName}");
             }
 
             if (!string.IsNullOrEmpty(_perkReward))
             {
-                // Try to get display name for perk
                 string displayName = GetEffectDisplayName(_perkReward);
                 rewards.Add($"Perk: {displayName}");
             }
@@ -343,13 +1203,89 @@ namespace ATSAccessibility
             }
 
             if (itemIndex < rewards.Count)
-            {
                 Speech.Say(rewards[itemIndex]);
-            }
-            else
+        }
+
+        // ========================================
+        // ACTIONS
+        // ========================================
+
+        private bool PerformConfirmAction()
+        {
+            if (BuildingReflection.IsPortBlockedByUnpickedCategory(_building))
             {
-                Speech.Say("Unknown reward");
+                Speech.Say("Pick a category first");
+                SoundManager.PlayFailed();
+                return true;
             }
+
+            if (BuildingReflection.PortLockDecision(_building))
+            {
+                Speech.Say("Expedition confirmed");
+                SoundManager.PlayPortStartClick();
+                RefreshData();
+                _currentSectionIndex = 0;
+                _navigationLevel = 0;
+                AnnounceSection(0);
+                return true;
+            }
+
+            Speech.Say("Cannot confirm");
+            SoundManager.PlayFailed();
+            return true;
+        }
+
+        private bool PerformCancelAction()
+        {
+            if (BuildingReflection.PortCancelDecision(_building))
+            {
+                Speech.Say("Expedition cancelled");
+                SoundManager.PlayPortCancelClick();
+                RefreshData();
+                _currentSectionIndex = 0;
+                _navigationLevel = 0;
+                AnnounceSection(0);
+                return true;
+            }
+
+            Speech.Say("Cannot cancel");
+            SoundManager.PlayFailed();
+            return true;
+        }
+
+        private bool PerformAcceptRewardsAction()
+        {
+            if (BuildingReflection.PortAcceptRewards(_building))
+            {
+                Speech.Say("Rewards accepted");
+                SoundManager.PlayPortRewardsClick();
+                RefreshData();
+                _currentSectionIndex = 0;
+                _navigationLevel = 0;
+                AnnounceSection(0);
+                return true;
+            }
+
+            Speech.Say("Cannot accept rewards");
+            SoundManager.PlayFailed();
+            return true;
+        }
+
+        // ========================================
+        // HELPERS
+        // ========================================
+
+        private string FormatDuration(float seconds)
+        {
+            int totalSeconds = Mathf.RoundToInt(seconds);
+            if (totalSeconds < 60)
+                return $"{totalSeconds} seconds";
+
+            int minutes = totalSeconds / 60;
+            int remainingSecs = totalSeconds % 60;
+            if (remainingSecs > 0)
+                return $"{minutes} minutes {remainingSecs} seconds";
+            return $"{minutes} minutes";
         }
 
         private string GetBuildingDisplayName(string buildingName)
@@ -378,8 +1314,6 @@ namespace ATSAccessibility
         private string GetEffectDisplayName(string effectName)
         {
             if (string.IsNullOrEmpty(effectName)) return effectName;
-
-            // Effects are complex to get display names for, just clean up the name
             return CleanupName(effectName);
         }
 
@@ -387,10 +1321,8 @@ namespace ATSAccessibility
         {
             if (string.IsNullOrEmpty(name)) return name;
 
-            // Remove common prefixes/suffixes
             name = name.Replace("[", "").Replace("]", "");
 
-            // Split by uppercase letters and underscores
             var result = new System.Text.StringBuilder();
             for (int i = 0; i < name.Length; i++)
             {

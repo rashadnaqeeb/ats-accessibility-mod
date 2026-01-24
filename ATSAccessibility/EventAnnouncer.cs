@@ -802,11 +802,11 @@ namespace ATSAccessibility
                 if (sub != null) _subscriptions.Add(sub);
             }
 
-            // OnPortExpeditionFinished
-            var portExpeditionFinished = blackboardType.GetProperty("OnPortExpeditionFinished")?.GetValue(blackboard);
-            if (portExpeditionFinished != null)
+            // OnPortExpeditionStarted
+            var portExpeditionStarted = blackboardType.GetProperty("OnPortExpeditionStarted")?.GetValue(blackboard);
+            if (portExpeditionStarted != null)
             {
-                var sub = GameReflection.SubscribeToObservable(portExpeditionFinished, OnPortExpeditionFinished);
+                var sub = GameReflection.SubscribeToObservable(portExpeditionStarted, OnPortExpeditionStarted);
                 if (sub != null) _subscriptions.Add(sub);
             }
         }
@@ -948,11 +948,11 @@ namespace ATSAccessibility
             Announce("Reward chase ended");
         }
 
-        private void OnPortExpeditionFinished(object port)
+        private void OnPortExpeditionStarted(object port)
         {
-            if (!Plugin.AnnouncePortExpeditionFinished.Value) return;
+            if (!Plugin.AnnouncePortExpeditionStarted.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Port expedition finished");
+            Announce("Expedition departed");
         }
 
         // ========================================

@@ -187,7 +187,7 @@ namespace ATSAccessibility
             _items.Add(new SettingItem { Label = "Cornerstone available", ConfigEntry = Plugin.AnnounceCornerstoneAvailable });
 
             // Resources
-            _items.Add(new SettingItem { Label = "Port expedition finished", ConfigEntry = Plugin.AnnouncePortExpeditionFinished });
+            _items.Add(new SettingItem { Label = "Expedition departed", ConfigEntry = Plugin.AnnouncePortExpeditionStarted });
 
             // News/Warnings
             _items.Add(new SettingItem { Label = "Game warnings", ConfigEntry = Plugin.AnnounceGameWarnings });
