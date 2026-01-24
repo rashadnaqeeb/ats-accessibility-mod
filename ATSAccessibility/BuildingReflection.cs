@@ -6582,7 +6582,7 @@ namespace ATSAccessibility
             return result;
         }
 
-        private static int GetStoredGoodAmount(string goodName)
+        public static int GetStoredGoodAmount(string goodName)
         {
             EnsureStorageService2Types();
 

@@ -144,6 +144,15 @@ namespace ATSAccessibility
         /// </summary>
         public void Open()
         {
+            lock (_lock)
+            {
+                if (_history.Count == 0)
+                {
+                    Speech.Say("No messages");
+                    return;
+                }
+            }
+
             _isOpen = true;
             _currentIndex = 0;
             _search.Clear();

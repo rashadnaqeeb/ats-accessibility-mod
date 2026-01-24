@@ -733,7 +733,8 @@ namespace ATSAccessibility
 
             string displayName = set.goodDisplayNames[subItemIndex];
             int amount = set.goodAmounts[subItemIndex];
-            string announcement = $"{displayName}, {amount}";
+            int inStorage = BuildingReflection.GetStoredGoodAmount(set.goodNames[subItemIndex]);
+            string announcement = $"{displayName}: {amount} ({inStorage} in storage)";
 
             if (subItemIndex == set.pickedIndex)
                 announcement += ", selected";

@@ -3738,6 +3738,181 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Check if moving this building has a resource cost.
+        /// </summary>
+        public static bool HasMovingCost(object building)
+        {
+            if (building == null) return false;
+            try
+            {
+                var constructionService = GetConstructionService();
+                if (constructionService == null) return false;
+
+                var method = constructionService.GetType().GetMethod("HasMovingCost",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (method == null) return false;
+
+                return (bool)method.Invoke(constructionService, new object[] { building });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] HasMovingCost failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if the player can afford to move this building.
+        /// </summary>
+        public static bool CanAffordMove(object building)
+        {
+            if (building == null) return false;
+            try
+            {
+                var constructionService = GetConstructionService();
+                if (constructionService == null) return true;
+
+                var method = constructionService.GetType().GetMethod("CanAffordMove",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (method == null) return true;
+
+                return (bool)method.Invoke(constructionService, new object[] { building });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] CanAffordMove failed: {ex.Message}");
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Get the moving cost display name and amount for a building.
+        /// Returns null if no cost.
+        /// </summary>
+        public static (string displayName, int amount)? GetMovingCostInfo(object building)
+        {
+            if (building == null) return null;
+            try
+            {
+                var model = GetBuildingModel(building);
+                if (model == null) return null;
+
+                var movingCostField = model.GetType().GetField("movingCost",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (movingCostField == null) return null;
+
+                var goodRef = movingCostField.GetValue(model);
+                if (goodRef == null) return null;
+
+                var amountField = goodRef.GetType().GetField("amount", BindingFlags.Public | BindingFlags.Instance);
+                int amount = (int)(amountField?.GetValue(goodRef) ?? 0);
+                if (amount <= 0) return null;
+
+                var displayNameProp = goodRef.GetType().GetProperty("DisplayName",
+                    BindingFlags.Public | BindingFlags.Instance);
+                string displayName = displayNameProp?.GetValue(goodRef) as string ?? "Unknown";
+
+                return (displayName, amount);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetMovingCostInfo failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Pay the moving cost for a building. Call before moving.
+        /// Returns true if cost was paid (or no cost needed).
+        /// </summary>
+        public static bool PayForMoving(object building)
+        {
+            if (building == null) return false;
+            if (!HasMovingCost(building)) return true;  // No cost, success
+
+            try
+            {
+                var model = GetBuildingModel(building);
+                if (model == null) return false;
+
+                var movingCostField = model.GetType().GetField("movingCost",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var goodRef = movingCostField?.GetValue(model);
+                if (goodRef == null) return false;
+
+                // Get Good via ToGood()
+                var toGoodMethod = goodRef.GetType().GetMethod("ToGood", BindingFlags.Public | BindingFlags.Instance);
+                if (toGoodMethod == null) return false;
+                object good = toGoodMethod.Invoke(goodRef, null);
+
+                // Get StorageService
+                var storageService = GetStorageService();
+                if (storageService == null) return false;
+
+                // Get StorageOperationType.BuildingMove enum value
+                var opType = _gameAssembly.GetType("Eremite.Model.StorageOperationType");
+                if (opType == null) return false;
+                object buildingMoveValue = Enum.Parse(opType, "BuildingMove");
+
+                // Call Remove(Good, StorageOperationType)
+                var goodType = good.GetType();
+                var removeMethod = storageService.GetType().GetMethod("Remove",
+                    BindingFlags.Public | BindingFlags.Instance,
+                    null, new Type[] { goodType, opType }, null);
+                if (removeMethod == null) return false;
+
+                removeMethod.Invoke(storageService, new object[] { good, buildingMoveValue });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] PayForMoving failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Refund the moving cost for a building. Call on cancel.
+        /// </summary>
+        public static void RefundMoving(object building)
+        {
+            if (building == null) return;
+
+            try
+            {
+                var model = GetBuildingModel(building);
+                if (model == null) return;
+
+                var movingCostField = model.GetType().GetField("movingCost",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var goodRef = movingCostField?.GetValue(model);
+                if (goodRef == null) return;
+
+                var toGoodMethod = goodRef.GetType().GetMethod("ToGood", BindingFlags.Public | BindingFlags.Instance);
+                if (toGoodMethod == null) return;
+                object good = toGoodMethod.Invoke(goodRef, null);
+
+                var storageService = GetStorageService();
+                if (storageService == null) return;
+
+                var opType = _gameAssembly.GetType("Eremite.Model.StorageOperationType");
+                if (opType == null) return;
+                object buildingRefundValue = Enum.Parse(opType, "BuildingRefund");
+
+                var goodType = good.GetType();
+                var storeMethod = storageService.GetType().GetMethod("Store",
+                    BindingFlags.Public | BindingFlags.Instance,
+                    null, new Type[] { goodType, opType }, null);
+
+                storeMethod?.Invoke(storageService, new object[] { good, buildingRefundValue });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] RefundMoving failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Check if a placed building can be rotated in place.
         /// Uses the game's ConstructionService.CanBeRotatedInPlace check.
         /// </summary>

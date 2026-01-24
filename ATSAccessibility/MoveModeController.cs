@@ -14,6 +14,8 @@ namespace ATSAccessibility
         private Vector2Int _originalPosition;
         private int _originalRotation;
         private int _currentRotation;
+        private bool _pricePaid = false;
+        private bool _awaitingPlaceConfirm = false;
 
         // Reference to map navigator for cursor position
         private readonly MapNavigator _mapNavigator;
@@ -47,6 +49,19 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check if player can afford the move
+            if (!GameReflection.CanAffordMove(building))
+            {
+                var costInfo = GameReflection.GetMovingCostInfo(building);
+                string costDesc = costInfo.HasValue ? $"{costInfo.Value.amount} {costInfo.Value.displayName}" : "resources";
+                Speech.Say($"Cannot afford to move, requires {costDesc}");
+                SoundManager.PlayFailed();
+                return;
+            }
+
+            // Pay moving cost (resources taken pre-move, refunded on cancel)
+            _pricePaid = GameReflection.HasMovingCost(building) && GameReflection.PayForMoving(building);
+
             // Store original state for potential cancellation
             _originalPosition = GameReflection.GetBuildingGridPosition(building);
             _originalRotation = GameReflection.GetBuildingRotation(building);
@@ -72,7 +87,15 @@ namespace ATSAccessibility
             int extendNorth = (isRotated ? size.x : size.y) - 1;
             string extension = GetExtensionAnnouncement(extendEast, extendNorth);
 
-            Speech.Say($"Move mode: {_buildingName}, {extension}");
+            string costNote = "";
+            if (_pricePaid)
+            {
+                var costInfo = GameReflection.GetMovingCostInfo(building);
+                if (costInfo.HasValue)
+                    costNote = $"cost: {costInfo.Value.amount} {costInfo.Value.displayName}, ";
+            }
+
+            Speech.Say($"Move mode: {costNote}{extension}");
             Debug.Log($"[ATSAccessibility] Entered move mode for: {_buildingName} at ({_originalPosition.x}, {_originalPosition.y})");
         }
 
@@ -93,6 +116,13 @@ namespace ATSAccessibility
                     GameReflection.RotateBuilding(_movingBuilding, _originalRotation);
                 }
                 GameReflection.PlaceBuildingOnGrid(_movingBuilding);
+
+                // Refund moving cost if it was paid
+                if (_pricePaid)
+                {
+                    GameReflection.RefundMoving(_movingBuilding);
+                    _pricePaid = false;
+                }
 
                 InputBlocker.BlockCancelOnce = true;
                 Speech.Say("Move cancelled");
@@ -130,6 +160,8 @@ namespace ATSAccessibility
             _isActive = false;
             _movingBuilding = null;
             _buildingName = null;
+            _pricePaid = false;
+            _awaitingPlaceConfirm = false;
         }
 
         /// <summary>
@@ -143,16 +175,46 @@ namespace ATSAccessibility
             switch (keyCode)
             {
                 case KeyCode.R:
+                    _awaitingPlaceConfirm = false;
                     RotateBuilding();
                     return true;
 
                 case KeyCode.Space:
-                    ExitMoveMode(false); // Try to place
+                    if (_awaitingPlaceConfirm)
+                    {
+                        _awaitingPlaceConfirm = false;
+                        ExitMoveMode(false); // Confirmed placement
+                    }
+                    else if (_pricePaid)
+                    {
+                        // Check placement validity first
+                        int x = _mapNavigator.CursorX;
+                        int y = _mapNavigator.CursorY;
+                        Vector2Int newPos = new Vector2Int(x, y);
+                        GameReflection.SetBuildingPosition(_movingBuilding, newPos);
+                        if (!GameReflection.CanPlaceBuilding(_movingBuilding))
+                        {
+                            GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+                            Speech.Say("Cannot place here");
+                        }
+                        else
+                        {
+                            // Valid spot but has cost - restore position and ask for confirm
+                            GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+                            _awaitingPlaceConfirm = true;
+                            Speech.Say("Space to confirm move");
+                        }
+                    }
+                    else
+                    {
+                        ExitMoveMode(false); // Free move, no confirm needed
+                    }
                     return true;
 
                 case KeyCode.Escape:
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
+                    _awaitingPlaceConfirm = false;
                     ExitMoveMode(true); // Cancel
                     return true;
 
@@ -161,15 +223,17 @@ namespace ATSAccessibility
                 case KeyCode.DownArrow:
                 case KeyCode.LeftArrow:
                 case KeyCode.RightArrow:
+                    _awaitingPlaceConfirm = false;
                     return false;
 
                 // Pass to MapNavigator for position/tile info
                 case KeyCode.K:
                 case KeyCode.I:
+                    _awaitingPlaceConfirm = false;
                     return false;
 
                 default:
-                    // Consume other keys to prevent interference
+                    // Consume other keys without clearing confirm
                     return true;
             }
         }
