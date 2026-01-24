@@ -811,6 +811,10 @@ namespace ATSAccessibility
             {
                 Speech.Say("Investigation started");
                 SoundManager.PlayButtonClick();
+                var startSound = BuildingReflection.GetRelicInvestigationStartSoundModel(_building);
+                SoundManager.PlaySoundEffect(startSound);
+                if (BuildingReflection.RelicHasWorkingEffects(_building))
+                    SoundManager.PlayRelicStartWithWorkingEffects();
 
                 _investigationStarted = true;
                 _workerIds = BuildingReflection.GetRelicWorkerIds(_building);
@@ -882,6 +886,8 @@ namespace ATSAccessibility
                 {
                     Speech.Say("Investigation cancelled");
                     SoundManager.PlayButtonClick();
+                    if (BuildingReflection.RelicHasWorkingEffects(_building))
+                        SoundManager.PlayRelicStopWithWorkingEffects();
 
                     // Refresh to transition back to Phase A
                     _investigationStarted = false;

@@ -46,6 +46,10 @@ namespace ATSAccessibility
         // Capital upgrade sounds
         private static PropertyInfo _capitalUpgradeBoughtProperty = null;
 
+        // Relic sounds
+        private static PropertyInfo _relicStartWithWorkingEffectsProperty = null;
+        private static PropertyInfo _relicStopWithWorkingEffectsProperty = null;
+
         private static void EnsureCached()
         {
             if (_cached) return;
@@ -103,6 +107,10 @@ namespace ATSAccessibility
 
                     // Capital upgrade sounds
                     _capitalUpgradeBoughtProperty = soundReferencesType.GetProperty("CapitalUpgradeBought", GameReflection.PublicInstance);
+
+                    // Relic sounds
+                    _relicStartWithWorkingEffectsProperty = soundReferencesType.GetProperty("RelicStartWithWorkingEffects", GameReflection.PublicInstance);
+                    _relicStopWithWorkingEffectsProperty = soundReferencesType.GetProperty("RelicStopWithWorkingEffects", GameReflection.PublicInstance);
                 }
             }
             catch (Exception ex)
@@ -377,6 +385,38 @@ namespace ATSAccessibility
         {
             EnsureCached();
             PlaySound(_capitalUpgradeBoughtProperty);
+        }
+
+        // ========================================
+        // RELIC SOUNDS
+        // ========================================
+
+        public static void PlayRelicStartWithWorkingEffects()
+        {
+            EnsureCached();
+            PlaySound(_relicStartWithWorkingEffectsProperty);
+        }
+
+        public static void PlayRelicStopWithWorkingEffects()
+        {
+            EnsureCached();
+            PlaySound(_relicStopWithWorkingEffectsProperty);
+        }
+
+        public static void PlaySoundEffect(object soundModel)
+        {
+            if (soundModel == null) return;
+
+            try
+            {
+                var soundsManager = GetSoundsManager();
+                if (soundsManager == null) return;
+                _playSoundEffectMethod?.Invoke(soundsManager, new object[] { soundModel });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] PlaySoundEffect failed: {ex.Message}");
+            }
         }
 
         /// <summary>

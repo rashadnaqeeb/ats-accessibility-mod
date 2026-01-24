@@ -318,6 +318,9 @@ namespace ATSAccessibility
         // LimitedGoodsCollection.GetFullAmount for delivery tracking
         private static MethodInfo _goodsCollectionGetAmountMethod = null;  // GoodsCollection.GetAmount(string)
 
+        // Relic sound fields
+        private static FieldInfo _investigationStartSoundField = null;  // RelicModel.investigationStartSound (SoundRef)
+
         private static bool _relicTypesCached = false;
 
         // Port-specific
@@ -1701,6 +1704,15 @@ namespace ATSAccessibility
                     _relicModelForceRequirementsField = relicModelType.GetField("forceRequirements", GameReflection.PublicInstance);
                     _relicModelWorkplacesField = relicModelType.GetField("workplaces", GameReflection.PublicInstance);
                     _relicModelHasDecisionProperty = relicModelType.GetProperty("HasDecision", GameReflection.PublicInstance);
+                    _investigationStartSoundField = relicModelType.GetField("investigationStartSound", GameReflection.PublicInstance);
+                }
+
+                // SoundRef.GetNext() (also cached in EnsureRainpunkEngineTypes)
+                if (_soundRefGetNextMethod == null)
+                {
+                    var soundRefType = assembly.GetType("Eremite.Model.Sound.SoundRef");
+                    if (soundRefType != null)
+                        _soundRefGetNextMethod = soundRefType.GetMethod("GetNext", GameReflection.PublicInstance);
                 }
 
                 // RelicDifficulty fields
@@ -6309,6 +6321,51 @@ namespace ATSAccessibility
                 if (_relicCancelMethod == null) return false;
                 _relicCancelMethod.Invoke(building, null);
                 return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the investigation start SoundModel for this relic (from model.investigationStartSound.GetNext()).
+        /// Returns null if not available.
+        /// </summary>
+        public static object GetRelicInvestigationStartSoundModel(object building)
+        {
+            if (!IsRelic(building)) return null;
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return null;
+
+                var soundRef = _investigationStartSoundField?.GetValue(model);
+                if (soundRef == null) return null;
+
+                if (_soundRefGetNextMethod == null) return null;
+                return _soundRefGetNextMethod.Invoke(soundRef, null);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if the relic currently has working effects (based on difficulty and decision).
+        /// </summary>
+        public static bool RelicHasWorkingEffects(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                var effects = _relicGetWorkingEffectsMethod?.Invoke(building, null) as System.Array;
+                return effects != null && effects.Length > 0;
             }
             catch
             {
