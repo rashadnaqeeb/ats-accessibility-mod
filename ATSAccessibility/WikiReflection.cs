@@ -171,24 +171,6 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get the panels array from a WikiPopup.
-        /// </summary>
-        public static Array GetWikiPanels(object wikiPopup)
-        {
-            EnsureWikiTypes();
-            if (wikiPopup == null || _wikiPopupPanelsField == null) return null;
-
-            try
-            {
-                return _wikiPopupPanelsField.GetValue(wikiPopup) as Array;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
         /// Get the WikiCategoryPanel associated with a WikiCategoryButton.
         /// </summary>
         public static object GetCategoryButtonPanel(object categoryButton)

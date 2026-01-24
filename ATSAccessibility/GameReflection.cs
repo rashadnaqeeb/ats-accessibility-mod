@@ -1453,14 +1453,6 @@ namespace ATSAccessibility
             CameraControllerUpdateMovementPatch.SetTarget(target);
         }
 
-        /// <summary>
-        /// Clear the camera target (e.g., when exiting map navigation).
-        /// </summary>
-        public static void ClearCameraTarget()
-        {
-            CameraControllerUpdateMovementPatch.ClearTarget();
-        }
-
         // ========================================
         // OBSERVABLE SUBSCRIPTION UTILITY
         // ========================================
@@ -4251,55 +4243,6 @@ namespace ATSAccessibility
             return InvokeSubjectOnNext(blackboardService, "TrendsPopupRequested", true);
         }
 
-        /// <summary>
-        /// Open the Villagers/Resolve popup via GameBlackboardService.ResolvePopupRequested.
-        /// Uses Unit.Default since this Subject takes no parameter.
-        /// </summary>
-        public static bool OpenVillagersPopup()
-        {
-            var blackboardService = GetGameBlackboardService();
-            if (blackboardService == null)
-            {
-                Debug.LogWarning("[ATSAccessibility] OpenVillagersPopup: GameBlackboardService not available");
-                return false;
-            }
-
-            try
-            {
-                // UniRx.Unit.Default is the singleton value for Unit type
-                var unitType = Type.GetType("UniRx.Unit, UniRx");
-                if (unitType == null)
-                {
-                    // Try to find it in loaded assemblies
-                    foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-                    {
-                        unitType = assembly.GetType("UniRx.Unit");
-                        if (unitType != null) break;
-                    }
-                }
-
-                if (unitType == null)
-                {
-                    Debug.LogWarning("[ATSAccessibility] UniRx.Unit type not found");
-                    return false;
-                }
-
-                var defaultField = unitType.GetField("Default", BindingFlags.Public | BindingFlags.Static);
-                if (defaultField == null)
-                {
-                    Debug.LogWarning("[ATSAccessibility] Unit.Default field not found");
-                    return false;
-                }
-
-                var unitDefault = defaultField.GetValue(null);
-                return InvokeSubjectOnNext(blackboardService, "ResolvePopupRequested", unitDefault);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] OpenVillagersPopup failed: {ex.Message}");
-                return false;
-            }
-        }
 
         /// <summary>
         /// Open the Trader panel via TraderPanel.Instance.Show().

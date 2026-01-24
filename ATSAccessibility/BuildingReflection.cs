@@ -4717,28 +4717,6 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get the total number of hub tiers in the game.
-        /// </summary>
-        public static int GetTotalHubTierCount()
-        {
-            EnsureHubTierTypes();
-
-            try
-            {
-                var settings = GameReflection.GetSettings();
-                if (settings == null) return 0;
-
-                var tiers = _settingsHubsTiersField?.GetValue(settings) as Array;
-                return tiers?.Length ?? 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetTotalHubTierCount failed: {ex.Message}");
-                return 0;
-            }
-        }
-
-        /// <summary>
         /// Get upgrade info for all hub tiers for a specific hearth.
         /// </summary>
         public static List<HearthUpgradeInfo> GetHearthUpgradeInfo(object building)
@@ -5273,31 +5251,6 @@ namespace ATSAccessibility
             }
         }
 
-        /// <summary>
-        /// Check if a fuel type is currently enabled.
-        /// </summary>
-        public static bool IsFuelEnabled(string fuelName)
-        {
-            EnsureHearthFuelTypes();
-
-            try
-            {
-                var gameServices = GameReflection.GetGameServices();
-                if (gameServices == null) return false;
-
-                var hearthService = _gsHearthServiceProperty?.GetValue(gameServices);
-                if (hearthService == null) return false;
-
-                var result = _hearthServiceCanBeBurnedMethod?.Invoke(hearthService, new object[] { fuelName });
-                return result is bool b && b;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] IsFuelEnabled failed: {ex.Message}");
-                return false;
-            }
-        }
-
         // ========================================
         // PUBLIC API - HOUSE
         // ========================================
@@ -5695,28 +5648,6 @@ namespace ATSAccessibility
             catch
             {
                 return null;
-            }
-        }
-
-        /// <summary>
-        /// Get worker IDs for a Port.
-        /// </summary>
-        public static int[] GetPortWorkerIds(object building)
-        {
-            if (!IsPort(building)) return new int[0];
-
-            EnsurePortTypes();
-
-            try
-            {
-                var state = _portStateField?.GetValue(building);
-                if (state == null) return new int[0];
-
-                return _portStateWorkersField?.GetValue(state) as int[] ?? new int[0];
-            }
-            catch
-            {
-                return new int[0];
             }
         }
 
@@ -7786,28 +7717,6 @@ namespace ATSAccessibility
             try
             {
                 _engineStateRequestedLevelField?.SetValue(engineState, currentRequested - 1);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Set the requested level of an engine to a specific value.
-        /// </summary>
-        public static bool SetEngineLevel(object building, int engineIndex, int level)
-        {
-            var engineState = GetEngineState(building, engineIndex);
-            if (engineState == null) return false;
-
-            int maxLevel = GetEngineMaxLevel(building, engineIndex);
-            level = Math.Max(0, Math.Min(level, maxLevel));
-
-            try
-            {
-                _engineStateRequestedLevelField?.SetValue(engineState, level);
                 return true;
             }
             catch

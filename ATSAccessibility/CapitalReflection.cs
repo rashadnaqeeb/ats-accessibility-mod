@@ -198,7 +198,7 @@ namespace ATSAccessibility
 
             try
             {
-                // Resolve UniRx.Unit.Default
+                // Resolve UniRx.Unit — a zero-field value type, so any instance equals Default
                 Type unitType = null;
                 foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
                 {
@@ -212,15 +212,7 @@ namespace ATSAccessibility
                     return false;
                 }
 
-                var defaultField = unitType.GetField("Default",
-                    BindingFlags.Public | BindingFlags.Static);
-                var unitDefault = defaultField?.GetValue(null);
-                if (unitDefault == null)
-                {
-                    Debug.LogWarning("[ATSAccessibility] UniRx.Unit.Default not found");
-                    return false;
-                }
-
+                var unitDefault = Activator.CreateInstance(unitType);
                 return GameReflection.InvokeSubjectOnNext(wbb, "HomePopupRequested", unitDefault);
             }
             catch (Exception ex)

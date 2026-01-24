@@ -14,6 +14,7 @@ namespace ATSAccessibility
         private bool _suspended;
         private int _currentIndex;
         private List<(string name, Action action)> _items = new List<(string, Action)>();
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // ========================================
         // IKeyHandler Implementation
@@ -29,6 +30,8 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -50,7 +53,18 @@ namespace ATSAccessibility
                     Close();
                     return false;
 
+                case KeyCode.Backspace:
+                    if (_search.HasBuffer)
+                        HandleBackspace();
+                    return true;
+
                 default:
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                        return true;
+                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -73,6 +87,7 @@ namespace ATSAccessibility
             _isOpen = true;
             _suspended = false;
             _currentIndex = 0;
+            _search.Clear();
             AnnounceCurrentItem();
             Debug.Log("[ATSAccessibility] Capital overlay opened");
         }
@@ -83,6 +98,7 @@ namespace ATSAccessibility
             _suspended = false;
             _items.Clear();
             _currentIndex = 0;
+            _search.Clear();
             Debug.Log("[ATSAccessibility] Capital overlay closed");
         }
 
@@ -141,8 +157,66 @@ namespace ATSAccessibility
 
             var item = _items[_currentIndex];
             Debug.Log($"[ATSAccessibility] Capital overlay: activating {item.name}");
+            SoundManager.PlayButtonClick();
             _suspended = true;
             item.action?.Invoke();
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        private void HandleSearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            int match = FindMatch();
+            if (match >= 0)
+            {
+                _currentIndex = match;
+                AnnounceCurrentItem();
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                return;
+            }
+
+            int match = FindMatch();
+            if (match >= 0)
+            {
+                _currentIndex = match;
+                AnnounceCurrentItem();
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private int FindMatch()
+        {
+            if (!_search.HasBuffer) return -1;
+
+            string lowerPrefix = _search.Buffer.ToLowerInvariant();
+
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].name.ToLowerInvariant().StartsWith(lowerPrefix))
+                    return i;
+            }
+
+            return -1;
         }
 
         private void AnnounceCurrentItem()

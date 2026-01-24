@@ -87,7 +87,6 @@ namespace ATSAccessibility
         private static MethodInfo _osOrderPickedMethod = null;
         private static MethodInfo _osGetPicksForMethod = null;
         private static MethodInfo _osSwitchOrderTrackingMethod = null;
-        private static MethodInfo _osGetCurrentlyPickedOrderMethod = null;
 
         // IGameTimeService.Time property
         private static PropertyInfo _gtsTimeProperty = null;
@@ -232,7 +231,6 @@ namespace ATSAccessibility
                 _osCanCompleteMethod = osType.GetMethod("CanComplete", GameReflection.PublicInstance);
                 _osGetPicksForMethod = osType.GetMethod("GetPicksFor", GameReflection.PublicInstance);
                 _osSwitchOrderTrackingMethod = osType.GetMethod("SwitchOrderTracking", GameReflection.PublicInstance);
-                _osGetCurrentlyPickedOrderMethod = osType.GetMethod("GetCurrentlyPickedOrder", GameReflection.PublicInstance);
                 _osOrderPickedMethod = osType.GetMethod("OrderPicked", GameReflection.PublicInstance);
 
                 // CompleteOrder(OrderState, OrderModel, bool force) - we'll pass force=false
@@ -1108,19 +1106,6 @@ namespace ATSAccessibility
                 _args1[0] = orderState;
                 return _osGetPicksForMethod.Invoke(service, _args1) as IList;
             }
-            catch { return null; }
-        }
-
-        /// <summary>
-        /// Get the order state that is currently awaiting a pick.
-        /// </summary>
-        public static object GetCurrentlyPickedOrder()
-        {
-            EnsureCached();
-            var service = GetOrdersService();
-            if (service == null || _osGetCurrentlyPickedOrderMethod == null) return null;
-
-            try { return _osGetCurrentlyPickedOrderMethod.Invoke(service, null); }
             catch { return null; }
         }
 
