@@ -128,6 +128,15 @@ namespace ATSAccessibility
         // Consumption control popup overlay
         private ConsumptionOverlay _consumptionOverlay;
 
+        // Deeds popup overlay for goals navigation
+        private DeedsOverlay _deedsOverlay;
+
+        // Capital screen overlay for Smoldering City
+        private CapitalOverlay _capitalOverlay;
+        private IDisposable _capitalEnabledSubscription;
+        private IDisposable _capitalClosedSubscription;
+        private bool _subscribedToCapital = false;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -238,6 +247,12 @@ namespace ATSAccessibility
             // Initialize consumption control overlay
             _consumptionOverlay = new ConsumptionOverlay();
 
+            // Initialize deeds overlay for goals popup
+            _deedsOverlay = new DeedsOverlay();
+
+            // Initialize capital screen overlay
+            _capitalOverlay = new CapitalOverlay();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog, harvestMarkHandler);
@@ -263,9 +278,11 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_orderPickOverlay);         // Order pick popup overlay (higher priority - child popup)
             _keyboardManager.RegisterHandler(_ordersOverlay);            // Orders popup overlay
             _keyboardManager.RegisterHandler(_consumptionOverlay);       // Consumption control popup overlay
+            _keyboardManager.RegisterHandler(_deedsOverlay);             // Deeds (goals) popup overlay
             _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
+            _keyboardManager.RegisterHandler(_capitalOverlay);     // Capital screen overlay
             _keyboardManager.RegisterHandler(_tutorialHandler);     // Tutorial tooltips (passthrough)
             _keyboardManager.RegisterHandler(settlementHandler);    // Settlement map navigation (fallback)
             _keyboardManager.RegisterHandler(worldMapHandler);      // World map navigation (fallback)
@@ -313,6 +330,12 @@ namespace ATSAccessibility
                 if (!_subscribedToEmbark)
                 {
                     TrySubscribeToEmbark();
+                }
+
+                // Try to subscribe to capital screen events if not already subscribed
+                if (!_subscribedToCapital)
+                {
+                    TrySubscribeToCapital();
                 }
 
                 // Try to subscribe to tutorial phase changes
@@ -391,6 +414,9 @@ namespace ATSAccessibility
 
             // Dispose embark subscriptions (WorldBlackboardService is destroyed on scene change)
             DisposeEmbarkSubscriptions();
+
+            // Dispose capital screen subscriptions (WorldBlackboardService is destroyed on scene change)
+            DisposeCapitalSubscriptions();
 
             // Dispose building panel handler subscriptions
             _buildingPanelHandler?.Dispose();
@@ -695,6 +721,74 @@ namespace ATSAccessibility
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);
         }
 
+        // ========================================
+        // CAPITAL SCREEN EVENT SUBSCRIPTION
+        // ========================================
+
+        /// <summary>
+        /// Try to subscribe to capital screen events from WorldBlackboardService.
+        /// Called periodically until successful.
+        /// </summary>
+        private void TrySubscribeToCapital()
+        {
+            if (_subscribedToCapital) return;
+
+            // Only subscribe when on world map scene
+            if (SceneManager.GetActiveScene().buildIndex != SCENE_WORLDMAP) return;
+
+            try
+            {
+                _capitalEnabledSubscription = CapitalReflection.SubscribeToCapitalEnabled(OnCapitalScreenShown);
+                _capitalClosedSubscription = CapitalReflection.SubscribeToCapitalClosed(OnCapitalScreenClosed);
+
+                if (_capitalEnabledSubscription != null && _capitalClosedSubscription != null)
+                {
+                    _subscribedToCapital = true;
+                    Debug.Log("[ATSAccessibility] Subscribed to capital screen events");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Failed to subscribe to capital events: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Dispose capital screen subscriptions.
+        /// </summary>
+        private void DisposeCapitalSubscriptions()
+        {
+            _capitalEnabledSubscription?.Dispose();
+            _capitalClosedSubscription?.Dispose();
+            _capitalEnabledSubscription = null;
+            _capitalClosedSubscription = null;
+            _subscribedToCapital = false;
+
+            // Close capital overlay if open
+            _capitalOverlay?.Close();
+        }
+
+        /// <summary>
+        /// Called when the capital screen is shown (OnCapitalEnabled event).
+        /// </summary>
+        private void OnCapitalScreenShown(object _)
+        {
+            Debug.Log("[ATSAccessibility] Capital screen shown");
+            _capitalOverlay?.Open();
+        }
+
+        /// <summary>
+        /// Called when the capital screen is closed (OnCapitalClosed event).
+        /// </summary>
+        private void OnCapitalScreenClosed(object _)
+        {
+            Debug.Log("[ATSAccessibility] Capital screen closed");
+            _capitalOverlay?.Close();
+
+            // Return to world map context
+            _keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);
+        }
+
         /// <summary>
         /// Called when a popup is shown.
         /// </summary>
@@ -787,6 +881,30 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check goals popup - it has its own overlay
+            if (DeedsReflection.IsGoalsPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Goals popup detected, using Deeds overlay");
+                _deedsOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
+            // If deeds overlay just claimed a reward, capture the popup as a child
+            if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
+            {
+                Debug.Log("[ATSAccessibility] Capturing reward popup as deeds child");
+                _deedsOverlay.SetChildPopup(popup);
+                return;
+            }
+
+            // If deeds overlay is active and a different popup opens on top, suspend it
+            if (_deedsOverlay != null && _deedsOverlay.IsActive)
+            {
+                Debug.Log("[ATSAccessibility] Suspending Deeds overlay for child popup");
+                _deedsOverlay.Suspend();
+            }
+
             // Standard popup handling
             _uiNavigator?.OnPopupShown(popup);
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
@@ -873,8 +991,30 @@ namespace ATSAccessibility
                 _consumptionOverlay?.Close();
                 // Fall through to handle context change
             }
+            // Check goals popup
+            else if (DeedsReflection.IsGoalsPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Goals popup closed");
+                _deedsOverlay?.Close();
+                // Fall through to handle context change
+            }
             else
             {
+                // If deeds overlay has a child popup that was closed, clear it
+                if (_deedsOverlay != null && _deedsOverlay.IsActive && _deedsOverlay.HasChildPopup)
+                {
+                    _deedsOverlay.ClearChildPopup();
+                    return;
+                }
+
+                // If deeds overlay is suspended (non-claim popup closed), resume it
+                if (_deedsOverlay != null && _deedsOverlay.IsSuspended)
+                {
+                    Debug.Log("[ATSAccessibility] Resuming Deeds overlay after child popup closed");
+                    _deedsOverlay.Resume();
+                    return;
+                }
+
                 _uiNavigator?.OnPopupHidden(popup);
             }
 
@@ -897,8 +1037,17 @@ namespace ATSAccessibility
                 }
                 else if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP)
                 {
-                    _keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);
-                    Debug.Log("[ATSAccessibility] Popup closed on world map, returning to WorldMap context");
+                    // If capital overlay is suspended (sub-panel was open), resume it
+                    if (_capitalOverlay != null && _capitalOverlay.IsSuspended)
+                    {
+                        _capitalOverlay.Resume();
+                        Debug.Log("[ATSAccessibility] Popup closed on world map, resuming capital overlay");
+                    }
+                    else
+                    {
+                        _keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);
+                        Debug.Log("[ATSAccessibility] Popup closed on world map, returning to WorldMap context");
+                    }
                 }
                 else
                 {
