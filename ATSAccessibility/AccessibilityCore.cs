@@ -125,6 +125,9 @@ namespace ATSAccessibility
         private OrdersOverlay _ordersOverlay;
         private OrderPickOverlay _orderPickOverlay;
 
+        // Consumption control popup overlay
+        private ConsumptionOverlay _consumptionOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -229,6 +232,9 @@ namespace ATSAccessibility
             _ordersOverlay = new OrdersOverlay();
             _orderPickOverlay = new OrderPickOverlay();
 
+            // Initialize consumption control overlay
+            _consumptionOverlay = new ConsumptionOverlay();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog);
@@ -252,6 +258,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_newcomersOverlay);         // Newcomers group selection overlay
             _keyboardManager.RegisterHandler(_orderPickOverlay);         // Order pick popup overlay (higher priority - child popup)
             _keyboardManager.RegisterHandler(_ordersOverlay);            // Orders popup overlay
+            _keyboardManager.RegisterHandler(_consumptionOverlay);       // Consumption control popup overlay
             _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
@@ -767,6 +774,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check consumption popup - it has its own overlay
+            if (ConsumptionReflection.IsConsumptionPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Consumption popup detected, using Consumption overlay");
+                _consumptionOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Standard popup handling
             _uiNavigator?.OnPopupShown(popup);
             _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
@@ -844,6 +860,13 @@ namespace ATSAccessibility
                 _orderPickOverlay?.Close();
                 // Refresh orders overlay since picked order is now active
                 _ordersOverlay?.RefreshAfterPick();
+                // Fall through to handle context change
+            }
+            // Check consumption popup
+            else if (ConsumptionReflection.IsConsumptionPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Consumption popup closed");
+                _consumptionOverlay?.Close();
                 // Fall through to handle context change
             }
             else
