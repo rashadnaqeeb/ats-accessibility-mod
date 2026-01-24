@@ -545,6 +545,13 @@ namespace ATSAccessibility
             return false;
         }
 
+        protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex)
+        {
+            if (_sectionTypes[sectionIndex] == SectionType.Workers)
+                return "No free workers";
+            return null;
+        }
+
         private bool UseAbility(int abilityIndex)
         {
             if (abilityIndex >= _abilityCount) return false;

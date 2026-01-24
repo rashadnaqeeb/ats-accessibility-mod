@@ -25,6 +25,7 @@ namespace ATSAccessibility
             Rewards,
             Status,
             Workers,
+            Storage,
             Upgrades
         }
 
@@ -81,6 +82,10 @@ namespace ATSAccessibility
         private List<(string raceName, int freeCount)> _availableRaces = new List<(string, int)>();
         private bool _racesRefreshedForWorkerSection = false;
 
+        // Storage data (Phase C rewards)
+        private List<(string goodName, string displayName, int amount)> _storageItems = new List<(string, string, int)>();
+        private int _storageTotalSum;
+
         // ========================================
         // BASE CLASS IMPLEMENTATION
         // ========================================
@@ -113,6 +118,8 @@ namespace ATSAccessibility
                     return GetStatusItemCount();
                 case SectionType.Workers:
                     return _maxWorkers;
+                case SectionType.Storage:
+                    return _storageItems.Count;
                 case SectionType.Upgrades:
                     return _upgradesSection.GetItemCount();
                 default:
@@ -192,6 +199,9 @@ namespace ATSAccessibility
                 case SectionType.Workers:
                     AnnounceWorkerItem(itemIndex);
                     break;
+                case SectionType.Storage:
+                    AnnounceStorageItem(itemIndex);
+                    break;
                 case SectionType.Upgrades:
                     _upgradesSection.AnnounceItem(itemIndex);
                     break;
@@ -234,6 +244,13 @@ namespace ATSAccessibility
             }
         }
 
+        protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex)
+        {
+            if (_sectionTypes[sectionIndex] == SectionType.Workers)
+                return "No free workers";
+            return null;
+        }
+
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
         {
             if (_sectionTypes[sectionIndex] == SectionType.Requirements)
@@ -268,6 +285,10 @@ namespace ATSAccessibility
                             return _goodsSets[itemIndex].goodDisplayNames[picked];
                     }
                     return null;
+                case SectionType.Storage:
+                    if (itemIndex >= 0 && itemIndex < _storageItems.Count)
+                        return _storageItems[itemIndex].displayName;
+                    return null;
                 default:
                     return null;
             }
@@ -301,6 +322,9 @@ namespace ATSAccessibility
             // Decision-dependent data
             RefreshDecisionDetails();
 
+            // Storage data (Phase C)
+            RefreshStorageData();
+
             // Status/actions
             RefreshStatusData();
 
@@ -325,6 +349,8 @@ namespace ATSAccessibility
             _activeEffects = null;
             _rewards = null;
             _hasRewards = false;
+            _storageItems.Clear();
+            _storageTotalSum = 0;
             ClearUpgradesSection();
         }
 
@@ -342,9 +368,21 @@ namespace ATSAccessibility
 
             if (_investigationFinished)
             {
-                // Phase C: Info, Status
+                // Phase C: Info, Status, Workers (remove-only), Storage
                 sectionNames.Add("Status");
                 sectionTypes.Add(SectionType.Status);
+
+                if (_maxWorkers > 0)
+                {
+                    sectionNames.Add("Workers");
+                    sectionTypes.Add(SectionType.Workers);
+                }
+
+                if (_storageItems.Count > 0)
+                {
+                    sectionNames.Add("Storage");
+                    sectionTypes.Add(SectionType.Storage);
+                }
             }
             else if (_investigationStarted)
             {
@@ -578,14 +616,26 @@ namespace ATSAccessibility
             var parts = new List<string>();
             for (int i = 0; i < setCount; i++)
             {
-                int pickedIndex = BuildingReflection.GetRelicPickedGoodIndex(_building, decisionIndex, i);
                 int altCount = BuildingReflection.GetRelicGoodsAlternativeCount(_building, decisionIndex, i);
                 if (altCount == 0) continue;
-                if (pickedIndex < 0 || pickedIndex >= altCount) pickedIndex = 0;
 
-                string name = BuildingReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, pickedIndex) ?? "Unknown";
-                int amount = BuildingReflection.GetRelicGoodAmount(_building, decisionIndex, i, pickedIndex);
-                parts.Add($"{name} {amount}");
+                if (altCount == 1)
+                {
+                    string name = BuildingReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, 0) ?? "Unknown";
+                    int amount = BuildingReflection.GetRelicGoodAmount(_building, decisionIndex, i, 0);
+                    parts.Add($"{name} {amount}");
+                }
+                else
+                {
+                    var alts = new List<string>();
+                    for (int j = 0; j < altCount; j++)
+                    {
+                        string name = BuildingReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, j) ?? "Unknown";
+                        int amount = BuildingReflection.GetRelicGoodAmount(_building, decisionIndex, i, j);
+                        alts.Add($"{name} {amount}");
+                    }
+                    parts.Add(string.Join(" or ", alts));
+                }
             }
 
             return parts.Count > 0 ? string.Join(", ", parts) : null;
@@ -837,7 +887,10 @@ namespace ATSAccessibility
         private int GetStatusItemCount()
         {
             if (_investigationFinished)
-                return 1;  // "Resolved"
+            {
+                // Phase C: "Resolved" + storage summary if goods remain
+                return _storageTotalSum > 0 ? 2 : 1;
+            }
             if (_investigationStarted)
             {
                 int count = 3;  // State, Progress, Time left
@@ -851,7 +904,15 @@ namespace ATSAccessibility
         {
             if (_investigationFinished)
             {
-                Speech.Say("Resolved");
+                switch (itemIndex)
+                {
+                    case 0:
+                        Speech.Say("Resolved");
+                        break;
+                    case 1:
+                        Speech.Say($"Awaiting pickup: {_storageTotalSum} goods remaining");
+                        break;
+                }
                 return;
             }
 
@@ -932,6 +993,29 @@ namespace ATSAccessibility
                 else
                     Speech.Say($"Time remaining: {minutes} minutes");
             }
+        }
+
+        // ========================================
+        // STORAGE SECTION (Phase C)
+        // ========================================
+
+        private void RefreshStorageData()
+        {
+            _storageItems.Clear();
+            _storageTotalSum = 0;
+
+            if (!_investigationFinished) return;
+
+            _storageItems = BuildingReflection.GetRelicRewardStorageItems(_building);
+            _storageTotalSum = BuildingReflection.GetRelicRewardStorageFullSum(_building);
+        }
+
+        private void AnnounceStorageItem(int itemIndex)
+        {
+            if (itemIndex < 0 || itemIndex >= _storageItems.Count) return;
+
+            var (_, displayName, amount) = _storageItems[itemIndex];
+            Speech.Say($"{displayName}: {amount}");
         }
 
         // ========================================

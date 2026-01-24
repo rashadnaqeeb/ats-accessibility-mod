@@ -318,6 +318,10 @@ namespace ATSAccessibility
         // LimitedGoodsCollection.GetFullAmount for delivery tracking
         private static MethodInfo _goodsCollectionGetAmountMethod = null;  // GoodsCollection.GetAmount(string)
 
+        // Relic reward storage (note: _goodsCollectionGoodsField is shared, declared above)
+        private static MethodInfo _lockedGoodsGetFullAmountMethod = null;  // LockedGoodsCollection.GetFullAmount(string)
+        private static MethodInfo _lockedGoodsFullSumMethod = null;  // LockedGoodsCollection.FullSum()
+
         // Relic sound fields
         private static FieldInfo _investigationStartSoundField = null;  // RelicModel.investigationStartSound (SoundRef)
 
@@ -1769,11 +1773,25 @@ namespace ATSAccessibility
                     _effectModelIsPositiveProperty = effectModelType.GetProperty("IsPositive", GameReflection.PublicInstance);
                 }
 
-                // GoodsCollection.GetAmount(string) for delivery tracking
-                var goodsCollectionType = assembly.GetType("Eremite.GoodsCollection");
-                if (goodsCollectionType != null)
+                // GoodsCollection fields/methods (also cached in EnsureIngredientsStorageTypes)
+                if (_goodsCollectionGoodsField == null || _goodsCollectionGetAmountMethod == null)
                 {
-                    _goodsCollectionGetAmountMethod = goodsCollectionType.GetMethod("GetAmount", GameReflection.PublicInstance, null, new[] { typeof(string) }, null);
+                    var goodsCollectionType = assembly.GetType("Eremite.GoodsCollection");
+                    if (goodsCollectionType != null)
+                    {
+                        if (_goodsCollectionGetAmountMethod == null)
+                            _goodsCollectionGetAmountMethod = goodsCollectionType.GetMethod("GetAmount", GameReflection.PublicInstance, null, new[] { typeof(string) }, null);
+                        if (_goodsCollectionGoodsField == null)
+                            _goodsCollectionGoodsField = goodsCollectionType.GetField("goods", GameReflection.PublicInstance);
+                    }
+                }
+
+                // LockedGoodsCollection methods for reward storage
+                var lockedGoodsType = assembly.GetType("Eremite.LockedGoodsCollection");
+                if (lockedGoodsType != null)
+                {
+                    _lockedGoodsGetFullAmountMethod = lockedGoodsType.GetMethod("GetFullAmount", GameReflection.PublicInstance, null, new[] { typeof(string) }, null);
+                    _lockedGoodsFullSumMethod = lockedGoodsType.GetMethod("FullSum", GameReflection.PublicInstance);
                 }
 
                 Debug.Log("[ATSAccessibility] BuildingReflection: Cached Relic types");
@@ -6394,6 +6412,90 @@ namespace ATSAccessibility
             {
                 return 0;
             }
+        }
+
+        // ========================================
+        // RELIC REWARD STORAGE (Phase C)
+        // ========================================
+
+        /// <summary>
+        /// Gets the reward storage items remaining in a resolved relic.
+        /// Returns list of (goodName, displayName, amount) for goods with amount > 0.
+        /// </summary>
+        public static List<(string goodName, string displayName, int amount)> GetRelicRewardStorageItems(object building)
+        {
+            var result = new List<(string, string, int)>();
+            if (!IsRelic(building)) return result;
+            EnsureRelicTypes();
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return result;
+
+                var rewards = _relicStateRewardsField?.GetValue(state);
+                if (rewards == null) return result;
+
+                // Get the goods dictionary keys
+                var goodsDict = _goodsCollectionGoodsField?.GetValue(rewards);
+                if (goodsDict == null) return result;
+
+                // Iterate via reflection (Dictionary<string, int>)
+                var keysProperty = goodsDict.GetType().GetProperty("Keys");
+                var keys = keysProperty?.GetValue(goodsDict) as System.Collections.IEnumerable;
+                if (keys == null) return result;
+
+                foreach (var key in keys)
+                {
+                    string goodName = key as string;
+                    if (string.IsNullOrEmpty(goodName)) continue;
+
+                    // Use GetFullAmount to include locked goods (being carried by haulers)
+                    int amount = 0;
+                    if (_lockedGoodsGetFullAmountMethod != null)
+                        amount = (int?)_lockedGoodsGetFullAmountMethod.Invoke(rewards, new object[] { goodName }) ?? 0;
+
+                    if (amount > 0)
+                    {
+                        string displayName = GetGoodDisplayName(goodName) ?? goodName;
+                        result.Add((goodName, displayName, amount));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetRelicRewardStorageItems failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets the total count of goods remaining in a resolved relic's reward storage
+        /// (including goods currently being carried by haulers).
+        /// </summary>
+        public static int GetRelicRewardStorageFullSum(object building)
+        {
+            if (!IsRelic(building)) return 0;
+            EnsureRelicTypes();
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return 0;
+
+                var rewards = _relicStateRewardsField?.GetValue(state);
+                if (rewards == null) return 0;
+
+                if (_lockedGoodsFullSumMethod != null)
+                    return (int?)_lockedGoodsFullSumMethod.Invoke(rewards, null) ?? 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetRelicRewardStorageFullSum failed: {ex.Message}");
+            }
+
+            return 0;
         }
 
         // ========================================

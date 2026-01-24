@@ -149,6 +149,13 @@ namespace ATSAccessibility
             }
         }
 
+        protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex)
+        {
+            if (_sectionTypes[sectionIndex] == SectionType.Workers)
+                return "No free workers";
+            return null;
+        }
+
         protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
         {
             // Fire section: Fuel types sub-items

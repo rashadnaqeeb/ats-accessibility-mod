@@ -215,6 +215,15 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Message to announce when Enter is pressed on an item with no sub-items and no action.
+        /// Return null for no message (silent).
+        /// </summary>
+        protected virtual string GetNoSubItemsMessage(int sectionIndex, int itemIndex)
+        {
+            return null;
+        }
+
+        /// <summary>
         /// Perform action on current sub-item (Enter/Space at sub-item level).
         /// Returns true if action was performed.
         /// </summary>
@@ -436,7 +445,15 @@ namespace ATSAccessibility
                     }
                     else
                     {
-                        PerformItemAction(_currentSectionIndex, _currentItemIndex);
+                        if (!PerformItemAction(_currentSectionIndex, _currentItemIndex))
+                        {
+                            string msg = GetNoSubItemsMessage(_currentSectionIndex, _currentItemIndex);
+                            if (msg != null)
+                            {
+                                Speech.Say(msg);
+                                SoundManager.PlayFailed();
+                            }
+                        }
                     }
                     break;
 
