@@ -88,6 +88,7 @@ namespace ATSAccessibility
 
                 case KeyCode.Escape:
                     CancelAndClose();
+                    InputBlocker.BlockCancelOnce = true;
                     return true;
 
                 default:

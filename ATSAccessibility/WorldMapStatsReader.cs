@@ -151,7 +151,7 @@ namespace ATSAccessibility
                 }
 
                 // Get CycleState fields
-                var cycleStateType = gameAssembly.GetType("Eremite.Model.State.CycleState");
+                var cycleStateType = gameAssembly.GetType("Eremite.WorldMap.CycleState");
                 if (cycleStateType != null)
                 {
                     _cycleYear = cycleStateType.GetField("year",
