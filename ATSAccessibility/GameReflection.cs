@@ -339,6 +339,38 @@ namespace ATSAccessibility
             }
         }
 
+        // Cached field for activePopups list
+        private static FieldInfo _activePopupsField = null;
+
+        /// <summary>
+        /// Get the top active popup from PopupsService (index 0 of activePopups list).
+        /// Returns null if no popups are active.
+        /// </summary>
+        public static object GetTopActivePopup()
+        {
+            var popupsService = GetPopupsService();
+            if (popupsService == null) return null;
+
+            try
+            {
+                if (_activePopupsField == null)
+                {
+                    _activePopupsField = popupsService.GetType().GetField("activePopups",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+                }
+
+                var activePopups = _activePopupsField?.GetValue(popupsService) as System.Collections.IList;
+                if (activePopups == null || activePopups.Count == 0) return null;
+
+                return activePopups[0];
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetTopActivePopup failed: {ex.Message}");
+                return null;
+            }
+        }
+
         /// <summary>
         /// Find a type by name in the game assembly.
         /// Used for detecting game-specific components like TabsButton.

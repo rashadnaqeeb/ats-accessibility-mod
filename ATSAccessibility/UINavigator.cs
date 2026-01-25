@@ -131,16 +131,19 @@ namespace ATSAccessibility
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
-                    if (modifiers.Shift)
-                        AdjustCurrentSlider(1);
-                    else
-                        NavigateElement(-1);
+                    NavigateElement(-1);
                     return true;
                 case KeyCode.DownArrow:
-                    if (modifiers.Shift)
-                        AdjustCurrentSlider(-1);
-                    else
-                        NavigateElement(1);
+                    NavigateElement(1);
+                    return true;
+                case KeyCode.Plus:
+                case KeyCode.KeypadPlus:
+                case KeyCode.Equals:
+                    AdjustCurrentSlider(1, modifiers.Shift ? 10 : 1);
+                    return true;
+                case KeyCode.Minus:
+                case KeyCode.KeypadMinus:
+                    AdjustCurrentSlider(-1, modifiers.Shift ? 10 : 1);
                     return true;
                 case KeyCode.LeftArrow:
                     NavigatePanel(-1);
@@ -259,6 +262,14 @@ namespace ATSAccessibility
             {
                 Debug.Log($"[ATSAccessibility] Popup closed: {popupGO.name}");
                 ResetPopup();
+
+                // Check if there's still an active popup underneath that we should attach to
+                var remainingPopup = GameReflection.GetTopActivePopup();
+                if (remainingPopup != null)
+                {
+                    Debug.Log("[ATSAccessibility] Found remaining popup, re-attaching");
+                    OnPopupShown(remainingPopup);
+                }
             }
         }
 
@@ -568,6 +579,9 @@ namespace ATSAccessibility
             Debug.Log("[ATSAccessibility] Dropdown cancelled");
             Speech.Say("cancelled");
 
+            // Prevent Escape from also closing the parent popup
+            InputBlocker.BlockCancelOnce = true;
+
             ClearDropdownState();
         }
 
@@ -650,15 +664,16 @@ namespace ATSAccessibility
         /// <summary>
         /// Adjust the current slider value by a step.
         /// </summary>
-        public void AdjustCurrentSlider(int direction)
+        /// <param name="direction">1 for increase, -1 for decrease</param>
+        /// <param name="stepPercent">Step size as percentage (1 = 1%, 10 = 10%)</param>
+        public void AdjustCurrentSlider(int direction, int stepPercent = 1)
         {
             if (_elements.Count == 0 || _currentElementIndex >= _elements.Count) return;
 
             var element = _elements[_currentElementIndex];
             if (element is Slider slider)
             {
-                // Adjust by 10% of the range
-                float step = (slider.maxValue - slider.minValue) * 0.1f;
+                float step = (slider.maxValue - slider.minValue) * (stepPercent / 100f);
                 float newValue = Mathf.Clamp(slider.value + (step * direction), slider.minValue, slider.maxValue);
                 slider.value = newValue;
 
@@ -838,6 +853,19 @@ namespace ATSAccessibility
             if (_currentPopup.name.Contains("MetaRewards"))
             {
                 yield return MetaRewardsPopupReader.AnnounceMetaRewardsPopup(_currentPopup, _coroutineRunner);
+                yield break;
+            }
+
+            // Hardcoded names for menus that pick up extraneous text
+            string popupName = _currentPopup.name;
+            if (popupName.Contains("Options") || popupName.Contains("Settings"))
+            {
+                Speech.Say("Options");
+                yield break;
+            }
+            if (popupName.Contains("Pause") || popupName.Contains("GameMenu"))
+            {
+                Speech.Say("Pause Menu");
                 yield break;
             }
 
