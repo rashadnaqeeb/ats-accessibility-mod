@@ -3779,7 +3779,7 @@ namespace ATSAccessibility
                 if (canMoveMethod == null)
                 {
                     Debug.LogWarning("[ATSAccessibility] CanBeMoved method not found");
-                    return true; // Fall back to allowing
+                    return false; // Don't allow if method not found
                 }
 
                 return (bool)canMoveMethod.Invoke(constructionService, new object[] { building });
@@ -3985,7 +3985,7 @@ namespace ATSAccessibility
                 if (canRotateMethod == null)
                 {
                     Debug.LogWarning("[ATSAccessibility] CanBeRotatedInPlace method not found");
-                    return true; // Fall back to allowing rotation
+                    return false; // Don't allow if method not found
                 }
 
                 return (bool)canRotateMethod.Invoke(constructionService, new object[] { building });

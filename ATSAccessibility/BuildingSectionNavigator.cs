@@ -656,13 +656,11 @@ namespace ATSAccessibility
                     _currentSubItemIndex = 0;
                     _currentSubSubItemIndex = 0;
                     AnnounceSection(_currentSectionIndex);
-                    Debug.Log($"[ATSAccessibility] {NavigatorName} search '{_search.Buffer}' matched section at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] {NavigatorName} search '{_search.Buffer}' found no match at section level");
         }
 
         private void SearchItems(string prefix)
@@ -679,13 +677,11 @@ namespace ATSAccessibility
                     _currentSubItemIndex = 0;
                     _currentSubSubItemIndex = 0;
                     AnnounceItem(_currentSectionIndex, _currentItemIndex);
-                    Debug.Log($"[ATSAccessibility] {NavigatorName} search '{_search.Buffer}' matched item at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] {NavigatorName} search '{_search.Buffer}' found no match at item level");
         }
 
         private void SearchSubItems(string prefix)
@@ -701,13 +697,11 @@ namespace ATSAccessibility
                     _currentSubItemIndex = i;
                     _currentSubSubItemIndex = 0;
                     AnnounceSubItem(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex);
-                    Debug.Log($"[ATSAccessibility] {NavigatorName} search '{_search.Buffer}' matched sub-item at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] {NavigatorName} search '{_search.Buffer}' found no match at sub-item level");
         }
 
         private void SearchSubSubItems(string prefix)
@@ -722,13 +716,11 @@ namespace ATSAccessibility
                 {
                     _currentSubSubItemIndex = i;
                     AnnounceSubSubItem(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex, _currentSubSubItemIndex);
-                    Debug.Log($"[ATSAccessibility] {NavigatorName} search '{_search.Buffer}' matched sub-sub-item at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] {NavigatorName} search '{_search.Buffer}' found no match at sub-sub-item level");
         }
 
         /// <summary>
@@ -742,7 +734,6 @@ namespace ATSAccessibility
             if (!_search.HasBuffer)
             {
                 Speech.Say("Search cleared");
-                Debug.Log($"[ATSAccessibility] {NavigatorName} search buffer cleared via backspace");
                 return;
             }
 

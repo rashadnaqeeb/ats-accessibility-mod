@@ -108,8 +108,6 @@ namespace ATSAccessibility
             _articleIndex = 0;
             _contentLineIndex = 0;
 
-            Debug.Log("[ATSAccessibility] EncyclopediaNavigator activated");
-
             RebuildCategories();
             AnnounceCurrentPanel();
             AnnounceCurrentElement();
@@ -126,8 +124,6 @@ namespace ATSAccessibility
             _contentLines.Clear();
             _currentCategoryPanel = null;
             _search.Clear();
-
-            Debug.Log("[ATSAccessibility] EncyclopediaNavigator deactivated");
         }
 
         // ========================================
@@ -252,8 +248,6 @@ namespace ATSAccessibility
                 }
             }
 
-            Debug.Log($"[ATSAccessibility] Found {_categoryButtons.Count} wiki category buttons");
-
             // Find which category is currently active
             var currentPanel = WikiReflection.GetCurrentWikiPanel(_wikiPopup);
             if (currentPanel != null)
@@ -296,8 +290,6 @@ namespace ATSAccessibility
 
             // Update the current panel reference
             _currentCategoryPanel = WikiReflection.GetCategoryButtonPanel(button);
-
-            Debug.Log($"[ATSAccessibility] Activated category {_categoryIndex}");
 
             // Auto-advance to Articles panel
             _currentPanel = WikiPanel.Articles;
@@ -347,8 +339,6 @@ namespace ATSAccessibility
                     _articleSlots.Add(slot);
                 }
             }
-
-            Debug.Log($"[ATSAccessibility] Found {_articleSlots.Count} wiki article slots");
         }
 
         private void NavigateArticles(int direction)
@@ -380,8 +370,6 @@ namespace ATSAccessibility
 
             WikiReflection.ClickWikiButton(slot);
 
-            Debug.Log($"[ATSAccessibility] Activated article {_articleIndex}");
-
             // Auto-advance to Content panel
             _currentPanel = WikiPanel.Content;
             _contentLineIndex = 0;  // Start at top
@@ -410,7 +398,6 @@ namespace ATSAccessibility
                 if (WikiReflection.IsWikiRaceSlot(slot))
                 {
                     BuildRaceContent(slot);
-                    Debug.Log($"[ATSAccessibility] Built structured race content: {_contentLines.Count} lines");
                     return;
                 }
 
@@ -418,7 +405,6 @@ namespace ATSAccessibility
                 if (WikiReflection.IsWikiBuildingSlot(slot))
                 {
                     BuildBuildingContent(slot);
-                    Debug.Log($"[ATSAccessibility] Built structured building content: {_contentLines.Count} lines");
                     return;
                 }
             }
@@ -441,8 +427,6 @@ namespace ATSAccessibility
                     _contentLines.Add(trimmed);
                 }
             }
-
-            Debug.Log($"[ATSAccessibility] Found {_contentLines.Count} content lines");
         }
 
         /// <summary>

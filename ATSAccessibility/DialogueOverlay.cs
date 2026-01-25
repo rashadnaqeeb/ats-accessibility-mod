@@ -68,18 +68,15 @@ namespace ATSAccessibility
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
-                    Debug.Log($"[ATSAccessibility] DialogueOverlay: Up pressed, currentIndex={_currentIndex}");
                     Navigate(-1);
                     return true;
 
                 case KeyCode.DownArrow:
-                    Debug.Log($"[ATSAccessibility] DialogueOverlay: Down pressed, currentIndex={_currentIndex}");
                     Navigate(1);
                     return true;
 
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
-                    Debug.Log($"[ATSAccessibility] DialogueOverlay: Enter pressed, currentIndex={_currentIndex}, itemCount={_items.Count}");
                     ActivateCurrent();
                     return true;
 
@@ -156,8 +153,6 @@ namespace ATSAccessibility
                 Debug.LogWarning("[ATSAccessibility] DialogueOverlay: Failed to subscribe to events");
             }
 
-            Debug.Log("[ATSAccessibility] DialogueOverlay opened");
-
             // Announce the popup opening - first dialogue will be announced via event
             string npcName = NarrationReflection.GetNPCName();
             string npcTitle = NarrationReflection.GetNPCTitle();
@@ -188,8 +183,6 @@ namespace ATSAccessibility
             _branchSub?.Dispose();
             _dialogueSub = null;
             _branchSub = null;
-
-            Debug.Log("[ATSAccessibility] DialogueOverlay closed");
         }
 
         // ========================================
@@ -199,8 +192,6 @@ namespace ATSAccessibility
         private void OnDialogueRequested(object dialogue)
         {
             if (!_isOpen) return;  // Guard against stale events
-
-            Debug.Log("[ATSAccessibility] DialogueOverlay: OnDialogueRequested (queuing)");
 
             // Queue the event
             _eventQueue.Enqueue(new QueuedEvent { Type = EventType.Dialogue, Data = dialogue });
@@ -215,8 +206,6 @@ namespace ATSAccessibility
         private void OnBranchRequested(object branch)
         {
             if (!_isOpen) return;  // Guard against stale events
-
-            Debug.Log("[ATSAccessibility] DialogueOverlay: OnBranchRequested (queuing)");
 
             // Queue the event
             _eventQueue.Enqueue(new QueuedEvent { Type = EventType.Branch, Data = branch });
@@ -245,8 +234,6 @@ namespace ATSAccessibility
             {
                 var evt = _eventQueue.Dequeue();
 
-                Debug.Log($"[ATSAccessibility] DialogueOverlay: Processing {evt.Type} event, {_eventQueue.Count} remaining in queue");
-
                 _search.Clear();
 
                 if (evt.Type == EventType.Dialogue)
@@ -264,12 +251,6 @@ namespace ATSAccessibility
 
                 _currentIndex = 0;
                 AnnounceCurrentItem();
-
-                // If there are more events queued, indicate this to the user
-                if (_eventQueue.Count > 0)
-                {
-                    Debug.Log($"[ATSAccessibility] DialogueOverlay: {_eventQueue.Count} more events pending");
-                }
             }
             catch (Exception ex)
             {
@@ -314,7 +295,6 @@ namespace ATSAccessibility
                 });
             }
 
-            Debug.Log($"[ATSAccessibility] DialogueOverlay: built {_items.Count} items for dialogue");
         }
 
         private void BuildBranchList(object branch)
@@ -358,7 +338,6 @@ namespace ATSAccessibility
                 });
             }
 
-            Debug.Log($"[ATSAccessibility] DialogueOverlay: built {_items.Count} items for branch ({choices.Count} choices)");
         }
 
         // ========================================
@@ -418,7 +397,6 @@ namespace ATSAccessibility
                 case ItemType.Continue:
                     if (_currentDialogue != null)
                     {
-                        Debug.Log("[ATSAccessibility] DialogueOverlay: executing transition");
                         // Clear queue and allow new events to process immediately
                         _eventQueue.Clear();
                         _processingEvent = false;
@@ -434,7 +412,6 @@ namespace ATSAccessibility
                 case ItemType.Choice:
                     if (item.Choice != null)
                     {
-                        Debug.Log($"[ATSAccessibility] DialogueOverlay: selecting choice: {item.Text}");
                         // Clear queue and allow new events to process immediately
                         _eventQueue.Clear();
                         _processingEvent = false;

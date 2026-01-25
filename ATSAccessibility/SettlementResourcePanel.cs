@@ -270,12 +270,10 @@ namespace ATSAccessibility
                 _currentItemIndex = match.itemIndex;
                 _focusOnItems = true;  // Auto-enter items panel
                 AnnounceItem();
-                Debug.Log($"[ATSAccessibility] Resource search '{_search.Buffer}' matched at category {_currentCategoryIndex}, item {_currentItemIndex}");
             }
             else
             {
                 Speech.Say($"No match for {_search.Buffer}");
-                Debug.Log($"[ATSAccessibility] Resource search '{_search.Buffer}' found no match");
             }
         }
 
@@ -289,7 +287,6 @@ namespace ATSAccessibility
             if (!_search.HasBuffer)
             {
                 Speech.Say("Search cleared");
-                Debug.Log("[ATSAccessibility] Resource search buffer cleared via backspace");
                 return;
             }
 
@@ -302,12 +299,10 @@ namespace ATSAccessibility
                 _currentItemIndex = match.itemIndex;
                 _focusOnItems = true;
                 AnnounceItem();
-                Debug.Log($"[ATSAccessibility] Resource search '{_search.Buffer}' matched at category {_currentCategoryIndex}, item {_currentItemIndex}");
             }
             else
             {
                 Speech.Say($"No match for {_search.Buffer}");
-                Debug.Log($"[ATSAccessibility] Resource search '{_search.Buffer}' found no match");
             }
         }
     }

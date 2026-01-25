@@ -502,7 +502,15 @@ namespace ATSAccessibility
                 var cycleEndPhaseType = assembly.GetType("Eremite.CycleEndPhase");
                 if (cycleEndPhaseType != null)
                 {
-                    _animationRequestedValue = Enum.Parse(cycleEndPhaseType, "AnimationRequested");
+                    try
+                    {
+                        _animationRequestedValue = Enum.Parse(cycleEndPhaseType, "AnimationRequested");
+                    }
+                    catch (ArgumentException)
+                    {
+                        Debug.LogWarning("[ATSAccessibility] CycleEndOverlay: AnimationRequested enum value not found");
+                        _animationRequestedValue = null;
+                    }
                 }
 
                 // Cache Popup.Hide method

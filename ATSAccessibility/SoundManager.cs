@@ -680,7 +680,7 @@ namespace ATSAccessibility
                 }
 
                 // Check cache first, then search loaded clips
-                if (!_clipCache.TryGetValue(clipName, out object targetClip) || targetClip == null)
+                if (!_clipCache.TryGetValue(clipName, out object targetClip))
                 {
                     var clips = Resources.FindObjectsOfTypeAll(_audioClipType);
                     foreach (var clip in clips)
@@ -692,13 +692,19 @@ namespace ATSAccessibility
                         }
                     }
 
+                    // Cache result (including null) to avoid repeated searches
+                    _clipCache[clipName] = targetClip;
+
                     if (targetClip == null)
                     {
                         Debug.LogWarning($"[ATSAccessibility] Sound clip not found: {clipName}");
                         return;
                     }
-
-                    _clipCache[clipName] = targetClip;
+                }
+                else if (targetClip == null)
+                {
+                    // Cached as not found
+                    return;
                 }
 
                 // Play on our own AudioSource via PlayOneShot with game's effects volume

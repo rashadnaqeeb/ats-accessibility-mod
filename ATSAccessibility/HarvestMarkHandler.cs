@@ -138,6 +138,9 @@ namespace ATSAccessibility
             if (_selectedPositions.Contains(cursorPos))
             {
                 _selectedPositions.Remove(cursorPos);
+                // Reset rect phase when deselecting during WaitingForSecond
+                if (_rectPhase == RectPhase.WaitingForSecond)
+                    _rectPhase = RectPhase.Idle;
                 Speech.Say("Deselected");
                 return;
             }

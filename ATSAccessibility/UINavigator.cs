@@ -396,16 +396,14 @@ namespace ATSAccessibility
         /// </summary>
         public bool ActivateCurrentElement()
         {
-            if (_elements.Count == 0 || _currentElementIndex >= _elements.Count)
+            if (_elements.Count == 0 || _currentElementIndex < 0 || _currentElementIndex >= _elements.Count)
             {
-                Debug.Log("[ATSAccessibility] No element to activate - passing through to game");
                 return false;
             }
 
             var element = _elements[_currentElementIndex];
             if (element == null)
             {
-                Debug.Log("[ATSAccessibility] Current element is null - passing through to game");
                 return false;
             }
 
@@ -414,7 +412,6 @@ namespace ATSAccessibility
                 if (element is Button button)
                 {
                     button.onClick.Invoke();
-                    Debug.Log($"[ATSAccessibility] Activated button: {UIElementFinder.GetElementText(element)}");
 
                     // If we just activated a tab, auto-switch to content panel
                     if (_isTabbedPopup && _currentPanelIndex == 0)
@@ -430,7 +427,6 @@ namespace ATSAccessibility
                     toggle.isOn = !toggle.isOn;
                     string state = toggle.isOn ? "checked" : "unchecked";
                     Speech.Say(state);
-                    Debug.Log($"[ATSAccessibility] Toggled: {UIElementFinder.GetElementText(element)} -> {state}");
                 }
                 else if (element is TMP_Dropdown dropdown)
                 {
@@ -443,7 +439,6 @@ namespace ATSAccessibility
                 else if (element is Slider slider)
                 {
                     slider.Select();
-                    Debug.Log($"[ATSAccessibility] Selected slider: {UIElementFinder.GetElementText(element)}");
                 }
                 return true;
             }
@@ -509,7 +504,6 @@ namespace ATSAccessibility
 
             // Announce dropdown opened
             string announcement = $"dropdown opened, {_dropdownToggles.Count} options";
-            Debug.Log($"[ATSAccessibility] {announcement}");
             Speech.Say(announcement);
 
             // Announce current option
@@ -527,7 +521,6 @@ namespace ATSAccessibility
             var list = _activeDropdown.transform.Find("Dropdown List");
             if (list == null || !list.gameObject.activeInHierarchy)
             {
-                Debug.Log("[ATSAccessibility] Dropdown closed externally");
                 ClearDropdownState();
                 return false;
             }
@@ -561,7 +554,6 @@ namespace ATSAccessibility
                 // Setting isOn triggers the dropdown's selection mechanism
                 toggle.isOn = true;
 
-                Debug.Log($"[ATSAccessibility] Selected dropdown option: {optionText}");
                 Speech.Say($"{optionText}, selected");
             }
 
@@ -576,7 +568,6 @@ namespace ATSAccessibility
             if (_activeDropdown == null) return;
 
             _activeDropdown.Hide();
-            Debug.Log("[ATSAccessibility] Dropdown cancelled");
             Speech.Say("cancelled");
 
             // Prevent Escape from also closing the parent popup
@@ -598,7 +589,6 @@ namespace ATSAccessibility
             {
                 var toggle = _dropdownToggles[_dropdownIndex];
                 var text = toggle.GetComponentInChildren<TMP_Text>()?.text ?? "option";
-                Debug.Log($"[ATSAccessibility] Dropdown option: {text}");
                 Speech.Say(text);
             }
         }
@@ -624,7 +614,6 @@ namespace ATSAccessibility
 
             string currentText = string.IsNullOrEmpty(inputField.text) ? "empty" : inputField.text;
             Speech.Say($"Editing, current text: {currentText}");
-            Debug.Log($"[ATSAccessibility] Started editing text field: {inputField.name}");
         }
 
         /// <summary>
@@ -640,14 +629,12 @@ namespace ATSAccessibility
                 _editingInputField.DeactivateInputField();
                 string finalText = string.IsNullOrEmpty(_editingInputField.text) ? "empty" : _editingInputField.text;
                 Speech.Say($"Submitted: {finalText}");
-                Debug.Log($"[ATSAccessibility] Submitted text field: {finalText}");
             }
             else
             {
                 // Cancel - just deactivate without submitting
                 _editingInputField.DeactivateInputField();
                 Speech.Say("Cancelled");
-                Debug.Log("[ATSAccessibility] Cancelled text field editing");
             }
 
             _isEditingTextField = false;
@@ -679,7 +666,6 @@ namespace ATSAccessibility
 
                 int percent = Mathf.RoundToInt(slider.normalizedValue * 100);
                 Speech.Say($"{percent} percent");
-                Debug.Log($"[ATSAccessibility] Adjusted slider to {percent}%");
             }
         }
 
@@ -701,12 +687,10 @@ namespace ATSAccessibility
             {
                 _currentElementIndex = matchIndex;
                 AnnounceCurrentElement();
-                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' matched element at index {matchIndex}");
             }
             else
             {
                 Speech.Say($"No match for {_search.Buffer}");
-                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' - no match");
             }
 
             return true;

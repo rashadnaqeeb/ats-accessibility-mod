@@ -1209,13 +1209,11 @@ namespace ATSAccessibility
                     _currentCategoryIndex = i;
                     _currentDetailIndex = 0;
                     AnnounceCurrentCategory();
-                    Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' matched category at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' found no category match");
         }
 
         private void SearchDetails()
@@ -1232,13 +1230,11 @@ namespace ATSAccessibility
                 {
                     _currentDetailIndex = i;
                     AnnounceCurrentDetail();
-                    Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' matched detail at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' found no detail match");
         }
 
         private void SearchSpendPointsItems()
@@ -1255,13 +1251,11 @@ namespace ATSAccessibility
                 {
                     _currentDetailIndex = i;
                     AnnounceSpendPointsItem();
-                    Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' matched spend points item at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] Embark search '{_search.Buffer}' found no spend points item match");
         }
     }
 }

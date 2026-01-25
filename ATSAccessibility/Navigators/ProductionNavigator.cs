@@ -498,9 +498,6 @@ namespace ATSAccessibility
 
             _sectionNames = sectionNames.ToArray();
             _sectionTypes = sectionTypes.ToArray();
-
-            Debug.Log($"[ATSAccessibility] ProductionNavigator: Refreshed data for {_buildingName}");
-            Debug.Log($"[ATSAccessibility] ProductionNavigator: {_maxWorkers} worker slots, {_recipes.Count} recipes, {_inputGoods.Count} inputs, {_outputGoods.Count} outputs, {_sectionNames.Length} sections");
         }
 
         protected override void ClearData()
@@ -574,7 +571,6 @@ namespace ATSAccessibility
 
             _availableRaces = BuildingReflection.GetRacesWithFreeWorkers();
             _racesRefreshedForWorkerSection = true;
-            Debug.Log($"[ATSAccessibility] ProductionNavigator: Found {_availableRaces.Count} races with free workers");
         }
 
         private int GetWorkerSubItemCount(int workerIndex)
@@ -721,7 +717,6 @@ namespace ATSAccessibility
             _recipes.Clear();
 
             var recipeStates = BuildingReflection.GetRecipes(_building);
-            Debug.Log($"[ATSAccessibility] ProductionNavigator: RefreshRecipes got {recipeStates.Count} recipes");
 
             foreach (var recipeState in recipeStates)
             {
@@ -736,7 +731,6 @@ namespace ATSAccessibility
                     Priority = GetRecipePriority(recipeState)
                 };
                 _recipes.Add(info);
-                Debug.Log($"[ATSAccessibility] ProductionNavigator: Recipe {info.ModelName}, product={info.ProductName}, active={info.IsActive}");
             }
         }
 
@@ -795,7 +789,6 @@ namespace ATSAccessibility
                 }
             }
 
-            Debug.Log($"[ATSAccessibility] ProductionNavigator: RefreshStorage - hasInput={_hasInputStorage}, hasOutput={_hasOutputStorage}, {_inputGoods.Count} inputs, {_outputGoods.Count} outputs");
         }
 
         private void AnnounceInputItem(int itemIndex)
@@ -1050,7 +1043,6 @@ namespace ATSAccessibility
 
                 string displayName = GetRecipeDisplayName(recipe);
                 Speech.Say($"{displayName}: {(newActive ? "enabled" : "disabled")}");
-                Debug.Log($"[ATSAccessibility] ProductionNavigator: Toggled recipe {recipe.ModelName} to {newActive}");
             }
             else
             {

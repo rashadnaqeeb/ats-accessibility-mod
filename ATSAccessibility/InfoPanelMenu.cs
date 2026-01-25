@@ -295,13 +295,11 @@ namespace ATSAccessibility
                 {
                     _currentIndex = i;
                     AnnounceCurrentItem(includePrefix: false);
-                    Debug.Log($"[ATSAccessibility] Info menu search '{_search.Buffer}' matched at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] Info menu search '{_search.Buffer}' found no match");
         }
 
         private void HandleBackspace()
@@ -311,7 +309,6 @@ namespace ATSAccessibility
             if (!_search.HasBuffer)
             {
                 Speech.Say("Search cleared");
-                Debug.Log("[ATSAccessibility] Info menu search buffer cleared via backspace");
                 return;
             }
 
@@ -323,13 +320,11 @@ namespace ATSAccessibility
                 {
                     _currentIndex = i;
                     AnnounceCurrentItem(includePrefix: false);
-                    Debug.Log($"[ATSAccessibility] Info menu search '{_search.Buffer}' matched at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] Info menu search '{_search.Buffer}' found no match");
         }
     }
 }

@@ -45,7 +45,6 @@ namespace ATSAccessibility
             // Try to detect tabbed popup structure
             if (isPopup && TrySetupTabsPanel(root, result))
             {
-                Debug.Log($"[ATSAccessibility] Detected tabbed popup with {result.TabButtons.Count} tabs");
                 return result;
             }
 
@@ -98,7 +97,6 @@ namespace ATSAccessibility
                 result.Panels.Add(root);
             }
 
-            Debug.Log($"[ATSAccessibility] Found {result.Panels.Count} panels");
             return result;
         }
 
@@ -138,7 +136,6 @@ namespace ATSAccessibility
                     var owningPopup = FindOwningPopup(comp.transform, root.transform);
                     if (owningPopup != null && !owningPopup.activeInHierarchy)
                     {
-                        Debug.Log($"[ATSAccessibility] Skipping TabsPanel in inactive nested popup: {owningPopup.name}");
                         continue;
                     }
 
@@ -177,7 +174,6 @@ namespace ATSAccessibility
             result.Panels.Add(root); // Panel 0 = Tabs
             result.Panels.Add(root); // Panel 1 = Content
 
-            Debug.Log("[ATSAccessibility] Detected TabsPanel-based tabs");
             return true;
         }
 
@@ -244,7 +240,6 @@ namespace ATSAccessibility
                             elements.Add(tab);
                         }
                     }
-                    Debug.Log($"[ATSAccessibility] Found {elements.Count} tab buttons");
                 }
                 else
                 {
@@ -266,7 +261,6 @@ namespace ATSAccessibility
 
                         elements.Add(sel);
                     }
-                    Debug.Log($"[ATSAccessibility] Found {elements.Count} content elements in active panel");
                 }
                 return elements;
             }
@@ -284,7 +278,6 @@ namespace ATSAccessibility
                 elements.Add(sel);
             }
 
-            Debug.Log($"[ATSAccessibility] Found {elements.Count} elements in panel {panel.name}");
             return elements;
         }
 

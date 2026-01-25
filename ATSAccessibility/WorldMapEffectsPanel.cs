@@ -203,13 +203,11 @@ namespace ATSAccessibility
                 {
                     _currentIndex = i;
                     AnnounceCurrentItem();
-                    Debug.Log($"[ATSAccessibility] World map effects search '{_search.Buffer}' matched at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] World map effects search '{_search.Buffer}' found no match");
         }
 
         /// <summary>
@@ -222,7 +220,6 @@ namespace ATSAccessibility
             if (!_search.HasBuffer)
             {
                 Speech.Say("Search cleared");
-                Debug.Log("[ATSAccessibility] World map effects search buffer cleared via backspace");
                 return;
             }
 
@@ -234,13 +231,11 @@ namespace ATSAccessibility
                 {
                     _currentIndex = i;
                     AnnounceCurrentItem();
-                    Debug.Log($"[ATSAccessibility] World map effects search '{_search.Buffer}' matched at index {i}");
                     return;
                 }
             }
 
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] World map effects search '{_search.Buffer}' found no match");
         }
     }
 }

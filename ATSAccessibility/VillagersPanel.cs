@@ -407,12 +407,10 @@ namespace ATSAccessibility
                     _currentDetailIndex = 0;
                     _currentSubDetailIndex = 0;
                     AnnounceCategory();
-                    Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' matched category at index {i}");
                     return;
                 }
             }
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' found no category match");
         }
 
         private void SearchDetails()
@@ -428,12 +426,10 @@ namespace ATSAccessibility
                     _currentDetailIndex = i;
                     _currentSubDetailIndex = 0;
                     AnnounceDetail();
-                    Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' matched detail at index {i}");
                     return;
                 }
             }
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' found no detail match");
         }
 
         private void SearchSubDetails()
@@ -450,12 +446,10 @@ namespace ATSAccessibility
                 {
                     _currentSubDetailIndex = i;
                     AnnounceSubDetail();
-                    Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' matched sub-detail at index {i}");
                     return;
                 }
             }
             Speech.Say($"No match for {_search.Buffer}");
-            Debug.Log($"[ATSAccessibility] Villagers search '{_search.Buffer}' found no sub-detail match");
         }
 
         // ========================================

@@ -439,12 +439,10 @@ namespace ATSAccessibility
                 _currentBuildingIndex = match.buildingIndex;
                 _focusOnBuildings = true;  // Auto-enter buildings panel
                 AnnounceCurrentBuilding();
-                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' matched building at category {_currentCategoryIndex}, building {_currentBuildingIndex}");
             }
             else
             {
                 Speech.Say($"No match for {_search.Buffer}");
-                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' found no match");
             }
         }
 
@@ -459,7 +457,6 @@ namespace ATSAccessibility
             if (!_search.HasBuffer)
             {
                 Speech.Say("Search cleared");
-                Debug.Log("[ATSAccessibility] Search buffer cleared via backspace");
                 return;
             }
 
@@ -472,12 +469,10 @@ namespace ATSAccessibility
                 _currentBuildingIndex = match.buildingIndex;
                 _focusOnBuildings = true;
                 AnnounceCurrentBuilding();
-                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' matched building at category {_currentCategoryIndex}, building {_currentBuildingIndex}");
             }
             else
             {
                 Speech.Say($"No match for {_search.Buffer}");
-                Debug.Log($"[ATSAccessibility] Search '{_search.Buffer}' found no match");
             }
         }
 
@@ -488,7 +483,6 @@ namespace ATSAccessibility
         {
             _search.Clear();
             Speech.Say("Search cleared");
-            Debug.Log("[ATSAccessibility] Search buffer cleared");
         }
     }
 }
