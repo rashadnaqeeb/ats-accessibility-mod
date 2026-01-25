@@ -841,37 +841,61 @@ namespace ATSAccessibility
                 yield break;
             }
 
-            var announcements = new List<string>();
             // Only get active elements - inactive tabs (like Key Bindings) have placeholder text
             var textElements = _currentPopup.GetComponentsInChildren<TMP_Text>(false);
 
+            // OptionsPopup has tons of settings labels - use strict filtering
+            bool isOptionsPopup = _currentPopup.name.Contains("Options");
+
+            // Collect title and description separately
+            string titleText = null;
+            string descText = null;
+
             foreach (var text in textElements)
             {
+                if (string.IsNullOrEmpty(text.text)) continue;
+
                 string objName = text.gameObject.name;
-                // Match title patterns: "title", "*title", "name", "*name"
-                if (objName.Equals("title", StringComparison.OrdinalIgnoreCase) ||
-                    objName.EndsWith("title", StringComparison.OrdinalIgnoreCase) ||
-                    objName.Equals("name", StringComparison.OrdinalIgnoreCase) ||
-                    objName.EndsWith("name", StringComparison.OrdinalIgnoreCase))
+
+                // Match title patterns: "title", "*title", "name", "*name", "header", "*header"
+                if (titleText == null &&
+                    (objName.Equals("title", StringComparison.OrdinalIgnoreCase) ||
+                     objName.EndsWith("title", StringComparison.OrdinalIgnoreCase) ||
+                     objName.Equals("name", StringComparison.OrdinalIgnoreCase) ||
+                     objName.EndsWith("name", StringComparison.OrdinalIgnoreCase) ||
+                     objName.Equals("header", StringComparison.OrdinalIgnoreCase) ||
+                     objName.EndsWith("header", StringComparison.OrdinalIgnoreCase)))
                 {
-                    if (!string.IsNullOrEmpty(text.text))
-                        announcements.Add(text.text);
+                    titleText = text.text;
                 }
-                // Match description patterns: "desc", "*desc", "description"
-                else if (objName.Equals("desc", StringComparison.OrdinalIgnoreCase) ||
-                         objName.Equals("description", StringComparison.OrdinalIgnoreCase) ||
-                         objName.EndsWith("desc", StringComparison.OrdinalIgnoreCase))
+                // Match description patterns: "desc", "*desc", "description", "text", "message", "label"
+                else if (descText == null &&
+                         (objName.Equals("desc", StringComparison.OrdinalIgnoreCase) ||
+                          objName.Equals("description", StringComparison.OrdinalIgnoreCase) ||
+                          objName.EndsWith("desc", StringComparison.OrdinalIgnoreCase) ||
+                          // For non-Options popups, also match common dialogue patterns
+                          (!isOptionsPopup &&
+                           (objName.Equals("text", StringComparison.OrdinalIgnoreCase) ||
+                            objName.Equals("message", StringComparison.OrdinalIgnoreCase) ||
+                            objName.Equals("label", StringComparison.OrdinalIgnoreCase)))))
                 {
-                    if (!string.IsNullOrEmpty(text.text))
-                        announcements.Add(text.text);
+                    descText = text.text;
                 }
             }
 
-            // If no title found, or multiple titles found (likely section headers), use popup name
+            // Build announcement: prefer title + desc, fall back to popup name
             string announcement;
-            if (announcements.Count == 1)
+            if (!string.IsNullOrEmpty(titleText) && !string.IsNullOrEmpty(descText))
             {
-                announcement = announcements[0];
+                announcement = $"{titleText}. {descText}";
+            }
+            else if (!string.IsNullOrEmpty(titleText))
+            {
+                announcement = titleText;
+            }
+            else if (!string.IsNullOrEmpty(descText))
+            {
+                announcement = descText;
             }
             else
             {
