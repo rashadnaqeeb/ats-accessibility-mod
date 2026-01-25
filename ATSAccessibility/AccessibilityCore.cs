@@ -155,6 +155,9 @@ namespace ATSAccessibility
         // Game result popup overlay for victory/defeat screen
         private GameResultOverlay _gameResultOverlay;
 
+        // Black Market popup overlay for trading offers
+        private BlackMarketOverlay _blackMarketOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -299,6 +302,9 @@ namespace ATSAccessibility
             // Initialize game result overlay for victory/defeat screen
             _gameResultOverlay = new GameResultOverlay();
 
+            // Initialize black market overlay for trading offers
+            _blackMarketOverlay = new BlackMarketOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -338,6 +344,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_cycleEndOverlay);   // Cycle end popup overlay (world map)
             _keyboardManager.RegisterHandler(_paymentsOverlay);   // Payments popup overlay
             _keyboardManager.RegisterHandler(_gameResultOverlay);  // Game result (victory/defeat) popup overlay
+            _keyboardManager.RegisterHandler(_blackMarketOverlay); // Black Market popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -1031,6 +1038,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check black market popup - it has its own overlay
+            if (BlackMarketReflection.IsBlackMarketPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Black Market popup detected, using BlackMarket overlay");
+                _blackMarketOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1200,6 +1216,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Game result popup closed");
                 _gameResultOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check black market popup
+            else if (BlackMarketReflection.IsBlackMarketPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Black Market popup closed");
+                _blackMarketOverlay?.Close();
                 // Fall through to handle context change
             }
             else
