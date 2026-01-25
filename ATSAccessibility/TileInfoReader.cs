@@ -448,9 +448,8 @@ namespace ATSAccessibility
                     parts.Add(chargesInfo);
                 }
 
-                // Description - NaturalResourceModel has a Description property that includes grade requirement
-                // (unlike LocaText fields, this property returns the full formatted string with sprite tags)
-                string desc = GetDescriptionProperty(model);
+                // Description from model.description field (LocaText)
+                string desc = GetLocalizedText(model, "description");
                 if (!string.IsNullOrEmpty(desc))
                 {
                     parts.Add(desc);
