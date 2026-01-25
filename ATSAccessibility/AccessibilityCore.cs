@@ -161,6 +161,9 @@ namespace ATSAccessibility
         // Altar (Forsaken Altar) popup overlay for cornerstone upgrades
         private AltarOverlay _altarOverlay;
 
+        // Perk Crafter (Cornerstone Forge) popup overlay for cornerstone crafting
+        private PerkCrafterOverlay _perkCrafterOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -311,6 +314,9 @@ namespace ATSAccessibility
             // Initialize altar overlay for Forsaken Altar
             _altarOverlay = new AltarOverlay();
 
+            // Initialize perk crafter overlay for Cornerstone Forge
+            _perkCrafterOverlay = new PerkCrafterOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -352,6 +358,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_gameResultOverlay);  // Game result (victory/defeat) popup overlay
             _keyboardManager.RegisterHandler(_blackMarketOverlay); // Black Market popup overlay
             _keyboardManager.RegisterHandler(_altarOverlay);        // Altar (Forsaken Altar) popup overlay
+            _keyboardManager.RegisterHandler(_perkCrafterOverlay);  // Perk Crafter (Cornerstone Forge) popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -1063,6 +1070,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check perk crafter popup (Cornerstone Forge) - it has its own overlay
+            if (PerkCrafterReflection.IsPerkCrafterPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] PerkCrafter popup detected, using PerkCrafter overlay");
+                _perkCrafterOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1246,6 +1262,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Altar panel closed");
                 _altarOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check perk crafter popup
+            else if (PerkCrafterReflection.IsPerkCrafterPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] PerkCrafter popup closed");
+                _perkCrafterOverlay?.Close();
                 // Fall through to handle context change
             }
             else
