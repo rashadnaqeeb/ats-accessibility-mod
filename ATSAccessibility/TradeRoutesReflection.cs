@@ -22,6 +22,8 @@ namespace ATSAccessibility
             public int Id;
             public string Name;
             public string Biome;
+            public string Faction;         // Faction name (e.g., "Lizard Merchants") or null
+            public int Distance;           // Distance from capital
             public int StandingLevel;
             public string StandingLabel;
             public bool IsMaxStanding;
@@ -95,6 +97,8 @@ namespace ATSAccessibility
         private static FieldInfo _townIdField = null;
         private static FieldInfo _townNameField = null;
         private static FieldInfo _townBiomeField = null;
+        private static FieldInfo _townFactionField = null;
+        private static FieldInfo _townDistanceField = null;
         private static FieldInfo _townStandingLevelField = null;
         private static FieldInfo _townIsMaxStandingField = null;
         private static FieldInfo _townCurrentStandingField = null;
@@ -161,6 +165,8 @@ namespace ATSAccessibility
         private static FieldInfo _configMaxOfferAmountField = null;
         private static MethodInfo _settingsGetBiomeMethod = null;
         private static FieldInfo _biomeDisplayNameField = null;
+        private static MethodInfo _settingsGetFactionMethod = null;
+        private static FieldInfo _factionDisplayNameField = null;
 
         // ========================================
         // INITIALIZATION
@@ -246,6 +252,8 @@ namespace ATSAccessibility
                 _townIdField = townStateType.GetField("id", GameReflection.PublicInstance);
                 _townNameField = townStateType.GetField("townName", GameReflection.PublicInstance);
                 _townBiomeField = townStateType.GetField("biome", GameReflection.PublicInstance);
+                _townFactionField = townStateType.GetField("faction", GameReflection.PublicInstance);
+                _townDistanceField = townStateType.GetField("distance", GameReflection.PublicInstance);
                 _townStandingLevelField = townStateType.GetField("standingLevel", GameReflection.PublicInstance);
                 _townIsMaxStandingField = townStateType.GetField("isMaxStanding", GameReflection.PublicInstance);
                 _townCurrentStandingField = townStateType.GetField("currentStandingValue", GameReflection.PublicInstance);
@@ -348,6 +356,11 @@ namespace ATSAccessibility
             _settingsGetBiomeMethod = settingsType?.GetMethod("GetBiome", new[] { typeof(string) });
             var biomeModelType = assembly.GetType("Eremite.Model.BiomeModel");
             _biomeDisplayNameField = biomeModelType?.GetField("displayName", GameReflection.PublicInstance);
+
+            // Faction access
+            _settingsGetFactionMethod = settingsType?.GetMethod("GetFaction", new[] { typeof(string) });
+            var factionModelType = assembly.GetType("Eremite.Model.FactionModel");
+            _factionDisplayNameField = factionModelType?.GetField("displayName", GameReflection.PublicInstance);
         }
 
         // ========================================
@@ -434,6 +447,26 @@ namespace ATSAccessibility
             if (prefs == null || _prefsAutoCollectField == null) return;
             try { _prefsAutoCollectField.SetValue(prefs, enabled); }
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SetAutoCollect failed: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Auto-collect all ready routes. Called when enabling auto-collect to match game behavior.
+        /// Returns number of routes collected.
+        /// </summary>
+        public static int AutoCollectAllReady()
+        {
+            var routes = GetActiveRoutes();
+            int collected = 0;
+
+            foreach (var route in routes)
+            {
+                if (route.CanCollect && Collect(route.State))
+                {
+                    collected++;
+                }
+            }
+
+            return collected;
         }
 
         /// <summary>
@@ -524,6 +557,8 @@ namespace ATSAccessibility
                         Id = GetInt(_townIdField, town),
                         Name = townName,
                         Biome = GetBiomeDisplayName(GetString(_townBiomeField, town)),
+                        Faction = GetFactionDisplayName(GetString(_townFactionField, town)),
+                        Distance = GetInt(_townDistanceField, town),
                         StandingLevel = GetInt(_townStandingLevelField, town),
                         IsMaxStanding = GetBool(_townIsMaxStandingField, town),
                         CurrentStandingValue = GetInt(_townCurrentStandingField, town),
@@ -1050,6 +1085,25 @@ namespace ATSAccessibility
                 return GameReflection.GetLocaText(locaText) ?? biomeName;
             }
             catch { return biomeName; }
+        }
+
+        private static string GetFactionDisplayName(string factionName)
+        {
+            // Faction can be empty/null for player towns
+            if (string.IsNullOrEmpty(factionName)) return null;
+
+            var settings = GameReflection.GetSettings();
+            if (settings == null || _settingsGetFactionMethod == null) return null;
+
+            try
+            {
+                var factionModel = _settingsGetFactionMethod.Invoke(settings, new object[] { factionName });
+                if (factionModel == null || _factionDisplayNameField == null) return null;
+
+                var locaText = _factionDisplayNameField.GetValue(factionModel);
+                return GameReflection.GetLocaText(locaText);
+            }
+            catch { return null; }
         }
 
         /// <summary>

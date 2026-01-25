@@ -159,9 +159,7 @@ namespace ATSAccessibility
             for (int i = 0; i < _towns.Count; i++)
             {
                 var town = _towns[i];
-                string townLabel = town.IsMaxStanding
-                    ? $"{town.Name}, Standing {town.StandingLevel}, {town.StandingLabel}, max"
-                    : $"{town.Name}, Standing {town.StandingLevel}, {town.StandingLabel}, {town.CurrentStandingValue} of {town.ValueForLevelUp}";
+                string townLabel = BuildTownLabel(town);
 
                 _mainMenuItems.Add(new MainMenuItem
                 {
@@ -337,13 +335,60 @@ namespace ATSAccessibility
         private void ToggleAutoCollect()
         {
             bool current = TradeRoutesReflection.IsAutoCollectEnabled();
-            TradeRoutesReflection.SetAutoCollect(!current);
+            bool newState = !current;
+            TradeRoutesReflection.SetAutoCollect(newState);
             SoundManager.PlayButtonClick();
 
             // Update label
             var item = _mainMenuItems[_currentIndex];
-            item.Label = !current ? "Auto-Collect, enabled" : "Auto-Collect, disabled";
+            item.Label = newState ? "Auto-Collect, enabled" : "Auto-Collect, disabled";
+
+            // When enabling auto-collect, immediately collect all ready routes (matches game behavior)
+            if (newState)
+            {
+                int collected = TradeRoutesReflection.AutoCollectAllReady();
+                if (collected > 0)
+                {
+                    RefreshAllData();
+                    RefreshMainMenu();
+                    Speech.Say($"{item.Label}, collected {collected} routes");
+                    return;
+                }
+            }
+
             Speech.Say(item.Label);
+        }
+
+        private string BuildTownLabel(TradeRoutesReflection.TownInfo town)
+        {
+            // Format: "Name, Faction (if any), distance X, Standing Y, label, progress"
+            var parts = new System.Collections.Generic.List<string>();
+            parts.Add(town.Name);
+
+            // Add faction if present
+            if (!string.IsNullOrEmpty(town.Faction))
+            {
+                parts.Add(town.Faction);
+            }
+
+            // Add distance
+            parts.Add($"distance {town.Distance}");
+
+            // Add standing info
+            parts.Add($"Standing {town.StandingLevel}");
+            parts.Add(town.StandingLabel);
+
+            // Add progress or max
+            if (town.IsMaxStanding)
+            {
+                parts.Add("max");
+            }
+            else
+            {
+                parts.Add($"{town.CurrentStandingValue} of {town.ValueForLevelUp}");
+            }
+
+            return string.Join(", ", parts);
         }
 
         private void ToggleOnlyAvailable()
