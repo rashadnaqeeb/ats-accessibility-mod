@@ -98,7 +98,7 @@ namespace ATSAccessibility
         private static readonly string[] _seasonNames = { "Drizzle", "Clearance", "Storm" };
 
         // Auto-payment labels
-        private static readonly string[] _autoPaymentLabels = { "none", "instant", "end" };
+        private static readonly string[] _autoPaymentLabels = { "none", "instant", "last minute" };
 
         // ========================================
         // INITIALIZATION

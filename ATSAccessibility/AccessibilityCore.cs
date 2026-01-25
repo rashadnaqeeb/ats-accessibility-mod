@@ -158,6 +158,9 @@ namespace ATSAccessibility
         // Black Market popup overlay for trading offers
         private BlackMarketOverlay _blackMarketOverlay;
 
+        // Altar (Forsaken Altar) popup overlay for cornerstone upgrades
+        private AltarOverlay _altarOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -305,6 +308,9 @@ namespace ATSAccessibility
             // Initialize black market overlay for trading offers
             _blackMarketOverlay = new BlackMarketOverlay();
 
+            // Initialize altar overlay for Forsaken Altar
+            _altarOverlay = new AltarOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -345,6 +351,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_paymentsOverlay);   // Payments popup overlay
             _keyboardManager.RegisterHandler(_gameResultOverlay);  // Game result (victory/defeat) popup overlay
             _keyboardManager.RegisterHandler(_blackMarketOverlay); // Black Market popup overlay
+            _keyboardManager.RegisterHandler(_altarOverlay);        // Altar (Forsaken Altar) popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -1047,6 +1054,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check altar panel - it has its own overlay
+            if (AltarReflection.IsAltarPanel(popup))
+            {
+                Debug.Log("[ATSAccessibility] Altar panel detected, using Altar overlay");
+                _altarOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1223,6 +1239,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Black Market popup closed");
                 _blackMarketOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check altar panel
+            else if (AltarReflection.IsAltarPanel(popup))
+            {
+                Debug.Log("[ATSAccessibility] Altar panel closed");
+                _altarOverlay?.Close();
                 // Fall through to handle context change
             }
             else
