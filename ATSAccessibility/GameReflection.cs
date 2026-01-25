@@ -152,6 +152,28 @@ namespace ATSAccessibility
             }
         }
 
+        /// <summary>
+        /// Get the MetaServices instance (fresh each time).
+        /// Path: MetaController.Instance.MetaServices
+        /// </summary>
+        public static object GetMetaServices()
+        {
+            EnsureTutorialTypes();
+
+            try
+            {
+                var metaController = _metaControllerInstanceProperty?.GetValue(null);
+                if (metaController == null) return null;
+
+                return _mcMetaServicesProperty?.GetValue(metaController);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetMetaServices failed: {ex.Message}");
+                return null;
+            }
+        }
+
         // ========================================
         // INITIALIZATION
         // ========================================

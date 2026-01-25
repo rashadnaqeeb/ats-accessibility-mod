@@ -140,6 +140,12 @@ namespace ATSAccessibility
         // Assault result popup overlay (after assaulting a trader)
         private AssaultResultOverlay _assaultResultOverlay;
 
+        // Dialogue overlay for NPC dialogue navigation
+        private DialogueOverlay _dialogueOverlay;
+
+        // Trade routes popup overlay for trade town navigation
+        private TradeRoutesOverlay _tradeRoutesOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -269,6 +275,12 @@ namespace ATSAccessibility
             // Initialize assault result overlay
             _assaultResultOverlay = new AssaultResultOverlay();
 
+            // Initialize dialogue overlay for NPC dialogue navigation
+            _dialogueOverlay = new DialogueOverlay();
+
+            // Initialize trade routes overlay for trade town navigation
+            _tradeRoutesOverlay = new TradeRoutesOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -303,6 +315,8 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_rewardsPackOverlay);  // Rewards pack popup overlay (port rewards)
             _keyboardManager.RegisterHandler(_assaultResultOverlay); // Assault result popup overlay (before trader so it gets priority)
             _keyboardManager.RegisterHandler(_traderOverlay);        // Trader panel overlay
+            _keyboardManager.RegisterHandler(_dialogueOverlay);      // NPC dialogue overlay
+            _keyboardManager.RegisterHandler(_tradeRoutesOverlay); // Trade routes popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -951,6 +965,24 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check home popup (NPC dialogue) - it has its own overlay
+            if (NarrationReflection.IsHomePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Home popup detected, using Dialogue overlay");
+                _dialogueOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
+            // Check trade routes popup - it has its own overlay
+            if (TradeRoutesReflection.IsTradeRoutesPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Trade routes popup detected, using TradeRoutes overlay");
+                _tradeRoutesOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1085,6 +1117,20 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Trader panel closed");
                 _traderOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check home popup (NPC dialogue)
+            else if (NarrationReflection.IsHomePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Home popup closed");
+                _dialogueOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check trade routes popup
+            else if (TradeRoutesReflection.IsTradeRoutesPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Trade routes popup closed");
+                _tradeRoutesOverlay?.Close();
                 // Fall through to handle context change
             }
             else

@@ -21,6 +21,12 @@ namespace ATSAccessibility
         // WorldBlackboardService subjects for opening panels
         private static PropertyInfo _wbbCapitalUpgradePanelRequestedProperty = null;
         private static PropertyInfo _wbbHomePopupRequestedProperty = null;
+        private static PropertyInfo _wbbGenderPickPopupRequestedProperty = null;
+
+        // MetaStateService for narration state (gender check)
+        private static PropertyInfo _msMetaStateServiceProperty = null;
+        private static PropertyInfo _mssNarrationProperty = null;
+        private static FieldInfo _narrationHandTypeField = null;
 
         // BlackboardService (from AppServices) for deeds/history
         private static PropertyInfo _appBlackboardServiceProperty = null;
@@ -58,6 +64,8 @@ namespace ATSAccessibility
                         BindingFlags.Public | BindingFlags.Instance);
                     _wbbHomePopupRequestedProperty = wbbType.GetProperty("HomePopupRequested",
                         BindingFlags.Public | BindingFlags.Instance);
+                    _wbbGenderPickPopupRequestedProperty = wbbType.GetProperty("GenderPickPopupRequested",
+                        BindingFlags.Public | BindingFlags.Instance);
                 }
 
                 // Cache BlackboardService property from IServices (AppServices type)
@@ -68,11 +76,29 @@ namespace ATSAccessibility
                         BindingFlags.Public | BindingFlags.Instance);
                 }
 
-                // Cache MetaPerksService property and IsHomeEnbabled method
+                // Cache MetaPerksService and MetaStateService properties
                 var metaServicesType = gameAssembly.GetType("Eremite.Services.IMetaServices");
                 if (metaServicesType != null)
                 {
                     _msMetaPerksServiceProperty = metaServicesType.GetProperty("MetaPerksService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _msMetaStateServiceProperty = metaServicesType.GetProperty("MetaStateService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache IMetaStateService.Narration property
+                var metaStateServiceType = gameAssembly.GetType("Eremite.Services.IMetaStateService");
+                if (metaStateServiceType != null)
+                {
+                    _mssNarrationProperty = metaStateServiceType.GetProperty("Narration",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache NarrationState.handType field
+                var narrationStateType = gameAssembly.GetType("Eremite.Model.State.NarrationState");
+                if (narrationStateType != null)
+                {
+                    _narrationHandTypeField = narrationStateType.GetField("handType",
                         BindingFlags.Public | BindingFlags.Instance);
                 }
 
@@ -186,12 +212,88 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Check if gender/hand type has been picked (required before first Home dialog).
+        /// </summary>
+        public static bool IsGenderPicked()
+        {
+            EnsureTypes();
+
+            try
+            {
+                var metaServices = GameReflection.GetMetaServices();
+                if (metaServices == null || _msMetaStateServiceProperty == null) return true; // Assume picked if can't check
+
+                var metaStateService = _msMetaStateServiceProperty.GetValue(metaServices);
+                if (metaStateService == null || _mssNarrationProperty == null) return true;
+
+                var narrationState = _mssNarrationProperty.GetValue(metaStateService);
+                if (narrationState == null || _narrationHandTypeField == null) return true;
+
+                var handType = _narrationHandTypeField.GetValue(narrationState);
+                if (handType is int ht)
+                {
+                    return ht >= 0;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] IsGenderPicked failed: {ex.Message}");
+                return true; // Assume picked on error
+            }
+        }
+
+        /// <summary>
+        /// Open the Gender Pick popup via WorldBlackboardService.GenderPickPopupRequested.
+        /// </summary>
+        public static bool OpenGenderPickPopup()
+        {
+            EnsureTypes();
+
+            var wbb = WorldMapReflection.GetWorldBlackboardService();
+            if (wbb == null || _wbbGenderPickPopupRequestedProperty == null) return false;
+
+            try
+            {
+                // Resolve UniRx.Unit
+                Type unitType = null;
+                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    unitType = assembly.GetType("UniRx.Unit");
+                    if (unitType != null) break;
+                }
+
+                if (unitType == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] UniRx.Unit type not found");
+                    return false;
+                }
+
+                var unitDefault = Activator.CreateInstance(unitType);
+                return GameReflection.InvokeSubjectOnNext(wbb, "GenderPickPopupRequested", unitDefault);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] OpenGenderPickPopup failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Open the Home popup via WorldBlackboardService.HomePopupRequested.
-        /// Uses Unit.Default since this Subject takes no parameter.
+        /// Checks if gender is picked first, opens gender pick popup if not.
         /// </summary>
         public static bool OpenHome()
         {
             EnsureTypes();
+
+            // Check if gender needs to be picked first (matches game behavior)
+            if (!IsGenderPicked())
+            {
+                Debug.Log("[ATSAccessibility] Gender not picked, opening GenderPickPopup first");
+                return OpenGenderPickPopup();
+            }
 
             var wbb = WorldMapReflection.GetWorldBlackboardService();
             if (wbb == null || _wbbHomePopupRequestedProperty == null) return false;
