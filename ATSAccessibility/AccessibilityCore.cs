@@ -149,6 +149,9 @@ namespace ATSAccessibility
         // Cycle end popup overlay for Blightstorm cycle completion
         private CycleEndOverlay _cycleEndOverlay;
 
+        // Payments popup overlay for pending payments/obligations
+        private PaymentsOverlay _paymentsOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -287,6 +290,9 @@ namespace ATSAccessibility
             // Initialize cycle end overlay for Blightstorm cycle completion
             _cycleEndOverlay = new CycleEndOverlay();
 
+            // Initialize payments overlay for pending payments/obligations
+            _paymentsOverlay = new PaymentsOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -324,6 +330,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_dialogueOverlay);      // NPC dialogue overlay
             _keyboardManager.RegisterHandler(_tradeRoutesOverlay); // Trade routes popup overlay
             _keyboardManager.RegisterHandler(_cycleEndOverlay);   // Cycle end popup overlay (world map)
+            _keyboardManager.RegisterHandler(_paymentsOverlay);   // Payments popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -999,6 +1006,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check payments popup - it has its own overlay
+            if (PaymentsReflection.IsPaymentsPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Payments popup detected, using Payments overlay");
+                _paymentsOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1154,6 +1170,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] World cycle end popup closed");
                 _cycleEndOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check payments popup
+            else if (PaymentsReflection.IsPaymentsPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Payments popup closed");
+                _paymentsOverlay?.Close();
                 // Fall through to handle context change
             }
             else
