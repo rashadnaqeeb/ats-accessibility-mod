@@ -55,6 +55,10 @@ namespace ATSAccessibility
         private static PropertyInfo _portCancelClickProperty = null;
         private static PropertyInfo _portRewardsClickProperty = null;
 
+        // Trade sounds
+        private static PropertyInfo _traderTransactionCompletedProperty = null;
+        private static PropertyInfo _traderAssaultProperty = null;
+
         private static void EnsureCached()
         {
             if (_cached) return;
@@ -121,6 +125,10 @@ namespace ATSAccessibility
                     _portStartClickProperty = soundReferencesType.GetProperty("PortStartClick", GameReflection.PublicInstance);
                     _portCancelClickProperty = soundReferencesType.GetProperty("PortCancelClick", GameReflection.PublicInstance);
                     _portRewardsClickProperty = soundReferencesType.GetProperty("PortRewardsClick", GameReflection.PublicInstance);
+
+                    // Trade sounds
+                    _traderTransactionCompletedProperty = soundReferencesType.GetProperty("TraderTransactionCompleted", GameReflection.PublicInstance);
+                    _traderAssaultProperty = soundReferencesType.GetProperty("TraderAssault", GameReflection.PublicInstance);
                 }
             }
             catch (Exception ex)
@@ -429,6 +437,28 @@ namespace ATSAccessibility
         {
             EnsureCached();
             PlaySound(_portRewardsClickProperty);
+        }
+
+        // ========================================
+        // TRADE SOUNDS
+        // ========================================
+
+        /// <summary>
+        /// Play the trader transaction completed sound.
+        /// </summary>
+        public static void PlayTraderTransactionCompleted()
+        {
+            EnsureCached();
+            PlaySound(_traderTransactionCompletedProperty);
+        }
+
+        /// <summary>
+        /// Play the trader assault sound.
+        /// </summary>
+        public static void PlayTraderAssault()
+        {
+            EnsureCached();
+            PlaySound(_traderAssaultProperty);
         }
 
         public static void PlaySoundEffect(object soundModel)

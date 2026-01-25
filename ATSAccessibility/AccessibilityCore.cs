@@ -134,6 +134,12 @@ namespace ATSAccessibility
         // Rewards pack popup overlay (port expedition rewards)
         private RewardsPackOverlay _rewardsPackOverlay;
 
+        // Trader panel overlay for trading with merchants
+        private TraderOverlay _traderOverlay;
+
+        // Assault result popup overlay (after assaulting a trader)
+        private AssaultResultOverlay _assaultResultOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -257,6 +263,12 @@ namespace ATSAccessibility
             // Initialize rewards pack overlay (port expedition rewards)
             _rewardsPackOverlay = new RewardsPackOverlay();
 
+            // Initialize trader overlay
+            _traderOverlay = new TraderOverlay();
+
+            // Initialize assault result overlay
+            _assaultResultOverlay = new AssaultResultOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -289,6 +301,8 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_deedsOverlay);             // Deeds (goals) popup overlay
             _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
             _keyboardManager.RegisterHandler(_rewardsPackOverlay);  // Rewards pack popup overlay (port rewards)
+            _keyboardManager.RegisterHandler(_assaultResultOverlay); // Assault result popup overlay (before trader so it gets priority)
+            _keyboardManager.RegisterHandler(_traderOverlay);        // Trader panel overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -804,7 +818,8 @@ namespace ATSAccessibility
         /// </summary>
         private void OnPopupShown(object popup)
         {
-            Debug.Log($"[ATSAccessibility] Popup shown event received");
+            string popupTypeName = popup?.GetType()?.Name ?? "null";
+            Debug.Log($"[ATSAccessibility] Popup shown event received: {popupTypeName}");
 
             // Check wiki popup FIRST - it has its own navigator
             if (GameReflection.IsWikiPopup(popup))
@@ -914,6 +929,24 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Rewards pack popup detected, using RewardsPack overlay");
                 _rewardsPackOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
+            // Check assault result popup (after assaulting a trader)
+            if (AssaultResultOverlay.IsAssaultResultPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Assault result popup detected, using AssaultResult overlay");
+                _assaultResultOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
+            // Check trader panel - it has its own overlay
+            if (TradeReflection.IsTraderPanel(popup))
+            {
+                Debug.Log("[ATSAccessibility] Trader panel detected, using Trader overlay");
+                _traderOverlay?.Open();
                 _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
                 return;
             }
@@ -1038,6 +1071,20 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Rewards pack popup closed");
                 _rewardsPackOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check assault result popup
+            else if (AssaultResultOverlay.IsAssaultResultPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Assault result popup closed");
+                _assaultResultOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check trader panel
+            else if (TradeReflection.IsTraderPanel(popup))
+            {
+                Debug.Log("[ATSAccessibility] Trader panel closed");
+                _traderOverlay?.Close();
                 // Fall through to handle context change
             }
             else

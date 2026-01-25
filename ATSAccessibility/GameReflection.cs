@@ -4446,16 +4446,21 @@ namespace ATSAccessibility
                 var traderPanel = instanceProperty.GetValue(null);
                 if (traderPanel == null)
                 {
-                    Debug.LogWarning("[ATSAccessibility] TraderPanel.Instance is null (no trading post?)");
+                    // TraderPanel.Instance is null - likely no trading post built yet
+                    Debug.LogWarning("[ATSAccessibility] TraderPanel.Instance is null (no trading post built?)");
                     return false;
                 }
 
                 // Get current trader visit from TradeService
                 var gameServices = GetGameServices();
-                if (gameServices == null) return false;
+                if (gameServices == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] GameServices not available");
+                    return false;
+                }
 
-                var tradeServiceType = _gameAssembly?.GetType("Eremite.Services.ITradeService");
-                var tradeServiceProperty = gameServices.GetType().GetProperty("TradeService",
+                var gameServicesType = _gameAssembly?.GetType("Eremite.Services.IGameServices");
+                var tradeServiceProperty = gameServicesType?.GetProperty("TradeService",
                     BindingFlags.Public | BindingFlags.Instance);
                 if (tradeServiceProperty == null)
                 {
@@ -4470,16 +4475,16 @@ namespace ATSAccessibility
                     return false;
                 }
 
-                // Get current visit (may be null if no trader)
-                var currentVisitProperty = tradeService.GetType().GetProperty("CurrentVisit",
+                // Get current visit using GetCurrentMainVisit() method (may return null if no trader)
+                var getCurrentVisitMethod = tradeService.GetType().GetMethod("GetCurrentMainVisit",
                     BindingFlags.Public | BindingFlags.Instance);
                 object currentVisit = null;
-                if (currentVisitProperty != null)
+                if (getCurrentVisitMethod != null)
                 {
-                    currentVisit = currentVisitProperty.GetValue(tradeService);
+                    currentVisit = getCurrentVisitMethod.Invoke(tradeService, null);
                 }
 
-                // Call Show(visit, playShowAnim)
+                // Call Show(visit, playShowAnim) - visit can be null, panel handles it
                 var showMethod = traderPanelType.GetMethod("Show",
                     BindingFlags.Public | BindingFlags.Instance,
                     null,
@@ -4493,11 +4498,12 @@ namespace ATSAccessibility
                 }
 
                 showMethod.Invoke(traderPanel, new object[] { currentVisit, true });
+                Debug.Log("[ATSAccessibility] TraderPanel opened successfully");
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[ATSAccessibility] OpenTraderPanel failed: {ex.Message}");
+                Debug.LogError($"[ATSAccessibility] OpenTraderPanel failed: {ex.Message}\n{ex.StackTrace}");
                 return false;
             }
         }

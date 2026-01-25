@@ -144,6 +144,14 @@ namespace ATSAccessibility
                     break;
                 case 6: // Trader
                     success = GameReflection.OpenTraderPanel();
+                    if (!success)
+                    {
+                        // Give specific feedback for trader panel
+                        Speech.Say("Trader unavailable. Build a Trading Post first");
+                        SoundManager.PlayFailed();
+                        Debug.Log("[ATSAccessibility] Trader panel unavailable - no Trading Post");
+                        return;
+                    }
                     break;
             }
 

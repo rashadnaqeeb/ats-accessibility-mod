@@ -5,10 +5,10 @@ using UnityEngine;
 namespace ATSAccessibility
 {
     /// <summary>
-    /// Overlay for RewardsPackPopup (shown after port expedition rewards are granted).
-    /// Provides flat list navigation through goods and effects received.
+    /// Overlay for TraderAssaultResultPopup (shown after assaulting a trader).
+    /// Provides flat list navigation through stolen goods, perks, consequences, and villagers lost.
     /// </summary>
-    public class RewardsPackOverlay : IKeyHandler
+    public class AssaultResultOverlay : IKeyHandler
     {
         // State
         private bool _isOpen;
@@ -18,8 +18,11 @@ namespace ATSAccessibility
 
         // Cached reflection
         private static bool _typesCached;
-        private static FieldInfo _goodsSlotsField;
-        private static FieldInfo _effectsSlotsField;
+        private static FieldInfo _descField;
+        private static FieldInfo _villagersKilledField;
+        private static FieldInfo _gainedGoodsSlotsField;
+        private static FieldInfo _gainedRewardsSlotsField;
+        private static FieldInfo _effectsRewardSlotsField;
         private static FieldInfo _goodSlotGoodField;
         private static FieldInfo _effectSlotModelField;
         private static FieldInfo _goodNameField;
@@ -27,8 +30,6 @@ namespace ATSAccessibility
         private static PropertyInfo _effectDisplayNameProperty;
         private static PropertyInfo _effectDescriptionProperty;
         private static MethodInfo _popupHideMethod;
-        private static FieldInfo _headerField;
-        private static FieldInfo _descField;
 
         // ========================================
         // IKeyHandler Implementation
@@ -58,8 +59,8 @@ namespace ATSAccessibility
 
                 case KeyCode.Escape:
                     Dismiss();
-                    InputBlocker.BlockCancelOnce = true;
                     Speech.Say("Closed");
+                    InputBlocker.BlockCancelOnce = true;
                     return true;
 
                 default:
@@ -83,19 +84,16 @@ namespace ATSAccessibility
             EnsureTypes();
             RefreshData();
 
-            string flavorText = GetPopupText(_descField);
-            string announcement = !string.IsNullOrEmpty(flavorText) ? flavorText : "Rewards";
-
             if (_items.Count > 0)
             {
-                Speech.Say($"{announcement}. {_items[0]}");
+                Speech.Say($"Assault result. {_items[0]}");
             }
             else
             {
-                Speech.Say($"{announcement}. No items");
+                Speech.Say("Assault result");
             }
 
-            Debug.Log($"[ATSAccessibility] RewardsPackOverlay opened, {_items.Count} items");
+            Debug.Log($"[ATSAccessibility] AssaultResultOverlay opened, {_items.Count} items");
         }
 
         public void Close()
@@ -106,17 +104,17 @@ namespace ATSAccessibility
             _popup = null;
             _items.Clear();
 
-            Debug.Log("[ATSAccessibility] RewardsPackOverlay closed");
+            Debug.Log("[ATSAccessibility] AssaultResultOverlay closed");
         }
 
         // ========================================
         // DETECTION
         // ========================================
 
-        public static bool IsRewardsPackPopup(object popup)
+        public static bool IsAssaultResultPopup(object popup)
         {
             if (popup == null) return false;
-            return popup.GetType().Name == "RewardsPackPopup";
+            return popup.GetType().Name == "TraderAssaultResultPopup";
         }
 
         // ========================================
@@ -145,7 +143,7 @@ namespace ATSAccessibility
                 }
                 catch (System.Exception ex)
                 {
-                    Debug.LogError($"[ATSAccessibility] RewardsPackOverlay: Failed to hide popup: {ex.Message}");
+                    Debug.LogError($"[ATSAccessibility] AssaultResultOverlay: Failed to hide popup: {ex.Message}");
                 }
             }
         }
@@ -160,9 +158,38 @@ namespace ATSAccessibility
 
             if (_popup == null) return;
 
-            // Read goods
-            var goodsSlots = _goodsSlotsField?.GetValue(_popup);
-            if (goodsSlots is System.Collections.IList goodsList)
+            // 1. Description text
+            string desc = GetTextFieldValue(_descField);
+            if (!string.IsNullOrEmpty(desc))
+            {
+                _items.Add(desc);
+            }
+
+            // 2. Villagers killed
+            string villagersKilled = GetTextFieldValue(_villagersKilledField);
+            if (!string.IsNullOrEmpty(villagersKilled))
+            {
+                _items.Add($"Villagers lost: {villagersKilled}");
+            }
+
+            // 3. Stolen goods
+            ReadGoodsSlots(_gainedGoodsSlotsField, "Stolen");
+
+            // 4. Stolen effects/perks
+            ReadEffectsSlots(_gainedRewardsSlotsField, "Stolen");
+
+            // 5. Consequences (negative effects)
+            ReadEffectsSlots(_effectsRewardSlotsField, "Consequence");
+
+            Debug.Log($"[ATSAccessibility] AssaultResultOverlay: {_items.Count} items");
+        }
+
+        private void ReadGoodsSlots(FieldInfo slotsField, string prefix)
+        {
+            if (slotsField == null || _popup == null) return;
+
+            var slots = slotsField.GetValue(_popup);
+            if (slots is System.Collections.IList goodsList)
             {
                 foreach (var slot in goodsList)
                 {
@@ -184,15 +211,19 @@ namespace ATSAccessibility
 
                     string displayName = GetGoodDisplayName(name);
                     if (amount > 1)
-                        _items.Add($"{displayName}, {amount}");
+                        _items.Add($"{prefix}: {displayName}, {amount}");
                     else
-                        _items.Add(displayName);
+                        _items.Add($"{prefix}: {displayName}");
                 }
             }
+        }
 
-            // Read effects
-            var effectsSlots = _effectsSlotsField?.GetValue(_popup);
-            if (effectsSlots is System.Collections.IList effectsList)
+        private void ReadEffectsSlots(FieldInfo slotsField, string prefix)
+        {
+            if (slotsField == null || _popup == null) return;
+
+            var slots = slotsField.GetValue(_popup);
+            if (slots is System.Collections.IList effectsList)
             {
                 foreach (var slot in effectsList)
                 {
@@ -210,14 +241,30 @@ namespace ATSAccessibility
                     if (!string.IsNullOrEmpty(displayName))
                     {
                         if (!string.IsNullOrEmpty(description))
-                            _items.Add($"{displayName}: {description}");
+                            _items.Add($"{prefix}: {displayName}. {description}");
                         else
-                            _items.Add(displayName);
+                            _items.Add($"{prefix}: {displayName}");
                     }
                 }
             }
+        }
 
-            Debug.Log($"[ATSAccessibility] RewardsPackOverlay: {_items.Count} reward items");
+        private string GetTextFieldValue(FieldInfo textField)
+        {
+            if (_popup == null || textField == null) return null;
+
+            try
+            {
+                var tmpText = textField.GetValue(_popup);
+                if (tmpText == null) return null;
+
+                var textProp = tmpText.GetType().GetProperty("text", GameReflection.PublicInstance);
+                return textProp?.GetValue(tmpText) as string;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private string GetGoodDisplayName(string goodName)
@@ -243,24 +290,6 @@ namespace ATSAccessibility
             }
         }
 
-        private string GetPopupText(FieldInfo textField)
-        {
-            if (_popup == null || textField == null) return null;
-
-            try
-            {
-                var tmpText = textField.GetValue(_popup);
-                if (tmpText == null) return null;
-
-                var textProp = tmpText.GetType().GetProperty("text", GameReflection.PublicInstance);
-                return textProp?.GetValue(tmpText) as string;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
         // ========================================
         // REFLECTION CACHING
         // ========================================
@@ -274,13 +303,14 @@ namespace ATSAccessibility
 
             try
             {
-                var popupType = assembly.GetType("Eremite.View.HUD.Rewards.RewardsPackPopup");
+                var popupType = assembly.GetType("Eremite.Buildings.UI.Trade.TraderAssaultResultPopup");
                 if (popupType != null)
                 {
-                    _goodsSlotsField = popupType.GetField("goodsSlots", GameReflection.NonPublicInstance);
-                    _effectsSlotsField = popupType.GetField("effectsSlots", GameReflection.NonPublicInstance);
-                    _headerField = popupType.GetField("header", GameReflection.NonPublicInstance);
                     _descField = popupType.GetField("desc", GameReflection.NonPublicInstance);
+                    _villagersKilledField = popupType.GetField("villagersKileldCounter", GameReflection.NonPublicInstance);
+                    _gainedGoodsSlotsField = popupType.GetField("gainedGoodsSlots", GameReflection.NonPublicInstance);
+                    _gainedRewardsSlotsField = popupType.GetField("gainedRewardsSlots", GameReflection.NonPublicInstance);
+                    _effectsRewardSlotsField = popupType.GetField("effectsRewardSlots", GameReflection.NonPublicInstance);
                 }
 
                 var goodSlotType = assembly.GetType("Eremite.View.HUD.GoodSlot");
@@ -296,7 +326,6 @@ namespace ATSAccessibility
                         BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
                     if (_effectSlotModelField == null)
                     {
-                        // model is 'protected' in EffectSlot, try getting it directly
                         _effectSlotModelField = effectSlotType.GetField("model", GameReflection.NonPublicInstance);
                     }
                 }
@@ -320,10 +349,12 @@ namespace ATSAccessibility
                 {
                     _popupHideMethod = basePopupType.GetMethod("Hide", GameReflection.PublicInstance);
                 }
+
+                Debug.Log("[ATSAccessibility] AssaultResultOverlay: Types cached successfully");
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[ATSAccessibility] RewardsPackOverlay: Type caching failed: {ex.Message}");
+                Debug.LogError($"[ATSAccessibility] AssaultResultOverlay: Type caching failed: {ex.Message}");
             }
 
             _typesCached = true;
