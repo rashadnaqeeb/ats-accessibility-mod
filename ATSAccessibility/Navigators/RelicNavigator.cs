@@ -5,10 +5,10 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Navigator for Relic buildings (glade events).
-    /// Provides phase-based navigation:
-    /// - Phase A (not started): Info, Decisions, Requirements, Effects, Rewards, Status
-    /// - Phase B (in progress): Info, Status, Workers, Requirements, Effects, Rewards
-    /// - Phase C (finished): Info, Status
+    /// Provides phase-based navigation with name/description header at top:
+    /// - Phase A (not started): [Name/Desc], Decisions, Choose Requirements, Effects, Preview Rewards, Start Investigation
+    /// - Phase B (in progress): [Name/Desc], Status (info only), Workers, Requirements, Effects, Rewards, Cancel Investigation
+    /// - Phase C (finished): [Name/Desc], Status (info only), Workers, Storage
     /// </summary>
     public class RelicNavigator : BuildingSectionNavigator
     {
@@ -26,7 +26,8 @@ namespace ATSAccessibility
             Status,
             Workers,
             Storage,
-            Upgrades
+            Upgrades,
+            Cancel
         }
 
         // ========================================
@@ -104,8 +105,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemCount();
                 case SectionType.Decisions:
                     return _decisionCount;
                 case SectionType.Requirements:
@@ -155,20 +154,64 @@ namespace ATSAccessibility
 
         protected override void AnnounceSection(int sectionIndex)
         {
-            if (!_investigationStarted && !_investigationFinished
-                && sectionIndex < _sectionTypes.Length
-                && _sectionTypes[sectionIndex] == SectionType.Status)
+            if (sectionIndex >= _sectionTypes.Length) return;
+
+            var sectionType = _sectionTypes[sectionIndex];
+
+            if (sectionType == SectionType.Info)
             {
-                // Phase A: announce start availability
-                if (_canStart)
-                    Speech.Say("Start Investigation");
+                // Info section: announce building name and description
+                string header = _buildingName;
+                if (!string.IsNullOrEmpty(_buildingDescription))
+                    header += ": " + _buildingDescription;
+                Speech.Say(header);
+                return;
+            }
+
+            if (sectionType == SectionType.Status)
+            {
+                if (_investigationFinished)
+                {
+                    // Phase C: Resolved status
+                    if (_storageTotalSum > 0)
+                        Speech.Say($"Status: Resolved, {_storageTotalSum} goods awaiting pickup");
+                    else
+                        Speech.Say("Status: Resolved");
+                }
+                else if (_investigationStarted)
+                {
+                    // Phase B: In progress status with full details
+                    int percentage = Mathf.RoundToInt(_progress * 100f);
+                    string timeStr = FormatTimeLeft();
+                    Speech.Say($"Status: In progress, {percentage}%, {timeStr}");
+                }
                 else
-                    Speech.Say(_startBlockingReason ?? "Cannot start");
+                {
+                    // Phase A: Start investigation
+                    if (_canStart)
+                        Speech.Say("Start Investigation");
+                    else
+                        Speech.Say(_startBlockingReason ?? "Cannot start");
+                }
                 return;
             }
 
             string sectionName = _sectionNames[sectionIndex];
             Speech.Say(sectionName);
+        }
+
+        private string FormatTimeLeft()
+        {
+            int seconds = Mathf.RoundToInt(_timeLeft);
+            if (seconds <= 0)
+                return "almost done";
+            if (seconds < 60)
+                return $"{seconds} seconds remaining";
+            int minutes = seconds / 60;
+            int remainingSecs = seconds % 60;
+            if (remainingSecs > 0)
+                return $"{minutes} minutes {remainingSecs} seconds remaining";
+            return $"{minutes} minutes remaining";
         }
 
         protected override void AnnounceItem(int sectionIndex, int itemIndex)
@@ -178,9 +221,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Decisions:
                     AnnounceDecisionItem(itemIndex);
                     break;
@@ -192,9 +232,6 @@ namespace ATSAccessibility
                     break;
                 case SectionType.Rewards:
                     AnnounceRewardItem(itemIndex);
-                    break;
-                case SectionType.Status:
-                    AnnounceStatusItem(itemIndex);
                     break;
                 case SectionType.Workers:
                     AnnounceWorkerItem(itemIndex);
@@ -237,8 +274,6 @@ namespace ATSAccessibility
                     return PerformEffectAction(itemIndex);
                 case SectionType.Rewards:
                     return PerformRewardAction(itemIndex);
-                case SectionType.Status:
-                    return PerformStatusAction(itemIndex);
                 default:
                     return false;
             }
@@ -363,6 +398,7 @@ namespace ATSAccessibility
             var sectionNames = new List<string>();
             var sectionTypes = new List<SectionType>();
 
+            // Info section at top of all phases (name and description, no items)
             sectionNames.Add("Info");
             sectionTypes.Add(SectionType.Info);
 
@@ -386,7 +422,7 @@ namespace ATSAccessibility
             }
             else if (_investigationStarted)
             {
-                // Phase B: Info, Status, Workers, Requirements, Effects, Rewards
+                // Phase B: Info, Status, Workers, Requirements, Effects, Rewards, Cancel
                 sectionNames.Add("Status");
                 sectionTypes.Add(SectionType.Status);
 
@@ -413,6 +449,12 @@ namespace ATSAccessibility
                     sectionNames.Add("Rewards");
                     sectionTypes.Add(SectionType.Rewards);
                 }
+
+                if (_canCancel)
+                {
+                    sectionNames.Add("Cancel Investigation");
+                    sectionTypes.Add(SectionType.Cancel);
+                }
             }
             else
             {
@@ -437,7 +479,7 @@ namespace ATSAccessibility
 
                 if (_hasRewards)
                 {
-                    sectionNames.Add("Rewards");
+                    sectionNames.Add("Preview Rewards");
                     sectionTypes.Add(SectionType.Rewards);
                 }
 
@@ -536,37 +578,6 @@ namespace ATSAccessibility
                 _canStart = BuildingReflection.RelicCanStart(_building, out _startBlockingReason);
             }
             _canCancel = BuildingReflection.RelicCanCancel(_building);
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private int GetInfoItemCount()
-        {
-            int count = 1;  // Name
-            if (!string.IsNullOrEmpty(_buildingDescription)) count++;  // Description
-            return count;
-        }
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            int index = 0;
-
-            // Name
-            if (itemIndex == index)
-            {
-                Speech.Say($"Name: {_buildingName}");
-                return;
-            }
-            index++;
-
-            // Description
-            if (!string.IsNullOrEmpty(_buildingDescription) && itemIndex == index)
-            {
-                Speech.Say(_buildingDescription);
-                return;
-            }
         }
 
         // ========================================
@@ -716,10 +727,12 @@ namespace ATSAccessibility
             }
             else
             {
-                // Phase A: show requirement
-                string announcement = $"{displayName}, {amount}";
+                // Phase A: show requirement with stored amount
+                string goodName = set.goodNames[pickedIndex];
+                int inStorage = BuildingReflection.GetStoredGoodAmount(goodName);
+                string announcement = $"{displayName}: {amount} ({inStorage} in storage)";
                 if (set.alternativeCount > 1)
-                    announcement += $", {set.alternativeCount} options";
+                    announcement += $", {set.alternativeCount - 1} other options";
                 Speech.Say(announcement);
             }
         }
@@ -847,7 +860,17 @@ namespace ATSAccessibility
         protected override bool PerformSectionAction(int sectionIndex)
         {
             if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length) return false;
-            if (_sectionTypes[sectionIndex] != SectionType.Status) return false;
+
+            var sectionType = _sectionTypes[sectionIndex];
+
+            // Handle Cancel section (Phase B)
+            if (sectionType == SectionType.Cancel && _investigationStarted && _canCancel)
+            {
+                return PerformCancelAction();
+            }
+
+            // Handle Start Investigation (Phase A Status section)
+            if (sectionType != SectionType.Status) return false;
             if (_investigationStarted || _investigationFinished) return false;
 
             // Phase A: Start investigation from section level
@@ -885,115 +908,39 @@ namespace ATSAccessibility
             }
         }
 
-        private int GetStatusItemCount()
+        private bool PerformCancelAction()
         {
-            if (_investigationFinished)
+            if (BuildingReflection.RelicCancelInvestigation(_building))
             {
-                // Phase C: "Resolved" + storage summary if goods remain
-                return _storageTotalSum > 0 ? 2 : 1;
-            }
-            if (_investigationStarted)
-            {
-                int count = 3;  // State, Progress, Time left
-                if (_canCancel) count++;  // Cancel option
-                return count;
-            }
-            return 0;  // Phase A: handled at section level via PerformSectionAction
-        }
+                Speech.Say("Investigation cancelled");
+                SoundManager.PlayButtonClick();
+                if (BuildingReflection.RelicHasWorkingEffects(_building))
+                    SoundManager.PlayRelicStopWithWorkingEffects();
 
-        private void AnnounceStatusItem(int itemIndex)
-        {
-            if (_investigationFinished)
-            {
-                switch (itemIndex)
-                {
-                    case 0:
-                        Speech.Say("Resolved");
-                        break;
-                    case 1:
-                        Speech.Say($"Awaiting pickup: {_storageTotalSum} goods remaining");
-                        break;
-                }
-                return;
-            }
-
-            // Phase B: Investigation in progress
-            switch (itemIndex)
-            {
-                case 0:
-                    Speech.Say("In progress");
-                    break;
-                case 1:
-                    int percentage = Mathf.RoundToInt(_progress * 100f);
-                    Speech.Say($"Progress: {percentage} percent");
-                    break;
-                case 2:
-                    AnnounceTimeLeft();
-                    break;
-                case 3:
-                    if (_canCancel)
-                        Speech.Say("Cancel investigation");
-                    break;
-            }
-        }
-
-        private bool PerformStatusAction(int itemIndex)
-        {
-            if (_investigationFinished) return false;
-
-            // Phase B: Cancel investigation (item 3)
-            if (itemIndex == 3 && _canCancel)
-            {
-                if (BuildingReflection.RelicCancelInvestigation(_building))
-                {
-                    Speech.Say("Investigation cancelled");
-                    SoundManager.PlayButtonClick();
-                    if (BuildingReflection.RelicHasWorkingEffects(_building))
-                        SoundManager.PlayRelicStopWithWorkingEffects();
-
-                    // Refresh to transition back to Phase A
-                    _investigationStarted = false;
-                    _progress = 0f;
-                    _workerIds = BuildingReflection.GetRelicWorkerIds(_building);
-                    _maxWorkers = _workerIds?.Length ?? 0;
-                    RefreshDecisionDetails();
-                    RefreshStatusData();
-                    BuildSections();
-                    _currentSectionIndex = 0;
-                    _navigationLevel = 0;
-                    return true;
-                }
-                else
-                {
-                    Speech.Say("Failed to cancel");
-                    SoundManager.PlayFailed();
-                    return false;
-                }
-            }
-
-            return false;
-        }
-
-        private void AnnounceTimeLeft()
-        {
-            int seconds = Mathf.RoundToInt(_timeLeft);
-            if (seconds <= 0)
-            {
-                Speech.Say("Time remaining: Almost done");
-            }
-            else if (seconds < 60)
-            {
-                Speech.Say($"Time remaining: {seconds} seconds");
+                // Refresh to transition back to Phase A
+                _investigationStarted = false;
+                _progress = 0f;
+                _workerIds = BuildingReflection.GetRelicWorkerIds(_building);
+                _maxWorkers = _workerIds?.Length ?? 0;
+                RefreshDecisionDetails();
+                RefreshStatusData();
+                BuildSections();
+                _currentSectionIndex = 0;
+                _navigationLevel = 0;
+                return true;
             }
             else
             {
-                int minutes = seconds / 60;
-                int remainingSecs = seconds % 60;
-                if (remainingSecs > 0)
-                    Speech.Say($"Time remaining: {minutes} minutes {remainingSecs} seconds");
-                else
-                    Speech.Say($"Time remaining: {minutes} minutes");
+                Speech.Say("Failed to cancel");
+                SoundManager.PlayFailed();
+                return false;
             }
+        }
+
+        private int GetStatusItemCount()
+        {
+            // Status is now section-level only (no items to drill into)
+            return 0;
         }
 
         // ========================================

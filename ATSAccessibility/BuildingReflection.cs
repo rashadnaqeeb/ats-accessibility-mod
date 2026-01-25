@@ -398,6 +398,9 @@ namespace ATSAccessibility
         private static FieldInfo _institutionRecipeModelRequiredGoodsField = null;  // InstitutionRecipeModel.requiredGoods (GoodsSet)
         private static FieldInfo _institutionRecipeModelIsGoodConsumedField = null;  // InstitutionRecipeModel.isGoodConsumed
         private static MethodInfo _institutionChangeIngredientMethod = null;  // Institution.ChangeIngredientFor(recipeState, pickedGood)
+        private static FieldInfo _institutionModelActiveEffectsField = null;  // InstitutionModel.activeEffects (InstitutionEffectModel[])
+        private static FieldInfo _institutionEffectModelMinWorkersField = null;  // InstitutionEffectModel.minWorkers
+        private static FieldInfo _institutionEffectModelEffectField = null;  // InstitutionEffectModel.effect (EffectModel)
         private static bool _institutionTypesCached = false;
 
         // Shrine-specific
@@ -2032,6 +2035,14 @@ namespace ATSAccessibility
                 if (institutionModelType != null)
                 {
                     _institutionModelRecipesField = institutionModelType.GetField("recipes", GameReflection.PublicInstance);
+                    _institutionModelActiveEffectsField = institutionModelType.GetField("activeEffects", GameReflection.PublicInstance);
+                }
+
+                var institutionEffectModelType = assembly.GetType("Eremite.Buildings.InstitutionEffectModel");
+                if (institutionEffectModelType != null)
+                {
+                    _institutionEffectModelMinWorkersField = institutionEffectModelType.GetField("minWorkers", GameReflection.PublicInstance);
+                    _institutionEffectModelEffectField = institutionEffectModelType.GetField("effect", GameReflection.PublicInstance);
                 }
 
                 var institutionRecipeStateType = assembly.GetType("Eremite.Buildings.InstitutionRecipeState");
@@ -8015,6 +8026,136 @@ namespace ATSAccessibility
             catch
             {
                 return new Dictionary<string, int>();
+            }
+        }
+
+        /// <summary>
+        /// Get the number of active effects for an institution.
+        /// </summary>
+        public static int GetInstitutionEffectCount(object building)
+        {
+            if (!IsInstitution(building)) return 0;
+
+            EnsureInstitutionTypes();
+
+            try
+            {
+                var model = _institutionModelField?.GetValue(building);
+                if (model == null) return 0;
+
+                var effects = _institutionModelActiveEffectsField?.GetValue(model) as Array;
+                return effects?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the display name for an institution effect.
+        /// </summary>
+        public static string GetInstitutionEffectName(object building, int effectIndex)
+        {
+            if (!IsInstitution(building)) return null;
+
+            EnsureInstitutionTypes();
+
+            try
+            {
+                var model = _institutionModelField?.GetValue(building);
+                if (model == null) return null;
+
+                var effects = _institutionModelActiveEffectsField?.GetValue(model) as Array;
+                if (effects == null || effectIndex >= effects.Length) return null;
+
+                var effectModel = effects.GetValue(effectIndex);
+                var effect = _institutionEffectModelEffectField?.GetValue(effectModel);
+                if (effect == null) return null;
+
+                var displayNameProp = effect.GetType().GetProperty("DisplayName", GameReflection.PublicInstance);
+                return displayNameProp?.GetValue(effect) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the minimum workers required to activate an institution effect.
+        /// </summary>
+        public static int GetInstitutionEffectMinWorkers(object building, int effectIndex)
+        {
+            if (!IsInstitution(building)) return 0;
+
+            EnsureInstitutionTypes();
+
+            try
+            {
+                var model = _institutionModelField?.GetValue(building);
+                if (model == null) return 0;
+
+                var effects = _institutionModelActiveEffectsField?.GetValue(model) as Array;
+                if (effects == null || effectIndex >= effects.Length) return 0;
+
+                var effectModel = effects.GetValue(effectIndex);
+                return (int?)_institutionEffectModelMinWorkersField?.GetValue(effectModel) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the description for an institution effect.
+        /// </summary>
+        public static string GetInstitutionEffectDescription(object building, int effectIndex)
+        {
+            if (!IsInstitution(building)) return null;
+
+            EnsureInstitutionTypes();
+
+            try
+            {
+                var model = _institutionModelField?.GetValue(building);
+                if (model == null) return null;
+
+                var effects = _institutionModelActiveEffectsField?.GetValue(model) as Array;
+                if (effects == null || effectIndex >= effects.Length) return null;
+
+                var effectModel = effects.GetValue(effectIndex);
+                var effect = _institutionEffectModelEffectField?.GetValue(effectModel);
+                if (effect == null) return null;
+
+                var descProp = effect.GetType().GetProperty("Description", GameReflection.PublicInstance);
+                return descProp?.GetValue(effect) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if an institution effect is currently active (has enough workers).
+        /// </summary>
+        public static bool IsInstitutionEffectActive(object building, int effectIndex)
+        {
+            if (!IsInstitution(building)) return false;
+
+            EnsureInstitutionTypes();
+
+            try
+            {
+                int currentWorkers = GetWorkerCount(building);
+                int minWorkers = GetInstitutionEffectMinWorkers(building, effectIndex);
+                return currentWorkers >= minWorkers;
+            }
+            catch
+            {
+                return false;
             }
         }
 

@@ -5,7 +5,7 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Navigator for House buildings (Shelters).
-    /// Provides navigation through Info, Residents, and Capacity sections.
+    /// Provides navigation through Residents and Upgrades sections.
     /// </summary>
     public class HouseNavigator : BuildingSectionNavigator
     {
@@ -15,7 +15,6 @@ namespace ATSAccessibility
 
         private enum SectionType
         {
-            Info,
             Residents,
             Upgrades
         }
@@ -26,14 +25,10 @@ namespace ATSAccessibility
 
         private string[] _sectionNames;
         private SectionType[] _sectionTypes;
-        private string _buildingName;
-        private bool _isFinished;
 
         // Residents data
         private List<int> _residentIds = new List<int>();
         private int _currentCapacity;
-        private int _maxCapacity;
-        private bool _isFull;
 
         // ========================================
         // BASE CLASS IMPLEMENTATION
@@ -53,8 +48,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return 2;  // Name, Status
                 case SectionType.Residents:
                     // Item 0: Capacity, Items 1+: residents (or "None" if empty)
                     return 1 + (_residentIds.Count > 0 ? _residentIds.Count : 1);
@@ -78,9 +71,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Residents:
                     AnnounceResidentItem(itemIndex);
                     break;
@@ -120,21 +110,13 @@ namespace ATSAccessibility
 
         protected override void RefreshData()
         {
-            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "House";
-            _isFinished = BuildingReflection.IsBuildingFinished(_building);
-
             // Resident data
             _residentIds = BuildingReflection.GetHouseResidents(_building);
             _currentCapacity = BuildingReflection.GetHouseCapacity(_building);
-            _maxCapacity = BuildingReflection.GetHouseMaxCapacity(_building);
-            _isFull = BuildingReflection.IsHouseFull(_building);
 
             // Build sections list
             var sectionNames = new List<string>();
             var sectionTypes = new List<SectionType>();
-
-            sectionNames.Add("Info");
-            sectionTypes.Add(SectionType.Info);
 
             sectionNames.Add("Residents");
             sectionTypes.Add(SectionType.Residents);
@@ -149,41 +131,15 @@ namespace ATSAccessibility
             _sectionNames = sectionNames.ToArray();
             _sectionTypes = sectionTypes.ToArray();
 
-            Debug.Log($"[ATSAccessibility] HouseNavigator: Refreshed data for {_buildingName}, {_residentIds.Count} residents");
+            Debug.Log($"[ATSAccessibility] HouseNavigator: Refreshed data, {_residentIds.Count} residents");
         }
 
         protected override void ClearData()
         {
             _sectionNames = null;
             _sectionTypes = null;
-            _buildingName = null;
             _residentIds.Clear();
             ClearUpgradesSection();
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            switch (itemIndex)
-            {
-                case 0:
-                    Speech.Say($"Name: {_buildingName}");
-                    break;
-                case 1:
-                    Speech.Say($"Status: {GetStatusText()}");
-                    break;
-            }
-        }
-
-        private string GetStatusText()
-        {
-            if (!_isFinished) return "Under construction";
-            if (_isFull) return "Full";
-            if (_residentIds.Count > 0) return "Occupied";
-            return "Empty";
         }
 
         // ========================================
@@ -251,8 +207,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return itemIndex == 0 ? "Name" : "Status";
                 case SectionType.Residents:
                     return GetResidentItemName(itemIndex);
                 case SectionType.Upgrades:

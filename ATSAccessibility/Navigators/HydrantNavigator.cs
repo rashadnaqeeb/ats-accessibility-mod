@@ -6,7 +6,7 @@ namespace ATSAccessibility
     /// <summary>
     /// Navigator for Hydrant buildings.
     /// Hydrants extend Building (not ProductionBuilding) so they have no workers.
-    /// Provides Info and Fuel sections.
+    /// Provides Fuel section only.
     /// </summary>
     public class HydrantNavigator : BuildingSectionNavigator
     {
@@ -16,7 +16,6 @@ namespace ATSAccessibility
 
         private enum SectionType
         {
-            Info,
             Fuel
         }
 
@@ -26,10 +25,6 @@ namespace ATSAccessibility
 
         private string[] _sectionNames;
         private SectionType[] _sectionTypes;
-        private string _buildingName;
-        private string _buildingDescription;
-        private bool _isFinished;
-        private bool _isSleeping;
 
         // Fuel data
         private int _freeCysts;
@@ -54,8 +49,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemCount();
                 case SectionType.Fuel:
                     return 2;  // Cysts, Fuel amount
                 default:
@@ -76,9 +69,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Fuel:
                     AnnounceFuelItem(itemIndex);
                     break;
@@ -87,21 +77,14 @@ namespace ATSAccessibility
 
         protected override void RefreshData()
         {
-            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Hydrant";
-            _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
-            _isFinished = BuildingReflection.IsBuildingFinished(_building);
-            _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
-
             RefreshFuelData();
             BuildSections();
 
-            Debug.Log($"[ATSAccessibility] HydrantNavigator: Refreshed data for {_buildingName}, cysts: {_freeCysts}, fuel: {_fuelAmount}");
+            Debug.Log($"[ATSAccessibility] HydrantNavigator: Refreshed data, cysts: {_freeCysts}, fuel: {_fuelAmount}");
         }
 
         protected override void ClearData()
         {
-            _buildingName = null;
-            _buildingDescription = null;
             _sectionNames = null;
             _sectionTypes = null;
         }
@@ -119,76 +102,9 @@ namespace ATSAccessibility
 
         private void BuildSections()
         {
-            var sections = new List<string>();
-            var types = new List<SectionType>();
-
-            // Always have Info
-            sections.Add("Info");
-            types.Add(SectionType.Info);
-
-            // Always have Fuel section for Hydrant
-            sections.Add("Fuel");
-            types.Add(SectionType.Fuel);
-
-            _sectionNames = sections.ToArray();
-            _sectionTypes = types.ToArray();
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private int GetInfoItemCount()
-        {
-            int count = 1;  // Always have name
-            if (!string.IsNullOrEmpty(_buildingDescription)) count++;
-            count++;  // Status
-            return count;
-        }
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            string item = GetInfoItem(itemIndex);
-            Speech.Say(item);
-        }
-
-        // ========================================
-        // INFO SECTION ITEMS
-        // ========================================
-
-        private string GetInfoItem(int itemIndex)
-        {
-            int index = 0;
-
-            // Name
-            if (itemIndex == index) return $"Name: {_buildingName}";
-            index++;
-
-            // Description (if present)
-            if (!string.IsNullOrEmpty(_buildingDescription))
-            {
-                if (itemIndex == index) return $"Description: {_buildingDescription}";
-                index++;
-            }
-
-            // Status
-            if (itemIndex == index)
-            {
-                if (!_isFinished)
-                {
-                    return "Status: Under construction";
-                }
-                else if (_isSleeping)
-                {
-                    return "Status: Paused";
-                }
-                else
-                {
-                    return "Status: Active";
-                }
-            }
-
-            return "Unknown item";
+            // Fuel is the only section
+            _sectionNames = new[] { "Fuel" };
+            _sectionTypes = new[] { SectionType.Fuel };
         }
 
         // ========================================

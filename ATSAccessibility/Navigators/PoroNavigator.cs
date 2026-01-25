@@ -30,8 +30,6 @@ namespace ATSAccessibility
         private SectionType[] _sectionTypes;
         private string _buildingName;
         private string _buildingDescription;
-        private bool _isFinished;
-        private bool _isSleeping;
 
         // Happiness data
         private float _happiness;
@@ -79,7 +77,7 @@ namespace ATSAccessibility
             switch (_sectionTypes[sectionIndex])
             {
                 case SectionType.Info:
-                    return GetInfoItemCount();
+                    return 0;
                 case SectionType.Happiness:
                     return 2;  // Happiness level, Production progress
                 case SectionType.Needs:
@@ -117,6 +115,15 @@ namespace ATSAccessibility
 
         protected override void AnnounceSection(int sectionIndex)
         {
+            if (_sectionTypes[sectionIndex] == SectionType.Info)
+            {
+                if (!string.IsNullOrEmpty(_buildingDescription))
+                    Speech.Say($"{_buildingName}: {_buildingDescription}");
+                else
+                    Speech.Say(_buildingName);
+                return;
+            }
+
             string sectionName = _sectionNames[sectionIndex];
             Speech.Say(sectionName);
         }
@@ -128,9 +135,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Happiness:
                     AnnounceHappinessItem(itemIndex);
                     break;
@@ -234,8 +238,6 @@ namespace ATSAccessibility
         {
             _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Poro";
             _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
-            _isFinished = BuildingReflection.IsBuildingFinished(_building);
-            _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
 
             RefreshHappinessData();
             RefreshNeedData();
@@ -313,59 +315,6 @@ namespace ATSAccessibility
 
             _sectionNames = sections.ToArray();
             _sectionTypes = types.ToArray();
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private int GetInfoItemCount()
-        {
-            int count = 1;  // Name
-            if (!string.IsNullOrEmpty(_buildingDescription)) count++;  // Description
-            count++;  // Status
-            return count;
-        }
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            int index = 0;
-
-            // Name
-            if (itemIndex == index)
-            {
-                Speech.Say($"Name: {_buildingName}");
-                return;
-            }
-            index++;
-
-            // Description (if present)
-            if (!string.IsNullOrEmpty(_buildingDescription))
-            {
-                if (itemIndex == index)
-                {
-                    Speech.Say($"Description: {_buildingDescription}");
-                    return;
-                }
-                index++;
-            }
-
-            // Status
-            if (itemIndex == index)
-            {
-                if (!_isFinished)
-                {
-                    Speech.Say("Status: Under construction");
-                }
-                else if (_isSleeping)
-                {
-                    Speech.Say("Status: Paused");
-                }
-                else
-                {
-                    Speech.Say("Status: Active");
-                }
-            }
         }
 
         // ========================================

@@ -5,8 +5,7 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Navigator for the main Storage building (warehouse).
-    /// Provides navigation through Info, Goods, and Workers sections.
-    /// Storage buildings extend ProductionBuilding so they have workers.
+    /// Provides navigation through Goods, Workers, Abilities, and Upgrades sections.
     /// </summary>
     public class StorageNavigator : BuildingSectionNavigator
     {
@@ -16,7 +15,6 @@ namespace ATSAccessibility
 
         private enum SectionType
         {
-            Info,
             Goods,
             Workers,
             Abilities,
@@ -29,10 +27,6 @@ namespace ATSAccessibility
 
         private string[] _sectionNames;
         private SectionType[] _sectionTypes;
-        private string _buildingName;
-        private string _buildingDescription;
-        private bool _isFinished;
-        private bool _isSleeping;
 
         // Goods data (from global storage)
         private List<(string goodName, string displayName, int amount)> _goods = new List<(string, string, int)>();
@@ -64,8 +58,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemCount();
                 case SectionType.Goods:
                     return _goods.Count > 0 ? _goods.Count : 1;  // At least 1 for "Empty" message
                 case SectionType.Workers:
@@ -112,9 +104,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Goods:
                     AnnounceGoodItem(itemIndex);
                     break;
@@ -165,11 +154,6 @@ namespace ATSAccessibility
 
         protected override void RefreshData()
         {
-            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Storage";
-            _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
-            _isFinished = BuildingReflection.IsBuildingFinished(_building);
-            _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
-
             RefreshGoodsData();
             RefreshWorkerData();
             RefreshAbilityData();
@@ -225,10 +209,6 @@ namespace ATSAccessibility
             var sections = new List<string>();
             var types = new List<SectionType>();
 
-            // Always have Info
-            sections.Add("Info");
-            types.Add(SectionType.Info);
-
             // Goods section
             sections.Add("Goods");
             types.Add(SectionType.Goods);
@@ -256,59 +236,6 @@ namespace ATSAccessibility
 
             _sectionNames = sections.ToArray();
             _sectionTypes = types.ToArray();
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private int GetInfoItemCount()
-        {
-            int count = 1;  // Name
-            if (!string.IsNullOrEmpty(_buildingDescription)) count++;  // Description
-            count++;  // Status
-            return count;
-        }
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            int index = 0;
-
-            // Name
-            if (itemIndex == index)
-            {
-                Speech.Say($"Name: {_buildingName}");
-                return;
-            }
-            index++;
-
-            // Description (if present)
-            if (!string.IsNullOrEmpty(_buildingDescription))
-            {
-                if (itemIndex == index)
-                {
-                    Speech.Say($"Description: {_buildingDescription}");
-                    return;
-                }
-                index++;
-            }
-
-            // Status
-            if (itemIndex == index)
-            {
-                if (!_isFinished)
-                {
-                    Speech.Say("Status: Under construction");
-                }
-                else if (_isSleeping)
-                {
-                    Speech.Say("Status: Paused");
-                }
-                else
-                {
-                    Speech.Say("Status: Active");
-                }
-            }
         }
 
         // ========================================
@@ -599,8 +526,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemName(itemIndex);
                 case SectionType.Goods:
                     return itemIndex < _goods.Count ? _goods[itemIndex].displayName : null;
                 case SectionType.Workers:
@@ -612,20 +537,6 @@ namespace ATSAccessibility
                 default:
                     return null;
             }
-        }
-
-        private string GetInfoItemName(int itemIndex)
-        {
-            int index = 0;
-            if (itemIndex == index) return "Name";
-            index++;
-            if (!string.IsNullOrEmpty(_buildingDescription))
-            {
-                if (itemIndex == index) return "Description";
-                index++;
-            }
-            if (itemIndex == index) return "Status";
-            return null;
         }
 
         private string GetWorkerItemName(int itemIndex)

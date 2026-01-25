@@ -289,7 +289,6 @@ namespace ATSAccessibility
             _level = Level.Upgrades;
             _currentUpgradeIndex = 0;
             _search.Clear();
-            SoundManager.PlayButtonClick();
             AnnounceUpgrade();
         }
 

@@ -4,7 +4,7 @@ A BepInEx mod adding screen reader support to Against the Storm via Tolk.
 
 ## Navigation Model
 
-All menus use arrow key navigation. Up/Down moves through items, Right/Enter drills in, Left/Escape backs out. Most lists support type-ahead search: start typing a name to jump to the first match. Backspace removes the last character, and the buffer auto-clears on arrow key navigation.
+All menus use arrow key navigation. Up/Down moves through items, Right/Enter drills into submenus, Left/Escape backs out. Most lists support type-ahead search: start typing a name to jump to the first match. Backspace removes the last character, and the buffer auto-clears on arrow key navigation.
 
 ### Panels (F1)
 
@@ -31,8 +31,8 @@ When a game popup appears (cornerstone picks, newcomer selection, blueprint choi
 - **Ctrl+Arrows**: Skip to next occupied tile in direction
 - **K**: Announce cursor coordinates
 - **I**: Read tile info (terrain, resources, building)
-- **E**: Announce map entrance location
-- **D**: Building range and orientation
+- **E**: Announce focused building entrance location
+- **D**: Building range guide
 - **W**: Worker summary at building
 - **B**: Blight info at tile
 - **P**: Rainpunk info (Shift+P stops all engines at building)
@@ -53,7 +53,7 @@ When a game popup appears (cornerstone picks, newcomer selection, blueprint choi
 
 - **Enter**: Open building panel / enter harvest mark mode on resources
 - **M**: Enter move mode for building at cursor
-- **R**: Rotate building (during placement)
+- **R**: Rotate building 
 - **Shift+Space**: Destroy building (with confirmation)
 - **+/-**: Cycle villager race filter
 - **Shift+/-**: Add/remove worker at building
@@ -73,8 +73,8 @@ The settlement scanner finds things on the map organized into a three-level hier
 
 **Resources category** - Three subcategories:
 - Natural Resources: trees, plants, marked trees, fertile soil
-- Extracted Resources: copper, iron, coal, springs
-- Collected Resources: clay, stone, lakes
+- Extracted Resources: copper, iron, coal, geysers.
+- Collected Resources: clay, stone, fish ponds
 
 **Buildings category** - Ten subcategories: Essential, Gathering, Production, Trade, Housing and Services, Special Buildings, Blight Fighting, Decorations, Ruins, Roads.
 
@@ -149,15 +149,13 @@ Three navigation levels:
 2. **Items** - Individual foods or needs within a category. Space toggles the item.
 3. **Races** - Per-race permissions for an item. Space toggles permission for that race.
 
-Navigate down into levels with Right, back up with Left. This is one of the few menus where Space does something different from Enter - it toggles at the current level rather than drilling in.
-
 ### Cornerstone Limit Overlay
 
 When you've hit your perk limit and must remove one to accept a new cornerstone:
 
 - **Space** - Select/deselect a perk for removal
 - **Delete** - Confirm removal of the selected perk
-
+This is likely to change.
 ---
 
 ## Glade Events (Relics)

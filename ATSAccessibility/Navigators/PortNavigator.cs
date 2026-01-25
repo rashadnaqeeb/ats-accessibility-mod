@@ -19,7 +19,6 @@ namespace ATSAccessibility
 
         private enum SectionType
         {
-            Info,
             Level,
             Workers,
             Goods,
@@ -40,7 +39,6 @@ namespace ATSAccessibility
 
         private string[] _sectionNames;
         private SectionType[] _sectionTypes;
-        private string _buildingName;
 
         // Phase state
         private bool _wasDecisionMade;
@@ -119,8 +117,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemCount();
                 case SectionType.Level:
                     return 0;
                 case SectionType.Workers:
@@ -138,7 +134,7 @@ namespace ATSAccessibility
                 case SectionType.Cancel:
                     return 0;  // Section-level action
                 case SectionType.Status:
-                    return GetStatusItemCount();
+                    return 0;  // Front-loaded info at section level
                 case SectionType.Rewards:
                     return GetRewardsItemCount();
                 case SectionType.AcceptRewards:
@@ -181,6 +177,9 @@ namespace ATSAccessibility
                     else
                         Speech.Say($"Level {_expeditionLevel}, duration {FormatDuration(_duration)}");
                     break;
+                case SectionType.Status:
+                    Speech.Say($"Status: In progress, {FormatProgress()}, {FormatTimeLeft()}");
+                    break;
                 case SectionType.Confirm:
                     if (BuildingReflection.IsPortBlockedByUnpickedCategory(_building))
                         Speech.Say("Confirm, pick a category first");
@@ -206,9 +205,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Workers:
                     AnnounceWorkerItem(itemIndex);
                     break;
@@ -223,9 +219,6 @@ namespace ATSAccessibility
                     break;
                 case SectionType.GoodsProgress:
                     AnnounceGoodsProgressItem(itemIndex);
-                    break;
-                case SectionType.Status:
-                    AnnounceStatusItem(itemIndex);
                     break;
                 case SectionType.Rewards:
                     AnnounceRewardsItem(itemIndex);
@@ -389,8 +382,6 @@ namespace ATSAccessibility
 
         protected override void RefreshData()
         {
-            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Port";
-
             // Phase detection
             _wasDecisionMade = BuildingReflection.WasPortDecisionMade(_building);
             _expeditionStarted = BuildingReflection.IsPortExpeditionStarted(_building);
@@ -427,14 +418,13 @@ namespace ATSAccessibility
 
             BuildSections();
 
-            Debug.Log($"[ATSAccessibility] PortNavigator: Refreshed data for {_buildingName}, phase={GetPhaseString()}");
+            Debug.Log($"[ATSAccessibility] PortNavigator: Refreshed data, phase={GetPhaseString()}");
         }
 
         protected override void ClearData()
         {
             _sectionNames = null;
             _sectionTypes = null;
-            _buildingName = null;
             _striderSets = null;
             _striderSetCount = 0;
             _crewSets = null;
@@ -473,8 +463,6 @@ namespace ATSAccessibility
             if (_rewardsWaiting)
             {
                 // Phase 4: Rewards
-                sectionNames.Add("Info");
-                sectionTypes.Add(SectionType.Info);
                 if (!string.IsNullOrEmpty(_blueprintReward) || !string.IsNullOrEmpty(_perkReward))
                 {
                     sectionNames.Add("Rewards");
@@ -485,17 +473,13 @@ namespace ATSAccessibility
             }
             else if (_expeditionStarted)
             {
-                // Phase 3: In Progress
-                sectionNames.Add("Info");
-                sectionTypes.Add(SectionType.Info);
+                // Phase 3: In Progress - Status front-loads progress and time
                 sectionNames.Add("Status");
                 sectionTypes.Add(SectionType.Status);
             }
             else if (_wasDecisionMade)
             {
                 // Phase 2: Collecting
-                sectionNames.Add("Info");
-                sectionTypes.Add(SectionType.Info);
                 if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
                 {
                     sectionNames.Add("Workers");
@@ -707,30 +691,6 @@ namespace ATSAccessibility
         private void RefreshRewardChances()
         {
             _rewardChances = BuildingReflection.GetPortRewardChances(_building);
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private int GetInfoItemCount()
-        {
-            if (_rewardsWaiting)
-                return 1;  // Just name
-            return 2;  // Name, Level
-        }
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            switch (itemIndex)
-            {
-                case 0:
-                    Speech.Say(_buildingName);
-                    break;
-                case 1:
-                    Speech.Say($"Level {_expeditionLevel}, duration {FormatDuration(_duration)}");
-                    break;
-            }
         }
 
         // ========================================
@@ -1124,48 +1084,28 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // STATUS SECTION (Phase 3)
+        // STATUS SECTION (Phase 3) - Front-loaded at section level
         // ========================================
 
-        private int GetStatusItemCount()
+        private string FormatProgress()
         {
-            return 2;  // Progress, Time left
+            int percentage = Mathf.RoundToInt(_progress * 100f);
+            return $"{percentage}%";
         }
 
-        private void AnnounceStatusItem(int itemIndex)
-        {
-            switch (itemIndex)
-            {
-                case 0:
-                    int percentage = Mathf.RoundToInt(_progress * 100f);
-                    Speech.Say($"Progress: {percentage} percent");
-                    break;
-                case 1:
-                    AnnounceTimeLeft();
-                    break;
-            }
-        }
-
-        private void AnnounceTimeLeft()
+        private string FormatTimeLeft()
         {
             int seconds = Mathf.RoundToInt(_timeLeft);
             if (seconds <= 0)
-            {
-                Speech.Say("Time remaining: Almost done");
-            }
-            else if (seconds < 60)
-            {
-                Speech.Say($"Time remaining: {seconds} seconds");
-            }
-            else
-            {
-                int minutes = seconds / 60;
-                int remainingSecs = seconds % 60;
-                if (remainingSecs > 0)
-                    Speech.Say($"Time remaining: {minutes} minutes {remainingSecs} seconds");
-                else
-                    Speech.Say($"Time remaining: {minutes} minutes");
-            }
+                return "almost done";
+            if (seconds < 60)
+                return $"{seconds} seconds remaining";
+
+            int minutes = seconds / 60;
+            int remainingSecs = seconds % 60;
+            if (remainingSecs > 0)
+                return $"{minutes} minutes {remainingSecs} seconds remaining";
+            return $"{minutes} minutes remaining";
         }
 
         // ========================================

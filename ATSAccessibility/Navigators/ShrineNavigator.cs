@@ -6,7 +6,7 @@ namespace ATSAccessibility
     /// <summary>
     /// Navigator for Shrine buildings.
     /// Shrines extend Building (not ProductionBuilding) and have no workers.
-    /// Provides Info and Effects sections with tiered effects that can be used.
+    /// Provides Abilities section with tiered effects that can be used.
     /// </summary>
     public class ShrineNavigator : BuildingSectionNavigator
     {
@@ -16,7 +16,6 @@ namespace ATSAccessibility
 
         private enum SectionType
         {
-            Info,
             Effects
         }
 
@@ -26,10 +25,6 @@ namespace ATSAccessibility
 
         private string[] _sectionNames;
         private SectionType[] _sectionTypes;
-        private string _buildingName;
-        private string _buildingDescription;
-        private bool _isFinished;
-        private bool _isSleeping;
 
         // Effect tier data
         private List<EffectTierInfo> _effectTiers = new List<EffectTierInfo>();
@@ -66,8 +61,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemCount();
                 case SectionType.Effects:
                     return _effectTiers.Count > 0 ? _effectTiers.Count : 1;
                 default:
@@ -107,9 +100,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Effects:
                     AnnounceEffectTierItem(itemIndex);
                     break;
@@ -164,11 +154,6 @@ namespace ATSAccessibility
 
         protected override void RefreshData()
         {
-            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Shrine";
-            _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
-            _isFinished = BuildingReflection.IsBuildingFinished(_building);
-            _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
-
             RefreshEffectData();
             BuildSections();
 
@@ -220,72 +205,9 @@ namespace ATSAccessibility
 
         private void BuildSections()
         {
-            var sections = new List<string>();
-            var types = new List<SectionType>();
-
-            // Always have Info
-            sections.Add("Info");
-            types.Add(SectionType.Info);
-
-            // Abilities section
-            sections.Add("Abilities");
-            types.Add(SectionType.Effects);
-
-            _sectionNames = sections.ToArray();
-            _sectionTypes = types.ToArray();
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private int GetInfoItemCount()
-        {
-            int count = 1;  // Name
-            if (!string.IsNullOrEmpty(_buildingDescription)) count++;  // Description
-            count++;  // Status
-            return count;
-        }
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            int index = 0;
-
-            // Name
-            if (itemIndex == index)
-            {
-                Speech.Say($"Name: {_buildingName}");
-                return;
-            }
-            index++;
-
-            // Description (if present)
-            if (!string.IsNullOrEmpty(_buildingDescription))
-            {
-                if (itemIndex == index)
-                {
-                    Speech.Say($"Description: {_buildingDescription}");
-                    return;
-                }
-                index++;
-            }
-
-            // Status
-            if (itemIndex == index)
-            {
-                if (!_isFinished)
-                {
-                    Speech.Say("Status: Under construction");
-                }
-                else if (_isSleeping)
-                {
-                    Speech.Say("Status: Paused");
-                }
-                else
-                {
-                    Speech.Say("Status: Active");
-                }
-            }
+            // Abilities is the only section
+            _sectionNames = new[] { "Abilities" };
+            _sectionTypes = new[] { SectionType.Effects };
         }
 
         // ========================================

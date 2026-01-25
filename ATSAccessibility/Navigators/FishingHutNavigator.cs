@@ -5,7 +5,8 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Navigator for FishingHut buildings.
-    /// Provides navigation through Info, Bait, Recipes, and Workers sections.
+    /// Top section shows Status (Active/Paused) with Enter/Space to toggle.
+    /// Followed by Bait, Recipes, Workers, and Upgrades sections.
     /// </summary>
     public class FishingHutNavigator : BuildingSectionNavigator
     {
@@ -15,7 +16,7 @@ namespace ATSAccessibility
 
         private enum SectionType
         {
-            Info,
+            Status,   // Active/Paused toggle at top
             Bait,     // Bait mode settings
             Recipes,  // Fish types to catch
             Workers,
@@ -28,9 +29,6 @@ namespace ATSAccessibility
 
         private string[] _sectionNames;
         private SectionType[] _sectionTypes;
-        private string _buildingName;
-        private string _buildingDescription;
-        private bool _isFinished;
         private bool _isSleeping;
         private bool _canSleep;
 
@@ -79,8 +77,8 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemCount();
+                case SectionType.Status:
+                    return 0;  // No items, just section-level toggle
                 case SectionType.Bait:
                     return 3;  // Mode, Charges, Ingredient
                 case SectionType.Recipes:
@@ -98,12 +96,6 @@ namespace ATSAccessibility
         {
             if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
                 return 0;
-
-            // Info section has sub-items for Status (pause/resume)
-            if (_sectionTypes[sectionIndex] == SectionType.Info)
-            {
-                return GetInfoSubItemCount(itemIndex);
-            }
 
             // Bait mode has sub-items for mode selection
             if (_sectionTypes[sectionIndex] == SectionType.Bait && itemIndex == 0)
@@ -128,6 +120,13 @@ namespace ATSAccessibility
 
         protected override void AnnounceSection(int sectionIndex)
         {
+            if (_sectionTypes[sectionIndex] == SectionType.Status)
+            {
+                string status = _isSleeping ? "Paused" : "Active";
+                Speech.Say($"Status: {status}");
+                return;
+            }
+
             string sectionName = _sectionNames[sectionIndex];
             Speech.Say(sectionName);
         }
@@ -139,9 +138,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Bait:
                     AnnounceBaitItem(itemIndex);
                     break;
@@ -155,6 +151,49 @@ namespace ATSAccessibility
                     _upgradesSection.AnnounceItem(itemIndex);
                     break;
             }
+        }
+
+        protected override bool PerformSectionAction(int sectionIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return false;
+
+            if (_sectionTypes[sectionIndex] == SectionType.Status)
+            {
+                if (!_canSleep)
+                {
+                    Speech.Say("Cannot pause this building");
+                    return false;
+                }
+
+                bool wasSleeping = _isSleeping;
+                if (BuildingReflection.ToggleBuildingSleep(_building))
+                {
+                    _isSleeping = !wasSleeping;
+                    if (!wasSleeping)
+                    {
+                        _workerIds = BuildingReflection.GetWorkerIds(_building);
+                    }
+                    if (_isSleeping)
+                    {
+                        SoundManager.PlayBuildingSleep();
+                        Speech.Say("Paused");
+                    }
+                    else
+                    {
+                        SoundManager.PlayBuildingWakeUp();
+                        Speech.Say("Active");
+                    }
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Cannot change building state");
+                    return false;
+                }
+            }
+
+            return false;
         }
 
         protected override bool PerformItemAction(int sectionIndex, int itemIndex)
@@ -178,11 +217,7 @@ namespace ATSAccessibility
 
         protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
         {
-            if (_sectionTypes[sectionIndex] == SectionType.Info)
-            {
-                AnnounceInfoSubItem(itemIndex, subItemIndex);
-            }
-            else if (_sectionTypes[sectionIndex] == SectionType.Bait && itemIndex == 0)
+            if (_sectionTypes[sectionIndex] == SectionType.Bait && itemIndex == 0)
             {
                 AnnounceBaitModeSubItem(subItemIndex);
             }
@@ -198,11 +233,6 @@ namespace ATSAccessibility
 
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
         {
-            if (_sectionTypes[sectionIndex] == SectionType.Info)
-            {
-                return PerformInfoSubItemAction(itemIndex, subItemIndex);
-            }
-
             if (_sectionTypes[sectionIndex] == SectionType.Bait && itemIndex == 0)
             {
                 return PerformBaitModeSubItemAction(subItemIndex);
@@ -223,10 +253,7 @@ namespace ATSAccessibility
 
         protected override void RefreshData()
         {
-            // Cache basic info
-            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Fishing Hut";
-            _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
-            _isFinished = BuildingReflection.IsBuildingFinished(_building);
+            // Cache status info
             _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
             _canSleep = BuildingReflection.CanBuildingSleep(_building);
 
@@ -248,9 +275,9 @@ namespace ATSAccessibility
             var sectionNames = new List<string>();
             var sectionTypes = new List<SectionType>();
 
-            // Always have Info section
-            sectionNames.Add("Info");
-            sectionTypes.Add(SectionType.Info);
+            // Always have Status section at top (announced dynamically)
+            sectionNames.Add("Status");
+            sectionTypes.Add(SectionType.Status);
 
             // Always have Bait section for FishingHut
             sectionNames.Add("Bait");
@@ -280,16 +307,13 @@ namespace ATSAccessibility
             _sectionNames = sectionNames.ToArray();
             _sectionTypes = sectionTypes.ToArray();
 
-            Debug.Log($"[ATSAccessibility] FishingHutNavigator: Refreshed data for {_buildingName}");
-            Debug.Log($"[ATSAccessibility] FishingHutNavigator: {_maxWorkers} workers, {_recipes.Count} recipes, bait mode {_baitMode}");
+            Debug.Log($"[ATSAccessibility] FishingHutNavigator: Refreshed data, {_maxWorkers} workers, {_recipes.Count} recipes");
         }
 
         protected override void ClearData()
         {
             _sectionNames = null;
             _sectionTypes = null;
-            _buildingName = null;
-            _buildingDescription = null;
             _workerIds = null;
             _recipes.Clear();
             _availableRaces.Clear();
@@ -299,122 +323,6 @@ namespace ATSAccessibility
             _baitIngredient = null;
             _baitModeNames = null;
             ClearUpgradesSection();
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private int GetInfoItemCount()
-        {
-            int count = 1;  // Name
-            if (!string.IsNullOrEmpty(_buildingDescription)) count++;  // Description
-            count++;  // Status
-            count++;  // Worker summary
-            return count;
-        }
-
-        private int GetStatusItemIndex()
-        {
-            return string.IsNullOrEmpty(_buildingDescription) ? 1 : 2;
-        }
-
-        private int GetInfoSubItemCount(int itemIndex)
-        {
-            if (itemIndex == GetStatusItemIndex() && _canSleep)
-            {
-                return 1;  // Pause/Resume toggle
-            }
-            return 0;
-        }
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            int index = 0;
-
-            // Name
-            if (itemIndex == index)
-            {
-                Speech.Say($"Name: {_buildingName}");
-                return;
-            }
-            index++;
-
-            // Description
-            if (!string.IsNullOrEmpty(_buildingDescription))
-            {
-                if (itemIndex == index)
-                {
-                    Speech.Say($"Description: {_buildingDescription}");
-                    return;
-                }
-                index++;
-            }
-
-            // Status
-            if (itemIndex == index)
-            {
-                string status = GetStatusText();
-                Speech.Say($"Status: {status}");
-                return;
-            }
-            index++;
-
-            // Worker summary
-            if (itemIndex == index)
-            {
-                int workerCount = BuildingReflection.GetWorkerCount(_building);
-                Speech.Say($"Workers: {workerCount} of {_maxWorkers}");
-                return;
-            }
-
-            Speech.Say("Unknown item");
-        }
-
-        private void AnnounceInfoSubItem(int itemIndex, int subItemIndex)
-        {
-            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
-            {
-                if (_isSleeping)
-                {
-                    Speech.Say("Resume building");
-                }
-                else
-                {
-                    Speech.Say("Pause building, workers will be unassigned");
-                }
-            }
-        }
-
-        private bool PerformInfoSubItemAction(int itemIndex, int subItemIndex)
-        {
-            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
-            {
-                bool wasSleeping = _isSleeping;
-                if (BuildingReflection.ToggleBuildingSleep(_building))
-                {
-                    _isSleeping = !wasSleeping;
-                    if (!wasSleeping)
-                    {
-                        _workerIds = BuildingReflection.GetWorkerIds(_building);
-                    }
-                    Speech.Say(_isSleeping ? "Building paused" : "Building resumed");
-                    return true;
-                }
-                else
-                {
-                    Speech.Say("Cannot change building state");
-                    return false;
-                }
-            }
-            return false;
-        }
-
-        private string GetStatusText()
-        {
-            if (!_isFinished) return "Under construction";
-            if (_isSleeping) return "Paused";
-            return "Active";
         }
 
         // ========================================

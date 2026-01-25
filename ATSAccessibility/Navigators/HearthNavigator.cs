@@ -5,7 +5,7 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Navigator for Hearth buildings (Ancient Hearth, Small Hearth).
-    /// Provides navigation through Info, Fire, Sacrifice, Upgrades, Blight, and Workers sections.
+    /// Provides navigation through Fire, Sacrifice, Upgrades, Blight, and Workers sections.
     /// </summary>
     public class HearthNavigator : BuildingSectionNavigator
     {
@@ -15,7 +15,6 @@ namespace ATSAccessibility
 
         private enum SectionType
         {
-            Info,
             Fire,
             Sacrifice,
             Upgrades,
@@ -29,9 +28,6 @@ namespace ATSAccessibility
 
         private string[] _sectionNames;
         private SectionType[] _sectionTypes;
-        private string _buildingName;
-        private bool _isFinished;
-        private bool _isSleeping;
         private bool _isMainHearth;
 
         // Fire data
@@ -77,8 +73,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemCount();
                 case SectionType.Fire:
                     return GetFireItemCount();
                 case SectionType.Sacrifice:
@@ -128,9 +122,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Fire:
                     AnnounceFireItem(itemIndex);
                     break;
@@ -200,9 +191,6 @@ namespace ATSAccessibility
 
         protected override void RefreshData()
         {
-            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Hearth";
-            _isFinished = BuildingReflection.IsBuildingFinished(_building);
-            _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
             _isMainHearth = BuildingReflection.IsMainHearth(_building);
 
             // Fire data
@@ -232,9 +220,6 @@ namespace ATSAccessibility
             // Build sections list
             var sectionNames = new List<string>();
             var sectionTypes = new List<SectionType>();
-
-            sectionNames.Add("Info");
-            sectionTypes.Add(SectionType.Info);
 
             sectionNames.Add("Fire");
             sectionTypes.Add(SectionType.Fire);
@@ -269,14 +254,13 @@ namespace ATSAccessibility
             _sectionNames = sectionNames.ToArray();
             _sectionTypes = sectionTypes.ToArray();
 
-            Debug.Log($"[ATSAccessibility] HearthNavigator: Refreshed data for {_buildingName}");
+            Debug.Log($"[ATSAccessibility] HearthNavigator: Refreshed data, {_sectionNames.Length} sections");
         }
 
         protected override void ClearData()
         {
             _sectionNames = null;
             _sectionTypes = null;
-            _buildingName = null;
             _workerIds = null;
             _availableRaces.Clear();
             _racesRefreshedForWorkerSection = false;
@@ -284,38 +268,6 @@ namespace ATSAccessibility
             _sacrificeInfo.Clear();
             _fuelTypes.Clear();
             _upgradeInfo.Clear();
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private int GetInfoItemCount()
-        {
-            return 2;  // Name, Status
-        }
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            switch (itemIndex)
-            {
-                case 0:
-                    string hearthType = _isMainHearth ? "Ancient Hearth" : "Small Hearth";
-                    Speech.Say($"Name: {_buildingName} ({hearthType})");
-                    break;
-                case 1:
-                    Speech.Say($"Status: {GetStatusText()}");
-                    break;
-            }
-        }
-
-        private string GetStatusText()
-        {
-            if (!_isFinished) return "Under construction";
-            if (_isSleeping) return "Paused";
-            if (_isFireOut) return "Fire out";
-            if (_isFireLow) return "Fire low";
-            return "Active";
         }
 
         // ========================================
@@ -820,8 +772,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return itemIndex == 0 ? "Name" : "Status";
                 case SectionType.Fire:
                     switch (itemIndex)
                     {

@@ -6,8 +6,8 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Navigator for production buildings (Workshop, Farm, Mine, Camp, etc.).
-    /// Provides navigation through Info, Workers, and Recipes sections.
-    /// Only shows sections that have content.
+    /// Top section shows Status (Active/Paused) with Enter/Space to toggle.
+    /// Followed by Workers, Recipes, and other sections based on building type.
     /// </summary>
     public class ProductionNavigator : BuildingSectionNavigator
     {
@@ -17,7 +17,7 @@ namespace ATSAccessibility
 
         private enum SectionType
         {
-            Info,
+            Status,   // Active/Paused toggle at top
             Workers,
             Recipes,
             Rainpunk, // Rainpunk engine control (workshops only)
@@ -35,8 +35,6 @@ namespace ATSAccessibility
         private string[] _sectionNames;
         private SectionType[] _sectionTypes;  // Maps index to section type
         private string _buildingName;
-        private string _buildingDescription;
-        private bool _isFinished;
         private bool _isSleeping;
         private bool _canSleep;  // Whether building supports pausing
         private bool _isCamp;  // Camp/gathering buildings have simple recipes (no submenu)
@@ -104,8 +102,8 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemCount();
+                case SectionType.Status:
+                    return 0;  // No items, just section-level toggle
                 case SectionType.Workers:
                     return _maxWorkers;
                 case SectionType.Recipes:
@@ -131,12 +129,6 @@ namespace ATSAccessibility
         {
             if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
                 return 0;
-
-            // Info section has sub-items for Status (pause/resume)
-            if (_sectionTypes[sectionIndex] == SectionType.Info)
-            {
-                return GetInfoSubItemCount(itemIndex);
-            }
 
             // Outputs have sub-items (force transport, auto-deliver)
             if (_sectionTypes[sectionIndex] == SectionType.Outputs && itemIndex < _outputGoods.Count)
@@ -182,6 +174,13 @@ namespace ATSAccessibility
 
         protected override void AnnounceSection(int sectionIndex)
         {
+            if (_sectionTypes[sectionIndex] == SectionType.Status)
+            {
+                string status = _isSleeping ? "Paused" : "Active";
+                Speech.Say($"Status: {status}");
+                return;
+            }
+
             string sectionName = _sectionNames[sectionIndex];
             Speech.Say(sectionName);
         }
@@ -193,9 +192,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    AnnounceInfoItem(itemIndex);
-                    break;
                 case SectionType.Workers:
                     AnnounceWorkerItem(itemIndex);
                     break;
@@ -231,6 +227,77 @@ namespace ATSAccessibility
                 return true;
             }
 
+            // Rainpunk unlock
+            if (_sectionTypes[sectionIndex] == SectionType.Rainpunk && !_rainpunkUnlocked && itemIndex == 0)
+            {
+                if (!BuildingReflection.CanAffordRainpunkUnlock(_building))
+                {
+                    Speech.Say("Not enough resources");
+                    SoundManager.PlayFailed();
+                    return false;
+                }
+
+                if (BuildingReflection.UnlockRainpunk(_building))
+                {
+                    _rainpunkUnlocked = true;
+                    _engineCount = BuildingReflection.GetEngineCount(_building);
+                    SoundManager.PlayRainpunkUnlock();
+                    Speech.Say("Rainpunk unlocked");
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Cannot unlock rainpunk");
+                    SoundManager.PlayFailed();
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        protected override bool PerformSectionAction(int sectionIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return false;
+
+            if (_sectionTypes[sectionIndex] == SectionType.Status)
+            {
+                // Toggle sleep/active state
+                if (!_canSleep)
+                {
+                    Speech.Say("Cannot pause this building");
+                    return false;
+                }
+
+                bool wasSleeping = _isSleeping;
+                if (BuildingReflection.ToggleBuildingSleep(_building))
+                {
+                    _isSleeping = !wasSleeping;
+                    // Refresh worker data since workers get unassigned on pause
+                    if (!wasSleeping)
+                    {
+                        _workerIds = BuildingReflection.GetWorkerIds(_building);
+                    }
+                    if (_isSleeping)
+                    {
+                        SoundManager.PlayBuildingSleep();
+                        Speech.Say("Paused");
+                    }
+                    else
+                    {
+                        SoundManager.PlayBuildingWakeUp();
+                        Speech.Say("Active");
+                    }
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Cannot change building state");
+                    return false;
+                }
+            }
+
             return false;
         }
 
@@ -243,12 +310,6 @@ namespace ATSAccessibility
 
         protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
         {
-            if (_sectionTypes[sectionIndex] == SectionType.Info)
-            {
-                AnnounceInfoSubItem(itemIndex, subItemIndex);
-                return;
-            }
-
             if (_sectionTypes[sectionIndex] == SectionType.Outputs && itemIndex < _outputGoods.Count)
             {
                 AnnounceOutputSubItem(itemIndex, subItemIndex);
@@ -297,11 +358,6 @@ namespace ATSAccessibility
 
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
         {
-            if (_sectionTypes[sectionIndex] == SectionType.Info)
-            {
-                return PerformInfoSubItemAction(itemIndex, subItemIndex);
-            }
-
             if (_sectionTypes[sectionIndex] == SectionType.Outputs && itemIndex < _outputGoods.Count)
             {
                 return PerformOutputSubItemAction(itemIndex, subItemIndex);
@@ -340,8 +396,6 @@ namespace ATSAccessibility
         {
             // Cache basic info first
             _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Unknown building";
-            _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
-            _isFinished = BuildingReflection.IsBuildingFinished(_building);
             _isSleeping = BuildingReflection.IsBuildingSleeping(_building);
             _canSleep = BuildingReflection.CanBuildingSleep(_building);
             _isCamp = BuildingReflection.IsCamp(_building);  // Camp buildings have simple recipes
@@ -382,9 +436,9 @@ namespace ATSAccessibility
             var sectionNames = new List<string>();
             var sectionTypes = new List<SectionType>();
 
-            // Always have Info section
-            sectionNames.Add("Info");
-            sectionTypes.Add(SectionType.Info);
+            // Always have Status section at top (announced dynamically as "Status: Active/Paused")
+            sectionNames.Add("Status");
+            sectionTypes.Add(SectionType.Status);
 
             // Only add Workers if building currently accepts worker assignment
             if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
@@ -400,8 +454,8 @@ namespace ATSAccessibility
                 sectionTypes.Add(SectionType.Recipes);
             }
 
-            // Add Rainpunk section if workshop has rainpunk unlocked
-            if (_rainpunkUnlocked && _engineCount > 0)
+            // Add Rainpunk section if workshop has rainpunk capability (unlocked or not)
+            if (_hasRainpunk)
             {
                 sectionNames.Add("Rainpunk");
                 sectionTypes.Add(SectionType.Rainpunk);
@@ -454,7 +508,6 @@ namespace ATSAccessibility
             _sectionNames = null;
             _sectionTypes = null;
             _buildingName = null;
-            _buildingDescription = null;
             _workerIds = null;
             _recipes.Clear();
             _availableRaces.Clear();
@@ -473,198 +526,6 @@ namespace ATSAccessibility
             _rainpunkUnlocked = false;
             _engineCount = 0;
             ClearUpgradesSection();
-        }
-
-        // ========================================
-        // INFO SECTION
-        // ========================================
-
-        private int GetInfoItemCount()
-        {
-            int count = 1;  // Name
-            if (!string.IsNullOrEmpty(_buildingDescription)) count++;  // Description
-            count++;  // Status
-            count++;  // Worker summary
-            if (_hasRainpunk && !_rainpunkUnlocked) count++;  // Rainpunk unlock
-            return count;
-        }
-
-        private int GetStatusItemIndex()
-        {
-            // Status is after Name and optional Description
-            return string.IsNullOrEmpty(_buildingDescription) ? 1 : 2;
-        }
-
-        private int GetRainpunkUnlockItemIndex()
-        {
-            // Rainpunk unlock is after Worker summary (which is after Status)
-            return GetStatusItemIndex() + 2;
-        }
-
-        private int GetInfoSubItemCount(int itemIndex)
-        {
-            // Status item has a sub-item for pause/resume if building supports it
-            if (itemIndex == GetStatusItemIndex() && _canSleep)
-            {
-                return 1;  // Pause/Resume toggle
-            }
-            // Rainpunk unlock item has a sub-item for confirmation
-            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == GetRainpunkUnlockItemIndex())
-            {
-                return 1;  // Unlock confirmation
-            }
-            return 0;
-        }
-
-        private void AnnounceInfoItem(int itemIndex)
-        {
-            int index = 0;
-
-            // Name
-            if (itemIndex == index)
-            {
-                Speech.Say($"Name: {_buildingName}");
-                return;
-            }
-            index++;
-
-            // Description
-            if (!string.IsNullOrEmpty(_buildingDescription))
-            {
-                if (itemIndex == index)
-                {
-                    Speech.Say($"Description: {_buildingDescription}");
-                    return;
-                }
-                index++;
-            }
-
-            // Status
-            if (itemIndex == index)
-            {
-                Speech.Say($"Status: {GetStatusText()}");
-                return;
-            }
-            index++;
-
-            // Worker summary
-            if (itemIndex == index)
-            {
-                int workerCount = BuildingReflection.GetWorkerCount(_building);
-                Speech.Say($"Workers: {workerCount} of {_maxWorkers}");
-                return;
-            }
-            index++;
-
-            // Rainpunk unlock (only if has capability but not unlocked)
-            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == index)
-            {
-                var price = BuildingReflection.GetRainpunkUnlockPrice(_building);
-                if (price != null)
-                {
-                    bool canAfford = BuildingReflection.CanAffordRainpunkUnlock(_building);
-                    string affordText = canAfford ? "" : ", not enough resources";
-                    Speech.Say($"Rainpunk: Locked, costs {price.Value.amount} {price.Value.displayName}{affordText}");
-                }
-                else
-                {
-                    Speech.Say("Rainpunk: Locked");
-                }
-                return;
-            }
-
-            Speech.Say("Unknown item");
-        }
-
-        private void AnnounceInfoSubItem(int itemIndex, int subItemIndex)
-        {
-            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
-            {
-                if (_isSleeping)
-                {
-                    Speech.Say("Resume building");
-                }
-                else
-                {
-                    Speech.Say("Pause building, workers will be unassigned");
-                }
-            }
-            else if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == GetRainpunkUnlockItemIndex() && subItemIndex == 0)
-            {
-                bool canAfford = BuildingReflection.CanAffordRainpunkUnlock(_building);
-                if (canAfford)
-                {
-                    Speech.Say("Unlock rainpunk");
-                }
-                else
-                {
-                    Speech.Say("Cannot afford, not enough resources");
-                }
-            }
-        }
-
-        private bool PerformInfoSubItemAction(int itemIndex, int subItemIndex)
-        {
-            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
-            {
-                bool wasSleeping = _isSleeping;
-                if (BuildingReflection.ToggleBuildingSleep(_building))
-                {
-                    _isSleeping = !wasSleeping;
-                    // Refresh worker data since workers get unassigned on pause
-                    if (!wasSleeping)
-                    {
-                        _workerIds = BuildingReflection.GetWorkerIds(_building);
-                    }
-                    Speech.Say(_isSleeping ? "Building paused" : "Building resumed");
-                    return true;
-                }
-                else
-                {
-                    Speech.Say("Cannot change building state");
-                    return false;
-                }
-            }
-
-            // Rainpunk unlock
-            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == GetRainpunkUnlockItemIndex() && subItemIndex == 0)
-            {
-                if (!BuildingReflection.CanAffordRainpunkUnlock(_building))
-                {
-                    Speech.Say("Not enough resources");
-                    return false;
-                }
-
-                if (BuildingReflection.UnlockRainpunk(_building))
-                {
-                    _rainpunkUnlocked = true;
-                    _engineCount = BuildingReflection.GetEngineCount(_building);
-                    SoundManager.PlayRainpunkUnlock();
-                    Speech.Say("Rainpunk unlocked");
-                    // Refresh data to add Rainpunk section
-                    RefreshData();
-                    // Reset navigation to Info section (the unlock item no longer exists)
-                    _currentSectionIndex = 0;
-                    _currentItemIndex = 0;
-                    _currentSubItemIndex = 0;
-                    _navigationLevel = 0;
-                    return true;
-                }
-                else
-                {
-                    Speech.Say("Cannot unlock rainpunk");
-                    return false;
-                }
-            }
-
-            return false;
-        }
-
-        private string GetStatusText()
-        {
-            if (!_isFinished) return "Under construction";
-            if (_isSleeping) return "Paused";
-            return "Active";
         }
 
         // ========================================
@@ -714,11 +575,6 @@ namespace ATSAccessibility
             _availableRaces = BuildingReflection.GetRacesWithFreeWorkers();
             _racesRefreshedForWorkerSection = true;
             Debug.Log($"[ATSAccessibility] ProductionNavigator: Found {_availableRaces.Count} races with free workers");
-        }
-
-        private void InvalidateRaceCache()
-        {
-            _racesRefreshedForWorkerSection = false;
         }
 
         private int GetWorkerSubItemCount(int workerIndex)
@@ -1297,6 +1153,12 @@ namespace ATSAccessibility
 
         private int GetRainpunkItemCount()
         {
+            // If not unlocked, just show the unlock item
+            if (!_rainpunkUnlocked)
+            {
+                return 1;  // Unlock item only
+            }
+
             int count = 2;  // Water stored + Water use
             if (BuildingReflection.GetBlightProgress(_building) >= 0)
             {
@@ -1318,6 +1180,23 @@ namespace ATSAccessibility
 
         private void AnnounceRainpunkItem(int itemIndex)
         {
+            // If not unlocked, only item is the unlock option
+            if (!_rainpunkUnlocked)
+            {
+                var price = BuildingReflection.GetRainpunkUnlockPrice(_building);
+                if (price != null)
+                {
+                    bool canAfford = BuildingReflection.CanAffordRainpunkUnlock(_building);
+                    string affordText = canAfford ? "" : ", not enough resources";
+                    Speech.Say($"Locked, costs {price.Value.amount} {price.Value.displayName}{affordText}");
+                }
+                else
+                {
+                    Speech.Say("Locked");
+                }
+                return;
+            }
+
             int engineStartIndex = GetRainpunkEngineStartIndex();
 
             if (itemIndex == RAINPUNK_ITEM_WATER_STORED)
@@ -1357,6 +1236,12 @@ namespace ATSAccessibility
 
         private string GetRainpunkItemName(int itemIndex)
         {
+            // If not unlocked, only item is unlock
+            if (!_rainpunkUnlocked)
+            {
+                return itemIndex == 0 ? "Unlock" : null;
+            }
+
             int engineStartIndex = GetRainpunkEngineStartIndex();
 
             if (itemIndex == RAINPUNK_ITEM_WATER_STORED)
@@ -1718,8 +1603,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoItemName(itemIndex);
                 case SectionType.Workers:
                     return GetWorkerItemName(itemIndex);
                 case SectionType.Recipes:
@@ -1739,24 +1622,6 @@ namespace ATSAccessibility
                 default:
                     return null;
             }
-        }
-
-        private string GetInfoItemName(int itemIndex)
-        {
-            int index = 0;
-            if (itemIndex == index) return "Name";
-            index++;
-            if (!string.IsNullOrEmpty(_buildingDescription))
-            {
-                if (itemIndex == index) return "Description";
-                index++;
-            }
-            if (itemIndex == index) return "Status";
-            index++;
-            if (itemIndex == index) return "Workers";
-            index++;
-            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == index) return "Rainpunk";
-            return null;
         }
 
         private string GetWorkerItemName(int itemIndex)
@@ -1789,8 +1654,6 @@ namespace ATSAccessibility
 
             switch (_sectionTypes[sectionIndex])
             {
-                case SectionType.Info:
-                    return GetInfoSubItemName(itemIndex, subItemIndex);
                 case SectionType.Workers:
                     return GetWorkerSubItemName(itemIndex, subItemIndex);
                 case SectionType.Recipes:
@@ -1806,19 +1669,6 @@ namespace ATSAccessibility
                 default:
                     return null;
             }
-        }
-
-        private string GetInfoSubItemName(int itemIndex, int subItemIndex)
-        {
-            if (itemIndex == GetStatusItemIndex() && _canSleep && subItemIndex == 0)
-            {
-                return _isSleeping ? "Resume" : "Pause";
-            }
-            if (_hasRainpunk && !_rainpunkUnlocked && itemIndex == GetRainpunkUnlockItemIndex() && subItemIndex == 0)
-            {
-                return "Unlock";
-            }
-            return null;
         }
 
         private string GetWorkerSubItemName(int workerIndex, int subItemIndex)

@@ -193,13 +193,13 @@ namespace ATSAccessibility
                     return "Ready to pick";
 
                 case OrderStatus.Completable:
-                    return $"{name}, ready to deliver";
+                    return $"{name}, ready to deliver. {BuildRewardText(orderState, orderModel)}";
 
                 case OrderStatus.Active:
                     return BuildActiveLabel(name, orderState, orderModel);
 
                 case OrderStatus.Completed:
-                    return $"{name}, completed";
+                    return $"{name}, completed. {BuildRewardText(orderState, orderModel)}";
 
                 case OrderStatus.Failed:
                     return $"{name}, failed";
@@ -260,6 +260,15 @@ namespace ATSAccessibility
                 parts.Add(rewardText);
 
             return string.Join(". ", parts);
+        }
+
+        private string BuildRewardText(object orderState, object orderModel)
+        {
+            var rewards = OrdersReflection.GetRewardTexts(orderState);
+            string repReward = OrdersReflection.GetReputationRewardText(orderModel);
+            if (!string.IsNullOrEmpty(repReward))
+                rewards.Add(repReward);
+            return rewards.Count > 0 ? "Rewards: " + string.Join(", ", rewards) : "";
         }
 
         // ========================================
