@@ -23,6 +23,7 @@ namespace ATSAccessibility
         private static PropertyInfo _hostPointsProperty = null;          // ReactiveProperty<int>
         private static PropertyInfo _hostLevelProperty = null;           // ReactiveProperty<int>
         private static MethodInfo _hostGetSourceAmountMethod = null;     // GetSourceAmount(source)
+        private static MethodInfo _hostGetPointsLeftToNextLevelMethod = null; // GetPointsLeftToNextLevel()
         private static bool _hostTypesCached = false;
 
         // Cached reflection metadata for ResolveService
@@ -96,6 +97,7 @@ namespace ATSAccessibility
                 _hostPointsProperty = type.GetProperty("Points", BindingFlags.Public | BindingFlags.Instance);
                 _hostLevelProperty = type.GetProperty("Level", BindingFlags.Public | BindingFlags.Instance);
                 _hostGetSourceAmountMethod = type.GetMethod("GetSourceAmount", BindingFlags.Public | BindingFlags.Instance);
+                _hostGetPointsLeftToNextLevelMethod = type.GetMethod("GetPointsLeftToNextLevel", BindingFlags.Public | BindingFlags.Instance);
 
                 Debug.Log("[ATSAccessibility] Cached HostilityService types");
                 _hostTypesCached = true;
@@ -252,14 +254,23 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get hostility points and level.
+        /// Format a float to 2 decimal places, stripping trailing zeros.
+        /// E.g., 7.50 -> "7.5", 7.25 -> "7.25", 7.00 -> "7"
         /// </summary>
-        public static (int points, int level) GetHostilitySummary()
+        private static string FormatDecimal(float value)
+        {
+            return value.ToString("0.##");
+        }
+
+        /// <summary>
+        /// Get hostility points, level, and points to next level.
+        /// </summary>
+        public static (int points, int level, int pointsToNext) GetHostilitySummary()
         {
             EnsureHostilityTypes();
 
             var hostService = GameReflection.GetHostilityService();
-            if (hostService == null) return (0, 0);
+            if (hostService == null) return (0, 0, 0);
 
             try
             {
@@ -281,12 +292,20 @@ namespace ATSAccessibility
                     level = (int)(valueProp?.GetValue(levelProp) ?? 0);
                 }
 
-                return (points, level);
+                // Get points left to next level
+                int pointsToNext = 0;
+                if (_hostGetPointsLeftToNextLevelMethod != null)
+                {
+                    var result = _hostGetPointsLeftToNextLevelMethod.Invoke(hostService, null);
+                    pointsToNext = result is int p ? p : 0;
+                }
+
+                return (points, level, pointsToNext);
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] GetHostilitySummary failed: {ex.Message}");
-                return (0, 0);
+                return (0, 0, 0);
             }
         }
 
@@ -590,9 +609,9 @@ namespace ATSAccessibility
             var imp = GetImpatienceSummary();
             var host = GetHostilitySummary();
 
-            string message = $"Reputation {Mathf.FloorToInt(rep.current)} of {rep.target}, " +
-                           $"Impatience {Mathf.FloorToInt(imp.current)} of {imp.max}, " +
-                           $"Hostility level {host.level}";
+            string message = $"Reputation {FormatDecimal(rep.current)} of {rep.target}, " +
+                           $"Impatience {FormatDecimal(imp.current)} of {imp.max}, " +
+                           $"Hostility level {host.level}, {host.pointsToNext} points to next level";
 
             Speech.Say(message);
             Debug.Log($"[ATSAccessibility] Stats: {message}");

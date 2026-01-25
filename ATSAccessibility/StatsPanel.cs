@@ -38,23 +38,23 @@ namespace ATSAccessibility
         {
             _categories.Clear();
 
-            // Reputation
+            // Reputation - format to 2 decimals, strip trailing zeros
             var rep = StatsReader.GetReputationSummary();
             var repBreakdown = StatsReader.GetReputationBreakdown();
             _categories.Add(new Category
             {
                 Name = "Reputation",
-                Value = $"{Mathf.FloorToInt(rep.current)} of {rep.target}",
+                Value = $"{rep.current:0.##} of {rep.target}",
                 Details = repBreakdown
             });
 
-            // Queen's Impatience
+            // Queen's Impatience - format to 2 decimals, strip trailing zeros
             var imp = StatsReader.GetImpatienceSummary();
             // No detailed breakdown available for impatience
             _categories.Add(new Category
             {
                 Name = "Queen's Impatience",
-                Value = $"{Mathf.FloorToInt(imp.current)} of {imp.max}",
+                Value = $"{imp.current:0.##} of {imp.max}",
                 Details = new List<string>()
             });
 
@@ -64,7 +64,7 @@ namespace ATSAccessibility
             _categories.Add(new Category
             {
                 Name = "Hostility",
-                Value = $"{host.points} points, level {host.level}",
+                Value = $"{host.points} points, level {host.level}, {host.pointsToNext} to next",
                 Details = hostBreakdown
             });
 
