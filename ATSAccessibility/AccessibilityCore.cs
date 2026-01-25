@@ -152,6 +152,9 @@ namespace ATSAccessibility
         // Payments popup overlay for pending payments/obligations
         private PaymentsOverlay _paymentsOverlay;
 
+        // Game result popup overlay for victory/defeat screen
+        private GameResultOverlay _gameResultOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -293,6 +296,9 @@ namespace ATSAccessibility
             // Initialize payments overlay for pending payments/obligations
             _paymentsOverlay = new PaymentsOverlay();
 
+            // Initialize game result overlay for victory/defeat screen
+            _gameResultOverlay = new GameResultOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -331,6 +337,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_tradeRoutesOverlay); // Trade routes popup overlay
             _keyboardManager.RegisterHandler(_cycleEndOverlay);   // Cycle end popup overlay (world map)
             _keyboardManager.RegisterHandler(_paymentsOverlay);   // Payments popup overlay
+            _keyboardManager.RegisterHandler(_gameResultOverlay);  // Game result (victory/defeat) popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -1015,6 +1022,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check game result popup (victory/defeat) - it has its own overlay
+            if (GameResultReflection.IsGameResultPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Game result popup detected, using GameResult overlay");
+                _gameResultOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1177,6 +1193,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Payments popup closed");
                 _paymentsOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check game result popup (victory/defeat)
+            else if (GameResultReflection.IsGameResultPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Game result popup closed");
+                _gameResultOverlay?.Close();
                 // Fall through to handle context change
             }
             else
