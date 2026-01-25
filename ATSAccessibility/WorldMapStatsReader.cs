@@ -40,6 +40,7 @@ namespace ATSAccessibility
 
         // CycleState fields
         private static FieldInfo _cycleYear = null;
+        private static FieldInfo _cycleYearsInCycle = null;
         private static FieldInfo _cycleGamesPlayed = null;
         private static FieldInfo _cycleGamesWon = null;
         private static FieldInfo _cycleSealFragments = null;
@@ -154,6 +155,8 @@ namespace ATSAccessibility
                 if (cycleStateType != null)
                 {
                     _cycleYear = cycleStateType.GetField("year",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _cycleYearsInCycle = cycleStateType.GetField("yearsInCycle",
                         BindingFlags.Public | BindingFlags.Instance);
                     _cycleGamesPlayed = cycleStateType.GetField("gamesPlayedInCycle",
                         BindingFlags.Public | BindingFlags.Instance);
@@ -363,31 +366,32 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Get cycle/storm information.
-        /// Returns (year, gamesWon, gamesPlayed, sealFragments).
+        /// Returns (year, yearsInCycle, gamesWon, gamesPlayed, sealFragments).
         /// </summary>
-        public static (int year, int gamesWon, int gamesPlayed, int sealFragments) GetCycleInfo()
+        public static (int year, int yearsInCycle, int gamesWon, int gamesPlayed, int sealFragments) GetCycleInfo()
         {
             EnsureWorldStateTypes();
 
             try
             {
                 var worldStateService = WorldMapReflection.GetWorldStateService();
-                if (worldStateService == null) return (0, 0, 0, 0);
+                if (worldStateService == null) return (0, 0, 0, 0, 0);
 
                 var cycleState = _wssCycleProperty?.GetValue(worldStateService);
-                if (cycleState == null) return (0, 0, 0, 0);
+                if (cycleState == null) return (0, 0, 0, 0, 0);
 
                 var year = (int)(_cycleYear?.GetValue(cycleState) ?? 0);
+                var yearsInCycle = (int)(_cycleYearsInCycle?.GetValue(cycleState) ?? 0);
                 var gamesPlayed = (int)(_cycleGamesPlayed?.GetValue(cycleState) ?? 0);
                 var gamesWon = (int)(_cycleGamesWon?.GetValue(cycleState) ?? 0);
                 var sealFragments = (int)(_cycleSealFragments?.GetValue(cycleState) ?? 0);
 
-                return (year, gamesWon, gamesPlayed, sealFragments);
+                return (year, yearsInCycle, gamesWon, gamesPlayed, sealFragments);
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] GetCycleInfo failed: {ex.Message}");
-                return (0, 0, 0, 0);
+                return (0, 0, 0, 0, 0);
             }
         }
 
@@ -447,8 +451,48 @@ namespace ATSAccessibility
         /// </summary>
         public static void AnnounceCycleInfo()
         {
-            var (year, won, played, _) = GetCycleInfo();
-            Speech.Say($"Year {year}, {won} of {played} games won");
+            var (year, yearsInCycle, won, played, _) = GetCycleInfo();
+            int yearsLeft = yearsInCycle - year;
+
+            string cycleStatus;
+            if (yearsLeft <= 0)
+                cycleStatus = "Blightstorm approaching, press E to end cycle";
+            else
+                cycleStatus = $"{yearsLeft} years left in cycle";
+
+            Speech.Say($"Year {year}, {cycleStatus}, {won} of {played} games won");
+        }
+
+        /// <summary>
+        /// Check if the Blightstorm is approaching (cycle can be finished).
+        /// </summary>
+        public static bool IsBlightstormApproaching()
+        {
+            var (year, yearsInCycle, _, _, _) = GetCycleInfo();
+            return year > yearsInCycle - 1;
+        }
+
+        /// <summary>
+        /// Open the cycle end popup to trigger the Blightstorm.
+        /// </summary>
+        public static bool OpenCycleEndPopup()
+        {
+            if (!IsBlightstormApproaching())
+            {
+                Speech.Say("Cannot end cycle yet");
+                return false;
+            }
+
+            var wbb = WorldMapReflection.GetWorldBlackboardService();
+            if (wbb == null) return false;
+
+            if (GameReflection.InvokeSubjectOnNext(wbb, "CycleEndPopupRequested", null))
+            {
+                return true;
+            }
+
+            Speech.Say("Failed to open cycle end");
+            return false;
         }
     }
 }

@@ -146,6 +146,9 @@ namespace ATSAccessibility
         // Trade routes popup overlay for trade town navigation
         private TradeRoutesOverlay _tradeRoutesOverlay;
 
+        // Cycle end popup overlay for Blightstorm cycle completion
+        private CycleEndOverlay _cycleEndOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -281,6 +284,9 @@ namespace ATSAccessibility
             // Initialize trade routes overlay for trade town navigation
             _tradeRoutesOverlay = new TradeRoutesOverlay();
 
+            // Initialize cycle end overlay for Blightstorm cycle completion
+            _cycleEndOverlay = new CycleEndOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -317,6 +323,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_traderOverlay);        // Trader panel overlay
             _keyboardManager.RegisterHandler(_dialogueOverlay);      // NPC dialogue overlay
             _keyboardManager.RegisterHandler(_tradeRoutesOverlay); // Trade routes popup overlay
+            _keyboardManager.RegisterHandler(_cycleEndOverlay);   // Cycle end popup overlay (world map)
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -983,6 +990,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check cycle end popup (world map) - it has its own overlay
+            if (CycleEndOverlay.IsWorldCycleEndPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] World cycle end popup detected, using CycleEnd overlay");
+                _cycleEndOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1131,6 +1147,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Trade routes popup closed");
                 _tradeRoutesOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check cycle end popup (world map)
+            else if (CycleEndOverlay.IsWorldCycleEndPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] World cycle end popup closed");
+                _cycleEndOverlay?.Close();
                 // Fall through to handle context change
             }
             else

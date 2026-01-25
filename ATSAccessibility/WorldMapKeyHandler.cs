@@ -103,6 +103,9 @@ namespace ATSAccessibility
                 case KeyCode.T:
                     WorldMapStatsReader.AnnounceCycleInfo();
                     return true;
+                case KeyCode.E:
+                    WorldMapStatsReader.OpenCycleEndPopup();
+                    return true;
 
                 default:
                     // Consume all keys - mod has full keyboard control on world map
