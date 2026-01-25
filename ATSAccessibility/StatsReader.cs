@@ -17,6 +17,10 @@ namespace ATSAccessibility
         private static MethodInfo _repGetToWinMethod = null;             // GetReputationToWin()
         private static MethodInfo _repGetPenaltyToLooseMethod = null;    // GetReputationPenaltyToLoose()
         private static MethodInfo _repGetGainedFromMethod = null;        // GetReputationGainedFrom(source)
+        private static MethodInfo _repGetPenaltyPerSecMethod = null;     // GetReputationPenaltyPerSec()
+        private static MethodInfo _repGetBasePenaltyPerSecMethod = null; // GetBaseReputationPenaltyPerSec()
+        private static PropertyInfo _repStateProperty = null;            // State (GameObjectivesState)
+        private static FieldInfo _gracePeriodLeftField = null;           // gracePeriodLeft field
         private static bool _repTypesCached = false;
 
         // Cached reflection metadata for HostilityService
@@ -72,6 +76,17 @@ namespace ATSAccessibility
                 _repGetToWinMethod = type.GetMethod("GetReputationToWin", BindingFlags.Public | BindingFlags.Instance);
                 _repGetPenaltyToLooseMethod = type.GetMethod("GetReputationPenaltyToLoose", BindingFlags.Public | BindingFlags.Instance);
                 _repGetGainedFromMethod = type.GetMethod("GetReputationGainedFrom", BindingFlags.Public | BindingFlags.Instance);
+                _repGetPenaltyPerSecMethod = type.GetMethod("GetReputationPenaltyPerSec", BindingFlags.Public | BindingFlags.Instance);
+                _repGetBasePenaltyPerSecMethod = type.GetMethod("GetBaseReputationPenaltyPerSec", BindingFlags.Public | BindingFlags.Instance);
+                _repStateProperty = type.GetProperty("State", BindingFlags.Public | BindingFlags.Instance);
+
+                // Get gracePeriodLeft field from GameObjectivesState
+                var assembly = GameReflection.GameAssembly;
+                var stateType = assembly?.GetType("Eremite.Model.State.GameObjectivesState");
+                if (stateType != null)
+                {
+                    _gracePeriodLeftField = stateType.GetField("gracePeriodLeft", BindingFlags.Public | BindingFlags.Instance);
+                }
 
                 Debug.Log("[ATSAccessibility] Cached ReputationService types");
                 _repTypesCached = true;
@@ -414,6 +429,49 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get base resolve and resilience label for a race.
+        /// </summary>
+        public static (float baseResolve, string resilience) GetRaceBaseInfo(string raceName)
+        {
+            try
+            {
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return (0, null);
+
+                var getRaceMethod = settings.GetType().GetMethod("GetRace", GameReflection.PublicInstance);
+                if (getRaceMethod == null) return (0, null);
+
+                var raceModel = getRaceMethod.Invoke(settings, new object[] { raceName });
+                if (raceModel == null) return (0, null);
+
+                // Get initialResolve
+                var initialResolveField = raceModel.GetType().GetField("initialResolve", GameReflection.PublicInstance);
+                float baseResolve = 0;
+                if (initialResolveField != null)
+                {
+                    var val = initialResolveField.GetValue(raceModel);
+                    baseResolve = val is float f ? f : 0;
+                }
+
+                // Get resilienceLabel
+                var resilienceLabelField = raceModel.GetType().GetField("resilienceLabel", GameReflection.PublicInstance);
+                string resilience = null;
+                if (resilienceLabelField != null)
+                {
+                    var locaText = resilienceLabelField.GetValue(raceModel);
+                    resilience = GameReflection.GetLocaText(locaText);
+                }
+
+                return (baseResolve, resilience);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetRaceBaseInfo failed: {ex.Message}");
+                return (0, null);
+            }
+        }
+
+        /// <summary>
         /// Get reputation breakdown by source.
         /// Returns list of strings like "+2 from Orders".
         /// </summary>
@@ -446,6 +504,72 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] GetReputationBreakdown failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get impatience breakdown showing rate and grace period.
+        /// </summary>
+        public static List<string> GetImpatienceBreakdown()
+        {
+            EnsureReputationTypes();
+
+            var result = new List<string>();
+            var repService = GameReflection.GetReputationService();
+            if (repService == null) return result;
+
+            try
+            {
+                // Get current rate
+                float ratePerSec = 0f;
+                if (_repGetPenaltyPerSecMethod != null)
+                {
+                    var val = _repGetPenaltyPerSecMethod.Invoke(repService, null);
+                    ratePerSec = val is float f ? f : 0f;
+                }
+
+                // Get base rate
+                float baseRatePerSec = 0f;
+                if (_repGetBasePenaltyPerSecMethod != null)
+                {
+                    var val = _repGetBasePenaltyPerSecMethod.Invoke(repService, null);
+                    baseRatePerSec = val is float f ? f : 0f;
+                }
+
+                // Format rate per minute for readability
+                float ratePerMin = ratePerSec * 60f;
+                result.Add($"{ratePerMin:0.##} per minute");
+
+                // Show if rate is modified from base
+                if (Mathf.Abs(ratePerSec - baseRatePerSec) > 0.001f)
+                {
+                    float basePerMin = baseRatePerSec * 60f;
+                    float diff = ratePerMin - basePerMin;
+                    string prefix = diff > 0 ? "+" : "";
+                    result.Add($"{prefix}{diff:0.##} from effects");
+                }
+
+                // Get grace period
+                if (_repStateProperty != null && _gracePeriodLeftField != null)
+                {
+                    var state = _repStateProperty.GetValue(repService);
+                    if (state != null)
+                    {
+                        var graceVal = _gracePeriodLeftField.GetValue(state);
+                        float grace = graceVal is float g ? g : 0f;
+                        if (grace > 0)
+                        {
+                            int graceSec = Mathf.FloorToInt(grace);
+                            result.Add($"{graceSec} seconds grace period");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetImpatienceBreakdown failed: {ex.Message}");
             }
 
             return result;
@@ -530,6 +654,17 @@ namespace ATSAccessibility
 
             try
             {
+                // Add base resolve and resilience at the top
+                var raceInfo = GetRaceBaseInfo(race);
+                if (raceInfo.baseResolve > 0)
+                {
+                    result.Add($"Base resolve: {raceInfo.baseResolve}");
+                }
+                if (!string.IsNullOrEmpty(raceInfo.resilience))
+                {
+                    result.Add($"Resilience: {raceInfo.resilience}");
+                }
+
                 // Effects is Dictionary<string, Dictionary<ResolveEffectModel, int>>
                 var effectsDict = _resEffectsProperty?.GetValue(resService);
                 if (effectsDict == null) return result;
@@ -538,6 +673,9 @@ namespace ATSAccessibility
                 var indexer = effectsDict.GetType().GetProperty("Item");
                 var raceEffects = indexer?.GetValue(effectsDict, new object[] { race });
                 if (raceEffects == null) return result;
+
+                // Get total population for this race
+                int totalPopulation = GetRaceCount(race);
 
                 // Iterate through the effects
                 var enumerator = raceEffects.GetType().GetMethod("GetEnumerator")?.Invoke(raceEffects, null);
@@ -566,32 +704,45 @@ namespace ATSAccessibility
                             ?? nameProp?.GetValue(effectModel)?.ToString()
                             ?? "Unknown effect";
 
+                        // Get per-villager resolve value
+                        int perVillager = 0;
+                        var resProp = effectModel.GetType().GetProperty("resolve");
+                        var resField = effectModel.GetType().GetField("resolve", BindingFlags.Public | BindingFlags.Instance);
+                        if (resProp != null)
+                            perVillager = (int)(resProp.GetValue(effectModel) ?? 0);
+                        else if (resField != null)
+                            perVillager = (int)(resField.GetValue(effectModel) ?? 0);
+
                         // Get actual average impact from ResolveService
                         int actualImpact = 0;
                         try
                         {
+                            // Must specify parameter types due to method overloads
                             var getRoundedAvgMethod = resService.GetType().GetMethod("GetRoundedAverageResolveImpact",
-                                BindingFlags.Public | BindingFlags.Instance);
+                                BindingFlags.Public | BindingFlags.Instance,
+                                null,
+                                new Type[] { typeof(string), effectModel.GetType() },
+                                null);
                             if (getRoundedAvgMethod != null)
                             {
                                 actualImpact = (int)getRoundedAvgMethod.Invoke(resService, new object[] { race, effectModel });
+                            }
+                            else
+                            {
+                                Debug.LogWarning($"[ATSAccessibility] GetRoundedAverageResolveImpact method not found for {name}");
+                                actualImpact = perVillager;  // Fallback
                             }
                         }
                         catch (Exception avgEx)
                         {
                             Debug.LogWarning($"[ATSAccessibility] GetRoundedAverageResolveImpact failed for {name}: {avgEx.Message}");
-                            // Fallback to raw resolve value
-                            var resPropFallback = effectModel.GetType().GetProperty("resolve");
-                            var resFieldFallback = effectModel.GetType().GetField("resolve", BindingFlags.Public | BindingFlags.Instance);
-                            if (resPropFallback != null)
-                                actualImpact = (int)(resPropFallback.GetValue(effectModel) ?? 0);
-                            else if (resFieldFallback != null)
-                                actualImpact = (int)(resFieldFallback.GetValue(effectModel) ?? 0);
+                            actualImpact = perVillager;  // Fallback
                         }
 
-                        string prefix = actualImpact >= 0 ? "+" : "";
-                        string villagerWord = count == 1 ? "villager" : "villagers";
-                        result.Add($"{prefix}{actualImpact} from {name}, affecting {count} {villagerWord}");
+                        // Format: "Biscuits: +3 (+5 for 5/9 villagers)"
+                        string avgPrefix = actualImpact >= 0 ? "+" : "";
+                        string perPrefix = perVillager >= 0 ? "+" : "";
+                        result.Add($"{name}: {avgPrefix}{actualImpact} ({perPrefix}{perVillager} for {count}/{totalPopulation} villagers)");
                     }
                 }
 
@@ -620,9 +771,10 @@ namespace ATSAccessibility
             var imp = GetImpatienceSummary();
             var host = GetHostilitySummary();
 
+            int hostilityThreshold = host.points + host.pointsToNext;
             string message = $"Reputation {FormatDecimal(rep.current)} of {rep.target}, " +
                            $"Impatience {FormatDecimal(imp.current)} of {imp.max}, " +
-                           $"Hostility level {host.level}, {host.points} points";
+                           $"Hostility level {host.level}, {host.points}/{hostilityThreshold}";
 
             Speech.Say(message);
             Debug.Log($"[ATSAccessibility] Stats: {message}");

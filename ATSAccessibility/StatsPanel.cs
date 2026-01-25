@@ -50,12 +50,12 @@ namespace ATSAccessibility
 
             // Queen's Impatience - format to 2 decimals, strip trailing zeros
             var imp = StatsReader.GetImpatienceSummary();
-            // No detailed breakdown available for impatience
+            var impBreakdown = StatsReader.GetImpatienceBreakdown();
             _categories.Add(new Category
             {
                 Name = "Queen's Impatience",
                 Value = $"{imp.current:0.##} of {imp.max}",
-                Details = new List<string>()
+                Details = impBreakdown
             });
 
             // Hostility
@@ -68,7 +68,21 @@ namespace ATSAccessibility
                 Details = hostBreakdown
             });
 
-            // Note: Per-race Resolve has been moved to the Villagers panel (F1 -> Villagers)
+            // Per-species Resolve
+            var races = StatsReader.GetPresentRaces();
+            foreach (var raceName in races)
+            {
+                var (resolve, threshold, settling) = StatsReader.GetResolveSummary(raceName);
+                var resolveBreakdown = StatsReader.GetResolveBreakdown(raceName);
+                int population = StatsReader.GetRaceCount(raceName);
+
+                _categories.Add(new Category
+                {
+                    Name = $"{raceName} Resolve",
+                    Value = $"{Mathf.FloorToInt(resolve)} of {threshold}, settling to {settling}, {population} villagers",
+                    Details = resolveBreakdown
+                });
+            }
 
             Debug.Log($"[ATSAccessibility] Stats panel refreshed: {_categories.Count} categories");
         }
@@ -84,12 +98,6 @@ namespace ATSAccessibility
 
             var category = _categories[_currentCategoryIndex];
             string message = $"{category.Name}, {category.Value}";
-
-            // Add indicator if details are available
-            if (category.Details.Count > 0)
-            {
-                message += ". Right for details";
-            }
 
             Speech.Say(message);
             Debug.Log($"[ATSAccessibility] Category {_currentCategoryIndex + 1}/{_categories.Count}: {message}");
