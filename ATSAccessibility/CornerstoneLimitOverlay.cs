@@ -13,6 +13,7 @@ namespace ATSAccessibility
         {
             public object Model;       // EffectModel
             public string Label;       // "Name, Rarity"
+            public string SearchName;  // Name for type-ahead
         }
 
         // State
@@ -23,6 +24,7 @@ namespace ATSAccessibility
 
         // Navigation list
         private List<NavItem> _items = new List<NavItem>();
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // ========================================
         // IKeyHandler Implementation
@@ -33,6 +35,8 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -55,10 +59,29 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        Speech.Say("Search cleared");
+                        InputBlocker.BlockCancelOnce = true;
+                        return true;
+                    }
                     Cancel();
                     return true;
 
+                case KeyCode.Backspace:
+                    if (_search.HasBuffer)
+                        HandleBackspace();
+                    return true;
+
                 default:
+                    // Type-ahead search (A-Z)
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                        return true;
+                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -79,6 +102,7 @@ namespace ATSAccessibility
             _popup = popup;
             _currentIndex = 0;
             _selectedIndex = -1;
+            _search.Clear();
 
             RefreshData();
 
@@ -105,6 +129,7 @@ namespace ATSAccessibility
             _popup = null;
             _selectedIndex = -1;
             _items.Clear();
+            _search.Clear();
 
             Debug.Log("[ATSAccessibility] CornerstoneLimitOverlay closed");
         }
@@ -125,7 +150,8 @@ namespace ATSAccessibility
                     _items.Add(new NavItem
                     {
                         Model = option.Model,
-                        Label = $"{option.DisplayName}, {option.Rarity}"
+                        Label = $"{option.DisplayName}, {option.Rarity}",
+                        SearchName = option.DisplayName
                     });
                 }
             }
@@ -198,6 +224,65 @@ namespace ATSAccessibility
             Speech.Say("Cancelled");
             CornerstoneReflection.CancelLimitPopup(_popup);
             // Popup hides → OnPopupHidden → Close()
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        private void HandleSearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            int matchIndex = FindMatch();
+            if (matchIndex >= 0)
+            {
+                _currentIndex = matchIndex;
+                AnnounceCurrentItem();
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                return;
+            }
+
+            int matchIndex = FindMatch();
+            if (matchIndex >= 0)
+            {
+                _currentIndex = matchIndex;
+                AnnounceCurrentItem();
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private int FindMatch()
+        {
+            if (!_search.HasBuffer || _items.Count == 0) return -1;
+
+            string lowerPrefix = _search.Buffer.ToLowerInvariant();
+
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (string.IsNullOrEmpty(_items[i].SearchName)) continue;
+
+                if (_items[i].SearchName.ToLowerInvariant().StartsWith(lowerPrefix))
+                    return i;
+            }
+
+            return -1;
         }
     }
 }

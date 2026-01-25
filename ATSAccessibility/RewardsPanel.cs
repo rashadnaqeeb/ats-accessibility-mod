@@ -28,6 +28,7 @@ namespace ATSAccessibility
         private bool _isOpen;
         private List<RewardItem> _items = new List<RewardItem>();
         private int _currentIndex;
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         /// <summary>
         /// Whether the rewards panel is currently open.
@@ -55,6 +56,7 @@ namespace ATSAccessibility
 
             _isOpen = true;
             _currentIndex = 0;
+            _search.Clear();
 
             SoundManager.PlayPopupShow();
             AnnounceCurrentReward();
@@ -70,6 +72,7 @@ namespace ATSAccessibility
 
             _isOpen = false;
             _items.Clear();
+            _search.Clear();
             InputBlocker.BlockCancelOnce = true;
             Speech.Say("Closed");
             Debug.Log("[ATSAccessibility] Rewards panel closed");
@@ -82,6 +85,8 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -99,6 +104,17 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        Speech.Say("Search cleared");
+                        InputBlocker.BlockCancelOnce = true;
+                        return true;
+                    }
+                    SoundManager.PlayButtonClick();
+                    Close();
+                    return true;
+
                 case KeyCode.LeftArrow:
                     SoundManager.PlayButtonClick();
                     Close();
@@ -109,7 +125,19 @@ namespace ATSAccessibility
                     Close();
                     return true;
 
+                case KeyCode.Backspace:
+                    if (_search.HasBuffer)
+                        HandleBackspace();
+                    return true;
+
                 default:
+                    // Type-ahead search (A-Z)
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                        return true;
+                    }
                     // Consume all other keys while panel is open
                     return true;
             }
@@ -222,6 +250,65 @@ namespace ATSAccessibility
             if (_items.Count == 0 || _currentIndex >= _items.Count) return;
 
             Speech.Say(_items[_currentIndex].Label);
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        private static readonly string[] _searchNames = { "Blueprints", "Cornerstones", "Newcomers" };
+
+        private void HandleSearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            int matchIndex = FindMatch();
+            if (matchIndex >= 0)
+            {
+                _currentIndex = matchIndex;
+                AnnounceCurrentReward();
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                return;
+            }
+
+            int matchIndex = FindMatch();
+            if (matchIndex >= 0)
+            {
+                _currentIndex = matchIndex;
+                AnnounceCurrentReward();
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private int FindMatch()
+        {
+            if (!_search.HasBuffer || _items.Count == 0) return -1;
+
+            string lowerPrefix = _search.Buffer.ToLowerInvariant();
+
+            for (int i = 0; i < _items.Count && i < _searchNames.Length; i++)
+            {
+                if (_searchNames[i].ToLowerInvariant().StartsWith(lowerPrefix))
+                    return i;
+            }
+
+            return -1;
         }
     }
 }

@@ -239,6 +239,17 @@ namespace ATSAccessibility
             return category.Items[index].Name;
         }
 
+        /// <summary>
+        /// Get the searchable name for a category.
+        /// </summary>
+        protected override string GetCategoryName(int index)
+        {
+            if (index < 0 || index >= _categories.Count)
+                return null;
+
+            return _categories[index].Name;
+        }
+
         // ========================================
         // MYSTERY DATA LOADING
         // ========================================

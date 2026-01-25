@@ -28,6 +28,7 @@ namespace ATSAccessibility
         private bool _isOpen;
         private bool _isBlocked;
         private int _level;
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Level 0: Categories
         private List<CategoryData> _categories = new List<CategoryData>();
@@ -81,6 +82,7 @@ namespace ATSAccessibility
             _level = LEVEL_CATEGORIES;
             _categoryIndex = 0;
             _isBlocked = ConsumptionReflection.IsBlocked();
+            _search.Clear();
 
             RefreshCategories();
 
@@ -113,6 +115,7 @@ namespace ATSAccessibility
             _itemNames.Clear();
             _races.Clear();
             _raceNames.Clear();
+            _search.Clear();
         }
 
         // ========================================
@@ -121,6 +124,8 @@ namespace ATSAccessibility
 
         private bool ProcessCategoryKey(KeyCode keyCode)
         {
+            _search.ClearOnNavigationKey(keyCode);
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -140,10 +145,29 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        Speech.Say("Search cleared");
+                        InputBlocker.BlockCancelOnce = true;
+                        return true;
+                    }
                     // Pass to game to close popup
                     return false;
 
+                case KeyCode.Backspace:
+                    if (_search.HasBuffer)
+                        HandleCategoryBackspace();
+                    return true;
+
                 default:
+                    // Type-ahead search (A-Z)
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleCategorySearchKey(c);
+                        return true;
+                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -172,6 +196,7 @@ namespace ATSAccessibility
                 return;
             }
 
+            _search.Clear();
             _level = LEVEL_ITEMS;
             _itemIndex = 0;
             Speech.Say(GetItemAnnouncement(0));
@@ -237,6 +262,8 @@ namespace ATSAccessibility
 
         private bool ProcessItemKey(KeyCode keyCode)
         {
+            _search.ClearOnNavigationKey(keyCode);
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -253,6 +280,7 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.LeftArrow:
+                    _search.Clear();
                     CollapseToCategories();
                     return true;
 
@@ -261,10 +289,30 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        Speech.Say("Search cleared");
+                        InputBlocker.BlockCancelOnce = true;
+                        return true;
+                    }
+                    _search.Clear();
                     CollapseToCategories();
                     return true;
 
+                case KeyCode.Backspace:
+                    if (_search.HasBuffer)
+                        HandleItemBackspace();
+                    return true;
+
                 default:
+                    // Type-ahead search (A-Z)
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleItemSearchKey(c);
+                        return true;
+                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -290,6 +338,7 @@ namespace ATSAccessibility
                 return;
             }
 
+            _search.Clear();
             _level = LEVEL_RACES;
             _raceIndex = 0;
             Speech.Say(GetRaceAnnouncement(0));
@@ -364,6 +413,8 @@ namespace ATSAccessibility
 
         private bool ProcessRaceKey(KeyCode keyCode)
         {
+            _search.ClearOnNavigationKey(keyCode);
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -375,6 +426,7 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.LeftArrow:
+                    _search.Clear();
                     CollapseToItems();
                     return true;
 
@@ -383,10 +435,30 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        Speech.Say("Search cleared");
+                        InputBlocker.BlockCancelOnce = true;
+                        return true;
+                    }
+                    _search.Clear();
                     CollapseToItems();
                     return true;
 
+                case KeyCode.Backspace:
+                    if (_search.HasBuffer)
+                        HandleRaceBackspace();
+                    return true;
+
                 default:
+                    // Type-ahead search (A-Z)
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleRaceSearchKey(c);
+                        return true;
+                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -519,6 +591,183 @@ namespace ATSAccessibility
                 _races.Add(race);
                 _raceNames.Add(ConsumptionReflection.GetRaceName(race));
             }
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH - CATEGORIES
+        // ========================================
+
+        private void HandleCategorySearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            int matchIndex = FindCategoryMatch();
+            if (matchIndex >= 0)
+            {
+                _categoryIndex = matchIndex;
+                Speech.Say(GetCategoryAnnouncement(_categoryIndex));
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private void HandleCategoryBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                return;
+            }
+
+            int matchIndex = FindCategoryMatch();
+            if (matchIndex >= 0)
+            {
+                _categoryIndex = matchIndex;
+                Speech.Say(GetCategoryAnnouncement(_categoryIndex));
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private int FindCategoryMatch()
+        {
+            if (!_search.HasBuffer || _categories.Count == 0) return -1;
+
+            string lowerPrefix = _search.Buffer.ToLowerInvariant();
+
+            for (int i = 0; i < _categories.Count; i++)
+            {
+                if (string.IsNullOrEmpty(_categories[i].Name)) continue;
+
+                if (_categories[i].Name.ToLowerInvariant().StartsWith(lowerPrefix))
+                    return i;
+            }
+
+            return -1;
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH - ITEMS
+        // ========================================
+
+        private void HandleItemSearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            int matchIndex = FindItemMatch();
+            if (matchIndex >= 0)
+            {
+                _itemIndex = matchIndex;
+                Speech.Say(GetItemAnnouncement(_itemIndex));
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private void HandleItemBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                return;
+            }
+
+            int matchIndex = FindItemMatch();
+            if (matchIndex >= 0)
+            {
+                _itemIndex = matchIndex;
+                Speech.Say(GetItemAnnouncement(_itemIndex));
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private int FindItemMatch()
+        {
+            if (!_search.HasBuffer || _itemNames.Count == 0) return -1;
+
+            string lowerPrefix = _search.Buffer.ToLowerInvariant();
+
+            for (int i = 0; i < _itemNames.Count; i++)
+            {
+                if (string.IsNullOrEmpty(_itemNames[i])) continue;
+
+                if (_itemNames[i].ToLowerInvariant().StartsWith(lowerPrefix))
+                    return i;
+            }
+
+            return -1;
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH - RACES
+        // ========================================
+
+        private void HandleRaceSearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            int matchIndex = FindRaceMatch();
+            if (matchIndex >= 0)
+            {
+                _raceIndex = matchIndex;
+                Speech.Say(GetRaceAnnouncement(_raceIndex));
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private void HandleRaceBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                return;
+            }
+
+            int matchIndex = FindRaceMatch();
+            if (matchIndex >= 0)
+            {
+                _raceIndex = matchIndex;
+                Speech.Say(GetRaceAnnouncement(_raceIndex));
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private int FindRaceMatch()
+        {
+            if (!_search.HasBuffer || _raceNames.Count == 0) return -1;
+
+            string lowerPrefix = _search.Buffer.ToLowerInvariant();
+
+            for (int i = 0; i < _raceNames.Count; i++)
+            {
+                if (string.IsNullOrEmpty(_raceNames[i])) continue;
+
+                if (_raceNames[i].ToLowerInvariant().StartsWith(lowerPrefix))
+                    return i;
+            }
+
+            return -1;
         }
     }
 }

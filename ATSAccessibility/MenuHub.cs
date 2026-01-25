@@ -21,6 +21,7 @@ namespace ATSAccessibility
 
         private bool _isOpen;
         private int _currentIndex;
+        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         /// <summary>
         /// Whether the menu hub is currently open.
@@ -46,6 +47,7 @@ namespace ATSAccessibility
 
             _isOpen = true;
             _currentIndex = 0;
+            _search.Clear();
 
             SoundManager.PlayPopupShow();
             AnnounceCurrentItem(withPrefix: true);
@@ -60,6 +62,7 @@ namespace ATSAccessibility
             if (!_isOpen) return;
 
             _isOpen = false;
+            _search.Clear();
             InputBlocker.BlockCancelOnce = true;
             Speech.Say("Closed");
             Debug.Log("[ATSAccessibility] Menu Hub closed");
@@ -72,6 +75,8 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
+
+            _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)
             {
@@ -89,6 +94,13 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
+                    if (_search.HasBuffer)
+                    {
+                        _search.Clear();
+                        Speech.Say("Search cleared");
+                        InputBlocker.BlockCancelOnce = true;
+                        return true;
+                    }
                     SoundManager.PlayButtonClick();
                     Close();
                     return true;
@@ -98,7 +110,19 @@ namespace ATSAccessibility
                     Close();
                     return true;
 
+                case KeyCode.Backspace:
+                    if (_search.HasBuffer)
+                        HandleBackspace();
+                    return true;
+
                 default:
+                    // Type-ahead search (A-Z)
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                    {
+                        char c = (char)('a' + (keyCode - KeyCode.A));
+                        HandleSearchKey(c);
+                        return true;
+                    }
                     return true; // Consume other keys while menu is open
             }
         }
@@ -173,6 +197,63 @@ namespace ATSAccessibility
             string label = _menuLabels[_currentIndex];
             string message = withPrefix ? $"Menu Hub. {label}" : label;
             Speech.Say(message);
+        }
+
+        // ========================================
+        // TYPE-AHEAD SEARCH
+        // ========================================
+
+        private void HandleSearchKey(char c)
+        {
+            _search.AddChar(c);
+
+            int matchIndex = FindMatch();
+            if (matchIndex >= 0)
+            {
+                _currentIndex = matchIndex;
+                AnnounceCurrentItem(withPrefix: false);
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private void HandleBackspace()
+        {
+            if (!_search.RemoveChar()) return;
+
+            if (!_search.HasBuffer)
+            {
+                Speech.Say("Search cleared");
+                return;
+            }
+
+            int matchIndex = FindMatch();
+            if (matchIndex >= 0)
+            {
+                _currentIndex = matchIndex;
+                AnnounceCurrentItem(withPrefix: false);
+            }
+            else
+            {
+                Speech.Say($"No match for {_search.Buffer}");
+            }
+        }
+
+        private int FindMatch()
+        {
+            if (!_search.HasBuffer) return -1;
+
+            string lowerPrefix = _search.Buffer.ToLowerInvariant();
+
+            for (int i = 0; i < _menuLabels.Length; i++)
+            {
+                if (_menuLabels[i].ToLowerInvariant().StartsWith(lowerPrefix))
+                    return i;
+            }
+
+            return -1;
         }
     }
 }
