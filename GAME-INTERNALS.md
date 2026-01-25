@@ -1433,3 +1433,345 @@ IsUnlocked()        // bool - entry has been discovered
 | Wiki popup | `Eremite.View.UI.Wiki.WikiPopup` |
 | Category button | `Eremite.View.UI.Wiki.WikiCategoryButton` |
 | Wiki slot | `Eremite.View.UI.Wiki.WikiSlot` |
+
+---
+
+## Trade System
+
+### ITradeService
+
+```csharp
+IsMainTraderInTheVillage()       // bool - trader currently present
+GetCurrentMainVisit()            // TraderVisitState - current or incoming visit
+GetCurrentMainTrader()           // TraderModel - current trader info
+GetNextMainTrader()              // TraderModel - next scheduled trader
+GetTimeLeftTo(TraderVisitState)  // float - time until arrival
+GetStayingTimeLeft()             // float - time until departure
+CanForceArrival()                // bool
+GetForceArrivalPrice()           // GoodRef - cost to summon trader
+ForceArrival()                   // Summon trader early
+IsTradingBlocked()               // bool - storm or other block
+GetValueInCurrency(good, amount) // float - sell value in amber
+GetBuyValueInCurrency(good, amount) // float - buy value in amber
+CompleteTrade(good, amount)      // Execute sell
+CompleteTradeEffect(effectState) // Purchase perk
+AssaultTrader()                  // Assault action
+```
+
+### TraderVisitState
+
+```csharp
+goods               // TraderGood[] - goods for trade
+offeredEffects      // TraderEffectState[] - perks for sale
+travelProgress      // float - arrival progress (0-1)
+forced              // bool - trader was summoned early
+```
+
+### TraderModel
+
+```csharp
+displayName         // LocaText
+description         // LocaText
+dialogue            // LocaText - trader greeting
+wantedGoods         // GoodModel[] - goods trader buys at premium
+icon                // Sprite
+```
+
+### TraderEffectState (Perk)
+
+```csharp
+effect              // string - effect model name
+sold                // bool - already purchased
+discounted          // bool - has discount
+discountRatio       // float - price multiplier (e.g., 0.8)
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Trade service | `Eremite.Services.ITradeService` |
+| Visit state | `Eremite.Model.Trade.TraderVisitState` |
+| Trader model | `Eremite.Model.Trade.TraderModel` |
+| Effect state | `Eremite.Model.Trade.TraderEffectState` |
+| Trader popup | `Eremite.View.HUD.TraderPopup` |
+
+---
+
+## Black Market System
+
+### Overview
+
+The Black Market is a special building that offers goods for purchase with amber. Offers can be bought outright or on credit (with payment due in future seasons).
+
+### BlackMarket (Building)
+
+```csharp
+state               // BlackMarketState
+model               // BlackMarketModel
+Buy(offer)          // Purchase offer outright
+BuyOnCredit(offer)  // Purchase with deferred payment
+Reroll()            // Refresh available offers
+IsRerollOnCooldown() // bool
+GetTimeLeftFor(offer) // float - time until offer expires
+```
+
+### BlackMarketState
+
+```csharp
+offers              // BlackMarketOfferState[] - current offers
+lastReroll          // float - game time of last reroll
+amberSpent          // int - total amber spent
+```
+
+### BlackMarketOfferState
+
+```csharp
+good                // Good - item and amount
+buyPrice            // int - amber cost for buy
+creditPrice         // int - amber cost for credit
+buyRating           // DealRating - good/regular/bad
+creditRating        // DealRating
+bought              // bool - already purchased
+paymentModel        // PaymentEffectModel - credit terms
+endTime             // float - offer expiration
+```
+
+### BlackMarketModel
+
+```csharp
+rerollPrice         // GoodRef - cost to reroll
+rerollCooldown      // float - time between rerolls
+```
+
+### DealRating Enum
+
+```csharp
+Good                // Better than average price
+Regular             // Normal price
+Bad                 // Worse than average price
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Black market building | `Eremite.Buildings.BlackMarket` |
+| State | `Eremite.Model.State.BlackMarketState` |
+| Offer state | `Eremite.Model.State.BlackMarketOfferState` |
+| Model | `Eremite.Buildings.BlackMarketModel` |
+| Popup | `Eremite.View.HUD.BlackMarketPopup` |
+
+---
+
+## Altar System (Forsaken Altar)
+
+### Overview
+
+The Forsaken Altar allows sacrificing resources/villagers in exchange for upgraded cornerstones. Players configure what to sacrifice, then choose from available effects.
+
+### IAltarService
+
+```csharp
+HasActivePick()              // bool - altar pick is available
+AreVillagersAllowed()        // bool - villagers included in sacrifice
+SwitchVillagersAllowed()     // Toggle villager sacrifice
+SumAllowedMetaValue()        // int - total meta value of enabled items
+SumAllowedRaces()            // int - count of enabled races
+IsAllowedRace(string)        // bool - race enabled for sacrifice
+IsAllowedCurrency(string)    // bool - currency enabled
+SwitchRace(string)           // Toggle race
+SwitchCurrency(string)       // Toggle currency
+GetFullMetaPriceFor(effect)  // int - total cost
+GetVillagersPriceFor(effect) // int - villagers required
+CanBuy(effect)               // bool - can afford
+IsUpgrade(effect)            // bool - upgrading existing cornerstone
+Pick(effect)                 // Execute selection
+```
+
+### AltarChargesState
+
+```csharp
+lastPickedCharge    // int - index of last used charge
+currentPick         // AltarPickState - current pick options
+```
+
+### AltarPickState
+
+```csharp
+options             // AltarEffectModel[] - available effects
+```
+
+### AltarEffectModel
+
+```csharp
+effect              // EffectModel - the cornerstone effect
+metaPrice           // int - meta currency cost
+villagersPrice      // int - villagers required
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Altar service | `Eremite.Services.IAltarService` |
+| Charges state | `Eremite.Model.State.AltarChargesState` |
+| Pick state | `Eremite.Model.State.AltarPickState` |
+| Effect model | `Eremite.Model.AltarEffectModel` |
+| Panel | `Eremite.View.HUD.AltarPanel` |
+
+---
+
+## Game Result System
+
+### Overview
+
+Handles victory/defeat screen display, progression data, score breakdown, and world event completion info.
+
+### State Access
+
+```csharp
+// Win/Loss detection
+StateService.GameObjectives.hasWon   // bool
+StateService.GameObjectives.hasLost  // bool
+
+// Sealed biome check
+GameSealService.IsSealedBiome()      // bool - playing sealed biome
+
+// Tutorial check
+TutorialService.IsAnyTutorial        // bool
+```
+
+### Score Calculation
+
+```csharp
+ScoreCalculator.GetScore()           // ScoreData[] - breakdown of score components
+```
+
+### ScoreData
+
+```csharp
+label               // string - category name (e.g., "Reputation", "Population")
+points              // int - points earned
+amount              // int - raw value (e.g., rep earned, villagers)
+```
+
+### Progression Data
+
+```csharp
+// MetaStateService.Economy
+currentCycleExp     // int - XP earned this game
+
+// MetaStateService.Level
+level               // int - current citadel level
+exp                 // int - current XP
+targetExp           // int - XP needed for next level
+```
+
+### World Event Goals
+
+```csharp
+// WorldStateService.Cycle
+activeCycleGoals    // GoalState[] - world event objectives
+
+// GoalState
+model               // string - goal model name
+completed           // bool
+GetObjectivesBreakdown() // string - progress text
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| State service | `Eremite.Services.IStateService` |
+| Game seal service | `Eremite.Services.IGameSealService` |
+| Score calculator | `Eremite.Services.ScoreCalculator` |
+| Meta state service | `Eremite.Services.IMetaStateService` |
+| World state service | `Eremite.Services.IWorldStateService` |
+| Game result popup | `Eremite.View.Popups.GameResultPopup` |
+
+---
+
+## PerkCrafter System (Cornerstone Forge)
+
+### Overview
+
+The Cornerstone Forge allows crafting custom cornerstones by combining hooks (triggers), positive effects, and optionally negative effects. Each forge provides 3 crafting charges.
+
+### PerkCrafter (Building)
+
+```csharp
+state               // PerkCrafterState
+model               // PerkCrafterModel
+HasUsedAllCharges() // bool - all 3 crafts done
+GetUsesLeft()       // int - remaining crafts
+IsNegativePicked()  // bool - negative effect selected
+ChangeHook(tierState)       // Select hook
+ChangePositive(tierState)   // Select positive effect
+ChangeNegative(tierState)   // Select negative effect
+CreateCurrentPerk()         // Execute craft
+ChangeName(name, isLocalized) // Set result name
+GetResultDisplayName()      // string - current result name
+```
+
+### PerkCrafterState
+
+```csharp
+crafting            // PerkCraftingState - current session
+craftedPerks        // int - number completed
+results             // List<string> - effect names of crafted perks
+```
+
+### PerkCraftingState
+
+```csharp
+hooks               // TierState[] - available hook options
+positiveEffects     // TierState[] - available positive options
+negativeEffects     // TierState[] - available negative options
+pickedHook          // int - selected hook index
+pickedPositive      // int - selected positive index
+pickedNegative      // int - selected negative index (-1 = none)
+resultName          // string - custom name
+```
+
+### PerkCrafterModel
+
+```csharp
+charges             // int - total crafts allowed (3)
+price               // GoodRef - cost per craft
+effectsElements     // CraftedEffectElementsContainer - hook/effect pools
+```
+
+### CraftedEffectElementsContainer
+
+```csharp
+hooksSets           // HookLogic[][] - hook pools by tier
+effectsSets         // EffectModel[][] - effect pools by tier
+displayNames        // LocaText[] - random name options
+GetHook(tierState)  // HookLogic
+GetEffect(tierState) // EffectModel
+```
+
+### TierState
+
+Represents a selection in the crafting system (combines tier index and item index).
+
+### HookLogic
+
+```csharp
+Description         // string - trigger description (e.g., "During Storm")
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Perk crafter building | `Eremite.Buildings.PerkCrafter` |
+| State | `Eremite.Buildings.PerkCrafterState` |
+| Crafting state | `Eremite.Buildings.PerkCraftingState` |
+| Model | `Eremite.Buildings.PerkCrafterModel` |
+| Elements container | `Eremite.Model.Effects.CraftedEffectElementsContainer` |
+| Tier state | `Eremite.Model.Effects.TierState` |
+| Hook logic | `Eremite.Model.Effects.HookLogic` |
+| Popup | `Eremite.Buildings.UI.PerkCrafters.PerkCrafterPopup` |

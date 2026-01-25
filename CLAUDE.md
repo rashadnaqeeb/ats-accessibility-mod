@@ -19,13 +19,15 @@ Use `cp` with forward slashes and `/c/` prefix. Do NOT use Windows `copy`.
 
 ## Code Organization
 
-**Reflection** (game API access): `GameReflection.cs`, `WorldMapReflection.cs`, `EmbarkReflection.cs`, `BuildingReflection.cs`, `OrdersReflection.cs`, `RecipesReflection.cs`, `RewardsReflection.cs`, `ReputationRewardReflection.cs`, `CornerstoneReflection.cs`, `NewcomersReflection.cs`, `WildcardReflection.cs`, `WikiReflection.cs`
+**Reflection** (game API access): `GameReflection.cs`, `WorldMapReflection.cs`, `EmbarkReflection.cs`, `BuildingReflection.cs`, `OrdersReflection.cs`, `RecipesReflection.cs`, `RewardsReflection.cs`, `ReputationRewardReflection.cs`, `CornerstoneReflection.cs`, `NewcomersReflection.cs`, `WildcardReflection.cs`, `WikiReflection.cs`, `TradeReflection.cs`, `TradeRoutesReflection.cs`, `BlackMarketReflection.cs`, `AltarReflection.cs`, `PerkCrafterReflection.cs`, `CapitalReflection.cs`, `CapitalUpgradeReflection.cs`, `GameResultReflection.cs`, `DeedsReflection.cs`, `ConsumptionReflection.cs`, `PaymentsReflection.cs`, `NarrationReflection.cs`
 
 **Key handlers**: `KeyboardManager.cs` - priority chain, first active handler wins. Register in `AccessibilityCore.Start()`.
 
 **Base classes**: `TwoLevelPanel` (F1 menu panels), `BuildingSectionNavigator` (building panels)
 
-**Overlays** (popup navigation): `OrdersOverlay.cs`, `OrderPickOverlay.cs`, `RecipesOverlay.cs`, `CornerstoneOverlay.cs`, `CornerstoneLimitOverlay.cs`, `ReputationRewardOverlay.cs`, `WildcardOverlay.cs`, `NewcomersOverlay.cs`
+**Overlays** (popup navigation): `OrdersOverlay.cs`, `OrderPickOverlay.cs`, `RecipesOverlay.cs`, `CornerstoneOverlay.cs`, `CornerstoneLimitOverlay.cs`, `ReputationRewardOverlay.cs`, `WildcardOverlay.cs`, `NewcomersOverlay.cs`, `TraderOverlay.cs`, `TradeRoutesOverlay.cs`, `BlackMarketOverlay.cs`, `AltarOverlay.cs`, `PerkCrafterOverlay.cs`, `CapitalOverlay.cs`, `CapitalUpgradeOverlay.cs`, `GameResultOverlay.cs`, `DeedsOverlay.cs`, `ConsumptionOverlay.cs`, `PaymentsOverlay.cs`, `DialogueOverlay.cs`, `CycleEndOverlay.cs`, `RewardsPackOverlay.cs`, `AssaultResultOverlay.cs`
+
+**Tile Info**: `TileInfoReader.cs` - detailed info for I key on buildings, natural resources, deposits
 
 **Events**: `EventAnnouncer.cs` - game event subscriptions with grace period and deduplication
 
