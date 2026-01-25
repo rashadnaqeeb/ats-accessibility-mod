@@ -64,7 +64,7 @@ namespace ATSAccessibility
             _categories.Add(new Category
             {
                 Name = "Hostility",
-                Value = $"{host.points} points, level {host.level}, {host.pointsToNext} to next",
+                Value = $"{host.points} points, level {host.level}",
                 Details = hostBreakdown
             });
 
@@ -86,11 +86,9 @@ namespace ATSAccessibility
             string message = $"{category.Name}, {category.Value}";
 
             // Add indicator if details are available
-            int detailCount = category.Details.Count;
-            if (detailCount > 0)
+            if (category.Details.Count > 0)
             {
-                string detailWord = detailCount == 1 ? "detail" : "details";
-                message += $". {detailCount} {detailWord}";
+                message += ". Right for details";
             }
 
             Speech.Say(message);

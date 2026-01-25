@@ -23,6 +23,7 @@ namespace ATSAccessibility
         private static PropertyInfo _hostPointsProperty = null;          // ReactiveProperty<int>
         private static PropertyInfo _hostLevelProperty = null;           // ReactiveProperty<int>
         private static MethodInfo _hostGetSourceAmountMethod = null;     // GetSourceAmount(source)
+        private static MethodInfo _hostGetPointsForMethod = null;        // GetPointsFor(source)
         private static MethodInfo _hostGetPointsLeftToNextLevelMethod = null; // GetPointsLeftToNextLevel()
         private static bool _hostTypesCached = false;
 
@@ -97,6 +98,7 @@ namespace ATSAccessibility
                 _hostPointsProperty = type.GetProperty("Points", BindingFlags.Public | BindingFlags.Instance);
                 _hostLevelProperty = type.GetProperty("Level", BindingFlags.Public | BindingFlags.Instance);
                 _hostGetSourceAmountMethod = type.GetMethod("GetSourceAmount", BindingFlags.Public | BindingFlags.Instance);
+                _hostGetPointsForMethod = type.GetMethod("GetPointsFor", BindingFlags.Public | BindingFlags.Instance);
                 _hostGetPointsLeftToNextLevelMethod = type.GetMethod("GetPointsLeftToNextLevel", BindingFlags.Public | BindingFlags.Instance);
 
                 Debug.Log("[ATSAccessibility] Cached HostilityService types");
@@ -482,19 +484,28 @@ namespace ATSAccessibility
                     (70, "Woodcutters"),
                     (80, "Burning Hearths"),
                     (90, "Reputation Penalty"),
-                    (100, "Resources Removed")
+                    (100, "Resources Removed"),
+                    (1000, "Effects (negative)"),
+                    (1001, "Effects (positive)")
                 };
 
                 foreach (var (value, name) in sources)
                 {
-                    var enumValue = Enum.ToObject(_hostilitySourceType, value);
-                    _singleArgArray[0] = enumValue;
-                    int amount = (int)(_hostGetSourceAmountMethod?.Invoke(hostService, _singleArgArray) ?? 0);
-
-                    if (amount != 0)
+                    try
                     {
-                        string prefix = amount > 0 ? "+" : "";
-                        result.Add($"{prefix}{amount} from {name}");
+                        var enumValue = Enum.ToObject(_hostilitySourceType, value);
+                        _singleArgArray[0] = enumValue;
+                        int points = (int)(_hostGetPointsForMethod?.Invoke(hostService, _singleArgArray) ?? 0);
+
+                        if (points != 0)
+                        {
+                            string prefix = points > 0 ? "+" : "";
+                            result.Add($"{prefix}{points} from {name}");
+                        }
+                    }
+                    catch
+                    {
+                        // Source not configured for this biome, skip it
                     }
                 }
             }
@@ -611,7 +622,7 @@ namespace ATSAccessibility
 
             string message = $"Reputation {FormatDecimal(rep.current)} of {rep.target}, " +
                            $"Impatience {FormatDecimal(imp.current)} of {imp.max}, " +
-                           $"Hostility level {host.level}, {host.pointsToNext} points to next level";
+                           $"Hostility level {host.level}, {host.points} points";
 
             Speech.Say(message);
             Debug.Log($"[ATSAccessibility] Stats: {message}");
