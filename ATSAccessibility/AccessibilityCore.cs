@@ -1070,7 +1070,9 @@ namespace ATSAccessibility
             // Check game result popup (victory/defeat) - it has its own overlay
             if (GameResultReflection.IsGameResultPopup(popup))
             {
-                Debug.Log("[ATSAccessibility] Game result popup detected, using GameResult overlay");
+                // Close any active overlays that might block the game result screen
+                _ordersOverlay?.Close();
+
                 _gameResultOverlay?.Open(popup);
                 _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
                 return;
