@@ -410,9 +410,7 @@ namespace ATSAccessibility
 
         private static string GetMetaCurrencyDisplayName(string currencyName)
         {
-            // This is a simplified approach - just use the name as-is
-            // In a full implementation we'd look up the MetaCurrencyModel
-            return currencyName;
+            return GameReflection.GetMetaCurrencyDisplayName(currencyName);
         }
 
         /// <summary>

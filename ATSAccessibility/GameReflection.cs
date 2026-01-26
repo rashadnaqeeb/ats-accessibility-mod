@@ -4692,6 +4692,79 @@ namespace ATSAccessibility
             }
         }
 
+        // Cache for Settings.GetMetaCurrency method
+        private static MethodInfo _settingsGetMetaCurrencyMethodCached = null;
+        private static PropertyInfo _metaCurrencyModelDisplayNameProperty = null;
+        private static bool _settingsGetMetaCurrencyCached = false;
+
+        private static void EnsureSettingsGetMetaCurrency()
+        {
+            if (_settingsGetMetaCurrencyCached) return;
+
+            try
+            {
+                var assembly = GameAssembly;
+                if (assembly == null)
+                {
+                    _settingsGetMetaCurrencyCached = true;
+                    return;
+                }
+
+                var settingsType = assembly.GetType("Eremite.Model.Settings");
+                if (settingsType != null)
+                {
+                    _settingsGetMetaCurrencyMethodCached = settingsType.GetMethod("GetMetaCurrency",
+                        new[] { typeof(string) });
+                }
+
+                var metaCurrencyModelType = assembly.GetType("Eremite.Model.MetaCurrencyModel");
+                if (metaCurrencyModelType != null)
+                {
+                    _metaCurrencyModelDisplayNameProperty = metaCurrencyModelType.GetProperty("DisplayName",
+                        PublicInstance);
+                }
+            }
+            catch
+            {
+                // Ignore
+            }
+
+            _settingsGetMetaCurrencyCached = true;
+        }
+
+        /// <summary>
+        /// Get the display name for a meta currency by its internal name.
+        /// Meta currencies include Food Stockpiles, Machinery Parts, Artifacts, etc.
+        /// </summary>
+        public static string GetMetaCurrencyDisplayName(string currencyName)
+        {
+            if (string.IsNullOrEmpty(currencyName)) return "Unknown";
+
+            EnsureSettingsGetMetaCurrency();
+
+            try
+            {
+                var settings = GetSettings();
+                if (settings == null || _settingsGetMetaCurrencyMethodCached == null) return currencyName;
+
+                var currencyModel = _settingsGetMetaCurrencyMethodCached.Invoke(settings, new object[] { currencyName });
+                if (currencyModel == null) return currencyName;
+
+                // MetaCurrencyModel.DisplayName returns the localized string directly (not LocaText)
+                if (_metaCurrencyModelDisplayNameProperty != null)
+                {
+                    var displayName = _metaCurrencyModelDisplayNameProperty.GetValue(currencyModel)?.ToString();
+                    return !string.IsNullOrEmpty(displayName) ? displayName : currencyName;
+                }
+
+                return currencyName;
+            }
+            catch
+            {
+                return currencyName;
+            }
+        }
+
         // ========================================
         // MODIFIERS PANEL (Effects, Cornerstones, Perks)
         // ========================================
