@@ -3551,6 +3551,7 @@ namespace ATSAccessibility
         /// <summary>
         /// Get list of race names that have free workers available.
         /// Returns tuples of (raceName, freeCount).
+        /// Only includes races that are actually present in the settlement (population > 0).
         /// </summary>
         /// <param name="includeZeroFree">If true, include races with 0 free workers.</param>
         public static List<(string raceName, int freeCount)> GetRacesWithFreeWorkers(bool includeZeroFree = false)
@@ -3564,7 +3565,7 @@ namespace ATSAccessibility
                 var villagersService = GetVillagersService();
                 if (villagersService == null) return result;
 
-                // Get the Races dictionary
+                // Get the Races dictionary: Dictionary<string, List<Villager>>
                 var racesDict = _villagersServiceRacesProperty?.GetValue(villagersService);
                 if (racesDict == null) return result;
 
@@ -3572,10 +3573,21 @@ namespace ATSAccessibility
                 var keys = racesDict.GetType().GetProperty("Keys")?.GetValue(racesDict) as System.Collections.IEnumerable;
                 if (keys == null) return result;
 
+                var indexer = racesDict.GetType().GetProperty("Item");
+
                 foreach (var raceKey in keys)
                 {
                     string raceName = raceKey as string;
                     if (string.IsNullOrEmpty(raceName)) continue;
+
+                    // Check if race has any villagers (is actually present in settlement)
+                    var villagerList = indexer?.GetValue(racesDict, new object[] { raceKey });
+                    if (villagerList != null)
+                    {
+                        var countProp = villagerList.GetType().GetProperty("Count");
+                        int population = (int)(countProp?.GetValue(villagerList) ?? 0);
+                        if (population == 0) continue;  // Skip races with no villagers
+                    }
 
                     int freeCount = GetFreeWorkerCount(raceName);
                     if (includeZeroFree || freeCount > 0)
