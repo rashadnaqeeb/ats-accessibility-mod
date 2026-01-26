@@ -177,6 +177,9 @@ namespace ATSAccessibility
         private IDisposable _capitalClosedSubscription;
         private bool _subscribedToCapital = false;
 
+        // World tutorials overlay for tutorial selection on world map
+        private WorldTutorialsOverlay _worldTutorialsOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -333,10 +336,14 @@ namespace ATSAccessibility
             // Initialize tutorial tooltip handler
             _tutorialTooltipHandler = new TutorialTooltipHandler();
 
+            // Initialize world tutorials overlay for world map tutorial selection
+            _worldTutorialsOverlay = new WorldTutorialsOverlay();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog, harvestMarkHandler);
             var worldMapHandler = new WorldMapKeyHandler(_worldMapNavigator, _worldMapScanner);
+            worldMapHandler.SetTutorialsOverlay(_worldTutorialsOverlay);
 
             // Register key handlers in priority order (highest priority first)
             _keyboardManager.RegisterHandler(_tutorialTooltipHandler);  // Tutorial tooltip (blocks input during tutorial)
@@ -379,6 +386,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
             _keyboardManager.RegisterHandler(_capitalOverlay);     // Capital screen overlay
             _keyboardManager.RegisterHandler(settlementHandler);    // Settlement map navigation (fallback)
+            _keyboardManager.RegisterHandler(_worldTutorialsOverlay); // World tutorials HUD (world map)
             _keyboardManager.RegisterHandler(worldMapHandler);      // World map navigation (fallback)
 
             // Check if we're already on a scene (mod loaded mid-game)
@@ -502,6 +510,7 @@ namespace ATSAccessibility
             {
                 _announcedWorldMap = false;
                 _worldMapNavigator?.Reset();
+                _worldTutorialsOverlay?.Close();
             }
 
             // Dispose popup subscriptions (PopupsService is destroyed on scene change)

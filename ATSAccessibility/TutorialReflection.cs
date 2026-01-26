@@ -1,11 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
 namespace ATSAccessibility
 {
     /// <summary>
-    /// Provides reflection-based access to TutorialTooltip internals.
+    /// Provides reflection-based access to TutorialTooltip and WorldTutorialsHUD internals.
     ///
     /// CRITICAL RULES:
     /// - Cache ONLY reflection metadata (Type, PropertyInfo, MethodInfo) - these survive scene transitions
@@ -341,5 +342,404 @@ namespace ATSAccessibility
             }
         }
 
+        // ========================================
+        // WORLD TUTORIALS HUD REFLECTION
+        // ========================================
+
+        private static bool _worldTutorialsCached = false;
+
+        // WorldTutorialsHUD type and fields
+        private static Type _worldTutorialsHUDType = null;
+        private static PropertyInfo _wthIsShownProperty = null;  // bool IsShown
+
+        // TutorialGameConfig fields
+        private static FieldInfo _tgcDisplayNameField = null;
+        private static FieldInfo _tgcLockedTooltipField = null;
+        private static FieldInfo _tgcRequiredMetaRewardField = null;
+
+        // TutorialService methods
+        private static MethodInfo _wasEverFinishedMethod = null;
+
+        // MetaConditionsService methods
+        private static MethodInfo _isUnlockedMethod = null;
+
+        // WorldTutorialService methods
+        private static MethodInfo _startTutorialMethod = null;
+
+        // TutorialsConfig fields (for getting all tutorial configs)
+        private static FieldInfo _tut1ConfigField = null;
+        private static FieldInfo _tut2ConfigField = null;
+        private static FieldInfo _tut3ConfigField = null;
+        private static FieldInfo _tut4ConfigField = null;
+
+        private static void EnsureWorldTutorialsCached()
+        {
+            if (_worldTutorialsCached) return;
+            _worldTutorialsCached = true;
+
+            try
+            {
+                var assembly = GameReflection.GameAssembly;
+                if (assembly == null) return;
+
+                // WorldTutorialsHUD type
+                _worldTutorialsHUDType = assembly.GetType("Eremite.WorldMap.UI.WorldTutorialsHUD");
+                if (_worldTutorialsHUDType != null)
+                {
+                    _wthIsShownProperty = _worldTutorialsHUDType.GetProperty("IsShown", GameReflection.PublicInstance);
+                }
+
+                // TutorialGameConfig type
+                var tutorialGameConfigType = assembly.GetType("Eremite.Model.Configs.TutorialGameConfig");
+                if (tutorialGameConfigType != null)
+                {
+                    _tgcDisplayNameField = tutorialGameConfigType.GetField("displayName", GameReflection.PublicInstance);
+                    _tgcLockedTooltipField = tutorialGameConfigType.GetField("lockedTooltip", GameReflection.PublicInstance);
+                    _tgcRequiredMetaRewardField = tutorialGameConfigType.GetField("requiredMetaReward", GameReflection.PublicInstance);
+                }
+
+                // TutorialsConfig type (for getting all configs)
+                var tutorialsConfigType = assembly.GetType("Eremite.Model.Configs.TutorialsConfig");
+                if (tutorialsConfigType != null)
+                {
+                    _tut1ConfigField = tutorialsConfigType.GetField("tut1Config", GameReflection.PublicInstance);
+                    _tut2ConfigField = tutorialsConfigType.GetField("tut2Config", GameReflection.PublicInstance);
+                    _tut3ConfigField = tutorialsConfigType.GetField("tut3Config", GameReflection.PublicInstance);
+                    _tut4ConfigField = tutorialsConfigType.GetField("tut4Config", GameReflection.PublicInstance);
+                }
+
+                // ITutorialService methods
+                var tutorialServiceType = assembly.GetType("Eremite.Services.ITutorialService");
+                if (tutorialServiceType != null)
+                {
+                    _wasEverFinishedMethod = tutorialServiceType.GetMethod("WasEverFinished",
+                        new Type[] { tutorialGameConfigType ?? typeof(object) });
+                }
+
+                // IMetaConditionsService methods
+                var metaConditionsServiceType = assembly.GetType("Eremite.Services.IMetaConditionsService");
+                if (metaConditionsServiceType != null)
+                {
+                    // Get the MetaRewardModel type for the parameter
+                    var metaRewardModelType = assembly.GetType("Eremite.Model.Meta.MetaRewardModel");
+                    if (metaRewardModelType != null)
+                    {
+                        _isUnlockedMethod = metaConditionsServiceType.GetMethod("IsUnlocked",
+                            new Type[] { metaRewardModelType });
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[ATSAccessibility] MetaRewardModel type not found");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[ATSAccessibility] IMetaConditionsService type not found");
+                }
+
+                // IWorldTutorialService methods
+                var worldTutorialServiceType = assembly.GetType("Eremite.Services.World.IWorldTutorialService");
+                if (worldTutorialServiceType != null)
+                {
+                    _startTutorialMethod = worldTutorialServiceType.GetMethod("StartTutorial",
+                        new Type[] { tutorialGameConfigType ?? typeof(object) });
+                }
+
+                Debug.Log("[ATSAccessibility] TutorialReflection: WorldTutorials cached successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] TutorialReflection: WorldTutorials caching failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Find the WorldTutorialsHUD instance in the scene.
+        /// </summary>
+        private static object GetWorldTutorialsHUD()
+        {
+            EnsureWorldTutorialsCached();
+            if (_worldTutorialsHUDType == null) return null;
+
+            try
+            {
+                return UnityEngine.Object.FindObjectOfType(_worldTutorialsHUDType);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if the WorldTutorialsHUD panel is currently visible.
+        /// </summary>
+        public static bool IsWorldTutorialsHUDVisible()
+        {
+            EnsureWorldTutorialsCached();
+
+            var hud = GetWorldTutorialsHUD();
+            if (hud == null || _wthIsShownProperty == null) return false;
+
+            try
+            {
+                var isShown = _wthIsShownProperty.GetValue(hud);
+                return isShown is bool shown && shown;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Toggle the WorldTutorialsHUD visibility.
+        /// </summary>
+        public static void ToggleWorldTutorialsHUD()
+        {
+            EnsureWorldTutorialsCached();
+
+            var hud = GetWorldTutorialsHUD();
+            if (hud == null || _wthIsShownProperty == null) return;
+
+            try
+            {
+                bool currentState = (bool)_wthIsShownProperty.GetValue(hud);
+                _wthIsShownProperty.SetValue(hud, !currentState);
+
+                // Find and invoke the animation method
+                var animateMethod = currentState
+                    ? _worldTutorialsHUDType.GetMethod("AnimateHide", GameReflection.NonPublicInstance)
+                    : _worldTutorialsHUDType.GetMethod("AnimateShow", GameReflection.NonPublicInstance);
+
+                animateMethod?.Invoke(hud, null);
+
+                Debug.Log($"[ATSAccessibility] WorldTutorialsHUD toggled to {!currentState}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] ToggleWorldTutorialsHUD failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Data class for tutorial information.
+        /// </summary>
+        public class TutorialInfo
+        {
+            public object Config { get; set; }
+            public string DisplayName { get; set; }
+            public bool IsCompleted { get; set; }
+            public bool IsUnlocked { get; set; }
+            public string LockedReason { get; set; }
+        }
+
+        /// <summary>
+        /// Get all tutorials with their status.
+        /// </summary>
+        public static List<TutorialInfo> GetAllTutorials()
+        {
+            EnsureWorldTutorialsCached();
+            var result = new List<TutorialInfo>();
+
+            try
+            {
+                // Get Settings.tutorialsConfig (it's a field, not a property)
+                var settings = GameReflection.GetSettings();
+                if (settings == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] GetAllTutorials: settings is null");
+                    return result;
+                }
+
+                var tutorialsConfigField = settings.GetType().GetField("tutorialsConfig", GameReflection.PublicInstance);
+                if (tutorialsConfigField == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] GetAllTutorials: tutorialsConfig field not found");
+                    return result;
+                }
+
+                var tutorialsConfig = tutorialsConfigField.GetValue(settings);
+                if (tutorialsConfig == null)
+                {
+                    Debug.LogWarning("[ATSAccessibility] GetAllTutorials: tutorialsConfig is null");
+                    return result;
+                }
+
+                // Get all 4 tutorial configs
+                var configs = new List<object>();
+                if (_tut1ConfigField != null)
+                {
+                    var cfg = _tut1ConfigField.GetValue(tutorialsConfig);
+                    if (cfg != null) configs.Add(cfg);
+                    else Debug.LogWarning("[ATSAccessibility] GetAllTutorials: tut1Config is null");
+                }
+                else Debug.LogWarning("[ATSAccessibility] GetAllTutorials: _tut1ConfigField is null");
+
+                if (_tut2ConfigField != null)
+                {
+                    var cfg = _tut2ConfigField.GetValue(tutorialsConfig);
+                    if (cfg != null) configs.Add(cfg);
+                }
+                if (_tut3ConfigField != null)
+                {
+                    var cfg = _tut3ConfigField.GetValue(tutorialsConfig);
+                    if (cfg != null) configs.Add(cfg);
+                }
+                if (_tut4ConfigField != null)
+                {
+                    var cfg = _tut4ConfigField.GetValue(tutorialsConfig);
+                    if (cfg != null) configs.Add(cfg);
+                }
+
+                foreach (var config in configs)
+                {
+                    if (config == null) continue;
+
+                    var info = new TutorialInfo
+                    {
+                        Config = config,
+                        DisplayName = GetTutorialDisplayName(config),
+                        IsCompleted = IsTutorialCompleted(config),
+                        IsUnlocked = IsTutorialUnlocked(config),
+                        LockedReason = GetTutorialLockedReason(config)
+                    };
+
+                    result.Add(info);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetAllTutorials failed: {ex.Message}\n{ex.StackTrace}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get the display name for a tutorial config.
+        /// </summary>
+        public static string GetTutorialDisplayName(object config)
+        {
+            EnsureWorldTutorialsCached();
+            if (config == null || _tgcDisplayNameField == null) return null;
+
+            try
+            {
+                var displayName = _tgcDisplayNameField.GetValue(config);
+                return GameReflection.GetLocaText(displayName);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if a tutorial has been completed (ever finished).
+        /// </summary>
+        public static bool IsTutorialCompleted(object config)
+        {
+            EnsureWorldTutorialsCached();
+            if (config == null) return false;
+
+            try
+            {
+                // Get TutorialService from MB (via AppServices)
+                var appServices = GameReflection.GetAppServices();
+                if (appServices == null) return false;
+
+                var tutorialServiceProp = appServices.GetType().GetProperty("TutorialService", GameReflection.PublicInstance);
+                var tutorialService = tutorialServiceProp?.GetValue(appServices);
+                if (tutorialService == null || _wasEverFinishedMethod == null) return false;
+
+                var result = _wasEverFinishedMethod.Invoke(tutorialService, new[] { config });
+                return result is bool finished && finished;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] IsTutorialCompleted failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a tutorial is unlocked (requiredMetaReward is null or unlocked).
+        /// </summary>
+        public static bool IsTutorialUnlocked(object config)
+        {
+            EnsureWorldTutorialsCached();
+            if (config == null || _tgcRequiredMetaRewardField == null) return true;
+
+            try
+            {
+                var requiredReward = _tgcRequiredMetaRewardField.GetValue(config);
+                if (requiredReward == null) return true;  // No requirement = always unlocked
+
+                // Get MetaConditionsService from MetaServices (not AppServices)
+                var metaServices = GameReflection.GetMetaServices();
+                if (metaServices == null) return false;
+
+                var metaConditionsServiceProp = metaServices.GetType().GetProperty("MetaConditionsService", GameReflection.PublicInstance);
+                var metaConditionsService = metaConditionsServiceProp?.GetValue(metaServices);
+                if (metaConditionsService == null || _isUnlockedMethod == null) return false;
+
+                var result = _isUnlockedMethod.Invoke(metaConditionsService, new[] { requiredReward });
+                return result is bool unlocked && unlocked;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] IsTutorialUnlocked failed: {ex.Message}\n{ex.StackTrace}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the locked reason tooltip for a tutorial config.
+        /// </summary>
+        public static string GetTutorialLockedReason(object config)
+        {
+            EnsureWorldTutorialsCached();
+            if (config == null || _tgcLockedTooltipField == null) return null;
+
+            try
+            {
+                var lockedTooltip = _tgcLockedTooltipField.GetValue(config);
+                return GameReflection.GetLocaText(lockedTooltip);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Start a tutorial by its config.
+        /// </summary>
+        public static bool StartTutorial(object config)
+        {
+            EnsureWorldTutorialsCached();
+            if (config == null || _startTutorialMethod == null) return false;
+
+            try
+            {
+                // Get WorldTutorialService from WorldServices
+                var worldServices = WorldMapReflection.GetWorldServices();
+                if (worldServices == null) return false;
+
+                var worldTutorialServiceProp = worldServices.GetType().GetProperty("WorldTutorialService", GameReflection.PublicInstance);
+                var worldTutorialService = worldTutorialServiceProp?.GetValue(worldServices);
+                if (worldTutorialService == null) return false;
+
+                _startTutorialMethod.Invoke(worldTutorialService, new[] { config });
+                Debug.Log("[ATSAccessibility] Started tutorial");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] StartTutorial failed: {ex.Message}");
+                return false;
+            }
+        }
     }
 }

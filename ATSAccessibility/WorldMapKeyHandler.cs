@@ -10,11 +10,20 @@ namespace ATSAccessibility
     {
         private readonly WorldMapNavigator _worldMapNavigator;
         private readonly WorldMapScanner _worldMapScanner;
+        private WorldTutorialsOverlay _tutorialsOverlay;
 
         public WorldMapKeyHandler(WorldMapNavigator worldMapNavigator, WorldMapScanner worldMapScanner)
         {
             _worldMapNavigator = worldMapNavigator;
             _worldMapScanner = worldMapScanner;
+        }
+
+        /// <summary>
+        /// Set the tutorials overlay reference for F1 key handling.
+        /// </summary>
+        public void SetTutorialsOverlay(WorldTutorialsOverlay overlay)
+        {
+            _tutorialsOverlay = overlay;
         }
 
         /// <summary>
@@ -105,6 +114,12 @@ namespace ATSAccessibility
                     return true;
                 case KeyCode.E:
                     WorldMapStatsReader.OpenCycleEndPopup();
+                    return true;
+
+                // Open tutorials HUD and overlay
+                case KeyCode.F1:
+                    TutorialReflection.ToggleWorldTutorialsHUD();
+                    _tutorialsOverlay?.Open();
                     return true;
 
                 default:
