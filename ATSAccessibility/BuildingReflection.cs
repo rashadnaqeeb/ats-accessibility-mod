@@ -7757,7 +7757,7 @@ namespace ATSAccessibility
         /// Check if a building currently needs/accepts worker assignment.
         /// This is a higher-level check than AreWorkplacesActive:
         /// - Port: only during Phase 2 (decision made, expedition not started)
-        /// - Relic: only during investigation (started, not finished)
+        /// - Relic: during Phase 2 (working) or Phase 3 (collecting rewards)
         /// - Storage: only when haulers are unlocked (via AreWorkplacesActive)
         /// - Other buildings: whenever workplaces are active
         /// </summary>
@@ -7774,7 +7774,13 @@ namespace ATSAccessibility
 
             if (IsRelic(building))
             {
-                return IsRelicInvestigationStarted(building) && !IsRelicInvestigationFinished(building);
+                // Phase 2: Working (investigation started but not finished)
+                if (IsRelicInvestigationStarted(building) && !IsRelicInvestigationFinished(building))
+                    return true;
+                // Phase 3: Collecting rewards (investigation finished but rewards still need to be unloaded)
+                if (IsRelicInvestigationFinished(building) && GetRelicRewardStorageFullSum(building) > 0)
+                    return true;
+                return false;
             }
 
             return true;
