@@ -129,16 +129,16 @@ namespace ATSAccessibility
             return TryInvokeBool(method, instance, args);
         }
 
-        internal static void EnsureTutorialTypesInternal()
+        internal static void EnsureMetaControllerTypesInternal()
         {
-            EnsureTutorialTypes();
+            EnsureMetaControllerTypes();
         }
 
         internal static PropertyInfo MetaControllerInstanceProperty
         {
             get
             {
-                EnsureTutorialTypes();
+                EnsureMetaControllerTypes();
                 return _metaControllerInstanceProperty;
             }
         }
@@ -147,7 +147,7 @@ namespace ATSAccessibility
         {
             get
             {
-                EnsureTutorialTypes();
+                EnsureMetaControllerTypes();
                 return _mcMetaServicesProperty;
             }
         }
@@ -158,7 +158,7 @@ namespace ATSAccessibility
         /// </summary>
         public static object GetMetaServices()
         {
-            EnsureTutorialTypes();
+            EnsureMetaControllerTypes();
 
             try
             {
@@ -507,25 +507,23 @@ namespace ATSAccessibility
         public static FieldInfo TabsButtonContentField { get { EnsureTabTypes(); return _tabsButtonContentField; } }
 
         // ========================================
-        // TUTORIAL SYSTEM REFLECTION
+        // META CONTROLLER REFLECTION
         // ========================================
-        // Path: MetaController.Instance.MetaServices.TutorialService.Phase
+        // Path: MetaController.Instance.MetaServices
 
         private static Type _metaControllerType = null;
         private static PropertyInfo _metaControllerInstanceProperty = null;  // static Instance
         private static PropertyInfo _mcMetaServicesProperty = null;          // MetaServices
-        private static PropertyInfo _msTutorialServiceProperty = null;       // TutorialService
-        private static PropertyInfo _tsPhaseProperty = null;                 // Phase (ReactiveProperty)
-        private static bool _tutorialTypesCached = false;
+        private static bool _metaControllerTypesCached = false;
 
-        private static void EnsureTutorialTypes()
+        private static void EnsureMetaControllerTypes()
         {
-            if (_tutorialTypesCached) return;
+            if (_metaControllerTypesCached) return;
             EnsureAssembly();
 
             if (_gameAssembly == null)
             {
-                _tutorialTypesCached = true;
+                _metaControllerTypesCached = true;
                 return;
             }
 
@@ -542,31 +540,13 @@ namespace ATSAccessibility
 
                     Debug.Log("[ATSAccessibility] Cached MetaController type info");
                 }
-
-                // Cache TutorialService property (from MetaServices interface)
-                var metaServicesType = _gameAssembly.GetType("Eremite.Services.IMetaServices");
-                if (metaServicesType != null)
-                {
-                    _msTutorialServiceProperty = metaServicesType.GetProperty("TutorialService",
-                        BindingFlags.Public | BindingFlags.Instance);
-                }
-
-                // Cache Phase property (from TutorialService)
-                var tutorialServiceType = _gameAssembly.GetType("Eremite.Services.ITutorialService");
-                if (tutorialServiceType != null)
-                {
-                    _tsPhaseProperty = tutorialServiceType.GetProperty("Phase",
-                        BindingFlags.Public | BindingFlags.Instance);
-
-                    Debug.Log("[ATSAccessibility] Cached TutorialService type info");
-                }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[ATSAccessibility] Tutorial type caching failed: {ex.Message}");
+                Debug.LogError($"[ATSAccessibility] MetaController type caching failed: {ex.Message}");
             }
 
-            _tutorialTypesCached = true;
+            _metaControllerTypesCached = true;
         }
 
         // ========================================
@@ -646,38 +626,6 @@ namespace ATSAccessibility
             catch (Exception ex)
             {
                 Debug.LogError($"[ATSAccessibility] GetReputationRewardsService failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get the TutorialService.Phase observable (ReactiveProperty).
-        /// Subscribe to this to get notified of tutorial phase changes.
-        /// </summary>
-        public static object GetTutorialPhaseObservable()
-        {
-            EnsureTutorialTypes();
-
-            try
-            {
-                // Get MetaController.Instance
-                var metaController = _metaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
-
-                // Get MetaServices
-                var metaServices = _mcMetaServicesProperty?.GetValue(metaController);
-                if (metaServices == null) return null;
-
-                // Get TutorialService
-                var tutorialService = _msTutorialServiceProperty?.GetValue(metaServices);
-                if (tutorialService == null) return null;
-
-                // Get Phase (ReactiveProperty<TutorialPhase>)
-                return _tsPhaseProperty?.GetValue(tutorialService);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetTutorialPhaseObservable failed: {ex.Message}");
                 return null;
             }
         }
@@ -1513,7 +1461,6 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Subscribe to a UniRx IObservable using reflection.
-        /// This utility is shared between AccessibilityCore and TutorialHandler.
         /// </summary>
         public static IDisposable SubscribeToObservable(object observable, Action<object> callback)
         {

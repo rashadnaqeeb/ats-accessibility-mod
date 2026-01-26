@@ -40,9 +40,6 @@ namespace ATSAccessibility
         private IDisposable _popupHiddenSubscription;
         private bool _subscribedToPopups = false;
 
-        // Tutorial handling
-        private TutorialHandler _tutorialHandler;
-
         // Encyclopedia/wiki navigation
         private EncyclopediaNavigator _encyclopediaNavigator;
 
@@ -200,9 +197,6 @@ namespace ATSAccessibility
 
             // Initialize map navigation
             _mapNavigator = new MapNavigator();
-
-            // Initialize tutorial handler
-            _tutorialHandler = new TutorialHandler(OnTutorialPhaseChanged);
 
             // Initialize encyclopedia navigator
             _encyclopediaNavigator = new EncyclopediaNavigator();
@@ -377,7 +371,6 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
             _keyboardManager.RegisterHandler(_capitalOverlay);     // Capital screen overlay
-            _keyboardManager.RegisterHandler(_tutorialHandler);     // Tutorial tooltips (passthrough)
             _keyboardManager.RegisterHandler(settlementHandler);    // Settlement map navigation (fallback)
             _keyboardManager.RegisterHandler(worldMapHandler);      // World map navigation (fallback)
 
@@ -431,9 +424,6 @@ namespace ATSAccessibility
                 {
                     TrySubscribeToCapital();
                 }
-
-                // Try to subscribe to tutorial phase changes
-                _tutorialHandler?.TrySubscribe();
 
                 // Try to subscribe to building panel events
                 _buildingPanelHandler?.TrySubscribe();
@@ -514,9 +504,6 @@ namespace ATSAccessibility
 
             // Dispose building panel handler subscriptions
             _buildingPanelHandler?.Dispose();
-
-            // Dispose tutorial handler subscription
-            _tutorialHandler?.Dispose();
 
             // Dispose event announcer subscriptions
             _eventAnnouncer?.Dispose();
@@ -1373,32 +1360,6 @@ namespace ATSAccessibility
                     _keyboardManager?.SetContext(KeyboardManager.NavigationContext.None);
                 }
             }
-        }
-
-        // ========================================
-        // TUTORIAL EVENT HANDLING
-        // ========================================
-
-        /// <summary>
-        /// Called when tutorial phase changes.
-        /// Schedules announcement with delay to let tooltip text update.
-        /// Uses real-time delay since game may have timeScale=0 during loading.
-        /// </summary>
-        private void OnTutorialPhaseChanged()
-        {
-            Debug.Log("[ATSAccessibility] Tutorial phase changed, scheduling announcement (real-time)");
-            StartCoroutine(AnnounceTutorialDelayed());
-        }
-
-        /// <summary>
-        /// Coroutine to announce tutorial after real-time delay.
-        /// Needs enough delay for tooltip to update its text content.
-        /// </summary>
-        private IEnumerator AnnounceTutorialDelayed()
-        {
-            yield return new WaitForSecondsRealtime(0.6f);
-            Debug.Log("[ATSAccessibility] AnnounceTutorial() called after real-time delay");
-            _tutorialHandler?.AnnounceTooltip();
         }
     }
 }

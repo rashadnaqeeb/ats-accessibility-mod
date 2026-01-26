@@ -56,7 +56,7 @@ namespace ATSAccessibility
         private static void EnsureMetaStateTypes()
         {
             if (_metaStateTypesCached) return;
-            GameReflection.EnsureTutorialTypesInternal();
+            GameReflection.EnsureMetaControllerTypesInternal();
 
             var gameAssembly = GameReflection.GameAssembly;
             if (gameAssembly == null)
@@ -129,7 +129,7 @@ namespace ATSAccessibility
         private static void EnsureWorldStateTypes()
         {
             if (_worldStateTypesCached) return;
-            GameReflection.EnsureTutorialTypesInternal();
+            GameReflection.EnsureMetaControllerTypesInternal();
 
             var gameAssembly = GameReflection.GameAssembly;
             if (gameAssembly == null)

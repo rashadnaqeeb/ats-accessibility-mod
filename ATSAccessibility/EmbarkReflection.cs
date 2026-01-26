@@ -131,7 +131,7 @@ namespace ATSAccessibility
         private static void EnsureTypes()
         {
             if (_typesCached) return;
-            GameReflection.EnsureTutorialTypesInternal(); // Ensures MetaController types are cached
+            GameReflection.EnsureMetaControllerTypesInternal(); // Ensures MetaController types are cached
 
             var gameAssembly = GameReflection.GameAssembly;
             if (gameAssembly == null)
