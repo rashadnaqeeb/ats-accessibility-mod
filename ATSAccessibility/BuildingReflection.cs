@@ -3552,7 +3552,8 @@ namespace ATSAccessibility
         /// Get list of race names that have free workers available.
         /// Returns tuples of (raceName, freeCount).
         /// </summary>
-        public static List<(string raceName, int freeCount)> GetRacesWithFreeWorkers()
+        /// <param name="includeZeroFree">If true, include races with 0 free workers.</param>
+        public static List<(string raceName, int freeCount)> GetRacesWithFreeWorkers(bool includeZeroFree = false)
         {
             var result = new List<(string, int)>();
 
@@ -3577,7 +3578,7 @@ namespace ATSAccessibility
                     if (string.IsNullOrEmpty(raceName)) continue;
 
                     int freeCount = GetFreeWorkerCount(raceName);
-                    if (freeCount > 0)
+                    if (includeZeroFree || freeCount > 0)
                     {
                         result.Add((raceName, freeCount));
                     }

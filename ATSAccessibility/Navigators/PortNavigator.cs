@@ -931,9 +931,8 @@ namespace ATSAccessibility
         {
             if (!force && _racesRefreshedForWorkerSection) return;
 
-            _availableRaces = BuildingReflection.GetRacesWithFreeWorkers();
+            _availableRaces = BuildingReflection.GetRacesWithFreeWorkers(includeZeroFree: true);
             _racesRefreshedForWorkerSection = true;
-            Debug.Log($"[ATSAccessibility] PortNavigator: Found {_availableRaces.Count} races with free workers");
         }
 
         private int GetWorkerSubItemCount(int workerIndex)
@@ -1016,7 +1015,15 @@ namespace ATSAccessibility
             int raceIndex = subItemIndex - raceOffset;
             if (_availableRaces != null && raceIndex >= 0 && raceIndex < _availableRaces.Count)
             {
-                var (raceName, _) = _availableRaces[raceIndex];
+                var (raceName, freeCount) = _availableRaces[raceIndex];
+
+                // Check if race has free workers
+                if (freeCount == 0)
+                {
+                    Speech.Say($"No free {raceName} workers");
+                    SoundManager.PlayFailed();
+                    return false;
+                }
 
                 if (slotOccupied)
                 {
