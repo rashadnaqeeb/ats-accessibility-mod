@@ -167,6 +167,9 @@ namespace ATSAccessibility
         // Games History popup overlay for past settlements
         private GamesHistoryOverlay _gamesHistoryOverlay;
 
+        // Daily Expedition popup overlay for daily challenge
+        private DailyExpeditionOverlay _dailyExpeditionOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -323,6 +326,9 @@ namespace ATSAccessibility
             // Initialize games history overlay
             _gamesHistoryOverlay = new GamesHistoryOverlay();
 
+            // Initialize daily expedition overlay
+            _dailyExpeditionOverlay = new DailyExpeditionOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -366,6 +372,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_altarOverlay);        // Altar (Forsaken Altar) popup overlay
             _keyboardManager.RegisterHandler(_perkCrafterOverlay);  // Perk Crafter (Cornerstone Forge) popup overlay
             _keyboardManager.RegisterHandler(_gamesHistoryOverlay); // Games History popup overlay
+            _keyboardManager.RegisterHandler(_dailyExpeditionOverlay); // Daily Expedition popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -1095,6 +1102,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check daily challenge popup - it has its own overlay
+            if (DailyExpeditionReflection.IsDailyChallengePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Daily Challenge popup detected, using DailyExpedition overlay");
+                _dailyExpeditionOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1292,6 +1308,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Games History popup closed");
                 _gamesHistoryOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check daily challenge popup
+            else if (DailyExpeditionReflection.IsDailyChallengePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Daily Challenge popup closed");
+                _dailyExpeditionOverlay?.Close();
                 // Fall through to handle context change
             }
             else
