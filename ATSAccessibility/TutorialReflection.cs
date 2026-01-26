@@ -356,6 +356,15 @@ namespace ATSAccessibility
         private static FieldInfo _tgcDisplayNameField = null;
         private static FieldInfo _tgcLockedTooltipField = null;
         private static FieldInfo _tgcRequiredMetaRewardField = null;
+        private static FieldInfo _tgcRewardsField = null;
+        private static FieldInfo _tgcBiomeField = null;
+
+        // MetaRewardModel fields
+        private static FieldInfo _mrShowUnlockingField = null;
+        private static PropertyInfo _mrDisplayNameProperty = null;
+
+        // TutorialsConfig.GetConfigFor method
+        private static MethodInfo _getConfigForBiomeMethod = null;
 
         // TutorialService methods
         private static MethodInfo _wasEverFinishedMethod = null;
@@ -396,6 +405,16 @@ namespace ATSAccessibility
                     _tgcDisplayNameField = tutorialGameConfigType.GetField("displayName", GameReflection.PublicInstance);
                     _tgcLockedTooltipField = tutorialGameConfigType.GetField("lockedTooltip", GameReflection.PublicInstance);
                     _tgcRequiredMetaRewardField = tutorialGameConfigType.GetField("requiredMetaReward", GameReflection.PublicInstance);
+                    _tgcRewardsField = tutorialGameConfigType.GetField("rewards", GameReflection.PublicInstance);
+                    _tgcBiomeField = tutorialGameConfigType.GetField("biome", GameReflection.PublicInstance);
+                }
+
+                // MetaRewardModel type
+                var metaRewardModelType = assembly.GetType("Eremite.Model.Meta.MetaRewardModel");
+                if (metaRewardModelType != null)
+                {
+                    _mrShowUnlockingField = metaRewardModelType.GetField("showUnlocking", GameReflection.PublicInstance);
+                    _mrDisplayNameProperty = metaRewardModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
                 }
 
                 // TutorialsConfig type (for getting all configs)
@@ -406,6 +425,14 @@ namespace ATSAccessibility
                     _tut2ConfigField = tutorialsConfigType.GetField("tut2Config", GameReflection.PublicInstance);
                     _tut3ConfigField = tutorialsConfigType.GetField("tut3Config", GameReflection.PublicInstance);
                     _tut4ConfigField = tutorialsConfigType.GetField("tut4Config", GameReflection.PublicInstance);
+
+                    // GetConfigFor(BiomeModel biome) method
+                    var biomeModelType = assembly.GetType("Eremite.Model.BiomeModel");
+                    if (biomeModelType != null)
+                    {
+                        _getConfigForBiomeMethod = tutorialsConfigType.GetMethod("GetConfigFor",
+                            new Type[] { biomeModelType });
+                    }
                 }
 
                 // ITutorialService methods
@@ -418,23 +445,10 @@ namespace ATSAccessibility
 
                 // IMetaConditionsService methods
                 var metaConditionsServiceType = assembly.GetType("Eremite.Services.IMetaConditionsService");
-                if (metaConditionsServiceType != null)
+                if (metaConditionsServiceType != null && metaRewardModelType != null)
                 {
-                    // Get the MetaRewardModel type for the parameter
-                    var metaRewardModelType = assembly.GetType("Eremite.Model.Meta.MetaRewardModel");
-                    if (metaRewardModelType != null)
-                    {
-                        _isUnlockedMethod = metaConditionsServiceType.GetMethod("IsUnlocked",
-                            new Type[] { metaRewardModelType });
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[ATSAccessibility] MetaRewardModel type not found");
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning("[ATSAccessibility] IMetaConditionsService type not found");
+                    _isUnlockedMethod = metaConditionsServiceType.GetMethod("IsUnlocked",
+                        new Type[] { metaRewardModelType });
                 }
 
                 // IWorldTutorialService methods
@@ -740,6 +754,78 @@ namespace ATSAccessibility
                 Debug.LogError($"[ATSAccessibility] StartTutorial failed: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Get the list of reward display names for the current tutorial biome.
+        /// Only returns rewards with showUnlocking = true.
+        /// Returns empty list if not a tutorial or on error.
+        /// </summary>
+        public static List<string> GetTutorialRewardsForCurrentBiome()
+        {
+            EnsureWorldTutorialsCached();
+            var result = new List<string>();
+
+            try
+            {
+                // Get current biome from GameMB.Biome
+                var gameMBType = GameReflection.GameAssembly?.GetType("Eremite.GameMB");
+                if (gameMBType == null) return result;
+
+                var biomeProperty = gameMBType.GetProperty("Biome", GameReflection.PublicStatic);
+                var currentBiome = biomeProperty?.GetValue(null);
+                if (currentBiome == null) return result;
+
+                // Get Settings.tutorialsConfig
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return result;
+
+                var tutorialsConfigField = settings.GetType().GetField("tutorialsConfig", GameReflection.PublicInstance);
+                var tutorialsConfig = tutorialsConfigField?.GetValue(settings);
+                if (tutorialsConfig == null || _getConfigForBiomeMethod == null) return result;
+
+                // Call GetConfigFor(biome) - may throw if not a tutorial biome
+                object tutorialConfig;
+                try
+                {
+                    tutorialConfig = _getConfigForBiomeMethod.Invoke(tutorialsConfig, new[] { currentBiome });
+                }
+                catch
+                {
+                    // Not a tutorial biome
+                    return result;
+                }
+
+                if (tutorialConfig == null || _tgcRewardsField == null) return result;
+
+                // Get rewards array
+                var rewards = _tgcRewardsField.GetValue(tutorialConfig) as Array;
+                if (rewards == null) return result;
+
+                // Filter and get display names
+                foreach (var reward in rewards)
+                {
+                    if (reward == null) continue;
+
+                    // Check showUnlocking
+                    var showUnlockingObj = _mrShowUnlockingField?.GetValue(reward);
+                    bool showUnlocking = showUnlockingObj is bool b && b;
+                    if (!showUnlocking) continue;
+
+                    // Get DisplayName
+                    var displayName = _mrDisplayNameProperty?.GetValue(reward) as string;
+                    if (!string.IsNullOrEmpty(displayName))
+                    {
+                        result.Add(displayName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetTutorialRewardsForCurrentBiome failed: {ex.Message}");
+            }
+
+            return result;
         }
     }
 }

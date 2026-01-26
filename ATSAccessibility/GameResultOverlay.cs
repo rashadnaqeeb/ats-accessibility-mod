@@ -210,10 +210,13 @@ namespace ATSAccessibility
             // 3. Score section (if not tutorial)
             AddScoreSection();
 
-            // 4. World Event section (if active)
+            // 4. Tutorial rewards section (if tutorial)
+            AddTutorialRewardsSection();
+
+            // 5. World Event section (if active)
             AddWorldEventSection();
 
-            // 5. Action buttons at the end
+            // 6. Action buttons at the end
             AddActionButtons();
         }
 
@@ -316,6 +319,28 @@ namespace ATSAccessibility
             {
                 Type = ItemType.Section,
                 Label = "Score",
+                SubItems = subItems
+            });
+        }
+
+        private void AddTutorialRewardsSection()
+        {
+            // Tutorial rewards section only appears for tutorials
+            if (!GameResultReflection.IsTutorial()) return;
+
+            var rewards = TutorialReflection.GetTutorialRewardsForCurrentBiome();
+            if (rewards.Count == 0) return;
+
+            var subItems = new List<string>();
+            foreach (var reward in rewards)
+            {
+                subItems.Add($"Unlocked: {reward}");
+            }
+
+            _items.Add(new TopLevelItem
+            {
+                Type = ItemType.Section,
+                Label = "Tutorial Unlocks",
                 SubItems = subItems
             });
         }
