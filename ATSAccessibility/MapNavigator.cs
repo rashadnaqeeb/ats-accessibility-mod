@@ -216,16 +216,29 @@ namespace ATSAccessibility
                 bool wasDiscovered = GetGladeWasDiscovered(glade);
                 if (!wasDiscovered)
                 {
-                    // Unrevealed glade - announce type with optional contents and marker
+                    // Unrevealed glade - announce based on what info is available
                     string dangerLevel = GetGladeDangerLevel(glade);
-                    string baseName = $"glade-{dangerLevel.ToLower()}";
+                    bool hasDangerousGladeInfo = GameReflection.HasDangerousGladeInfo();
+                    bool hasGladeInfo = GameReflection.HasGladeInfo();
 
-                    // Add glade contents if glade info active (uses shared helper)
-                    if (GameReflection.HasGladeInfo())
+                    string baseName;
+                    if (!hasDangerousGladeInfo)
                     {
+                        // Cursed Royal Woodlands: ALL glade markers are hidden
+                        baseName = "glade-unknown";
+                    }
+                    else if (hasGladeInfo)
+                    {
+                        // Has glade info perk - show type and contents
+                        baseName = $"glade-{dangerLevel.ToLower()}";
                         string contents = GameReflection.GetGladeContentsSummary(glade);
                         if (!string.IsNullOrEmpty(contents))
                             baseName += $": {contents}";
+                    }
+                    else
+                    {
+                        // Normal biome without glade info perk - show type only
+                        baseName = $"glade-{dangerLevel.ToLower()}";
                     }
 
                     // Add location marker if present

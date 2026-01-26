@@ -527,6 +527,7 @@ namespace ATSAccessibility
             int cursorX = _mapNavigator.CursorX;
             int cursorY = _mapNavigator.CursorY;
             bool hasGladeInfo = GameReflection.HasGladeInfo();
+            bool hasDangerousGladeInfo = GameReflection.HasDangerousGladeInfo();
 
             try
             {
@@ -548,15 +549,22 @@ namespace ATSAccessibility
                     // Get danger level for grouping
                     string dangerLevel = GetGladeDangerLevel(glade);
 
-                    // Build group name with contents if glade info is active
+                    // Build group name based on what info is available
                     string groupName;
-                    if (hasGladeInfo)
+                    if (!hasDangerousGladeInfo)
                     {
+                        // Cursed Royal Woodlands: ALL glade markers are hidden
+                        groupName = "Unknown glade";
+                    }
+                    else if (hasGladeInfo)
+                    {
+                        // Has glade info perk - show type and contents
                         string contents = GameReflection.GetGladeContentsSummary(glade);
                         groupName = $"{dangerLevel} glade: {contents}";
                     }
                     else
                     {
+                        // Normal biome without glade info perk - show type only
                         groupName = $"{dangerLevel} glade";
                     }
 

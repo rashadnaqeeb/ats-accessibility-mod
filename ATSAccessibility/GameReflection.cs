@@ -6555,6 +6555,7 @@ namespace ATSAccessibility
         private static FieldInfo _effectsRevealedGrassLocationsField = null;
         private static FieldInfo _effectsRevealedSpringsLocationsField = null;
         private static FieldInfo _effectsRevealedRelicsLocationsField = null;
+        private static FieldInfo _effectsDangerousGladeInfoBlocksField = null;
         private static bool _gladeInfoTypesCached = false;
 
         private static void EnsureGladeInfoTypes()
@@ -6589,6 +6590,8 @@ namespace ATSAccessibility
                     _effectsRevealedSpringsLocationsField = effectsStateType.GetField("revealedSpringsLocations",
                         BindingFlags.Public | BindingFlags.Instance);
                     _effectsRevealedRelicsLocationsField = effectsStateType.GetField("revealedRelicsByTagLocations",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _effectsDangerousGladeInfoBlocksField = effectsStateType.GetField("dangerousGladeInfoBlocksOwners",
                         BindingFlags.Public | BindingFlags.Instance);
                 }
 
@@ -6640,6 +6643,29 @@ namespace ATSAccessibility
             catch
             {
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if dangerous glade info is active (NOT blocked).
+        /// In Cursed Royal Woodlands, this returns false and ALL glade markers are hidden.
+        /// When DangerousGladeInfo is false, players cannot distinguish between Small, Dangerous, or Forbidden glades.
+        /// </summary>
+        public static bool HasDangerousGladeInfo()
+        {
+            EnsureGladeInfoTypes();
+            var effectsState = GetEffectsState();
+            if (effectsState == null || _effectsDangerousGladeInfoBlocksField == null) return true;
+
+            try
+            {
+                var blockOwners = _effectsDangerousGladeInfoBlocksField.GetValue(effectsState) as System.Collections.IList;
+                // DangerousGladeInfo is true when NO blocks exist (count == 0)
+                return blockOwners == null || blockOwners.Count == 0;
+            }
+            catch
+            {
+                return true;  // Default to showing info
             }
         }
 
