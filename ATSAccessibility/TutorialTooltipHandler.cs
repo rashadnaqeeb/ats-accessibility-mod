@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility
@@ -19,6 +20,25 @@ namespace ATSAccessibility
         private bool _wasVisible = false;
         private string _lastText = null;
         private bool _isEngaged = false;   // Whether we're capturing keys
+        private int _lastPhase = -1;       // Track phase changes
+
+        // ========================================
+        // HARDCODED ACCESSIBILITY MESSAGES
+        // ========================================
+        // Maps TutorialPhase ID to custom accessibility text.
+        // If a phase has a custom message, it replaces the game's text.
+        // If not, the game's text is used as fallback.
+
+        private static readonly Dictionary<int, string> _accessibilityMessages = new Dictionary<int, string>
+        {
+            // Tutorial 1: Basics
+            { 10, "Welcome to against the storm! You are now in a tutorial mode. You can press enter to dismiss these tutorial boxes, though you will have to wait for the animations to finish. Now, explore your new settlement with the arrow keys." }, // CameraControl
+            { 20, "Neglecting your village will increase the Queen's Impatience and bring her wrath upon you. You will lose the game if the impatience bar fills." }, // Impatience
+            { 30, "Fulfilling your duties will increase the town's Reputation, unlock new buildings and eventually bring you to victory. You can check both of these stats on the fly by pressing s at any time outside these popups. For more details, you can open the dedicated stats screen, found in the f1 information menu." }, // Reputation
+            { 35, "As a reward for gaining reputation points, you unlock blueprints- new buildings for you to use to win the game. One is ready to collect now. Dismiss this popup and press f3, the rewards menu. Pick blueprints." }, // ReputationPick
+            { 40, "You can now press space bar to resume the game. If you press the numbers 1 through 4, you control the speed at which time flows." }, // TimeControl
+            { 50, "Now, you will have to build a woodcutters camp. Check the read me for building instructions. The rest of this tutorial involves completing orders, which you can find in the f2 menu. This is the last tooltip." }, // Wood
+        };
 
         // ========================================
         // IKeyHandler Implementation
@@ -89,16 +109,24 @@ namespace ATSAccessibility
 
             if (_isVisible)
             {
-                string currentText = TutorialReflection.GetCurrentText();
+                int currentPhase = TutorialReflection.GetCurrentPhase();
+                string gameText = TutorialReflection.GetCurrentText();
 
-                // Engage and announce if tooltip just became visible OR text changed
-                if (!_wasVisible || (currentText != _lastText && !string.IsNullOrEmpty(currentText)))
+                // Use custom message if available, otherwise use game text
+                string textToAnnounce = GetTextForPhase(currentPhase, gameText);
+
+                // Engage and announce if tooltip just became visible OR phase/text changed
+                bool phaseChanged = currentPhase != _lastPhase && currentPhase != -1;
+                bool textChanged = gameText != _lastText && !string.IsNullOrEmpty(gameText);
+
+                if (!_wasVisible || phaseChanged || textChanged)
                 {
-                    if (!string.IsNullOrEmpty(currentText))
+                    if (!string.IsNullOrEmpty(textToAnnounce))
                     {
                         _isEngaged = true;  // Re-engage on new text
-                        Speech.Say(currentText);
-                        _lastText = currentText;
+                        Speech.Say(textToAnnounce);
+                        _lastText = gameText;
+                        _lastPhase = currentPhase;
                     }
                 }
             }
@@ -106,10 +134,24 @@ namespace ATSAccessibility
             {
                 // Reset when tooltip is hidden
                 _lastText = null;
+                _lastPhase = -1;
                 _isEngaged = false;
             }
 
             _wasVisible = _isVisible;
+        }
+
+        /// <summary>
+        /// Get the text to announce for a given phase.
+        /// Returns custom accessibility message if available, otherwise the game's text.
+        /// </summary>
+        private string GetTextForPhase(int phase, string gameText)
+        {
+            if (_accessibilityMessages.TryGetValue(phase, out string customMessage))
+            {
+                return customMessage;
+            }
+            return gameText;
         }
 
         // ========================================
@@ -118,7 +160,10 @@ namespace ATSAccessibility
 
         private void AnnounceCurrentText()
         {
-            string text = TutorialReflection.GetCurrentText();
+            int currentPhase = TutorialReflection.GetCurrentPhase();
+            string gameText = TutorialReflection.GetCurrentText();
+            string text = GetTextForPhase(currentPhase, gameText);
+
             if (!string.IsNullOrEmpty(text))
             {
                 Speech.Say(text);

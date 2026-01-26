@@ -369,6 +369,9 @@ namespace ATSAccessibility
         // TutorialService methods
         private static MethodInfo _wasEverFinishedMethod = null;
 
+        // TutorialService.Phase property for getting current phase
+        private static PropertyInfo _tutorialPhaseProperty = null;
+
         // MetaConditionsService methods
         private static MethodInfo _isUnlockedMethod = null;
 
@@ -441,6 +444,7 @@ namespace ATSAccessibility
                 {
                     _wasEverFinishedMethod = tutorialServiceType.GetMethod("WasEverFinished",
                         new Type[] { tutorialGameConfigType ?? typeof(object) });
+                    _tutorialPhaseProperty = tutorialServiceType.GetProperty("Phase", GameReflection.PublicInstance);
                 }
 
                 // IMetaConditionsService methods
@@ -753,6 +757,42 @@ namespace ATSAccessibility
             {
                 Debug.LogError($"[ATSAccessibility] StartTutorial failed: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the current tutorial phase as an integer.
+        /// Returns -1 if not in a tutorial or on error.
+        /// </summary>
+        public static int GetCurrentPhase()
+        {
+            EnsureWorldTutorialsCached();
+
+            try
+            {
+                // Get TutorialService from MetaServices (it's a meta service, not app service)
+                var metaServices = GameReflection.GetMetaServices();
+                if (metaServices == null || _tutorialPhaseProperty == null) return -1;
+
+                var tutorialServiceProp = metaServices.GetType().GetProperty("TutorialService", GameReflection.PublicInstance);
+                var tutorialService = tutorialServiceProp?.GetValue(metaServices);
+                if (tutorialService == null) return -1;
+
+                // Phase is a ReactiveProperty<TutorialPhase>, need to get .Value
+                var phaseReactive = _tutorialPhaseProperty.GetValue(tutorialService);
+                if (phaseReactive == null) return -1;
+
+                var valueProp = phaseReactive.GetType().GetProperty("Value", GameReflection.PublicInstance);
+                var phaseValue = valueProp?.GetValue(phaseReactive);
+                if (phaseValue == null) return -1;
+
+                // TutorialPhase is an enum, convert to int
+                return (int)phaseValue;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetCurrentPhase failed: {ex.Message}");
+                return -1;
             }
         }
 
