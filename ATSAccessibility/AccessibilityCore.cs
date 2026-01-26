@@ -164,6 +164,9 @@ namespace ATSAccessibility
         // Perk Crafter (Cornerstone Forge) popup overlay for cornerstone crafting
         private PerkCrafterOverlay _perkCrafterOverlay;
 
+        // Games History popup overlay for past settlements
+        private GamesHistoryOverlay _gamesHistoryOverlay;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -317,6 +320,9 @@ namespace ATSAccessibility
             // Initialize perk crafter overlay for Cornerstone Forge
             _perkCrafterOverlay = new PerkCrafterOverlay();
 
+            // Initialize games history overlay
+            _gamesHistoryOverlay = new GamesHistoryOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -359,6 +365,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_blackMarketOverlay); // Black Market popup overlay
             _keyboardManager.RegisterHandler(_altarOverlay);        // Altar (Forsaken Altar) popup overlay
             _keyboardManager.RegisterHandler(_perkCrafterOverlay);  // Perk Crafter (Cornerstone Forge) popup overlay
+            _keyboardManager.RegisterHandler(_gamesHistoryOverlay); // Games History popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -1079,6 +1086,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check games history popup - it has its own overlay
+            if (GamesHistoryReflection.IsGamesHistoryPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Games History popup detected, using GamesHistory overlay");
+                _gamesHistoryOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1269,6 +1285,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] PerkCrafter popup closed");
                 _perkCrafterOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check games history popup
+            else if (GamesHistoryReflection.IsGamesHistoryPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Games History popup closed");
+                _gamesHistoryOverlay?.Close();
                 // Fall through to handle context change
             }
             else
