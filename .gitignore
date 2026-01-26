@@ -18,3 +18,7 @@ game-source/
 
 # Claude Code artifacts
 .claude/
+
+# Release packaging
+release-package/
+*.zip
