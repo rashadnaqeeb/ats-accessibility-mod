@@ -2,6 +2,40 @@
 
 A BepInEx mod adding screen reader support to Against the Storm via Tolk.
 
+## Installation
+
+1. Locate your Against the Storm installation folder:
+   - Steam: Right-click the game > Manage > Browse local files
+   - Default: `C:\Program Files (x86)\Steam\steamapps\common\Against the Storm`
+
+2. Extract the contents of the release zip directly into the game folder.
+   The folder structure should look like:
+
+   ```
+   Against the Storm/
+   ├── Against the Storm.exe
+   ├── winhttp.dll          (from the zip)
+   ├── doorstop_config.ini  (from the zip)
+   └── BepInEx/             (from the zip)
+       ├── core/
+       └── plugins/
+           └── ATSAccessibility/
+               └── ATSAccessibility.dll
+   ```
+
+3. Launch the game. BepInEx will initialize on first run.
+
+### Requirements
+
+- Against the Storm (Steam version)
+- A screen reader (NVDA, JAWS, or Windows Narrator)
+
+### Uninstallation
+
+Delete the BepInEx folder, winhttp.dll, and doorstop_config.ini from your game folder.
+
+---
+
 ## Navigation Model
 
 All menus use arrow key navigation. Up/Down moves through items, Right/Enter drills into submenus, Left/Escape backs out. Most lists support type-ahead search: start typing a name to jump to the first match. Backspace removes the last character, and the buffer auto-clears on arrow key navigation.
@@ -238,12 +272,3 @@ The mod announces game events as they occur. These can be individually toggled i
 - Villager deaths and leaving
 - Hostility level changes
 
----
-
-## Installation
-
-Requires BepInEx 5.x and the Tolk screen reader bridge library.
-
-1. Install BepInEx for Against the Storm
-2. Place `ATSAccessibility.dll` in `BepInEx/plugins/ATSAccessibility/`
-3. Ensure Tolk.dll and your screen reader's bridge DLL are accessible
