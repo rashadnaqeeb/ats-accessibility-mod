@@ -13,6 +13,9 @@ namespace ATSAccessibility
     /// </summary>
     public static class MetaRewardsPopupReader
     {
+        // Scene index for world map (matches AccessibilityCore.SCENE_WORLDMAP)
+        private const int SCENE_WORLDMAP = 3;
+
         // State tracking
         private static bool _isPolling = false;
         private static bool _isReady = false;
@@ -50,9 +53,27 @@ namespace ATSAccessibility
         /// Handle key events for the MetaRewardsPopup.
         /// Returns true if the key was handled.
         /// </summary>
-        public static bool ProcessKeyEvent(KeyCode keyCode)
+        public static bool ProcessKeyEvent(KeyCode keyCode, GameObject popup)
         {
-            // Only handle arrow keys
+            // Handle Enter to close popup (when ready)
+            if (keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter)
+            {
+                if (_isPolling)
+                {
+                    Speech.Say("Please wait for rewards");
+                    return true;
+                }
+
+                if (_isReady)
+                {
+                    ClosePopup(popup);
+                    return true;
+                }
+
+                return false;
+            }
+
+            // Handle arrow keys to re-read announcement
             if (keyCode != KeyCode.UpArrow && keyCode != KeyCode.DownArrow &&
                 keyCode != KeyCode.LeftArrow && keyCode != KeyCode.RightArrow)
             {
@@ -72,6 +93,51 @@ namespace ATSAccessibility
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Close the MetaRewardsPopup by clicking the close button.
+        /// Using button click instead of Hide() directly because it properly
+        /// triggers the game's expected flow for tutorial progression.
+        /// </summary>
+        private static void ClosePopup(GameObject popup)
+        {
+            if (popup == null) return;
+
+            try
+            {
+                // Get the popup component (MetaRewardsPopup or MetaLevelUpPopup)
+                var popupType = GameReflection.GetTypeByName("Eremite.View.HUD.MetaRewardsPopup");
+                var popupComponent = popupType != null ? popup.GetComponent(popupType) : null;
+
+                if (popupComponent == null)
+                {
+                    popupType = GameReflection.GetTypeByName("Eremite.View.HUD.MetaLevelUpPopup");
+                    popupComponent = popupType != null ? popup.GetComponent(popupType) : null;
+                }
+
+                if (popupComponent == null) return;
+
+                // Click the closeButton (required for proper tutorial flow)
+                var closeButtonField = popupType.GetField("closeButton", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (closeButtonField != null)
+                {
+                    var closeButton = closeButtonField.GetValue(popupComponent) as UnityEngine.UI.Button;
+                    if (closeButton != null && closeButton.gameObject.activeInHierarchy)
+                    {
+                        closeButton.onClick.Invoke();
+                        return;
+                    }
+                }
+
+                // Fallback: call Hide() directly
+                var hideMethod = popupType.GetMethod("Hide", BindingFlags.Public | BindingFlags.Instance);
+                hideMethod?.Invoke(popupComponent, null);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] ClosePopup failed: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -121,8 +187,6 @@ namespace ATSAccessibility
             if (!string.IsNullOrEmpty(expProgress))
                 levelExpParts.Add(expProgress);
 
-            Debug.Log($"[ATSAccessibility] MetaRewards level/exp: {string.Join(", ", levelExpParts)}");
-
             // Poll until reward count stabilizes (no new rewards for 0.5s)
             List<string> rewardNames = new List<string>();
             int lastCount = 0;
@@ -137,7 +201,6 @@ namespace ATSAccessibility
                     !IsMetaRewardsOrLevelUpPopup(popup.name))
                 {
                     _isPolling = false;
-                    Debug.Log("[ATSAccessibility] MetaRewardsPopup closed during polling");
                     yield break;
                 }
 
@@ -147,19 +210,15 @@ namespace ATSAccessibility
                 rewardNames = GetRewardsFromMetaRewardSlots(popup);
                 int currentCount = rewardNames.Count;
 
-                Debug.Log($"[ATSAccessibility] Polling: {currentCount} rewards at {elapsed}s");
-
                 // If count hasn't changed and we have rewards, animation is done
                 if (currentCount > 0 && currentCount == lastCount)
-                {
-                    Debug.Log($"[ATSAccessibility] Reward count stabilized at {currentCount}");
                     break;
-                }
+
 
                 lastCount = currentCount;
             }
 
-            // Build combined announcement: level/exp, then rewards, then close instruction
+            // Build combined announcement: level/exp, then rewards
             var fullAnnouncement = new List<string>();
 
             // Add level/exp info
@@ -174,16 +233,34 @@ namespace ATSAccessibility
                 fullAnnouncement.Add($"Rewards: {string.Join(", ", rewardNames)}");
             }
 
-            // Add close instruction
-            fullAnnouncement.Add("Press escape to close");
+            // Check if on world map - auto-close to preserve tutorial tooltip accessibility
+            bool isWorldMap = UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP;
 
-            // Cache and announce everything together
-            _cachedAnnouncement = string.Join(". ", fullAnnouncement);
-            _isPolling = false;
-            _isReady = true;
+            if (isWorldMap)
+            {
+                // Auto-close on world map - don't wait for user input
+                // This preserves access to the tutorial tooltip before animation finishes
+                _cachedAnnouncement = string.Join(". ", fullAnnouncement);
+                _isPolling = false;
+                _isReady = true;
 
-            Debug.Log($"[ATSAccessibility] MetaRewards full: {_cachedAnnouncement}");
-            Speech.Say(_cachedAnnouncement);
+                Speech.Say(_cachedAnnouncement);
+
+                // Auto-close the popup
+                yield return new WaitForSeconds(0.1f); // Brief delay to let speech start
+                ClosePopup(popup);
+            }
+            else
+            {
+                // Normal behavior - wait for user to close
+                fullAnnouncement.Add("Press enter or escape to close");
+
+                _cachedAnnouncement = string.Join(". ", fullAnnouncement);
+                _isPolling = false;
+                _isReady = true;
+
+                Speech.Say(_cachedAnnouncement);
+            }
         }
 
         /// <summary>
@@ -210,28 +287,17 @@ namespace ATSAccessibility
                 }
 
                 if (popupType == null || popupComponent == null)
-                {
-                    Debug.Log("[ATSAccessibility] Neither MetaRewardsPopup nor MetaLevelUpPopup component found");
                     return rewardNames;
-                }
 
                 // Get the rewardsSlots field (List<MetaRewardSlot>)
                 var slotsField = popupType.GetField("rewardsSlots",
                     BindingFlags.NonPublic | BindingFlags.Instance);
                 if (slotsField == null)
-                {
-                    Debug.Log("[ATSAccessibility] rewardsSlots field not found");
                     return rewardNames;
-                }
 
                 var slotsList = slotsField.GetValue(popupComponent) as System.Collections.IList;
                 if (slotsList == null || slotsList.Count == 0)
-                {
-                    Debug.Log("[ATSAccessibility] rewardsSlots list is empty");
                     return rewardNames;
-                }
-
-                Debug.Log($"[ATSAccessibility] Found {slotsList.Count} reward slots in list");
 
                 // Get the model field from MetaRewardSlot type
                 var slotType = GameReflection.GetTypeByName("Eremite.View.HUD.MetaRewardSlot");
@@ -268,7 +334,6 @@ namespace ATSAccessibility
                     }
 
                     rewardNames.Add(rewardText);
-                    Debug.Log($"[ATSAccessibility] MetaReward: {rewardText}");
                 }
 
                 // Also check upgradesSlot (ProgressionSlot) for level-up unlocks
@@ -291,13 +356,11 @@ namespace ATSAccessibility
                             {
                                 // This is typically something like "+1 Upgrade Points"
                                 rewardNames.Add(amountText.text);
-                                Debug.Log($"[ATSAccessibility] MetaReward (upgrade): {amountText.text}");
                             }
                             else
                             {
                                 // If no text, just indicate there's an upgrade unlock
                                 rewardNames.Add("Upgrade Unlocked");
-                                Debug.Log("[ATSAccessibility] MetaReward (upgrade): Upgrade Unlocked");
                             }
                         }
                     }

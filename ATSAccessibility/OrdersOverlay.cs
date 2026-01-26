@@ -125,6 +125,22 @@ namespace ATSAccessibility
             }
         }
 
+        /// <summary>
+        /// Refresh data when a new order becomes available.
+        /// Called by EventAnnouncer when OnOrderStarted fires.
+        /// </summary>
+        public void RefreshOnNewOrder()
+        {
+            if (!_isOpen) return;
+
+            RefreshData();
+            if (_currentIndex >= _items.Count)
+                _currentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
+
+            // Announce that the list was updated
+            Speech.Say("Orders updated");
+        }
+
         // ========================================
         // DATA
         // ========================================

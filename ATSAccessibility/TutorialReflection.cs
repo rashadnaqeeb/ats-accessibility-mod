@@ -46,6 +46,9 @@ namespace ATSAccessibility
         private static PropertyInfo _buttonOnClickProperty = null;
         private static MethodInfo _onClickInvokeMethod = null;
 
+        // Cached tooltip reference for world map (service returns null after animation)
+        private static object _cachedTooltip = null;
+
 
         // ========================================
         // INITIALIZATION
@@ -104,8 +107,6 @@ namespace ATSAccessibility
                         _getTutorialTooltipMethod = _tooltipsServiceGetMethod.MakeGenericMethod(_tutorialTooltipType);
                     }
                 }
-
-                Debug.Log("[ATSAccessibility] TutorialReflection cached successfully");
             }
             catch (Exception ex)
             {
@@ -125,7 +126,8 @@ namespace ATSAccessibility
             EnsureCached();
 
             var appServices = GameReflection.GetAppServices();
-            if (appServices == null || _tooltipsServiceProperty == null) return null;
+            if (appServices == null || _tooltipsServiceProperty == null)
+                return null;
 
             try
             {
@@ -139,39 +141,77 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Get the TutorialTooltip instance from TooltipsService (fresh each time).
+        /// Falls back to cached reference if service returns null (world map after animation).
         /// </summary>
         public static object GetTutorialTooltip()
         {
             EnsureCached();
 
             var tooltipsService = GetTooltipsService();
-            if (tooltipsService == null || _getTutorialTooltipMethod == null) return null;
+            if (tooltipsService != null && _getTutorialTooltipMethod != null)
+            {
+                try
+                {
+                    var result = _getTutorialTooltipMethod.Invoke(tooltipsService, null);
+                    if (result != null)
+                    {
+                        // Cache for later use (service may return null after animation)
+                        _cachedTooltip = result;
+                        return result;
+                    }
+                }
+                catch
+                {
+                    // Fall through to cached
+                }
+            }
 
-            try
+            // Return cached tooltip if still valid (gameObject active)
+            if (_cachedTooltip != null)
             {
-                return _getTutorialTooltipMethod.Invoke(tooltipsService, null);
+                var component = _cachedTooltip as Component;
+                if (component != null && component.gameObject != null && component.gameObject.activeInHierarchy)
+                {
+                    return _cachedTooltip;
+                }
+                // Cached tooltip no longer valid
+                _cachedTooltip = null;
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] TutorialReflection: GetTutorialTooltip failed: {ex.Message}");
-                return null;
-            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Clear the cached tooltip reference (call on scene change).
+        /// </summary>
+        public static void ClearCachedTooltip()
+        {
+            _cachedTooltip = null;
         }
 
         /// <summary>
         /// Check if the TutorialTooltip is currently visible.
+        /// Uses gameObject.activeInHierarchy instead of isShown field because
+        /// the game sets isShown=false during AnimateHide() but the tooltip
+        /// is still visible and interactive until the animation completes.
         /// </summary>
         public static bool IsTooltipVisible()
         {
             EnsureCached();
 
             var tooltip = GetTutorialTooltip();
-            if (tooltip == null || _isShownField == null) return false;
+            if (tooltip == null)
+            {
+                // Only log occasionally to avoid spam
+                return false;
+            }
 
             try
             {
-                var isShown = _isShownField.GetValue(tooltip);
-                return isShown is bool shown && shown;
+                // Check if the GameObject is actually active (more reliable than isShown)
+                var tooltipComponent = tooltip as Component;
+                bool active = tooltipComponent?.gameObject?.activeInHierarchy ?? false;
+                return active;
             }
             catch
             {
@@ -462,8 +502,6 @@ namespace ATSAccessibility
                     _startTutorialMethod = worldTutorialServiceType.GetMethod("StartTutorial",
                         new Type[] { tutorialGameConfigType ?? typeof(object) });
                 }
-
-                Debug.Log("[ATSAccessibility] TutorialReflection: WorldTutorials cached successfully");
             }
             catch (Exception ex)
             {
@@ -531,8 +569,6 @@ namespace ATSAccessibility
                     : _worldTutorialsHUDType.GetMethod("AnimateShow", GameReflection.NonPublicInstance);
 
                 animateMethod?.Invoke(hud, null);
-
-                Debug.Log($"[ATSAccessibility] WorldTutorialsHUD toggled to {!currentState}");
             }
             catch (Exception ex)
             {
@@ -565,24 +601,15 @@ namespace ATSAccessibility
                 // Get Settings.tutorialsConfig (it's a field, not a property)
                 var settings = GameReflection.GetSettings();
                 if (settings == null)
-                {
-                    Debug.LogWarning("[ATSAccessibility] GetAllTutorials: settings is null");
                     return result;
-                }
 
                 var tutorialsConfigField = settings.GetType().GetField("tutorialsConfig", GameReflection.PublicInstance);
                 if (tutorialsConfigField == null)
-                {
-                    Debug.LogWarning("[ATSAccessibility] GetAllTutorials: tutorialsConfig field not found");
                     return result;
-                }
 
                 var tutorialsConfig = tutorialsConfigField.GetValue(settings);
                 if (tutorialsConfig == null)
-                {
-                    Debug.LogWarning("[ATSAccessibility] GetAllTutorials: tutorialsConfig is null");
                     return result;
-                }
 
                 // Get all 4 tutorial configs
                 var configs = new List<object>();
@@ -590,9 +617,7 @@ namespace ATSAccessibility
                 {
                     var cfg = _tut1ConfigField.GetValue(tutorialsConfig);
                     if (cfg != null) configs.Add(cfg);
-                    else Debug.LogWarning("[ATSAccessibility] GetAllTutorials: tut1Config is null");
                 }
-                else Debug.LogWarning("[ATSAccessibility] GetAllTutorials: _tut1ConfigField is null");
 
                 if (_tut2ConfigField != null)
                 {
@@ -750,7 +775,6 @@ namespace ATSAccessibility
                 if (worldTutorialService == null) return false;
 
                 _startTutorialMethod.Invoke(worldTutorialService, new[] { config });
-                Debug.Log("[ATSAccessibility] Started tutorial");
                 return true;
             }
             catch (Exception ex)

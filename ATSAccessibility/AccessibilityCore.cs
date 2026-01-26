@@ -284,6 +284,9 @@ namespace ATSAccessibility
             _ordersOverlay = new OrdersOverlay();
             _orderPickOverlay = new OrderPickOverlay();
 
+            // Wire up event announcer to refresh orders overlay when new orders arrive
+            _eventAnnouncer.OnNewOrderAvailable = () => _ordersOverlay?.RefreshOnNewOrder();
+
             // Initialize consumption control overlay
             _consumptionOverlay = new ConsumptionOverlay();
 
@@ -333,8 +336,8 @@ namespace ATSAccessibility
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
 
-            // Initialize tutorial tooltip handler
-            _tutorialTooltipHandler = new TutorialTooltipHandler();
+            // Initialize tutorial tooltip handler (needs UINavigator to check for blocking popups)
+            _tutorialTooltipHandler = new TutorialTooltipHandler(_uiNavigator);
 
             // Initialize world tutorials overlay for world map tutorial selection
             _worldTutorialsOverlay = new WorldTutorialsOverlay();
@@ -455,7 +458,7 @@ namespace ATSAccessibility
         {
             // Process input in OnGUI - this captures input even when UI has focus
             Event e = Event.current;
-            if (e != null && e.isKey && e.type == EventType.KeyDown)
+            if (e != null && e.isKey && e.type == EventType.KeyDown && e.keyCode != KeyCode.None)
             {
                 // Deferred menu setup - rebuild on first key press after popup closes
                 if (_menuPendingSetup)
@@ -1129,8 +1132,19 @@ namespace ATSAccessibility
             // If deeds overlay is active and a different popup opens on top, suspend it
             if (_deedsOverlay != null && _deedsOverlay.IsActive)
             {
-                Debug.Log("[ATSAccessibility] Suspending Deeds overlay for child popup");
                 _deedsOverlay.Suspend();
+            }
+
+            // If MetaRewardsPopup on world map, cache the tutorial tooltip NOW (before animation finishes)
+            // Only track for polling if tutorial tooltip was actually visible
+            if (IsMetaRewardsOrLevelUpPopup(popup) && SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP)
+            {
+                _tutorialWasActiveBeforePopup = TutorialReflection.IsTooltipVisible();
+                if (_tutorialWasActiveBeforePopup)
+                {
+                    // Force cache the tooltip while it's still accessible
+                    TutorialReflection.GetTutorialTooltip();
+                }
             }
 
             // Standard popup handling
@@ -1143,7 +1157,6 @@ namespace ATSAccessibility
         /// </summary>
         private void OnPopupHidden(object popup)
         {
-            Debug.Log($"[ATSAccessibility] Popup hidden event received");
 
             // Check wiki popup first
             if (GameReflection.IsWikiPopup(popup))
@@ -1324,6 +1337,21 @@ namespace ATSAccessibility
                 _dailyExpeditionOverlay?.Close();
                 // Fall through to handle context change
             }
+            // Check MetaRewardsPopup/MetaLevelUpPopup - flag for tutorial tooltip polling
+            else if (IsMetaRewardsOrLevelUpPopup(popup))
+            {
+                MetaRewardsPopupReader.Reset();
+
+                // If on world map and tutorial was active before popup, set flag to poll for tutorial tooltip
+                if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP && _tutorialWasActiveBeforePopup)
+                {
+                    _tutorialWasActiveBeforePopup = false;
+                    _waitingForTutorialTooltip = true;
+                }
+
+                _uiNavigator?.OnPopupHidden(popup);
+                // Fall through to handle context change
+            }
             else
             {
                 // If deeds overlay has a child popup that was closed, clear it
@@ -1373,12 +1401,74 @@ namespace ATSAccessibility
                     {
                         _keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);
                         Debug.Log("[ATSAccessibility] Popup closed on world map, returning to WorldMap context");
+
+                        // If MetaRewardsPopup closed during tutorial, poll for next tooltip
+                        if (_waitingForTutorialTooltip)
+                        {
+                            _waitingForTutorialTooltip = false;
+                            StartCoroutine(PollForWorldTutorialTooltip());
+                        }
                     }
                 }
                 else
                 {
                     _keyboardManager?.SetContext(KeyboardManager.NavigationContext.None);
                 }
+            }
+        }
+
+        // Track if we should poll for tutorial tooltip after MetaRewardsPopup
+        private bool _waitingForTutorialTooltip = false;
+        // Track if tutorial was active when MetaRewardsPopup opened (to avoid unnecessary polling)
+        private bool _tutorialWasActiveBeforePopup = false;
+
+        /// <summary>
+        /// Check if a popup is MetaRewardsPopup or MetaLevelUpPopup.
+        /// </summary>
+        private static bool IsMetaRewardsOrLevelUpPopup(object popup)
+        {
+            if (popup == null) return false;
+            var go = popup as UnityEngine.GameObject;
+            if (go == null)
+            {
+                var component = popup as UnityEngine.Component;
+                go = component?.gameObject;
+            }
+            if (go == null) return false;
+            return go.name.Contains("MetaRewards") || go.name.Contains("MetaLevelUp");
+        }
+
+        /// <summary>
+        /// Polls for the tutorial tooltip to become visible on the world map.
+        /// Called after MetaRewardsPopup closes during a tutorial.
+        /// </summary>
+        private IEnumerator PollForWorldTutorialTooltip()
+        {
+            float elapsed = 0f;
+            float maxWait = 10f;
+            float pollInterval = 0.25f;
+
+            while (elapsed < maxWait)
+            {
+                yield return new WaitForSeconds(pollInterval);
+                elapsed += pollInterval;
+
+                // Check if tooltip became visible
+                if (TutorialReflection.IsTooltipVisible())
+                {
+                    string text = TutorialReflection.GetCurrentText();
+                    if (!string.IsNullOrEmpty(text))
+                    {
+                        // Queue the announcement (don't interrupt rewards)
+                        Speech.Say(text, interrupt: false);
+                        _tutorialTooltipHandler?.ForceEngage();
+                    }
+                    yield break;
+                }
+
+                // Abort if we left the world map
+                if (SceneManager.GetActiveScene().buildIndex != SCENE_WORLDMAP)
+                    yield break;
             }
         }
     }

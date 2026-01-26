@@ -115,6 +115,8 @@ namespace ATSAccessibility
                 // Pass to MapScanner for building/resource scanning
                 case KeyCode.PageUp:
                 case KeyCode.PageDown:
+                case KeyCode.Home:
+                case KeyCode.End:
                     return false;
 
                 // Pass to MapNavigator for position/tile info

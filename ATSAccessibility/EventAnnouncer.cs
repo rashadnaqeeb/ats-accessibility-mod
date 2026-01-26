@@ -39,6 +39,9 @@ namespace ATSAccessibility
         private float _batchStartTime = 0f;
         private const float BATCH_WINDOW = 0.15f; // 150ms batching window
 
+        // Callback for when a new order becomes available (used to refresh OrdersOverlay)
+        public Action OnNewOrderAvailable { get; set; }
+
         // Cached reflection for villager removal
         private static MethodInfo _villagerGetDisplayNameMethod;
         private static FieldInfo _villagerStateField;
@@ -525,6 +528,9 @@ namespace ATSAccessibility
 
         private void OnOrderStarted(object orderState)
         {
+            // Notify overlay regardless of announcement settings
+            OnNewOrderAvailable?.Invoke();
+
             if (!Plugin.AnnounceOrderAvailable.Value) return;
             if (IsInGracePeriod()) return;
             Announce("New order available");

@@ -124,10 +124,10 @@ namespace ATSAccessibility
                 return ProcessDropdownKey(keyCode);
             }
 
-            // Special handling for MetaRewardsPopup (polling/repeat behavior)
+            // Special handling for MetaRewardsPopup (polling/repeat behavior, Enter to close)
             if (IsMetaRewardsPopup)
             {
-                if (MetaRewardsPopupReader.ProcessKeyEvent(keyCode))
+                if (MetaRewardsPopupReader.ProcessKeyEvent(keyCode, _currentPopup))
                 {
                     return true;
                 }

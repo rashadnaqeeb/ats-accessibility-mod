@@ -226,6 +226,14 @@ namespace ATSAccessibility
                     _awaitingPlaceConfirm = false;
                     return false;
 
+                // Pass to MapScanner for building/resource scanning
+                case KeyCode.PageUp:
+                case KeyCode.PageDown:
+                case KeyCode.Home:
+                case KeyCode.End:
+                    _awaitingPlaceConfirm = false;
+                    return false;
+
                 // Pass to MapNavigator for position/tile info
                 case KeyCode.K:
                 case KeyCode.I:
