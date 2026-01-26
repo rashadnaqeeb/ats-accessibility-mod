@@ -25,6 +25,9 @@ namespace ATSAccessibility
         private object _popup;
         private int _currentIndex;
 
+        // Flag to suppress EventAnnouncer's "New blueprint available" when we announce description
+        public static bool SuppressBlueprintAnnouncement { get; private set; }
+
         // Navigation list
         private List<NavItem> _items = new List<NavItem>();
         private readonly TypeAheadSearch _search = new TypeAheadSearch();
@@ -104,7 +107,18 @@ namespace ATSAccessibility
 
             RefreshData();
 
-            if (_items.Count > 0)
+            // Get popup description (includes tutorial text if in tutorial)
+            string description = ReputationRewardReflection.GetPopupDescription(popup);
+
+            if (!string.IsNullOrEmpty(description))
+            {
+                // Suppress the EventAnnouncer's "New blueprint available" message
+                SuppressBlueprintAnnouncement = true;
+                // Announce just the description (tutorial text)
+                // Don't include first item - let user navigate to it
+                Speech.Say(description);
+            }
+            else if (_items.Count > 0)
             {
                 Speech.Say($"Reputation reward. {_items[0].Label}");
             }
@@ -127,6 +141,7 @@ namespace ATSAccessibility
             _popup = null;
             _search.Clear();
             _items.Clear();
+            SuppressBlueprintAnnouncement = false;
 
             Debug.Log("[ATSAccessibility] ReputationRewardOverlay closed");
         }

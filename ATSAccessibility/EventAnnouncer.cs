@@ -194,6 +194,13 @@ namespace ATSAccessibility
 
             foreach (var (message, time) in _pendingMessages)
             {
+                // Skip blueprint announcement if overlay is showing description
+                if (ReputationRewardOverlay.SuppressBlueprintAnnouncement &&
+                    message == "New blueprint available to pick")
+                {
+                    continue;
+                }
+
                 if (messageCounts.ContainsKey(message))
                 {
                     messageCounts[message]++;

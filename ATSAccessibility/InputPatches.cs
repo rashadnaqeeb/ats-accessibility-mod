@@ -232,6 +232,9 @@ namespace ATSAccessibility
                     _maxSpeed,
                     Time.unscaledDeltaTime
                 );
+
+                // Update game's movementVelocity so tutorial checks pass
+                _movementVelocityField?.SetValue(__instance, _velocity);
             }
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] CameraController.UpdateMovement patch failed: {ex.Message}"); }
         }

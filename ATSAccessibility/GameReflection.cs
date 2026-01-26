@@ -663,6 +663,8 @@ namespace ATSAccessibility
         private static FieldInfo _mapWidthField = null;         // Fields.width
         private static FieldInfo _mapHeightField = null;        // Fields.height
         private static MethodInfo _mapInBoundsMethod = null;    // MapService.InBounds(int, int)
+        private static PropertyInfo _gsBiomeServiceProperty = null;  // GameServices.BiomeService
+        private static PropertyInfo _biomeCurrentBiomeProperty = null;  // BiomeService.CurrentBiome
         private static bool _mapTypesCached = false;
 
         private static void EnsureMapTypes()
@@ -786,6 +788,21 @@ namespace ATSAccessibility
                 if (villagersServiceType != null)
                 {
                     _villagersVillagersProperty = villagersServiceType.GetProperty("Villagers",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get BiomeService from IGameServices
+                if (gameServicesType != null)
+                {
+                    _gsBiomeServiceProperty = gameServicesType.GetProperty("BiomeService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get CurrentBiome from IBiomeService
+                var biomeServiceType = _gameAssembly.GetType("Eremite.Services.IBiomeService");
+                if (biomeServiceType != null)
+                {
+                    _biomeCurrentBiomeProperty = biomeServiceType.GetProperty("CurrentBiome",
                         BindingFlags.Public | BindingFlags.Instance);
                 }
 
@@ -956,6 +973,25 @@ namespace ATSAccessibility
         {
             EnsureMapTypes();
             return TryGetPropertyValue<object>(_gsConditionsServiceProperty, GetGameServices());
+        }
+
+        /// <summary>
+        /// Get BiomeService from GameServices.
+        /// </summary>
+        public static object GetBiomeService()
+        {
+            EnsureMapTypes();
+            return TryGetPropertyValue<object>(_gsBiomeServiceProperty, GetGameServices());
+        }
+
+        /// <summary>
+        /// Get the current biome model.
+        /// Returns null if not in game.
+        /// </summary>
+        public static object GetCurrentBiome()
+        {
+            EnsureMapTypes();
+            return TryGetPropertyValue<object>(_biomeCurrentBiomeProperty, GetBiomeService());
         }
 
         /// <summary>

@@ -167,6 +167,9 @@ namespace ATSAccessibility
         // Daily Expedition popup overlay for daily challenge
         private DailyExpeditionOverlay _dailyExpeditionOverlay;
 
+        // Tutorial tooltip handler for tutorial text navigation
+        private TutorialTooltipHandler _tutorialTooltipHandler;
+
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
@@ -327,12 +330,16 @@ namespace ATSAccessibility
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
 
+            // Initialize tutorial tooltip handler
+            _tutorialTooltipHandler = new TutorialTooltipHandler();
+
             // Create context handlers for settlement and world map
             var settlementHandler = new SettlementKeyHandler(
                 _mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog, harvestMarkHandler);
             var worldMapHandler = new WorldMapKeyHandler(_worldMapNavigator, _worldMapScanner);
 
             // Register key handlers in priority order (highest priority first)
+            _keyboardManager.RegisterHandler(_tutorialTooltipHandler);  // Tutorial tooltip (blocks input during tutorial)
             _keyboardManager.RegisterHandler(_confirmationDialog);  // Confirmation dialog (blocks all input when active)
             _keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
             _keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
@@ -399,6 +406,9 @@ namespace ATSAccessibility
             // Process pending event announcements (batches messages to prevent interruption)
             _eventAnnouncer?.ProcessMessageQueue();
 
+            // Check for tutorial tooltip text changes (auto-announce)
+            _tutorialTooltipHandler?.CheckForTextChanges();
+
             // Polling for game state changes (settlement entry)
             // Use unscaledDeltaTime so it works even when game is paused
             _pollTimer += Time.unscaledDeltaTime;
@@ -448,6 +458,7 @@ namespace ATSAccessibility
                 }
 
                 var modifiers = new KeyboardManager.KeyModifiers(e.control, e.alt, e.shift);
+
                 _keyboardManager?.ProcessKeyEvent(e.keyCode, modifiers);
             }
         }

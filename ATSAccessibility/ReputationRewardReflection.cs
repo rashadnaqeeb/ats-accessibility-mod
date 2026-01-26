@@ -62,6 +62,11 @@ namespace ATSAccessibility
         private static MethodInfo _rpOnBuildingPickedMethod = null;
         private static MethodInfo _rpRerollMethod = null;
 
+        // ReputationRewardsPopup textTyper (for tutorial description)
+        private static FieldInfo _rpTextTyperField = null;
+        private static FieldInfo _ttTextMeshField = null;
+        private static PropertyInfo _tmpTextProperty = null;
+
         private static bool _typesCached = false;
 
         // ========================================
@@ -203,6 +208,16 @@ namespace ATSAccessibility
                     BindingFlags.NonPublic | BindingFlags.Instance);
                 _rpRerollMethod = popupType.GetMethod("Reroll",
                     BindingFlags.NonPublic | BindingFlags.Instance);
+                _rpTextTyperField = popupType.GetField("textTyper",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+
+            // TextTyper.textMesh field
+            var textTyperType = assembly.GetType("Eremite.View.TextTyper");
+            if (textTyperType != null)
+            {
+                _ttTextMeshField = textTyperType.GetField("textMesh",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
             }
         }
 
@@ -235,6 +250,99 @@ namespace ATSAccessibility
         {
             if (popup == null) return false;
             return popup.GetType().Name == "ReputationRewardsPopup";
+        }
+
+        /// <summary>
+        /// Check if we're in the first tutorial with tutorial-specific description.
+        /// This matches the game's IsTutorialDesc() logic.
+        /// </summary>
+        public static bool IsTutorialMode()
+        {
+            // Check if TutorialService.IsFirstTutorial(Biome) && Reputation == 0
+            // This is when the popup shows tutorial-specific text
+            try
+            {
+                var metaServices = GameReflection.GetMetaServices();
+                if (metaServices == null) return false;
+
+                // Get TutorialService
+                var tutorialServiceProp = metaServices.GetType().GetProperty("TutorialService");
+                var tutorialService = tutorialServiceProp?.GetValue(metaServices);
+                if (tutorialService == null) return false;
+
+                // Get current biome from BiomeService
+                var gameServices = GameReflection.GetGameServices();
+                if (gameServices == null) return false;
+
+                var biomeServiceProp = gameServices.GetType().GetProperty("BiomeService");
+                var biomeService = biomeServiceProp?.GetValue(gameServices);
+                if (biomeService == null) return false;
+
+                var biomeProp = biomeService.GetType().GetProperty("Biome");
+                var biome = biomeProp?.GetValue(biomeService);
+                if (biome == null) return false;
+
+                // Check IsFirstTutorial(biome)
+                var isFirstTutorialMethod = tutorialService.GetType().GetMethod("IsFirstTutorial");
+                if (isFirstTutorialMethod == null) return false;
+
+                var isFirstTutorial = (bool)isFirstTutorialMethod.Invoke(tutorialService, new[] { biome });
+                if (!isFirstTutorial) return false;
+
+                // Check Reputation == 0
+                var reputationServiceProp = gameServices.GetType().GetProperty("ReputationService");
+                var reputationService = reputationServiceProp?.GetValue(gameServices);
+                if (reputationService == null) return false;
+
+                var reputationProp = reputationService.GetType().GetProperty("Reputation");
+                var reputationReactive = reputationProp?.GetValue(reputationService);
+                if (reputationReactive == null) return false;
+
+                var valueProp = reputationReactive.GetType().GetProperty("Value");
+                var reputation = valueProp?.GetValue(reputationReactive);
+                if (reputation == null) return false;
+
+                return (float)reputation == 0f;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the popup's description text (from textTyper.textMesh.text).
+        /// This includes tutorial-specific text during the first tutorial.
+        /// </summary>
+        public static string GetPopupDescription(object popup)
+        {
+            if (popup == null) return null;
+            EnsureTypesCached();
+
+            if (_rpTextTyperField == null) return null;
+
+            try
+            {
+                var textTyper = _rpTextTyperField.GetValue(popup);
+                if (textTyper == null || _ttTextMeshField == null) return null;
+
+                var textMesh = _ttTextMeshField.GetValue(textTyper);
+                if (textMesh == null) return null;
+
+                // Cache TMP_Text.text property on first use
+                if (_tmpTextProperty == null)
+                {
+                    _tmpTextProperty = textMesh.GetType().GetProperty("text",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                return _tmpTextProperty?.GetValue(textMesh) as string;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] ReputationRewardReflection: GetPopupDescription failed: {ex.Message}");
+                return null;
+            }
         }
 
         // ========================================
