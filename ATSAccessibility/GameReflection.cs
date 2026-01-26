@@ -4455,6 +4455,162 @@ namespace ATSAccessibility
             return InvokeSubjectOnNext(blackboardService, "TrendsPopupRequested", true);
         }
 
+        // ========================================
+        // META PERK UNLOCK CHECKS
+        // ========================================
+
+        // Cached reflection for MetaPerksService
+        private static PropertyInfo _mbMetaPerksServiceProp = null;
+        private static MethodInfo _areTradeRoutesEnabledMethod = null;
+        private static MethodInfo _isConsumptionControlEnabledMethod = null;
+        private static bool _metaPerksReflectionCached = false;
+
+        // Cached reflection for MetaStateService.Perks (for fields not exposed via MetaPerksService)
+        private static PropertyInfo _mbMetaStateServiceProp = null;
+        private static PropertyInfo _mssPerksProperty = null;
+        private static FieldInfo _perksReputationRewardsRerollEnabledField = null;
+        private static bool _metaStateReflectionCached = false;
+
+        private static void EnsureMetaPerksReflectionCached()
+        {
+            if (_metaPerksReflectionCached) return;
+            _metaPerksReflectionCached = true;
+
+            try
+            {
+                // Get MB type and MetaPerksService property (protected static)
+                var mbType = _gameAssembly?.GetType("Eremite.MB");
+                if (mbType != null)
+                {
+                    _mbMetaPerksServiceProp = mbType.GetProperty("MetaPerksService",
+                        BindingFlags.NonPublic | BindingFlags.Static);
+                }
+
+                // Get IMetaPerksService methods
+                var metaPerksServiceType = _gameAssembly?.GetType("Eremite.Services.IMetaPerksService");
+                if (metaPerksServiceType != null)
+                {
+                    _areTradeRoutesEnabledMethod = metaPerksServiceType.GetMethod("AreTradeRoutesEnabled");
+                    _isConsumptionControlEnabledMethod = metaPerksServiceType.GetMethod("IsConsumptionControlEnabled");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Failed to cache MetaPerksService reflection: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Check if Trade Routes feature is unlocked via meta progression.
+        /// </summary>
+        public static bool AreTradeRoutesUnlocked()
+        {
+            EnsureMetaPerksReflectionCached();
+
+            if (_mbMetaPerksServiceProp == null || _areTradeRoutesEnabledMethod == null)
+                return true; // Assume unlocked if reflection fails
+
+            try
+            {
+                var metaPerksService = _mbMetaPerksServiceProp.GetValue(null);
+                if (metaPerksService == null) return true;
+
+                var result = _areTradeRoutesEnabledMethod.Invoke(metaPerksService, null);
+                return result is bool enabled && enabled;
+            }
+            catch
+            {
+                return true; // Assume unlocked on error
+            }
+        }
+
+        /// <summary>
+        /// Check if Consumption Control feature is unlocked via meta progression.
+        /// </summary>
+        public static bool IsConsumptionControlUnlocked()
+        {
+            EnsureMetaPerksReflectionCached();
+
+            if (_mbMetaPerksServiceProp == null || _isConsumptionControlEnabledMethod == null)
+                return true; // Assume unlocked if reflection fails
+
+            try
+            {
+                var metaPerksService = _mbMetaPerksServiceProp.GetValue(null);
+                if (metaPerksService == null) return true;
+
+                var result = _isConsumptionControlEnabledMethod.Invoke(metaPerksService, null);
+                return result is bool enabled && enabled;
+            }
+            catch
+            {
+                return true; // Assume unlocked on error
+            }
+        }
+
+        private static void EnsureMetaStateReflectionCached()
+        {
+            if (_metaStateReflectionCached) return;
+            _metaStateReflectionCached = true;
+
+            try
+            {
+                // Get MB type and MetaStateService property (protected static)
+                var mbType = _gameAssembly?.GetType("Eremite.MB");
+                if (mbType != null)
+                {
+                    _mbMetaStateServiceProp = mbType.GetProperty("MetaStateService",
+                        BindingFlags.NonPublic | BindingFlags.Static);
+                }
+
+                // Get IMetaStateService.Perks property
+                var metaStateServiceType = _gameAssembly?.GetType("Eremite.Services.IMetaStateService");
+                if (metaStateServiceType != null)
+                {
+                    _mssPerksProperty = metaStateServiceType.GetProperty("Perks",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Get MetaPerksState.reputationRewardsRerollEnabled field
+                var metaPerksStateType = _gameAssembly?.GetType("Eremite.Model.State.MetaPerksState");
+                if (metaPerksStateType != null)
+                {
+                    _perksReputationRewardsRerollEnabledField = metaPerksStateType.GetField("reputationRewardsRerollEnabled",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] Failed to cache MetaStateService reflection: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Check if Blueprint Reroll feature is unlocked via meta progression.
+        /// </summary>
+        public static bool IsBlueprintRerollUnlocked()
+        {
+            EnsureMetaStateReflectionCached();
+
+            if (_mbMetaStateServiceProp == null || _mssPerksProperty == null || _perksReputationRewardsRerollEnabledField == null)
+                return true; // Assume unlocked if reflection fails
+
+            try
+            {
+                var metaStateService = _mbMetaStateServiceProp.GetValue(null);
+                if (metaStateService == null) return true;
+
+                var perks = _mssPerksProperty.GetValue(metaStateService);
+                if (perks == null) return true;
+
+                var result = _perksReputationRewardsRerollEnabledField.GetValue(perks);
+                return result is bool enabled && enabled;
+            }
+            catch
+            {
+                return true; // Assume unlocked on error
+            }
+        }
 
         /// <summary>
         /// Open the Trader panel via TraderPanel.Instance.Show().

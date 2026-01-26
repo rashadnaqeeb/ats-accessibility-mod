@@ -36,6 +36,7 @@ namespace ATSAccessibility
         private static MethodInfo _mpsIsHomeEnabledMethod = null;
         private static MethodInfo _mpsIsDailyChallengeEnabledMethod = null;
         private static MethodInfo _mpsIsCustomGameEnabledMethod = null;
+        private static MethodInfo _mpsAreGoalsEnabledMethod = null;
 
         private static bool _typesCached = false;
 
@@ -111,6 +112,8 @@ namespace ATSAccessibility
                     _mpsIsDailyChallengeEnabledMethod = metaPerksServiceType.GetMethod("IsDailyChallengeEnabled",
                         BindingFlags.Public | BindingFlags.Instance);
                     _mpsIsCustomGameEnabledMethod = metaPerksServiceType.GetMethod("IsCustomGameEnabled",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _mpsAreGoalsEnabledMethod = metaPerksServiceType.GetMethod("AreGoalsEnabled",
                         BindingFlags.Public | BindingFlags.Instance);
                 }
 
@@ -411,6 +414,29 @@ namespace ATSAccessibility
                 if (metaPerksService == null) return false;
 
                 var result = _mpsIsHomeEnabledMethod.Invoke(metaPerksService, null);
+                return result != null && (bool)result;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if the Deeds (Goals) feature is unlocked.
+        /// </summary>
+        public static bool IsDeedsUnlocked()
+        {
+            EnsureTypes();
+
+            if (_mpsAreGoalsEnabledMethod == null) return false;
+
+            try
+            {
+                var metaPerksService = GetMetaPerksService();
+                if (metaPerksService == null) return false;
+
+                var result = _mpsAreGoalsEnabledMethod.Invoke(metaPerksService, null);
                 return result != null && (bool)result;
             }
             catch

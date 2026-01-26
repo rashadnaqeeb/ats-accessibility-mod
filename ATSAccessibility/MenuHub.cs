@@ -151,6 +151,12 @@ namespace ATSAccessibility
                     if (success) SoundManager.PlayMenuOrders();
                     break;
                 case 2: // Trade Routes
+                    if (!GameReflection.AreTradeRoutesUnlocked())
+                    {
+                        Speech.Say("Trade Routes locked. Unlock via meta progression");
+                        SoundManager.PlayFailed();
+                        return;
+                    }
                     success = GameReflection.OpenTradeRoutesPopup();
                     if (success) SoundManager.PlayMenuTradeRoutes();
                     break;
@@ -159,6 +165,12 @@ namespace ATSAccessibility
                     if (success) SoundManager.PlayMenuRecipes();  // Shares sound with Recipes
                     break;
                 case 4: // Consumption Control
+                    if (!GameReflection.IsConsumptionControlUnlocked())
+                    {
+                        Speech.Say("Consumption Control locked. Unlock via meta progression");
+                        SoundManager.PlayFailed();
+                        return;
+                    }
                     success = GameReflection.OpenConsumptionPopup();
                     if (success) SoundManager.PlayConsumptionPopupShow();
                     break;
@@ -195,7 +207,15 @@ namespace ATSAccessibility
         private void AnnounceCurrentItem(bool withPrefix)
         {
             string label = _menuLabels[_currentIndex];
-            string message = withPrefix ? $"Menu Hub. {label}" : label;
+
+            // Check if item is locked
+            string lockSuffix = "";
+            if (_currentIndex == 2 && !GameReflection.AreTradeRoutesUnlocked())
+                lockSuffix = ", locked";
+            else if (_currentIndex == 4 && !GameReflection.IsConsumptionControlUnlocked())
+                lockSuffix = ", locked";
+
+            string message = withPrefix ? $"Menu Hub. {label}{lockSuffix}" : $"{label}{lockSuffix}";
             Speech.Say(message);
         }
 

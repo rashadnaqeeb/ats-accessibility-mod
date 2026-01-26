@@ -191,7 +191,8 @@ namespace ATSAccessibility
                 });
             }
 
-            // Add reroll option
+            // Add reroll option if unlocked via meta progression
+            if (GameReflection.IsBlueprintRerollUnlocked())
             {
                 var (rerollAmount, rerollGoodName) = ReputationRewardReflection.GetRerollCost();
                 string rerollLabel = ReputationRewardReflection.CanAffordReroll()

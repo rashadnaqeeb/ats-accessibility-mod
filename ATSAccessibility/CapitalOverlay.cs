@@ -124,23 +124,27 @@ namespace ATSAccessibility
             _items.Clear();
 
             _items.Add(("Buy Upgrades", () => CapitalReflection.OpenUpgrades()));
-            _items.Add(("Deeds", () => CapitalReflection.OpenDeeds()));
+            _items.Add(("Deeds", () => OpenIfUnlocked("Deeds", CapitalReflection.IsDeedsUnlocked, CapitalReflection.OpenDeeds)));
             _items.Add(("Game History", () => CapitalReflection.OpenHistory()));
-
-            if (CapitalReflection.IsDailyExpeditionUnlocked())
-            {
-                _items.Add(("Daily Expedition", () => CapitalReflection.OpenDailyExpedition()));
-            }
-
-            if (CapitalReflection.IsTrainingExpeditionUnlocked())
-            {
-                _items.Add(("Training Expedition", () => CapitalReflection.OpenTrainingExpedition()));
-            }
+            _items.Add(("Daily Expedition", () => OpenIfUnlocked("Daily Expedition", CapitalReflection.IsDailyExpeditionUnlocked, CapitalReflection.OpenDailyExpedition)));
+            _items.Add(("Training Expedition", () => OpenIfUnlocked("Training Expedition", CapitalReflection.IsTrainingExpeditionUnlocked, CapitalReflection.OpenTrainingExpedition)));
 
             if (CapitalReflection.IsHomeUnlocked())
             {
                 _items.Add(("Home", () => CapitalReflection.OpenHome()));
             }
+        }
+
+        private void OpenIfUnlocked(string name, Func<bool> unlockCheck, Func<bool> openAction)
+        {
+            if (!unlockCheck())
+            {
+                Speech.Say($"{name} locked. Unlock via meta progression");
+                SoundManager.PlayFailed();
+                _suspended = false;  // Don't suspend if we didn't open anything
+                return;
+            }
+            openAction();
         }
 
         private void Navigate(int direction)
@@ -223,7 +227,24 @@ namespace ATSAccessibility
         {
             if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
 
-            Speech.Say(_items[_currentIndex].name);
+            string name = _items[_currentIndex].name;
+            string lockSuffix = GetLockSuffix(name);
+            Speech.Say($"{name}{lockSuffix}");
+        }
+
+        private string GetLockSuffix(string itemName)
+        {
+            switch (itemName)
+            {
+                case "Deeds":
+                    return CapitalReflection.IsDeedsUnlocked() ? "" : ", locked";
+                case "Daily Expedition":
+                    return CapitalReflection.IsDailyExpeditionUnlocked() ? "" : ", locked";
+                case "Training Expedition":
+                    return CapitalReflection.IsTrainingExpeditionUnlocked() ? "" : ", locked";
+                default:
+                    return "";
+            }
         }
     }
 }

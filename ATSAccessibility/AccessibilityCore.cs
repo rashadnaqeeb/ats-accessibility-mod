@@ -351,6 +351,7 @@ namespace ATSAccessibility
             // Register key handlers in priority order (highest priority first)
             _keyboardManager.RegisterHandler(_tutorialTooltipHandler);  // Tutorial tooltip (blocks input during tutorial)
             _keyboardManager.RegisterHandler(_confirmationDialog);  // Confirmation dialog (blocks all input when active)
+            _keyboardManager.RegisterHandler(_gameResultOverlay);  // Game result (victory/defeat) - high priority terminal state
             _keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
             _keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
             _keyboardManager.RegisterHandler(_rewardsPanel);        // F3 rewards panel
@@ -378,7 +379,6 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_tradeRoutesOverlay); // Trade routes popup overlay
             _keyboardManager.RegisterHandler(_cycleEndOverlay);   // Cycle end popup overlay (world map)
             _keyboardManager.RegisterHandler(_paymentsOverlay);   // Payments popup overlay
-            _keyboardManager.RegisterHandler(_gameResultOverlay);  // Game result (victory/defeat) popup overlay
             _keyboardManager.RegisterHandler(_blackMarketOverlay); // Black Market popup overlay
             _keyboardManager.RegisterHandler(_altarOverlay);        // Altar (Forsaken Altar) popup overlay
             _keyboardManager.RegisterHandler(_perkCrafterOverlay);  // Perk Crafter (Cornerstone Forge) popup overlay
