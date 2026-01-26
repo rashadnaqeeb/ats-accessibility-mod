@@ -2,6 +2,8 @@
 
 A BepInEx mod adding screen reader support to Against the Storm via Tolk.
 
+**v1.01** - Full tutorial support added. All four in-game tutorials are now fully accessible.
+
 ## Installation
 
 1. Locate your Against the Storm installation folder:
