@@ -29,6 +29,14 @@ namespace ATSAccessibility
         public static bool IsReady => _isReady;
 
         /// <summary>
+        /// Check if popup name indicates MetaRewardsPopup or MetaLevelUpPopup.
+        /// </summary>
+        private static bool IsMetaRewardsOrLevelUpPopup(string popupName)
+        {
+            return popupName.Contains("MetaRewards") || popupName.Contains("MetaLevelUp");
+        }
+
+        /// <summary>
         /// Reset state when popup closes.
         /// </summary>
         public static void Reset()
@@ -124,9 +132,9 @@ namespace ATSAccessibility
 
             while (elapsed < maxWait)
             {
-                // Safety check: ensure popup is still visible and is MetaRewardsPopup
+                // Safety check: ensure popup is still visible and is MetaRewardsPopup or MetaLevelUpPopup
                 if (popup == null || !popup.activeInHierarchy ||
-                    !popup.name.Contains("MetaRewards"))
+                    !IsMetaRewardsOrLevelUpPopup(popup.name))
                 {
                     _isPolling = false;
                     Debug.Log("[ATSAccessibility] MetaRewardsPopup closed during polling");
@@ -190,18 +198,20 @@ namespace ATSAccessibility
 
             try
             {
-                // Get the MetaRewardsPopup component
+                // Try to get MetaRewardsPopup or MetaLevelUpPopup component
                 var popupType = GameReflection.GetTypeByName("Eremite.View.HUD.MetaRewardsPopup");
-                if (popupType == null)
-                {
-                    Debug.Log("[ATSAccessibility] MetaRewardsPopup type not found");
-                    return rewardNames;
-                }
+                var popupComponent = popupType != null ? popup.GetComponent(popupType) : null;
 
-                var popupComponent = popup.GetComponent(popupType);
+                // If not MetaRewardsPopup, try MetaLevelUpPopup
                 if (popupComponent == null)
                 {
-                    Debug.Log("[ATSAccessibility] MetaRewardsPopup component not found");
+                    popupType = GameReflection.GetTypeByName("Eremite.View.HUD.MetaLevelUpPopup");
+                    popupComponent = popupType != null ? popup.GetComponent(popupType) : null;
+                }
+
+                if (popupType == null || popupComponent == null)
+                {
+                    Debug.Log("[ATSAccessibility] Neither MetaRewardsPopup nor MetaLevelUpPopup component found");
                     return rewardNames;
                 }
 

@@ -55,9 +55,17 @@ namespace ATSAccessibility
         public bool HasActivePopup => _currentPopup != null;
 
         /// <summary>
-        /// Whether the current popup is the MetaRewardsPopup.
+        /// Whether the current popup is the MetaRewardsPopup or MetaLevelUpPopup.
         /// </summary>
-        public bool IsMetaRewardsPopup => _currentPopup != null && _currentPopup.name.Contains("MetaRewards");
+        public bool IsMetaRewardsPopup => _currentPopup != null && IsMetaRewardsOrLevelUpPopup(_currentPopup.name);
+
+        /// <summary>
+        /// Check if popup name indicates MetaRewardsPopup or MetaLevelUpPopup.
+        /// </summary>
+        private static bool IsMetaRewardsOrLevelUpPopup(string popupName)
+        {
+            return popupName.Contains("MetaRewards") || popupName.Contains("MetaLevelUp");
+        }
 
         /// <summary>
         /// Whether there's an active menu being navigated.
@@ -336,8 +344,8 @@ namespace ATSAccessibility
 
         private void ResetPopup()
         {
-            // Reset MetaRewardsPopupReader state if it was a MetaRewards popup
-            if (_currentPopup != null && _currentPopup.name.Contains("MetaRewards"))
+            // Reset MetaRewardsPopupReader state if it was a MetaRewards or MetaLevelUp popup
+            if (_currentPopup != null && IsMetaRewardsOrLevelUpPopup(_currentPopup.name))
             {
                 MetaRewardsPopupReader.Reset();
             }
@@ -833,8 +841,8 @@ namespace ATSAccessibility
 
             if (_currentPopup == null) yield break;
 
-            // Special handling for MetaRewardsPopup
-            if (_currentPopup.name.Contains("MetaRewards"))
+            // Special handling for MetaRewardsPopup and MetaLevelUpPopup
+            if (IsMetaRewardsOrLevelUpPopup(_currentPopup.name))
             {
                 yield return MetaRewardsPopupReader.AnnounceMetaRewardsPopup(_currentPopup, _coroutineRunner);
                 yield break;
