@@ -7769,6 +7769,7 @@ namespace ATSAccessibility
         /// <summary>
         /// Check if a building currently needs/accepts worker assignment.
         /// This is a higher-level check than AreWorkplacesActive:
+        /// - Buildings under construction: never (must be completed first)
         /// - Port: only during Phase 2 (decision made, expedition not started)
         /// - Relic: during Phase 2 (working) or Phase 3 (collecting rewards)
         /// - Storage: only when haulers are unlocked (via AreWorkplacesActive)
@@ -7777,6 +7778,7 @@ namespace ATSAccessibility
         public static bool ShouldAllowWorkerManagement(object building)
         {
             if (building == null) return false;
+            if (GameReflection.IsBuildingUnfinished(building)) return false;
             if (!IsProductionBuilding(building)) return false;
             if (!AreWorkplacesActive(building)) return false;
 

@@ -28,6 +28,11 @@ namespace ATSAccessibility
                 return "No building";
             }
 
+            if (GameReflection.IsBuildingUnfinished(building))
+            {
+                return "Under construction";
+            }
+
             if (!BuildingReflection.IsProductionBuilding(building))
             {
                 return "No worker slots";
@@ -196,6 +201,11 @@ namespace ATSAccessibility
                 return "No building";
             }
 
+            if (GameReflection.IsBuildingUnfinished(building))
+            {
+                return "Under construction";
+            }
+
             if (!BuildingReflection.IsProductionBuilding(building))
             {
                 return "No worker slots";
@@ -270,6 +280,11 @@ namespace ATSAccessibility
             if (building == null)
             {
                 return "No building";
+            }
+
+            if (GameReflection.IsBuildingUnfinished(building))
+            {
+                return "Under construction";
             }
 
             if (!BuildingReflection.IsProductionBuilding(building))
