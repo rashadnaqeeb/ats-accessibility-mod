@@ -263,9 +263,16 @@ namespace ATSAccessibility
                 subItems.Add($"Completed: {goal}");
             }
 
-            // Meta currencies
+            // Meta currencies from field rewards
             var currencies = GameResultReflection.GetMetaCurrencies();
             foreach (var (name, amount) in currencies)
+            {
+                subItems.Add($"{name}, {amount}");
+            }
+
+            // Stored meta currencies (goods collected during the game)
+            var storedCurrencies = GameResultReflection.GetStoredMetaCurrencies();
+            foreach (var (name, amount) in storedCurrencies)
             {
                 subItems.Add($"{name}, {amount}");
             }

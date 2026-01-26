@@ -414,6 +414,77 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get stored meta currencies (goods in storage that convert to meta currency).
+        /// These are separate from field rewards - they're goods collected during the game.
+        /// Returns list of (displayName, amount) tuples.
+        /// </summary>
+        public static List<(string name, int amount)> GetStoredMetaCurrencies()
+        {
+            EnsureTypes();
+            var result = new List<(string name, int amount)>();
+
+            try
+            {
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return result;
+
+                // Get Settings.metaCurrencies array
+                var metaCurrenciesField = settings.GetType().GetField("metaCurrencies",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                if (metaCurrenciesField == null) return result;
+
+                var metaCurrencies = metaCurrenciesField.GetValue(settings) as Array;
+                if (metaCurrencies == null) return result;
+
+                // Get storage service
+                var storageService = GameReflection.GetStorageService();
+                if (storageService == null) return result;
+
+                var getAmountMethod = storageService.GetType().GetMethod("GetAmount",
+                    new[] { typeof(string) });
+                if (getAmountMethod == null) return result;
+
+                foreach (var currencyModel in metaCurrencies)
+                {
+                    if (currencyModel == null) continue;
+
+                    // Get the good field from MetaCurrencyModel
+                    var goodField = currencyModel.GetType().GetField("good",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    var good = goodField?.GetValue(currencyModel);
+                    if (good == null) continue;
+
+                    // Get good.Name
+                    var nameProperty = good.GetType().GetProperty("Name",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    string goodName = nameProperty?.GetValue(good) as string;
+                    if (string.IsNullOrEmpty(goodName)) continue;
+
+                    // Get amount from storage
+                    var amountObj = getAmountMethod.Invoke(storageService, new object[] { goodName });
+                    int amount = amountObj is int a ? a : 0;
+
+                    if (amount > 0)
+                    {
+                        // Get display name for the meta currency
+                        var mcNameProperty = currencyModel.GetType().GetProperty("Name",
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                        string mcName = mcNameProperty?.GetValue(currencyModel) as string;
+                        string displayName = GetMetaCurrencyDisplayName(mcName) ?? mcName;
+
+                        result.Add((displayName, amount));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GameResultReflection.GetStoredMetaCurrencies failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Get seal fragments earned (0 if not applicable).
         /// </summary>
         public static int GetSealFragments()
