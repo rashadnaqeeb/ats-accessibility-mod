@@ -55,19 +55,6 @@ namespace ATSAccessibility
         public bool HasActivePopup => _currentPopup != null;
 
         /// <summary>
-        /// Whether the current popup is the MetaRewardsPopup or MetaLevelUpPopup.
-        /// </summary>
-        public bool IsMetaRewardsPopup => _currentPopup != null && IsMetaRewardsOrLevelUpPopup(_currentPopup.name);
-
-        /// <summary>
-        /// Check if popup name indicates MetaRewardsPopup or MetaLevelUpPopup.
-        /// </summary>
-        private static bool IsMetaRewardsOrLevelUpPopup(string popupName)
-        {
-            return popupName.Contains("MetaRewards") || popupName.Contains("MetaLevelUp");
-        }
-
-        /// <summary>
         /// Whether there's an active menu being navigated.
         /// </summary>
         public bool HasActiveMenu => _currentMenu != null;
@@ -122,15 +109,6 @@ namespace ATSAccessibility
             if (IsDropdownOpen)
             {
                 return ProcessDropdownKey(keyCode);
-            }
-
-            // Special handling for MetaRewardsPopup (polling/repeat behavior, Enter to close)
-            if (IsMetaRewardsPopup)
-            {
-                if (MetaRewardsPopupReader.ProcessKeyEvent(keyCode, _currentPopup))
-                {
-                    return true;
-                }
             }
 
             // Clear search buffer on navigation keys
@@ -344,12 +322,6 @@ namespace ATSAccessibility
 
         private void ResetPopup()
         {
-            // Reset MetaRewardsPopupReader state if it was a MetaRewards or MetaLevelUp popup
-            if (_currentPopup != null && IsMetaRewardsOrLevelUpPopup(_currentPopup.name))
-            {
-                MetaRewardsPopupReader.Reset();
-            }
-
             ClearNavigationState();
         }
 
@@ -840,13 +812,6 @@ namespace ATSAccessibility
             yield return null;
 
             if (_currentPopup == null) yield break;
-
-            // Special handling for MetaRewardsPopup and MetaLevelUpPopup
-            if (IsMetaRewardsOrLevelUpPopup(_currentPopup.name))
-            {
-                yield return MetaRewardsPopupReader.AnnounceMetaRewardsPopup(_currentPopup, _coroutineRunner);
-                yield break;
-            }
 
             // Hardcoded names for menus that pick up extraneous text
             string popupName = _currentPopup.name;
