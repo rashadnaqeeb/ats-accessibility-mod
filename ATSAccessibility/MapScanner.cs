@@ -297,8 +297,8 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Change group within category (PageUp/Down). Category rescan.
-        /// For Buildings, navigates within current subcategory only.
+        /// Change group within category (PageUp/Down). Always rescans for fresh data.
+        /// For Buildings/Resources, navigates within current subcategory only.
         /// </summary>
         public void ChangeGroup(int direction)
         {
@@ -307,14 +307,11 @@ namespace ATSAccessibility
             // For Buildings, use subcategory groups
             if (_currentCategory == ScanCategory.Buildings)
             {
-                // Rescan if needed
-                if (_cachedBuildingsBySubcategory == null)
-                {
-                    EnsureReflectionCache();
-                    BuildUnrevealedGladeTilesMap();
-                    ScanBuildingsWithSubcategories();
-                    _unrevealedGladeTiles = null;
-                }
+                // Always rescan for fresh data
+                EnsureReflectionCache();
+                BuildUnrevealedGladeTilesMap();
+                ScanBuildingsWithSubcategories();
+                _unrevealedGladeTiles = null;
 
                 // Get groups from current subcategory
                 if (!_cachedBuildingsBySubcategory.TryGetValue(_currentSubcategoryIndex, out var subcategoryGroups) || subcategoryGroups.Count == 0)
@@ -329,14 +326,11 @@ namespace ATSAccessibility
             }
             else if (_currentCategory == ScanCategory.Resources)
             {
-                // Rescan if needed
-                if (_cachedResourcesBySubcategory == null)
-                {
-                    EnsureReflectionCache();
-                    BuildUnrevealedGladeTilesMap();
-                    ScanResourcesWithSubcategories();
-                    _unrevealedGladeTiles = null;
-                }
+                // Always rescan for fresh data
+                EnsureReflectionCache();
+                BuildUnrevealedGladeTilesMap();
+                ScanResourcesWithSubcategories();
+                _unrevealedGladeTiles = null;
 
                 // Get groups from current subcategory
                 if (!_cachedResourcesBySubcategory.TryGetValue(_currentSubcategoryIndex, out var subcategoryGroups) || subcategoryGroups.Count == 0)
@@ -863,6 +857,9 @@ namespace ATSAccessibility
                         string typeName = GetFieldTypeName(field);
                         if (typeName == "Grass")
                         {
+                            // Skip if there's already a building (e.g., farm field) on this tile
+                            if (GameReflection.GetBuildingAtPosition(x, y) != null) continue;
+
                             int distance = CalculateDistance(pos, cursorX, cursorY);
                             fertileSoilGroup.Items.Add(new ScannedItem(pos, distance));
                         }
@@ -1591,6 +1588,9 @@ namespace ATSAccessibility
                         string typeName = GetFieldTypeName(field);
                         if (typeName == "Grass")
                         {
+                            // Skip if there's already a building (e.g., farm field) on this tile
+                            if (GameReflection.GetBuildingAtPosition(x, y) != null) continue;
+
                             int distance = CalculateDistance(pos, cursorX, cursorY);
                             fertileSoilGroup.Items.Add(new ScannedItem(pos, distance));
                         }
