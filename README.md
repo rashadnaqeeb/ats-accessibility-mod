@@ -2,6 +2,23 @@
 
 A BepInEx mod adding screen reader support to Against the Storm via Tolk.
 
+**The game is fully playable with this mod.** All core gameplay mechanics are accessible.
+
+### Known Limitations
+
+**Not yet implemented:**
+- Training Expeditions
+- Queen's Hand Trials
+
+**Implemented but needs testing** (may have bugs):
+- World Events
+- Sealed Forest
+- Fishing Huts
+- Service Buildings
+
+**Will not be implemented:**
+- Trends menu (visual-only feature with no gameplay impact)
+
 ## Installation
 
 1. Locate your Against the Storm installation folder:
