@@ -85,9 +85,13 @@ namespace ATSAccessibility
             {
                 return GetHearthRangeInfo(building);
             }
+            else if (BuildingReflection.IsFarm(building))
+            {
+                return GetFarmRangeInfo(building);
+            }
             else if (GameReflection.IsProductionBuilding(building))
             {
-                // For production buildings (Workshop, Mine, Farm), show supply chain info
+                // For production buildings (Workshop, Mine), show supply chain info
                 return GetProductionBuildingSupplyInfo(building);
             }
             else
@@ -132,6 +136,10 @@ namespace ATSAccessibility
                 // For hearth preview, we can't use IsInRange yet - show base range
                 float range = GameReflection.GetEffectiveHearthRange(buildingModel);
                 return $"Hearth range: {range:F1} tiles";
+            }
+            else if (GameReflection.IsFarmModel(buildingModel))
+            {
+                return GetFarmRangePreview(buildingModel, cursorX, cursorY, effectiveSize);
             }
             else if (GameReflection.IsWorkshopModel(buildingModel))
             {
@@ -275,6 +283,110 @@ namespace ATSAccessibility
                 parts.Add($"{decorationsCount} {(decorationsCount == 1 ? "Decoration" : "Decorations")}");
 
             return string.Join(", ", parts);
+        }
+
+        /// <summary>
+        /// Get range info for a Farm building.
+        /// Shows total fertile soil tiles in range and placed farm field counts.
+        /// </summary>
+        private static string GetFarmRangeInfo(object farm)
+        {
+            try
+            {
+                int totalFields = BuildingReflection.GetFarmTotalFields(farm);
+                int sownFields = BuildingReflection.GetFarmSownFields(farm);
+                int plowedFields = BuildingReflection.GetFarmPlowedFields(farm);
+
+                if (totalFields == 0)
+                    return "No fertile soil in range";
+
+                var parts = new List<string>();
+                parts.Add($"{totalFields} fertile soil");
+
+                // Calculate placed farm fields (sown + plowed + empty placed)
+                // Note: We only have sown and plowed counts from the game API
+                int activeFields = sownFields + plowedFields;
+                if (activeFields > 0)
+                {
+                    if (sownFields > 0 && plowedFields > 0)
+                        parts.Add($"{sownFields} planted, {plowedFields} plowed");
+                    else if (sownFields > 0)
+                        parts.Add($"{sownFields} planted");
+                    else
+                        parts.Add($"{plowedFields} plowed");
+                }
+
+                return string.Join(", ", parts);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetFarmRangeInfo failed: {ex.Message}");
+                return "Cannot determine farm range";
+            }
+        }
+
+        /// <summary>
+        /// Get range preview for a Farm being placed.
+        /// Counts fertile soil (grass) tiles in the work area.
+        /// </summary>
+        private static string GetFarmRangePreview(object farmModel, int cursorX, int cursorY, Vector2Int buildingSize)
+        {
+            try
+            {
+                // Get work area from model
+                Vector2Int workArea = GameReflection.GetFarmModelWorkArea(farmModel);
+                if (workArea == Vector2Int.zero)
+                {
+                    return "Cannot determine farm work area";
+                }
+
+                // Calculate the area bounds (work area extends around the building)
+                int minX = cursorX - workArea.x;
+                int maxX = cursorX + buildingSize.x + workArea.x - 1;
+                int minY = cursorY - workArea.y;
+                int maxY = cursorY + buildingSize.y + workArea.y - 1;
+
+                // Count grass tiles in the area
+                int grassCount = 0;
+                int mapWidth = GameReflection.GetMapWidth();
+                int mapHeight = GameReflection.GetMapHeight();
+
+                for (int x = minX; x <= maxX; x++)
+                {
+                    for (int y = minY; y <= maxY; y++)
+                    {
+                        // Skip out of bounds
+                        if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) continue;
+
+                        // Skip tiles covered by the building itself
+                        if (x >= cursorX && x < cursorX + buildingSize.x &&
+                            y >= cursorY && y < cursorY + buildingSize.y) continue;
+
+                        var field = GameReflection.GetField(x, y);
+                        if (field == null) continue;
+
+                        // Check if grass tile using FieldType
+                        if (GameReflection.IsFieldGrass(field))
+                        {
+                            // Skip unrevealed glades
+                            if (!GameReflection.IsInUnrevealedGlade(x, y))
+                            {
+                                grassCount++;
+                            }
+                        }
+                    }
+                }
+
+                if (grassCount == 0)
+                    return "No fertile soil in range";
+
+                return $"{grassCount} fertile soil in range";
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetFarmRangePreview failed: {ex.Message}");
+                return "Cannot determine farm range";
+            }
         }
 
         /// <summary>

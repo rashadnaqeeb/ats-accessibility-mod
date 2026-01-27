@@ -5279,6 +5279,7 @@ namespace ATSAccessibility
         private static Type _fishingHutModelType = null;
         private static Type _hearthModelType = null;
         private static Type _workshopModelType = null;
+        private static Type _farmModelType = null;
         private static bool _rangeInfoTypesCached = false;
 
         // Cached fields for getting building data
@@ -5322,6 +5323,7 @@ namespace ATSAccessibility
                 _fishingHutModelType = _gameAssembly.GetType("Eremite.Buildings.FishingHutModel");
                 _hearthModelType = _gameAssembly.GetType("Eremite.Buildings.HearthModel");
                 _workshopModelType = _gameAssembly.GetType("Eremite.Buildings.WorkshopModel");
+                _farmModelType = _gameAssembly.GetType("Eremite.Buildings.FarmModel");
 
                 // Cache CampModel fields
                 if (_campModelType != null)
@@ -5467,6 +5469,16 @@ namespace ATSAccessibility
             if (buildingModel == null) return false;
             EnsureRangeInfoTypes();
             return _workshopModelType != null && _workshopModelType.IsInstanceOfType(buildingModel);
+        }
+
+        /// <summary>
+        /// Check if a building model is a Farm (agricultural building).
+        /// </summary>
+        public static bool IsFarmModel(object buildingModel)
+        {
+            if (buildingModel == null) return false;
+            EnsureRangeInfoTypes();
+            return _farmModelType != null && _farmModelType.IsInstanceOfType(buildingModel);
         }
 
         /// <summary>
@@ -7556,6 +7568,126 @@ namespace ATSAccessibility
             }
 
             return result;
+        }
+
+        // ========================================
+        // FARM RANGE HELPERS
+        // ========================================
+
+        private static FieldInfo _farmModelWorkAreaField = null;
+        private static bool _farmModelFieldsCached = false;
+
+        private static void EnsureFarmModelFields()
+        {
+            if (_farmModelFieldsCached) return;
+            EnsureAssembly();
+
+            if (_gameAssembly == null)
+            {
+                _farmModelFieldsCached = true;
+                return;
+            }
+
+            try
+            {
+                var farmModelType = _gameAssembly.GetType("Eremite.Buildings.FarmModel");
+                if (farmModelType != null)
+                {
+                    _farmModelWorkAreaField = farmModelType.GetField("workArea", PublicInstance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] EnsureFarmModelFields failed: {ex.Message}");
+            }
+
+            _farmModelFieldsCached = true;
+        }
+
+        /// <summary>
+        /// Get the work area Vector2Int from a FarmModel.
+        /// </summary>
+        public static Vector2Int GetFarmModelWorkArea(object farmModel)
+        {
+            if (farmModel == null) return Vector2Int.zero;
+
+            EnsureFarmModelFields();
+
+            try
+            {
+                if (_farmModelWorkAreaField != null)
+                {
+                    return (Vector2Int)_farmModelWorkAreaField.GetValue(farmModel);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetFarmModelWorkArea failed: {ex.Message}");
+            }
+
+            return Vector2Int.zero;
+        }
+
+        /// <summary>
+        /// Check if a Field is of type Grass (fertile soil).
+        /// </summary>
+        public static bool IsFieldGrass(object field)
+        {
+            if (field == null) return false;
+
+            try
+            {
+                var typeProp = field.GetType().GetProperty("Type", PublicInstance);
+                if (typeProp != null)
+                {
+                    var fieldType = typeProp.GetValue(field);
+                    // FieldType.Grass has value 1 in the enum
+                    return fieldType != null && fieldType.ToString() == "Grass";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] IsFieldGrass failed: {ex.Message}");
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if a position is inside an unrevealed glade.
+        /// </summary>
+        public static bool IsInUnrevealedGlade(int x, int y)
+        {
+            try
+            {
+                var gladesService = GetGladesService();
+                if (gladesService == null) return false;
+
+                var isGladeMethod = gladesService.GetType().GetMethod("IsGlade", PublicInstance);
+                if (isGladeMethod != null)
+                {
+                    var position = new Vector2Int(x, y);
+                    bool isGlade = (bool)isGladeMethod.Invoke(gladesService, new object[] { position });
+                    if (!isGlade) return false;
+
+                    // Get the glade and check if it's revealed
+                    var glade = GetGlade(x, y);
+                    if (glade == null) return true;  // Assume unrevealed if can't get glade
+
+                    var isDiscoveredProp = glade.GetType().GetProperty("IsDiscovered", PublicInstance);
+                    if (isDiscoveredProp != null)
+                    {
+                        bool isDiscovered = (bool)isDiscoveredProp.GetValue(glade);
+                        return !isDiscovered;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] IsInUnrevealedGlade failed: {ex.Message}");
+            }
+
+            return false;
         }
     }
 }
