@@ -514,7 +514,15 @@ namespace ATSAccessibility
                     break;
 
                 case SubMenuItem.Reset:
-                    Speech.Say("Reset progress");
+                    if (ProfilesReflection.IsIronman(_currentSlotProfile))
+                    {
+                        bool canResetSeed = ProfilesReflection.CanResetIronmanSeed(_currentSlotProfile);
+                        Speech.Say(canResetSeed ? "Reset progress, new seed" : "Reset progress, same seed");
+                    }
+                    else
+                    {
+                        Speech.Say("Reset progress");
+                    }
                     break;
 
                 case SubMenuItem.Delete:

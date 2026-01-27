@@ -672,7 +672,7 @@ namespace ATSAccessibility
 
                 if (_speechInitialized && Speech.IsAvailable)
                 {
-                    Speech.Say("World map");
+                    Speech.Say("World map", interrupt: false);  // Queue to avoid interrupting other speech
                     _announcedWorldMap = true;
                     Debug.Log("[ATSAccessibility] Announced: World map");
                 }

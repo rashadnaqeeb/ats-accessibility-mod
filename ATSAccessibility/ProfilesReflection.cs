@@ -33,6 +33,7 @@ namespace ATSAccessibility
         private static MethodInfo _pssChangeProfileMethod;     // async ChangeProfile(ProfileData)
         private static MethodInfo _pssClearProfileMethod;      // async ClearProfile(ProfileData)
         private static MethodInfo _pssRemoveProfileMethod;     // async RemoveProfile(ProfileData)
+        private static MethodInfo _pssCanResetIronmanSeedMethod; // bool CanResetIronmanSeed(ProfileData)
 
         // ProfileData type fields
         private static Type _profileDataType;
@@ -118,6 +119,8 @@ namespace ATSAccessibility
                 _pssClearProfileMethod = serviceType.GetMethod("ClearProfile",
                     new[] { assembly.GetType("Eremite.Services.ProfileData") });
                 _pssRemoveProfileMethod = serviceType.GetMethod("RemoveProfile",
+                    new[] { assembly.GetType("Eremite.Services.ProfileData") });
+                _pssCanResetIronmanSeedMethod = serviceType.GetMethod("CanResetIronmanSeed",
                     new[] { assembly.GetType("Eremite.Services.ProfileData") });
 
                 Debug.Log("[ATSAccessibility] ProfilesReflection: Cached ProfilesService methods");
@@ -332,6 +335,29 @@ namespace ATSAccessibility
             if (profile == null) return false;
             if (!IsIronman(profile)) return true;
             return IsIronmanActive(profile);
+        }
+
+        /// <summary>
+        /// Check if an ironman profile can reset its seed (get a new world seed on reset).
+        /// Requires winning a certain number of games.
+        /// </summary>
+        public static bool CanResetIronmanSeed(object profile)
+        {
+            if (profile == null) return false;
+            if (!IsIronman(profile)) return true;  // Non-ironman always "can reset"
+            EnsureTypesCached();
+
+            var service = GetProfilesService();
+            if (service == null || _pssCanResetIronmanSeedMethod == null) return false;
+
+            try
+            {
+                return _pssCanResetIronmanSeedMethod.Invoke(service, new[] { profile }) as bool? ?? false;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
