@@ -339,6 +339,87 @@ namespace ATSAccessibility
         // OBJECT TYPE HANDLERS
         // ========================================
 
+        // ========================================
+        // GUIDEPOST DIRECTION HELPERS
+        // ========================================
+
+        /// <summary>
+        /// Convert an angle (in degrees) to a compass direction string.
+        /// Based on the game's rotation system where:
+        /// 0° = West, 90° = North, 180° = East, 270° = South
+        /// </summary>
+        private static string AngleToCompassDirection(float angle)
+        {
+            // Normalize to 0-360
+            angle = ((angle % 360f) + 360f) % 360f;
+
+            // 8-point compass with 45° segments centered on each direction
+            if (angle >= 337.5f || angle < 22.5f) return "West";
+            if (angle >= 22.5f && angle < 67.5f) return "Northwest";
+            if (angle >= 67.5f && angle < 112.5f) return "North";
+            if (angle >= 112.5f && angle < 157.5f) return "Northeast";
+            if (angle >= 157.5f && angle < 202.5f) return "East";
+            if (angle >= 202.5f && angle < 247.5f) return "Southeast";
+            if (angle >= 247.5f && angle < 292.5f) return "South";
+            return "Southwest";
+        }
+
+        /// <summary>
+        /// Get guidepost direction info if the building is a SealGuidepostView.
+        /// Returns null if not a guidepost.
+        /// </summary>
+        private static string GetGuidepostDirection(object building)
+        {
+            try
+            {
+                // First check if we're in a sealed biome
+                if (!GameReflection.IsSealedBiome()) return null;
+
+                // Get the building's view field (Decoration has public "view" field)
+                var viewField = building.GetType().GetField("view", BindingFlags.Public | BindingFlags.Instance);
+                if (viewField == null) return null;
+
+                var view = viewField.GetValue(building);
+                if (view == null) return null;
+
+                // Check if it's a SealGuidepostView
+                if (view.GetType().Name != "SealGuidepostView") return null;
+
+                // Get building's world position from view.Position (inherited from BaseMB)
+                var positionProp = view.GetType().GetProperty("Position", BindingFlags.Public | BindingFlags.Instance);
+                if (positionProp == null) return null;
+
+                var positionObj = positionProp.GetValue(view);
+                if (!(positionObj is Vector3 position)) return null;
+
+                // Get seal target field
+                Vector2Int sealField = GameReflection.GetGuidepostTargetField();
+                if (sealField == default) return null;
+
+                // Get seal size for center calculation
+                Vector2Int sealSize = GameReflection.GetSealSize();
+                if (sealSize == default) return null;
+
+                // Calculate seal center (same as game's GetCenter method)
+                Vector3 targetCenter = new Vector3(
+                    sealField.x + sealSize.x / 2f,
+                    0f,
+                    sealField.y + sealSize.y / 2f);
+
+                // Calculate direction (replicating game logic from SealGuidepostView)
+                Vector3 dir = targetCenter - position;
+                float angle = Mathf.Atan2(dir.z, -dir.x) * Mathf.Rad2Deg + 90f;
+
+                string direction = AngleToCompassDirection(angle);
+                return $"Pointing {direction}";
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetGuidepostDirection failed: {ex.Message}");
+                return null;
+            }
+        }
+
         /// <summary>
         /// Get info for a building (description only - name already announced).
         /// </summary>
@@ -346,6 +427,11 @@ namespace ATSAccessibility
         {
             try
             {
+                // Check for guidepost first (returns direction info)
+                string guidepostInfo = GetGuidepostDirection(building);
+                if (!string.IsNullOrEmpty(guidepostInfo))
+                    return guidepostInfo;
+
                 var buildingType = building.GetType();
 
                 // Get or cache BuildingModel property for this type

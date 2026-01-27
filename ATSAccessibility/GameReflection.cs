@@ -7800,5 +7800,197 @@ namespace ATSAccessibility
 
             return false;
         }
+
+        // ========================================
+        // SEAL / GUIDEPOST SUPPORT
+        // ========================================
+
+        private static PropertyInfo _gsGameSealServiceProperty = null;
+        private static MethodInfo _gameSealServiceIsSealedBiomeMethod = null;
+        private static MethodInfo _gameSealServiceGetSealFieldMethod = null;
+        private static PropertyInfo _bsSealsProperty = null;
+        private static PropertyInfo _biomeServiceDifficultyProperty = null;
+        private static FieldInfo _difficultyInGameSealField = null;
+        private static FieldInfo _sealModelSizeField = null;
+        private static bool _sealTypesCached = false;
+
+        private static void EnsureSealTypes()
+        {
+            if (_sealTypesCached) return;
+            EnsureAssembly();
+            if (_gameAssembly == null) return;
+
+            try
+            {
+                // Get GameSealService property from IGameServices
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsGameSealServiceProperty = gameServicesType.GetProperty("GameSealService", PublicInstance);
+                }
+
+                // Get methods from IGameSealService
+                var gameSealServiceType = _gameAssembly.GetType("Eremite.Services.IGameSealService");
+                if (gameSealServiceType != null)
+                {
+                    _gameSealServiceIsSealedBiomeMethod = gameSealServiceType.GetMethod("IsSealedBiome", PublicInstance);
+                    _gameSealServiceGetSealFieldMethod = gameSealServiceType.GetMethod("GetSealField", PublicInstance);
+                }
+
+                // Get Seals property from IBuildingsService
+                var buildingsServiceType = _gameAssembly.GetType("Eremite.Services.IBuildingsService");
+                if (buildingsServiceType != null)
+                {
+                    _bsSealsProperty = buildingsServiceType.GetProperty("Seals", PublicInstance);
+                }
+
+                // Get Difficulty property from IBiomeService
+                var biomeServiceType = _gameAssembly.GetType("Eremite.Services.IBiomeService");
+                if (biomeServiceType != null)
+                {
+                    _biomeServiceDifficultyProperty = biomeServiceType.GetProperty("Difficulty", PublicInstance);
+                }
+
+                // Get inGameSeal field from DifficultyModel
+                var difficultyModelType = _gameAssembly.GetType("Eremite.Model.DifficultyModel");
+                if (difficultyModelType != null)
+                {
+                    _difficultyInGameSealField = difficultyModelType.GetField("inGameSeal", PublicInstance);
+                }
+
+                // Get size field from BuildingModel (SealModel inherits from BuildingModel)
+                var buildingModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingModel");
+                if (buildingModelType != null)
+                {
+                    _sealModelSizeField = buildingModelType.GetField("size", PublicInstance);
+                }
+
+                _sealTypesCached = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] EnsureSealTypes failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get GameSealService from GameServices.
+        /// </summary>
+        public static object GetGameSealService()
+        {
+            EnsureSealTypes();
+            return TryGetPropertyValue<object>(_gsGameSealServiceProperty, GetGameServices());
+        }
+
+        /// <summary>
+        /// Check if the current biome is a sealed biome (Sealed Forest).
+        /// </summary>
+        public static bool IsSealedBiome()
+        {
+            EnsureSealTypes();
+            var gameSealService = GetGameSealService();
+            if (gameSealService == null || _gameSealServiceIsSealedBiomeMethod == null) return false;
+            return TryInvokeBool(_gameSealServiceIsSealedBiomeMethod, gameSealService);
+        }
+
+        /// <summary>
+        /// Get the seal field location from GameSealService.
+        /// Used when the seal hasn't been discovered yet.
+        /// </summary>
+        public static Vector2Int GetSealField()
+        {
+            EnsureSealTypes();
+            var gameSealService = GetGameSealService();
+            if (gameSealService == null || _gameSealServiceGetSealFieldMethod == null) return default;
+
+            try
+            {
+                var result = _gameSealServiceGetSealFieldMethod.Invoke(gameSealService, null);
+                if (result is Vector2Int field) return field;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetSealField failed: {ex.Message}");
+            }
+            return default;
+        }
+
+        /// <summary>
+        /// Get the Seals dictionary from BuildingsService.
+        /// Returns null if not available.
+        /// </summary>
+        public static IDictionary GetSeals()
+        {
+            EnsureSealTypes();
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null || _bsSealsProperty == null) return null;
+
+            try
+            {
+                return _bsSealsProperty.GetValue(buildingsService) as IDictionary;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetSeals failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the seal size from BiomeService.Difficulty.inGameSeal.size.
+        /// Returns Vector2Int.zero if not available.
+        /// </summary>
+        public static Vector2Int GetSealSize()
+        {
+            EnsureSealTypes();
+            var biomeService = GetBiomeService();
+            if (biomeService == null) return default;
+
+            try
+            {
+                var difficulty = _biomeServiceDifficultyProperty?.GetValue(biomeService);
+                if (difficulty == null) return default;
+
+                var inGameSeal = _difficultyInGameSealField?.GetValue(difficulty);
+                if (inGameSeal == null) return default;
+
+                var size = _sealModelSizeField?.GetValue(inGameSeal);
+                if (size is Vector2Int sealSize) return sealSize;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetSealSize failed: {ex.Message}");
+            }
+            return default;
+        }
+
+        /// <summary>
+        /// Get the target field for a guidepost to point at.
+        /// If seals exist (discovered), uses first seal's field.
+        /// Otherwise uses GameSealService.GetSealField().
+        /// </summary>
+        public static Vector2Int GetGuidepostTargetField()
+        {
+            // Check if seals exist (seal has been discovered)
+            var seals = GetSeals();
+            if (seals != null && seals.Count > 0)
+            {
+                // Get first seal's Field property
+                foreach (var seal in seals.Values)
+                {
+                    if (seal == null) continue;
+                    var fieldProp = seal.GetType().GetProperty("Field", PublicInstance);
+                    if (fieldProp != null)
+                    {
+                        var field = fieldProp.GetValue(seal);
+                        if (field is Vector2Int sealField) return sealField;
+                    }
+                    break; // Only need first one
+                }
+            }
+
+            // Otherwise get seal field from GameSealService
+            return GetSealField();
+        }
     }
 }
