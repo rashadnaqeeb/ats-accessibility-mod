@@ -72,7 +72,20 @@ namespace ATSAccessibility
         private static MethodInfo _farmCountSownFieldsMethod = null;  // Farm.CountSownFieldsInRange()
         private static MethodInfo _farmCountPlowedFieldsMethod = null;  // Farm.CountPlownFieldsInRange() - note typo in game
         private static MethodInfo _farmCountAllFieldsMethod = null;  // Farm.CountAllReaveleadFieldsInRange()
+        private static MethodInfo _farmSwitchProductionOfMethod = null;  // Farm.SwitchProductionOf(RecipeState)
         private static bool _farmTypesCached = false;
+
+        // Farmfield type (individual farm field tiles)
+        private static Type _farmfieldType = null;
+        private static FieldInfo _farmfieldStateField = null;  // Farmfield.state (FarmfieldState)
+        private static Type _farmfieldStateType = null;
+        private static FieldInfo _farmfieldStatePlowedField = null;  // FarmfieldState.isPlowed (bool)
+        private static FieldInfo _farmfieldStatePlantField = null;  // FarmfieldState.plant (FarmfieldPlantState)
+        private static Type _farmfieldPlantStateType = null;
+        private static FieldInfo _farmfieldPlantRecipeField = null;  // FarmfieldPlantState.recipe (string)
+        private static FieldInfo _farmfieldPlantGoodField = null;  // FarmfieldPlantState.good (Good)
+        private static FieldInfo _farmfieldPlantMultiplierField = null;  // FarmfieldPlantState.multiplier (int)
+        private static bool _farmfieldTypesCached = false;
 
         // FishingHut type
         private static Type _fishingHutType = null;
@@ -812,6 +825,7 @@ namespace ATSAccessibility
                     _farmCountSownFieldsMethod = _farmType.GetMethod("CountSownFieldsInRange", GameReflection.PublicInstance);
                     _farmCountPlowedFieldsMethod = _farmType.GetMethod("CountPlownFieldsInRange", GameReflection.PublicInstance);  // Note: typo in game code
                     _farmCountAllFieldsMethod = _farmType.GetMethod("CountAllReaveleadFieldsInRange", GameReflection.PublicInstance);  // Note: typo in game code
+                    _farmSwitchProductionOfMethod = _farmType.GetMethod("SwitchProductionOf", GameReflection.PublicInstance);
                     Debug.Log("[ATSAccessibility] BuildingReflection: Cached Farm type");
                 }
             }
@@ -821,6 +835,51 @@ namespace ATSAccessibility
             }
 
             _farmTypesCached = true;
+        }
+
+        private static void EnsureFarmfieldTypes()
+        {
+            if (_farmfieldTypesCached) return;
+
+            var assembly = GameReflection.GameAssembly;
+            if (assembly == null)
+            {
+                _farmfieldTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                _farmfieldType = assembly.GetType("Eremite.Buildings.Farmfield");
+                if (_farmfieldType != null)
+                {
+                    _farmfieldStateField = _farmfieldType.GetField("state", GameReflection.PublicInstance);
+                    Debug.Log("[ATSAccessibility] BuildingReflection: Cached Farmfield type");
+                }
+
+                _farmfieldStateType = assembly.GetType("Eremite.Buildings.FarmfieldState");
+                if (_farmfieldStateType != null)
+                {
+                    _farmfieldStatePlowedField = _farmfieldStateType.GetField("isPlowed", GameReflection.PublicInstance);
+                    _farmfieldStatePlantField = _farmfieldStateType.GetField("plant", GameReflection.PublicInstance);
+                    Debug.Log("[ATSAccessibility] BuildingReflection: Cached FarmfieldState fields");
+                }
+
+                _farmfieldPlantStateType = assembly.GetType("Eremite.Buildings.FarmfieldPlantState");
+                if (_farmfieldPlantStateType != null)
+                {
+                    _farmfieldPlantRecipeField = _farmfieldPlantStateType.GetField("recipe", GameReflection.PublicInstance);
+                    _farmfieldPlantGoodField = _farmfieldPlantStateType.GetField("good", GameReflection.PublicInstance);
+                    _farmfieldPlantMultiplierField = _farmfieldPlantStateType.GetField("multiplier", GameReflection.PublicInstance);
+                    Debug.Log("[ATSAccessibility] BuildingReflection: Cached FarmfieldPlantState fields");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] BuildingReflection farmfield types failed: {ex.Message}");
+            }
+
+            _farmfieldTypesCached = true;
         }
 
         private static void EnsureFishingHutTypes()
@@ -3256,7 +3315,7 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Get total count of available fields in farm's range.
+        /// Get total count of available fields in farm's range (includes farmfields + empty grass).
         /// </summary>
         public static int GetFarmTotalFields(object building)
         {
@@ -3272,6 +3331,242 @@ namespace ATSAccessibility
             catch
             {
                 return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get count of placed farmfields in a farm's range.
+        /// Uses BuildingsService.Farmfields to count actual placed farmfield buildings.
+        /// </summary>
+        public static int GetFarmPlacedFieldsCount(object building)
+        {
+            if (!IsFarm(building)) return 0;
+
+            try
+            {
+                var model = GameReflection.GetBuildingModel(building);
+                if (model == null) return 0;
+
+                // Get farm's field position and size
+                var fieldPos = GameReflection.GetBuildingGridPosition(building);
+                if (fieldPos == Vector2Int.zero) return 0;
+
+                var buildingSize = GameReflection.GetBuildingSize(model);
+
+                // Get work area from model + meta bonus
+                Vector2Int baseWorkArea = GameReflection.GetFarmModelWorkArea(model);
+                int bonus = GameReflection.GetBonusFarmArea();
+                Vector2Int workArea = new Vector2Int(baseWorkArea.x + bonus, baseWorkArea.y + bonus);
+
+                // Calculate bounds
+                int minX = fieldPos.x - workArea.x;
+                int maxX = fieldPos.x + buildingSize.x + workArea.x - 1;
+                int minY = fieldPos.y - workArea.y;
+                int maxY = fieldPos.y + buildingSize.y + workArea.y - 1;
+
+                int mapWidth = GameReflection.GetMapWidth();
+                int mapHeight = GameReflection.GetMapHeight();
+                int count = 0;
+
+                for (int x = minX; x <= maxX; x++)
+                {
+                    for (int y = minY; y <= maxY; y++)
+                    {
+                        if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) continue;
+
+                        // Skip building footprint
+                        if (x >= fieldPos.x && x < fieldPos.x + buildingSize.x &&
+                            y >= fieldPos.y && y < fieldPos.y + buildingSize.y) continue;
+
+                        if (GameReflection.HasFarmfieldAt(x, y))
+                            count++;
+                    }
+                }
+
+                return count;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        // ========================================
+        // FARMFIELD METHODS
+        // ========================================
+
+        /// <summary>
+        /// Check if building is a Farmfield (individual farm field tile).
+        /// </summary>
+        public static bool IsFarmfield(object building)
+        {
+            if (building == null) return false;
+
+            EnsureFarmfieldTypes();
+
+            if (_farmfieldType == null) return false;
+
+            return _farmfieldType.IsInstanceOfType(building);
+        }
+
+        /// <summary>
+        /// Check if a Farmfield is plowed.
+        /// </summary>
+        public static bool IsFarmfieldPlowed(object building)
+        {
+            if (!IsFarmfield(building)) return false;
+
+            EnsureFarmfieldTypes();
+
+            try
+            {
+                var state = _farmfieldStateField?.GetValue(building);
+                if (state == null) return false;
+
+                return (bool?)_farmfieldStatePlowedField?.GetValue(state) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if a Farmfield is seeded (has a plant).
+        /// </summary>
+        public static bool IsFarmfieldSeeded(object building)
+        {
+            if (!IsFarmfield(building)) return false;
+
+            EnsureFarmfieldTypes();
+
+            try
+            {
+                var state = _farmfieldStateField?.GetValue(building);
+                if (state == null) return false;
+
+                var plant = _farmfieldStatePlantField?.GetValue(state);
+                return plant != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the crop name for a seeded Farmfield.
+        /// Uses the FarmRecipeModel's producedGood.DisplayName.
+        /// </summary>
+        public static string GetFarmfieldCropName(object building)
+        {
+            if (!IsFarmfield(building)) return null;
+
+            EnsureFarmfieldTypes();
+
+            try
+            {
+                var state = _farmfieldStateField?.GetValue(building);
+                if (state == null) return null;
+
+                var plant = _farmfieldStatePlantField?.GetValue(state);
+                if (plant == null) return null;
+
+                // Get the recipe name from plant state
+                var recipeName = _farmfieldPlantRecipeField?.GetValue(plant) as string;
+                if (string.IsNullOrEmpty(recipeName)) return null;
+
+                // Look up the FarmRecipeModel via Settings.GetFarmRecipe(recipeName)
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return null;
+
+                var getFarmRecipeMethod = settings.GetType().GetMethod("GetFarmRecipe",
+                    new Type[] { typeof(string) });
+                if (getFarmRecipeMethod == null) return null;
+
+                var farmRecipeModel = getFarmRecipeMethod.Invoke(settings, new object[] { recipeName });
+                if (farmRecipeModel == null) return null;
+
+                // Get producedGood.good.displayName.Text
+                var producedGoodField = farmRecipeModel.GetType().GetField("producedGood", GameReflection.PublicInstance);
+                if (producedGoodField == null) return null;
+
+                var producedGood = producedGoodField.GetValue(farmRecipeModel);
+                if (producedGood == null) return null;
+
+                var goodField = producedGood.GetType().GetField("good", GameReflection.PublicInstance);
+                if (goodField == null) return null;
+
+                var goodModel = goodField.GetValue(producedGood);
+                if (goodModel == null) return null;
+
+                // Try displayName field (LocaText)
+                var displayNameField = goodModel.GetType().GetField("displayName", GameReflection.PublicInstance);
+                if (displayNameField != null)
+                {
+                    var displayName = displayNameField.GetValue(goodModel);
+                    if (displayName != null)
+                    {
+                        return GameReflection.GetLocaText(displayName);
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetFarmfieldCropName failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the expected yield for a seeded Farmfield.
+        /// Returns (goodDisplayName, amount) from plant.Result (plant.good * plant.multiplier).
+        /// </summary>
+        public static (string goodName, int amount)? GetFarmfieldExpectedYield(object building)
+        {
+            if (!IsFarmfield(building)) return null;
+
+            EnsureFarmfieldTypes();
+
+            try
+            {
+                var state = _farmfieldStateField?.GetValue(building);
+                if (state == null) return null;
+
+                var plant = _farmfieldStatePlantField?.GetValue(state);
+                if (plant == null) return null;
+
+                // Get the good struct and multiplier
+                var goodObj = _farmfieldPlantGoodField?.GetValue(plant);
+                if (goodObj == null) return null;
+
+                int multiplier = (int?)_farmfieldPlantMultiplierField?.GetValue(plant) ?? 1;
+
+                // Good struct has 'name' (string) and 'amount' (int) fields
+                var nameField = goodObj.GetType().GetField("name", GameReflection.PublicInstance);
+                var amountField = goodObj.GetType().GetField("amount", GameReflection.PublicInstance);
+
+                string goodName = nameField?.GetValue(goodObj) as string;
+                int baseAmount = (int?)amountField?.GetValue(goodObj) ?? 0;
+
+                if (string.IsNullOrEmpty(goodName)) return null;
+
+                // Calculate final amount (Result = good * multiplier)
+                int finalAmount = baseAmount * multiplier;
+
+                // Get display name for the good
+                string displayName = GetGoodDisplayName(goodName);
+                if (string.IsNullOrEmpty(displayName))
+                    displayName = goodName;
+
+                return (displayName, finalAmount);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetFarmfieldExpectedYield failed: {ex.Message}");
+                return null;
             }
         }
 
@@ -4058,6 +4353,42 @@ namespace ATSAccessibility
                 return result;
             }
 
+            // Try Farm (also stores recipes in state.recipes like Camp)
+            if (IsFarm(building))
+            {
+                EnsureFarmTypes();
+
+                try
+                {
+                    var farmState = _farmStateField?.GetValue(building);
+                    if (farmState != null)
+                    {
+                        // Farm uses state.recipes (List<RecipeState>)
+                        var recipesField = farmState.GetType().GetField("recipes", GameReflection.PublicInstance);
+                        var recipes = recipesField?.GetValue(farmState);
+                        if (recipes != null)
+                        {
+                            var enumerable = recipes as System.Collections.IEnumerable;
+                            if (enumerable != null)
+                            {
+                                foreach (var recipe in enumerable)
+                                {
+                                    if (recipe != null)
+                                        result.Add(recipe);
+                                }
+                            }
+                        }
+                    }
+                    Debug.Log($"[ATSAccessibility] GetRecipes (Farm): Found {result.Count} recipes");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[ATSAccessibility] GetRecipes (Farm) failed: {ex.Message}");
+                }
+
+                return result;
+            }
+
             return result;
         }
 
@@ -4100,6 +4431,23 @@ namespace ATSAccessibility
                 catch (Exception ex)
                 {
                     Debug.LogError($"[ATSAccessibility] ToggleRecipe (Camp) failed: {ex.Message}");
+                    return false;
+                }
+            }
+
+            // Try Farm
+            if (IsFarm(building))
+            {
+                EnsureFarmTypes();
+
+                try
+                {
+                    _farmSwitchProductionOfMethod?.Invoke(building, new object[] { recipeState });
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[ATSAccessibility] ToggleRecipe (Farm) failed: {ex.Message}");
                     return false;
                 }
             }
@@ -4318,6 +4666,221 @@ namespace ATSAccessibility
             catch
             {
                 return null;
+            }
+        }
+
+        // ========================================
+        // FARM RECIPE METHODS
+        // ========================================
+
+        /// <summary>
+        /// Get the FarmRecipeModel for a farm RecipeState.
+        /// Uses Settings.GetFarmRecipe(recipeState.model).
+        /// </summary>
+        public static object GetFarmRecipeModel(object recipeState)
+        {
+            if (recipeState == null) return null;
+
+            try
+            {
+                // Get recipeState.model (string name)
+                var modelField = recipeState.GetType().GetField("model", GameReflection.PublicInstance);
+                if (modelField == null) return null;
+
+                var modelName = modelField.GetValue(recipeState) as string;
+                if (string.IsNullOrEmpty(modelName)) return null;
+
+                // Get Settings.GetFarmRecipe(name)
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return null;
+
+                var getFarmRecipeMethod = settings.GetType().GetMethod("GetFarmRecipe",
+                    new System.Type[] { typeof(string) });
+                if (getFarmRecipeMethod == null) return null;
+
+                return getFarmRecipeMethod.Invoke(settings, new object[] { modelName });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the display name for a farm recipe's produced good.
+        /// </summary>
+        public static string GetFarmRecipeProductDisplayName(object recipeState)
+        {
+            var farmRecipeModel = GetFarmRecipeModel(recipeState);
+            if (farmRecipeModel == null) return null;
+
+            try
+            {
+                // FarmRecipeModel.producedGood is a GoodRef
+                var producedGoodField = farmRecipeModel.GetType().GetField("producedGood", GameReflection.PublicInstance);
+                if (producedGoodField == null) return null;
+
+                var producedGood = producedGoodField.GetValue(farmRecipeModel);
+                if (producedGood == null) return null;
+
+                // GoodRef.DisplayName property
+                var displayNameProp = producedGood.GetType().GetProperty("DisplayName", GameReflection.PublicInstance);
+                if (displayNameProp != null)
+                {
+                    return displayNameProp.GetValue(producedGood) as string;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the amount produced by a farm recipe.
+        /// </summary>
+        public static int GetFarmRecipeProductAmount(object recipeState)
+        {
+            var farmRecipeModel = GetFarmRecipeModel(recipeState);
+            if (farmRecipeModel == null) return 0;
+
+            try
+            {
+                // FarmRecipeModel.producedGood is a GoodRef
+                var producedGoodField = farmRecipeModel.GetType().GetField("producedGood", GameReflection.PublicInstance);
+                if (producedGoodField == null) return 0;
+
+                var producedGood = producedGoodField.GetValue(farmRecipeModel);
+                if (producedGood == null) return 0;
+
+                // GoodRef.amount field
+                var amountField = producedGood.GetType().GetField("amount", GameReflection.PublicInstance);
+                if (amountField != null)
+                {
+                    return (int?)amountField.GetValue(producedGood) ?? 0;
+                }
+
+                return 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the star/grade level for a farm recipe.
+        /// </summary>
+        public static int GetFarmRecipeGradeLevel(object recipeState)
+        {
+            var farmRecipeModel = GetFarmRecipeModel(recipeState);
+            if (farmRecipeModel == null) return 0;
+
+            try
+            {
+                // FarmRecipeModel inherits from RecipeModel which has grade field
+                var gradeField = farmRecipeModel.GetType().GetField("grade", GameReflection.PublicInstance);
+                if (gradeField == null) return 0;
+
+                var grade = gradeField.GetValue(farmRecipeModel);
+                if (grade == null) return 0;
+
+                // RecipeGradeModel.level field
+                var levelField = grade.GetType().GetField("level", GameReflection.PublicInstance);
+                if (levelField != null)
+                {
+                    return (int?)levelField.GetValue(grade) ?? 0;
+                }
+
+                return 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get base planting time from a FarmRecipeModel (in seconds).
+        /// </summary>
+        public static float GetFarmRecipePlantingTime(object recipeState)
+        {
+            var farmRecipeModel = GetFarmRecipeModel(recipeState);
+            if (farmRecipeModel == null) return 0f;
+
+            try
+            {
+                var plantingTimeField = farmRecipeModel.GetType().GetField("plantingTime", GameReflection.PublicInstance);
+                if (plantingTimeField == null) return 0f;
+
+                return (float?)plantingTimeField.GetValue(farmRecipeModel) ?? 0f;
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Get base harvest time from a FarmRecipeModel (in seconds).
+        /// </summary>
+        public static float GetFarmRecipeHarvestTime(object recipeState)
+        {
+            var farmRecipeModel = GetFarmRecipeModel(recipeState);
+            if (farmRecipeModel == null) return 0f;
+
+            try
+            {
+                var harvestTimeField = farmRecipeModel.GetType().GetField("harvestTime", GameReflection.PublicInstance);
+                if (harvestTimeField == null) return 0f;
+
+                return (float?)harvestTimeField.GetValue(farmRecipeModel) ?? 0f;
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Get the farm's current planting rate multiplier.
+        /// </summary>
+        public static float GetFarmPlantingRate(object farm)
+        {
+            if (!IsFarm(farm)) return 1f;
+
+            try
+            {
+                var method = farm.GetType().GetMethod("GetPlantingRate", GameReflection.PublicInstance);
+                if (method == null) return 1f;
+
+                return (float?)method.Invoke(farm, null) ?? 1f;
+            }
+            catch
+            {
+                return 1f;
+            }
+        }
+
+        /// <summary>
+        /// Get the farm's current harvesting rate multiplier.
+        /// </summary>
+        public static float GetFarmHarvestingRate(object farm)
+        {
+            if (!IsFarm(farm)) return 1f;
+
+            try
+            {
+                var method = farm.GetType().GetMethod("GetHarvestingRate", GameReflection.PublicInstance);
+                if (method == null) return 1f;
+
+                return (float?)method.Invoke(farm, null) ?? 1f;
+            }
+            catch
+            {
+                return 1f;
             }
         }
 

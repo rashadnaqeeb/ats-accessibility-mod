@@ -49,6 +49,7 @@ namespace ATSAccessibility
         private PoroNavigator _poroNavigator;
         private WaterNavigator _waterNavigator;
         private HydrantNavigator _hydrantNavigator;
+        private FarmfieldNavigator _farmfieldNavigator;
 
         // ========================================
         // IKEYHANDLER IMPLEMENTATION
@@ -125,6 +126,7 @@ namespace ATSAccessibility
             _poroNavigator = new PoroNavigator();
             _waterNavigator = new WaterNavigator();
             _hydrantNavigator = new HydrantNavigator();
+            _farmfieldNavigator = new FarmfieldNavigator();
         }
 
         /// <summary>
@@ -187,6 +189,7 @@ namespace ATSAccessibility
             _poroNavigator?.Close();
             _waterNavigator?.Close();
             _hydrantNavigator?.Close();
+            _farmfieldNavigator?.Close();
         }
 
         // ========================================
@@ -338,6 +341,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] BuildingPanelHandler: Using SimpleNavigator for Decoration");
                 return _simpleNavigator;
+            }
+
+            // Farmfield (individual farm field tiles)
+            if (BuildingReflection.IsFarmfield(building))
+            {
+                Debug.Log("[ATSAccessibility] BuildingPanelHandler: Using FarmfieldNavigator");
+                return _farmfieldNavigator;
             }
 
             // Production buildings (Workshop, Farm, Mine, Camp, etc.)
