@@ -167,6 +167,9 @@ namespace ATSAccessibility
         // Games History popup overlay for past settlements
         private GamesHistoryOverlay _gamesHistoryOverlay;
 
+        // Profiles popup overlay for save selection
+        private ProfilesOverlay _profilesOverlay;
+
         // Daily Expedition popup overlay for daily challenge
         private DailyExpeditionOverlay _dailyExpeditionOverlay;
 
@@ -335,6 +338,9 @@ namespace ATSAccessibility
             // Initialize games history overlay
             _gamesHistoryOverlay = new GamesHistoryOverlay();
 
+            // Initialize profiles overlay
+            _profilesOverlay = new ProfilesOverlay();
+
             // Initialize daily expedition overlay
             _dailyExpeditionOverlay = new DailyExpeditionOverlay();
 
@@ -391,6 +397,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_perkCrafterOverlay);  // Perk Crafter (Cornerstone Forge) popup overlay
             _keyboardManager.RegisterHandler(_gamesHistoryOverlay); // Games History popup overlay
             _keyboardManager.RegisterHandler(_dailyExpeditionOverlay); // Daily Expedition popup overlay
+            _keyboardManager.RegisterHandler(_profilesOverlay);     // Profiles (save selection) popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
@@ -515,6 +522,7 @@ namespace ATSAccessibility
             {
                 _announcedMainMenu = false;
                 _cachedMainMenuCanvas = null;
+                _profilesOverlay?.Close();  // Close if scene unloads during profile switch
             }
             else if (scene.buildIndex == SCENE_WORLDMAP)
             {
@@ -1153,6 +1161,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check profiles popup (save selection) - it has its own overlay
+            if (ProfilesReflection.IsProfilesPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Profiles popup detected, using Profiles overlay");
+                _profilesOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1355,6 +1372,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Daily Challenge popup closed");
                 _dailyExpeditionOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check profiles popup (save selection)
+            else if (ProfilesReflection.IsProfilesPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Profiles popup closed");
+                _profilesOverlay?.Close();
                 // Fall through to handle context change
             }
             // Check MetaRewardsPopup/MetaLevelUpPopup - close overlay and handle tutorial polling
