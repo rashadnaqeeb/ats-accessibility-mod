@@ -174,7 +174,7 @@ Auto-Collect automatically collects completed routes. Show Affordable filters to
 When you've hit your perk limit and must remove one to accept a new cornerstone:
 
 - Space: Select/deselect a perk for removal
-- Delete: Confirm removal of the selected perk
+- Enter: Confirm removal of the selected perk
 
 This is likely to change, I just haven't actually ever seen this menu yet.
 

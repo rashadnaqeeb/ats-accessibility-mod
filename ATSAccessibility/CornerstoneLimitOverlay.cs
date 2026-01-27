@@ -48,13 +48,12 @@ namespace ATSAccessibility
                     Navigate(1);
                     return true;
 
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
                 case KeyCode.Space:
                     ToggleSelection();
                     return true;
 
-                case KeyCode.Delete:
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
                     ConfirmRemoval();
                     return true;
 

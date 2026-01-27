@@ -149,6 +149,9 @@ namespace ATSAccessibility
         // Payments popup overlay for pending payments/obligations
         private PaymentsOverlay _paymentsOverlay;
 
+        // Meta rewards popup overlay for end-of-game rewards and level-up
+        private MetaRewardsOverlay _metaRewardsOverlay;
+
         // Game result popup overlay for victory/defeat screen
         private GameResultOverlay _gameResultOverlay;
 
@@ -314,6 +317,9 @@ namespace ATSAccessibility
             // Initialize payments overlay for pending payments/obligations
             _paymentsOverlay = new PaymentsOverlay();
 
+            // Initialize meta rewards overlay for end-of-game rewards and level-up
+            _metaRewardsOverlay = new MetaRewardsOverlay(this);
+
             // Initialize game result overlay for victory/defeat screen
             _gameResultOverlay = new GameResultOverlay();
 
@@ -351,6 +357,7 @@ namespace ATSAccessibility
             // Register key handlers in priority order (highest priority first)
             _keyboardManager.RegisterHandler(_tutorialTooltipHandler);  // Tutorial tooltip (blocks input during tutorial)
             _keyboardManager.RegisterHandler(_confirmationDialog);  // Confirmation dialog (blocks all input when active)
+            _keyboardManager.RegisterHandler(_metaRewardsOverlay);  // Meta rewards/level-up popup (above game result so player can close it first)
             _keyboardManager.RegisterHandler(_gameResultOverlay);  // Game result (victory/defeat) - high priority terminal state
             _keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
             _keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
@@ -1067,6 +1074,29 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check meta rewards/level-up popup - it has its own overlay
+            // Must be checked BEFORE game result popup since both may be open simultaneously
+            if (IsMetaRewardsOrLevelUpPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Meta rewards/level-up popup detected, using MetaRewards overlay");
+
+                // If on world map, cache the tutorial tooltip NOW (before animation finishes)
+                // Only track for polling if tutorial tooltip was actually visible
+                if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP)
+                {
+                    _tutorialWasActiveBeforePopup = TutorialReflection.IsTooltipVisible();
+                    if (_tutorialWasActiveBeforePopup)
+                    {
+                        // Force cache the tooltip while it's still accessible
+                        TutorialReflection.GetTutorialTooltip();
+                    }
+                }
+
+                _metaRewardsOverlay?.OnPopupShown(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Check game result popup (victory/defeat) - it has its own overlay
             if (GameResultReflection.IsGameResultPopup(popup))
             {
@@ -1135,18 +1165,6 @@ namespace ATSAccessibility
             if (_deedsOverlay != null && _deedsOverlay.IsActive)
             {
                 _deedsOverlay.Suspend();
-            }
-
-            // If MetaRewardsPopup on world map, cache the tutorial tooltip NOW (before animation finishes)
-            // Only track for polling if tutorial tooltip was actually visible
-            if (IsMetaRewardsOrLevelUpPopup(popup) && SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP)
-            {
-                _tutorialWasActiveBeforePopup = TutorialReflection.IsTooltipVisible();
-                if (_tutorialWasActiveBeforePopup)
-                {
-                    // Force cache the tooltip while it's still accessible
-                    TutorialReflection.GetTutorialTooltip();
-                }
             }
 
             // Standard popup handling
@@ -1339,10 +1357,11 @@ namespace ATSAccessibility
                 _dailyExpeditionOverlay?.Close();
                 // Fall through to handle context change
             }
-            // Check MetaRewardsPopup/MetaLevelUpPopup - flag for tutorial tooltip polling
+            // Check MetaRewardsPopup/MetaLevelUpPopup - close overlay and handle tutorial polling
             else if (IsMetaRewardsOrLevelUpPopup(popup))
             {
-                MetaRewardsPopupReader.Reset();
+                Debug.Log("[ATSAccessibility] Meta rewards/level-up popup closed");
+                _metaRewardsOverlay?.OnPopupHidden(popup);
 
                 // If on world map and tutorial was active before popup, set flag to poll for tutorial tooltip
                 if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP && _tutorialWasActiveBeforePopup)
@@ -1350,8 +1369,6 @@ namespace ATSAccessibility
                     _tutorialWasActiveBeforePopup = false;
                     _waitingForTutorialTooltip = true;
                 }
-
-                _uiNavigator?.OnPopupHidden(popup);
                 // Fall through to handle context change
             }
             else
