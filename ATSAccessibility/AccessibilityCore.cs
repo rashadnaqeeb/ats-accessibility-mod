@@ -173,6 +173,9 @@ namespace ATSAccessibility
         // Daily Expedition popup overlay for daily challenge
         private DailyExpeditionOverlay _dailyExpeditionOverlay;
 
+        // Custom Games popup overlay for Training Expeditions
+        private CustomGamesOverlay _customGamesOverlay;
+
         // Tutorial tooltip handler for tutorial text navigation
         private TutorialTooltipHandler _tutorialTooltipHandler;
 
@@ -344,6 +347,9 @@ namespace ATSAccessibility
             // Initialize daily expedition overlay
             _dailyExpeditionOverlay = new DailyExpeditionOverlay();
 
+            // Initialize custom games overlay (Training Expeditions)
+            _customGamesOverlay = new CustomGamesOverlay();
+
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
@@ -397,6 +403,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_perkCrafterOverlay);  // Perk Crafter (Cornerstone Forge) popup overlay
             _keyboardManager.RegisterHandler(_gamesHistoryOverlay); // Games History popup overlay
             _keyboardManager.RegisterHandler(_dailyExpeditionOverlay); // Daily Expedition popup overlay
+            _keyboardManager.RegisterHandler(_customGamesOverlay);   // Custom Games (Training Expeditions) popup overlay
             _keyboardManager.RegisterHandler(_profilesOverlay);     // Profiles (save selection) popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
@@ -1170,6 +1177,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check custom games popup (Training Expeditions) - it has its own overlay
+            if (CustomGamesReflection.IsCustomGamePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Custom Games popup detected, using CustomGames overlay");
+                _customGamesOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // If deeds overlay just claimed a reward, capture the popup as a child
             if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup)
             {
@@ -1379,6 +1395,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Profiles popup closed");
                 _profilesOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check custom games popup (Training Expeditions)
+            else if (CustomGamesReflection.IsCustomGamePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Custom Games popup closed");
+                _customGamesOverlay?.Close();
                 // Fall through to handle context change
             }
             // Check MetaRewardsPopup/MetaLevelUpPopup - close overlay and handle tutorial polling
