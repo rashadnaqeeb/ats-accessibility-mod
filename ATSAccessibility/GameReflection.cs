@@ -4469,6 +4469,7 @@ namespace ATSAccessibility
         private static PropertyInfo _mbMetaStateServiceProp = null;
         private static PropertyInfo _mssPerksProperty = null;
         private static FieldInfo _perksReputationRewardsRerollEnabledField = null;
+        private static FieldInfo _perksBonusFarmAreaField = null;
         private static bool _metaStateReflectionCached = false;
 
         private static void EnsureMetaPerksReflectionCached()
@@ -4571,11 +4572,13 @@ namespace ATSAccessibility
                         BindingFlags.Public | BindingFlags.Instance);
                 }
 
-                // Get MetaPerksState.reputationRewardsRerollEnabled field
+                // Get MetaPerksState fields
                 var metaPerksStateType = _gameAssembly?.GetType("Eremite.Model.State.MetaPerksState");
                 if (metaPerksStateType != null)
                 {
                     _perksReputationRewardsRerollEnabledField = metaPerksStateType.GetField("reputationRewardsRerollEnabled",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _perksBonusFarmAreaField = metaPerksStateType.GetField("bonusFarmArea",
                         BindingFlags.Public | BindingFlags.Instance);
                 }
             }
@@ -4609,6 +4612,33 @@ namespace ATSAccessibility
             catch
             {
                 return true; // Assume unlocked on error
+            }
+        }
+
+        /// <summary>
+        /// Get the bonus farm area from meta progression (extends farm work area).
+        /// </summary>
+        public static int GetBonusFarmArea()
+        {
+            EnsureMetaStateReflectionCached();
+
+            if (_mbMetaStateServiceProp == null || _mssPerksProperty == null || _perksBonusFarmAreaField == null)
+                return 0; // No bonus if reflection fails
+
+            try
+            {
+                var metaStateService = _mbMetaStateServiceProp.GetValue(null);
+                if (metaStateService == null) return 0;
+
+                var perks = _mssPerksProperty.GetValue(metaStateService);
+                if (perks == null) return 0;
+
+                var result = _perksBonusFarmAreaField.GetValue(perks);
+                return result is int bonus ? bonus : 0;
+            }
+            catch
+            {
+                return 0;
             }
         }
 
@@ -5280,6 +5310,7 @@ namespace ATSAccessibility
         private static Type _hearthModelType = null;
         private static Type _workshopModelType = null;
         private static Type _farmModelType = null;
+        private static Type _farmfieldType = null;
         private static bool _rangeInfoTypesCached = false;
 
         // Cached fields for getting building data
@@ -5324,6 +5355,7 @@ namespace ATSAccessibility
                 _hearthModelType = _gameAssembly.GetType("Eremite.Buildings.HearthModel");
                 _workshopModelType = _gameAssembly.GetType("Eremite.Buildings.WorkshopModel");
                 _farmModelType = _gameAssembly.GetType("Eremite.Buildings.FarmModel");
+                _farmfieldType = _gameAssembly.GetType("Eremite.Buildings.Farmfield");
 
                 // Cache CampModel fields
                 if (_campModelType != null)
@@ -5479,6 +5511,85 @@ namespace ATSAccessibility
             if (buildingModel == null) return false;
             EnsureRangeInfoTypes();
             return _farmModelType != null && _farmModelType.IsInstanceOfType(buildingModel);
+        }
+
+        /// <summary>
+        /// Check if an object is a Farmfield (farm field tile building).
+        /// </summary>
+        public static bool IsFarmfield(object obj)
+        {
+            if (obj == null) return false;
+            // Check by type name to avoid reflection issues
+            return obj.GetType().Name == "Farmfield";
+        }
+
+        /// <summary>
+        /// Check if there's a finished farmfield at the given position.
+        /// Uses BuildingsService.Farmfields collection.
+        /// </summary>
+        public static bool HasFarmfieldAt(int x, int y)
+        {
+            try
+            {
+                var buildingsService = GetBuildingsService();
+                if (buildingsService == null) return false;
+
+                // Get BuildingsService.Farmfields property
+                var farmfieldsProperty = buildingsService.GetType().GetProperty("Farmfields",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (farmfieldsProperty == null) return false;
+
+                var farmfieldsDict = farmfieldsProperty.GetValue(buildingsService);
+                if (farmfieldsDict == null) return false;
+
+                // Iterate through farmfields to find one at this position
+                var valuesProperty = farmfieldsDict.GetType().GetProperty("Values");
+                if (valuesProperty == null) return false;
+
+                var values = valuesProperty.GetValue(farmfieldsDict) as IEnumerable;
+                if (values == null) return false;
+
+                Vector2Int targetPos = new Vector2Int(x, y);
+
+                foreach (var farmfield in values)
+                {
+                    if (farmfield == null) continue;
+
+                    // Check if farmfield is finished
+                    var isFinishedMethod = farmfield.GetType().GetMethod("IsFinished",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    if (isFinishedMethod != null)
+                    {
+                        var finished = isFinishedMethod.Invoke(farmfield, null);
+                        if (finished is bool isFinished && !isFinished)
+                            continue;
+                    }
+
+                    // Get farmfield's state.field position
+                    var stateField = farmfield.GetType().GetField("state",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    if (stateField == null) continue;
+
+                    var state = stateField.GetValue(farmfield);
+                    if (state == null) continue;
+
+                    var fieldField = state.GetType().GetField("field",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    if (fieldField == null) continue;
+
+                    var fieldPos = fieldField.GetValue(state);
+                    if (fieldPos is Vector2Int pos && pos == targetPos)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] HasFarmfieldAt failed: {ex.Message}");
+            }
+
+            return false;
         }
 
         /// <summary>

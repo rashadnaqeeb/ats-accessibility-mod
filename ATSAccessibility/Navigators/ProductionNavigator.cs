@@ -58,7 +58,8 @@ namespace ATSAccessibility
         private bool _isFarm = false;
         private int _farmSownFields = 0;
         private int _farmPlowedFields = 0;
-        private int _farmTotalFields = 0;
+        private int _farmTotalFields = 0;  // Total = placed farmfields + empty grass
+        private int _farmPlacedFields = 0;  // Actual placed farmfield buildings
 
         // Camp mode data
         private int _campMode = 0;
@@ -117,7 +118,7 @@ namespace ATSAccessibility
                 case SectionType.Settings:
                     return 1;  // Single item showing current mode
                 case SectionType.Fields:
-                    return 2;  // Sown fields and Plowed fields
+                    return 3;  // Summary, Planted, Plowed
                 case SectionType.Upgrades:
                     return _upgradesSection.GetItemCount();
                 default:
@@ -418,6 +419,7 @@ namespace ATSAccessibility
                 _farmSownFields = BuildingReflection.GetFarmSownFields(_building);
                 _farmPlowedFields = BuildingReflection.GetFarmPlowedFields(_building);
                 _farmTotalFields = BuildingReflection.GetFarmTotalFields(_building);
+                _farmPlacedFields = BuildingReflection.GetFarmPlacedFieldsCount(_building);
             }
 
             // Cache Camp mode data
@@ -517,6 +519,7 @@ namespace ATSAccessibility
             _farmSownFields = 0;
             _farmPlowedFields = 0;
             _farmTotalFields = 0;
+            _farmPlacedFields = 0;
             _campMode = 0;
             _campModeNames = null;
             _hasRainpunk = false;
@@ -1123,13 +1126,27 @@ namespace ATSAccessibility
 
         private void AnnounceFieldsItem(int itemIndex)
         {
+            // Calculate available fertile soil (total minus placed farmfields)
+            int availableSoil = _farmTotalFields - _farmPlacedFields;
+
             switch (itemIndex)
             {
                 case 0:
-                    Speech.Say($"Sown fields: {_farmSownFields} of {_farmTotalFields}");
+                    // Summary: placed farmfields and available fertile soil
+                    var parts = new List<string>();
+                    if (_farmPlacedFields > 0)
+                        parts.Add($"{_farmPlacedFields} farm fields");
+                    if (availableSoil > 0)
+                        parts.Add($"{availableSoil} fertile soil");
+                    Speech.Say(parts.Count > 0 ? string.Join(", ", parts) : "No fertile soil");
                     break;
                 case 1:
-                    Speech.Say($"Plowed fields: {_farmPlowedFields} of {_farmTotalFields}");
+                    // Sown fields detail
+                    Speech.Say($"Planted: {_farmSownFields}");
+                    break;
+                case 2:
+                    // Plowed fields detail
+                    Speech.Say($"Plowed: {_farmPlowedFields}");
                     break;
                 default:
                     Speech.Say("Unknown field info");
@@ -1399,6 +1416,13 @@ namespace ATSAccessibility
 
         private void AnnounceProductionInfo(object recipeState)
         {
+            // Farm recipes have different data structure
+            if (_isFarm)
+            {
+                AnnounceFarmProductionInfo(recipeState);
+                return;
+            }
+
             int amount = BuildingReflection.GetRecipeProducedAmount(recipeState);
             string productName = BuildingReflection.GetRecipeProducedGoodDisplayName(recipeState);
             if (string.IsNullOrEmpty(productName))
@@ -1416,6 +1440,42 @@ namespace ATSAccessibility
             string timeText = time % 1 == 0 ? $"{(int)time}" : $"{time:F1}";
 
             Speech.Say($"Produces: {amount} {productName} every {timeText} seconds. {grade} stars");
+        }
+
+        private void AnnounceFarmProductionInfo(object recipeState)
+        {
+            // Get product name
+            string productName = BuildingReflection.GetFarmRecipeProductDisplayName(recipeState);
+            if (string.IsNullOrEmpty(productName))
+            {
+                productName = BuildingReflection.GetRecipeModelName(recipeState);
+                if (!string.IsNullOrEmpty(productName))
+                    productName = CleanupName(productName);
+            }
+            productName = productName ?? "crop";
+
+            // Get amount produced
+            int amount = BuildingReflection.GetFarmRecipeProductAmount(recipeState);
+            if (amount <= 0) amount = 1;
+
+            // Get grade/stars
+            int grade = BuildingReflection.GetFarmRecipeGradeLevel(recipeState);
+
+            // Get planting and harvest times (adjusted by farm's rates)
+            float basePlantTime = BuildingReflection.GetFarmRecipePlantingTime(recipeState);
+            float baseHarvestTime = BuildingReflection.GetFarmRecipeHarvestTime(recipeState);
+            float plantingRate = BuildingReflection.GetFarmPlantingRate(_building);
+            float harvestingRate = BuildingReflection.GetFarmHarvestingRate(_building);
+
+            // Calculate actual times (time / rate)
+            float plantTime = plantingRate > 0 ? basePlantTime / plantingRate : basePlantTime;
+            float harvestTime = harvestingRate > 0 ? baseHarvestTime / harvestingRate : baseHarvestTime;
+
+            // Format as m:ss like the game does
+            string plantTimeText = System.TimeSpan.FromSeconds(plantTime).ToString("m\\:ss");
+            string harvestTimeText = System.TimeSpan.FromSeconds(harvestTime).ToString("m\\:ss");
+
+            Speech.Say($"{amount} {productName}: plant {plantTimeText}, harvest {harvestTimeText}. {grade} stars");
         }
 
         private void AnnounceIngredientSlot(object recipeState, int slotIndex)
