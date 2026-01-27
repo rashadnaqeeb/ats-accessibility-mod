@@ -479,6 +479,7 @@ namespace ATSAccessibility
 
                 case KeyCode.Escape:
                     ExitSubmenu();
+                    InputBlocker.BlockCancelOnce = true;  // Prevent game from closing popup
                     return true;
 
                 default:
@@ -595,6 +596,8 @@ namespace ATSAccessibility
             }
 
             // Any other key cancels
+            if (keyCode == KeyCode.Escape)
+                InputBlocker.BlockCancelOnce = true;  // Prevent game from closing popup
             Speech.Say("Cancelled");
             _awaitingConfirm = ConfirmAction.None;
             return true;
@@ -672,6 +675,7 @@ namespace ATSAccessibility
 
                 case KeyCode.Escape:
                     CancelNameEditing();
+                    InputBlocker.BlockCancelOnce = true;  // Prevent game from closing popup
                     return true;
 
                 case KeyCode.Backspace:
