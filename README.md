@@ -7,7 +7,6 @@ A BepInEx mod adding screen reader support to Against the Storm via Tolk.
 ### Known Limitations
 
 **Not yet implemented:**
-- Training Expeditions
 - Queen's Hand Trials
 
 **Implemented but needs testing** (may have bugs):
@@ -228,6 +227,7 @@ Most glade events disappear once all goods have been removed from them.
 ---
 
 ## Strider Port
+
 Similar to glade events, with minor differences.
 
 ### Phase 1: Planning
@@ -259,3 +259,31 @@ Note that you cannot see the blueprint in the rewards acceptance popup. You must
 
 The mod announces game events as they occur. These can be individually toggled in F1 > Announcements.
 Some announcements are handled by the game's settings. These can be toggled in the game's Options > Alerts menu.
+
+---
+
+## Training Expeditions
+
+Access from the main menu. A hierarchical menu for configuring custom game settings.
+
+- Up/Down: Navigate options
+- Enter/Right: Enter submenu or activate option
+- Left/Escape: Exit submenu
+- Space: Toggle options (blight on/off, seasonal effects random/manual) or randomize seed
+- +/-: Adjust sliders and embark good quantities. Shift for larger increments.
+- Tab: Cycle modifier categories (when in Modifiers section)
+- Type-ahead search works in Modifiers section
+
+### Sections
+
+- Difficulty: Select preset difficulty
+- Seed: Space randomizes, Enter allows manual text entry
+- Biome: Select map biome
+- Races: Toggle which species are available
+- Reputation/Seasons/Blight: Adjust sliders for game parameters
+- Seasonal Effects: Random mode shows counts; manual mode lists individual effects to toggle
+- Modifiers: Browse by category (World Map, Daily, Difficulty, All) with search
+- Trade Towns: Toggle available trading partners
+- Embark Goods: Adjust starting resource quantities
+- Embark Effects: Toggle starting perks
+- Embark: Start the game

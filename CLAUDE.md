@@ -19,13 +19,13 @@ Use `cp` with forward slashes and `/c/` prefix. Do NOT use Windows `copy`.
 
 ## Code Organization
 
-**Reflection** (game API access): `GameReflection.cs`, `WorldMapReflection.cs`, `EmbarkReflection.cs`, `BuildingReflection.cs`, `OrdersReflection.cs`, `RecipesReflection.cs`, `RewardsReflection.cs`, `ReputationRewardReflection.cs`, `CornerstoneReflection.cs`, `NewcomersReflection.cs`, `WildcardReflection.cs`, `WikiReflection.cs`, `TradeReflection.cs`, `TradeRoutesReflection.cs`, `BlackMarketReflection.cs`, `AltarReflection.cs`, `PerkCrafterReflection.cs`, `CapitalReflection.cs`, `CapitalUpgradeReflection.cs`, `GameResultReflection.cs`, `DeedsReflection.cs`, `ConsumptionReflection.cs`, `PaymentsReflection.cs`, `NarrationReflection.cs`
+**Reflection** (game API access): `GameReflection.cs`, `WorldMapReflection.cs`, `EmbarkReflection.cs`, `BuildingReflection.cs`, `OrdersReflection.cs`, `RecipesReflection.cs`, `RewardsReflection.cs`, `ReputationRewardReflection.cs`, `CornerstoneReflection.cs`, `NewcomersReflection.cs`, `WildcardReflection.cs`, `WikiReflection.cs`, `TradeReflection.cs`, `TradeRoutesReflection.cs`, `BlackMarketReflection.cs`, `AltarReflection.cs`, `PerkCrafterReflection.cs`, `CapitalReflection.cs`, `CapitalUpgradeReflection.cs`, `GameResultReflection.cs`, `DeedsReflection.cs`, `ConsumptionReflection.cs`, `PaymentsReflection.cs`, `NarrationReflection.cs`, `ProfilesReflection.cs`, `CustomGamesReflection.cs`
 
 **Key handlers**: `KeyboardManager.cs` - priority chain, first active handler wins. Register in `AccessibilityCore.Start()`.
 
 **Base classes**: `TwoLevelPanel` (F1 menu panels), `BuildingSectionNavigator` (building panels)
 
-**Overlays** (popup navigation): `OrdersOverlay.cs`, `OrderPickOverlay.cs`, `RecipesOverlay.cs`, `CornerstoneOverlay.cs`, `CornerstoneLimitOverlay.cs`, `ReputationRewardOverlay.cs`, `WildcardOverlay.cs`, `NewcomersOverlay.cs`, `TraderOverlay.cs`, `TradeRoutesOverlay.cs`, `BlackMarketOverlay.cs`, `AltarOverlay.cs`, `PerkCrafterOverlay.cs`, `CapitalOverlay.cs`, `CapitalUpgradeOverlay.cs`, `GameResultOverlay.cs`, `DeedsOverlay.cs`, `ConsumptionOverlay.cs`, `PaymentsOverlay.cs`, `DialogueOverlay.cs`, `CycleEndOverlay.cs`, `RewardsPackOverlay.cs`, `AssaultResultOverlay.cs`
+**Overlays** (popup navigation): `OrdersOverlay.cs`, `OrderPickOverlay.cs`, `RecipesOverlay.cs`, `CornerstoneOverlay.cs`, `CornerstoneLimitOverlay.cs`, `ReputationRewardOverlay.cs`, `WildcardOverlay.cs`, `NewcomersOverlay.cs`, `TraderOverlay.cs`, `TradeRoutesOverlay.cs`, `BlackMarketOverlay.cs`, `AltarOverlay.cs`, `PerkCrafterOverlay.cs`, `CapitalOverlay.cs`, `CapitalUpgradeOverlay.cs`, `GameResultOverlay.cs`, `DeedsOverlay.cs`, `ConsumptionOverlay.cs`, `PaymentsOverlay.cs`, `DialogueOverlay.cs`, `CycleEndOverlay.cs`, `RewardsPackOverlay.cs`, `AssaultResultOverlay.cs`, `ProfilesOverlay.cs`, `CustomGamesOverlay.cs`
 
 **Tile Info**: `TileInfoReader.cs` - detailed info for I key on buildings, natural resources, deposits
 
@@ -378,8 +378,8 @@ release-package/
 │       └── ATSAccessibility/
 │           ├── ATSAccessibility.dll
 │           ├── Tolk.dll
-│           ├── nvdaControllerClient64.dll
 │           └── SAAPI64.dll
+├── nvdaControllerClient64.dll   (MUST be in game root for NVDA detection)
 ├── doorstop_config.ini          (from BepInEx distribution)
 ├── winhttp.dll                  (from BepInEx distribution)
 ├── LICENSE.txt                  (MIT - this project)
@@ -417,7 +417,8 @@ release-package/
 |------|--------|
 | BepInEx core files | Fresh BepInEx 5.x download (user provides) |
 | ATSAccessibility.dll | Build output: `ATSAccessibility/bin/Debug/net472/` |
-| Tolk.dll, nvdaControllerClient64.dll, SAAPI64.dll | Deployed game folder: `/c/Program Files (x86)/Steam/steamapps/common/Against the Storm/BepInEx/plugins/ATSAccessibility/` |
+| Tolk.dll, SAAPI64.dll | Deployed game folder: `/c/Program Files (x86)/Steam/steamapps/common/Against the Storm/BepInEx/plugins/ATSAccessibility/` |
+| nvdaControllerClient64.dll | NVDA releases: https://download.nvaccess.org/releases/stable/ (controllerClient.zip) - goes in package ROOT |
 | LICENSE.txt | Repo root (rename from LICENSE) |
 | LICENSE-BepInEx.txt | https://raw.githubusercontent.com/BepInEx/BepInEx/master/LICENSE |
 | LICENSE-Tolk.txt | https://raw.githubusercontent.com/ndarilek/tolk/master/LICENSE.txt |
