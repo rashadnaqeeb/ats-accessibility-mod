@@ -73,6 +73,9 @@ namespace ATSAccessibility
         // News/Warnings
         public static ConfigEntry<bool> AnnounceGameWarnings;
 
+        // Sealed Forest
+        public static ConfigEntry<bool> AnnouncePlagueEvents;
+
         private void Awake()
         {
             try
@@ -193,6 +196,10 @@ namespace ATSAccessibility
             // News/Warnings
             AnnounceGameWarnings = Config.Bind("Announcements.Alerts",
                 "GameWarnings", true, "Announce game warnings from news service");
+
+            // Sealed Forest
+            AnnouncePlagueEvents = Config.Bind("Announcements.SealedForest",
+                "PlagueEvents", true, "Announce plague activation and end in Sealed Forest biome");
 
             Logger.LogInfo("Announcement config entries initialized");
         }

@@ -297,10 +297,110 @@ namespace ATSAccessibility
 
         private void OnSeasonChanged(object season)
         {
-            if (!Plugin.AnnounceSeasonChanged.Value) return;
             if (IsInGracePeriod()) return;
+
             string seasonName = season?.ToString() ?? "Unknown";
-            Announce($"Season changed to {seasonName}");
+
+            // Announce season change if enabled
+            if (Plugin.AnnounceSeasonChanged.Value)
+            {
+                Announce($"Season changed to {seasonName}");
+            }
+
+            // Check for Sealed Forest plague events
+            if (Plugin.AnnouncePlagueEvents.Value)
+            {
+                AnnouncePlagueEvent(seasonName);
+            }
+        }
+
+        /// <summary>
+        /// Announce plague activation/end for Sealed Forest biome.
+        /// </summary>
+        private void AnnouncePlagueEvent(string seasonName)
+        {
+            // Check if we're in Sealed Forest (seals exist)
+            var seal = SealReflection.GetFirstSeal();
+            if (seal == null) return;
+
+            // Don't announce if seal is already completed
+            if (SealReflection.IsSealCompleted(seal)) return;
+
+            if (seasonName == "Storm")
+            {
+                // Plague activates when Storm starts
+                var sealGameState = SealReflection.GetSealGameState();
+                if (sealGameState == null) return;
+
+                string effectName = SealReflection.GetCurrentEffect(sealGameState);
+                if (string.IsNullOrEmpty(effectName)) return;
+
+                var effectModel = GameReflection.GetEffectModel(effectName);
+                string displayName = GetEffectDisplayName(effectModel) ?? effectName;
+                string description = GetEffectDescription(effectModel);
+
+                if (!string.IsNullOrEmpty(description))
+                    Announce($"Plague activated: {displayName}. {description}");
+                else
+                    Announce($"Plague activated: {displayName}");
+            }
+            else if (seasonName == "Drizzle")
+            {
+                // Plague ends when Drizzle starts
+                Announce("Plague ended");
+            }
+        }
+
+        // Cached effect property info for plague announcements
+        private static PropertyInfo _effectDisplayNameProperty = null;
+        private static PropertyInfo _effectDescriptionProperty = null;
+        private static bool _effectPropsCached = false;
+
+        private static void EnsureEffectPropertyCached()
+        {
+            if (_effectPropsCached) return;
+            _effectPropsCached = true;
+
+            try
+            {
+                var effectModelType = GameReflection.GameAssembly?.GetType("Eremite.Model.EffectModel");
+                if (effectModelType != null)
+                {
+                    _effectDisplayNameProperty = effectModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
+                    _effectDescriptionProperty = effectModelType.GetProperty("Description", GameReflection.PublicInstance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] EventAnnouncer: Failed to cache effect properties: {ex.Message}");
+            }
+        }
+
+        private static string GetEffectDisplayName(object effectModel)
+        {
+            if (effectModel == null) return null;
+            EnsureEffectPropertyCached();
+            if (_effectDisplayNameProperty == null) return null;
+
+            try { return _effectDisplayNameProperty.GetValue(effectModel)?.ToString(); }
+            catch { return null; }
+        }
+
+        private static string GetEffectDescription(object effectModel)
+        {
+            if (effectModel == null) return null;
+            EnsureEffectPropertyCached();
+            if (_effectDescriptionProperty == null) return null;
+
+            try
+            {
+                string desc = _effectDescriptionProperty.GetValue(effectModel)?.ToString();
+                // Strip rich text tags
+                if (!string.IsNullOrEmpty(desc))
+                    desc = RichTextTagsRegex.Replace(desc, "").Trim();
+                return desc;
+            }
+            catch { return null; }
         }
 
         private void OnYearChanged(object year)

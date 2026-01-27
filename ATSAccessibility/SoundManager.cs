@@ -59,6 +59,9 @@ namespace ATSAccessibility
         private static PropertyInfo _traderTransactionCompletedProperty = null;
         private static PropertyInfo _traderAssaultProperty = null;
 
+        // Seal sounds
+        private static PropertyInfo _sealOrderDeliverProperty = null;
+
         private static void EnsureCached()
         {
             if (_cached) return;
@@ -129,6 +132,9 @@ namespace ATSAccessibility
                     // Trade sounds
                     _traderTransactionCompletedProperty = soundReferencesType.GetProperty("TraderTransactionCompleted", GameReflection.PublicInstance);
                     _traderAssaultProperty = soundReferencesType.GetProperty("TraderAssault", GameReflection.PublicInstance);
+
+                    // Seal sounds
+                    _sealOrderDeliverProperty = soundReferencesType.GetProperty("SealOrderDeliver", GameReflection.PublicInstance);
                 }
             }
             catch (Exception ex)
@@ -459,6 +465,19 @@ namespace ATSAccessibility
         {
             EnsureCached();
             PlaySound(_traderAssaultProperty);
+        }
+
+        // ========================================
+        // SEAL SOUNDS
+        // ========================================
+
+        /// <summary>
+        /// Play the seal offering delivery sound.
+        /// </summary>
+        public static void PlaySealOrderDeliver()
+        {
+            EnsureCached();
+            PlaySound(_sealOrderDeliverProperty);
         }
 
         public static void PlaySoundEffect(object soundModel)

@@ -189,6 +189,9 @@ namespace ATSAccessibility
         // World tutorials overlay for tutorial selection on world map
         private WorldTutorialsOverlay _worldTutorialsOverlay;
 
+        // Seal overlay for Sealed Forest biome seal building
+        private SealOverlay _sealOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -314,6 +317,9 @@ namespace ATSAccessibility
             // Initialize dialogue overlay for NPC dialogue navigation
             _dialogueOverlay = new DialogueOverlay();
 
+            // Initialize seal overlay for Sealed Forest biome
+            _sealOverlay = new SealOverlay();
+
             // Initialize trade routes overlay for trade town navigation
             _tradeRoutesOverlay = new TradeRoutesOverlay();
 
@@ -395,6 +401,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_assaultResultOverlay); // Assault result popup overlay (before trader so it gets priority)
             _keyboardManager.RegisterHandler(_traderOverlay);        // Trader panel overlay
             _keyboardManager.RegisterHandler(_dialogueOverlay);      // NPC dialogue overlay
+            _keyboardManager.RegisterHandler(_sealOverlay);         // Seal building overlay (Sealed Forest)
             _keyboardManager.RegisterHandler(_tradeRoutesOverlay); // Trade routes popup overlay
             _keyboardManager.RegisterHandler(_cycleEndOverlay);   // Cycle end popup overlay (world map)
             _keyboardManager.RegisterHandler(_paymentsOverlay);   // Payments popup overlay
@@ -1071,6 +1078,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check seal panel (Sealed Forest biome) - it has its own overlay
+            if (SealReflection.IsSealPanel(popup))
+            {
+                Debug.Log("[ATSAccessibility] Seal panel detected, using Seal overlay");
+                _sealOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Check cycle end popup (world map) - it has its own overlay
             if (CycleEndOverlay.IsWorldCycleEndPopup(popup))
             {
@@ -1332,6 +1348,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Trade routes popup closed");
                 _tradeRoutesOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check seal panel (Sealed Forest biome)
+            else if (SealReflection.IsSealPanel(popup))
+            {
+                Debug.Log("[ATSAccessibility] Seal panel closed");
+                _sealOverlay?.Close();
                 // Fall through to handle context change
             }
             // Check cycle end popup (world map)
