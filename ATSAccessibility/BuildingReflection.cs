@@ -218,6 +218,25 @@ namespace ATSAccessibility
         private static PropertyInfo _goodModelNameProperty = null;  // GoodModel.Name
         private static bool _hearthFuelTypesCached = false;
 
+        // Hearth services-specific (The Commons)
+        private static MethodInfo _metaPerksAreHearthServicesUnlockedMethod = null;  // IMetaPerksService.AreHearthServicesUnlocked()
+        private static MethodInfo _hearthAreHearthServicesEnabledMethod = null;  // Hearth.AreHearthServicesEnabled()
+        private static MethodInfo _hearthUnlockExtraRecipesMethod = null;  // Hearth.UnlockExtraRecipes()
+        private static MethodInfo _hearthOnExtraRecipesUnlockedMethod = null;  // Hearth.OnExtraRecipesUnlocked()
+        private static PropertyInfo _buildingsServiceHearthsProperty = null;  // IBuildingsService.Hearths
+        private static FieldInfo _hearthModelExtraRecipesField = null;  // HearthModel.extraRecipes (HearthNeedRecipeModel[])
+        private static FieldInfo _hearthModelExtraRecipesUnlockPriceField = null;  // HearthModel.extraRecipesUnlockPrice (GoodRef)
+        private static Type _hearthNeedRecipeModelType = null;
+        private static FieldInfo _hnrmServedNeedField = null;  // HearthNeedRecipeModel.servedNeed (NeedModel)
+        private static FieldInfo _hnrmRequiredGoodField = null;  // HearthNeedRecipeModel.requiredGood (GoodRef)
+        private static FieldInfo _hnrmGradeField = null;  // HearthNeedRecipeModel.grade (RecipeGradeModel)
+        private static FieldInfo _hnrmIsGoodConsumedField = null;  // HearthNeedRecipeModel.isGoodConsumed (bool)
+        private static Type _recipeGradeModelType = null;
+        private static FieldInfo _rgmLevelField = null;  // RecipeGradeModel.level (int)
+        private static FieldInfo _rgmDescriptionField = null;  // RecipeGradeModel.description (LocaText)
+        private static PropertyInfo _needModelDisplayNameProperty = null;  // NeedModel.DisplayName (string)
+        private static bool _hearthServicesTypesCached = false;
+
         // Hearth hub/upgrade-specific
         private static Type _hubTierType = null;
         private static FieldInfo _hubTierIndexField = null;  // HubTier.index
@@ -1539,6 +1558,85 @@ namespace ATSAccessibility
             }
 
             _hearthFuelTypesCached = true;
+        }
+
+        private static void EnsureHearthServicesTypes()
+        {
+            if (_hearthServicesTypesCached) return;
+
+            var assembly = GameReflection.GameAssembly;
+            if (assembly == null)
+            {
+                _hearthServicesTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                // IMetaPerksService.AreHearthServicesUnlocked()
+                var metaPerksServiceType = assembly.GetType("Eremite.Services.IMetaPerksService");
+                if (metaPerksServiceType != null)
+                {
+                    _metaPerksAreHearthServicesUnlockedMethod = metaPerksServiceType.GetMethod("AreHearthServicesUnlocked", GameReflection.PublicInstance);
+                }
+
+                // Hearth methods
+                EnsureHearthTypes();
+                if (_hearthType != null)
+                {
+                    _hearthAreHearthServicesEnabledMethod = _hearthType.GetMethod("AreHearthServicesEnabled", GameReflection.PublicInstance);
+                    _hearthUnlockExtraRecipesMethod = _hearthType.GetMethod("UnlockExtraRecipes", GameReflection.PublicInstance);
+                    _hearthOnExtraRecipesUnlockedMethod = _hearthType.GetMethod("OnExtraRecipesUnlocked", GameReflection.PublicInstance);
+                }
+
+                // IBuildingsService.Hearths property
+                var buildingsServiceType = assembly.GetType("Eremite.Services.IBuildingsService");
+                if (buildingsServiceType != null)
+                {
+                    _buildingsServiceHearthsProperty = buildingsServiceType.GetProperty("Hearths", GameReflection.PublicInstance);
+                }
+
+                // HearthModel fields
+                var hearthModelType = assembly.GetType("Eremite.Buildings.HearthModel");
+                if (hearthModelType != null)
+                {
+                    _hearthModelExtraRecipesField = hearthModelType.GetField("extraRecipes", GameReflection.PublicInstance);
+                    _hearthModelExtraRecipesUnlockPriceField = hearthModelType.GetField("extraRecipesUnlockPrice", GameReflection.PublicInstance);
+                }
+
+                // HearthNeedRecipeModel type and fields
+                _hearthNeedRecipeModelType = assembly.GetType("Eremite.Buildings.HearthNeedRecipeModel");
+                if (_hearthNeedRecipeModelType != null)
+                {
+                    _hnrmServedNeedField = _hearthNeedRecipeModelType.GetField("servedNeed", GameReflection.PublicInstance);
+                    _hnrmRequiredGoodField = _hearthNeedRecipeModelType.GetField("requiredGood", GameReflection.PublicInstance);
+                    _hnrmGradeField = _hearthNeedRecipeModelType.GetField("grade", GameReflection.PublicInstance);
+                    _hnrmIsGoodConsumedField = _hearthNeedRecipeModelType.GetField("isGoodConsumed", GameReflection.PublicInstance);
+                }
+
+                // RecipeGradeModel type and fields
+                _recipeGradeModelType = assembly.GetType("Eremite.Buildings.RecipeGradeModel");
+                if (_recipeGradeModelType != null)
+                {
+                    _rgmLevelField = _recipeGradeModelType.GetField("level", GameReflection.PublicInstance);
+                    _rgmDescriptionField = _recipeGradeModelType.GetField("description", GameReflection.PublicInstance);
+                }
+
+                // NeedModel.DisplayName property
+                var needModelType = assembly.GetType("Eremite.Model.NeedModel");
+                if (needModelType != null)
+                {
+                    _needModelDisplayNameProperty = needModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
+                }
+
+                Debug.Log("[ATSAccessibility] BuildingReflection: Cached HearthServices types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] BuildingReflection hearth services types failed: {ex.Message}");
+            }
+
+            _hearthServicesTypesCached = true;
         }
 
         private static void EnsureHubTierTypes()
@@ -5545,6 +5643,258 @@ namespace ATSAccessibility
                 Debug.LogError($"[ATSAccessibility] SetFuelEnabled failed: {ex.Message}");
                 return false;
             }
+        }
+
+        // ========================================
+        // PUBLIC API - HEARTH SERVICES (THE COMMONS)
+        // ========================================
+
+        /// <summary>
+        /// Data structure for hearth service recipe information.
+        /// </summary>
+        public struct HearthServiceInfo
+        {
+            public string NeedName;        // servedNeed.DisplayName
+            public string GoodName;        // requiredGood internal name
+            public string GoodDisplayName; // requiredGood display name
+            public int GoodAmount;         // requiredGood amount
+            public int Grade;              // grade level (stars)
+            public string GradeDescription;// grade.description.Text
+            public bool IsGoodConsumed;    // whether goods are consumed
+        }
+
+        /// <summary>
+        /// Check if Hearth Services are unlocked via meta progression.
+        /// </summary>
+        public static bool AreHearthServicesMetaUnlocked()
+        {
+            EnsureHearthServicesTypes();
+            EnsureHubTierTypes();  // For _mbMetaPerksServiceProperty
+
+            try
+            {
+                var metaPerksService = _mbMetaPerksServiceProperty?.GetValue(null);
+                if (metaPerksService == null) return false;
+
+                var result = _metaPerksAreHearthServicesUnlockedMethod?.Invoke(metaPerksService, null);
+                return (bool?)result ?? false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] AreHearthServicesMetaUnlocked failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if The Commons is activated in current settlement.
+        /// </summary>
+        public static bool AreHearthServicesEnabled(object building)
+        {
+            if (!IsHearth(building)) return false;
+
+            EnsureHearthServicesTypes();
+
+            try
+            {
+                var result = _hearthAreHearthServicesEnabledMethod?.Invoke(building, null);
+                return (bool?)result ?? false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] AreHearthServicesEnabled failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the unlock price for The Commons.
+        /// Returns (goodName, displayName, amount) or null if not applicable.
+        /// </summary>
+        public static (string goodName, string displayName, int amount)? GetHearthServicesUnlockPrice(object building)
+        {
+            if (!IsHearth(building)) return null;
+
+            EnsureHearthServicesTypes();
+            EnsureBlightConfigTypes();  // For GoodRef fields
+
+            try
+            {
+                var model = _hearthModelField?.GetValue(building);
+                if (model == null) return null;
+
+                var unlockPrice = _hearthModelExtraRecipesUnlockPriceField?.GetValue(model);
+                if (unlockPrice == null) return null;
+
+                // Get good name and amount from GoodRef
+                string goodName = _goodRefNameProperty?.GetValue(unlockPrice) as string;
+                string displayName = _goodRefDisplayNameProperty?.GetValue(unlockPrice) as string;
+                int amount = (int?)_goodRefAmountField?.GetValue(unlockPrice) ?? 0;
+
+                if (string.IsNullOrEmpty(goodName)) return null;
+                if (string.IsNullOrEmpty(displayName)) displayName = goodName;
+
+                return (goodName, displayName, amount);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetHearthServicesUnlockPrice failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if the player can afford to unlock The Commons.
+        /// </summary>
+        public static bool CanAffordHearthServicesUnlock(object building)
+        {
+            var price = GetHearthServicesUnlockPrice(building);
+            if (price == null) return false;
+
+            int stored = GetMainStorageAmount(price.Value.goodName);
+            return stored >= price.Value.amount;
+        }
+
+        /// <summary>
+        /// Unlock The Commons (pay cost and activate hearth services).
+        /// </summary>
+        public static bool UnlockHearthServices(object building)
+        {
+            if (!IsHearth(building)) return false;
+            if (AreHearthServicesEnabled(building)) return false;
+            if (!CanAffordHearthServicesUnlock(building)) return false;
+
+            EnsureHearthServicesTypes();
+
+            if (_hearthUnlockExtraRecipesMethod == null) return false;
+
+            try
+            {
+                _hearthUnlockExtraRecipesMethod.Invoke(building, null);
+                NotifyAllHearthsServicesUnlocked();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] UnlockHearthServices failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Notify all hearths that services have been unlocked (refreshes their needs cache).
+        /// </summary>
+        private static void NotifyAllHearthsServicesUnlocked()
+        {
+            EnsureHearthServicesTypes();
+
+            if (_hearthOnExtraRecipesUnlockedMethod == null || _buildingsServiceHearthsProperty == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] NotifyAllHearthsServicesUnlocked: Missing reflection data");
+                return;
+            }
+
+            try
+            {
+                var buildingsService = GameReflection.GetBuildingsService();
+                if (buildingsService == null) return;
+
+                var hearthsDict = _buildingsServiceHearthsProperty.GetValue(buildingsService);
+                if (hearthsDict == null) return;
+
+                // Get Values property from Dictionary<int, Hearth>
+                var valuesProperty = hearthsDict.GetType().GetProperty("Values", GameReflection.PublicInstance);
+                var values = valuesProperty?.GetValue(hearthsDict) as System.Collections.IEnumerable;
+                if (values == null) return;
+
+                foreach (var hearth in values)
+                {
+                    if (hearth != null)
+                    {
+                        _hearthOnExtraRecipesUnlockedMethod.Invoke(hearth, null);
+                    }
+                }
+
+                Debug.Log("[ATSAccessibility] NotifyAllHearthsServicesUnlocked: Notified all hearths");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] NotifyAllHearthsServicesUnlocked failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get service recipes from The Commons.
+        /// </summary>
+        public static List<HearthServiceInfo> GetHearthServiceRecipes(object building)
+        {
+            var result = new List<HearthServiceInfo>();
+
+            if (!IsHearth(building)) return result;
+
+            EnsureHearthServicesTypes();
+            EnsureBlightConfigTypes();  // For GoodRef fields
+            EnsureRaceBonusTypes();  // For LocaText.Text
+
+            try
+            {
+                var model = _hearthModelField?.GetValue(building);
+                if (model == null) return result;
+
+                var extraRecipes = _hearthModelExtraRecipesField?.GetValue(model) as Array;
+                if (extraRecipes == null) return result;
+
+                foreach (var recipe in extraRecipes)
+                {
+                    if (recipe == null) continue;
+
+                    var info = new HearthServiceInfo();
+
+                    // Get served need name
+                    var servedNeed = _hnrmServedNeedField?.GetValue(recipe);
+                    if (servedNeed != null)
+                    {
+                        info.NeedName = _needModelDisplayNameProperty?.GetValue(servedNeed) as string ?? "Unknown";
+                    }
+                    else
+                    {
+                        info.NeedName = "Unknown";
+                    }
+
+                    // Get required good info
+                    info.IsGoodConsumed = (bool?)_hnrmIsGoodConsumedField?.GetValue(recipe) ?? false;
+                    if (info.IsGoodConsumed)
+                    {
+                        var requiredGood = _hnrmRequiredGoodField?.GetValue(recipe);
+                        if (requiredGood != null)
+                        {
+                            info.GoodName = _goodRefNameProperty?.GetValue(requiredGood) as string ?? "";
+                            info.GoodDisplayName = _goodRefDisplayNameProperty?.GetValue(requiredGood) as string ?? info.GoodName;
+                            info.GoodAmount = (int?)_goodRefAmountField?.GetValue(requiredGood) ?? 0;
+                        }
+                    }
+
+                    // Get grade info
+                    var grade = _hnrmGradeField?.GetValue(recipe);
+                    if (grade != null)
+                    {
+                        info.Grade = (int?)_rgmLevelField?.GetValue(grade) ?? 0;
+                        var descLoca = _rgmDescriptionField?.GetValue(grade);
+                        if (descLoca != null)
+                        {
+                            info.GradeDescription = _locaTextTextProperty?.GetValue(descLoca) as string ?? "";
+                        }
+                    }
+
+                    result.Add(info);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GetHearthServiceRecipes failed: {ex.Message}");
+            }
+
+            return result;
         }
 
         // ========================================

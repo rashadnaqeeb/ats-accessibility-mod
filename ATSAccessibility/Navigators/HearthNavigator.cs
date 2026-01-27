@@ -17,6 +17,7 @@ namespace ATSAccessibility
         {
             Fire,
             Sacrifice,
+            Services,   // The Commons (hearth services)
             Upgrades,
             Blight,
             Workers
@@ -55,6 +56,11 @@ namespace ATSAccessibility
         // Fuel data
         private List<BuildingReflection.FuelInfo> _fuelTypes = new List<BuildingReflection.FuelInfo>();
 
+        // Services data (The Commons)
+        private bool _servicesMetaUnlocked = false;
+        private bool _servicesSettlementUnlocked = false;
+        private List<BuildingReflection.HearthServiceInfo> _serviceRecipes = new List<BuildingReflection.HearthServiceInfo>();
+
         // ========================================
         // BASE CLASS IMPLEMENTATION
         // ========================================
@@ -77,6 +83,10 @@ namespace ATSAccessibility
                     return GetFireItemCount();
                 case SectionType.Sacrifice:
                     return _sacrificeRecipes.Count;
+                case SectionType.Services:
+                    if (!_servicesSettlementUnlocked)
+                        return 1;  // Just the unlock option
+                    return _serviceRecipes.Count;
                 case SectionType.Upgrades:
                     return _upgradeInfo.Count;
                 case SectionType.Blight:
@@ -128,6 +138,9 @@ namespace ATSAccessibility
                 case SectionType.Sacrifice:
                     AnnounceSacrificeItem(itemIndex);
                     break;
+                case SectionType.Services:
+                    AnnounceServiceItem(itemIndex);
+                    break;
                 case SectionType.Upgrades:
                     AnnounceUpgradeItem(itemIndex);
                     break;
@@ -160,6 +173,40 @@ namespace ATSAccessibility
             {
                 AnnounceWorkerSubItem(itemIndex, subItemIndex);
             }
+        }
+
+        protected override bool PerformItemAction(int sectionIndex, int itemIndex)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+                return false;
+
+            // Services unlock action
+            if (_sectionTypes[sectionIndex] == SectionType.Services && !_servicesSettlementUnlocked && itemIndex == 0)
+            {
+                if (!BuildingReflection.CanAffordHearthServicesUnlock(_building))
+                {
+                    Speech.Say("Not enough resources");
+                    SoundManager.PlayFailed();
+                    return false;
+                }
+
+                if (BuildingReflection.UnlockHearthServices(_building))
+                {
+                    _servicesSettlementUnlocked = true;
+                    _serviceRecipes = BuildingReflection.GetHearthServiceRecipes(_building);
+                    SoundManager.PlayButtonClick();
+                    Speech.Say("The Commons unlocked");
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Cannot unlock");
+                    SoundManager.PlayFailed();
+                    return false;
+                }
+            }
+
+            return false;
         }
 
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
@@ -217,6 +264,17 @@ namespace ATSAccessibility
             // Fuel data
             _fuelTypes = BuildingReflection.GetAllFuelTypes();
 
+            // Services data (The Commons)
+            _servicesMetaUnlocked = BuildingReflection.AreHearthServicesMetaUnlocked();
+            if (_servicesMetaUnlocked)
+            {
+                _servicesSettlementUnlocked = BuildingReflection.AreHearthServicesEnabled(_building);
+                if (_servicesSettlementUnlocked)
+                {
+                    _serviceRecipes = BuildingReflection.GetHearthServiceRecipes(_building);
+                }
+            }
+
             // Build sections list
             var sectionNames = new List<string>();
             var sectionTypes = new List<SectionType>();
@@ -229,6 +287,13 @@ namespace ATSAccessibility
             {
                 sectionNames.Add("Sacrifice");
                 sectionTypes.Add(SectionType.Sacrifice);
+            }
+
+            // Services section only shown on main hearth if meta progression unlocked
+            if (_servicesMetaUnlocked && _isMainHearth)
+            {
+                sectionNames.Add("Services");
+                sectionTypes.Add(SectionType.Services);
             }
 
             // Upgrades section only shown if there are upgrade tiers
@@ -268,6 +333,9 @@ namespace ATSAccessibility
             _sacrificeInfo.Clear();
             _fuelTypes.Clear();
             _upgradeInfo.Clear();
+            _servicesMetaUnlocked = false;
+            _servicesSettlementUnlocked = false;
+            _serviceRecipes.Clear();
         }
 
         // ========================================
@@ -712,6 +780,59 @@ namespace ATSAccessibility
         }
 
         // ========================================
+        // SERVICES SECTION (The Commons)
+        // ========================================
+
+        private void AnnounceServiceItem(int itemIndex)
+        {
+            if (!_servicesSettlementUnlocked)
+            {
+                // Unlock option
+                var price = BuildingReflection.GetHearthServicesUnlockPrice(_building);
+                if (price != null)
+                {
+                    bool canAfford = BuildingReflection.CanAffordHearthServicesUnlock(_building);
+                    string affordText = canAfford ? "" : ", not enough resources";
+                    Speech.Say($"Locked, costs {price.Value.amount} {price.Value.displayName}{affordText}");
+                }
+                else
+                {
+                    Speech.Say("Locked");
+                }
+                return;
+            }
+
+            // Service recipe
+            if (itemIndex < 0 || itemIndex >= _serviceRecipes.Count)
+            {
+                Speech.Say("Invalid service");
+                return;
+            }
+
+            var service = _serviceRecipes[itemIndex];
+            // Format: "Need name: requires X Good, Y stars" or "Need name: free, Y stars"
+            if (service.IsGoodConsumed && service.GoodAmount > 0)
+            {
+                Speech.Say($"{service.NeedName}: requires {service.GoodAmount} {service.GoodDisplayName}, {service.Grade} stars");
+            }
+            else
+            {
+                Speech.Say($"{service.NeedName}: free, {service.Grade} stars");
+            }
+        }
+
+        private string GetServiceItemName(int itemIndex)
+        {
+            if (!_servicesSettlementUnlocked)
+                return itemIndex == 0 ? "Unlock" : null;
+
+            if (itemIndex >= 0 && itemIndex < _serviceRecipes.Count)
+                return _serviceRecipes[itemIndex].NeedName;
+
+            return null;
+        }
+
+        // ========================================
         // FUEL SUB-ITEMS (inside Fire section)
         // ========================================
 
@@ -790,6 +911,8 @@ namespace ATSAccessibility
                     }
                 case SectionType.Sacrifice:
                     return GetSacrificeItemName(itemIndex);
+                case SectionType.Services:
+                    return GetServiceItemName(itemIndex);
                 case SectionType.Upgrades:
                     return GetUpgradeItemName(itemIndex);
                 case SectionType.Blight:
