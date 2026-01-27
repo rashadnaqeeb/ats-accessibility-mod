@@ -657,11 +657,8 @@ namespace ATSAccessibility
             _editingName = true;
             _editBuffer.Clear();
 
-            // Pre-populate with current name
             string currentName = ProfilesReflection.GetProfileName(_currentSlotProfile);
-            _editBuffer.Append(currentName);
-
-            Speech.Say($"Editing name: {currentName}. Type new name, Enter to save, Escape to cancel");
+            Speech.Say($"Current name: {currentName}. Type new name, Enter to save, Escape to cancel");
         }
 
         private bool ProcessEditingKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
