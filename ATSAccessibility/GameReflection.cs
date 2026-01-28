@@ -1989,6 +1989,70 @@ namespace ATSAccessibility
         }
 
         // ========================================
+        // GAME TIME SERVICE
+        // ========================================
+
+        private static PropertyInfo _gsGameTimeServiceProperty = null;
+        private static PropertyInfo _gameTimeTimeProperty = null;
+        private static bool _gameTimeTypesCached = false;
+
+        private static void EnsureGameTimeTypes()
+        {
+            if (_gameTimeTypesCached) return;
+            EnsureGameServicesTypes();
+
+            if (_gameAssembly == null)
+            {
+                _gameTimeTypesCached = true;
+                return;
+            }
+
+            try
+            {
+                var gameServicesType = _gameAssembly.GetType("Eremite.Services.IGameServices");
+                if (gameServicesType != null)
+                {
+                    _gsGameTimeServiceProperty = gameServicesType.GetProperty("GameTimeService",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                var gameTimeServiceType = _gameAssembly.GetType("Eremite.Services.IGameTimeService");
+                if (gameTimeServiceType != null)
+                {
+                    _gameTimeTimeProperty = gameTimeServiceType.GetProperty("Time",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] GameTimeService type caching failed: {ex.Message}");
+            }
+
+            _gameTimeTypesCached = true;
+        }
+
+        /// <summary>
+        /// Get the current game time (in-game seconds since settlement start).
+        /// </summary>
+        public static float GetGameTime()
+        {
+            EnsureGameTimeTypes();
+            var gameServices = GetGameServices();
+            if (gameServices == null) return 0f;
+
+            try
+            {
+                var gameTimeService = _gsGameTimeServiceProperty?.GetValue(gameServices);
+                if (gameTimeService == null) return 0f;
+                return (float)(_gameTimeTimeProperty?.GetValue(gameTimeService) ?? 0f);
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        // ========================================
         // MYSTERIES/MODIFIERS (StateService access)
         // ========================================
 

@@ -66,7 +66,16 @@ namespace ATSAccessibility
         // Effects for current decision
         private BuildingReflection.RelicEffectInfo[] _workingEffects;
         private BuildingReflection.RelicEffectInfo[] _activeEffects;
+        private BuildingReflection.RelicEffectInfo[] _dynamicEffects;  // Current tier effects
+        private BuildingReflection.RelicEffectInfo[] _nextTierEffects;  // Next tier effects (preview)
         private bool _areEffectsPermanent;
+
+        // Dynamic effects (escalating over time)
+        private bool _hasDynamicEffects;
+        private int _currentEffectTier;
+        private int _totalEffectTiers;
+        private float _timeToNextTier;
+        private bool _isLastTierReached;
 
         // Rewards for current decision
         private BuildingReflection.RelicRewardInfo[] _rewards;
@@ -155,7 +164,7 @@ namespace ATSAccessibility
 
         protected override void AnnounceSection(int sectionIndex)
         {
-            if (sectionIndex >= _sectionTypes.Length) return;
+            if (_sectionTypes == null || sectionIndex < 0 || sectionIndex >= _sectionTypes.Length) return;
 
             var sectionType = _sectionTypes[sectionIndex];
 
@@ -198,8 +207,31 @@ namespace ATSAccessibility
                 return;
             }
 
+            if (sectionType == SectionType.Effects)
+            {
+                string effectsAnnouncement = _sectionNames[sectionIndex];
+                if (_areEffectsPermanent)
+                    effectsAnnouncement += ", permanent";
+                Speech.Say(effectsAnnouncement);
+                return;
+            }
+
             string sectionName = _sectionNames[sectionIndex];
             Speech.Say(sectionName);
+        }
+
+        private string FormatDynamicEffectTime(float seconds)
+        {
+            int secs = Mathf.RoundToInt(seconds);
+            if (secs <= 0)
+                return "moments";
+            if (secs < 60)
+                return $"{secs} seconds";
+            int minutes = secs / 60;
+            int remainingSecs = secs % 60;
+            if (remainingSecs > 0)
+                return $"{minutes} minutes {remainingSecs} seconds";
+            return $"{minutes} minutes";
         }
 
         private string FormatTimeLeft()
@@ -352,6 +384,13 @@ namespace ATSAccessibility
             _hasAnyWorkplace = BuildingReflection.RelicHasAnyWorkplace(_building);
             _areEffectsPermanent = BuildingReflection.RelicAreEffectsPermanent(_building);
 
+            // Dynamic effects (escalating over time)
+            _hasDynamicEffects = BuildingReflection.RelicHasDynamicEffects(_building);
+            _currentEffectTier = BuildingReflection.GetRelicCurrentEffectTier(_building);
+            _totalEffectTiers = BuildingReflection.GetRelicEffectTierCount(_building);
+            _timeToNextTier = BuildingReflection.GetRelicTimeToNextEffectTier(_building);
+            _isLastTierReached = BuildingReflection.RelicIsLastEffectTierReached(_building);
+
             // Worker data
             _workerIds = BuildingReflection.GetRelicWorkerIds(_building);
             _maxWorkers = _workerIds?.Length ?? 0;
@@ -368,8 +407,6 @@ namespace ATSAccessibility
 
             // Build sections
             BuildSections();
-
-            Debug.Log($"[ATSAccessibility] RelicNavigator: Refreshed data for {_buildingName}, phase={(_investigationFinished ? "C" : _investigationStarted ? "B" : "A")}");
         }
 
         protected override void ClearData()
@@ -386,6 +423,13 @@ namespace ATSAccessibility
             _goodsSetCount = 0;
             _workingEffects = null;
             _activeEffects = null;
+            _dynamicEffects = null;
+            _nextTierEffects = null;
+            _hasDynamicEffects = false;
+            _currentEffectTier = 0;
+            _totalEffectTiers = 0;
+            _timeToNextTier = 0f;
+            _isLastTierReached = false;
             _rewards = null;
             _hasRewards = false;
             _storageItems.Clear();
@@ -514,8 +558,18 @@ namespace ATSAccessibility
             RefreshGoodsSets(safeDecision);
 
             // Effects
-            _workingEffects = BuildingReflection.GetRelicWorkingEffects(_building);
-            _activeEffects = BuildingReflection.GetRelicActiveEffects(_building);
+            // Working effects only shown during Phase B (investigation in progress)
+            _workingEffects = _investigationStarted && !_investigationFinished
+                ? BuildingReflection.GetRelicWorkingEffects(_building)
+                : null;
+
+            // Active effects only used when NOT using dynamic effects (mutually exclusive)
+            _activeEffects = !_hasDynamicEffects
+                ? BuildingReflection.GetRelicActiveEffects(_building)
+                : null;
+
+            _dynamicEffects = BuildingReflection.GetRelicCurrentDynamicEffects(_building);
+            _nextTierEffects = BuildingReflection.GetRelicNextDynamicEffects(_building);
 
             // Rewards
             RefreshRewards(safeDecision);
@@ -794,6 +848,8 @@ namespace ATSAccessibility
             int count = 0;
             if (_workingEffects != null) count += _workingEffects.Length;
             if (_activeEffects != null) count += _activeEffects.Length;
+            if (_dynamicEffects != null) count += _dynamicEffects.Length;
+            if (_nextTierEffects != null) count += _nextTierEffects.Length;
             return count;
         }
 
@@ -804,6 +860,19 @@ namespace ATSAccessibility
 
             string announcement = effect.Value.Name;
             announcement += effect.Value.IsPositive ? ", positive" : ", negative";
+
+            // Indicate if this is a pending effect from the next tier, with countdown
+            if (IsNextTierEffect(itemIndex))
+            {
+                if (_timeToNextTier > 0f)
+                    announcement += $", in {FormatDynamicEffectTime(_timeToNextTier)}";
+                else
+                    announcement += ", pending";
+            }
+
+            // Include description
+            if (!string.IsNullOrEmpty(effect.Value.Description))
+                announcement += ". " + effect.Value.Description;
 
             Speech.Say(announcement);
         }
@@ -825,6 +894,8 @@ namespace ATSAccessibility
         {
             int workingCount = _workingEffects?.Length ?? 0;
             int activeCount = _activeEffects?.Length ?? 0;
+            int dynamicCount = _dynamicEffects?.Length ?? 0;
+            int nextTierCount = _nextTierEffects?.Length ?? 0;
 
             if (itemIndex < 0) return null;
 
@@ -835,7 +906,23 @@ namespace ATSAccessibility
             if (activeIndex < activeCount)
                 return _activeEffects[activeIndex];
 
+            int dynamicIndex = itemIndex - workingCount - activeCount;
+            if (dynamicIndex < dynamicCount)
+                return _dynamicEffects[dynamicIndex];
+
+            int nextTierIndex = itemIndex - workingCount - activeCount - dynamicCount;
+            if (nextTierIndex < nextTierCount)
+                return _nextTierEffects[nextTierIndex];
+
             return null;
+        }
+
+        private bool IsNextTierEffect(int itemIndex)
+        {
+            int workingCount = _workingEffects?.Length ?? 0;
+            int activeCount = _activeEffects?.Length ?? 0;
+            int dynamicCount = _dynamicEffects?.Length ?? 0;
+            return itemIndex >= workingCount + activeCount + dynamicCount;
         }
 
         // ========================================
@@ -1002,6 +1089,9 @@ namespace ATSAccessibility
 
         private void AnnounceWorkerItem(int itemIndex)
         {
+            // Refresh races on each worker announcement to catch changes during panel session
+            RefreshAvailableRaces(force: true);
+
             if (!IsValidWorkerIndex(itemIndex))
             {
                 Speech.Say("Invalid worker slot");

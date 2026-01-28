@@ -326,6 +326,16 @@ namespace ATSAccessibility
         private static FieldInfo _relicModelWorkplacesField = null;  // RelicModel.workplaces (WorkplaceModel[])
         private static PropertyInfo _relicModelHasDecisionProperty = null;  // RelicModel.HasDecision (bool)
         private static FieldInfo _relicModelDangerLevelField = null;  // RelicModel.dangerLevel (DangerLevel enum)
+        private static FieldInfo _relicModelHasDynamicEffectsField = null;  // RelicModel.hasDynamicEffects (bool)
+        private static FieldInfo _relicModelEffectsTiersField = null;  // RelicModel.effectsTiers (EffectStep[])
+
+        // RelicState dynamic effects
+        private static FieldInfo _relicStateCurrentDynamicEffectField = null;  // RelicState.currentDynamicEffect (int)
+        private static FieldInfo _relicStateNextDynamicEffectChangeField = null;  // RelicState.nextDynamicEffectChange (float)
+
+        // Relic dynamic effects methods
+        private static MethodInfo _relicIsLastDynamicEffectReachedMethod = null;  // Relic.IsLastDynamicEffectReached()
+        private static MethodInfo _relicGetCurrentDynamicEffectsMethod = null;  // Relic.GetCurrentDynamicEffects()
 
         // RelicDifficulty
         private static FieldInfo _relicDifficultyDecisionsField = null;  // RelicDifficulty.decisions (RelicDecision[])
@@ -1871,6 +1881,8 @@ namespace ATSAccessibility
                     _relicIsOrderCompletedMethod = _relicType.GetMethod("IsOrderCompleted", GameReflection.PublicInstance);
                     _relicGetWorkingEffectsMethod = _relicType.GetMethod("GetWorkingEffects", GameReflection.PublicInstance);
                     _relicGetSafeDecisionIndexMethod = _relicType.GetMethod("GetSafeDecisionIndex", GameReflection.PublicInstance);
+                    _relicIsLastDynamicEffectReachedMethod = _relicType.GetMethod("IsLastDynamicEffectReached", GameReflection.PublicInstance);
+                    _relicGetCurrentDynamicEffectsMethod = _relicType.GetMethod("GetCurrentDynamicEffects", GameReflection.PublicInstance);
                 }
 
                 var relicStateType = assembly.GetType("Eremite.Buildings.RelicState");
@@ -1887,6 +1899,8 @@ namespace ATSAccessibility
                     _relicStateRewardsSetsField = relicStateType.GetField("rewardsSets", GameReflection.PublicInstance);
                     _relicStateRewardsTiersField = relicStateType.GetField("rewardsTiers", GameReflection.PublicInstance);
                     _relicStateCurrentDynamicRewardField = relicStateType.GetField("currentDynamicReward", GameReflection.PublicInstance);
+                    _relicStateCurrentDynamicEffectField = relicStateType.GetField("currentDynamicEffect", GameReflection.PublicInstance);
+                    _relicStateNextDynamicEffectChangeField = relicStateType.GetField("nextDynamicEffectChange", GameReflection.PublicInstance);
                 }
 
                 // RelicModel fields
@@ -1903,6 +1917,8 @@ namespace ATSAccessibility
                     _relicModelHasDecisionProperty = relicModelType.GetProperty("HasDecision", GameReflection.PublicInstance);
                     _investigationStartSoundField = relicModelType.GetField("investigationStartSound", GameReflection.PublicInstance);
                     _relicModelDangerLevelField = relicModelType.GetField("dangerLevel", GameReflection.PublicInstance);
+                    _relicModelHasDynamicEffectsField = relicModelType.GetField("hasDynamicEffects", GameReflection.PublicInstance);
+                    _relicModelEffectsTiersField = relicModelType.GetField("effectsTiers", GameReflection.PublicInstance);
                 }
 
                 // SoundRef.GetNext() (also cached in EnsureRainpunkEngineTypes)
@@ -7454,6 +7470,210 @@ namespace ATSAccessibility
             catch
             {
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if the relic has dynamic effects that escalate over time.
+        /// </summary>
+        public static bool RelicHasDynamicEffects(object building)
+        {
+            if (!IsRelic(building)) return false;
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return false;
+                return (bool?)_relicModelHasDynamicEffectsField?.GetValue(model) ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the current dynamic effect tier index (0-based).
+        /// </summary>
+        public static int GetRelicCurrentEffectTier(object building)
+        {
+            if (!IsRelic(building)) return 0;
+            EnsureRelicTypes();
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return 0;
+                return (int?)_relicStateCurrentDynamicEffectField?.GetValue(state) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the total number of dynamic effect tiers.
+        /// </summary>
+        public static int GetRelicEffectTierCount(object building)
+        {
+            if (!IsRelic(building)) return 0;
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return 0;
+                var tiers = _relicModelEffectsTiersField?.GetValue(model) as System.Array;
+                return tiers?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Check if the relic has reached its last (worst) dynamic effect tier.
+        /// </summary>
+        public static bool RelicIsLastEffectTierReached(object building)
+        {
+            if (!IsRelic(building)) return true;
+            EnsureRelicTypes();
+
+            try
+            {
+                if (_relicIsLastDynamicEffectReachedMethod != null)
+                    return (bool?)_relicIsLastDynamicEffectReachedMethod.Invoke(building, null) ?? true;
+
+                // Fallback: manual check
+                int current = GetRelicCurrentEffectTier(building);
+                int total = GetRelicEffectTierCount(building);
+                return current >= total - 1;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Get the time remaining until the next dynamic effect tier activates.
+        /// Returns 0 if at last tier or no dynamic effects.
+        /// </summary>
+        public static float GetRelicTimeToNextEffectTier(object building)
+        {
+            if (!IsRelic(building)) return 0f;
+            if (!RelicHasDynamicEffects(building)) return 0f;
+            if (RelicIsLastEffectTierReached(building)) return 0f;
+
+            EnsureRelicTypes();
+
+            try
+            {
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return 0f;
+
+                float nextChange = (float?)_relicStateNextDynamicEffectChangeField?.GetValue(state) ?? 0f;
+                float currentTime = GameReflection.GetGameTime();
+                float remaining = nextChange - currentTime;
+                return remaining > 0f ? remaining : 0f;
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Get the next tier's dynamic effects (what will activate when countdown ends).
+        /// </summary>
+        public static RelicEffectInfo[] GetRelicNextDynamicEffects(object building)
+        {
+            if (!IsRelic(building)) return new RelicEffectInfo[0];
+            if (!RelicHasDynamicEffects(building)) return new RelicEffectInfo[0];
+            if (RelicIsLastEffectTierReached(building)) return new RelicEffectInfo[0];
+
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return new RelicEffectInfo[0];
+
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return new RelicEffectInfo[0];
+
+                var effectsTiers = _relicModelEffectsTiersField?.GetValue(model) as System.Array;
+                if (effectsTiers == null || effectsTiers.Length == 0) return new RelicEffectInfo[0];
+
+                int currentTier = (int?)_relicStateCurrentDynamicEffectField?.GetValue(state) ?? 0;
+                int nextTier = currentTier + 1;
+                if (nextTier >= effectsTiers.Length) return new RelicEffectInfo[0];
+
+                var tierStep = effectsTiers.GetValue(nextTier);
+                if (tierStep == null) return new RelicEffectInfo[0];
+
+                var effectField = tierStep.GetType().GetField("effect", GameReflection.PublicInstance);
+                var tierEffects = effectField?.GetValue(tierStep) as System.Array;
+                if (tierEffects == null || tierEffects.Length == 0) return new RelicEffectInfo[0];
+
+                return ExtractEffectInfos(tierEffects);
+            }
+            catch
+            {
+                return new RelicEffectInfo[0];
+            }
+        }
+
+        /// <summary>
+        /// Get the current dynamic effects (from the current tier).
+        /// These are the escalating effects that get worse over time.
+        /// </summary>
+        public static RelicEffectInfo[] GetRelicCurrentDynamicEffects(object building)
+        {
+            if (!IsRelic(building)) return new RelicEffectInfo[0];
+            if (!RelicHasDynamicEffects(building)) return new RelicEffectInfo[0];
+
+            EnsureRelicTypes();
+
+            try
+            {
+                // Try method first
+                if (_relicGetCurrentDynamicEffectsMethod != null)
+                {
+                    var effects = _relicGetCurrentDynamicEffectsMethod.Invoke(building, null) as System.Array;
+                    if (effects != null && effects.Length > 0)
+                        return ExtractEffectInfos(effects);
+                }
+
+                // Fallback: access effectsTiers[currentDynamicEffect].effect directly
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return new RelicEffectInfo[0];
+
+                var state = _relicStateField?.GetValue(building);
+                if (state == null) return new RelicEffectInfo[0];
+
+                var effectsTiers = _relicModelEffectsTiersField?.GetValue(model) as System.Array;
+                if (effectsTiers == null || effectsTiers.Length == 0) return new RelicEffectInfo[0];
+
+                int currentTier = (int?)_relicStateCurrentDynamicEffectField?.GetValue(state) ?? 0;
+                if (currentTier < 0 || currentTier >= effectsTiers.Length) return new RelicEffectInfo[0];
+
+                var tierStep = effectsTiers.GetValue(currentTier);
+                if (tierStep == null) return new RelicEffectInfo[0];
+
+                // EffectStep.effect field
+                var effectField = tierStep.GetType().GetField("effect", GameReflection.PublicInstance);
+                var tierEffects = effectField?.GetValue(tierStep) as System.Array;
+                if (tierEffects == null || tierEffects.Length == 0) return new RelicEffectInfo[0];
+
+                return ExtractEffectInfos(tierEffects);
+            }
+            catch
+            {
+                return new RelicEffectInfo[0];
             }
         }
 
