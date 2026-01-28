@@ -38,6 +38,7 @@ namespace ATSAccessibility
         private SectionType[] _sectionTypes;
         private string _buildingName;
         private string _buildingDescription;
+        private string _threatLevel;
 
         // Phase flags
         private bool _investigationStarted;
@@ -160,10 +161,11 @@ namespace ATSAccessibility
 
             if (sectionType == SectionType.Info)
             {
-                // Info section: announce building name and description
+                // Info section: announce building name, threat level, and description
                 string header = _buildingName;
+                header += $". Threat level: {_threatLevel}";
                 if (!string.IsNullOrEmpty(_buildingDescription))
-                    header += ": " + _buildingDescription;
+                    header += ". " + _buildingDescription;
                 Speech.Say(header);
                 return;
             }
@@ -333,6 +335,7 @@ namespace ATSAccessibility
         {
             _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Relic";
             _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
+            _threatLevel = BuildingReflection.GetRelicDangerLevel(_building) ?? "None";
 
             // Phase flags
             _investigationStarted = BuildingReflection.IsRelicInvestigationStarted(_building);
@@ -375,6 +378,7 @@ namespace ATSAccessibility
             _sectionTypes = null;
             _buildingName = null;
             _buildingDescription = null;
+            _threatLevel = null;
             _workerIds = null;
             _availableRaces.Clear();
             _racesRefreshedForWorkerSection = false;

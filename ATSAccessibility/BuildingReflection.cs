@@ -325,6 +325,7 @@ namespace ATSAccessibility
         private static FieldInfo _relicModelForceRequirementsField = null;  // RelicModel.forceRequirements (bool)
         private static FieldInfo _relicModelWorkplacesField = null;  // RelicModel.workplaces (WorkplaceModel[])
         private static PropertyInfo _relicModelHasDecisionProperty = null;  // RelicModel.HasDecision (bool)
+        private static FieldInfo _relicModelDangerLevelField = null;  // RelicModel.dangerLevel (DangerLevel enum)
 
         // RelicDifficulty
         private static FieldInfo _relicDifficultyDecisionsField = null;  // RelicDifficulty.decisions (RelicDecision[])
@@ -1901,6 +1902,7 @@ namespace ATSAccessibility
                     _relicModelWorkplacesField = relicModelType.GetField("workplaces", GameReflection.PublicInstance);
                     _relicModelHasDecisionProperty = relicModelType.GetProperty("HasDecision", GameReflection.PublicInstance);
                     _investigationStartSoundField = relicModelType.GetField("investigationStartSound", GameReflection.PublicInstance);
+                    _relicModelDangerLevelField = relicModelType.GetField("dangerLevel", GameReflection.PublicInstance);
                 }
 
                 // SoundRef.GetNext() (also cached in EnsureRainpunkEngineTypes)
@@ -6591,6 +6593,33 @@ namespace ATSAccessibility
         /// <summary>
         /// Check if Relic investigation has been started.
         /// </summary>
+        /// <summary>
+        /// Get the danger level of a relic as a display string.
+        /// Returns "None", "Negative", "Dangerous", or "Forbidden".
+        /// </summary>
+        public static string GetRelicDangerLevel(object building)
+        {
+            if (!IsRelic(building)) return null;
+
+            EnsureRelicTypes();
+
+            try
+            {
+                var model = _relicModelField?.GetValue(building);
+                if (model == null) return null;
+
+                var dangerLevel = _relicModelDangerLevelField?.GetValue(model);
+                if (dangerLevel == null) return null;
+
+                // DangerLevel is an enum: None=0, Negative=1, Dangerous=2, Forbidden=3
+                return dangerLevel.ToString();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public static bool IsRelicInvestigationStarted(object building)
         {
             if (!IsRelic(building)) return false;
