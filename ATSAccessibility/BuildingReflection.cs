@@ -9025,7 +9025,8 @@ namespace ATSAccessibility
                 var servedNeed = _institutionRecipeModelServedNeedField?.GetValue(recipeModel);
                 if (servedNeed == null) return null;
 
-                return GameReflection.GetLocaText(servedNeed.GetType().GetProperty("displayName", GameReflection.PublicInstance)?.GetValue(servedNeed));
+                // NeedModel.DisplayName is a computed property that returns effect.displayName.Text
+                return servedNeed.GetType().GetProperty("DisplayName", GameReflection.PublicInstance)?.GetValue(servedNeed) as string;
             }
             catch
             {
@@ -9074,12 +9075,13 @@ namespace ATSAccessibility
                 var model = _institutionModelField?.GetValue(building);
                 if (state == null || model == null) return null;
 
-                var stateRecipes = _institutionStateRecipesField?.GetValue(state) as Array;
+                // InstitutionState.recipes is List<InstitutionRecipeState>, model.recipes is InstitutionRecipeModel[]
+                var stateRecipes = _institutionStateRecipesField?.GetValue(state) as System.Collections.IList;
                 var modelRecipes = _institutionModelRecipesField?.GetValue(model) as Array;
                 if (stateRecipes == null || modelRecipes == null) return null;
-                if (recipeIndex >= stateRecipes.Length || recipeIndex >= modelRecipes.Length) return null;
+                if (recipeIndex >= stateRecipes.Count || recipeIndex >= modelRecipes.Length) return null;
 
-                var recipeState = stateRecipes.GetValue(recipeIndex);
+                var recipeState = stateRecipes[recipeIndex];
                 var recipeModel = modelRecipes.GetValue(recipeIndex);
 
                 int pickedGood = (int?)_institutionRecipeStatePickedGoodField?.GetValue(recipeState) ?? 0;
@@ -9176,10 +9178,10 @@ namespace ATSAccessibility
                 var state = _institutionStateField?.GetValue(building);
                 if (state == null) return false;
 
-                var stateRecipes = _institutionStateRecipesField?.GetValue(state) as Array;
-                if (stateRecipes == null || recipeIndex >= stateRecipes.Length) return false;
+                var stateRecipes = _institutionStateRecipesField?.GetValue(state) as System.Collections.IList;
+                if (stateRecipes == null || recipeIndex >= stateRecipes.Count) return false;
 
-                var recipeState = stateRecipes.GetValue(recipeIndex);
+                var recipeState = stateRecipes[recipeIndex];
                 _institutionChangeIngredientMethod?.Invoke(building, new object[] { recipeState, goodIndex });
                 return true;
             }
@@ -11341,24 +11343,18 @@ namespace ATSAccessibility
 
             try
             {
-                // First get the GoodModel from the 'good' field
+                // GoodRef has a DisplayName property: good.displayName.Text
+                var displayName = goodRef.GetType().GetProperty("DisplayName", GameReflection.PublicInstance)?.GetValue(goodRef) as string;
+                if (!string.IsNullOrEmpty(displayName))
+                    return displayName;
+
+                // Fallback: get the GoodModel and look up via Settings
                 var goodModel = goodRef.GetType().GetField("good", GameReflection.PublicInstance)?.GetValue(goodRef);
                 if (goodModel == null) return null;
 
-                // Try to get the Name property from GoodModel (inherited from SO)
                 var goodName = goodModel.GetType().GetProperty("Name", GameReflection.PublicInstance)?.GetValue(goodModel) as string;
                 if (!string.IsNullOrEmpty(goodName))
-                {
-                    // Look up the display name using the good ID
                     return GetGoodDisplayName(goodName);
-                }
-
-                // Fallback: try displayName field directly (it's a LocaText)
-                var displayNameField = goodModel.GetType().GetField("displayName", GameReflection.PublicInstance)?.GetValue(goodModel);
-                if (displayNameField != null)
-                {
-                    return GameReflection.GetLocaText(displayNameField);
-                }
 
                 return null;
             }
