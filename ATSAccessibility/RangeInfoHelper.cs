@@ -89,6 +89,15 @@ namespace ATSAccessibility
             {
                 return GetFarmRangeInfo(building);
             }
+            else if (GameReflection.IsFarmfield(building))
+            {
+                var fieldPos = GameReflection.GetBuildingGridPosition(building);
+                if (fieldPos != Vector2Int.zero)
+                {
+                    return GetFarmRangeInfoForTile(fieldPos.x, fieldPos.y);
+                }
+                return "No farms in range";
+            }
             else if (GameReflection.IsProductionBuilding(building))
             {
                 // For production buildings (Workshop, Mine), show supply chain info
@@ -157,6 +166,304 @@ namespace ATSAccessibility
             {
                 // Other production buildings - show nearby suppliers and storage distance
                 return GetProductionBuildingPreview(buildingModel, cursorX, cursorY);
+            }
+        }
+
+        /// <summary>
+        /// Get range info for a resource at a position (inverse of building range).
+        /// Finds placed buildings that can exploit this resource and their distances.
+        /// </summary>
+        public static string GetResourceRangeInfo(int cursorX, int cursorY)
+        {
+            try
+            {
+                var objectOn = GameReflection.GetObjectOn(cursorX, cursorY);
+                if (objectOn == null) return "No building or resource";
+
+                string typeName = objectOn.GetType().Name;
+
+                if (typeName == "NaturalResource")
+                {
+                    return GetNaturalResourceRangeInfo(objectOn);
+                }
+                else if (typeName == "ResourceDeposit")
+                {
+                    return GetDepositRangeInfo(objectOn);
+                }
+                else if (typeName == "Lake")
+                {
+                    return GetLakeRangeInfo(objectOn);
+                }
+                else if (typeName == "Field")
+                {
+                    // GetObjectOn returns the Field object itself for empty tiles
+                    if (GameReflection.IsFieldGrass(objectOn))
+                    {
+                        return GetFarmRangeInfoForTile(cursorX, cursorY);
+                    }
+                    return "No building or resource";
+                }
+                else
+                {
+                    return "No building or resource";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetResourceRangeInfo failed: {ex.Message}");
+                return "No building or resource";
+            }
+        }
+
+        /// <summary>
+        /// Find placed camps in range that can harvest a natural resource.
+        /// </summary>
+        private static string GetNaturalResourceRangeInfo(object resource)
+        {
+            var field = GameReflection.GetResourceField(resource);
+            if (!field.HasValue) return "No buildings in range";
+
+            // Get the resource's good name for matching against camp recipes
+            var modelProp = resource.GetType().GetProperty("Model");
+            if (modelProp == null) return "No buildings in range";
+            var model = modelProp.GetValue(resource);
+            if (model == null) return "No buildings in range";
+
+            var refGoodNameProp = model.GetType().GetProperty("RefGoodName");
+            if (refGoodNameProp == null) return "No buildings in range";
+            string refGoodName = refGoodNameProp.GetValue(model) as string;
+            if (string.IsNullOrEmpty(refGoodName)) return "No buildings in range";
+
+            // Find all placed camps and check which can harvest this good and are in range
+            var camps = GameReflection.GetAllCamps();
+            if (camps == null) return "No buildings in range";
+
+            var matches = new List<(string name, float distance)>();
+
+            foreach (var camp in camps)
+            {
+                if (camp == null) continue;
+                if (!IsBuildingFinished(camp)) continue;
+
+                var campModel = GameReflection.GetBuildingModel(camp);
+                if (campModel == null) continue;
+
+                // Check if this camp type can harvest this good
+                var goodNames = GameReflection.GetGatheringBuildingGoodNames(campModel);
+                if (!goodNames.Contains(refGoodName)) continue;
+
+                var center = GameReflection.GetBuildingCenter(camp);
+                if (!center.HasValue) continue;
+
+                Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
+                float distance = GameReflection.CalculateResourceDistance(center2D, field.Value);
+                float maxDistance = GameReflection.GetGatheringBuildingMaxDistance(campModel);
+
+                if (distance < maxDistance)
+                {
+                    string name = GameReflection.GetDisplayName(campModel) ?? "Camp";
+                    matches.Add((name, distance));
+                }
+            }
+
+            return FormatBuildingRangeMatches(matches);
+        }
+
+        /// <summary>
+        /// Find placed gatherer huts in range that can work a resource deposit.
+        /// </summary>
+        private static string GetDepositRangeInfo(object deposit)
+        {
+            var field = GameReflection.GetResourceField(deposit);
+            if (!field.HasValue) return "No buildings in range";
+
+            var size = GameReflection.GetResourceSize(deposit) ?? Vector2Int.one;
+
+            // Get the deposit model for matching against hut recipes
+            var modelProp = deposit.GetType().GetProperty("Model");
+            if (modelProp == null) return "No buildings in range";
+            var depositModel = modelProp.GetValue(deposit);
+            if (depositModel == null) return "No buildings in range";
+
+            // Get the deposit's good name (ResourceDepositModel inherits GoodName from ResourceModel)
+            var goodNameProp = depositModel.GetType().GetProperty("GoodName");
+            if (goodNameProp == null) return "No buildings in range";
+            string goodName = goodNameProp.GetValue(depositModel) as string;
+            if (string.IsNullOrEmpty(goodName)) return "No buildings in range";
+
+            var huts = GameReflection.GetAllGathererHuts();
+            if (huts == null) return "No buildings in range";
+
+            var matches = new List<(string name, float distance)>();
+
+            foreach (var hut in huts)
+            {
+                if (hut == null) continue;
+                if (!IsBuildingFinished(hut)) continue;
+
+                var hutModel = GameReflection.GetBuildingModel(hut);
+                if (hutModel == null) continue;
+
+                var goodNames = GameReflection.GetGatheringBuildingGoodNames(hutModel);
+                if (!goodNames.Contains(goodName)) continue;
+
+                var center = GameReflection.GetBuildingCenter(hut);
+                if (!center.HasValue) continue;
+
+                Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
+                float distance = GameReflection.CalculateDepositDistance(center2D, field.Value, size);
+                float maxDistance = GameReflection.GetGatheringBuildingMaxDistance(hutModel);
+
+                if (distance < maxDistance)
+                {
+                    string name = GameReflection.GetDisplayName(hutModel) ?? "Gatherer Hut";
+                    matches.Add((name, distance));
+                }
+            }
+
+            return FormatBuildingRangeMatches(matches);
+        }
+
+        /// <summary>
+        /// Find placed fishing huts in range that can work a lake.
+        /// </summary>
+        private static string GetLakeRangeInfo(object lake)
+        {
+            var field = GameReflection.GetResourceField(lake);
+            if (!field.HasValue) return "No buildings in range";
+
+            var size = GameReflection.GetResourceSize(lake) ?? Vector2Int.one;
+
+            // LakeModel inherits GoodName from ResourceModel
+            var modelProp = lake.GetType().GetProperty("Model");
+            if (modelProp == null) return "No buildings in range";
+            var lakeModel = modelProp.GetValue(lake);
+            if (lakeModel == null) return "No buildings in range";
+
+            var goodNameProp = lakeModel.GetType().GetProperty("GoodName");
+            string goodName = goodNameProp?.GetValue(lakeModel) as string;
+
+            var huts = GameReflection.GetAllFishingHuts();
+            if (huts == null) return "No buildings in range";
+
+            var matches = new List<(string name, float distance)>();
+
+            foreach (var hut in huts)
+            {
+                if (hut == null) continue;
+                if (!IsBuildingFinished(hut)) continue;
+
+                var hutModel = GameReflection.GetBuildingModel(hut);
+                if (hutModel == null) continue;
+
+                // If we have a good name, check recipe match; otherwise accept all fishing huts
+                if (!string.IsNullOrEmpty(goodName))
+                {
+                    var goodNames = GameReflection.GetGatheringBuildingGoodNames(hutModel);
+                    if (!goodNames.Contains(goodName)) continue;
+                }
+
+                var center = GameReflection.GetBuildingCenter(hut);
+                if (!center.HasValue) continue;
+
+                Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
+                float distance = GameReflection.CalculateDepositDistance(center2D, field.Value, size);
+                float maxDistance = GameReflection.GetGatheringBuildingMaxDistance(hutModel);
+
+                if (distance < maxDistance)
+                {
+                    string name = GameReflection.GetDisplayName(hutModel) ?? "Fishing Hut";
+                    matches.Add((name, distance));
+                }
+            }
+
+            return FormatBuildingRangeMatches(matches);
+        }
+
+        /// <summary>
+        /// Format matched buildings into announcement string, sorted by distance.
+        /// </summary>
+        private static string FormatBuildingRangeMatches(List<(string name, float distance)> matches)
+        {
+            if (matches.Count == 0)
+                return "No buildings in range";
+
+            matches.Sort((a, b) => a.distance.CompareTo(b.distance));
+
+            var parts = new List<string>();
+            foreach (var match in matches)
+            {
+                parts.Add($"{match.name}, {match.distance:F0} tiles");
+            }
+
+            return string.Join(". ", parts);
+        }
+
+        /// <summary>
+        /// Find placed farms whose work area covers the given tile position.
+        /// </summary>
+        private static string GetFarmRangeInfoForTile(int tileX, int tileY)
+        {
+            try
+            {
+                var farms = GameReflection.GetAllFarms();
+                if (farms == null) return "No farms in range";
+
+                var matches = new List<(string name, float distance)>();
+                int bonus = GameReflection.GetBonusFarmArea();
+
+                foreach (var farm in farms)
+                {
+                    if (farm == null) continue;
+                    if (!IsBuildingFinished(farm)) continue;
+
+                    var model = GameReflection.GetBuildingModel(farm);
+                    if (model == null) continue;
+
+                    var farmPos = GameReflection.GetBuildingGridPosition(farm);
+                    if (farmPos == Vector2Int.zero) continue;
+
+                    var buildingSize = GameReflection.GetBuildingSize(model);
+                    Vector2Int baseWorkArea = GameReflection.GetFarmModelWorkArea(model);
+                    Vector2Int workArea = new Vector2Int(baseWorkArea.x + bonus, baseWorkArea.y + bonus);
+
+                    // Calculate work area bounds
+                    int minX = farmPos.x - workArea.x;
+                    int maxX = farmPos.x + buildingSize.x + workArea.x - 1;
+                    int minY = farmPos.y - workArea.y;
+                    int maxY = farmPos.y + buildingSize.y + workArea.y - 1;
+
+                    // Check if tile is within work area (and not under the farm building itself)
+                    if (tileX >= minX && tileX <= maxX && tileY >= minY && tileY <= maxY)
+                    {
+                        bool underBuilding = tileX >= farmPos.x && tileX < farmPos.x + buildingSize.x &&
+                                             tileY >= farmPos.y && tileY < farmPos.y + buildingSize.y;
+                        if (!underBuilding)
+                        {
+                            // Calculate distance from farm center to tile
+                            var center = GameReflection.GetBuildingCenter(farm);
+                            float distance = 0f;
+                            if (center.HasValue)
+                            {
+                                Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
+                                distance = Vector2.Distance(center2D, new Vector2(tileX + 0.5f, tileY + 0.5f));
+                            }
+
+                            string name = GameReflection.GetDisplayName(model) ?? "Farm";
+                            matches.Add((name, distance));
+                        }
+                    }
+                }
+
+                if (matches.Count == 0)
+                    return "No farms in range";
+
+                return FormatBuildingRangeMatches(matches);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetFarmRangeInfoForTile failed: {ex.Message}");
+                return "No farms in range";
             }
         }
 

@@ -203,7 +203,8 @@ namespace ATSAccessibility
                     }
                     else
                     {
-                        Speech.Say("No building");
+                        string resourceRangeInfo = RangeInfoHelper.GetResourceRangeInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                        Speech.Say(resourceRangeInfo);
                     }
                     return true;
 

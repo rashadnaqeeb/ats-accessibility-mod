@@ -6208,6 +6208,90 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get all farms from BuildingsService.
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllFarms()
+        {
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                var farmsProperty = buildingsService.GetType().GetProperty("Farms", PublicInstance);
+                var farmsDict = farmsProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+                return farmsDict?.Values;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllFarms failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all camps from BuildingsService.
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllCamps()
+        {
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                var campsProperty = buildingsService.GetType().GetProperty("Camps", PublicInstance);
+                var campsDict = campsProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+                return campsDict?.Values;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllCamps failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all gatherer huts from BuildingsService.
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllGathererHuts()
+        {
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                var hutsProperty = buildingsService.GetType().GetProperty("GathererHuts", PublicInstance);
+                var hutsDict = hutsProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+                return hutsDict?.Values;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllGathererHuts failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all fishing huts from BuildingsService.
+        /// </summary>
+        public static System.Collections.IEnumerable GetAllFishingHuts()
+        {
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            try
+            {
+                var hutsProperty = buildingsService.GetType().GetProperty("FishingHuts", PublicInstance);
+                var hutsDict = hutsProperty?.GetValue(buildingsService) as System.Collections.IDictionary;
+                return hutsDict?.Values;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllFishingHuts failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Get local storage distance from game config (default 6 tiles).
         /// This is the range within which production buildings can pull from each other.
         /// </summary>
