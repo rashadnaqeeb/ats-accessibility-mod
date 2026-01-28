@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility
@@ -42,6 +43,8 @@ namespace ATSAccessibility
         // Worker data
         private int[] _workerIds;
         private int _maxWorkers;
+        private List<(string raceName, int freeCount)> _availableRaces = new List<(string, int)>();
+        private bool _racesRefreshedForWorkerSection = false;
 
         // ========================================
         // BASE CLASS IMPLEMENTATION
@@ -111,6 +114,12 @@ namespace ATSAccessibility
             if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
                 return 0;
 
+            // Workers have sub-items (races to assign, plus unassign if occupied)
+            if (_sectionTypes[sectionIndex] == SectionType.Workers && itemIndex < _maxWorkers)
+            {
+                return GetWorkerSubItemCount(itemIndex);
+            }
+
             // Upgrades section has sub-items (perks)
             if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
             {
@@ -129,7 +138,11 @@ namespace ATSAccessibility
 
         protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
         {
-            if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
+            if (_sectionTypes[sectionIndex] == SectionType.Workers && itemIndex < _maxWorkers)
+            {
+                AnnounceWorkerSubItem(itemIndex, subItemIndex);
+            }
+            else if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
             {
                 _upgradesSection.AnnounceSubItem(itemIndex, subItemIndex);
             }
@@ -137,6 +150,11 @@ namespace ATSAccessibility
 
         protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
         {
+            if (_sectionTypes[sectionIndex] == SectionType.Workers && itemIndex < _maxWorkers)
+            {
+                return PerformWorkerSubItemAction(itemIndex, subItemIndex);
+            }
+
             if (_sectionTypes[sectionIndex] == SectionType.Upgrades)
             {
                 return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);
@@ -206,6 +224,8 @@ namespace ATSAccessibility
             _workerIds = null;
             _sectionNames = null;
             _sectionTypes = null;
+            _availableRaces.Clear();
+            _racesRefreshedForWorkerSection = false;
             ClearUpgradesSection();
         }
 
@@ -373,6 +393,129 @@ namespace ATSAccessibility
                 string workerDesc = BuildingReflection.GetWorkerDescription(workerId);
                 Speech.Say($"Slot {itemIndex + 1} of {_maxWorkers}: {workerDesc ?? "Assigned"}");
             }
+        }
+
+        private bool IsValidWorkerIndex(int index) =>
+            index >= 0 && index < _maxWorkers && _workerIds != null;
+
+        private void RefreshAvailableRaces(bool force = false)
+        {
+            if (!force && _racesRefreshedForWorkerSection) return;
+
+            _availableRaces = BuildingReflection.GetRacesWithFreeWorkers(includeZeroFree: true);
+            _racesRefreshedForWorkerSection = true;
+        }
+
+        private int GetWorkerSubItemCount(int workerIndex)
+        {
+            if (!IsValidWorkerIndex(workerIndex)) return 0;
+
+            // Refresh available races when entering worker submenu
+            RefreshAvailableRaces();
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
+
+            // If slot is occupied: "Unassign" + available races
+            // If slot is empty: just available races
+            int count = _availableRaces.Count;
+            if (slotOccupied) count++;  // Add "Unassign" option
+
+            return count;
+        }
+
+        private void AnnounceWorkerSubItem(int workerIndex, int subItemIndex)
+        {
+            if (!IsValidWorkerIndex(workerIndex))
+            {
+                Speech.Say("Invalid worker slot");
+                return;
+            }
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
+            int raceOffset = slotOccupied ? 1 : 0;
+
+            // Unassign option (only if slot is occupied)
+            if (slotOccupied && subItemIndex == 0)
+            {
+                Speech.Say("Unassign");
+                return;
+            }
+
+            // Race options
+            int raceIndex = subItemIndex - raceOffset;
+            if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
+            {
+                var (raceName, freeCount) = _availableRaces[raceIndex];
+                string bonus = BuildingReflection.GetRaceBonusForBuilding(_building, raceName);
+                if (!string.IsNullOrEmpty(bonus))
+                {
+                    Speech.Say($"{raceName}, {freeCount} free, {bonus}");
+                }
+                else
+                {
+                    Speech.Say($"{raceName}, {freeCount} free");
+                }
+            }
+            else
+            {
+                Speech.Say("Invalid option");
+            }
+        }
+
+        private bool PerformWorkerSubItemAction(int workerIndex, int subItemIndex)
+        {
+            if (!IsValidWorkerIndex(workerIndex)) return false;
+
+            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
+            int raceOffset = slotOccupied ? 1 : 0;
+
+            // Unassign action
+            if (slotOccupied && subItemIndex == 0)
+            {
+                if (BuildingReflection.UnassignWorkerFromSlot(_building, workerIndex))
+                {
+                    _workerIds = BuildingReflection.GetWorkerIds(_building);
+                    RefreshAvailableRaces(force: true);
+                    Speech.Say("Unassigned");
+                    _navigationLevel = 1;  // Exit submenu
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Failed to unassign");
+                    return false;
+                }
+            }
+
+            // Assign race
+            int raceIndex = subItemIndex - raceOffset;
+            if (raceIndex >= 0 && raceIndex < _availableRaces.Count)
+            {
+                var (raceName, freeCount) = _availableRaces[raceIndex];
+
+                // Check if race has free workers
+                if (freeCount == 0)
+                {
+                    Speech.Say($"No free {raceName} workers");
+                    return false;
+                }
+
+                if (BuildingReflection.AssignWorkerToSlot(_building, workerIndex, raceName))
+                {
+                    _workerIds = BuildingReflection.GetWorkerIds(_building);
+                    RefreshAvailableRaces(force: true);
+                    Speech.Say($"Assigned {raceName}");
+                    _navigationLevel = 1;  // Exit submenu
+                    return true;
+                }
+                else
+                {
+                    Speech.Say("Failed to assign");
+                    return false;
+                }
+            }
+
+            return false;
         }
     }
 }

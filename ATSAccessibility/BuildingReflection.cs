@@ -505,7 +505,7 @@ namespace ATSAccessibility
         private static bool _hydrantTypesCached = false;
 
         // WaterModel (for RainCatcher/Extractor)
-        private static PropertyInfo _waterModelDisplayNameProperty = null;  // WaterModel.displayName
+        private static FieldInfo _waterModelDisplayNameField = null;  // WaterModel.displayName
         private static FieldInfo _waterModelGoodField = null;  // WaterModel.good
         private static bool _waterModelTypesCached = false;
 
@@ -2483,7 +2483,7 @@ namespace ATSAccessibility
                 var waterModelType = assembly.GetType("Eremite.Model.WaterModel");
                 if (waterModelType != null)
                 {
-                    _waterModelDisplayNameProperty = waterModelType.GetProperty("displayName", GameReflection.PublicInstance);
+                    _waterModelDisplayNameField = waterModelType.GetField("displayName", GameReflection.PublicInstance);
                     _waterModelGoodField = waterModelType.GetField("good", GameReflection.PublicInstance);
                 }
 
@@ -10171,7 +10171,7 @@ namespace ATSAccessibility
                 var waterModel = _rainCatcherGetCurrentWaterTypeMethod?.Invoke(building, null);
                 if (waterModel == null) return null;
 
-                return GameReflection.GetLocaText(_waterModelDisplayNameProperty?.GetValue(waterModel));
+                return GameReflection.GetLocaText(_waterModelDisplayNameField?.GetValue(waterModel));
             }
             catch
             {
@@ -10212,7 +10212,7 @@ namespace ATSAccessibility
                 var waterModel = _extractorGetWaterTypeMethod?.Invoke(building, null);
                 if (waterModel == null) return null;
 
-                return GameReflection.GetLocaText(_waterModelDisplayNameProperty?.GetValue(waterModel));
+                return GameReflection.GetLocaText(_waterModelDisplayNameField?.GetValue(waterModel));
             }
             catch
             {
