@@ -55,6 +55,7 @@ namespace ATSAccessibility
 
         // Orders (order available and failed not covered by game alerts)
         public static ConfigEntry<bool> AnnounceOrderAvailable;
+        public static ConfigEntry<bool> AnnounceOrderCompleted;
         public static ConfigEntry<bool> AnnounceOrderFailed;
 
         // Threats (hostility level change gives more detail than game's deadly-only alert)
@@ -170,6 +171,8 @@ namespace ATSAccessibility
             // Orders (order available and failed not covered by game alerts)
             AnnounceOrderAvailable = Config.Bind("Announcements.Orders",
                 "OrderAvailable", true, "Announce when a new order is available");
+            AnnounceOrderCompleted = Config.Bind("Announcements.Orders",
+                "OrderCompleted", true, "Announce when an order is completed");
             AnnounceOrderFailed = Config.Bind("Announcements.Orders",
                 "OrderFailed", true, "Announce when an order fails");
 

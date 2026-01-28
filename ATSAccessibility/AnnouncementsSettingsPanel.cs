@@ -176,6 +176,7 @@ namespace ATSAccessibility
 
             // Orders (order available and failed not covered by game alerts)
             _items.Add(new SettingItem { Label = "Order available", ConfigEntry = Plugin.AnnounceOrderAvailable });
+            _items.Add(new SettingItem { Label = "Order completed", ConfigEntry = Plugin.AnnounceOrderCompleted });
             _items.Add(new SettingItem { Label = "Order failed", ConfigEntry = Plugin.AnnounceOrderFailed });
 
             // Threats (hostility level change gives more detail than game's deadly-only alert)

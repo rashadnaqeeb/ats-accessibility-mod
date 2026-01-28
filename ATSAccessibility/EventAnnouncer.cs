@@ -602,7 +602,6 @@ namespace ATSAccessibility
         // ========================================
         // ORDERS SERVICE
         // ========================================
-        // OnOrderCompleted removed - covered by game's AlertsCompletedOrders
 
         private void SubscribeToOrders(object gameServices)
         {
@@ -614,6 +613,14 @@ namespace ATSAccessibility
             if (onOrderStarted != null)
             {
                 var sub = GameReflection.SubscribeToObservable(onOrderStarted, OnOrderStarted);
+                if (sub != null) _subscriptions.Add(sub);
+            }
+
+            // OnOrderCompleted - game's alert has a delay, this is immediate
+            var onOrderCompleted = service.GetType().GetProperty("OnOrderCompleted")?.GetValue(service);
+            if (onOrderCompleted != null)
+            {
+                var sub = GameReflection.SubscribeToObservable(onOrderCompleted, OnOrderCompleted);
                 if (sub != null) _subscriptions.Add(sub);
             }
 
@@ -634,6 +641,13 @@ namespace ATSAccessibility
             if (!Plugin.AnnounceOrderAvailable.Value) return;
             if (IsInGracePeriod()) return;
             Announce("New order available");
+        }
+
+        private void OnOrderCompleted(object orderState)
+        {
+            if (!Plugin.AnnounceOrderCompleted.Value) return;
+            if (IsInGracePeriod()) return;
+            Announce("Order completed");
         }
 
         private void OnOrderFailed(object orderState)
