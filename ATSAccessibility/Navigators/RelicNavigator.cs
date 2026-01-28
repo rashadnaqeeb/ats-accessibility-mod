@@ -1051,6 +1051,9 @@ namespace ATSAccessibility
 
         private void AnnounceStorageItem(int itemIndex)
         {
+            // Refresh storage data to get current amounts
+            RefreshStorageData();
+
             if (itemIndex < 0 || itemIndex >= _storageItems.Count) return;
 
             var (_, displayName, amount) = _storageItems[itemIndex];

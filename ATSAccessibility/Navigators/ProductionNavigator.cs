@@ -804,6 +804,9 @@ namespace ATSAccessibility
 
         private void AnnounceInputItem(int itemIndex)
         {
+            // Refresh storage data to get current amounts
+            RefreshStorage();
+
             if (_inputGoods.Count == 0)
             {
                 Speech.Say("Empty");
@@ -873,6 +876,9 @@ namespace ATSAccessibility
 
         private void AnnounceOutputItem(int itemIndex)
         {
+            // Refresh storage data to get current amounts
+            RefreshStorage();
+
             if (_outputGoods.Count == 0)
             {
                 Speech.Say("Empty");

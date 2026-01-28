@@ -329,8 +329,17 @@ namespace ATSAccessibility
         // BAIT SECTION
         // ========================================
 
+        private void RefreshBaitData()
+        {
+            _baitMode = BuildingReflection.GetFishingBaitMode(_building);
+            _baitCharges = BuildingReflection.GetFishingBaitCharges(_building);
+        }
+
         private void AnnounceBaitItem(int itemIndex)
         {
+            // Refresh bait data to get current values
+            RefreshBaitData();
+
             switch (itemIndex)
             {
                 case 0:

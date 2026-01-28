@@ -244,6 +244,9 @@ namespace ATSAccessibility
 
         private void AnnounceGoodItem(int itemIndex)
         {
+            // Refresh goods data to get current amounts
+            RefreshGoodsData();
+
             if (_goods.Count == 0)
             {
                 Speech.Say("Storage is empty");

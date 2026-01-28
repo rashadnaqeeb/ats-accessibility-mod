@@ -859,6 +859,26 @@ namespace ATSAccessibility
                     {
                         parts.Add($"{chargesLeft} of {maxCharges} charges");
                     }
+
+                    // Get stored fish waiting for pickup
+                    var goodsField = stateType.GetField("goods", BindingFlags.Public | BindingFlags.Instance);
+                    if (goodsField != null)
+                    {
+                        var goods = goodsField.GetValue(state);
+                        if (goods != null)
+                        {
+                            // GoodsContainer has a Sum() method
+                            var sumMethod = goods.GetType().GetMethod("Sum", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
+                            if (sumMethod != null)
+                            {
+                                int storedFish = (int)sumMethod.Invoke(goods, null);
+                                if (storedFish > 0)
+                                {
+                                    parts.Add($"{storedFish} fish waiting for pickup");
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Description - LakeModel has a Description property that includes grade requirement
