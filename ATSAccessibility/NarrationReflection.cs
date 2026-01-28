@@ -39,6 +39,7 @@ namespace ATSAccessibility
 
         // INarrationService methods
         private static MethodInfo _nsGetNPCMethod = null;
+        private static MethodInfo _nsHasAnyImportantTopicsMethod = null;
 
         // NPCModel fields
         private static FieldInfo _npcDisplayNameField = null;
@@ -110,6 +111,7 @@ namespace ATSAccessibility
                 if (nsType != null)
                 {
                     _nsGetNPCMethod = nsType.GetMethod("GetNPC", Type.EmptyTypes);
+                    _nsHasAnyImportantTopicsMethod = nsType.GetMethod("HasAnyImportantTopics", Type.EmptyTypes);
                 }
 
                 // NPCModel
@@ -340,6 +342,28 @@ namespace ATSAccessibility
             {
                 Debug.LogError($"[ATSAccessibility] NarrationReflection: GetNPCTitle failed: {ex.Message}");
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Check if the NPC has any important topics waiting (e.g., Scorched Queen dialogue).
+        /// </summary>
+        public static bool HasAnyImportantTopics()
+        {
+            EnsureCached();
+
+            try
+            {
+                var narrationService = GetNarrationService();
+                if (narrationService == null || _nsHasAnyImportantTopicsMethod == null) return false;
+
+                var result = _nsHasAnyImportantTopicsMethod.Invoke(narrationService, null);
+                return result is bool b && b;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] NarrationReflection: HasAnyImportantTopics failed: {ex.Message}");
+                return false;
             }
         }
 

@@ -242,6 +242,8 @@ namespace ATSAccessibility
                     return CapitalReflection.IsDailyExpeditionUnlocked() ? "" : ", locked";
                 case "Training Expedition":
                     return CapitalReflection.IsTrainingExpeditionUnlocked() ? "" : ", locked";
+                case "Home":
+                    return NarrationReflection.HasAnyImportantTopics() ? ", new dialogue" : "";
                 default:
                     return "";
             }
