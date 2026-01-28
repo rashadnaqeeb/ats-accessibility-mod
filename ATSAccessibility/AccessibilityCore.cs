@@ -182,6 +182,7 @@ namespace ATSAccessibility
         // Capital screen overlay for Smoldering City
         private CapitalOverlay _capitalOverlay;
         private CapitalUpgradeOverlay _capitalUpgradeOverlay;
+        private IronmanOverlay _ironmanOverlay;
         private IDisposable _capitalEnabledSubscription;
         private IDisposable _capitalClosedSubscription;
         private bool _subscribedToCapital = false;
@@ -359,6 +360,7 @@ namespace ATSAccessibility
             // Initialize capital screen overlay
             _capitalOverlay = new CapitalOverlay();
             _capitalUpgradeOverlay = new CapitalUpgradeOverlay();
+            _ironmanOverlay = new IronmanOverlay();
 
             // Initialize tutorial tooltip handler (needs UINavigator to check for blocking popups)
             _tutorialTooltipHandler = new TutorialTooltipHandler(_uiNavigator);
@@ -414,6 +416,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_profilesOverlay);     // Profiles (save selection) popup overlay
             _keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
             _keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
+            _keyboardManager.RegisterHandler(_ironmanOverlay);       // Ironman upgrade popup overlay
             _keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
             _keyboardManager.RegisterHandler(_capitalOverlay);     // Capital screen overlay
             _keyboardManager.RegisterHandler(settlementHandler);    // Settlement map navigation (fallback)
@@ -1006,6 +1009,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check Ironman upgrade popup - it has its own overlay (must check before regular capital)
+            if (IronmanReflection.IsIronmanUpgradePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Ironman upgrade popup detected, using Ironman overlay");
+                _ironmanOverlay?.Open();
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Check capital upgrade popup - it has its own overlay
             if (CapitalUpgradeReflection.IsCapitalUpgradePopup(popup))
             {
@@ -1292,6 +1304,13 @@ namespace ATSAccessibility
                 _orderPickOverlay?.Close();
                 // Refresh orders overlay since picked order is now active
                 _ordersOverlay?.RefreshAfterPick();
+                // Fall through to handle context change
+            }
+            // Check Ironman upgrade popup
+            else if (IronmanReflection.IsIronmanUpgradePopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Ironman upgrade popup closed");
+                _ironmanOverlay?.Close();
                 // Fall through to handle context change
             }
             // Check capital upgrade popup
