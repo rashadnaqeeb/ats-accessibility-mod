@@ -430,14 +430,16 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Announce highest seal info or "No seals reforged".
+        /// Announce highest seal info or fragment count if no seals reforged.
         /// </summary>
         public static void AnnounceSealInfo()
         {
             var (name, mult, years, frags) = GetHighestSealInfo();
             if (string.IsNullOrEmpty(name))
             {
-                Speech.Say("No seals reforged");
+                // No seal reforged yet, but still show fragment count from cycle state
+                var (_, _, _, _, fragments) = GetCycleInfo();
+                Speech.Say($"No seals reforged, {fragments} fragments");
                 return;
             }
 
