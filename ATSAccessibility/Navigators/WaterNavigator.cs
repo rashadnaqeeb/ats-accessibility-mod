@@ -319,17 +319,17 @@ namespace ATSAccessibility
             }
             index++;
 
-            // Tank level
+            // Storage level (settlement-wide for this water type)
             if (itemIndex == index)
             {
                 if (_tankCapacity > 0)
                 {
                     int percent = (int)(((float)_tankCurrent / _tankCapacity) * 100);
-                    Speech.Say($"Tank: {_tankCurrent} of {_tankCapacity} ({percent}%)");
+                    Speech.Say($"Storage: {_tankCurrent} of {_tankCapacity} ({percent}%)");
                 }
                 else
                 {
-                    Speech.Say($"Tank: {_tankCurrent}");
+                    Speech.Say($"Storage: {_tankCurrent}");
                 }
                 return;
             }
