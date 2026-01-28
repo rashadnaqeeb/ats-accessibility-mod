@@ -712,8 +712,12 @@ namespace ATSAccessibility
                 if (descObj != null)
                     description = descObj.ToString();
 
-                // Skip effects without display names
-                if (string.IsNullOrEmpty(displayName)) return null;
+                // Fall back to internal name if display name is missing or has broken localization
+                if (string.IsNullOrEmpty(displayName) || displayName.Contains("Missing key"))
+                {
+                    displayName = GameReflection.GetEffectName(effectModel);
+                    if (string.IsNullOrEmpty(displayName)) return null;
+                }
 
                 return new MysteryItem
                 {
