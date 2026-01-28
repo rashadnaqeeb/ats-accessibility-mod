@@ -407,6 +407,13 @@ namespace ATSAccessibility
                     BuildBuildingContent(slot);
                     return;
                 }
+
+                // Check for glade event (relic) article
+                if (WikiReflection.IsWikiRelicSlot(slot))
+                {
+                    BuildRelicContent(slot);
+                    return;
+                }
             }
 
             // Fall back to generic UI text extraction for other article types
@@ -666,6 +673,248 @@ namespace ATSAccessibility
                         var amountPart = !string.IsNullOrEmpty(amount) ? $" ({amount})" : "";
                         _contentLines.Add($"    {name}{amountPart}: {desc}");
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Build structured content for a glade event (relic) article.
+        /// </summary>
+        private void BuildRelicContent(object relicSlot)
+        {
+            var relic = WikiReflection.GetRelicModelFromSlot(relicSlot);
+            if (relic == null) return;
+
+            // 1. Name
+            AddIfNotEmpty(WikiReflection.GetRelicDisplayName(relic));
+
+            // 2. Danger level and workers
+            var dangerLevel = WikiReflection.GetRelicDangerLevel(relic);
+            var workplaces = WikiReflection.GetRelicWorkplacesCount(relic);
+            if (!string.IsNullOrEmpty(dangerLevel))
+            {
+                string workerText = workplaces > 0 ? $", {workplaces} worker{(workplaces > 1 ? "s" : "")}" : "";
+                _contentLines.Add($"Danger: {dangerLevel}{workerText}");
+            }
+
+            // 3. Effects section
+            bool hasDynamicEffects = WikiReflection.GetRelicHasDynamicEffects(relic);
+            if (hasDynamicEffects)
+            {
+                BuildRelicDynamicEffects(relic);
+            }
+            else
+            {
+                BuildRelicStaticEffects(relic);
+            }
+
+            // 4. Requirements/Decisions section
+            bool hasDecision = WikiReflection.GetRelicHasDecision(relic);
+            if (hasDecision)
+            {
+                BuildRelicDecisions(relic);
+            }
+            else
+            {
+                BuildRelicSinglePath(relic);
+            }
+        }
+
+        /// <summary>
+        /// Build dynamic (escalating) effects section for a relic.
+        /// </summary>
+        private void BuildRelicDynamicEffects(object relic)
+        {
+            var effectsTiers = WikiReflection.GetRelicEffectsTiers(relic);
+            if (effectsTiers == null || effectsTiers.Length == 0) return;
+
+            _contentLines.Add("Effects (escalating):");
+
+            int tierNum = 1;
+            foreach (var tier in effectsTiers)
+            {
+                var effects = WikiReflection.GetEffectStepEffects(tier);
+                if (effects == null || effects.Length == 0) continue;
+
+                float timeToStart = WikiReflection.GetEffectStepTimeToStart(tier);
+                string timeStr = FormatMinSec(timeToStart);
+
+                var effectNames = new List<string>();
+                foreach (var effect in effects)
+                {
+                    var name = WikiReflection.GetEffectDisplayName(effect);
+                    if (!string.IsNullOrEmpty(name))
+                        effectNames.Add(name);
+                }
+
+                if (effectNames.Count > 0)
+                {
+                    _contentLines.Add($"  After {timeStr}: {string.Join(", ", effectNames)}");
+                }
+                tierNum++;
+            }
+        }
+
+        /// <summary>
+        /// Build static effects section for a relic.
+        /// </summary>
+        private void BuildRelicStaticEffects(object relic)
+        {
+            var activeEffects = WikiReflection.GetRelicActiveEffects(relic);
+            if (activeEffects == null || activeEffects.Length == 0)
+            {
+                _contentLines.Add("Effects: None");
+                return;
+            }
+
+            _contentLines.Add("Effects:");
+            foreach (var effect in activeEffects)
+            {
+                var name = WikiReflection.GetEffectDisplayName(effect);
+                if (!string.IsNullOrEmpty(name))
+                    _contentLines.Add($"  {name}");
+            }
+        }
+
+        /// <summary>
+        /// Build decision paths for a multi-decision relic.
+        /// </summary>
+        private void BuildRelicDecisions(object relic)
+        {
+            var difficulties = WikiReflection.GetRelicDifficulties(relic);
+            if (difficulties == null || difficulties.Length == 0) return;
+
+            // Use the first difficulty level for base info
+            var baseDifficulty = difficulties.GetValue(0);
+            var decisions = WikiReflection.GetRelicDifficultyDecisions(baseDifficulty);
+            if (decisions == null || decisions.Length == 0) return;
+
+            var decisionsRewards = WikiReflection.GetRelicDecisionsRewards(relic);
+
+            int decisionNum = 1;
+            foreach (var decision in decisions)
+            {
+                var label = WikiReflection.GetRelicDecisionLabel(decision);
+                if (string.IsNullOrEmpty(label))
+                    label = $"Option {decisionNum}";
+
+                _contentLines.Add($"Decision: {label}");
+
+                // Working time
+                float workingTime = WikiReflection.GetRelicDecisionWorkingTime(decision);
+                if (workingTime > 0)
+                    _contentLines.Add($"  Time: {FormatMinSec(workingTime)}");
+
+                // Required goods
+                var requiredGoods = WikiReflection.GetRelicDecisionRequiredGoods(decision);
+                if (requiredGoods != null && requiredGoods.Length > 0)
+                {
+                    string costStr = FormatGoodsSets(requiredGoods, " + ", " OR ");
+                    if (!string.IsNullOrEmpty(costStr))
+                        _contentLines.Add($"  Cost: {costStr}");
+                }
+
+                // Working effects (during investigation)
+                var workingEffects = WikiReflection.GetRelicDecisionWorkingEffects(decision);
+                if (workingEffects != null && workingEffects.Length > 0)
+                {
+                    var effectNames = new List<string>();
+                    foreach (var effect in workingEffects)
+                    {
+                        var name = WikiReflection.GetEffectDisplayName(effect);
+                        if (!string.IsNullOrEmpty(name))
+                            effectNames.Add(name);
+                    }
+                    if (effectNames.Count > 0)
+                        _contentLines.Add($"  During: {string.Join(", ", effectNames)}");
+                }
+
+                // Rewards for this decision
+                if (decisionsRewards != null && decisionNum - 1 < decisionsRewards.Length)
+                {
+                    var rewardTable = decisionsRewards.GetValue(decisionNum - 1);
+                    var rewards = WikiReflection.GetEffectsTableAllEffects(rewardTable);
+                    if (rewards != null && rewards.Count > 0)
+                    {
+                        var rewardNames = new List<string>();
+                        foreach (var reward in rewards)
+                        {
+                            var name = WikiReflection.GetEffectDisplayName(reward);
+                            if (!string.IsNullOrEmpty(name))
+                                rewardNames.Add(name);
+                        }
+                        if (rewardNames.Count > 0)
+                            _contentLines.Add($"  Rewards: {string.Join(", ", rewardNames)}");
+                    }
+                }
+
+                decisionNum++;
+            }
+        }
+
+        /// <summary>
+        /// Build single-path requirements for a relic without decisions.
+        /// </summary>
+        private void BuildRelicSinglePath(object relic)
+        {
+            var difficulties = WikiReflection.GetRelicDifficulties(relic);
+            if (difficulties == null || difficulties.Length == 0) return;
+
+            // Use the first difficulty level
+            var baseDifficulty = difficulties.GetValue(0);
+            var decisions = WikiReflection.GetRelicDifficultyDecisions(baseDifficulty);
+            if (decisions == null || decisions.Length == 0) return;
+
+            var decision = decisions.GetValue(0);
+
+            _contentLines.Add("Requirements:");
+
+            // Working time
+            float workingTime = WikiReflection.GetRelicDecisionWorkingTime(decision);
+            if (workingTime > 0)
+                _contentLines.Add($"  Time: {FormatMinSec(workingTime)}");
+
+            // Required goods
+            var requiredGoods = WikiReflection.GetRelicDecisionRequiredGoods(decision);
+            if (requiredGoods != null && requiredGoods.Length > 0)
+            {
+                string costStr = FormatGoodsSets(requiredGoods, " + ", " OR ");
+                if (!string.IsNullOrEmpty(costStr))
+                    _contentLines.Add($"  Cost: {costStr}");
+            }
+
+            // Working effects
+            var workingEffects = WikiReflection.GetRelicDecisionWorkingEffects(decision);
+            if (workingEffects != null && workingEffects.Length > 0)
+            {
+                var effectNames = new List<string>();
+                foreach (var effect in workingEffects)
+                {
+                    var name = WikiReflection.GetEffectDisplayName(effect);
+                    if (!string.IsNullOrEmpty(name))
+                        effectNames.Add(name);
+                }
+                if (effectNames.Count > 0)
+                    _contentLines.Add($"  During: {string.Join(", ", effectNames)}");
+            }
+
+            // Rewards
+            var rewardsTiers = WikiReflection.GetRelicRewardsTiers(relic);
+            if (rewardsTiers != null && rewardsTiers.Length > 0)
+            {
+                var firstTier = rewardsTiers.GetValue(0);
+                var rewards = WikiReflection.GetRewardStepAllEffects(firstTier);
+                if (rewards != null && rewards.Count > 0)
+                {
+                    var rewardNames = new List<string>();
+                    foreach (var reward in rewards)
+                    {
+                        var name = WikiReflection.GetEffectDisplayName(reward);
+                        if (!string.IsNullOrEmpty(name))
+                            rewardNames.Add(name);
+                    }
+                    if (rewardNames.Count > 0)
+                        _contentLines.Add($"  Rewards: {string.Join(", ", rewardNames)}");
                 }
             }
         }

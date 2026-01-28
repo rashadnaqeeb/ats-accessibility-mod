@@ -1627,5 +1627,806 @@ namespace ATSAccessibility
                 return null;
             }
         }
+
+        // ========================================
+        // RELIC/GLADE EVENT REFLECTION
+        // ========================================
+
+        // WikiRelicSlot
+        private static Type _wikiRelicSlotType;
+        private static PropertyInfo _wrsRelicProperty;  // RelicModel Relic
+
+        // RelicModel fields
+        private static Type _relicModelType;
+        private static FieldInfo _relicDisplayNameField;        // LocaText displayName
+        private static FieldInfo _relicDangerLevelField;        // DangerLevel dangerLevel
+        private static FieldInfo _relicWorkplacesField;         // WorkplaceModel[] workplaces
+        private static FieldInfo _relicHasDynamicEffectsField;  // bool hasDynamicEffects
+        private static FieldInfo _relicEffectsTiersField;       // EffectStep[] effectsTiers
+        private static FieldInfo _relicActiveEffectsField;      // EffectModel[] activeEffects
+        private static FieldInfo _relicDifficultiesField;       // RelicDifficulty[] difficulties
+        private static FieldInfo _relicHasDynamicRewardsField;  // bool hasDynamicRewards
+        private static FieldInfo _relicRewardsTiersField;       // RewardStep[] rewardsTiers
+        private static FieldInfo _relicDecisionsRewardsField;   // EffectsTable[] decisionsRewards
+        private static PropertyInfo _relicHasDecisionProperty;  // bool HasDecision
+
+        // EffectStep fields
+        private static Type _effectStepType;
+        private static FieldInfo _effectStepTimeToStartField;   // float timeToStart
+        private static FieldInfo _effectStepEffectField;        // EffectModel[] effect
+
+        // RewardStep fields
+        private static Type _rewardStepType;
+        private static FieldInfo _rewardStepTimeToStartField;   // float timeToStart
+        private static FieldInfo _rewardStepRewardsField;       // EffectModel[] rewards
+        private static FieldInfo _rewardStepRewardsTableField;  // EffectsTable rewardsTable
+
+        // RelicDifficulty fields
+        private static Type _relicDifficultyType;
+        private static FieldInfo _relicDifficultyDifficultyField;           // int difficulty
+        private static FieldInfo _relicDifficultyEffectTimeRatioField;      // float effectTimeToStartRatio
+        private static FieldInfo _relicDifficultyDecisionsField;            // RelicDecision[] decisions
+
+        // RelicDecision fields
+        private static Type _relicDecisionType;
+        private static FieldInfo _relicDecisionWorkingTimeField;    // float workingTime
+        private static FieldInfo _relicDecisionLabelField;          // LabelModel label
+        private static FieldInfo _relicDecisionRequiredGoodsField;  // GoodsSetTable requriedGoods
+        private static FieldInfo _relicDecisionWorkingEffectsField; // EffectModel[] workingEffects
+
+        // GoodsSetTable fields
+        private static Type _goodsSetTableType;
+        private static FieldInfo _goodsSetTableSetsField;           // GoodsSet[] sets
+
+        // EffectModel fields
+        private static Type _effectModelType;
+        private static PropertyInfo _effectModelDisplayNameProperty;    // string DisplayName
+        private static PropertyInfo _effectModelDescriptionProperty;    // string Description
+
+        // EffectsTable fields
+        private static Type _effectsTableType;
+        private static MethodInfo _effectsTableGetAllEffectsMethod;     // IEnumerable<EffectModel> GetAllEffects()
+
+        // LabelModel fields (for decision labels)
+        private static FieldInfo _labelModelDisplayNameField;       // LocaText displayName
+
+        private static bool _relicTypesInitialized = false;
+
+        private static void EnsureRelicTypes()
+        {
+            if (_relicTypesInitialized) return;
+            _relicTypesInitialized = true;
+
+            EnsureAssembly();
+            if (_gameAssembly == null) return;
+
+            try
+            {
+                // Cache WikiRelicSlot type
+                _wikiRelicSlotType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiRelicSlot");
+                if (_wikiRelicSlotType != null)
+                {
+                    _wrsRelicProperty = _wikiRelicSlotType.GetProperty("Relic",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    Debug.Log("[ATSAccessibility] WikiReflection: Cached WikiRelicSlot type info");
+                }
+
+                // Cache RelicModel type
+                _relicModelType = _gameAssembly.GetType("Eremite.Buildings.RelicModel");
+                if (_relicModelType != null)
+                {
+                    _relicDisplayNameField = _relicModelType.GetField("displayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicDangerLevelField = _relicModelType.GetField("dangerLevel",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicWorkplacesField = _relicModelType.GetField("workplaces",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicHasDynamicEffectsField = _relicModelType.GetField("hasDynamicEffects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicEffectsTiersField = _relicModelType.GetField("effectsTiers",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicActiveEffectsField = _relicModelType.GetField("activeEffects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicDifficultiesField = _relicModelType.GetField("difficulties",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicHasDynamicRewardsField = _relicModelType.GetField("hasDynamicRewards",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicRewardsTiersField = _relicModelType.GetField("rewardsTiers",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicDecisionsRewardsField = _relicModelType.GetField("decisionsRewards",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicHasDecisionProperty = _relicModelType.GetProperty("HasDecision",
+                        BindingFlags.Public | BindingFlags.Instance);
+
+                    Debug.Log("[ATSAccessibility] WikiReflection: Cached RelicModel type info");
+                }
+
+                // Cache EffectStep type
+                _effectStepType = _gameAssembly.GetType("Eremite.Buildings.EffectStep");
+                if (_effectStepType != null)
+                {
+                    _effectStepTimeToStartField = _effectStepType.GetField("timeToStart",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _effectStepEffectField = _effectStepType.GetField("effect",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache RewardStep type
+                _rewardStepType = _gameAssembly.GetType("Eremite.Buildings.RewardStep");
+                if (_rewardStepType != null)
+                {
+                    _rewardStepTimeToStartField = _rewardStepType.GetField("timeToStart",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _rewardStepRewardsField = _rewardStepType.GetField("rewards",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _rewardStepRewardsTableField = _rewardStepType.GetField("rewardsTable",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache RelicDifficulty type
+                _relicDifficultyType = _gameAssembly.GetType("Eremite.Buildings.RelicDifficulty");
+                if (_relicDifficultyType != null)
+                {
+                    _relicDifficultyDifficultyField = _relicDifficultyType.GetField("difficulty",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicDifficultyEffectTimeRatioField = _relicDifficultyType.GetField("effectTimeToStartRatio",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicDifficultyDecisionsField = _relicDifficultyType.GetField("decisions",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache RelicDecision type
+                _relicDecisionType = _gameAssembly.GetType("Eremite.Buildings.RelicDecision");
+                if (_relicDecisionType != null)
+                {
+                    _relicDecisionWorkingTimeField = _relicDecisionType.GetField("workingTime",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicDecisionLabelField = _relicDecisionType.GetField("label",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicDecisionRequiredGoodsField = _relicDecisionType.GetField("requriedGoods",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _relicDecisionWorkingEffectsField = _relicDecisionType.GetField("workingEffects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache GoodsSetTable type
+                _goodsSetTableType = _gameAssembly.GetType("Eremite.Model.GoodsSetTable");
+                if (_goodsSetTableType != null)
+                {
+                    _goodsSetTableSetsField = _goodsSetTableType.GetField("sets",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache EffectModel type
+                _effectModelType = _gameAssembly.GetType("Eremite.Model.EffectModel");
+                if (_effectModelType != null)
+                {
+                    _effectModelDisplayNameProperty = _effectModelType.GetProperty("DisplayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    _effectModelDescriptionProperty = _effectModelType.GetProperty("Description",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache EffectsTable type
+                _effectsTableType = _gameAssembly.GetType("Eremite.Model.EffectsTable");
+                if (_effectsTableType != null)
+                {
+                    _effectsTableGetAllEffectsMethod = _effectsTableType.GetMethod("GetAllEffects",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                // Cache LabelModel displayName field
+                var labelModelType = _gameAssembly.GetType("Eremite.Model.LabelModel");
+                if (labelModelType != null)
+                {
+                    _labelModelDisplayNameField = labelModelType.GetField("displayName",
+                        BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                Debug.Log("[ATSAccessibility] WikiReflection: Cached all relic types");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WikiReflection: EnsureRelicTypes failed: {ex.Message}");
+            }
+        }
+
+        // ========================================
+        // RELIC PUBLIC API
+        // ========================================
+
+        /// <summary>
+        /// Check if a slot is a WikiRelicSlot.
+        /// </summary>
+        public static bool IsWikiRelicSlot(object slot)
+        {
+            if (slot == null) return false;
+            EnsureRelicTypes();
+            if (_wikiRelicSlotType == null) return false;
+
+            return _wikiRelicSlotType.IsAssignableFrom(slot.GetType());
+        }
+
+        /// <summary>
+        /// Get the RelicModel from a WikiRelicSlot.
+        /// </summary>
+        public static object GetRelicModelFromSlot(object slot)
+        {
+            if (slot == null) return null;
+            EnsureRelicTypes();
+
+            if (_wikiRelicSlotType == null || _wrsRelicProperty == null) return null;
+            if (!_wikiRelicSlotType.IsAssignableFrom(slot.GetType())) return null;
+
+            try
+            {
+                return _wrsRelicProperty.GetValue(slot);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WikiReflection: GetRelicModelFromSlot failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the display name from a RelicModel.
+        /// </summary>
+        public static string GetRelicDisplayName(object relicModel)
+        {
+            if (relicModel == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicDisplayNameField == null) return null;
+
+            try
+            {
+                var locaText = _relicDisplayNameField.GetValue(relicModel);
+                return GameReflection.GetLocaText(locaText);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the danger level from a RelicModel as a string.
+        /// </summary>
+        public static string GetRelicDangerLevel(object relicModel)
+        {
+            if (relicModel == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicDangerLevelField == null) return null;
+
+            try
+            {
+                var dangerLevel = _relicDangerLevelField.GetValue(relicModel);
+                return dangerLevel?.ToString();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the workplaces count from a RelicModel.
+        /// </summary>
+        public static int GetRelicWorkplacesCount(object relicModel)
+        {
+            if (relicModel == null) return 0;
+            EnsureRelicTypes();
+
+            if (_relicWorkplacesField == null) return 0;
+
+            try
+            {
+                var workplaces = _relicWorkplacesField.GetValue(relicModel) as Array;
+                return workplaces?.Length ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get whether the relic has dynamic (escalating) effects.
+        /// </summary>
+        public static bool GetRelicHasDynamicEffects(object relicModel)
+        {
+            if (relicModel == null) return false;
+            EnsureRelicTypes();
+
+            if (_relicHasDynamicEffectsField == null) return false;
+
+            try
+            {
+                return (bool)_relicHasDynamicEffectsField.GetValue(relicModel);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the effect tiers (for dynamic effects) from a RelicModel.
+        /// </summary>
+        public static Array GetRelicEffectsTiers(object relicModel)
+        {
+            if (relicModel == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicEffectsTiersField == null) return null;
+
+            try
+            {
+                return _relicEffectsTiersField.GetValue(relicModel) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the active effects (for static effects) from a RelicModel.
+        /// </summary>
+        public static Array GetRelicActiveEffects(object relicModel)
+        {
+            if (relicModel == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicActiveEffectsField == null) return null;
+
+            try
+            {
+                return _relicActiveEffectsField.GetValue(relicModel) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get whether the relic has multiple decision paths.
+        /// </summary>
+        public static bool GetRelicHasDecision(object relicModel)
+        {
+            if (relicModel == null) return false;
+            EnsureRelicTypes();
+
+            if (_relicHasDecisionProperty == null) return false;
+
+            try
+            {
+                return (bool)_relicHasDecisionProperty.GetValue(relicModel);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the difficulties array from a RelicModel.
+        /// </summary>
+        public static Array GetRelicDifficulties(object relicModel)
+        {
+            if (relicModel == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicDifficultiesField == null) return null;
+
+            try
+            {
+                return _relicDifficultiesField.GetValue(relicModel) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the decisions rewards array from a RelicModel.
+        /// </summary>
+        public static Array GetRelicDecisionsRewards(object relicModel)
+        {
+            if (relicModel == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicDecisionsRewardsField == null) return null;
+
+            try
+            {
+                return _relicDecisionsRewardsField.GetValue(relicModel) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the rewards tiers from a RelicModel.
+        /// </summary>
+        public static Array GetRelicRewardsTiers(object relicModel)
+        {
+            if (relicModel == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicRewardsTiersField == null) return null;
+
+            try
+            {
+                return _relicRewardsTiersField.GetValue(relicModel) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // ========================================
+        // EFFECT STEP ACCESSORS
+        // ========================================
+
+        /// <summary>
+        /// Get the time to start from an EffectStep.
+        /// </summary>
+        public static float GetEffectStepTimeToStart(object effectStep)
+        {
+            if (effectStep == null) return 0f;
+            EnsureRelicTypes();
+
+            if (_effectStepTimeToStartField == null) return 0f;
+
+            try
+            {
+                return (float)_effectStepTimeToStartField.GetValue(effectStep);
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Get the effects array from an EffectStep.
+        /// </summary>
+        public static Array GetEffectStepEffects(object effectStep)
+        {
+            if (effectStep == null) return null;
+            EnsureRelicTypes();
+
+            if (_effectStepEffectField == null) return null;
+
+            try
+            {
+                return _effectStepEffectField.GetValue(effectStep) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // ========================================
+        // REWARD STEP ACCESSORS
+        // ========================================
+
+        /// <summary>
+        /// Get the rewards array from a RewardStep.
+        /// </summary>
+        public static Array GetRewardStepRewards(object rewardStep)
+        {
+            if (rewardStep == null) return null;
+            EnsureRelicTypes();
+
+            if (_rewardStepRewardsField == null) return null;
+
+            try
+            {
+                return _rewardStepRewardsField.GetValue(rewardStep) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all effects from a RewardStep (including from rewardsTable).
+        /// </summary>
+        public static System.Collections.Generic.List<object> GetRewardStepAllEffects(object rewardStep)
+        {
+            if (rewardStep == null) return null;
+            EnsureRelicTypes();
+
+            var result = new System.Collections.Generic.List<object>();
+
+            try
+            {
+                // Add direct rewards
+                var rewards = _rewardStepRewardsField?.GetValue(rewardStep) as Array;
+                if (rewards != null)
+                {
+                    foreach (var reward in rewards)
+                    {
+                        if (reward != null)
+                            result.Add(reward);
+                    }
+                }
+
+                // Add rewards from table
+                var rewardsTable = _rewardStepRewardsTableField?.GetValue(rewardStep);
+                if (rewardsTable != null && _effectsTableGetAllEffectsMethod != null)
+                {
+                    var tableEffects = _effectsTableGetAllEffectsMethod.Invoke(rewardsTable, null) as System.Collections.IEnumerable;
+                    if (tableEffects != null)
+                    {
+                        foreach (var effect in tableEffects)
+                        {
+                            if (effect != null)
+                                result.Add(effect);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WikiReflection: GetRewardStepAllEffects failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        // ========================================
+        // RELIC DIFFICULTY ACCESSORS
+        // ========================================
+
+        /// <summary>
+        /// Get the difficulty level from a RelicDifficulty.
+        /// </summary>
+        public static int GetRelicDifficultyLevel(object relicDifficulty)
+        {
+            if (relicDifficulty == null) return 0;
+            EnsureRelicTypes();
+
+            if (_relicDifficultyDifficultyField == null) return 0;
+
+            try
+            {
+                return (int)_relicDifficultyDifficultyField.GetValue(relicDifficulty);
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the effect time ratio from a RelicDifficulty.
+        /// </summary>
+        public static float GetRelicDifficultyEffectTimeRatio(object relicDifficulty)
+        {
+            if (relicDifficulty == null) return 1f;
+            EnsureRelicTypes();
+
+            if (_relicDifficultyEffectTimeRatioField == null) return 1f;
+
+            try
+            {
+                return (float)_relicDifficultyEffectTimeRatioField.GetValue(relicDifficulty);
+            }
+            catch
+            {
+                return 1f;
+            }
+        }
+
+        /// <summary>
+        /// Get the decisions array from a RelicDifficulty.
+        /// </summary>
+        public static Array GetRelicDifficultyDecisions(object relicDifficulty)
+        {
+            if (relicDifficulty == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicDifficultyDecisionsField == null) return null;
+
+            try
+            {
+                return _relicDifficultyDecisionsField.GetValue(relicDifficulty) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // ========================================
+        // RELIC DECISION ACCESSORS
+        // ========================================
+
+        /// <summary>
+        /// Get the working time from a RelicDecision.
+        /// </summary>
+        public static float GetRelicDecisionWorkingTime(object relicDecision)
+        {
+            if (relicDecision == null) return 0f;
+            EnsureRelicTypes();
+
+            if (_relicDecisionWorkingTimeField == null) return 0f;
+
+            try
+            {
+                return (float)_relicDecisionWorkingTimeField.GetValue(relicDecision);
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Get the label from a RelicDecision.
+        /// </summary>
+        public static string GetRelicDecisionLabel(object relicDecision)
+        {
+            if (relicDecision == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicDecisionLabelField == null) return null;
+
+            try
+            {
+                var label = _relicDecisionLabelField.GetValue(relicDecision);
+                if (label == null) return null;
+
+                // Get displayName from LabelModel
+                if (_labelModelDisplayNameField != null)
+                {
+                    var locaText = _labelModelDisplayNameField.GetValue(label);
+                    return GameReflection.GetLocaText(locaText);
+                }
+
+                return label.ToString();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the required goods from a RelicDecision.
+        /// </summary>
+        public static Array GetRelicDecisionRequiredGoods(object relicDecision)
+        {
+            if (relicDecision == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicDecisionRequiredGoodsField == null) return null;
+
+            try
+            {
+                var goodsSetTable = _relicDecisionRequiredGoodsField.GetValue(relicDecision);
+                if (goodsSetTable == null) return null;
+
+                // Get sets from GoodsSetTable
+                if (_goodsSetTableSetsField != null)
+                {
+                    return _goodsSetTableSetsField.GetValue(goodsSetTable) as Array;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the working effects from a RelicDecision.
+        /// </summary>
+        public static Array GetRelicDecisionWorkingEffects(object relicDecision)
+        {
+            if (relicDecision == null) return null;
+            EnsureRelicTypes();
+
+            if (_relicDecisionWorkingEffectsField == null) return null;
+
+            try
+            {
+                return _relicDecisionWorkingEffectsField.GetValue(relicDecision) as Array;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // ========================================
+        // EFFECT MODEL ACCESSORS
+        // ========================================
+
+        /// <summary>
+        /// Get the display name from an EffectModel.
+        /// </summary>
+        public static string GetEffectDisplayName(object effectModel)
+        {
+            if (effectModel == null) return null;
+            EnsureRelicTypes();
+
+            if (_effectModelDisplayNameProperty == null) return null;
+
+            try
+            {
+                return _effectModelDisplayNameProperty.GetValue(effectModel) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get the description from an EffectModel.
+        /// </summary>
+        public static string GetEffectDescription(object effectModel)
+        {
+            if (effectModel == null) return null;
+            EnsureRelicTypes();
+
+            if (_effectModelDescriptionProperty == null) return null;
+
+            try
+            {
+                return _effectModelDescriptionProperty.GetValue(effectModel) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get all effects from an EffectsTable.
+        /// </summary>
+        public static System.Collections.Generic.List<object> GetEffectsTableAllEffects(object effectsTable)
+        {
+            if (effectsTable == null) return null;
+            EnsureRelicTypes();
+
+            if (_effectsTableGetAllEffectsMethod == null) return null;
+
+            var result = new System.Collections.Generic.List<object>();
+
+            try
+            {
+                var effects = _effectsTableGetAllEffectsMethod.Invoke(effectsTable, null) as System.Collections.IEnumerable;
+                if (effects != null)
+                {
+                    foreach (var effect in effects)
+                    {
+                        if (effect != null)
+                            result.Add(effect);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] WikiReflection: GetEffectsTableAllEffects failed: {ex.Message}");
+            }
+
+            return result;
+        }
     }
 }
