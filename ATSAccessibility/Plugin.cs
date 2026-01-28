@@ -42,8 +42,8 @@ namespace ATSAccessibility
         public static ConfigEntry<bool> AnnounceRewardChase;
         public static ConfigEntry<bool> AnnounceLocateMarkers;
 
-        // Villagers (newcomers joined not covered by game alerts)
-        public static ConfigEntry<bool> AnnounceVillagersArrived;
+        // Villagers
+        public static ConfigEntry<bool> AnnounceNewcomersWaiting;
         public static ConfigEntry<bool> AnnounceVillagerLost;
 
         // Time & Weather
@@ -151,9 +151,9 @@ namespace ATSAccessibility
             AnnounceLocateMarkers = Config.Bind("Announcements.Exploration",
                 "LocateMarkers", true, "Announce when locate abilities reveal glade locations");
 
-            // Villagers (newcomers joined not covered by game alerts)
-            AnnounceVillagersArrived = Config.Bind("Announcements.Villagers",
-                "VillagersArrived", true, "Announce when newcomers are picked");
+            // Villagers
+            AnnounceNewcomersWaiting = Config.Bind("Announcements.Villagers",
+                "NewcomersWaiting", true, "Announce when newcomers arrive and are ready to be picked");
             AnnounceVillagerLost = Config.Bind("Announcements.Villagers",
                 "VillagerLost", true, "Announce when a villager dies or leaves");
 

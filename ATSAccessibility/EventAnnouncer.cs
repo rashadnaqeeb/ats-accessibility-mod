@@ -420,20 +420,20 @@ namespace ATSAccessibility
             var service = _newcomersServiceProperty?.GetValue(gameServices);
             if (service == null) return;
 
-            // OnNewcomersPicked - announces when player picks newcomers (not covered by game alerts)
-            var onNewcomersPicked = service.GetType().GetProperty("OnNewcomersPicked")?.GetValue(service);
-            if (onNewcomersPicked != null)
+            // OnNewcomersArrival - announces when newcomers arrive and are ready to be picked
+            var onNewcomersArrival = service.GetType().GetProperty("OnNewcomersArrival")?.GetValue(service);
+            if (onNewcomersArrival != null)
             {
-                var sub = GameReflection.SubscribeToObservable(onNewcomersPicked, OnNewcomersPicked);
+                var sub = GameReflection.SubscribeToObservable(onNewcomersArrival, OnNewcomersArrival);
                 if (sub != null) _subscriptions.Add(sub);
             }
         }
 
-        private void OnNewcomersPicked(object _)
+        private void OnNewcomersArrival(object _)
         {
-            if (!Plugin.AnnounceVillagersArrived.Value) return;
+            if (!Plugin.AnnounceNewcomersWaiting.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Newcomers joined the settlement");
+            Announce("Newcomers waiting to be picked");
         }
 
         // ========================================

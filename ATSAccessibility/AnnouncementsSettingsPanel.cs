@@ -155,14 +155,16 @@ namespace ATSAccessibility
             _items.Add(new SettingItem { Label = "Hearth level change", ConfigEntry = Plugin.AnnounceHearthLevelChange });
             _items.Add(new SettingItem { Label = "Hearth ignited", ConfigEntry = Plugin.AnnounceHearthIgnited });
             _items.Add(new SettingItem { Label = "Hearth corrupted", ConfigEntry = Plugin.AnnounceHearthCorrupted });
+            _items.Add(new SettingItem { Label = "Sacrifice stopped", ConfigEntry = Plugin.AnnounceSacrificeStopped });
 
             // Exploration
             _items.Add(new SettingItem { Label = "Glade revealed", ConfigEntry = Plugin.AnnounceGladeRevealed });
             _items.Add(new SettingItem { Label = "Relic resolved", ConfigEntry = Plugin.AnnounceRelicResolved });
             _items.Add(new SettingItem { Label = "Reward chase", ConfigEntry = Plugin.AnnounceRewardChase });
+            _items.Add(new SettingItem { Label = "Locate markers", ConfigEntry = Plugin.AnnounceLocateMarkers });
 
-            // Villagers (newcomers joined not covered by game alerts)
-            _items.Add(new SettingItem { Label = "Villagers arrived", ConfigEntry = Plugin.AnnounceVillagersArrived });
+            // Villagers
+            _items.Add(new SettingItem { Label = "Newcomers waiting", ConfigEntry = Plugin.AnnounceNewcomersWaiting });
             _items.Add(new SettingItem { Label = "Villager lost", ConfigEntry = Plugin.AnnounceVillagerLost });
 
             // Time
@@ -191,6 +193,9 @@ namespace ATSAccessibility
 
             // News/Warnings
             _items.Add(new SettingItem { Label = "Game warnings", ConfigEntry = Plugin.AnnounceGameWarnings });
+
+            // Sealed Forest
+            _items.Add(new SettingItem { Label = "Plague events", ConfigEntry = Plugin.AnnouncePlagueEvents });
         }
 
         // ========================================
