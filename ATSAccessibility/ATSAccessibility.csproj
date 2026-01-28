@@ -5,60 +5,63 @@
     <AssemblyName>ATSAccessibility</AssemblyName>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- Game installation path - can be overridden in Directory.Build.props -->
+    <GamePath Condition="'$(GamePath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Against the Storm</GamePath>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- BepInEx -->
     <Reference Include="BepInEx">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>$(GamePath)\BepInEx\core\BepInEx.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="0Harmony">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\BepInEx\core\0Harmony.dll</HintPath>
+      <HintPath>$(GamePath)\BepInEx\core\0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
     <!-- Unity -->
     <Reference Include="UnityEngine">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\UnityEngine.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\UnityEngine.UI.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.UIModule">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\UnityEngine.UIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Unity.InputSystem">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\Unity.InputSystem.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\Unity.InputSystem.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Unity.TextMeshPro">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\Unity.TextMeshPro.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UniRx">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\UniRx.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\UniRx.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
     <!-- Game Assembly (for type references if needed) -->
     <Reference Include="Assembly-CSharp">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm\Against the Storm_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(GamePath)\Against the Storm_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

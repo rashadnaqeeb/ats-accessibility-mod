@@ -7,6 +7,9 @@ obj/
 *.user
 *.suo
 
+# Local build configuration (copy from Directory.Build.props.template)
+Directory.Build.props
+
 # Library DLLs (don't redistribute game/Unity assemblies)
 lib/*.dll
 

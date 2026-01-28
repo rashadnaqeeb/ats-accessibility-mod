@@ -1,0 +1,9 @@
+<Project>
+  <!--
+    Copy this file to Directory.Build.props and set your game installation path.
+    Directory.Build.props is gitignored, so your local settings won't be committed.
+  -->
+  <PropertyGroup>
+    <GamePath>C:\Program Files (x86)\Steam\steamapps\common\Against the Storm</GamePath>
+  </PropertyGroup>
+</Project>
