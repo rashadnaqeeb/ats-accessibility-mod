@@ -119,9 +119,10 @@ namespace ATSAccessibility
                 case KeyCode.End:
                     return false;
 
-                // Pass to MapNavigator for position/tile info
+                // Pass to MapNavigator for position/tile/entrance info
                 case KeyCode.K:
                 case KeyCode.I:
+                case KeyCode.E:
                     return false;
 
                 // Building range/orientation info for placement preview
