@@ -196,6 +196,9 @@ namespace ATSAccessibility
         // World event overlay for world map event decisions
         private WorldEventOverlay _worldEventOverlay;
 
+        // Trends overlay for storage operations
+        private TrendsOverlay _trendsOverlay;
+
         // Deferred menu rebuild (wait for user input after popup closes)
         private bool _menuPendingSetup = false;
 
@@ -327,6 +330,9 @@ namespace ATSAccessibility
             // Initialize world event overlay for world map events
             _worldEventOverlay = new WorldEventOverlay();
 
+            // Initialize trends overlay for storage operations
+            _trendsOverlay = new TrendsOverlay();
+
             // Initialize trade routes overlay for trade town navigation
             _tradeRoutesOverlay = new TradeRoutesOverlay();
 
@@ -411,6 +417,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_dialogueOverlay);      // NPC dialogue overlay
             _keyboardManager.RegisterHandler(_sealOverlay);         // Seal building overlay (Sealed Forest)
             _keyboardManager.RegisterHandler(_worldEventOverlay);  // World event popup overlay (world map)
+            _keyboardManager.RegisterHandler(_trendsOverlay);     // Trends popup overlay (storage operations)
             _keyboardManager.RegisterHandler(_tradeRoutesOverlay); // Trade routes popup overlay
             _keyboardManager.RegisterHandler(_cycleEndOverlay);   // Cycle end popup overlay (world map)
             _keyboardManager.RegisterHandler(_paymentsOverlay);   // Payments popup overlay
@@ -1115,6 +1122,15 @@ namespace ATSAccessibility
                 return;
             }
 
+            // Check trends popup - it has its own overlay
+            if (TrendsReflection.IsTrendsPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Trends popup detected, using Trends overlay");
+                _trendsOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
             // Check cycle end popup (world map) - it has its own overlay
             if (CycleEndOverlay.IsWorldCycleEndPopup(popup))
             {
@@ -1397,6 +1413,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] World event popup closed");
                 _worldEventOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check trends popup
+            else if (TrendsReflection.IsTrendsPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Trends popup closed");
+                _trendsOverlay?.Close();
                 // Fall through to handle context change
             }
             // Check cycle end popup (world map)

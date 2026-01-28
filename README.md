@@ -16,7 +16,6 @@ A BepInEx mod adding screen reader support to Against the Storm via Tolk.
 - Service Buildings
 
 **Will not be implemented:**
-- Trends menu (visual-only feature with no gameplay impact)
 
 ## Installation
 
@@ -112,6 +111,17 @@ Buildings category - Ten subcategories: Essential, Gathering, Production, Trade,
 - F3: Pending rewards
 - Tab: Building menu (construction). Buildings organised into categories or can type building name directly. In build mode, press Space to place building, Shift+Space to remove. Enter or Escape to exit mode.
 - Alt+H: Announcement history
+
+### Trends
+
+Opened via Menu Hub (F2 > Trends). Shows storage operations (gains and losses) for each good.
+
+- Left/Right: Navigate goods
+- Up/Down: Navigate operations (gains listed first, then losses)
+- 1: Last 10 seconds
+- 2: Last minute
+- 3: Last 5 minutes
+- A-Z: Type-ahead search for goods
 
 ---
 
