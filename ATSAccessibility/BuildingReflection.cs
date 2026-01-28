@@ -8951,10 +8951,13 @@ namespace ATSAccessibility
 
             if (IsRelic(building))
             {
-                // Phase 2: Working (investigation started but not finished)
+                // Phase A: Before investigation - workers must be assigned before starting
+                if (!IsRelicInvestigationStarted(building) && RelicHasAnyWorkplace(building))
+                    return true;
+                // Phase B: Working (investigation started but not finished)
                 if (IsRelicInvestigationStarted(building) && !IsRelicInvestigationFinished(building))
                     return true;
-                // Phase 3: Collecting rewards (investigation finished but rewards still need to be unloaded)
+                // Phase C: Collecting rewards (investigation finished but rewards still need to be unloaded)
                 if (IsRelicInvestigationFinished(building) && GetRelicRewardStorageFullSum(building) > 0)
                     return true;
                 return false;

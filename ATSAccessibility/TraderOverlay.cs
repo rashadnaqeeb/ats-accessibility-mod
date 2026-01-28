@@ -1047,6 +1047,8 @@ namespace ATSAccessibility
                     SoundManager.PlaySoundEffect(traderSound);
                 Speech.Say($"Purchased {perk.DisplayName}");
                 RefreshPerks();  // Refresh perks list in case user re-enters submenu
+                RefreshSellGoods();  // Refresh goods since Amber was spent
+                RefreshBuyGoods();
                 RefreshMainMenu();
             }
             else

@@ -506,7 +506,7 @@ namespace ATSAccessibility
             }
             else
             {
-                // Phase A: Info, Decisions, Choose Requirements, Effects, Rewards, Start Investigation
+                // Phase A: Info, Decisions, Choose Requirements, Effects, Workers, Rewards, Start Investigation
                 if (_hasMultipleDecisions)
                 {
                     sectionNames.Add("Decisions");
@@ -523,6 +523,13 @@ namespace ATSAccessibility
                 {
                     sectionNames.Add("Effects");
                     sectionTypes.Add(SectionType.Effects);
+                }
+
+                // Workers section - required for relics with workplaces
+                if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
+                {
+                    sectionNames.Add("Workers");
+                    sectionTypes.Add(SectionType.Workers);
                 }
 
                 if (_hasRewards)
@@ -558,8 +565,8 @@ namespace ATSAccessibility
             RefreshGoodsSets(safeDecision);
 
             // Effects
-            // Working effects only shown during Phase B (investigation in progress)
-            _workingEffects = _investigationStarted && !_investigationFinished
+            // Working effects shown in Phase A (preview) and Phase B (active), not in Phase C
+            _workingEffects = !_investigationFinished
                 ? BuildingReflection.GetRelicWorkingEffects(_building)
                 : null;
 
@@ -861,8 +868,12 @@ namespace ATSAccessibility
             string announcement = effect.Value.Name;
             announcement += effect.Value.IsPositive ? ", positive" : ", negative";
 
-            // Indicate if this is a pending effect from the next tier, with countdown
-            if (IsNextTierEffect(itemIndex))
+            // Indicate effect type
+            if (IsWorkingEffect(itemIndex))
+            {
+                announcement += ", during investigation";
+            }
+            else if (IsNextTierEffect(itemIndex))
             {
                 if (_timeToNextTier > 0f)
                     announcement += $", in {FormatDynamicEffectTime(_timeToNextTier)}";
@@ -915,6 +926,12 @@ namespace ATSAccessibility
                 return _nextTierEffects[nextTierIndex];
 
             return null;
+        }
+
+        private bool IsWorkingEffect(int itemIndex)
+        {
+            int workingCount = _workingEffects?.Length ?? 0;
+            return itemIndex >= 0 && itemIndex < workingCount;
         }
 
         private bool IsNextTierEffect(int itemIndex)
