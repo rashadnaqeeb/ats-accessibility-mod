@@ -147,8 +147,11 @@ namespace ATSAccessibility
                 int currentPhase = TutorialReflection.GetCurrentPhase();
                 string gameText = TutorialReflection.GetCurrentText();
 
-                // Use custom message if available, otherwise use game text
-                string textToAnnounce = GetTextForPhase(currentPhase, gameText);
+                // Use custom message if available, otherwise use game text.
+                // Use _lastPhase as fallback when currentPhase is -1 to avoid
+                // losing the custom message lookup during TextTyper transitions.
+                int effectivePhase = currentPhase != -1 ? currentPhase : _lastPhase;
+                string textToAnnounce = GetTextForPhase(effectivePhase, gameText);
 
                 // Check for phase/text changes
                 bool phaseChanged = currentPhase != _lastPhase && currentPhase != -1;
@@ -174,10 +177,10 @@ namespace ATSAccessibility
             }
             else if (!_forceEngaged)
             {
-                // Reset when tooltip is hidden (unless force engaged)
-                // Keep _lastText and _lastPhase to avoid re-announcing same content
+                // Reset when tooltip is hidden (unless force engaged).
+                // Keep _lastAnnouncedText so brief visibility flickers between phases
+                // don't cause the same text to be announced twice.
                 _isEngaged = false;
-                _lastAnnouncedText = null;  // Clear so same text can announce if tutorial shows again
             }
 
             _wasVisible = _isVisible;
