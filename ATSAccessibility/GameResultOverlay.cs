@@ -99,8 +99,6 @@ namespace ATSAccessibility
 
         public void Open(object popup)
         {
-            if (_isOpen) return;
-
             _isOpen = true;
             _popup = popup;
             _inSection = false;
