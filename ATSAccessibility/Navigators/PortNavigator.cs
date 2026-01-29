@@ -65,12 +65,6 @@ namespace ATSAccessibility
         private GoodsSetData[] _crewSets;
         private int _crewSetCount;
 
-        // Workers
-        private int[] _workerIds;
-        private int _maxWorkers;
-        private List<(string raceName, int freeCount)> _availableRaces;
-        private bool _racesRefreshedForWorkerSection;
-
         // Delivery tracking (Phase 2)
         private struct DeliveryItem
         {
@@ -120,7 +114,7 @@ namespace ATSAccessibility
                 case SectionType.Level:
                     return 0;
                 case SectionType.Workers:
-                    return _maxWorkers;
+                    return _workersSection.GetItemCount();
                 case SectionType.Goods:
                     return _striderSetCount + _crewSetCount;
                 case SectionType.Category:
@@ -154,7 +148,7 @@ namespace ATSAccessibility
             switch (_sectionTypes[sectionIndex])
             {
                 case SectionType.Workers:
-                    return GetWorkerSubItemCount(itemIndex);
+                    return _workersSection.GetSubItemCount(itemIndex);
                 case SectionType.Goods:
                     return GetGoodsSubItemCount(itemIndex);
                 case SectionType.Upgrades:
@@ -206,7 +200,7 @@ namespace ATSAccessibility
             switch (_sectionTypes[sectionIndex])
             {
                 case SectionType.Workers:
-                    AnnounceWorkerItem(itemIndex);
+                    _workersSection.AnnounceItem(itemIndex);
                     break;
                 case SectionType.Goods:
                     AnnounceGoodsItemCombined(itemIndex);
@@ -237,7 +231,7 @@ namespace ATSAccessibility
             switch (_sectionTypes[sectionIndex])
             {
                 case SectionType.Workers:
-                    AnnounceWorkerSubItem(itemIndex, subItemIndex);
+                    _workersSection.AnnounceSubItem(itemIndex, subItemIndex);
                     break;
                 case SectionType.Goods:
                     AnnounceGoodsSubItemCombined(itemIndex, subItemIndex);
@@ -288,7 +282,12 @@ namespace ATSAccessibility
             switch (_sectionTypes[sectionIndex])
             {
                 case SectionType.Workers:
-                    return PerformWorkerSubItemAction(itemIndex, subItemIndex);
+                    if (_workersSection.PerformSubItemAction(itemIndex, subItemIndex))
+                    {
+                        _navigationLevel = 1;
+                        return true;
+                    }
+                    return false;
                 case SectionType.Goods:
                     return PerformGoodsSubItemAction(itemIndex, subItemIndex);
                 case SectionType.Upgrades:
@@ -340,7 +339,7 @@ namespace ATSAccessibility
             switch (_sectionTypes[sectionIndex])
             {
                 case SectionType.Workers:
-                    return GetWorkerItemName(itemIndex);
+                    return _workersSection.GetItemName(itemIndex);
                 case SectionType.Goods:
                     return GetGoodsItemName(itemIndex);
                 case SectionType.Category:
@@ -366,7 +365,7 @@ namespace ATSAccessibility
             switch (_sectionTypes[sectionIndex])
             {
                 case SectionType.Workers:
-                    return GetWorkerSubItemName(itemIndex, subItemIndex);
+                    return _workersSection.GetSubItemName(itemIndex, subItemIndex);
                 case SectionType.Goods:
                     return GetGoodsSubItemName(itemIndex, subItemIndex);
                 case SectionType.Upgrades:
@@ -409,11 +408,8 @@ namespace ATSAccessibility
             }
             else if (!_expeditionStarted)
             {
-                // Phase 2: Delivery tracking + workers
+                // Phase 2: Delivery tracking
                 RefreshDeliveryItems();
-                _workerIds = BuildingReflection.GetWorkerIds(_building);
-                _maxWorkers = _workerIds?.Length ?? 0;
-                _racesRefreshedForWorkerSection = false;
             }
 
             BuildSections();
@@ -429,10 +425,7 @@ namespace ATSAccessibility
             _striderSetCount = 0;
             _crewSets = null;
             _crewSetCount = 0;
-            _workerIds = null;
-            _maxWorkers = 0;
-            _availableRaces = null;
-            _racesRefreshedForWorkerSection = false;
+            ClearWorkersSection();
             _deliveryItems = null;
             _deliveryItemCount = 0;
             _categoryDisplayNames = null;
@@ -480,7 +473,7 @@ namespace ATSAccessibility
             else if (_wasDecisionMade)
             {
                 // Phase 2: Collecting
-                if (_maxWorkers > 0 && BuildingReflection.ShouldAllowWorkerManagement(_building))
+                if (TryInitializeWorkersSection())
                 {
                     sectionNames.Add("Workers");
                     sectionTypes.Add(SectionType.Workers);
@@ -889,205 +882,6 @@ namespace ATSAccessibility
 
             var item = _deliveryItems[itemIndex];
             Speech.Say($"{item.displayName}, {item.delivered} of {item.needed}");
-        }
-
-        // ========================================
-        // WORKERS SECTION (Phase 2)
-        // ========================================
-
-        private bool IsValidWorkerIndex(int workerIndex)
-        {
-            return _workerIds != null && workerIndex >= 0 && workerIndex < _workerIds.Length;
-        }
-
-        private void AnnounceWorkerItem(int itemIndex)
-        {
-            if (!IsValidWorkerIndex(itemIndex))
-            {
-                Speech.Say("Invalid worker slot");
-                return;
-            }
-
-            int workerId = _workerIds[itemIndex];
-            int slotNum = itemIndex + 1;
-
-            if (workerId <= 0)
-            {
-                Speech.Say($"Worker slot {slotNum}: Empty");
-                return;
-            }
-
-            string workerDesc = BuildingReflection.GetWorkerDescription(workerId);
-            if (string.IsNullOrEmpty(workerDesc))
-            {
-                Speech.Say($"Worker slot {slotNum}: Assigned");
-                return;
-            }
-
-            Speech.Say($"Worker slot {slotNum}: {workerDesc}");
-        }
-
-        private void RefreshAvailableRaces(bool force = false)
-        {
-            if (!force && _racesRefreshedForWorkerSection) return;
-
-            _availableRaces = BuildingReflection.GetRacesWithFreeWorkers(includeZeroFree: true);
-            _racesRefreshedForWorkerSection = true;
-        }
-
-        private int GetWorkerSubItemCount(int workerIndex)
-        {
-            if (!IsValidWorkerIndex(workerIndex)) return 0;
-
-            RefreshAvailableRaces();
-
-            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
-
-            int count = _availableRaces?.Count ?? 0;
-            if (slotOccupied) count++;
-            return count;
-        }
-
-        private void AnnounceWorkerSubItem(int workerIndex, int subItemIndex)
-        {
-            if (!IsValidWorkerIndex(workerIndex))
-            {
-                Speech.Say("Invalid worker slot");
-                return;
-            }
-
-            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
-            int raceOffset = slotOccupied ? 1 : 0;
-
-            if (slotOccupied && subItemIndex == 0)
-            {
-                Speech.Say("Unassign worker");
-                return;
-            }
-
-            int raceIndex = subItemIndex - raceOffset;
-            if (_availableRaces != null && raceIndex >= 0 && raceIndex < _availableRaces.Count)
-            {
-                var (raceName, freeCount) = _availableRaces[raceIndex];
-                string bonus = BuildingReflection.GetRaceBonusForBuilding(_building, raceName);
-                if (!string.IsNullOrEmpty(bonus))
-                {
-                    if (bonus.Contains(","))
-                        Speech.Say($"{raceName}: {freeCount} available, {bonus}");
-                    else
-                        Speech.Say($"{raceName}: {freeCount} available, {bonus} specialist");
-                }
-                else
-                {
-                    Speech.Say($"{raceName}: {freeCount} available");
-                }
-            }
-            else
-            {
-                Speech.Say("Invalid option");
-            }
-        }
-
-        private bool PerformWorkerSubItemAction(int workerIndex, int subItemIndex)
-        {
-            if (!IsValidWorkerIndex(workerIndex)) return false;
-
-            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
-            int raceOffset = slotOccupied ? 1 : 0;
-
-            if (slotOccupied && subItemIndex == 0)
-            {
-                if (BuildingReflection.UnassignWorkerFromSlot(_building, workerIndex))
-                {
-                    _workerIds = BuildingReflection.GetWorkerIds(_building);
-                    RefreshAvailableRaces(force: true);
-                    Speech.Say("Worker unassigned");
-                    _navigationLevel = 1;
-                    return true;
-                }
-                else
-                {
-                    Speech.Say("Cannot unassign worker");
-                    return false;
-                }
-            }
-
-            int raceIndex = subItemIndex - raceOffset;
-            if (_availableRaces != null && raceIndex >= 0 && raceIndex < _availableRaces.Count)
-            {
-                var (raceName, freeCount) = _availableRaces[raceIndex];
-
-                // Check if race has free workers
-                if (freeCount == 0)
-                {
-                    Speech.Say($"No free {raceName} workers");
-                    SoundManager.PlayFailed();
-                    return false;
-                }
-
-                if (slotOccupied)
-                {
-                    BuildingReflection.UnassignWorkerFromSlot(_building, workerIndex);
-                    _workerIds = BuildingReflection.GetWorkerIds(_building);
-                }
-
-                if (BuildingReflection.AssignWorkerToSlot(_building, workerIndex, raceName))
-                {
-                    _workerIds = BuildingReflection.GetWorkerIds(_building);
-                    RefreshAvailableRaces(force: true);
-
-                    if (IsValidWorkerIndex(workerIndex))
-                    {
-                        string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
-                        Speech.Say($"Assigned: {workerDesc ?? raceName}");
-                    }
-                    else
-                    {
-                        Speech.Say($"Assigned: {raceName}");
-                    }
-
-                    _navigationLevel = 1;
-                    return true;
-                }
-                else
-                {
-                    Speech.Say($"Cannot assign {raceName}");
-                    return false;
-                }
-            }
-
-            return false;
-        }
-
-        private string GetWorkerItemName(int itemIndex)
-        {
-            if (!IsValidWorkerIndex(itemIndex))
-                return null;
-
-            int workerId = _workerIds[itemIndex];
-            if (workerId <= 0)
-                return $"Slot {itemIndex + 1}";
-
-            string workerDesc = BuildingReflection.GetWorkerDescription(workerId);
-            return !string.IsNullOrEmpty(workerDesc) ? workerDesc : $"Slot {itemIndex + 1}";
-        }
-
-        private string GetWorkerSubItemName(int workerIndex, int subItemIndex)
-        {
-            if (!IsValidWorkerIndex(workerIndex))
-                return null;
-
-            bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
-            int raceOffset = slotOccupied ? 1 : 0;
-
-            if (slotOccupied && subItemIndex == 0)
-                return "Unassign";
-
-            int raceIndex = subItemIndex - raceOffset;
-            if (_availableRaces != null && raceIndex >= 0 && raceIndex < _availableRaces.Count)
-                return _availableRaces[raceIndex].raceName;
-
-            return null;
         }
 
         // ========================================

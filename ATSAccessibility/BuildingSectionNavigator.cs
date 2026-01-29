@@ -29,8 +29,9 @@ namespace ATSAccessibility
         // Type-ahead search
         protected readonly TypeAheadSearch _search = new TypeAheadSearch();
 
-        // Shared upgrades section handler
+        // Shared section handlers
         protected readonly BuildingUpgradesSection _upgradesSection = new BuildingUpgradesSection();
+        protected readonly BuildingWorkerSection _workersSection = new BuildingWorkerSection();
 
         // ========================================
         // IBUILDINGNAVIGATOR IMPLEMENTATION
@@ -781,6 +782,33 @@ namespace ATSAccessibility
         protected void ClearUpgradesSection()
         {
             _upgradesSection.Clear();
+        }
+
+        // ========================================
+        // WORKERS SECTION HELPERS
+        // ========================================
+
+        /// <summary>
+        /// Try to add a Workers section if the building supports worker management.
+        /// Call this in RefreshData() when building the section list.
+        /// Returns true if workers were added (caller should add to section types).
+        /// </summary>
+        protected bool TryInitializeWorkersSection()
+        {
+            if (_building == null) return false;
+            if (!BuildingReflection.ShouldAllowWorkerManagement(_building)) return false;
+
+            _workersSection.Initialize(_building);
+            return _workersSection.HasWorkers();
+        }
+
+        /// <summary>
+        /// Clear the workers section data.
+        /// Call this in ClearData().
+        /// </summary>
+        protected void ClearWorkersSection()
+        {
+            _workersSection.Clear();
         }
     }
 }
