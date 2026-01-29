@@ -1072,11 +1072,33 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Handle an alphabetic key press for type-ahead search.
-        /// Only active in the Articles panel.
+        /// Active in Categories and Articles panels.
         /// </summary>
         private void HandleSearchKey(char c)
         {
-            // Type-ahead search only works in Articles panel
+            if (_currentPanel == WikiPanel.Categories)
+            {
+                if (_categoryButtons.Count == 0) return;
+
+                _search.AddChar(c);
+                int matchIndex = _search.FindMatch(_categoryButtons, button =>
+                {
+                    var comp = button as Component;
+                    return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
+                });
+
+                if (matchIndex >= 0)
+                {
+                    _categoryIndex = matchIndex;
+                    AnnounceCategoryElement();
+                }
+                else
+                {
+                    Speech.Say($"No match for {_search.Buffer}");
+                }
+                return;
+            }
+
             if (_currentPanel != WikiPanel.Articles)
                 return;
 
@@ -1086,15 +1108,15 @@ namespace ATSAccessibility
             _search.AddChar(c);
 
             // Find first article starting with buffer
-            int matchIndex = _search.FindMatch(_articleSlots, slot =>
+            int matchIndex2 = _search.FindMatch(_articleSlots, slot =>
             {
                 var comp = slot as Component;
                 return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
             });
 
-            if (matchIndex >= 0)
+            if (matchIndex2 >= 0)
             {
-                _articleIndex = matchIndex;
+                _articleIndex = matchIndex2;
                 AnnounceArticleElement();
             }
             else
@@ -1108,7 +1130,7 @@ namespace ATSAccessibility
         /// </summary>
         private void HandleBackspace()
         {
-            if (_currentPanel != WikiPanel.Articles)
+            if (_currentPanel != WikiPanel.Categories && _currentPanel != WikiPanel.Articles)
                 return;
 
             if (!_search.RemoveChar())
@@ -1117,10 +1139,29 @@ namespace ATSAccessibility
             if (!_search.HasBuffer)
             {
                 Speech.Say("Search cleared");
+                return;
+            }
+
+            if (_currentPanel == WikiPanel.Categories)
+            {
+                int matchIndex = _search.FindMatch(_categoryButtons, button =>
+                {
+                    var comp = button as Component;
+                    return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
+                });
+
+                if (matchIndex >= 0)
+                {
+                    _categoryIndex = matchIndex;
+                    AnnounceCategoryElement();
+                }
+                else
+                {
+                    Speech.Say($"No match for {_search.Buffer}");
+                }
             }
             else
             {
-                // Re-search with shortened buffer
                 int matchIndex = _search.FindMatch(_articleSlots, slot =>
                 {
                     var comp = slot as Component;
