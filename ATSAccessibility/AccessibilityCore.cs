@@ -439,6 +439,59 @@ namespace ATSAccessibility
 
             // Check if we're already on a scene (mod loaded mid-game)
             CheckCurrentScene();
+
+            // Validate all reflection caches and log results
+            ValidateReflectionCaches();
+        }
+
+        private void ValidateReflectionCaches()
+        {
+            try
+            {
+                int totalMissing = 0;
+                totalMissing += GameReflection.LogCacheStatus();
+                totalMissing += BuildingReflection.LogCacheStatus();
+                totalMissing += WorldMapReflection.LogCacheStatus();
+                totalMissing += EmbarkReflection.LogCacheStatus();
+                totalMissing += OrdersReflection.LogCacheStatus();
+                totalMissing += RecipesReflection.LogCacheStatus();
+                totalMissing += RewardsReflection.LogCacheStatus();
+                totalMissing += ReputationRewardReflection.LogCacheStatus();
+                totalMissing += CornerstoneReflection.LogCacheStatus();
+                totalMissing += NewcomersReflection.LogCacheStatus();
+                totalMissing += WildcardReflection.LogCacheStatus();
+                totalMissing += WikiReflection.LogCacheStatus();
+                totalMissing += TradeReflection.LogCacheStatus();
+                totalMissing += TradeRoutesReflection.LogCacheStatus();
+                totalMissing += BlackMarketReflection.LogCacheStatus();
+                totalMissing += AltarReflection.LogCacheStatus();
+                totalMissing += PerkCrafterReflection.LogCacheStatus();
+                totalMissing += CapitalReflection.LogCacheStatus();
+                totalMissing += CapitalUpgradeReflection.LogCacheStatus();
+                totalMissing += GameResultReflection.LogCacheStatus();
+                totalMissing += DeedsReflection.LogCacheStatus();
+                totalMissing += ConsumptionReflection.LogCacheStatus();
+                totalMissing += PaymentsReflection.LogCacheStatus();
+                totalMissing += NarrationReflection.LogCacheStatus();
+                totalMissing += ProfilesReflection.LogCacheStatus();
+                totalMissing += CustomGamesReflection.LogCacheStatus();
+                totalMissing += SealReflection.LogCacheStatus();
+                totalMissing += IronmanReflection.LogCacheStatus();
+                totalMissing += WorldEventReflection.LogCacheStatus();
+                totalMissing += TrendsReflection.LogCacheStatus();
+                totalMissing += TutorialReflection.LogCacheStatus();
+                totalMissing += GamesHistoryReflection.LogCacheStatus();
+                totalMissing += DailyExpeditionReflection.LogCacheStatus();
+
+                if (totalMissing == 0)
+                    Debug.Log("[ATSAccessibility] Reflection validation: All fields cached successfully");
+                else
+                    Debug.Log($"[ATSAccessibility] Reflection validation: {totalMissing} total fields MISSING across all classes");
+            }
+            catch (Exception ex)
+            {
+                Debug.Log($"[ATSAccessibility] Reflection validation failed: {ex.Message}");
+            }
         }
 
         private void OnDestroy()

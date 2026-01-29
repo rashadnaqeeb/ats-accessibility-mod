@@ -255,19 +255,7 @@ namespace ATSAccessibility
         private static object GetIronmanService()
         {
             EnsureTypes();
-            var ms = GameReflection.GetMetaServices();
-            if (ms == null || _msIronmanServiceProperty == null)
-                return null;
-
-            try
-            {
-                return _msIronmanServiceProperty.GetValue(ms);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetIronmanService failed: {ex.Message}");
-                return null;
-            }
+            return GameReflection.GetMetaService(_msIronmanServiceProperty);
         }
 
         /// <summary>
@@ -659,6 +647,11 @@ namespace ATSAccessibility
             }
 
             return result;
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(IronmanReflection), "IronmanReflection");
         }
     }
 }

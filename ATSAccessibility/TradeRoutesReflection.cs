@@ -370,28 +370,19 @@ namespace ATSAccessibility
         private static object GetTradeRoutesService()
         {
             EnsureCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsTradeRoutesServiceProperty == null) return null;
-            try { return _gsTradeRoutesServiceProperty.GetValue(gameServices); }
-            catch { return null; }
+            return GameReflection.GetService(_gsTradeRoutesServiceProperty);
         }
 
         private static object GetStateService()
         {
             EnsureCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsStateServiceProperty == null) return null;
-            try { return _gsStateServiceProperty.GetValue(gameServices); }
-            catch { return null; }
+            return GameReflection.GetService(_gsStateServiceProperty);
         }
 
         private static object GetEffectsService()
         {
             EnsureCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsEffectsServiceProperty == null) return null;
-            try { return _gsEffectsServiceProperty.GetValue(gameServices); }
-            catch { return null; }
+            return GameReflection.GetService(_gsEffectsServiceProperty);
         }
 
         private static object GetTradeState()
@@ -1196,5 +1187,10 @@ namespace ATSAccessibility
             return $"{minutes}:{secs:D2}";
         }
 
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(TradeRoutesReflection), "TradeRoutesReflection");
+        }
     }
 }

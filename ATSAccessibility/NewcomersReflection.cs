@@ -271,5 +271,9 @@ namespace ATSAccessibility
             }
         }
 
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(NewcomersReflection), "NewcomersReflection");
+        }
     }
 }

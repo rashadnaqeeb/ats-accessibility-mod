@@ -2219,5 +2219,10 @@ namespace ATSAccessibility
             public ModifierType Type;
             public object DataObject;
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(CustomGamesReflection), "CustomGamesReflection");
+        }
     }
 }

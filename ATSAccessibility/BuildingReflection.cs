@@ -3945,18 +3945,7 @@ namespace ATSAccessibility
         private static object GetVillagersService()
         {
             EnsureVillagersServiceTypes();
-
-            try
-            {
-                var gameServices = GameReflection.GetGameServices();
-                if (gameServices == null) return null;
-
-                return _villagersServiceProperty?.GetValue(gameServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return GameReflection.GetService(_villagersServiceProperty);
         }
 
         /// <summary>
@@ -12124,6 +12113,11 @@ namespace ATSAccessibility
                 case 5: return "Level V";
                 default: return $"Level {number}";
             }
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(BuildingReflection), "BuildingReflection");
         }
     }
 }

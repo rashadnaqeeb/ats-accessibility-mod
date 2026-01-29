@@ -660,5 +660,10 @@ namespace ATSAccessibility
                 return $"{minutes} minute{(minutes != 1 ? "s" : "")}";
             return $"{secs} seconds";
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(RewardsReflection), "RewardsReflection");
+        }
     }
 }

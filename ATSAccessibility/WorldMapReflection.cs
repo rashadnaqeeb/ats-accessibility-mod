@@ -1491,5 +1491,10 @@ namespace ATSAccessibility
                 return new List<(string, string)>();
             }
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(WorldMapReflection), "WorldMapReflection");
+        }
     }
 }

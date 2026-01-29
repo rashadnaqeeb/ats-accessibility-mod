@@ -1126,5 +1126,10 @@ namespace ATSAccessibility
 
             _typesCached = true;
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(GameResultReflection), "GameResultReflection");
+        }
     }
 }

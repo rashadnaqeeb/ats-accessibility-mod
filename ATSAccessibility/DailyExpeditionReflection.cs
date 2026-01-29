@@ -947,5 +947,10 @@ namespace ATSAccessibility
                 return false;
             }
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(DailyExpeditionReflection), "DailyExpeditionReflection");
+        }
     }
 }

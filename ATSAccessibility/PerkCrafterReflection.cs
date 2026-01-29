@@ -1091,5 +1091,10 @@ namespace ATSAccessibility
 
             return result;
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(PerkCrafterReflection), "PerkCrafterReflection");
+        }
     }
 }

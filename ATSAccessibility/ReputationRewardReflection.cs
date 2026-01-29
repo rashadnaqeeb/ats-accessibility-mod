@@ -233,10 +233,7 @@ namespace ATSAccessibility
         private static object GetBiomeService()
         {
             EnsureTypesCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsBiomeServiceProperty == null) return null;
-            try { return _gsBiomeServiceProperty.GetValue(gameServices); }
-            catch { return null; }
+            return GameReflection.GetService(_gsBiomeServiceProperty);
         }
 
         // ========================================
@@ -578,6 +575,11 @@ namespace ATSAccessibility
                 Debug.LogError($"[ATSAccessibility] ReputationRewardReflection: GetExtendCost failed: {ex.Message}");
                 return (0, "Unknown");
             }
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(ReputationRewardReflection), "ReputationRewardReflection");
         }
     }
 }

@@ -208,38 +208,9 @@ namespace ATSAccessibility
         // META SERVICE ACCESS
         // ========================================
 
-        private static object GetMetaServices()
-        {
-            try
-            {
-                var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
+        private static object GetMetaStateService() => GameReflection.GetMetaService(_msMetaStateServiceProperty);
 
-                return GameReflection.McMetaServicesProperty?.GetValue(metaController);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static object GetMetaStateService()
-        {
-            var metaServices = GetMetaServices();
-            if (metaServices == null || _msMetaStateServiceProperty == null) return null;
-
-            try { return _msMetaStateServiceProperty.GetValue(metaServices); }
-            catch { return null; }
-        }
-
-        private static object GetGoalsService()
-        {
-            var metaServices = GetMetaServices();
-            if (metaServices == null || _msGoalsServiceProperty == null) return null;
-
-            try { return _msGoalsServiceProperty.GetValue(metaServices); }
-            catch { return null; }
-        }
+        private static object GetGoalsService() => GameReflection.GetMetaService(_msGoalsServiceProperty);
 
         // ========================================
         // POPUP DETECTION
@@ -474,6 +445,11 @@ namespace ATSAccessibility
         public static bool IsInGame()
         {
             return GameReflection.GetIsGameActive();
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(DeedsReflection), "DeedsReflection");
         }
     }
 }

@@ -383,37 +383,13 @@ namespace ATSAccessibility
         // SERVICE ACCESSORS (fresh each call)
         // ========================================
 
-        private static object GetAltarService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsAltarServiceProperty == null) return null;
-            try { return _gsAltarServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetAltarService() => GameReflection.GetService(_gsAltarServiceProperty);
 
-        private static object GetCalendarService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsCalendarServiceProperty == null) return null;
-            try { return _gsCalendarServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetCalendarService() => GameReflection.GetService(_gsCalendarServiceProperty);
 
-        private static object GetBiomeService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsBiomeServiceProperty == null) return null;
-            try { return _gsBiomeServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetBiomeService() => GameReflection.GetService(_gsBiomeServiceProperty);
 
-        private static object GetStateService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsStateServiceProperty == null) return null;
-            try { return _gsStateServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetStateService() => GameReflection.GetService(_gsStateServiceProperty);
 
         private static object GetAltarState()
         {
@@ -423,36 +399,14 @@ namespace ATSAccessibility
             catch { return null; }
         }
 
-        private static object GetRacesService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsRacesServiceProperty == null) return null;
-            try { return _gsRacesServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetRacesService() => GameReflection.GetService(_gsRacesServiceProperty);
 
-        private static object GetVillagersService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsVillagersServiceProperty == null) return null;
-            try { return _gsVillagersServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetVillagersService() => GameReflection.GetService(_gsVillagersServiceProperty);
 
         private static object GetMetaEconomyService()
         {
             EnsureCached();
-            try
-            {
-                var metaController = _metaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
-
-                var metaServices = _mcMetaServicesProperty?.GetValue(metaController);
-                if (metaServices == null) return null;
-
-                return _msMetaEconomyServiceProperty?.GetValue(metaServices);
-            }
-            catch { return null; }
+            return GameReflection.GetMetaService(_msMetaEconomyServiceProperty);
         }
 
         private static object GetSettings()
@@ -1055,6 +1009,11 @@ namespace ATSAccessibility
                 Debug.LogWarning($"[ATSAccessibility] AltarReflection.Skip failed: {ex.Message}");
                 return false;
             }
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(AltarReflection), "AltarReflection");
         }
     }
 }

@@ -592,5 +592,10 @@ namespace ATSAccessibility
                 return false;
             }
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(ProfilesReflection), "ProfilesReflection");
+        }
     }
 }

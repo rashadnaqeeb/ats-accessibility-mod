@@ -390,32 +390,9 @@ namespace ATSAccessibility
         // META SERVICE ACCESS
         // ========================================
 
-        private static object GetMetaServices()
-        {
-            try
-            {
-                var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
-                return GameReflection.McMetaServicesProperty?.GetValue(metaController);
-            }
-            catch { return null; }
-        }
+        private static object GetMetaStateService() => GameReflection.GetMetaService(_msMetaStateServiceProperty);
 
-        private static object GetMetaStateService()
-        {
-            var metaServices = GetMetaServices();
-            if (metaServices == null || _msMetaStateServiceProperty == null) return null;
-            try { return _msMetaStateServiceProperty.GetValue(metaServices); }
-            catch { return null; }
-        }
-
-        private static object GetWorldStateService()
-        {
-            var metaServices = GetMetaServices();
-            if (metaServices == null || _msWorldStateServiceProperty == null) return null;
-            try { return _msWorldStateServiceProperty.GetValue(metaServices); }
-            catch { return null; }
-        }
+        private static object GetWorldStateService() => GameReflection.GetMetaService(_msWorldStateServiceProperty);
 
         /// <summary>
         /// Get localized text for a key using TextsService.
@@ -937,6 +914,11 @@ namespace ATSAccessibility
             }
 
             return result;
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(GamesHistoryReflection), "GamesHistoryReflection");
         }
     }
 }

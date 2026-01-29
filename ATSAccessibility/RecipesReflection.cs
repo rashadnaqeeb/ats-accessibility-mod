@@ -327,9 +327,7 @@ namespace ATSAccessibility
         private static object GetGameService(PropertyInfo serviceProperty)
         {
             EnsureTypesCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || serviceProperty == null) return null;
-            return serviceProperty.GetValue(gameServices);
+            return GameReflection.GetService(serviceProperty);
         }
 
         private static object GetWorkshopsService() => GetGameService(_gsWorkshopsServiceProperty);
@@ -1009,6 +1007,11 @@ namespace ATSAccessibility
         {
             if (popup == null) return false;
             return popup.GetType().Name == "RecipesPopup";
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(RecipesReflection), "RecipesReflection");
         }
     }
 }

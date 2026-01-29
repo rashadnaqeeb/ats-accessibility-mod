@@ -536,5 +536,10 @@ namespace ATSAccessibility
                 return "";
             }
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(CapitalUpgradeReflection), "CapitalUpgradeReflection");
+        }
     }
 }

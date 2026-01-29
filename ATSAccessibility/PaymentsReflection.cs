@@ -261,37 +261,13 @@ namespace ATSAccessibility
         // SERVICE ACCESSORS (fresh each call)
         // ========================================
 
-        private static object GetPaymentsService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsPaymentsServiceProperty == null) return null;
-            try { return _gsPaymentsServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetPaymentsService() => GameReflection.GetService(_gsPaymentsServiceProperty);
 
-        private static object GetCalendarService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsCalendarServiceProperty == null) return null;
-            try { return _gsCalendarServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetCalendarService() => GameReflection.GetService(_gsCalendarServiceProperty);
 
-        private static object GetStateService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsStateServiceProperty == null) return null;
-            try { return _gsStateServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetStateService() => GameReflection.GetService(_gsStateServiceProperty);
 
-        private static object GetGameModelService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsGameModelServiceProperty == null) return null;
-            try { return _gsGameModelServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetGameModelService() => GameReflection.GetService(_gsGameModelServiceProperty);
 
         // ========================================
         // PUBLIC API
@@ -574,6 +550,11 @@ namespace ATSAccessibility
                 return desc;
             }
             catch { return null; }
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(PaymentsReflection), "PaymentsReflection");
         }
     }
 }

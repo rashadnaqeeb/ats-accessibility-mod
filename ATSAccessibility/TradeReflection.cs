@@ -415,17 +415,13 @@ namespace ATSAccessibility
         private static object GetTradeService()
         {
             EnsureCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null) return null;
-            return _gsTradeServiceProperty?.GetValue(gameServices);
+            return GameReflection.GetService(_gsTradeServiceProperty);
         }
 
         private static object GetStorageService()
         {
             EnsureCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null) return null;
-            return _gsStorageServiceProperty?.GetValue(gameServices);
+            return GameReflection.GetService(_gsStorageServiceProperty);
         }
 
         private static object GetSettings()
@@ -890,9 +886,7 @@ namespace ATSAccessibility
         private static object GetCalendarService()
         {
             EnsureCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null) return null;
-            return _gsCalendarServiceProperty?.GetValue(gameServices);
+            return GameReflection.GetService(_gsCalendarServiceProperty);
         }
 
         /// <summary>
@@ -1575,6 +1569,11 @@ namespace ATSAccessibility
             int minutes = totalSeconds / 60;
             int secs = totalSeconds % 60;
             return $"{minutes}:{secs:D2}";
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(TradeReflection), "TradeReflection");
         }
     }
 }

@@ -264,37 +264,13 @@ namespace ATSAccessibility
         // SERVICE ACCESSORS (fresh each call)
         // ========================================
 
-        private static object GetNeedsService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsNeedsServiceProperty == null) return null;
-            try { return _gsNeedsServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetNeedsService() => GameReflection.GetService(_gsNeedsServiceProperty);
 
-        private static object GetEffectsService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsEffectsServiceProperty == null) return null;
-            try { return _gsEffectsServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetEffectsService() => GameReflection.GetService(_gsEffectsServiceProperty);
 
-        private static object GetRacesService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsRacesServiceProperty == null) return null;
-            try { return _gsRacesServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetRacesService() => GameReflection.GetService(_gsRacesServiceProperty);
 
-        private static object GetStateService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsStateServiceProperty == null) return null;
-            try { return _gsStateServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetStateService() => GameReflection.GetService(_gsStateServiceProperty);
 
         // ========================================
         // PUBLIC API
@@ -940,6 +916,11 @@ namespace ATSAccessibility
                 return _settingsNeedsField.GetValue(settings) as Array;
             }
             catch { return null; }
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(ConsumptionReflection), "ConsumptionReflection");
         }
     }
 }

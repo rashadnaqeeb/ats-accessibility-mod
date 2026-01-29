@@ -395,21 +395,9 @@ namespace ATSAccessibility
         // SERVICE ACCESS
         // ========================================
 
-        private static object GetOrdersService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsOrdersServiceProperty == null) return null;
-            try { return _gsOrdersServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetOrdersService() => GameReflection.GetService(_gsOrdersServiceProperty);
 
-        private static object GetGameTimeService()
-        {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsGameTimeServiceProperty == null) return null;
-            try { return _gsGameTimeServiceProperty.GetValue(gameServices); }
-            catch { return null; }
-        }
+        private static object GetGameTimeService() => GameReflection.GetService(_gsGameTimeServiceProperty);
 
         // ========================================
         // DATA ACCESS
@@ -1169,6 +1157,11 @@ namespace ATSAccessibility
             if (ts.TotalHours >= 1)
                 return ts.ToString(@"h\:mm\:ss");
             return ts.ToString(@"m\:ss");
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(OrdersReflection), "OrdersReflection");
         }
     }
 }

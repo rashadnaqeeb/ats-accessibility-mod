@@ -363,5 +363,10 @@ namespace ATSAccessibility
 
             _cached = true;
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(WorldEventReflection), "WorldEventReflection");
+        }
     }
 }

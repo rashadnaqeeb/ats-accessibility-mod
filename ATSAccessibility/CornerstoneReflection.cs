@@ -262,19 +262,13 @@ namespace ATSAccessibility
         private static object GetCornerstonesService()
         {
             EnsureTypesCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsCornerstonesServiceProperty == null) return null;
-            try { return _gsCornerstonesServiceProperty.GetValue(gameServices); }
-            catch { return null; }
+            return GameReflection.GetService(_gsCornerstonesServiceProperty);
         }
 
         private static object GetBiomeService()
         {
             EnsureTypesCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsBiomeServiceProperty == null) return null;
-            try { return _gsBiomeServiceProperty.GetValue(gameServices); }
-            catch { return null; }
+            return GameReflection.GetService(_gsBiomeServiceProperty);
         }
 
         private static object GetCurrentPick()
@@ -769,6 +763,11 @@ namespace ATSAccessibility
                 Debug.LogError($"[ATSAccessibility] CornerstoneReflection: CancelLimitPopup failed: {ex.Message}");
                 return false;
             }
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(CornerstoneReflection), "CornerstoneReflection");
         }
     }
 }

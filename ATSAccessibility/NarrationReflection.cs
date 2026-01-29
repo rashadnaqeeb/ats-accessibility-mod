@@ -591,5 +591,10 @@ namespace ATSAccessibility
                 return null;
             }
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(NarrationReflection), "NarrationReflection");
+        }
     }
 }

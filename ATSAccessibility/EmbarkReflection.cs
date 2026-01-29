@@ -471,21 +471,7 @@ namespace ATSAccessibility
         private static object GetMetaPerksService()
         {
             EnsureTypes();
-
-            try
-            {
-                var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
-
-                var metaServices = GameReflection.McMetaServicesProperty?.GetValue(metaController);
-                if (metaServices == null) return null;
-
-                return _msMetaPerksServiceProperty?.GetValue(metaServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return GameReflection.GetMetaService(_msMetaPerksServiceProperty);
         }
 
         /// <summary>
@@ -1372,21 +1358,7 @@ namespace ATSAccessibility
         private static object GetMetaConditionsService()
         {
             EnsureTypes();
-
-            try
-            {
-                var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
-
-                var metaServices = GameReflection.McMetaServicesProperty?.GetValue(metaController);
-                if (metaServices == null) return null;
-
-                return _msMetaConditionsServiceProperty?.GetValue(metaServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return GameReflection.GetMetaService(_msMetaConditionsServiceProperty);
         }
 
         /// <summary>
@@ -2251,6 +2223,11 @@ namespace ATSAccessibility
                 Debug.LogError($"[ATSAccessibility] TriggerEmbark failed: {ex.Message}");
                 return false;
             }
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(EmbarkReflection), "EmbarkReflection");
         }
     }
 }

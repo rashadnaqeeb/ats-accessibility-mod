@@ -466,22 +466,11 @@ namespace ATSAccessibility
         /// <summary>
         /// Get MetaPerksService from MetaController.Instance.MetaServices.
         /// </summary>
-        private static object GetMetaPerksService()
+        private static object GetMetaPerksService() => GameReflection.GetMetaService(_msMetaPerksServiceProperty);
+
+        public static int LogCacheStatus()
         {
-            try
-            {
-                var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
-
-                var metaServices = GameReflection.McMetaServicesProperty?.GetValue(metaController);
-                if (metaServices == null) return null;
-
-                return _msMetaPerksServiceProperty?.GetValue(metaServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return ReflectionValidator.TriggerAndValidate(typeof(CapitalReflection), "CapitalReflection");
         }
     }
 }

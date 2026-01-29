@@ -749,5 +749,10 @@ namespace ATSAccessibility
             }
             return result.ToString();
         }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(BlackMarketReflection), "BlackMarketReflection");
+        }
     }
 }

@@ -80,6 +80,30 @@ namespace ATSAccessibility
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] TryInvokeBool failed: {ex.Message}"); return false; }
         }
 
+        /// <summary>
+        /// Get a service from GameServices by its cached PropertyInfo.
+        /// Replaces the duplicated 6-line pattern across reflection files.
+        /// </summary>
+        public static object GetService(PropertyInfo serviceProperty)
+        {
+            var gameServices = GetGameServices();
+            if (gameServices == null || serviceProperty == null) return null;
+            try { return serviceProperty.GetValue(gameServices); }
+            catch { return null; }
+        }
+
+        /// <summary>
+        /// Get a service from MetaServices by its cached PropertyInfo.
+        /// Replaces the duplicated meta-service pattern across reflection files.
+        /// </summary>
+        public static object GetMetaService(PropertyInfo serviceProperty)
+        {
+            var metaServices = GetMetaServices();
+            if (metaServices == null || serviceProperty == null) return null;
+            try { return serviceProperty.GetValue(metaServices); }
+            catch { return null; }
+        }
+
         // ========================================
         // LOCATEXT HELPER
         // ========================================
@@ -8139,6 +8163,11 @@ namespace ATSAccessibility
 
             // Otherwise get seal field from GameSealService
             return GetSealField();
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(GameReflection), "GameReflection");
         }
     }
 }

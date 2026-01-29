@@ -200,39 +200,19 @@ namespace ATSAccessibility
         private static object GetBiomeService()
         {
             EnsureTypesCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsBiomeServiceProperty == null) return null;
-            try { return _gsBiomeServiceProperty.GetValue(gameServices); }
-            catch { return null; }
+            return GameReflection.GetService(_gsBiomeServiceProperty);
         }
 
         private static object GetEffectsService()
         {
             EnsureTypesCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null || _gsEffectsServiceProperty == null) return null;
-            try { return _gsEffectsServiceProperty.GetValue(gameServices); }
-            catch { return null; }
+            return GameReflection.GetService(_gsEffectsServiceProperty);
         }
 
         private static object GetMetaConditionsService()
         {
             EnsureTypesCached();
-
-            try
-            {
-                var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
-                if (metaController == null) return null;
-
-                var metaServices = GameReflection.McMetaServicesProperty?.GetValue(metaController);
-                if (metaServices == null) return null;
-
-                return _msMetaConditionsServiceProperty?.GetValue(metaServices);
-            }
-            catch
-            {
-                return null;
-            }
+            return GameReflection.GetMetaService(_msMetaConditionsServiceProperty);
         }
 
         // ========================================
@@ -474,6 +454,11 @@ namespace ATSAccessibility
                 Debug.LogError($"[ATSAccessibility] WildcardReflection: Confirm failed: {ex.Message}");
                 return false;
             }
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(WildcardReflection), "WildcardReflection");
         }
     }
 }

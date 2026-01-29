@@ -148,9 +148,7 @@ namespace ATSAccessibility
         private static object GetStateService()
         {
             EnsureCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null) return null;
-            return _gsStateServiceProperty?.GetValue(gameServices);
+            return GameReflection.GetService(_gsStateServiceProperty);
         }
 
         private static object GetTrendsState()
@@ -163,9 +161,7 @@ namespace ATSAccessibility
         private static object GetStorageOperationsService()
         {
             EnsureCached();
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null) return null;
-            return _gsStorageOperationsServiceProperty?.GetValue(gameServices);
+            return GameReflection.GetService(_gsStorageOperationsServiceProperty);
         }
 
         private static string GetLocaText(object locaText)
@@ -412,6 +408,11 @@ namespace ATSAccessibility
             {
                 return "Unknown";
             }
+        }
+
+        public static int LogCacheStatus()
+        {
+            return ReflectionValidator.TriggerAndValidate(typeof(TrendsReflection), "TrendsReflection");
         }
     }
 }
