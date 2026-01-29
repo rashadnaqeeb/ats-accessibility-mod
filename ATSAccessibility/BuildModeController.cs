@@ -317,9 +317,9 @@ namespace ATSAccessibility
             return rotation switch
             {
                 0 => "North",
-                1 => "East",
+                1 => "West",
                 2 => "South",
-                3 => "West",
+                3 => "East",
                 _ => "Unknown"
             };
         }

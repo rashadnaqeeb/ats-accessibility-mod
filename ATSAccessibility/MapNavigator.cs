@@ -826,9 +826,23 @@ namespace ATSAccessibility
         // ENTRANCE ANNOUNCEMENT (E key)
         // ========================================
 
+        // Approach tile directions indexed by rotation (0-3)
+        // Rotation 0: local (0,0,-1) → grid (0,-1) = south
+        // Rotation 1: local (0,0,-1) → grid (1, 0) = east
+        // Rotation 2: local (0,0,-1) → grid (0, 1) = north
+        // Rotation 3: local (0,0,-1) → grid (-1,0) = west
+        private static readonly Vector2Int[] ApproachOffsets =
+        {
+            new Vector2Int(0, -1),  // rotation 0 → south
+            new Vector2Int(1, 0),   // rotation 1 → east
+            new Vector2Int(0, 1),   // rotation 2 → north
+            new Vector2Int(-1, 0),  // rotation 3 → west
+        };
+        private static readonly string[] ApproachDirections = { "south", "east", "north", "west" };
+
         /// <summary>
         /// Announce entrance location for building at current cursor position.
-        /// Only works for buildings that show entrances (warehouses, workshops, etc.)
+        /// Reports the approach tile (1 tile outward from entrance based on rotation).
         /// </summary>
         public void AnnounceEntrance()
         {
@@ -836,66 +850,103 @@ namespace ATSAccessibility
 
             // Get object at cursor position
             var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
-            if (objectOn == null || objectOn.GetType().Name == "Field")
+            bool onBuilding = objectOn != null && objectOn.GetType().Name != "Field" && GameReflection.IsBuilding(objectOn);
+
+            if (onBuilding && TryGetApproachTile(objectOn, out int approachX, out int approachY, out int rotation))
             {
-                Speech.Say("No building here");
+                if (_cursorX == approachX && _cursorY == approachY)
+                {
+                    Speech.Say("At entrance");
+                    return;
+                }
+
+                int dx = approachX - _cursorX;
+                int dy = approachY - _cursorY;
+                int distance = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
+                string direction = GetDirection(dx, dy);
+                string tileWord = distance == 1 ? "tile" : "tiles";
+                string facing = ApproachDirections[rotation];
+                Speech.Say($"Entrance {distance} {tileWord} {direction}, facing {facing}");
                 return;
             }
 
-            // Check if it's a building
-            if (!GameReflection.IsBuilding(objectOn))
-            {
-                Speech.Say("Not a building");
-                return;
-            }
-
-            // Check if this building type shows entrances
-            if (!GameReflection.GetBuildingShouldShowEntrance(objectOn))
-            {
-                Speech.Say("No entrance");
-                return;
-            }
-
-            // Get entrance tile
-            var entranceTile = GameReflection.GetBuildingEntranceTile(objectOn);
-            if (!entranceTile.HasValue)
-            {
-                Speech.Say("Entrance not found");
-                return;
-            }
-
-            int entranceX = entranceTile.Value.x;
-            int entranceY = entranceTile.Value.y;
-
-            // Calculate distance and direction from cursor to entrance
-            int dx = entranceX - _cursorX;
-            int dy = entranceY - _cursorY;
-
-            // Check if we're already at the entrance
-            if (dx == 0 && dy == 0)
+            // Not on a building with an entrance — check if standing on a
+            // neighbor building's approach tile. The approach tile is always
+            // 1 cardinal step from the entrance tile, so check 4 neighbors.
+            if (IsAtAnyApproachTile())
             {
                 Speech.Say("At entrance");
                 return;
             }
 
-            // Calculate Manhattan distance
-            int distance = Mathf.Abs(dx) + Mathf.Abs(dy);
-
-            // Determine direction
-            string direction = GetDirection(dx, dy);
-
-            // Announce
-            string tileWord = distance == 1 ? "tile" : "tiles";
-            Speech.Say($"Entrance {distance} {tileWord} {direction}");
+            Speech.Say(onBuilding ? "No entrance" : "No building here");
         }
 
-        /// <summary>
-        /// Get cardinal/intercardinal direction from delta.
-        /// </summary>
+        private bool IsAtAnyApproachTile()
+        {
+            for (int i = 0; i < ApproachOffsets.Length; i++)
+            {
+                int nx = _cursorX + ApproachOffsets[i].x;
+                int ny = _cursorY + ApproachOffsets[i].y;
+
+                if (!GameReflection.MapInBounds(nx, ny)) continue;
+
+                var neighbor = GameReflection.GetObjectOn(nx, ny);
+                if (neighbor == null || neighbor.GetType().Name == "Field" || !GameReflection.IsBuilding(neighbor))
+                    continue;
+
+                if (TryGetApproachTile(neighbor, out int ax, out int ay, out int _))
+                {
+                    if (ax == _cursorX && ay == _cursorY)
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        private bool TryGetApproachTile(object building, out int approachX, out int approachY, out int rotation)
+        {
+            approachX = 0;
+            approachY = 0;
+            rotation = -1;
+
+            if (!GameReflection.GetBuildingShouldShowEntrance(building))
+                return false;
+
+            var entranceTile = GameReflection.GetBuildingEntranceTile(building);
+            if (!entranceTile.HasValue)
+                return false;
+
+            rotation = GameReflection.GetBuildingRotation(building);
+            if (rotation < 0 || rotation > 3)
+                return false;
+
+            int ex = entranceTile.Value.x;
+            int ey = entranceTile.Value.y;
+
+            // Check if the entrance tile is inside the building.
+            // For rotated buildings, the ToRotate pivot can push the entrance
+            // Transform outside the footprint — in that case the entrance tile
+            // itself is already the approach tile.
+            var objectAtEntrance = GameReflection.GetObjectOn(ex, ey);
+            bool entranceInsideBuilding = objectAtEntrance != null && ReferenceEquals(objectAtEntrance, building);
+
+            if (entranceInsideBuilding)
+            {
+                Vector2Int offset = ApproachOffsets[rotation];
+                approachX = ex + offset.x;
+                approachY = ey + offset.y;
+            }
+            else
+            {
+                approachX = ex;
+                approachY = ey;
+            }
+            return true;
+        }
+
         private string GetDirection(int dx, int dy)
         {
-            // Determine primary direction based on deltas
-            // In this game: +X is East, +Y is North
             if (dx == 0 && dy > 0) return "north";
             if (dx == 0 && dy < 0) return "south";
             if (dx > 0 && dy == 0) return "east";
@@ -911,8 +962,8 @@ namespace ATSAccessibility
         // BUILDING ROTATION (R key)
         // ========================================
 
-        // Rotation directions: 0=North, 1=East, 2=South, 3=West
-        private static readonly string[] RotationDirections = { "North", "East", "South", "West" };
+        // Rotation directions: 0=North, 1=West, 2=South, 3=East
+        private static readonly string[] RotationDirections = { "North", "West", "South", "East" };
 
         /// <summary>
         /// Rotate the building at current cursor position and announce the new direction.
