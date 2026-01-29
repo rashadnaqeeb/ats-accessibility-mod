@@ -125,22 +125,27 @@ namespace ATSAccessibility
                         return true;
                     }
                     GameReflection.TogglePause();
+                    Speech.Say(GameReflection.IsPaused() ? "Paused" : "Unpaused");
                     return true;
                 case KeyCode.Alpha1:
                 case KeyCode.Keypad1:
                     GameReflection.SetSpeed(1);
+                    Speech.Say("1x");
                     return true;
                 case KeyCode.Alpha2:
                 case KeyCode.Keypad2:
                     GameReflection.SetSpeed(2);
+                    Speech.Say("1.5x");
                     return true;
                 case KeyCode.Alpha3:
                 case KeyCode.Keypad3:
                     GameReflection.SetSpeed(3);
+                    Speech.Say("2x");
                     return true;
                 case KeyCode.Alpha4:
                 case KeyCode.Keypad4:
                     GameReflection.SetSpeed(4);
+                    Speech.Say("3x");
                     return true;
 
                 // Stats hotkeys
