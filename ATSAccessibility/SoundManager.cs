@@ -59,6 +59,9 @@ namespace ATSAccessibility
         private static PropertyInfo _traderTransactionCompletedProperty = null;
         private static PropertyInfo _traderAssaultProperty = null;
 
+        // Resource sounds
+        private static PropertyInfo _resourceRemovedProperty = null;
+
         // Seal sounds
         private static PropertyInfo _sealOrderDeliverProperty = null;
 
@@ -135,6 +138,9 @@ namespace ATSAccessibility
 
                     // Seal sounds
                     _sealOrderDeliverProperty = soundReferencesType.GetProperty("SealOrderDeliver", GameReflection.PublicInstance);
+
+                    // Resource sounds
+                    _resourceRemovedProperty = soundReferencesType.GetProperty("ResourceRemoved", GameReflection.PublicInstance);
                 }
             }
             catch (Exception ex)
@@ -478,6 +484,16 @@ namespace ATSAccessibility
         {
             EnsureCached();
             PlaySound(_sealOrderDeliverProperty);
+        }
+
+        // ========================================
+        // RESOURCE SOUNDS
+        // ========================================
+
+        public static void PlayResourceRemoved()
+        {
+            EnsureCached();
+            PlaySound(_resourceRemovedProperty);
         }
 
         public static void PlaySoundEffect(object soundModel)

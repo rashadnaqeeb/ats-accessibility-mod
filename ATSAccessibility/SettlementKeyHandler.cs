@@ -94,33 +94,66 @@ namespace ATSAccessibility
                 case KeyCode.Space:
                     if (modifiers.Shift)
                     {
-                        // Shift+Space: destroy building at cursor
+                        // Shift+Space: destroy building or remove resource node at cursor
                         var buildingToDestroy = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
-                        if (buildingToDestroy == null)
+                        if (buildingToDestroy != null)
                         {
-                            Speech.Say("No building");
-                        }
-                        else if (!BuildingReflection.CanBeDestroyed(buildingToDestroy))
-                        {
-                            string name = GameReflection.GetDisplayName(GameReflection.GetBuildingModel(buildingToDestroy));
-                            Speech.Say($"Cannot destroy {name}");
+                            // Building found — existing destroy logic
+                            if (!BuildingReflection.CanBeDestroyed(buildingToDestroy))
+                            {
+                                string name = GameReflection.GetDisplayName(GameReflection.GetBuildingModel(buildingToDestroy));
+                                Speech.Say($"Cannot destroy {name}");
+                            }
+                            else
+                            {
+                                string name = GameReflection.GetDisplayName(GameReflection.GetBuildingModel(buildingToDestroy));
+                                var refundGoods = BuildingReflection.GetDestructionRefund(buildingToDestroy);
+                                _confirmationDialog.Show(name, () =>
+                                {
+                                    if (BuildingReflection.DestroyBuilding(buildingToDestroy))
+                                    {
+                                        SoundManager.PlayBuildingDestroyed();
+                                        Speech.Say($"Destroyed: {name}");
+                                    }
+                                    else
+                                    {
+                                        Speech.Say("Destruction failed");
+                                    }
+                                }, refundGoods);
+                            }
                         }
                         else
                         {
-                            string name = GameReflection.GetDisplayName(GameReflection.GetBuildingModel(buildingToDestroy));
-                            var refundGoods = BuildingReflection.GetDestructionRefund(buildingToDestroy);
-                            _confirmationDialog.Show(name, () =>
+                            // No building — check for resource node
+                            var objectAtPos = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                            if (objectAtPos != null && GameReflection.IsRemovableResource(objectAtPos))
                             {
-                                if (BuildingReflection.DestroyBuilding(buildingToDestroy))
+                                string name = GameReflection.GetResourceNodeDisplayName(objectAtPos) ?? "Resource";
+                                _confirmationDialog.Show(name, () =>
                                 {
-                                    SoundManager.PlayBuildingDestroyed();
-                                    Speech.Say($"Destroyed: {name}");
-                                }
-                                else
-                                {
-                                    Speech.Say("Destruction failed");
-                                }
-                            }, refundGoods);
+                                    if (GameReflection.RemoveResourceNode(objectAtPos))
+                                    {
+                                        SoundManager.PlayResourceRemoved();
+                                        Speech.Say($"Removed: {name}");
+                                    }
+                                    else
+                                    {
+                                        Speech.Say("Removal failed");
+                                    }
+                                });
+                            }
+                            else if (objectAtPos != null && objectAtPos.GetType().Name == "NaturalResource")
+                            {
+                                Speech.Say("Cannot remove trees");
+                            }
+                            else if (objectAtPos != null && objectAtPos.GetType().Name == "Ore")
+                            {
+                                Speech.Say("Cannot remove ore");
+                            }
+                            else
+                            {
+                                Speech.Say("Nothing to remove");
+                            }
                         }
                         return true;
                     }

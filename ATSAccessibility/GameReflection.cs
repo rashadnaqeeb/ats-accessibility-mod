@@ -3555,6 +3555,59 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Check if an object from GetObjectOn is a removable resource node
+        /// (ResourceDeposit, Lake, or Spring — types the game's destruction mode supports).
+        /// NaturalResource and Ore are NOT removable via destruction mode.
+        /// </summary>
+        public static bool IsRemovableResource(object obj)
+        {
+            if (obj == null) return false;
+            var typeName = obj.GetType().Name;
+            return typeName == "ResourceDeposit" || typeName == "Lake" || typeName == "Spring";
+        }
+
+        /// <summary>
+        /// Remove a resource node (ResourceDeposit, Lake, or Spring) via reflection.
+        /// Returns true if removal succeeded.
+        /// </summary>
+        public static bool RemoveResourceNode(object resource)
+        {
+            if (resource == null) return false;
+
+            try
+            {
+                var typeName = resource.GetType().Name;
+                MethodInfo removeMethod;
+
+                if (typeName == "Spring")
+                {
+                    // Spring.Remove(float time) — pass 0f for immediate removal
+                    removeMethod = resource.GetType().GetMethod("Remove", PublicInstance, null, new[] { typeof(float) }, null);
+                    if (removeMethod == null) return false;
+                    removeMethod.Invoke(resource, new object[] { 0f });
+                }
+                else if (typeName == "ResourceDeposit" || typeName == "Lake")
+                {
+                    // ResourceDeposit.Remove() and Lake.Remove() — no params
+                    removeMethod = resource.GetType().GetMethod("Remove", PublicInstance, null, Type.EmptyTypes, null);
+                    if (removeMethod == null) return false;
+                    removeMethod.Invoke(resource, null);
+                }
+                else
+                {
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] RemoveResourceNode failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Check if a building is a relic/ruin (its model is a RelicModel).
         /// Relics are special buildings created when regular buildings are destroyed/ruined,
         /// or glade events that need to be investigated.
