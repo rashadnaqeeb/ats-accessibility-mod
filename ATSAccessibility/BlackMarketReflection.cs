@@ -98,6 +98,11 @@ namespace ATSAccessibility
         private static PropertyInfo _ssMainProperty = null;
         private static MethodInfo _storageIsAvailableMethod = null;
 
+        // GameServices property caches
+        private static PropertyInfo _gsStorageServiceProperty = null;
+        private static PropertyInfo _gsCalendarServiceProperty = null;
+        private static PropertyInfo _gsGameTimeServiceProperty = null;
+
         // GameTime property
         private static PropertyInfo _gtsTimeProperty = null;
 
@@ -135,6 +140,7 @@ namespace ATSAccessibility
                 CacheOfferStateTypes(assembly);
                 CacheGoodTypes(assembly);
                 CachePaymentTypes(assembly);
+                CacheServiceProperties(assembly);
                 CacheCalendarTypes(assembly);
                 CacheStorageTypes(assembly);
                 CacheGameTimeTypes(assembly);
@@ -245,6 +251,17 @@ namespace ATSAccessibility
             }
         }
 
+        private static void CacheServiceProperties(Assembly assembly)
+        {
+            var gsType = assembly.GetType("Eremite.Services.IGameServices");
+            if (gsType != null)
+            {
+                _gsStorageServiceProperty = gsType.GetProperty("StorageService", GameReflection.PublicInstance);
+                _gsCalendarServiceProperty = gsType.GetProperty("CalendarService", GameReflection.PublicInstance);
+                _gsGameTimeServiceProperty = gsType.GetProperty("GameTimeService", GameReflection.PublicInstance);
+            }
+        }
+
         private static void CacheCalendarTypes(Assembly assembly)
         {
             var calendarServiceType = assembly.GetType("Eremite.Services.ICalendarService");
@@ -296,45 +313,22 @@ namespace ATSAccessibility
 
         private static object GetStorageService()
         {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null) return null;
-
-            try
-            {
-                var gsType = gameServices.GetType();
-                var prop = gsType.GetProperty("StorageService", GameReflection.PublicInstance);
-                return prop?.GetValue(gameServices);
-            }
-            catch { return null; }
+            EnsureCached();
+            return GameReflection.GetService(_gsStorageServiceProperty);
         }
 
         private static object GetCalendarService()
         {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null) return null;
-
-            try
-            {
-                var gsType = gameServices.GetType();
-                var prop = gsType.GetProperty("CalendarService", GameReflection.PublicInstance);
-                return prop?.GetValue(gameServices);
-            }
-            catch { return null; }
+            EnsureCached();
+            return GameReflection.GetService(_gsCalendarServiceProperty);
         }
 
         private static float GetGameTime()
         {
-            var gameServices = GameReflection.GetGameServices();
-            if (gameServices == null) return 0f;
-
-            try
-            {
-                var gsType = gameServices.GetType();
-                var prop = gsType.GetProperty("GameTimeService", GameReflection.PublicInstance);
-                var gts = prop?.GetValue(gameServices);
-                if (gts == null || _gtsTimeProperty == null) return 0f;
-                return (float)_gtsTimeProperty.GetValue(gts);
-            }
+            EnsureCached();
+            var gts = GameReflection.GetService(_gsGameTimeServiceProperty);
+            if (gts == null || _gtsTimeProperty == null) return 0f;
+            try { return (float)_gtsTimeProperty.GetValue(gts); }
             catch { return 0f; }
         }
 
