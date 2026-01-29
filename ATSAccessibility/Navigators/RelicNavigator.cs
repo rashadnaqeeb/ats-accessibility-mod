@@ -180,6 +180,7 @@ namespace ATSAccessibility
 
             if (sectionType == SectionType.Status)
             {
+                RefreshLiveData();
                 if (_investigationFinished)
                 {
                     // Phase C: Resolved status
@@ -642,6 +643,25 @@ namespace ATSAccessibility
             _canCancel = BuildingReflection.RelicCanCancel(_building);
         }
 
+        /// <summary>
+        /// Refresh time-sensitive data (progress, timers, dynamic effects) for live updates
+        /// while the game is unpaused. Called before announcing Status and Effects sections.
+        /// </summary>
+        private void RefreshLiveData()
+        {
+            _progress = BuildingReflection.GetRelicProgress(_building);
+            _timeLeft = BuildingReflection.GetRelicTimeLeft(_building);
+
+            if (_hasDynamicEffects)
+            {
+                _currentEffectTier = BuildingReflection.GetRelicCurrentEffectTier(_building);
+                _timeToNextTier = BuildingReflection.GetRelicTimeToNextEffectTier(_building);
+                _isLastTierReached = BuildingReflection.RelicIsLastEffectTierReached(_building);
+                _dynamicEffects = BuildingReflection.GetRelicCurrentDynamicEffects(_building);
+                _nextTierEffects = BuildingReflection.GetRelicNextDynamicEffects(_building);
+            }
+        }
+
         // ========================================
         // DECISIONS SECTION
         // ========================================
@@ -859,6 +879,7 @@ namespace ATSAccessibility
 
         private void AnnounceEffectItem(int itemIndex)
         {
+            RefreshLiveData();
             var effect = GetEffectAtIndex(itemIndex);
             if (effect == null) return;
 
