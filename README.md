@@ -2,20 +2,15 @@
 
 A BepInEx mod adding screen reader support to Against the Storm via Tolk.
 
-**The game is fully playable with this mod.** All core gameplay mechanics are accessible.
+**The game and its DLCs are fully playable with this mod.** All core gameplay mechanics are accessible.
+
+If this is your first time playing, there is another file included with this mod named tutorial.md. It will guide you in detail through the first tutorial mission. I highly recommend you read it as it will explain what keyboard commands you need as you need them.
 
 ### Known Limitations
-
-**Not yet implemented:**
-- Queen's Hand Trials
 
 **Implemented but needs testing** (may have bugs):
 - World Events
 - Sealed Forest
-- Fishing Huts
-- Service Buildings
-
-**Will not be implemented:**
 
 ## Installation
 
@@ -77,6 +72,16 @@ There are only two exceptions to this: the options menu and the encyclopedia. Bo
 Quickly change worker slots without opening building settings:
 - +/-: Cycle between worker races.
 - Shift+/-: Add/remove worker at building
+
+#### Marking Trees
+
+To mark trees for harvesting:
+
+1. Move your cursor to any tree and press Enter to enter tree marking mode.
+2. **Rectangle mode (default)**: Press Space on one tree to set the first corner, move to another tree and press Space to set the opposite corner. This selects all trees in the rectangle. Press Enter to confirm the selection.
+3. **Single select mode**: Press Tab while in tree marking mode to switch to single select. Move to individual trees and press Space to toggle each one. Press Enter when finished.
+
+To unmark trees, press Enter on an already-marked tree. This enters unmarking mode, which works the same way—use rectangle or single select to choose which trees to unmark.
 
 ### Helpers
 
