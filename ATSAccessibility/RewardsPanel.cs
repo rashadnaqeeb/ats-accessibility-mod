@@ -116,8 +116,7 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.LeftArrow:
-                    SoundManager.PlayButtonClick();
-                    Close();
+                    // Consume but do nothing - flat list, no drill-out
                     return true;
 
                 case KeyCode.F3:

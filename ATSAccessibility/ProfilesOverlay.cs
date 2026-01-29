@@ -400,7 +400,6 @@ namespace ATSAccessibility
 
             if (_submenuItems.Count > 0)
             {
-                SoundManager.PlayButtonClick();
                 AnnounceSubmenuItem();
             }
             else
