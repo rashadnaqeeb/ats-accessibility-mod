@@ -62,6 +62,9 @@ namespace ATSAccessibility
         // Resource sounds
         private static PropertyInfo _resourceRemovedProperty = null;
 
+        // Lake sounds
+        private static PropertyInfo _portNetsRetrivedProperty = null;
+
         // Seal sounds
         private static PropertyInfo _sealOrderDeliverProperty = null;
 
@@ -141,6 +144,9 @@ namespace ATSAccessibility
 
                     // Resource sounds
                     _resourceRemovedProperty = soundReferencesType.GetProperty("ResourceRemoved", GameReflection.PublicInstance);
+
+                    // Lake sounds
+                    _portNetsRetrivedProperty = soundReferencesType.GetProperty("PortNetsRetrived", GameReflection.PublicInstance);
                 }
             }
             catch (Exception ex)
@@ -494,6 +500,16 @@ namespace ATSAccessibility
         {
             EnsureCached();
             PlaySound(_resourceRemovedProperty);
+        }
+
+        // ========================================
+        // LAKE SOUNDS
+        // ========================================
+
+        public static void PlayPortNetsRetrieved()
+        {
+            EnsureCached();
+            PlaySound(_portNetsRetrivedProperty);
         }
 
         public static void PlaySoundEffect(object soundModel)

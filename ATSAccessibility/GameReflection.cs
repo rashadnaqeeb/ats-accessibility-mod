@@ -5999,6 +5999,95 @@ namespace ATSAccessibility
             return null;
         }
 
+        // ========================================
+        // LAKE INTERACTION
+        // ========================================
+
+        /// <summary>
+        /// Get the charges remaining on a lake.
+        /// </summary>
+        public static int GetLakeChargesLeft(object lake)
+        {
+            if (lake == null || lake.GetType().Name != "Lake") return 0;
+
+            try
+            {
+                var stateProp = lake.GetType().GetProperty("State", PublicInstance);
+                var state = stateProp?.GetValue(lake);
+                if (state == null) return 0;
+
+                var chargesField = state.GetType().GetField("chargesLeft", PublicInstance);
+                return chargesField != null ? (int)chargesField.GetValue(state) : 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetLakeChargesLeft failed: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the stored goods in a lake as a list of (displayName, amount).
+        /// </summary>
+        public static List<(string name, int amount)> GetLakeStoredGoods(object lake)
+        {
+            var result = new List<(string name, int amount)>();
+            if (lake == null || lake.GetType().Name != "Lake") return result;
+
+            try
+            {
+                var stateProp = lake.GetType().GetProperty("State", PublicInstance);
+                var state = stateProp?.GetValue(lake);
+                if (state == null) return result;
+
+                var goodsField = state.GetType().GetField("goods", PublicInstance);
+                var goodsCollection = goodsField?.GetValue(state);
+                if (goodsCollection == null) return result;
+
+                // GoodsCollection.goods is Dictionary<string, int>
+                var dictField = goodsCollection.GetType().GetField("goods", PublicInstance);
+                var dict = dictField?.GetValue(goodsCollection) as Dictionary<string, int>;
+                if (dict == null) return result;
+
+                foreach (var kvp in dict)
+                {
+                    if (kvp.Value > 0)
+                    {
+                        string displayName = GetGoodDisplayName(kvp.Key);
+                        result.Add((displayName, kvp.Value));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetLakeStoredGoods failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Force deplete a lake (stop fishing, stored goods will still be delivered).
+        /// Returns true if succeeded.
+        /// </summary>
+        public static bool ForceDepliteLake(object lake)
+        {
+            if (lake == null || lake.GetType().Name != "Lake") return false;
+
+            try
+            {
+                var method = lake.GetType().GetMethod("ForceDeplition", PublicInstance, null, Type.EmptyTypes, null);
+                if (method == null) return false;
+                method.Invoke(lake, null);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] ForceDepliteLake failed: {ex.Message}");
+                return false;
+            }
+        }
+
         /// <summary>
         /// Get the center position of a building.
         /// Returns null if building is null or center cannot be determined.

@@ -305,7 +305,7 @@ namespace ATSAccessibility
                     }
                     return true;
 
-                // Building activation or harvest mark mode
+                // Building activation, harvest mark, or lake retrieve
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     var objectAtCursor = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
@@ -313,6 +313,41 @@ namespace ATSAccessibility
                     {
                         bool isMarked = GameReflection.IsNaturalResourceMarked(objectAtCursor);
                         _harvestMarkHandler.EnterMode(isMarked);
+                        return true;
+                    }
+                    if (objectAtCursor != null && objectAtCursor.GetType().Name == "Lake")
+                    {
+                        var storedGoods = GameReflection.GetLakeStoredGoods(objectAtCursor);
+                        if (storedGoods.Count == 0)
+                        {
+                            Speech.Say("No fish to retrieve");
+                            return true;
+                        }
+
+                        int charges = GameReflection.GetLakeChargesLeft(objectAtCursor);
+                        string lakeName = GameReflection.GetResourceNodeDisplayName(objectAtCursor) ?? "Lake";
+
+                        var message = new System.Text.StringBuilder();
+                        message.Append($"Retrieve {lakeName}? {charges} charges lost. Stored: ");
+                        for (int i = 0; i < storedGoods.Count; i++)
+                        {
+                            if (i > 0) message.Append(", ");
+                            message.Append($"{storedGoods[i].amount} {storedGoods[i].name}");
+                        }
+                        message.Append(". Enter to confirm, Escape to cancel");
+
+                        _confirmationDialog.ShowMessage(message.ToString(), () =>
+                        {
+                            if (GameReflection.ForceDepliteLake(objectAtCursor))
+                            {
+                                SoundManager.PlayPortNetsRetrieved();
+                                Speech.Say($"Retrieved: {lakeName}");
+                            }
+                            else
+                            {
+                                Speech.Say("Retrieval failed");
+                            }
+                        });
                         return true;
                     }
                     _mapNavigator.ActivateBuilding();
