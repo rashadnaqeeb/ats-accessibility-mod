@@ -21,6 +21,10 @@ namespace ATSAccessibility
         private readonly ConfirmationDialog _confirmationDialog;
         private readonly HarvestMarkHandler _harvestMarkHandler;
 
+        private bool _hasBookmark;
+        private int _bookmarkX;
+        private int _bookmarkY;
+
         public SettlementKeyHandler(
             MapNavigator mapNavigator,
             MapScanner mapScanner,
@@ -249,10 +253,32 @@ namespace ATSAccessibility
                     }
                     return true;
 
-                // Blight info
+                // Bookmark / blight info
                 case KeyCode.B:
-                    string blightInfo = BlightInfoHelper.GetBlightInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
-                    Speech.Say(blightInfo);
+                    if (modifiers.Shift)
+                    {
+                        _bookmarkX = _mapNavigator.CursorX;
+                        _bookmarkY = _mapNavigator.CursorY;
+                        _hasBookmark = true;
+                        Speech.Say("Bookmark set");
+                    }
+                    else if (modifiers.Alt)
+                    {
+                        string blightInfo = BlightInfoHelper.GetBlightInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                        Speech.Say(blightInfo);
+                    }
+                    else
+                    {
+                        if (!_hasBookmark)
+                        {
+                            Speech.Say("No bookmark");
+                        }
+                        else
+                        {
+                            _mapNavigator.SetCursorPosition(_bookmarkX, _bookmarkY);
+                            _mapNavigator.MoveCursor(0, 0);
+                        }
+                    }
                     return true;
 
                 // Tracked orders objectives
