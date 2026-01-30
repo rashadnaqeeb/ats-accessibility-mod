@@ -396,10 +396,19 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Announce distance/direction from cursor to current item (Home key).
+        /// Announce distance/direction from cursor to current item (End key).
         /// Read-only - no state changes.
         /// </summary>
         public void AnnounceDistance()
+        {
+            AnnounceDistanceFrom(_mapNavigator.CursorX, _mapNavigator.CursorY, null);
+        }
+
+        /// <summary>
+        /// Announce distance/direction from a specific position to current item.
+        /// If suffix is provided (e.g. "of bookmark"), appends it to the announcement.
+        /// </summary>
+        public void AnnounceDistanceFrom(int fromX, int fromY, string suffix)
         {
             if (_cachedGroups == null || _cachedGroups.Count == 0)
             {
@@ -415,16 +424,20 @@ namespace ATSAccessibility
             }
 
             var item = currentGroup.Items[_currentItemIndex];
-            int cursorX = _mapNavigator.CursorX;
-            int cursorY = _mapNavigator.CursorY;
 
-            int dx = item.Position.x - cursorX;
-            int dy = item.Position.y - cursorY;
+            int dx = item.Position.x - fromX;
+            int dy = item.Position.y - fromY;
             int distance = Math.Max(Math.Abs(dx), Math.Abs(dy));
 
-            string direction = GetDirection(dx, dy);
-            string announcement = distance == 0 ? "here" : $"{distance} tiles {direction}";
-            Speech.Say(announcement);
+            if (distance == 0)
+            {
+                Speech.Say(suffix != null ? $"at {suffix}" : "here");
+            }
+            else
+            {
+                string direction = GetDirection(dx, dy);
+                Speech.Say(suffix != null ? $"{distance} {direction} {suffix}" : $"{distance} tiles {direction}");
+            }
         }
 
         /// <summary>

@@ -230,7 +230,17 @@ namespace ATSAccessibility
                     }
                     return true;
                 case KeyCode.End:
-                    _mapScanner?.AnnounceDistance();
+                    if (modifiers.Alt)
+                    {
+                        if (!_hasBookmark)
+                            Speech.Say("No bookmark");
+                        else
+                            _mapScanner?.AnnounceDistanceFrom(_bookmarkX, _bookmarkY, "of bookmark");
+                    }
+                    else
+                    {
+                        _mapScanner?.AnnounceDistance();
+                    }
                     return true;
 
                 // Tile info
