@@ -58,6 +58,9 @@ namespace ATSAccessibility
         // Villagers panel for villager information
         private VillagersPanel _villagersPanel;
 
+        // Workers panel for profession counts by race
+        private WorkersPanel _workersPanel;
+
         // Info panel menu for unified panel access
         private InfoPanelMenu _infoPanelMenu;
 
@@ -241,6 +244,9 @@ namespace ATSAccessibility
             // Initialize villagers panel
             _villagersPanel = new VillagersPanel();
 
+            // Initialize workers panel
+            _workersPanel = new WorkersPanel();
+
             // Initialize announcements settings panel
             _announcementsPanel = new AnnouncementsSettingsPanel();
 
@@ -250,8 +256,8 @@ namespace ATSAccessibility
             // Initialize announcement history panel
             _announcementHistoryPanel = new AnnouncementHistoryPanel();
 
-            // Initialize info panel menu (unified access to stats, resources, mysteries, villagers, announcements)
-            _infoPanelMenu = new InfoPanelMenu(_statsPanel, _settlementResourcePanel, _mysteriesPanel, _villagersPanel, _announcementsPanel);
+            // Initialize info panel menu (unified access to stats, resources, mysteries, villagers, workers, announcements)
+            _infoPanelMenu = new InfoPanelMenu(_statsPanel, _settlementResourcePanel, _mysteriesPanel, _villagersPanel, _workersPanel, _announcementsPanel);
 
             // Initialize menu hub for quick popup access
             _menuHub = new MenuHub();

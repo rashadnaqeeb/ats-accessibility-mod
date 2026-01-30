@@ -12,17 +12,19 @@ namespace ATSAccessibility
         {
             Resources,
             Villagers,
+            Workers,
             Stats,
             Modifiers,
             Announcements
         }
 
-        private static readonly string[] _menuLabels = { "Resources", "Villagers", "Stats", "Modifiers", "Announcements" };
+        private static readonly string[] _menuLabels = { "Resources", "Villagers", "Workers", "Stats", "Modifiers", "Announcements" };
 
         private readonly StatsPanel _statsPanel;
         private readonly SettlementResourcePanel _resourcePanel;
         private readonly MysteriesPanel _mysteriesPanel;
         private readonly VillagersPanel _villagersPanel;
+        private readonly WorkersPanel _workersPanel;
         private readonly AnnouncementsSettingsPanel _announcementsPanel;
 
         private bool _isOpen;
@@ -47,12 +49,13 @@ namespace ATSAccessibility
         /// </summary>
         public bool IsInChildPanel => _activeChildPanel.HasValue;
 
-        public InfoPanelMenu(StatsPanel statsPanel, SettlementResourcePanel resourcePanel, MysteriesPanel mysteriesPanel, VillagersPanel villagersPanel, AnnouncementsSettingsPanel announcementsPanel)
+        public InfoPanelMenu(StatsPanel statsPanel, SettlementResourcePanel resourcePanel, MysteriesPanel mysteriesPanel, VillagersPanel villagersPanel, WorkersPanel workersPanel, AnnouncementsSettingsPanel announcementsPanel)
         {
             _statsPanel = statsPanel;
             _resourcePanel = resourcePanel;
             _mysteriesPanel = mysteriesPanel;
             _villagersPanel = villagersPanel;
+            _workersPanel = workersPanel;
             _announcementsPanel = announcementsPanel;
         }
 
@@ -233,6 +236,9 @@ namespace ATSAccessibility
                 case MenuPanel.Villagers:
                     _villagersPanel?.Open();
                     break;
+                case MenuPanel.Workers:
+                    _workersPanel?.Open();
+                    break;
                 case MenuPanel.Announcements:
                     _announcementsPanel?.Open();
                     break;
@@ -264,6 +270,10 @@ namespace ATSAccessibility
                     if (_villagersPanel?.IsOpen == true)
                         _villagersPanel.Close();
                     break;
+                case MenuPanel.Workers:
+                    if (_workersPanel?.IsOpen == true)
+                        _workersPanel.Close();
+                    break;
                 case MenuPanel.Announcements:
                     if (_announcementsPanel?.IsOpen == true)
                         _announcementsPanel.Close();
@@ -287,6 +297,8 @@ namespace ATSAccessibility
                     return _mysteriesPanel?.ProcessKeyEvent(keyCode) ?? false;
                 case MenuPanel.Villagers:
                     return _villagersPanel?.ProcessKeyEvent(keyCode) ?? false;
+                case MenuPanel.Workers:
+                    return _workersPanel?.ProcessKeyEvent(keyCode) ?? false;
                 case MenuPanel.Announcements:
                     return _announcementsPanel?.ProcessKeyEvent(keyCode) ?? false;
             }
