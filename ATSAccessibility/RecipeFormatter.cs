@@ -12,7 +12,7 @@ namespace ATSAccessibility
     {
         /// <summary>
         /// Format recipe ingredients in readable format.
-        /// Same amounts: "3 x one of Herbs, Insects, Resin."
+        /// Same amounts: "3 x Herbs, Insects, Resin."
         /// Different amounts: "One of Stone x 4, Clay x 4, Salt x 3."
         /// </summary>
         public static string FormatIngredients(Array goodsSets,
@@ -52,9 +52,9 @@ namespace ATSAccessibility
 
                     if (sameAmounts)
                     {
-                        // Same amounts: "3 x one of Herbs, Insects, Resin."
+                        // Same amounts: "3 x Herbs, Insects, Resin."
                         var names = string.Join(", ", items.Select(i => i.name));
-                        parts.Add($"{items[0].amount} x one of {names}.");
+                        parts.Add($"{items[0].amount} x {names}.");
                     }
                     else
                     {
