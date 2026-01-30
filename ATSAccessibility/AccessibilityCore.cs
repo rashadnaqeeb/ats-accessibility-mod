@@ -1134,6 +1134,7 @@ namespace ATSAccessibility
             if (TradeReflection.IsTraderPanel(popup))
             {
                 Debug.Log("[ATSAccessibility] Trader panel detected, using Trader overlay");
+                TradeReflection.SetCurrentPanel(popup);
                 _traderOverlay?.Open();
                 _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
                 return;
@@ -1437,6 +1438,7 @@ namespace ATSAccessibility
             else if (TradeReflection.IsTraderPanel(popup))
             {
                 Debug.Log("[ATSAccessibility] Trader panel closed");
+                TradeReflection.ClearCurrentPanel();
                 _traderOverlay?.Close();
                 // Fall through to handle context change
             }

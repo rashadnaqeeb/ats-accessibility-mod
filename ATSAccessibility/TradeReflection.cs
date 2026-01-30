@@ -65,7 +65,6 @@ namespace ATSAccessibility
         private static MethodInfo _getCurrentMainVisitMethod = null;
         private static MethodInfo _getCurrentMainTraderMethod = null;
         private static MethodInfo _getNextMainTraderMethod = null;
-        private static MethodInfo _getTraderMethod = null;
         private static MethodInfo _getVillageOfferMethod = null;
         private static MethodInfo _getTimeLeftToMethod = null;
         private static MethodInfo _getStayingTimeLeftMethod = null;
@@ -93,6 +92,7 @@ namespace ATSAccessibility
         private static FieldInfo _visitOfferedEffectsField = null;
         private static FieldInfo _visitTravelProgressField = null;
         private static FieldInfo _visitForcedField = null;
+        private static FieldInfo _visitTraderField = null;
 
         // TraderModel fields
         private static FieldInfo _traderDisplayNameField = null;
@@ -142,6 +142,7 @@ namespace ATSAccessibility
         // Settings access for good models
         private static MethodInfo _getGoodMethod = null;
         private static MethodInfo _getEffectMethod = null;
+        private static MethodInfo _getTraderFromSettingsMethod = null;
         private static FieldInfo _goodDisplayNameField = null;
         private static FieldInfo _tradeCurrencyField = null;
 
@@ -159,6 +160,11 @@ namespace ATSAccessibility
         // TraderPanel for closing after assault
         private static PropertyInfo _traderPanelInstanceProperty = null;
         private static MethodInfo _traderPanelHideMethod = null;
+
+        // Glade trader support: panel visit field and isExtra flag
+        private static FieldInfo _panelVisitField = null;
+        private static FieldInfo _visitIsExtraField = null;
+        private static object _currentTraderPanel = null;
 
         // ========================================
         // INITIALIZATION
@@ -199,7 +205,6 @@ namespace ATSAccessibility
                     _getCurrentMainVisitMethod = tradeServiceType.GetMethod("GetCurrentMainVisit");
                     _getCurrentMainTraderMethod = tradeServiceType.GetMethod("GetCurrentMainTrader");
                     _getNextMainTraderMethod = tradeServiceType.GetMethod("GetNextMainTrader");
-                    _getTraderMethod = tradeServiceType.GetMethod("GetTrader");
                     _getVillageOfferMethod = tradeServiceType.GetMethod("GetVillageOffer");
                     _getTimeLeftToMethod = tradeServiceType.GetMethod("GetTimeLeftTo");
                     _getStayingTimeLeftMethod = tradeServiceType.GetMethod("GetStayingTimeLeft");
@@ -260,6 +265,8 @@ namespace ATSAccessibility
                     _visitOfferedEffectsField = visitStateType.GetField("offeredEffects");
                     _visitTravelProgressField = visitStateType.GetField("travelProgress");
                     _visitForcedField = visitStateType.GetField("forced");
+                    _visitIsExtraField = visitStateType.GetField("isExtra");
+                    _visitTraderField = visitStateType.GetField("trader");
                 }
 
                 // TraderModel fields
@@ -361,6 +368,7 @@ namespace ATSAccessibility
                 {
                     _getGoodMethod = settingsType.GetMethod("GetGood", new[] { typeof(string) });
                     _getEffectMethod = settingsType.GetMethod("GetEffect", new[] { typeof(string) });
+                    _getTraderFromSettingsMethod = settingsType.GetMethod("GetTrader", new[] { typeof(string) });
                     _tradeCurrencyField = settingsType.GetField("tradeCurrency");
                 }
 
@@ -450,11 +458,87 @@ namespace ATSAccessibility
         }
 
         // ========================================
+        // GLADE TRADER PANEL SUPPORT
+        // ========================================
+
+        /// <summary>
+        /// Store the current TraderPanel instance so we can read its visit field.
+        /// Called when the trader popup opens.
+        /// </summary>
+        public static void SetCurrentPanel(object traderPanel)
+        {
+            _currentTraderPanel = traderPanel;
+            if (traderPanel != null && _panelVisitField == null)
+            {
+                _panelVisitField = traderPanel.GetType().GetField("visit",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+        }
+
+        /// <summary>
+        /// Clear the stored TraderPanel reference. Called when the trader popup closes.
+        /// </summary>
+        public static void ClearCurrentPanel()
+        {
+            _currentTraderPanel = null;
+        }
+
+        private static object GetPanelVisit()
+        {
+            if (_currentTraderPanel == null || _panelVisitField == null) return null;
+            try { return _panelVisitField.GetValue(_currentTraderPanel); }
+            catch { return null; }
+        }
+
+        private static bool IsVisitExtra(object visit)
+        {
+            if (visit == null || _visitIsExtraField == null) return false;
+            try { var result = _visitIsExtraField.GetValue(visit); return result is bool b && b; }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Resolve a TraderModel from a visit's trader key string via Settings.GetTrader().
+        /// Matches what the game's TraderPanel.GetCurrentTrader() does.
+        /// </summary>
+        private static object GetTraderFromVisit(object visit)
+        {
+            if (visit == null || _visitTraderField == null || _getTraderFromSettingsMethod == null) return null;
+            try
+            {
+                var traderKey = _visitTraderField.GetValue(visit) as string;
+                if (string.IsNullOrEmpty(traderKey)) return null;
+                var settings = GetSettings();
+                if (settings == null) return null;
+                return _getTraderFromSettingsMethod.Invoke(settings, new object[] { traderKey });
+            }
+            catch { return null; }
+        }
+
+        /// <summary>
+        /// Get the TraderModel for the currently active trader.
+        /// Prefers the panel visit (correct for glade traders), falls back to main trader.
+        /// </summary>
+        private static object GetCurrentTrader()
+        {
+            // Try panel visit first — works for both main and glade traders
+            var panelTrader = GetTraderFromVisit(GetPanelVisit());
+            if (panelTrader != null) return panelTrader;
+
+            // Fall back to main trader
+            var tradeService = GetTradeService();
+            if (tradeService == null) return null;
+            try { return _getCurrentMainTraderMethod?.Invoke(tradeService, null); }
+            catch { return null; }
+        }
+
+        // ========================================
         // TRADER STATE
         // ========================================
 
         /// <summary>
         /// Check if a trader is currently in the village.
+        /// Also returns true for glade event traders (isExtra visits).
         /// </summary>
         public static bool IsTraderPresent()
         {
@@ -464,7 +548,12 @@ namespace ATSAccessibility
             try
             {
                 var result = _isMainTraderInTheVillageMethod?.Invoke(tradeService, null);
-                return result is bool b && b;
+                if (result is bool b && b) return true;
+
+                // Glade event traders have isExtra = true on their visit
+                if (IsVisitExtra(GetPanelVisit())) return true;
+
+                return false;
             }
             catch (Exception ex)
             {
@@ -497,6 +586,10 @@ namespace ATSAccessibility
         /// </summary>
         public static object GetCurrentVisit()
         {
+            // Prefer the panel's visit — correct for both main and glade traders
+            var panelVisit = GetPanelVisit();
+            if (panelVisit != null) return panelVisit;
+
             var tradeService = GetTradeService();
             if (tradeService == null) return null;
 
@@ -538,16 +631,19 @@ namespace ATSAccessibility
         /// </summary>
         public static string GetTraderName()
         {
-            var tradeService = GetTradeService();
-            if (tradeService == null) return null;
-
             try
             {
                 object trader;
                 if (IsTraderPresent())
-                    trader = _getCurrentMainTraderMethod?.Invoke(tradeService, null);
+                {
+                    trader = GetCurrentTrader();
+                }
                 else
+                {
+                    var tradeService = GetTradeService();
+                    if (tradeService == null) return null;
                     trader = _getNextMainTraderMethod?.Invoke(tradeService, null);
+                }
 
                 if (trader == null) return null;
 
@@ -566,16 +662,19 @@ namespace ATSAccessibility
         /// </summary>
         public static string GetTraderLabel()
         {
-            var tradeService = GetTradeService();
-            if (tradeService == null) return null;
-
             try
             {
                 object trader;
                 if (IsTraderPresent())
-                    trader = _getCurrentMainTraderMethod?.Invoke(tradeService, null);
+                {
+                    trader = GetCurrentTrader();
+                }
                 else
+                {
+                    var tradeService = GetTradeService();
+                    if (tradeService == null) return null;
                     trader = _getNextMainTraderMethod?.Invoke(tradeService, null);
+                }
 
                 if (trader == null) return null;
 
@@ -596,16 +695,19 @@ namespace ATSAccessibility
         /// </summary>
         public static string GetTraderDescription()
         {
-            var tradeService = GetTradeService();
-            if (tradeService == null) return null;
-
             try
             {
                 object trader;
                 if (IsTraderPresent())
-                    trader = _getCurrentMainTraderMethod?.Invoke(tradeService, null);
+                {
+                    trader = GetCurrentTrader();
+                }
                 else
+                {
+                    var tradeService = GetTradeService();
+                    if (tradeService == null) return null;
                     trader = _getNextMainTraderMethod?.Invoke(tradeService, null);
+                }
 
                 if (trader == null) return null;
 
@@ -623,12 +725,9 @@ namespace ATSAccessibility
         /// </summary>
         public static string GetTraderDialogue()
         {
-            var tradeService = GetTradeService();
-            if (tradeService == null) return null;
-
             try
             {
-                var trader = _getCurrentMainTraderMethod?.Invoke(tradeService, null);
+                var trader = GetCurrentTrader();
                 if (trader == null) return null;
 
                 var locaText = _traderDialogueField?.GetValue(trader);
@@ -646,12 +745,9 @@ namespace ATSAccessibility
         /// </summary>
         public static object GetTraderTransactionSound()
         {
-            var tradeService = GetTradeService();
-            if (tradeService == null) return null;
-
             try
             {
-                var trader = _getCurrentMainTraderMethod?.Invoke(tradeService, null);
+                var trader = GetCurrentTrader();
                 if (trader == null) return null;
 
                 var soundRef = _traderTransactionSoundField?.GetValue(trader);
@@ -1393,13 +1489,9 @@ namespace ATSAccessibility
         /// </summary>
         public static bool CanAssaultTrader()
         {
-            var tradeService = GetTradeService();
-            if (tradeService == null) return false;
-
             try
             {
-                // Get current trader
-                var trader = _getCurrentMainTraderMethod?.Invoke(tradeService, null);
+                var trader = GetCurrentTrader();
                 if (trader == null) return false;
 
                 // Check canAssault field on trader model
