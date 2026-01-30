@@ -377,6 +377,11 @@ namespace ATSAccessibility
                     }
                     return false;
 
+                // Direct tree mark toggle
+                case KeyCode.Backspace:
+                    ToggleTreeMark();
+                    return true;
+
                 // Move building mode
                 case KeyCode.M:
                     var building = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
@@ -389,6 +394,31 @@ namespace ATSAccessibility
                 default:
                     // Consume all keys - mod has full keyboard control in settlement
                     return true;
+            }
+        }
+
+        private void ToggleTreeMark()
+        {
+            var pos = new Vector2Int(_mapNavigator.CursorX, _mapNavigator.CursorY);
+            var resource = GameReflection.GetNaturalResourceAt(pos);
+            if (resource == null)
+            {
+                Speech.Say("No tree here");
+                return;
+            }
+
+            if (GameReflection.IsNaturalResourceMarked(resource))
+            {
+                GameReflection.UnmarkNaturalResourceAt(pos);
+                Speech.Say("Unmarked");
+            }
+            else
+            {
+                GameReflection.MarkNaturalResourceAt(pos);
+                if (GameReflection.IsNaturalResourceGladeEdge(pos))
+                    Speech.Say("Marked, glade edge");
+                else
+                    Speech.Say("Marked");
             }
         }
 
