@@ -116,6 +116,7 @@ namespace ATSAccessibility
 
             int newX = _cursorX;
             int newY = _cursorY;
+            int tilesSkipped = 0;
 
             // Step in direction until we find different tile or hit edge
             while (true)
@@ -133,6 +134,7 @@ namespace ATSAccessibility
 
                 newX = nextX;
                 newY = nextY;
+                tilesSkipped++;
 
                 // Get this tile's announcement (need fresh field for correct terrain/passability)
                 var nextField = GameReflection.GetField(newX, newY);
@@ -144,7 +146,14 @@ namespace ATSAccessibility
                     // Found different tile - move there
                     _cursorX = newX;
                     _cursorY = newY;
-                    AnnounceTile(nextField);
+
+                    string tileWord = tilesSkipped == 1 ? "tile" : "tiles";
+                    string announcement = GetTileAnnouncement(_cursorX, _cursorY, nextField);
+                    string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
+                    if (!string.IsNullOrEmpty(prefix))
+                        announcement = $"{prefix}, {announcement}";
+                    Speech.Say($"{tilesSkipped} {tileWord}, {announcement}");
+
                     SyncCameraToTile(nextField);
                     return;
                 }
