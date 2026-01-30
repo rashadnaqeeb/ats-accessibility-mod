@@ -89,10 +89,7 @@ namespace ATSAccessibility
 
                 // Position announcement
                 case KeyCode.K:
-                    if (modifiers.Alt)
-                        _mapNavigator.AnnounceHearthDistance();
-                    else
-                        _mapNavigator.AnnounceCurrentPosition();
+                    _mapNavigator.AnnounceCurrentPosition();
                     return true;
 
                 // Game speed controls

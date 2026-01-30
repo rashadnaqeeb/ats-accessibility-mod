@@ -169,38 +169,6 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Announce distance from hearth (Alt+K).
-        /// </summary>
-        public void AnnounceHearthDistance()
-        {
-            EnsureCursorInitialized();
-
-            var hearthPos = GameReflection.GetMainHearthPosition();
-            if (!hearthPos.HasValue)
-            {
-                Speech.Say("Hearth not found");
-                return;
-            }
-
-            int dx = _cursorX - hearthPos.Value.x;
-            int dy = _cursorY - hearthPos.Value.y;
-
-            if (dx == 0 && dy == 0)
-            {
-                Speech.Say("At hearth");
-                return;
-            }
-
-            var parts = new List<string>();
-            if (dy != 0)
-                parts.Add($"{Mathf.Abs(dy)} {(dy > 0 ? "south" : "north")}");
-            if (dx != 0)
-                parts.Add($"{Mathf.Abs(dx)} {(dx > 0 ? "west" : "east")}");
-
-            Speech.Say($"Hearth: {string.Join(", ", parts)}");
-        }
-
-        /// <summary>
         /// Clear cursor position so it will be reinitialized on next use.
         /// Call this when leaving a game session.
         /// </summary>
