@@ -47,11 +47,6 @@ namespace ATSAccessibility
         private List<ScannedItem> _cachedItems = new List<ScannedItem>();
         private readonly WorldMapNavigator _navigator;
 
-        // Scan origin for stable distance calculations when auto-move is on
-        private Vector3Int _scanOrigin;
-        private bool _hasScanOrigin;
-        private Vector3Int _lastAutoMovePos = new Vector3Int(int.MinValue, int.MinValue, int.MinValue);
-
         // Hex directions for direction calculation
         // Duplicated from WorldMapNavigator for encapsulation (hex directions are stable)
         private static readonly Vector3Int[] HexDirections = new Vector3Int[]
@@ -97,21 +92,6 @@ namespace ATSAccessibility
         /// </summary>
         public void ChangeType(int direction)
         {
-            // Update scan origin (stays fixed across auto-moves, resets on manual cursor move)
-            if (Plugin.ScannerAutoMove.Value)
-            {
-                var pos = _navigator.CursorPosition;
-                if (!_hasScanOrigin || pos != _lastAutoMovePos)
-                {
-                    _scanOrigin = pos;
-                    _hasScanOrigin = true;
-                }
-            }
-            else
-            {
-                _hasScanOrigin = false;
-            }
-
             int typeCount = Enum.GetValues(typeof(ScanType)).Length;
             _currentType = (ScanType)NavigationUtils.WrapIndex((int)_currentType, direction, typeCount);
 
@@ -120,7 +100,6 @@ namespace ATSAccessibility
             _currentItemIndex = 0;
 
             AnnounceTypeChange();
-            AutoMoveCursorSilent();
         }
 
         /// <summary>
@@ -136,7 +115,6 @@ namespace ATSAccessibility
 
             _currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, _cachedItems.Count);
             AnnounceItem();
-            AutoMoveCursorSilent();
         }
 
         /// <summary>
@@ -196,7 +174,7 @@ namespace ATSAccessibility
         private void ScanCurrentType()
         {
             _cachedItems.Clear();
-            var cursorPos = _hasScanOrigin ? _scanOrigin : _navigator.CursorPosition;
+            var cursorPos = _navigator.CursorPosition;
 
             // Iterate over actual world map positions
             foreach (var pos in WorldMapReflection.GetWorldMapPositions())
@@ -316,15 +294,6 @@ namespace ATSAccessibility
             int total = _cachedItems.Count;
             // Intentional: "X of Y" position context is useful for scanner navigation
             Speech.Say($"{item.Name}, {itemNum} of {total}");
-        }
-
-        private void AutoMoveCursorSilent()
-        {
-            if (!Plugin.ScannerAutoMove.Value) return;
-            if (_cachedItems.Count == 0) return;
-            var item = _cachedItems[_currentItemIndex];
-            _navigator.SetCursorPosition(item.Position);
-            _lastAutoMovePos = item.Position;
         }
 
         private void AnnounceEmpty()
