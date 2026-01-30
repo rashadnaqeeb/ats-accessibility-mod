@@ -242,7 +242,10 @@ namespace ATSAccessibility
 
                 // Tile info
                 case KeyCode.I:
-                    TileInfoReader.ReadCurrentTile(_mapNavigator.CursorX, _mapNavigator.CursorY);
+                    if (modifiers.Alt)
+                        _mapScanner?.ReadCurrentItemInfo();
+                    else
+                        TileInfoReader.ReadCurrentTile(_mapNavigator.CursorX, _mapNavigator.CursorY);
                     return true;
                 case KeyCode.E:
                     _mapNavigator.AnnounceEntrance();

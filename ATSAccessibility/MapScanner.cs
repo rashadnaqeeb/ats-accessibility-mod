@@ -85,6 +85,7 @@ namespace ATSAccessibility
 
         private static readonly string[] SubcategoryNames = new string[]
         {
+            "All",  // 0 — excludes Decorations and Roads
             "Essential", "Gathering", "Production", "Trade",
             "Housing and Services", "Special Buildings",
             "Blight Fighting", "Decorations", "Ruins", "Roads"
@@ -92,34 +93,36 @@ namespace ATSAccessibility
 
         private static readonly Dictionary<string, int> BuildingTypeToSubcategory = new Dictionary<string, int>
         {
-            // Essential (0)
-            { "Hearth", 0 }, { "Storage", 0 },
-            // Gathering (1)
-            { "Camp", 1 }, { "GathererHut", 1 }, { "Farm", 1 }, { "Farmfield", 1 },
-            { "FishingHut", 1 }, { "Mine", 1 }, { "Extractor", 1 }, { "RainCatcher", 1 }, { "Collector", 1 },
-            // Production (2)
-            { "Workshop", 2 },
-            // Trade (3)
-            { "TradingPost", 3 }, { "PerkCrafter", 3 }, { "BlackMarket", 3 },
-            // Housing and Services (4)
-            { "House", 4 }, { "Institution", 4 },
-            // Special Buildings (5)
-            { "Port", 5 }, { "Altar", 5 }, { "Shrine", 5 }, { "Seal", 5 }, { "Poro", 5 }, { "Spawner", 5 },
-            // Blight Fighting (6)
-            { "BlightPost", 6 }, { "Hydrant", 6 },
-            // Decorations (7)
-            { "Decoration", 7 },
-            // Ruins (8)
-            { "Relic", 8 },
-            // Roads (9)
-            { "Road", 9 }
+            // Essential (1)
+            { "Hearth", 1 }, { "Storage", 1 },
+            // Gathering (2)
+            { "Camp", 2 }, { "GathererHut", 2 }, { "Farm", 2 }, { "Farmfield", 2 },
+            { "FishingHut", 2 }, { "Mine", 2 }, { "Extractor", 2 }, { "RainCatcher", 2 }, { "Collector", 2 },
+            // Production (3)
+            { "Workshop", 3 },
+            // Trade (4)
+            { "TradingPost", 4 }, { "PerkCrafter", 4 }, { "BlackMarket", 4 },
+            // Housing and Services (5)
+            { "House", 5 }, { "Institution", 5 },
+            // Special Buildings (6)
+            { "Port", 6 }, { "Altar", 6 }, { "Shrine", 6 }, { "Seal", 6 }, { "Poro", 6 }, { "Spawner", 6 },
+            // Blight Fighting (7)
+            { "BlightPost", 7 }, { "Hydrant", 7 },
+            // Decorations (8)
+            { "Decoration", 8 },
+            // Ruins (9)
+            { "Relic", 9 },
+            // Roads (10)
+            { "Road", 10 }
         };
 
         private static readonly string[] ResourceSubcategoryNames = new string[]
         {
+            "All",
             "Natural Resources",
             "Extracted Resources",
-            "Collected Resources"
+            "Nodes Small",
+            "Nodes Large"
         };
 
         // Reflection cache for scanning
@@ -438,6 +441,29 @@ namespace ATSAccessibility
                 string direction = GetDirection(dx, dy);
                 Speech.Say(suffix != null ? $"{distance} {direction} {suffix}" : $"{distance} tiles {direction}");
             }
+        }
+
+        /// <summary>
+        /// Read detailed tile info for the current scanner item.
+        /// No rescan, no index changes.
+        /// </summary>
+        public void ReadCurrentItemInfo()
+        {
+            if (_cachedGroups == null || _cachedGroups.Count == 0)
+            {
+                AnnounceEmpty();
+                return;
+            }
+
+            var currentGroup = _cachedGroups[_currentGroupIndex];
+            if (currentGroup.Items.Count == 0)
+            {
+                AnnounceEmpty();
+                return;
+            }
+
+            var item = currentGroup.Items[_currentItemIndex];
+            TileInfoReader.ReadCurrentTile(item.Position.x, item.Position.y);
         }
 
         /// <summary>
@@ -1352,6 +1378,30 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get the ResourceSize type string from a deposit or lake state object.
+        /// Returns "Small", "Large", or "Gigantic" (or null on failure).
+        /// </summary>
+        private string GetResourceSizeType(object resourceState)
+        {
+            try
+            {
+                var modelProp = resourceState.GetType().GetProperty("Model",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (modelProp == null) return null;
+
+                var model = modelProp.GetValue(resourceState);
+                if (model == null) return null;
+
+                var typeField = model.GetType().GetField("type",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (typeField == null) return null;
+
+                return typeField.GetValue(model)?.ToString();
+            }
+            catch { return null; }
+        }
+
+        /// <summary>
         /// Check if position is inside an unrevealed glade (Vector2Int overload, avoids allocation in hot path).
         /// </summary>
         private bool IsInsideUnrevealedGlade(Vector2Int pos)
@@ -1572,6 +1622,17 @@ namespace ATSAccessibility
                 {
                     subcategory.Sort(CompareGroupsByDistance);
                 }
+
+                // Build "All" subcategory (excludes Decorations and Roads)
+                var allGroups = new List<ItemGroup>();
+                for (int i = 1; i < SubcategoryNames.Length; i++)
+                {
+                    if (i == 8 || i == 10) continue;  // Decorations, Roads
+                    if (_cachedBuildingsBySubcategory.TryGetValue(i, out var groups))
+                        allGroups.AddRange(groups);
+                }
+                allGroups.Sort(CompareGroupsByDistance);
+                _cachedBuildingsBySubcategory[0] = allGroups;
             }
             catch (Exception ex)
             {
@@ -1581,9 +1642,11 @@ namespace ATSAccessibility
 
         /// <summary>
         /// Scan all resources and organize them by subcategory.
-        /// Subcategory 0 (Natural Resources): NaturalResources + Fertile Soil
-        /// Subcategory 1 (Extracted Resources): Ores + Springs
-        /// Subcategory 2 (Collected Resources): Deposits + Lakes
+        /// Subcategory 0 (All): All resource types combined
+        /// Subcategory 1 (Natural Resources): NaturalResources + Fertile Soil
+        /// Subcategory 2 (Extracted Resources): Ores + Springs
+        /// Subcategory 3 (Nodes Small): Small deposits + Small lakes
+        /// Subcategory 4 (Nodes Large): Large/Gigantic deposits + Large/Gigantic lakes
         /// </summary>
         private void ScanResourcesWithSubcategories()
         {
@@ -1598,11 +1661,12 @@ namespace ATSAccessibility
             // One group dictionary per subcategory
             var naturalGroups = new Dictionary<string, ItemGroup>();
             var extractedGroups = new Dictionary<string, ItemGroup>();
-            var collectedGroups = new Dictionary<string, ItemGroup>();
+            var nodesSmallGroups = new Dictionary<string, ItemGroup>();
+            var nodesLargeGroups = new Dictionary<string, ItemGroup>();
 
             try
             {
-                // === Subcategory 0: Natural Resources ===
+                // === Subcategory 1: Natural Resources ===
 
                 // NaturalResources service
                 var resourcesService = GameReflection.GetResourcesService();
@@ -1674,7 +1738,7 @@ namespace ATSAccessibility
                     naturalGroups["Fertile Soil"] = fertileSoilGroup;
                 }
 
-                // === Subcategory 1: Extracted Resources ===
+                // === Subcategory 2: Extracted Resources ===
 
                 // Ores service
                 var oreService = GameReflection.GetOreService();
@@ -1744,7 +1808,7 @@ namespace ATSAccessibility
                     }
                 }
 
-                // === Subcategory 2: Collected Resources ===
+                // === Subcategories 3 & 4: Nodes Small / Nodes Large ===
 
                 // Deposits service
                 var depositsService = GameReflection.GetDepositsService();
@@ -1768,10 +1832,14 @@ namespace ATSAccessibility
 
                                 int distance = CalculateDistance(pos, cursorX, cursorY);
 
-                                if (!collectedGroups.TryGetValue(displayName, out var depositGroup))
+                                // Route to Small or Large based on ResourceSize
+                                string sizeType = GetResourceSizeType(deposit);
+                                var targetGroups = sizeType == "Small" ? nodesSmallGroups : nodesLargeGroups;
+
+                                if (!targetGroups.TryGetValue(displayName, out var depositGroup))
                                 {
                                     depositGroup = new ItemGroup(displayName);
-                                    collectedGroups[displayName] = depositGroup;
+                                    targetGroups[displayName] = depositGroup;
                                 }
 
                                 depositGroup.Items.Add(new ScannedItem(pos, distance));
@@ -1802,10 +1870,14 @@ namespace ATSAccessibility
 
                                 int distance = CalculateDistance(pos, cursorX, cursorY);
 
-                                if (!collectedGroups.TryGetValue(displayName, out var lakeGroup))
+                                // Route to Small or Large based on ResourceSize
+                                string sizeType = GetResourceSizeType(lake);
+                                var targetGroups = sizeType == "Small" ? nodesSmallGroups : nodesLargeGroups;
+
+                                if (!targetGroups.TryGetValue(displayName, out var lakeGroup))
                                 {
                                     lakeGroup = new ItemGroup(displayName);
-                                    collectedGroups[displayName] = lakeGroup;
+                                    targetGroups[displayName] = lakeGroup;
                                 }
 
                                 lakeGroup.Items.Add(new ScannedItem(pos, distance));
@@ -1817,15 +1889,29 @@ namespace ATSAccessibility
                 // Finalize and sort each subcategory
                 var naturalList = FinalizeGroups(naturalGroups);
                 naturalList.Sort(CompareGroupsByDistance);
-                _cachedResourcesBySubcategory[0] = naturalList;
+                _cachedResourcesBySubcategory[1] = naturalList;
 
                 var extractedList = FinalizeGroups(extractedGroups);
                 extractedList.Sort(CompareGroupsByDistance);
-                _cachedResourcesBySubcategory[1] = extractedList;
+                _cachedResourcesBySubcategory[2] = extractedList;
 
-                var collectedList = FinalizeGroups(collectedGroups);
-                collectedList.Sort(CompareGroupsByDistance);
-                _cachedResourcesBySubcategory[2] = collectedList;
+                var nodesSmallList = FinalizeGroups(nodesSmallGroups);
+                nodesSmallList.Sort(CompareGroupsByDistance);
+                _cachedResourcesBySubcategory[3] = nodesSmallList;
+
+                var nodesLargeList = FinalizeGroups(nodesLargeGroups);
+                nodesLargeList.Sort(CompareGroupsByDistance);
+                _cachedResourcesBySubcategory[4] = nodesLargeList;
+
+                // Build "All" subcategory
+                var allGroups = new List<ItemGroup>();
+                for (int i = 1; i < ResourceSubcategoryNames.Length; i++)
+                {
+                    if (_cachedResourcesBySubcategory.TryGetValue(i, out var groups))
+                        allGroups.AddRange(groups);
+                }
+                allGroups.Sort(CompareGroupsByDistance);
+                _cachedResourcesBySubcategory[0] = allGroups;
             }
             catch (Exception ex)
             {
