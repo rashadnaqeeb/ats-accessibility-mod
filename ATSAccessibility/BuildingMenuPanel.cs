@@ -130,14 +130,14 @@ namespace ATSAccessibility
             {
                 case KeyCode.UpArrow:
                     if (_focusOnBuildings)
-                        NavigateBuilding(-1);
+                        NavigateBuildingAcrossCategories(-1);
                     else
                         NavigateCategory(-1);
                     return true;
 
                 case KeyCode.DownArrow:
                     if (_focusOnBuildings)
-                        NavigateBuilding(1);
+                        NavigateBuildingAcrossCategories(1);
                     else
                         NavigateCategory(1);
                     return true;
@@ -238,17 +238,61 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Navigate buildings (right panel) with Up/Down when in buildings mode.
+        /// Navigate buildings, flowing into the next/previous category at boundaries.
+        /// Announces category name when crossing into a new category.
         /// </summary>
-        private void NavigateBuilding(int direction)
+        private void NavigateBuildingAcrossCategories(int direction)
         {
             if (!_isOpen || !_focusOnBuildings) return;
 
             var category = _categories[_currentCategoryIndex];
             if (category.Buildings.Count == 0) return;
 
-            _currentBuildingIndex = NavigationUtils.WrapIndex(_currentBuildingIndex, direction, category.Buildings.Count);
-            AnnounceCurrentBuilding();
+            int newIndex = _currentBuildingIndex + direction;
+
+            if (newIndex >= category.Buildings.Count)
+            {
+                // Past end of category - move to next category's first building
+                _currentCategoryIndex = (_currentCategoryIndex + 1) % _categories.Count;
+                _currentBuildingIndex = 0;
+                AnnounceCategoryAndBuilding();
+            }
+            else if (newIndex < 0)
+            {
+                // Before start of category - move to previous category's last building
+                _currentCategoryIndex = (_currentCategoryIndex - 1 + _categories.Count) % _categories.Count;
+                _currentBuildingIndex = _categories[_currentCategoryIndex].Buildings.Count - 1;
+                AnnounceCategoryAndBuilding();
+            }
+            else
+            {
+                _currentBuildingIndex = newIndex;
+                AnnounceCurrentBuilding();
+            }
+        }
+
+        /// <summary>
+        /// Announce category name followed by current building when crossing category boundaries.
+        /// </summary>
+        private void AnnounceCategoryAndBuilding()
+        {
+            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
+
+            var category = _categories[_currentCategoryIndex];
+            if (_currentBuildingIndex < 0 || _currentBuildingIndex >= category.Buildings.Count) return;
+
+            var building = category.Buildings[_currentBuildingIndex];
+            var size = GameReflection.GetBuildingSize(building.Model);
+            string sizeText = $"{size.x}x{size.y}";
+            string costs = GameReflection.GetBuildingCosts(building.Model);
+            string costsText = !string.IsNullOrEmpty(costs) ? $" {costs}." : "";
+            string description = GameReflection.GetBuildingDescription(building.Model) ?? "";
+            bool canConstruct = GameReflection.CanConstructBuilding(building.Model);
+            string status = canConstruct ? "" : ", at maximum";
+
+            string announcement = $"{category.Name}. {building.Name}{status}, {sizeText}.{costsText} {description}";
+            Speech.Say(announcement);
+            Debug.Log($"[ATSAccessibility] Building (cross-category): {category.Name} > {building.Name}{status}, {sizeText}");
         }
 
         /// <summary>
