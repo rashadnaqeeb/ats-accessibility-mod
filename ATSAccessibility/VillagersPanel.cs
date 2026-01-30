@@ -7,12 +7,11 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Virtual speech-only panel for navigating villager information.
-    /// Custom panel with selective 3rd level for resolve breakdown and individual villagers.
     ///
     /// Navigation model:
-    /// - Level 1 (Categories): Each race - Up/Down to navigate, Enter/Right to enter details
-    /// - Level 2 (Details): Resolve, Needs, Effects, Villagers - Up/Down to navigate, Left to return
-    /// - Level 3 (Sub-details): Resolve breakdown or villager info - only for specific items
+    /// - Level 1 (Categories): Shared Needs (if any), then each race - Up/Down to navigate, Enter/Right to enter details
+    /// - Level 2 (Details): Resolve, Needs, Favoring - Up/Down to navigate, Left to return
+    /// - Level 3 (Sub-details): Resolve breakdown - Right to expand
     /// </summary>
     public class VillagersPanel
     {
@@ -24,7 +23,6 @@ namespace ATSAccessibility
         {
             Resolve,
             Need,
-            Villager,
             Favoring
         }
 
@@ -33,7 +31,6 @@ namespace ATSAccessibility
             public DetailType Type { get; set; }
             public string Label { get; set; }
             public List<string> SubDetails { get; set; } = new List<string>();
-            public object Data { get; set; }  // For villager, holds the villager object
         }
 
         private class RaceCategory
@@ -62,7 +59,6 @@ namespace ATSAccessibility
         private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Cached reflection metadata
-        private static PropertyInfo _villRacesProperty;
         private static MethodInfo _villGetDefaultProfessionAmountMethod;
         private static MethodInfo _villGetHomelessAmountMethod;
         private static bool _typesCached;
@@ -532,6 +528,7 @@ namespace ATSAccessibility
 
             var category = _categories[_currentCategoryIndex];
             string raceName = category.RaceName;
+            if (raceName == null) return;  // Shared needs category has no favoring
 
             // Check if already favored
             if (GameReflection.IsFavored(raceName))
@@ -579,6 +576,7 @@ namespace ATSAccessibility
             // Start favoring
             if (GameReflection.FavorRace(raceName))
             {
+                PlayFavoringSound(raceName);
                 Speech.Say($"{category.DisplayName} now favored. Other races penalized");
                 UpdateFavoringLabel();
             }
@@ -601,6 +599,34 @@ namespace ATSAccessibility
             }
         }
 
+        /// <summary>
+        /// Play the race-specific favoring sound (matches game's FavoringButton behavior).
+        /// </summary>
+        private void PlayFavoringSound(string raceName)
+        {
+            try
+            {
+                var settings = GameReflection.GetSettings();
+                if (settings == null) return;
+
+                var getRaceMethod = settings.GetType().GetMethod("GetRace", GameReflection.PublicInstance);
+                var raceModel = getRaceMethod?.Invoke(settings, new object[] { raceName });
+                if (raceModel == null) return;
+
+                var soundField = raceModel.GetType().GetField("favoringStartSound", GameReflection.PublicInstance);
+                var soundRef = soundField?.GetValue(raceModel);
+                if (soundRef == null) return;
+
+                var getNextMethod = soundRef.GetType().GetMethod("GetNext", GameReflection.PublicInstance);
+                var soundModel = getNextMethod?.Invoke(soundRef, null);
+                SoundManager.PlaySoundEffect(soundModel);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] PlayFavoringSound failed: {ex.Message}");
+            }
+        }
+
         // ========================================
         // ANNOUNCEMENTS
         // ========================================
@@ -610,11 +636,20 @@ namespace ATSAccessibility
             if (_currentCategoryIndex >= _categories.Count) return;
 
             var category = _categories[_currentCategoryIndex];
-            string favoredStatus = GameReflection.IsFavored(category.RaceName) ? ", favored" : "";
-            string message = $"{category.DisplayName}{favoredStatus}. {category.Population} villagers, {category.FreeWorkers} free, {category.Homeless} homeless";
 
-            Speech.Say(message);
-            Debug.Log($"[ATSAccessibility] Villagers category: {message}");
+            if (category.RaceName == null)
+            {
+                // Shared needs category - just the name
+                Speech.Say(category.DisplayName);
+            }
+            else
+            {
+                string favoredStatus = GameReflection.IsFavored(category.RaceName) ? ", favored" : "";
+                string message = $"{category.DisplayName}{favoredStatus}. {category.Population} villagers, {category.FreeWorkers} free, {category.Homeless} homeless";
+                Speech.Say(message);
+            }
+
+            Debug.Log($"[ATSAccessibility] Villagers category: {category.DisplayName}");
         }
 
         private void AnnounceDetail()
@@ -626,17 +661,9 @@ namespace ATSAccessibility
             string message = detail.Label;
 
             // Add type-specific suffix if expandable
-            if (detail.SubDetails.Count > 0)
+            if (detail.Type == DetailType.Resolve && detail.SubDetails.Count > 0)
             {
-                switch (detail.Type)
-                {
-                    case DetailType.Resolve:
-                        message += ". Press right for breakdown";
-                        break;
-                    case DetailType.Villager:
-                        message += ". Press right for details";
-                        break;
-                }
+                message += ". Press right for breakdown";
             }
 
             Speech.Say(message);
@@ -665,6 +692,11 @@ namespace ATSAccessibility
             EnsureTypes();
 
             var races = StatsReader.GetPresentRaces();
+
+            // Track needs per race for shared needs detection
+            var needRaces = new Dictionary<string, List<SharedNeedRaceInfo>>();
+            var needOrder = new List<string>();
+
             foreach (var raceName in races)
             {
                 var category = new RaceCategory
@@ -676,14 +708,80 @@ namespace ATSAccessibility
                     Homeless = GetHomeless(raceName)
                 };
 
-                BuildRaceDetails(category, raceName);
+                var needs = GetRaceNeeds(raceName);
+                BuildRaceDetails(category, raceName, needs);
                 _categories.Add(category);
+
+                // Collect needs for shared detection
+                foreach (var need in needs)
+                {
+                    if (!needRaces.ContainsKey(need.name))
+                    {
+                        needRaces[need.name] = new List<SharedNeedRaceInfo>();
+                        needOrder.Add(need.name);
+                    }
+                    needRaces[need.name].Add(new SharedNeedRaceInfo
+                    {
+                        RaceName = raceName,
+                        DisplayName = category.DisplayName,
+                        NeedModel = need.model,
+                        Population = category.Population
+                    });
+                }
             }
 
-            Debug.Log($"[ATSAccessibility] Villagers panel refreshed: {_categories.Count} races");
+            // Build shared needs category (needs appearing in 2+ races)
+            BuildSharedNeedsCategory(needRaces, needOrder);
+
+            Debug.Log($"[ATSAccessibility] Villagers panel refreshed: {_categories.Count} categories");
         }
 
-        private void BuildRaceDetails(RaceCategory category, string raceName)
+        private void BuildSharedNeedsCategory(Dictionary<string, List<SharedNeedRaceInfo>> needRaces, List<string> needOrder)
+        {
+            var sharedCategory = new RaceCategory
+            {
+                RaceName = null,
+                DisplayName = "Shared Needs",
+                Population = 0,
+                FreeWorkers = 0,
+                Homeless = 0
+            };
+
+            bool firstNeed = true;
+            foreach (var needName in needOrder)
+            {
+                var races = needRaces[needName];
+                if (races.Count < 2) continue;
+
+                int totalSatisfied = 0;
+                int totalPopulation = 0;
+                var raceNames = new List<string>();
+
+                foreach (var info in races)
+                {
+                    totalSatisfied += GetNeedSatisfiedCount(info.RaceName, info.NeedModel);
+                    totalPopulation += info.Population;
+                    raceNames.Add(info.DisplayName.ToLowerInvariant());
+                }
+
+                string prefix = firstNeed ? "Needs: " : "";
+                firstNeed = false;
+                string racesStr = string.Join(",", raceNames);
+
+                sharedCategory.Details.Add(new DetailItem
+                {
+                    Type = DetailType.Need,
+                    Label = $"{prefix}{needName}, {racesStr}, {totalSatisfied} of {totalPopulation} satisfied"
+                });
+            }
+
+            if (sharedCategory.Details.Count > 0)
+            {
+                _categories.Insert(0, sharedCategory);
+            }
+        }
+
+        private void BuildRaceDetails(RaceCategory category, string raceName, List<NeedInfo> needs)
         {
             // 1. Resolve with breakdown
             var (resolve, threshold, settling) = StatsReader.GetResolveSummary(raceName);
@@ -697,7 +795,6 @@ namespace ATSAccessibility
             });
 
             // 2. Needs (each need as separate item, first one gets "Needs:" prefix)
-            var needs = GetRaceNeeds(raceName);
             bool firstNeed = true;
             foreach (var need in needs)
             {
@@ -717,28 +814,7 @@ namespace ATSAccessibility
 
             // Note: "Other effects" are already included in the resolve breakdown above
 
-            // 3. Individual villagers (first one gets "Villagers:" prefix)
-            var villagers = GetVillagersForRace(raceName);
-            bool firstVillager = true;
-            foreach (var villager in villagers)
-            {
-                string name = GetVillagerName(villager);
-                string profession = GetVillagerProfession(villager);
-                var subDetails = BuildVillagerSubDetails(villager);
-
-                string prefix = firstVillager ? "Villagers: " : "";
-                firstVillager = false;
-
-                category.Details.Add(new DetailItem
-                {
-                    Type = DetailType.Villager,
-                    Label = $"{prefix}{name}, {profession}",
-                    SubDetails = subDetails,
-                    Data = villager
-                });
-            }
-
-            // 4. Favoring option
+            // 3. Favoring option
             category.Details.Add(new DetailItem
             {
                 Type = DetailType.Favoring,
@@ -763,112 +839,6 @@ namespace ATSAccessibility
             }
         }
 
-        private List<string> BuildVillagerSubDetails(object villager)
-        {
-            var details = new List<string>();
-
-            try
-            {
-                // Get villager state
-                var stateField = villager.GetType().GetField("state", GameReflection.PublicInstance);
-                var state = stateField?.GetValue(villager);
-                if (state == null) return details;
-
-                // Name and gender
-                var nameField = state.GetType().GetField("name", GameReflection.PublicInstance);
-                var isMaleField = state.GetType().GetField("isMale", GameReflection.PublicInstance);
-                string name = nameField?.GetValue(state) as string ?? "Unknown";
-                bool isMale = (bool)(isMaleField?.GetValue(state) ?? true);
-                details.Add($"Name: {name}, {(isMale ? "Male" : "Female")}");
-
-                // Profession
-                var professionField = state.GetType().GetField("profession", GameReflection.PublicInstance);
-                string profession = professionField?.GetValue(state) as string ?? "Unknown";
-                details.Add($"Profession: {profession}");
-
-                // Housing status
-                var houseField = state.GetType().GetField("house", GameReflection.PublicInstance);
-                int houseId = (int)(houseField?.GetValue(state) ?? 0);
-                details.Add(houseId > 0 ? "Housed" : "Homeless");
-
-                // Perks
-                var perksField = state.GetType().GetProperty("perks", GameReflection.PublicInstance)
-                    ?? state.GetType().GetField("perks", GameReflection.PublicInstance) as MemberInfo;
-                if (perksField != null)
-                {
-                    object perks = perksField is PropertyInfo pi ? pi.GetValue(state) : ((FieldInfo)perksField).GetValue(state);
-                    if (perks != null)
-                    {
-                        var perksList = GetPerkNames(perks);
-                        if (perksList.Count > 0)
-                        {
-                            details.Add($"Perks: {string.Join(", ", perksList)}");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] BuildVillagerSubDetails failed: {ex.Message}");
-            }
-
-            return details;
-        }
-
-        private List<string> GetPerkNames(object perksState)
-        {
-            var result = new List<string>();
-            try
-            {
-                // ActorPerksState has a 'perks' list
-                var perksListField = perksState.GetType().GetField("perks", GameReflection.PublicInstance);
-                var perksList = perksListField?.GetValue(perksState) as System.Collections.IEnumerable;
-                if (perksList == null) return result;
-
-                foreach (var perk in perksList)
-                {
-                    // Each perk has a 'name' field (string key)
-                    var perkNameField = perk.GetType().GetField("name", GameReflection.PublicInstance);
-                    string perkName = perkNameField?.GetValue(perk) as string;
-                    if (!string.IsNullOrEmpty(perkName))
-                    {
-                        // Try to get display name
-                        string displayName = GetPerkDisplayName(perkName) ?? perkName;
-                        result.Add(displayName);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetPerkNames failed: {ex.Message}");
-            }
-            return result;
-        }
-
-        private string GetPerkDisplayName(string perkName)
-        {
-            try
-            {
-                var settings = GameReflection.GetSettings();
-                if (settings == null) return null;
-
-                // Try GetVillagerPerk method
-                var getPerkMethod = settings.GetType().GetMethod("GetVillagerPerk", GameReflection.PublicInstance);
-                if (getPerkMethod != null)
-                {
-                    var perkModel = getPerkMethod.Invoke(settings, new object[] { perkName });
-                    if (perkModel != null)
-                    {
-                        var displayNameField = perkModel.GetType().GetField("displayName", GameReflection.PublicInstance);
-                        var locaText = displayNameField?.GetValue(perkModel);
-                        return GameReflection.GetLocaText(locaText);
-                    }
-                }
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetPerkDisplayName failed: {ex.Message}"); }
-            return null;
-        }
-
         // ========================================
         // REFLECTION HELPERS
         // ========================================
@@ -881,7 +851,6 @@ namespace ATSAccessibility
             if (villService != null)
             {
                 var type = villService.GetType();
-                _villRacesProperty = type.GetProperty("Races", GameReflection.PublicInstance);
                 _villGetDefaultProfessionAmountMethod = type.GetMethod("GetDefaultProfessionAmount",
                     GameReflection.PublicInstance, null, new Type[] { typeof(string) }, null);
                 _villGetHomelessAmountMethod = type.GetMethod("GetHomelessAmount",
@@ -947,6 +916,14 @@ namespace ATSAccessibility
         {
             public string name;
             public object model;
+        }
+
+        private class SharedNeedRaceInfo
+        {
+            public string RaceName;
+            public string DisplayName;
+            public object NeedModel;
+            public int Population;
         }
 
         private List<NeedInfo> GetRaceNeeds(string raceName)
@@ -1029,64 +1006,5 @@ namespace ATSAccessibility
             return 0;
         }
 
-        private List<object> GetVillagersForRace(string raceName)
-        {
-            var result = new List<object>();
-            try
-            {
-                var villService = GameReflection.GetVillagersService();
-                if (villService == null || _villRacesProperty == null) return result;
-
-                var racesDict = _villRacesProperty.GetValue(villService);
-                if (racesDict == null) return result;
-
-                var indexer = racesDict.GetType().GetProperty("Item");
-                var villagerList = indexer?.GetValue(racesDict, new object[] { raceName }) as System.Collections.IEnumerable;
-                if (villagerList == null) return result;
-
-                foreach (var villager in villagerList)
-                {
-                    result.Add(villager);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetVillagersForRace failed: {ex.Message}");
-            }
-            return result;
-        }
-
-        private string GetVillagerName(object villager)
-        {
-            try
-            {
-                var stateField = villager.GetType().GetField("state", GameReflection.PublicInstance);
-                var state = stateField?.GetValue(villager);
-                if (state != null)
-                {
-                    var nameField = state.GetType().GetField("name", GameReflection.PublicInstance);
-                    return nameField?.GetValue(state) as string ?? "Unknown";
-                }
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetVillagerName failed: {ex.Message}"); }
-            return "Unknown";
-        }
-
-        private string GetVillagerProfession(object villager)
-        {
-            try
-            {
-                var professionModelField = villager.GetType().GetField("professionModel", GameReflection.PublicInstance);
-                var professionModel = professionModelField?.GetValue(villager);
-                if (professionModel != null)
-                {
-                    var displayNameField = professionModel.GetType().GetField("displayName", GameReflection.PublicInstance);
-                    var locaText = displayNameField?.GetValue(professionModel);
-                    return GameReflection.GetLocaText(locaText) ?? "Worker";
-                }
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetVillagerProfession failed: {ex.Message}"); }
-            return "Worker";
-        }
     }
 }
