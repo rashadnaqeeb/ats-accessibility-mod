@@ -228,7 +228,7 @@ namespace ATSAccessibility
                     _mapNavigator.AnnounceEntrance();
                     return true;
                 case KeyCode.R:
-                    _mapNavigator.RotateBuilding();
+                    _mapNavigator.RotateBuilding(clockwise: !modifiers.Shift);
                     return true;
 
                 // Building range/orientation info

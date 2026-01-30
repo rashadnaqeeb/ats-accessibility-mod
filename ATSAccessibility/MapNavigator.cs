@@ -968,7 +968,7 @@ namespace ATSAccessibility
         /// <summary>
         /// Rotate the building at current cursor position and announce the new direction.
         /// </summary>
-        public void RotateBuilding()
+        public void RotateBuilding(bool clockwise = true)
         {
             EnsureCursorInitialized();
 
@@ -1008,8 +1008,10 @@ namespace ATSAccessibility
                 return;
             }
 
-            // Rotate the building
-            int newRotation = GameReflection.RotatePlacedBuilding(objectOn);
+            // Rotate the building in the specified direction
+            // Rotation values: 0=N, 1=W, 2=S, 3=E — incrementing is counterclockwise
+            int direction = clockwise ? -1 : 1;
+            int newRotation = GameReflection.RotatePlacedBuildingDirection(objectOn, direction);
             if (newRotation >= 0 && newRotation < RotationDirections.Length)
             {
                 Speech.Say(RotationDirections[newRotation]);

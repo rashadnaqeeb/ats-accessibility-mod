@@ -4188,6 +4188,80 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Rotate a placed building in a specific direction and return the new rotation (0-3).
+        /// direction: -1 for clockwise, +1 for counterclockwise (rotation values 0=N,1=W,2=S,3=E).
+        /// Call CanMovePlacedBuilding and CanRotatePlacedBuilding first to check validity.
+        /// Returns -1 if rotation failed.
+        /// </summary>
+        public static int RotatePlacedBuildingDirection(object building, int direction)
+        {
+            if (building == null) return -1;
+
+            try
+            {
+                // Get MapService for grid operations
+                var mapService = GetMapService();
+                if (mapService == null)
+                {
+                    Debug.LogError("[ATSAccessibility] RotatePlacedBuildingDirection: MapService not found");
+                    return -1;
+                }
+
+                // Get RemoveFromGrid and PlaceOnGrid methods
+                var removeMethod = mapService.GetType().GetMethod("RemoveFromGrid",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var placeMethod = mapService.GetType().GetMethod("PlaceOnGrid",
+                    BindingFlags.Public | BindingFlags.Instance);
+
+                if (removeMethod == null || placeMethod == null)
+                {
+                    Debug.LogError("[ATSAccessibility] RotatePlacedBuildingDirection: Grid methods not found");
+                    return -1;
+                }
+
+                // Read current rotation
+                var rotationProp = building.GetType().GetProperty("Rotation",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (rotationProp == null)
+                {
+                    Debug.LogError("[ATSAccessibility] RotatePlacedBuildingDirection: Rotation property not found");
+                    return -1;
+                }
+
+                int current = (int)rotationProp.GetValue(building);
+                int newRotation = (current + direction + 4) % 4;
+
+                // Use the cached parameterized Rotate(int) method
+                EnsureBuildingPlacementTypes();
+                if (_buildingRotateMethod == null)
+                {
+                    Debug.LogError("[ATSAccessibility] RotatePlacedBuildingDirection: Rotate method not found");
+                    return -1;
+                }
+
+                // 1. Remove from grid (clears old footprint)
+                removeMethod.Invoke(mapService, new object[] { building });
+
+                // 2. Rotate the building to the computed rotation
+                _buildingRotateMethod.Invoke(building, new object[] { newRotation });
+
+                // 3. Re-place on grid (sets new footprint)
+                placeMethod.Invoke(mapService, new object[] { building });
+
+                // Rotate(int) doesn't play a sound, so play it explicitly
+                SoundManager.PlayBuildingRotated();
+
+                return newRotation;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ATSAccessibility] RotatePlacedBuildingDirection failed: {ex.Message}");
+            }
+
+            return -1;
+        }
+
+        /// <summary>
         /// Get a building's grid position.
         /// Returns the building's Field property as Vector2Int.
         /// </summary>

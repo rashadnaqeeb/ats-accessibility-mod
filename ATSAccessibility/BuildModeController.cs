@@ -85,7 +85,7 @@ namespace ATSAccessibility
             switch (keyCode)
             {
                 case KeyCode.R:
-                    RotateBuilding();
+                    RotateBuilding(!modifiers.Shift);
                     return true;
 
                 case KeyCode.Space:
@@ -149,7 +149,7 @@ namespace ATSAccessibility
         /// <summary>
         /// Rotate the building and announce the new direction.
         /// </summary>
-        private void RotateBuilding()
+        private void RotateBuilding(bool clockwise)
         {
             // Check if the building model allows rotation
             if (!GameReflection.CanRotateBuildingModel(_selectedBuildingModel))
@@ -158,7 +158,8 @@ namespace ATSAccessibility
                 return;
             }
 
-            _rotation = (_rotation + 1) % 4;
+            _rotation = (_rotation + (clockwise ? 3 : 1)) % 4;
+            SoundManager.PlayBuildingRotated();
             string direction = GetCardinalDirection(_rotation);
 
             // Get building size and adjust for rotation
