@@ -276,6 +276,22 @@ namespace ATSAccessibility
                     Navigate(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_items.Count > 0)
+                    {
+                        _currentIndex = 0;
+                        AnnounceCurrentItem();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_items.Count > 0)
+                    {
+                        _currentIndex = _items.Count - 1;
+                        AnnounceCurrentItem();
+                    }
+                    return true;
+
                 case KeyCode.RightArrow:
                     // Right arrow only enters submenu for save slots
                     EnterSubmenuIfSaveSlot();
@@ -465,6 +481,22 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigateSubmenu(1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_submenuItems.Count > 0)
+                    {
+                        _submenuIndex = 0;
+                        AnnounceSubmenuItem();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_submenuItems.Count > 0)
+                    {
+                        _submenuIndex = _submenuItems.Count - 1;
+                        AnnounceSubmenuItem();
+                    }
                     return true;
 
                 case KeyCode.LeftArrow:

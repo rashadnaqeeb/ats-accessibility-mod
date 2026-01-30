@@ -309,6 +309,22 @@ namespace ATSAccessibility
                     NavigateNoTrader(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_noTraderItems.Count > 0)
+                    {
+                        _currentIndex = 0;
+                        Speech.Say(_noTraderItems[_currentIndex].Label);
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_noTraderItems.Count > 0)
+                    {
+                        _currentIndex = _noTraderItems.Count - 1;
+                        Speech.Say(_noTraderItems[_currentIndex].Label);
+                    }
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     ActivateNoTraderItem();
@@ -560,6 +576,22 @@ namespace ATSAccessibility
                     NavigateMainMenu(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_mainMenuItems.Count > 0)
+                    {
+                        _currentIndex = 0;
+                        Speech.Say(_mainMenuItems[_currentIndex].Label);
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_mainMenuItems.Count > 0)
+                    {
+                        _currentIndex = _mainMenuItems.Count - 1;
+                        Speech.Say(_mainMenuItems[_currentIndex].Label);
+                    }
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     ActivateMainMenuItem();
@@ -708,6 +740,28 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigateGoods(1);
+                    return true;
+
+                case KeyCode.Home:
+                    {
+                        var homeList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
+                        if (homeList.Count > 0)
+                        {
+                            _currentIndex = 0;
+                            Speech.Say(BuildGoodLabel(homeList[_currentIndex]));
+                        }
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    {
+                        var endList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
+                        if (endList.Count > 0)
+                        {
+                            _currentIndex = endList.Count - 1;
+                            Speech.Say(BuildGoodLabel(endList[_currentIndex]));
+                        }
+                    }
                     return true;
 
                 case KeyCode.Plus:
@@ -970,6 +1024,22 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigatePerks(1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_perks.Count > 0)
+                    {
+                        _currentIndex = 0;
+                        Speech.Say(BuildPerkLabel(_perks[_currentIndex]));
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_perks.Count > 0)
+                    {
+                        _currentIndex = _perks.Count - 1;
+                        Speech.Say(BuildPerkLabel(_perks[_currentIndex]));
+                    }
                     return true;
 
                 case KeyCode.Return:

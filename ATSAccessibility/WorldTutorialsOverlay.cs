@@ -35,6 +35,14 @@ namespace ATSAccessibility
                     Navigate(1);
                     return true;
 
+                case KeyCode.Home:
+                    NavigateTo(0);
+                    return true;
+
+                case KeyCode.End:
+                    NavigateTo(_tutorials.Count - 1);
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     SelectCurrentTutorial();
@@ -114,6 +122,13 @@ namespace ATSAccessibility
             if (_tutorials.Count == 0) return;
 
             _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _tutorials.Count);
+            AnnounceCurrentTutorial();
+        }
+
+        private void NavigateTo(int index)
+        {
+            if (_tutorials.Count == 0) return;
+            _currentIndex = Mathf.Clamp(index, 0, _tutorials.Count - 1);
             AnnounceCurrentTutorial();
         }
 

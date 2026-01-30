@@ -122,6 +122,12 @@ namespace ATSAccessibility
                 case KeyCode.DownArrow:
                     NavigateElement(1);
                     return true;
+                case KeyCode.Home:
+                    NavigateElementTo(0);
+                    return true;
+                case KeyCode.End:
+                    NavigateElementTo(_elements.Count - 1);
+                    return true;
                 case KeyCode.Plus:
                 case KeyCode.KeypadPlus:
                 case KeyCode.Equals:
@@ -357,6 +363,16 @@ namespace ATSAccessibility
 
             RebuildElementsForCurrentPanel();
             AnnouncePanelName();
+        }
+
+        /// <summary>
+        /// Jump to a specific element index (Home/End).
+        /// </summary>
+        public void NavigateElementTo(int index)
+        {
+            if (_elements.Count == 0) return;
+            _currentElementIndex = Mathf.Clamp(index, 0, _elements.Count - 1);
+            AnnounceCurrentElement();
         }
 
         /// <summary>

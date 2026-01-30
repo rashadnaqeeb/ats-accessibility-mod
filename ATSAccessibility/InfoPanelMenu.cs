@@ -149,6 +149,14 @@ namespace ATSAccessibility
                     Navigate(1);
                     return true;
 
+                case KeyCode.Home:
+                    NavigateTo(0);
+                    return true;
+
+                case KeyCode.End:
+                    NavigateTo(_menuLabels.Length - 1);
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                 case KeyCode.RightArrow:
@@ -190,6 +198,13 @@ namespace ATSAccessibility
         private void Navigate(int direction)
         {
             _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _menuLabels.Length);
+            AnnounceCurrentItem(includePrefix: false);
+        }
+
+        private void NavigateTo(int index)
+        {
+            if (_menuLabels.Length == 0) return;
+            _currentIndex = Mathf.Clamp(index, 0, _menuLabels.Length - 1);
             AnnounceCurrentItem(includePrefix: false);
         }
 

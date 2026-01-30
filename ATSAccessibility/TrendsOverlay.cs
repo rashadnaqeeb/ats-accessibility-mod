@@ -81,6 +81,22 @@ namespace ATSAccessibility
                     NavigateOperations(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_operations.Count > 0)
+                    {
+                        _operationIndex = 0;
+                        AnnounceCurrentOperation();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_operations.Count > 0)
+                    {
+                        _operationIndex = _operations.Count - 1;
+                        AnnounceCurrentOperation();
+                    }
+                    return true;
+
                 case KeyCode.Backspace:
                     if (_search.RemoveChar())
                     {

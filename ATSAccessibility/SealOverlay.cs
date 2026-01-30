@@ -62,6 +62,38 @@ namespace ATSAccessibility
                     Navigate(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_inOfferingsDetail)
+                    {
+                        if (_offerings != null && _offerings.Length > 0)
+                        {
+                            _currentOfferingIndex = 0;
+                            AnnounceOffering(_currentOfferingIndex);
+                        }
+                    }
+                    else
+                    {
+                        _currentSection = _allSections[0];
+                        AnnounceSection();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_inOfferingsDetail)
+                    {
+                        if (_offerings != null && _offerings.Length > 0)
+                        {
+                            _currentOfferingIndex = _offerings.Length - 1;
+                            AnnounceOffering(_currentOfferingIndex);
+                        }
+                    }
+                    else
+                    {
+                        _currentSection = _allSections[_allSections.Length - 1];
+                        AnnounceSection();
+                    }
+                    return true;
+
                 case KeyCode.RightArrow:
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:

@@ -152,6 +152,14 @@ namespace ATSAccessibility
                     NavigateDown();
                     return true;
 
+                case KeyCode.Home:
+                    NavigateToFirst();
+                    return true;
+
+                case KeyCode.End:
+                    NavigateToLast();
+                    return true;
+
                 case KeyCode.LeftArrow:
                     NavigateLeft();
                     return true;
@@ -234,6 +242,82 @@ namespace ATSAccessibility
             else
             {
                 NavigateCategory(1);
+            }
+        }
+
+        private void NavigateToFirst()
+        {
+            if (_currentSection == EmbarkSection.TopMenu)
+            {
+                _topMenuIndex = 0;
+                AnnounceTopMenu();
+            }
+            else if (_currentSection == EmbarkSection.SpendPoints)
+            {
+                if (_categories.Count > 0)
+                {
+                    _currentDetailIndex = 0;
+                    AnnounceSpendPointsItem();
+                }
+            }
+            else if (_focusOnDetails)
+            {
+                if (_categories.Count > 0)
+                {
+                    _currentDetailIndex = 0;
+                    AnnounceCurrentDetail();
+                }
+            }
+            else
+            {
+                if (_categories.Count > 0)
+                {
+                    _currentCategoryIndex = 0;
+                    _currentDetailIndex = 0;
+                    AnnounceCurrentCategory();
+                }
+            }
+        }
+
+        private void NavigateToLast()
+        {
+            if (_currentSection == EmbarkSection.TopMenu)
+            {
+                _topMenuIndex = _topMenuItems.Length - 1;
+                AnnounceTopMenu();
+            }
+            else if (_currentSection == EmbarkSection.SpendPoints)
+            {
+                if (_categories.Count > 0)
+                {
+                    var category = _categories[_currentCategoryIndex];
+                    if (category.Details.Count > 0)
+                    {
+                        _currentDetailIndex = category.Details.Count - 1;
+                        AnnounceSpendPointsItem();
+                    }
+                }
+            }
+            else if (_focusOnDetails)
+            {
+                if (_categories.Count > 0)
+                {
+                    var category = _categories[_currentCategoryIndex];
+                    if (category.Details.Count > 0)
+                    {
+                        _currentDetailIndex = category.Details.Count - 1;
+                        AnnounceCurrentDetail();
+                    }
+                }
+            }
+            else
+            {
+                if (_categories.Count > 0)
+                {
+                    _currentCategoryIndex = _categories.Count - 1;
+                    _currentDetailIndex = 0;
+                    AnnounceCurrentCategory();
+                }
             }
         }
 

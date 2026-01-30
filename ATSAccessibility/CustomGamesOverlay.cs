@@ -126,6 +126,16 @@ namespace ATSAccessibility
                     NavigateTopMenu(-1);
                     return true;
 
+                case KeyCode.Home:
+                    _topMenuIndex = 0;
+                    AnnounceTopMenuItem();
+                    return true;
+
+                case KeyCode.End:
+                    _topMenuIndex = _sections.Count - 1;
+                    AnnounceTopMenuItem();
+                    return true;
+
                 case KeyCode.Space:
                     // Space randomizes seed when on Seed option
                     if (currentSection == SectionType.Seed)
@@ -190,6 +200,23 @@ namespace ATSAccessibility
 
                 case KeyCode.UpArrow:
                     NavigateSectionItem(-1);
+                    return true;
+
+                case KeyCode.Home:
+                    _sectionItemIndex = 0;
+                    AnnounceSectionItem();
+                    return true;
+
+                case KeyCode.End:
+                    {
+                        var section = _sections[_topMenuIndex];
+                        int count = GetSectionItemCount(section);
+                        if (count > 0)
+                        {
+                            _sectionItemIndex = count - 1;
+                            AnnounceSectionItem();
+                        }
+                    }
                     return true;
 
                 case KeyCode.LeftArrow:

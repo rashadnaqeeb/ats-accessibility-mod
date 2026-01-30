@@ -79,6 +79,22 @@ namespace ATSAccessibility
                     Navigate(-1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_items.Count > 0)
+                    {
+                        _currentIndex = 0;
+                        AnnounceCurrentItem();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_items.Count > 0)
+                    {
+                        _currentIndex = _items.Count - 1;
+                        AnnounceCurrentItem();
+                    }
+                    return true;
+
                 case KeyCode.RightArrow:
                     // Open submenu for modifiers
                     if (_currentIndex >= 0 && _currentIndex < _items.Count &&
@@ -127,6 +143,28 @@ namespace ATSAccessibility
 
                 case KeyCode.UpArrow:
                     NavigateSubmenu(-1);
+                    return true;
+
+                case KeyCode.Home:
+                    {
+                        int count = GetSubmenuCount();
+                        if (count > 0)
+                        {
+                            _submenuIndex = 0;
+                            AnnounceSubmenuItem();
+                        }
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    {
+                        int count = GetSubmenuCount();
+                        if (count > 0)
+                        {
+                            _submenuIndex = count - 1;
+                            AnnounceSubmenuItem();
+                        }
+                    }
                     return true;
 
                 case KeyCode.LeftArrow:

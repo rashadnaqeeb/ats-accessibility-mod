@@ -142,6 +142,23 @@ namespace ATSAccessibility
                         NavigateCategory(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_focusOnBuildings)
+                        JumpToBuilding(0);
+                    else
+                        JumpToCategory(0);
+                    return true;
+
+                case KeyCode.End:
+                    if (_focusOnBuildings)
+                    {
+                        var endCat = _categories[_currentCategoryIndex];
+                        JumpToBuilding(endCat.Buildings.Count - 1);
+                    }
+                    else
+                        JumpToCategory(_categories.Count - 1);
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     if (_focusOnBuildings)
@@ -195,6 +212,29 @@ namespace ATSAccessibility
             _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
             _currentBuildingIndex = 0;  // Reset building index when changing category
             AnnounceCurrentCategory();
+        }
+
+        /// <summary>
+        /// Jump to a specific category index (Home/End).
+        /// </summary>
+        private void JumpToCategory(int index)
+        {
+            if (_categories.Count == 0) return;
+            _currentCategoryIndex = Mathf.Clamp(index, 0, _categories.Count - 1);
+            _currentBuildingIndex = 0;
+            AnnounceCurrentCategory();
+        }
+
+        /// <summary>
+        /// Jump to a specific building index (Home/End).
+        /// </summary>
+        private void JumpToBuilding(int index)
+        {
+            if (!_focusOnBuildings) return;
+            var category = _categories[_currentCategoryIndex];
+            if (category.Buildings.Count == 0) return;
+            _currentBuildingIndex = Mathf.Clamp(index, 0, category.Buildings.Count - 1);
+            AnnounceCurrentBuilding();
         }
 
         /// <summary>

@@ -119,6 +119,16 @@ namespace ATSAccessibility
                     NavigateMainMenu(1);
                     return true;
 
+                case KeyCode.Home:
+                    _mainMenuIndex = 0;
+                    AnnounceMainMenuItem();
+                    return true;
+
+                case KeyCode.End:
+                    _mainMenuIndex = MainMenuItems.Length - 1;
+                    AnnounceMainMenuItem();
+                    return true;
+
                 case KeyCode.RightArrow:
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
@@ -229,6 +239,28 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigateSubmenu(1);
+                    return true;
+
+                case KeyCode.Home:
+                    {
+                        int count = GetCurrentSubmenuCount();
+                        if (count > 0)
+                        {
+                            _submenuIndex = 0;
+                            AnnounceSubmenuItem();
+                        }
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    {
+                        int count = GetCurrentSubmenuCount();
+                        if (count > 0)
+                        {
+                            _submenuIndex = count - 1;
+                            AnnounceSubmenuItem();
+                        }
+                    }
                     return true;
 
                 case KeyCode.LeftArrow:
@@ -520,6 +552,22 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigateDetails(1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_settlementDetailItems != null && _settlementDetailItems.Count > 0)
+                    {
+                        _detailIndex = 0;
+                        AnnounceDetailItem();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_settlementDetailItems != null && _settlementDetailItems.Count > 0)
+                    {
+                        _detailIndex = _settlementDetailItems.Count - 1;
+                        AnnounceDetailItem();
+                    }
                     return true;
 
                 case KeyCode.LeftArrow:

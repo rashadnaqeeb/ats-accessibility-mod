@@ -133,6 +133,14 @@ namespace ATSAccessibility
                     NavigateDown();
                     return true;
 
+                case KeyCode.Home:
+                    NavigateToFirst();
+                    return true;
+
+                case KeyCode.End:
+                    NavigateToLast();
+                    return true;
+
                 case KeyCode.RightArrow:
                     DrillIn();
                     return true;
@@ -341,6 +349,68 @@ namespace ATSAccessibility
             if (detail.SubDetails.Count == 0) return;
             _currentSubDetailIndex = NavigationUtils.WrapIndex(_currentSubDetailIndex, direction, detail.SubDetails.Count);
             AnnounceSubDetail();
+        }
+
+        private void NavigateToFirst()
+        {
+            if (_focusOnSubDetails)
+            {
+                var category = _categories[_currentCategoryIndex];
+                if (_currentDetailIndex < category.Details.Count && category.Details[_currentDetailIndex].SubDetails.Count > 0)
+                {
+                    _currentSubDetailIndex = 0;
+                    AnnounceSubDetail();
+                }
+            }
+            else if (_focusOnDetails)
+            {
+                _currentDetailIndex = 0;
+                _currentSubDetailIndex = 0;
+                AnnounceDetail();
+            }
+            else
+            {
+                if (_categories.Count == 0) return;
+                _currentCategoryIndex = 0;
+                _currentDetailIndex = 0;
+                _currentSubDetailIndex = 0;
+                AnnounceCategory();
+            }
+        }
+
+        private void NavigateToLast()
+        {
+            if (_focusOnSubDetails)
+            {
+                var category = _categories[_currentCategoryIndex];
+                if (_currentDetailIndex < category.Details.Count)
+                {
+                    var detail = category.Details[_currentDetailIndex];
+                    if (detail.SubDetails.Count > 0)
+                    {
+                        _currentSubDetailIndex = detail.SubDetails.Count - 1;
+                        AnnounceSubDetail();
+                    }
+                }
+            }
+            else if (_focusOnDetails)
+            {
+                var category = _categories[_currentCategoryIndex];
+                if (category.Details.Count > 0)
+                {
+                    _currentDetailIndex = category.Details.Count - 1;
+                    _currentSubDetailIndex = 0;
+                    AnnounceDetail();
+                }
+            }
+            else
+            {
+                if (_categories.Count == 0) return;
+                _currentCategoryIndex = _categories.Count - 1;
+                _currentDetailIndex = 0;
+                _currentSubDetailIndex = 0;
+                AnnounceCategory();
+            }
         }
 
         // ========================================

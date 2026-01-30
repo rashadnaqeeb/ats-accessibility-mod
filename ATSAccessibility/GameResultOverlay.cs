@@ -65,6 +65,40 @@ namespace ATSAccessibility
                         NavigateTopLevel(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_inSection)
+                    {
+                        var homeItem = _items[_topIndex];
+                        if (homeItem.SubItems != null && homeItem.SubItems.Count > 0)
+                        {
+                            _subIndex = 0;
+                            Speech.Say(homeItem.SubItems[_subIndex]);
+                        }
+                    }
+                    else if (_items.Count > 0)
+                    {
+                        _topIndex = 0;
+                        Speech.Say(_items[_topIndex].Label);
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_inSection)
+                    {
+                        var endItem = _items[_topIndex];
+                        if (endItem.SubItems != null && endItem.SubItems.Count > 0)
+                        {
+                            _subIndex = endItem.SubItems.Count - 1;
+                            Speech.Say(endItem.SubItems[_subIndex]);
+                        }
+                    }
+                    else if (_items.Count > 0)
+                    {
+                        _topIndex = _items.Count - 1;
+                        Speech.Say(_items[_topIndex].Label);
+                    }
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                 case KeyCode.RightArrow:

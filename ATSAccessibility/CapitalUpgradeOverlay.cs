@@ -121,6 +121,14 @@ namespace ATSAccessibility
                     NavigateStructures(-1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_structures.Count > 0) { _currentStructureIndex = 0; AnnounceStructure(); }
+                    return true;
+
+                case KeyCode.End:
+                    if (_structures.Count > 0) { _currentStructureIndex = _structures.Count - 1; AnnounceStructure(); }
+                    return true;
+
                 case KeyCode.RightArrow:
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
@@ -162,6 +170,14 @@ namespace ATSAccessibility
 
                 case KeyCode.UpArrow:
                     NavigateUpgrades(-1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_upgrades.Count > 0) { _currentUpgradeIndex = 0; AnnounceUpgrade(); }
+                    return true;
+
+                case KeyCode.End:
+                    if (_upgrades.Count > 0) { _currentUpgradeIndex = _upgrades.Count - 1; AnnounceUpgrade(); }
                     return true;
 
                 case KeyCode.RightArrow:
@@ -215,6 +231,14 @@ namespace ATSAccessibility
 
                 case KeyCode.UpArrow:
                     NavigateRewards(-1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_rewards.Count > 0) { _currentRewardIndex = 0; AnnounceReward(); }
+                    return true;
+
+                case KeyCode.End:
+                    if (_rewards.Count > 0) { _currentRewardIndex = _rewards.Count - 1; AnnounceReward(); }
                     return true;
 
                 case KeyCode.LeftArrow:

@@ -85,6 +85,14 @@ namespace ATSAccessibility
                     Navigate(1);
                     return true;
 
+                case KeyCode.Home:
+                    NavigateTo(0);
+                    return true;
+
+                case KeyCode.End:
+                    NavigateTo(GetCurrentItemCount() - 1);
+                    return true;
+
                 case KeyCode.RightArrow:
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
@@ -219,6 +227,14 @@ namespace ATSAccessibility
         // ========================================
         // NAVIGATION
         // ========================================
+
+        private void NavigateTo(int index)
+        {
+            int count = GetCurrentItemCount();
+            if (count == 0) return;
+            SetCurrentIndex(Mathf.Clamp(index, 0, count - 1));
+            AnnounceCurrent();
+        }
 
         private void Navigate(int direction)
         {
@@ -705,6 +721,12 @@ namespace ATSAccessibility
         {
             switch (_level)
             {
+                case MenuLevel.Main:
+                    _mainIndex = index;
+                    break;
+                case MenuLevel.Resources:
+                    _resourceIndex = index;
+                    break;
                 case MenuLevel.Currencies:
                     _currencyIndex = index;
                     break;

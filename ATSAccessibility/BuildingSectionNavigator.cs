@@ -83,6 +83,14 @@ namespace ATSAccessibility
                     NavigateDown();
                     return true;
 
+                case KeyCode.Home:
+                    NavigateToFirst();
+                    return true;
+
+                case KeyCode.End:
+                    NavigateToLast();
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     EnterLevel();
@@ -388,6 +396,95 @@ namespace ATSAccessibility
                     NavigateSubSubItems(1);
                     break;
             }
+        }
+
+        private void NavigateToFirst()
+        {
+            switch (_navigationLevel)
+            {
+                case 0:
+                    JumpToSection(0);
+                    break;
+                case 1:
+                    JumpToItem(0);
+                    break;
+                case 2:
+                    JumpToSubItem(0);
+                    break;
+                case 3:
+                    JumpToSubSubItem(0);
+                    break;
+            }
+        }
+
+        private void NavigateToLast()
+        {
+            switch (_navigationLevel)
+            {
+                case 0:
+                    var sections = GetSections();
+                    if (sections != null && sections.Length > 0)
+                        JumpToSection(sections.Length - 1);
+                    break;
+                case 1:
+                    int itemCount = GetItemCount(_currentSectionIndex);
+                    if (itemCount > 0)
+                        JumpToItem(itemCount - 1);
+                    break;
+                case 2:
+                    int subItemCount = GetSubItemCount(_currentSectionIndex, _currentItemIndex);
+                    if (subItemCount > 0)
+                        JumpToSubItem(subItemCount - 1);
+                    break;
+                case 3:
+                    int subSubItemCount = GetSubSubItemCount(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex);
+                    if (subSubItemCount > 0)
+                        JumpToSubSubItem(subSubItemCount - 1);
+                    break;
+            }
+        }
+
+        private void JumpToSection(int index)
+        {
+            var sections = GetSections();
+            if (sections == null || sections.Length == 0) return;
+
+            _currentSectionIndex = Mathf.Clamp(index, 0, sections.Length - 1);
+            _currentItemIndex = 0;
+            _currentSubItemIndex = 0;
+            _currentSubSubItemIndex = 0;
+            _search.Clear();
+            AnnounceSection(_currentSectionIndex);
+        }
+
+        private void JumpToItem(int index)
+        {
+            int itemCount = GetItemCount(_currentSectionIndex);
+            if (itemCount == 0) return;
+
+            _currentItemIndex = Mathf.Clamp(index, 0, itemCount - 1);
+            _currentSubItemIndex = 0;
+            _currentSubSubItemIndex = 0;
+            AnnounceItem(_currentSectionIndex, _currentItemIndex);
+        }
+
+        private void JumpToSubItem(int index)
+        {
+            int subItemCount = GetSubItemCount(_currentSectionIndex, _currentItemIndex);
+            if (subItemCount == 0) return;
+
+            _currentSubItemIndex = Mathf.Clamp(index, 0, subItemCount - 1);
+            _currentSubSubItemIndex = 0;
+            AnnounceSubItem(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex);
+        }
+
+        private void JumpToSubSubItem(int index)
+        {
+            int subSubItemCount = GetSubSubItemCount(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex);
+            if (subSubItemCount == 0) return;
+
+            _currentSubSubItemIndex = Mathf.Clamp(index, 0, subSubItemCount - 1);
+            AnnounceSubSubItem(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex, _currentSubSubItemIndex);
         }
 
         private void NavigateSections(int direction)

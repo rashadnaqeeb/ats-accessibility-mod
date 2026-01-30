@@ -154,6 +154,22 @@ namespace ATSAccessibility
                     NavigateSections(-1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_sections != null && _sections.Length > 0)
+                    {
+                        _currentSectionIndex = 0;
+                        AnnounceSection();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_sections != null && _sections.Length > 0)
+                    {
+                        _currentSectionIndex = _sections.Length - 1;
+                        AnnounceSection();
+                    }
+                    return true;
+
                 case KeyCode.RightArrow:
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
@@ -200,6 +216,22 @@ namespace ATSAccessibility
 
                 case KeyCode.UpArrow:
                     NavigateItems(-1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_currentItems.Count > 0)
+                    {
+                        _currentItemIndex = 0;
+                        AnnounceItem();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_currentItems.Count > 0)
+                    {
+                        _currentItemIndex = _currentItems.Count - 1;
+                        AnnounceItem();
+                    }
                     return true;
 
                 case KeyCode.RightArrow:
@@ -258,6 +290,22 @@ namespace ATSAccessibility
 
                 case KeyCode.UpArrow:
                     NavigateRewards(-1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_rewards.Count > 0)
+                    {
+                        _currentRewardIndex = 0;
+                        AnnounceReward();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_rewards.Count > 0)
+                    {
+                        _currentRewardIndex = _rewards.Count - 1;
+                        AnnounceReward();
+                    }
                     return true;
 
                 case KeyCode.LeftArrow:

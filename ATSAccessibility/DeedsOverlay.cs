@@ -101,6 +101,22 @@ namespace ATSAccessibility
                     NavigateCategory(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_categories.Count > 0)
+                    {
+                        _currentCategoryIndex = 0;
+                        AnnounceCategory();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_categories.Count > 0)
+                    {
+                        _currentCategoryIndex = _categories.Count - 1;
+                        AnnounceCategory();
+                    }
+                    return true;
+
                 case KeyCode.RightArrow:
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
@@ -143,6 +159,28 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigateItem(1);
+                    return true;
+
+                case KeyCode.Home:
+                    {
+                        var goals = GetCurrentGoals();
+                        if (goals != null && goals.Count > 0)
+                        {
+                            _currentItemIndex = 0;
+                            AnnounceItem();
+                        }
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    {
+                        var goals = GetCurrentGoals();
+                        if (goals != null && goals.Count > 0)
+                        {
+                            _currentItemIndex = goals.Count - 1;
+                            AnnounceItem();
+                        }
+                    }
                     return true;
 
                 case KeyCode.LeftArrow:

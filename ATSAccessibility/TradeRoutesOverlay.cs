@@ -237,6 +237,22 @@ namespace ATSAccessibility
                     NavigateMainMenu(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_mainMenuItems.Count > 0)
+                    {
+                        _currentIndex = 0;
+                        Speech.Say(_mainMenuItems[_currentIndex].Label);
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_mainMenuItems.Count > 0)
+                    {
+                        _currentIndex = _mainMenuItems.Count - 1;
+                        Speech.Say(_mainMenuItems[_currentIndex].Label);
+                    }
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     ActivateMainMenuItem();
@@ -457,6 +473,22 @@ namespace ATSAccessibility
                     NavigateRoutes(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_routes.Count > 0)
+                    {
+                        _currentIndex = 0;
+                        Speech.Say(BuildRouteLabel(_routes[_currentIndex]));
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_routes.Count > 0)
+                    {
+                        _currentIndex = _routes.Count - 1;
+                        Speech.Say(BuildRouteLabel(_routes[_currentIndex]));
+                    }
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     CollectCurrentRoute();
@@ -607,6 +639,28 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigateOffers(1);
+                    return true;
+
+                case KeyCode.Home:
+                    {
+                        int itemCount = GetTownOffersItemCount();
+                        if (itemCount > 0)
+                        {
+                            _currentIndex = 0;
+                            AnnounceTownOffersItem();
+                        }
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    {
+                        int itemCount = GetTownOffersItemCount();
+                        if (itemCount > 0)
+                        {
+                            _currentIndex = itemCount - 1;
+                            AnnounceTownOffersItem();
+                        }
+                    }
                     return true;
 
                 case KeyCode.Return:

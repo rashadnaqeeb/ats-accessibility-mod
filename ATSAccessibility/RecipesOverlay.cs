@@ -54,6 +54,46 @@ namespace ATSAccessibility
                     Navigate(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_navigationLevel == LEVEL_GOODS)
+                    {
+                        if (_goods != null && _goods.Count > 0)
+                        {
+                            _goodIndex = 0;
+                            AnnounceGood();
+                        }
+                    }
+                    else
+                    {
+                        var homeGood = GetCurrentGood();
+                        if (homeGood != null && homeGood.Recipes.Count > 0)
+                        {
+                            _recipeIndex = 0;
+                            AnnounceRecipe();
+                        }
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_navigationLevel == LEVEL_GOODS)
+                    {
+                        if (_goods != null && _goods.Count > 0)
+                        {
+                            _goodIndex = _goods.Count - 1;
+                            AnnounceGood();
+                        }
+                    }
+                    else
+                    {
+                        var endGood = GetCurrentGood();
+                        if (endGood != null && endGood.Recipes.Count > 0)
+                        {
+                            _recipeIndex = endGood.Recipes.Count - 1;
+                            AnnounceRecipe();
+                        }
+                    }
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     OnEnter();

@@ -178,6 +178,16 @@ namespace ATSAccessibility
                     NavigateMainMenu(1);
                     return true;
 
+                case KeyCode.Home:
+                    _mainMenuIndex = 0;
+                    AnnounceMainMenuItem();
+                    return true;
+
+                case KeyCode.End:
+                    _mainMenuIndex = 6; // Last item: Craft
+                    AnnounceMainMenuItem();
+                    return true;
+
                 case KeyCode.RightArrow:
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
@@ -460,6 +470,28 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigateSubmenu(1);
+                    return true;
+
+                case KeyCode.Home:
+                    {
+                        int count = GetSubmenuItemCount();
+                        if (count > 0)
+                        {
+                            _submenuIndex = 0;
+                            AnnounceSubmenuItem();
+                        }
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    {
+                        int count = GetSubmenuItemCount();
+                        if (count > 0)
+                        {
+                            _submenuIndex = count - 1;
+                            AnnounceSubmenuItem();
+                        }
+                    }
                     return true;
 
                 case KeyCode.RightArrow:

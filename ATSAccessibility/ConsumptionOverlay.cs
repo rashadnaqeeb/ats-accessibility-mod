@@ -136,6 +136,14 @@ namespace ATSAccessibility
                     NavigateCategory(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_categories.Count > 0) { _categoryIndex = 0; Speech.Say(GetCategoryAnnouncement(0)); }
+                    return true;
+
+                case KeyCode.End:
+                    if (_categories.Count > 0) { _categoryIndex = _categories.Count - 1; Speech.Say(GetCategoryAnnouncement(_categoryIndex)); }
+                    return true;
+
                 case KeyCode.RightArrow:
                     ExpandCategory();
                     return true;
@@ -272,6 +280,14 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigateItem(1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_items.Count > 0) { _itemIndex = 0; Speech.Say(GetItemAnnouncement(0)); }
+                    return true;
+
+                case KeyCode.End:
+                    if (_items.Count > 0) { _itemIndex = _items.Count - 1; Speech.Say(GetItemAnnouncement(_itemIndex)); }
                     return true;
 
                 case KeyCode.RightArrow:
@@ -423,6 +439,14 @@ namespace ATSAccessibility
 
                 case KeyCode.DownArrow:
                     NavigateRace(1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_races.Count > 0) { _raceIndex = 0; Speech.Say(GetRaceAnnouncement(0)); }
+                    return true;
+
+                case KeyCode.End:
+                    if (_races.Count > 0) { _raceIndex = _races.Count - 1; Speech.Say(GetRaceAnnouncement(_raceIndex)); }
                     return true;
 
                 case KeyCode.LeftArrow:

@@ -102,6 +102,20 @@ namespace ATSAccessibility
                         NavigateCategory(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_focusOnItems)
+                        JumpToItem(0);
+                    else
+                        JumpToCategory(0);
+                    return true;
+
+                case KeyCode.End:
+                    if (_focusOnItems)
+                        JumpToItem(CurrentItemCount - 1);
+                    else
+                        JumpToCategory(CategoryCount - 1);
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                 case KeyCode.RightArrow:
@@ -227,6 +241,30 @@ namespace ATSAccessibility
             _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, CategoryCount);
             _currentItemIndex = 0;  // Reset item index when changing category
             AnnounceCategory();
+        }
+
+        /// <summary>
+        /// Jump to a specific category index (Home/End).
+        /// </summary>
+        protected void JumpToCategory(int index)
+        {
+            if (CategoryCount == 0) return;
+
+            _currentCategoryIndex = Mathf.Clamp(index, 0, CategoryCount - 1);
+            _currentItemIndex = 0;
+            AnnounceCategory();
+        }
+
+        /// <summary>
+        /// Jump to a specific item index within current category (Home/End).
+        /// </summary>
+        protected void JumpToItem(int index)
+        {
+            int itemCount = CurrentItemCount;
+            if (itemCount == 0) return;
+
+            _currentItemIndex = Mathf.Clamp(index, 0, itemCount - 1);
+            AnnounceItem();
         }
 
         /// <summary>

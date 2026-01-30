@@ -43,6 +43,14 @@ namespace ATSAccessibility
                     Navigate(-1);
                     return true;
 
+                case KeyCode.Home:
+                    NavigateTo(0);
+                    return true;
+
+                case KeyCode.End:
+                    NavigateTo(_items.Count - 1);
+                    return true;
+
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     ActivateCurrentItem();
@@ -145,6 +153,13 @@ namespace ATSAccessibility
                 return;
             }
             openAction();
+        }
+
+        private void NavigateTo(int index)
+        {
+            if (_items.Count == 0) return;
+            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
+            AnnounceCurrentItem();
         }
 
         private void Navigate(int direction)

@@ -57,6 +57,12 @@ namespace ATSAccessibility
                 case KeyCode.DownArrow:
                     NavigateElement(1);
                     return true;
+                case KeyCode.Home:
+                    NavigateElementToFirst();
+                    return true;
+                case KeyCode.End:
+                    NavigateElementToLast();
+                    return true;
                 case KeyCode.LeftArrow:
                     NavigatePanel(-1);
                     return true;
@@ -174,6 +180,44 @@ namespace ATSAccessibility
 
                 AnnounceCurrentPanel();
                 AnnounceCurrentElement();
+            }
+        }
+
+        /// <summary>
+        /// Jump to first element in current panel (Home).
+        /// </summary>
+        public void NavigateElementToFirst()
+        {
+            switch (_currentPanel)
+            {
+                case WikiPanel.Categories:
+                    if (_categoryButtons.Count > 0) { _categoryIndex = 0; AnnounceCurrentElement(); }
+                    break;
+                case WikiPanel.Articles:
+                    if (_articleSlots.Count > 0) { _articleIndex = 0; AnnounceCurrentElement(); }
+                    break;
+                case WikiPanel.Content:
+                    if (_contentLines.Count > 0) { _contentLineIndex = 0; AnnounceCurrentElement(); }
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Jump to last element in current panel (End).
+        /// </summary>
+        public void NavigateElementToLast()
+        {
+            switch (_currentPanel)
+            {
+                case WikiPanel.Categories:
+                    if (_categoryButtons.Count > 0) { _categoryIndex = _categoryButtons.Count - 1; AnnounceCurrentElement(); }
+                    break;
+                case WikiPanel.Articles:
+                    if (_articleSlots.Count > 0) { _articleIndex = _articleSlots.Count - 1; AnnounceCurrentElement(); }
+                    break;
+                case WikiPanel.Content:
+                    if (_contentLines.Count > 0) { _contentLineIndex = _contentLines.Count - 1; AnnounceCurrentElement(); }
+                    break;
             }
         }
 

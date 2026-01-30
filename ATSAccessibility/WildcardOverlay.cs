@@ -76,6 +76,52 @@ namespace ATSAccessibility
                     Navigate(1);
                     return true;
 
+                case KeyCode.Home:
+                    if (_navigationLevel == LEVEL_CATEGORIES)
+                    {
+                        if (_categories.Count > 0)
+                        {
+                            _categoryIndex = 0;
+                            AnnounceCategory();
+                        }
+                    }
+                    else
+                    {
+                        if (_categories.Count > 0)
+                        {
+                            var category = _categories[_categoryIndex];
+                            if (category.Buildings.Count > 0)
+                            {
+                                _buildingIndex = 0;
+                                AnnounceBuilding();
+                            }
+                        }
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_navigationLevel == LEVEL_CATEGORIES)
+                    {
+                        if (_categories.Count > 0)
+                        {
+                            _categoryIndex = _categories.Count - 1;
+                            AnnounceCategory();
+                        }
+                    }
+                    else
+                    {
+                        if (_categories.Count > 0)
+                        {
+                            var category = _categories[_categoryIndex];
+                            if (category.Buildings.Count > 0)
+                            {
+                                _buildingIndex = category.Buildings.Count - 1;
+                                AnnounceBuilding();
+                            }
+                        }
+                    }
+                    return true;
+
                 case KeyCode.RightArrow:
                     if (_navigationLevel == LEVEL_CATEGORIES)
                         EnterBuildings();
