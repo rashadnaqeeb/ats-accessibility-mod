@@ -101,7 +101,15 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Space:
-                    PerformAction();
+                    if (modifiers.Alt)
+                    {
+                        GameReflection.TogglePause();
+                        Speech.Say(GameReflection.IsPaused() ? "Paused" : "Unpaused");
+                    }
+                    else
+                    {
+                        PerformAction();
+                    }
                     return true;
 
                 case KeyCode.Backspace:
