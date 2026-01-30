@@ -72,7 +72,15 @@ namespace ATSAccessibility
                         _worldMapScanner?.ChangeType(1);
                     return true;
                 case KeyCode.Home:
-                    _worldMapScanner?.JumpToItem();
+                    if (modifiers.Alt)
+                    {
+                        Plugin.ScannerAutoMove.Value = !Plugin.ScannerAutoMove.Value;
+                        Speech.Say(Plugin.ScannerAutoMove.Value ? "Auto-move on" : "Auto-move off");
+                    }
+                    else
+                    {
+                        _worldMapScanner?.JumpToItem();
+                    }
                     return true;
                 case KeyCode.End:
                     _worldMapScanner?.AnnounceDirection();

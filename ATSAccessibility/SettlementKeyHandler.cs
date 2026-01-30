@@ -219,7 +219,15 @@ namespace ATSAccessibility
                         _mapScanner?.ChangeGroup(1);
                     return true;
                 case KeyCode.Home:
-                    _mapScanner?.MoveCursorToItem();
+                    if (modifiers.Alt)
+                    {
+                        Plugin.ScannerAutoMove.Value = !Plugin.ScannerAutoMove.Value;
+                        Speech.Say(Plugin.ScannerAutoMove.Value ? "Auto-move on" : "Auto-move off");
+                    }
+                    else
+                    {
+                        _mapScanner?.MoveCursorToItem();
+                    }
                     return true;
                 case KeyCode.End:
                     _mapScanner?.AnnounceDistance();

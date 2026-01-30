@@ -72,6 +72,13 @@ namespace ATSAccessibility
 
         private readonly MapNavigator _mapNavigator;
 
+        // Scan origin for stable distance calculations when auto-move is on
+        private int _scanOriginX;
+        private int _scanOriginY;
+        private bool _hasScanOrigin;
+        private int _lastAutoMoveX = int.MinValue;
+        private int _lastAutoMoveY = int.MinValue;
+
         // ========================================
         // BUILDING SUBCATEGORY DEFINITIONS
         // ========================================
@@ -187,6 +194,7 @@ namespace ATSAccessibility
         /// </summary>
         public void ChangeCategory(int direction)
         {
+            UpdateScanOrigin();
             const int categoryCount = 3; // Glades, Resources, Buildings
             _currentCategory = (ScanCategory)NavigationUtils.WrapIndex((int)_currentCategory, direction, categoryCount);
 
@@ -294,6 +302,8 @@ namespace ATSAccessibility
                     Speech.Say($"{categoryName}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
                 }
             }
+
+            AutoMoveCursorSilent();
         }
 
         /// <summary>
@@ -302,6 +312,7 @@ namespace ATSAccessibility
         /// </summary>
         public void ChangeGroup(int direction)
         {
+            UpdateScanOrigin();
             _currentItemIndex = 0;
 
             // For Buildings, use subcategory groups
@@ -357,6 +368,8 @@ namespace ATSAccessibility
                 _currentGroupIndex = NavigationUtils.WrapIndex(_currentGroupIndex, direction, _cachedGroups.Count);
                 AnnounceCurrentItem();
             }
+
+            AutoMoveCursorSilent();
         }
 
         /// <summary>
@@ -379,6 +392,7 @@ namespace ATSAccessibility
 
             _currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, currentGroup.Items.Count);
             AnnounceCurrentItem();
+            AutoMoveCursorSilent();
         }
 
         /// <summary>
@@ -518,8 +532,7 @@ namespace ATSAccessibility
         private List<ItemGroup> ScanGlades()
         {
             var groups = new Dictionary<string, ItemGroup>();
-            int cursorX = _mapNavigator.CursorX;
-            int cursorY = _mapNavigator.CursorY;
+            GetScanOrigin(out int cursorX, out int cursorY);
             bool hasGladeInfo = GameReflection.HasGladeInfo();
             bool hasDangerousGladeInfo = GameReflection.HasDangerousGladeInfo();
 
@@ -655,8 +668,7 @@ namespace ATSAccessibility
         private List<ItemGroup> ScanResources()
         {
             var groups = new Dictionary<string, ItemGroup>();
-            int cursorX = _mapNavigator.CursorX;
-            int cursorY = _mapNavigator.CursorY;
+            GetScanOrigin(out int cursorX, out int cursorY);
 
             try
             {
@@ -883,8 +895,7 @@ namespace ATSAccessibility
         private List<ItemGroup> ScanBuildings()
         {
             var groups = new Dictionary<string, ItemGroup>();
-            int cursorX = _mapNavigator.CursorX;
-            int cursorY = _mapNavigator.CursorY;
+            GetScanOrigin(out int cursorX, out int cursorY);
 
             try
             {
@@ -958,6 +969,55 @@ namespace ATSAccessibility
             int itemTotal = currentGroup.Items.Count;
             // Intentional: "X of Y" position context is useful for scanner navigation
             Speech.Say($"{currentGroup.TypeName}, {itemNum} of {itemTotal}");
+        }
+
+        private void AutoMoveCursorSilent()
+        {
+            if (!Plugin.ScannerAutoMove.Value) return;
+            if (_cachedGroups == null || _cachedGroups.Count == 0) return;
+            var currentGroup = _cachedGroups[_currentGroupIndex];
+            if (currentGroup.Items.Count == 0) return;
+            var item = currentGroup.Items[_currentItemIndex];
+            _mapNavigator.SetCursorPosition(item.Position.x, item.Position.y);
+            _lastAutoMoveX = item.Position.x;
+            _lastAutoMoveY = item.Position.y;
+        }
+
+        /// <summary>
+        /// Update scan origin. When auto-move is on, origin stays fixed unless
+        /// the user manually moved the cursor (detected by comparing with last auto-move position).
+        /// </summary>
+        private void UpdateScanOrigin()
+        {
+            if (Plugin.ScannerAutoMove.Value)
+            {
+                int cx = _mapNavigator.CursorX;
+                int cy = _mapNavigator.CursorY;
+                if (!_hasScanOrigin || cx != _lastAutoMoveX || cy != _lastAutoMoveY)
+                {
+                    _scanOriginX = cx;
+                    _scanOriginY = cy;
+                    _hasScanOrigin = true;
+                }
+            }
+            else
+            {
+                _hasScanOrigin = false;
+            }
+        }
+
+        private void GetScanOrigin(out int x, out int y)
+        {
+            if (_hasScanOrigin)
+            {
+                x = _scanOriginX;
+                y = _scanOriginY;
+            }
+            else
+            {
+                x = _mapNavigator.CursorX;
+                y = _mapNavigator.CursorY;
+            }
         }
 
         private void AnnounceEmpty()
@@ -1428,8 +1488,7 @@ namespace ATSAccessibility
         private void ScanBuildingsWithSubcategories()
         {
             _cachedBuildingsBySubcategory = new Dictionary<int, List<ItemGroup>>();
-            int cursorX = _mapNavigator.CursorX;
-            int cursorY = _mapNavigator.CursorY;
+            GetScanOrigin(out int cursorX, out int cursorY);
 
             // Initialize all subcategories
             for (int i = 0; i < SubcategoryNames.Length; i++)
@@ -1516,8 +1575,7 @@ namespace ATSAccessibility
         private void ScanResourcesWithSubcategories()
         {
             _cachedResourcesBySubcategory = new Dictionary<int, List<ItemGroup>>();
-            int cursorX = _mapNavigator.CursorX;
-            int cursorY = _mapNavigator.CursorY;
+            GetScanOrigin(out int cursorX, out int cursorY);
 
             for (int i = 0; i < ResourceSubcategoryNames.Length; i++)
             {
@@ -1768,6 +1826,7 @@ namespace ATSAccessibility
         /// </summary>
         public void ChangeSubcategory(int direction)
         {
+            UpdateScanOrigin();
             if (_currentCategory == ScanCategory.Buildings)
             {
                 // Rescan if needed
@@ -1819,6 +1878,7 @@ namespace ATSAccessibility
                     int itemTotal = currentGroup.Items.Count;
                     // Intentional: "X of Y" position context is useful for scanner navigation
                     Speech.Say($"{subcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+                    AutoMoveCursorSilent();
                     return;
                 }
             }

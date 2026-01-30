@@ -77,6 +77,9 @@ namespace ATSAccessibility
         // Sealed Forest
         public static ConfigEntry<bool> AnnouncePlagueEvents;
 
+        // Scanner
+        public static ConfigEntry<bool> ScannerAutoMove;
+
         private void Awake()
         {
             try
@@ -203,6 +206,10 @@ namespace ATSAccessibility
             // Sealed Forest
             AnnouncePlagueEvents = Config.Bind("Announcements.SealedForest",
                 "PlagueEvents", true, "Announce plague activation and end in Sealed Forest biome");
+
+            // Scanner
+            ScannerAutoMove = Config.Bind("Scanner", "AutoMoveCursor", false,
+                "Automatically move cursor to scanned item when navigating the scanner");
 
             Logger.LogInfo("Announcement config entries initialized");
         }
