@@ -133,6 +133,13 @@ namespace ATSAccessibility
                         return true;
 
                     default:
+                        // Alt+I: announce resource description when in resource panel
+                        if (modifiers.Alt && keyCode == KeyCode.I
+                            && _activeChildPanel == MenuPanel.Resources)
+                        {
+                            _resourcePanel?.AnnounceCurrentItemDescription();
+                            return true;
+                        }
                         // Delegate to child panel
                         return ProcessChildPanelKey(keyCode);
                 }

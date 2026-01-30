@@ -27,6 +27,7 @@ namespace ATSAccessibility
         private class ResourceItem
         {
             public string Name { get; set; }
+            public string GoodName { get; set; }  // Internal name for lookups
             public int Amount { get; set; }
             public int Order { get; set; }
         }
@@ -116,6 +117,7 @@ namespace ATSAccessibility
                 category.Items.Add(new ResourceItem
                 {
                     Name = info.displayName,
+                    GoodName = goodName,
                     Amount = amount,
                     Order = info.goodOrder
                 });
@@ -176,6 +178,35 @@ namespace ATSAccessibility
             var item = category.Items[_currentItemIndex];
             Speech.Say($"{item.Name}, {item.Amount}");
             Debug.Log($"[ATSAccessibility] Item: {item.Name} x{item.Amount}");
+        }
+
+        // ========================================
+        // RESOURCE DESCRIPTION (Alt+I)
+        // ========================================
+
+        /// <summary>
+        /// Announce the description/tooltip of the currently focused resource.
+        /// Called from InfoPanelMenu on Alt+I.
+        /// </summary>
+        public void AnnounceCurrentItemDescription()
+        {
+            if (!_focusOnItems) return;
+            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
+
+            var category = _categories[_currentCategoryIndex];
+            if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return;
+
+            var item = category.Items[_currentItemIndex];
+            string description = GameReflection.GetGoodDescription(item.GoodName);
+
+            if (string.IsNullOrEmpty(description))
+            {
+                Speech.Say($"{item.Name}, no description available");
+            }
+            else
+            {
+                Speech.Say($"{item.Name}. {description}");
+            }
         }
 
         // ========================================

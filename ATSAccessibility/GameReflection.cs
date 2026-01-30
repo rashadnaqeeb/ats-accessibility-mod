@@ -5010,6 +5010,37 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Get the description of a good by its internal name.
+        /// Returns the full description with sources, sinks, and races (rich text stripped).
+        /// </summary>
+        public static string GetGoodDescription(string goodName)
+        {
+            if (string.IsNullOrEmpty(goodName)) return null;
+
+            EnsureSettingsGetGood();
+
+            try
+            {
+                var settings = GetSettings();
+                if (settings == null || _settingsGetGoodMethodCached == null) return null;
+
+                var goodModel = _settingsGetGoodMethodCached.Invoke(settings, new object[] { goodName });
+                if (goodModel == null) return null;
+
+                var descProp = goodModel.GetType().GetProperty("Description", PublicInstance);
+                var description = descProp?.GetValue(goodModel) as string;
+                if (string.IsNullOrEmpty(description)) return null;
+
+                return OrdersReflection.StripRichText(description).Trim();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetGoodDescription failed for {goodName}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Alias for GetAllStoredGoods() for consistency.
         /// </summary>
         public static Dictionary<string, int> GetStorageGoods()
