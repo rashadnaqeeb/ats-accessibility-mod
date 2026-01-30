@@ -179,6 +179,56 @@ namespace ATSAccessibility
         }
 
         // ========================================
+        // CROSS-CATEGORY ITEM NAVIGATION
+        // ========================================
+
+        /// <summary>
+        /// Navigate items, flowing into the next/previous category at boundaries.
+        /// Announces category name when crossing into a new category.
+        /// </summary>
+        private void NavigateItemAcrossCategories(int direction)
+        {
+            int itemCount = CurrentItemCount;
+            if (itemCount == 0) return;
+
+            int newIndex = _currentItemIndex + direction;
+
+            if (newIndex >= itemCount)
+            {
+                // Past end of category - move to next category's first item
+                _currentCategoryIndex = (_currentCategoryIndex + 1) % CategoryCount;
+                _currentItemIndex = 0;
+                AnnounceCategoryAndItem();
+            }
+            else if (newIndex < 0)
+            {
+                // Before start of category - move to previous category's last item
+                _currentCategoryIndex = (_currentCategoryIndex - 1 + CategoryCount) % CategoryCount;
+                _currentItemIndex = CurrentItemCount - 1;
+                AnnounceCategoryAndItem();
+            }
+            else
+            {
+                _currentItemIndex = newIndex;
+                AnnounceItem();
+            }
+        }
+
+        /// <summary>
+        /// Announce category name followed by current item when crossing category boundaries.
+        /// </summary>
+        private void AnnounceCategoryAndItem()
+        {
+            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
+
+            var category = _categories[_currentCategoryIndex];
+            if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return;
+
+            var item = category.Items[_currentItemIndex];
+            Speech.Say($"{category.Name}. {item.Name}, {item.Amount}");
+        }
+
+        // ========================================
         // CROSS-CATEGORY SEARCH (OVERRIDE BASE)
         // ========================================
 
@@ -196,16 +246,30 @@ namespace ATSAccessibility
             {
                 case KeyCode.UpArrow:
                     if (_focusOnItems)
-                        NavigateItem(-1);
+                        NavigateItemAcrossCategories(-1);
                     else
                         NavigateCategory(-1);
                     return true;
 
                 case KeyCode.DownArrow:
                     if (_focusOnItems)
-                        NavigateItem(1);
+                        NavigateItemAcrossCategories(1);
                     else
                         NavigateCategory(1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_focusOnItems)
+                        JumpToItem(0);
+                    else
+                        JumpToCategory(0);
+                    return true;
+
+                case KeyCode.End:
+                    if (_focusOnItems)
+                        JumpToItem(CurrentItemCount - 1);
+                    else
+                        JumpToCategory(CategoryCount - 1);
                     return true;
 
                 case KeyCode.Return:
