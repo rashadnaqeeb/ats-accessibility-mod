@@ -391,6 +391,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_confirmationDialog);  // Confirmation dialog (blocks all input when active)
             _keyboardManager.RegisterHandler(_metaRewardsOverlay);  // Meta rewards/level-up popup (above game result so player can close it first)
             _keyboardManager.RegisterHandler(_gameResultOverlay);  // Game result (victory/defeat) - high priority terminal state
+            _keyboardManager.RegisterHandler(new SettlementInfoHandler()); // Alt+S/V/O settlement info (above all menus/overlays)
             _keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
             _keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
             _keyboardManager.RegisterHandler(_rewardsPanel);        // F3 rewards panel

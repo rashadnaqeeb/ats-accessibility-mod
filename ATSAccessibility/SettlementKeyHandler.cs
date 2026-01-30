@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility
@@ -188,7 +186,7 @@ namespace ATSAccessibility
                     Speech.Say("3x");
                     return true;
 
-                // Stats hotkeys
+                // Stats hotkeys (also available as Alt+S/V/O in popups via SettlementInfoHandler)
                 case KeyCode.S:
                     StatsReader.AnnounceQuickSummary();
                     return true;
@@ -281,9 +279,9 @@ namespace ATSAccessibility
                     }
                     return true;
 
-                // Tracked orders objectives
+                // Tracked orders objectives (also available as Alt+O in popups via SettlementInfoHandler)
                 case KeyCode.O:
-                    AnnounceTrackedOrders();
+                    SettlementInfoHandler.AnnounceTrackedOrders();
                     return true;
 
                 // Rainpunk info/control
@@ -448,45 +446,5 @@ namespace ATSAccessibility
             }
         }
 
-        private void AnnounceTrackedOrders()
-        {
-            var orders = OrdersReflection.GetOrders();
-            if (orders == null || orders.Count == 0)
-            {
-                Speech.Say("No orders");
-                return;
-            }
-
-            var parts = new List<string>();
-            foreach (var orderState in orders)
-            {
-                if (orderState == null) continue;
-                if (!OrdersReflection.IsTracked(orderState)) continue;
-                if (!OrdersReflection.IsStarted(orderState)) continue;
-                if (!OrdersReflection.IsPicked(orderState)) continue;
-                if (OrdersReflection.IsCompleted(orderState)) continue;
-                if (OrdersReflection.IsFailed(orderState)) continue;
-
-                var model = OrdersReflection.GetOrderModel(orderState);
-                if (model == null) continue;
-
-                string name = OrdersReflection.GetOrderDisplayName(model) ?? "Unknown";
-                var objectives = OrdersReflection.GetObjectiveTexts(model, orderState);
-                string objText = objectives.Count > 0 ? string.Join(", ", objectives) : "";
-
-                if (!string.IsNullOrEmpty(objText))
-                    parts.Add($"{name}: {objText}");
-                else
-                    parts.Add(name);
-            }
-
-            if (parts.Count == 0)
-            {
-                Speech.Say("No tracked orders");
-                return;
-            }
-
-            Speech.Say(string.Join(". ", parts));
-        }
     }
 }
