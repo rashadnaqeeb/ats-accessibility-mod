@@ -76,6 +76,13 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
+            // F-key panel switching - close self and pass through to open target panel
+            if (keyCode == KeyCode.F1 || keyCode == KeyCode.F3)
+            {
+                Close();
+                return false;  // Let SettlementKeyHandler open the target panel
+            }
+
             _search.ClearOnNavigationKey(keyCode);
 
             switch (keyCode)

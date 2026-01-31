@@ -138,6 +138,20 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
+            // F-key panel switching - close self and pass through to open target panel
+            if (keyCode == KeyCode.F2 || keyCode == KeyCode.F3)
+            {
+                Close();
+                return false;  // Let SettlementKeyHandler open the target panel
+            }
+            // F1 closes own panel (works from child panels too)
+            if (keyCode == KeyCode.F1)
+            {
+                SoundManager.PlayButtonClick();
+                Close();
+                return true;
+            }
+
             _search.ClearOnNavigationKey(keyCode);
 
             // If a child panel is open, handle navigation
@@ -207,11 +221,6 @@ namespace ATSAccessibility
 
                 case KeyCode.Backspace:
                     HandleBackspace();
-                    return true;
-
-                case KeyCode.F1:
-                    SoundManager.PlayButtonClick();
-                    Close();
                     return true;
 
                 case KeyCode.Escape:
