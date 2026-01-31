@@ -185,9 +185,19 @@ namespace ATSAccessibility
 
                 // Stats hotkeys (also available as Alt+S/V/O in popups via SettlementInfoHandler)
                 case KeyCode.S:
+                    if (modifiers.Shift)
+                    {
+                        _infoPanelMenu?.OpenStatsPanel();
+                        return true;
+                    }
                     StatsReader.AnnounceQuickSummary();
                     return true;
                 case KeyCode.V:
+                    if (modifiers.Shift)
+                    {
+                        _infoPanelMenu?.OpenVillagersPanel();
+                        return true;
+                    }
                     StatsReader.AnnounceNextSpeciesResolve();
                     return true;
                 case KeyCode.T:
@@ -299,6 +309,11 @@ namespace ATSAccessibility
 
                 // Tracked orders objectives (also available as Alt+O in popups via SettlementInfoHandler)
                 case KeyCode.O:
+                    if (modifiers.Shift)
+                    {
+                        GameReflection.OpenOrdersPopup();
+                        return true;
+                    }
                     SettlementInfoHandler.AnnounceTrackedOrders();
                     return true;
 
@@ -320,6 +335,11 @@ namespace ATSAccessibility
 
                 // Worker info/management
                 case KeyCode.W:
+                    if (modifiers.Shift)
+                    {
+                        _infoPanelMenu?.OpenWorkersPanel();
+                        return true;
+                    }
                     var workerBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
                     Speech.Say(WorkerInfoHelper.GetWorkerSummary(workerBuilding));
                     return true;
@@ -426,6 +446,11 @@ namespace ATSAccessibility
 
                 // Move building mode
                 case KeyCode.M:
+                    if (modifiers.Shift)
+                    {
+                        _infoPanelMenu?.OpenModifiersPanel();
+                        return true;
+                    }
                     var building = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
                     if (building != null)
                         _moveModeController?.EnterMoveMode(building);

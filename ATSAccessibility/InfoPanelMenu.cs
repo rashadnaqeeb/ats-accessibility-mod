@@ -82,6 +82,38 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Open a specific panel directly, bypassing the menu.
+        /// If already open with the same panel, closes everything (toggle behavior).
+        /// </summary>
+        public void OpenStatsPanel() => OpenPanelDirect(MenuPanel.Stats);
+        public void OpenModifiersPanel() => OpenPanelDirect(MenuPanel.Modifiers);
+        public void OpenVillagersPanel() => OpenPanelDirect(MenuPanel.Villagers);
+        public void OpenWorkersPanel() => OpenPanelDirect(MenuPanel.Workers);
+
+        private void OpenPanelDirect(MenuPanel panel)
+        {
+            int panelIndex = (int)panel;
+
+            // If already open with this same panel, close everything
+            if (_isOpen && _activeChildPanel == panel)
+            {
+                SoundManager.PlayButtonClick();
+                Close();
+                return;
+            }
+
+            // If open with different panel or menu, close current child
+            if (_isOpen)
+                CloseActiveChildPanel();
+            else
+                _isOpen = true;
+
+            _currentIndex = panelIndex;
+            _search.Clear();
+            OpenSelectedPanel();
+        }
+
+        /// <summary>
         /// Close the info panel menu and any active child panel.
         /// </summary>
         public void Close()
