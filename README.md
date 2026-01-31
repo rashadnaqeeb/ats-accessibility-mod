@@ -47,7 +47,7 @@ There are only two exceptions to this: the options menu and the encyclopedia. Bo
 ### Basics
 
 - Arrows: Move cursor one tile
-- Ctrl+Arrows: Skip to next different tile in direction
+- Ctrl+Arrows: Skip to next different tile in direction, announcing tile count
 - K: Announce cursor coordinates
 - I: Get more info about object at tile.
 - Space: Pause/Resume
@@ -60,12 +60,15 @@ There are only two exceptions to this: the options menu and the encyclopedia. Bo
 - T: Time summary (year, season, time remaining)
 - O: Announce tracked order objectives
 
+Alt+S, Alt+V, and Alt+O also work from inside building panels and game menus.
+
 ### Building Interaction
 
-- Enter: Open building panel
+- Enter: Open building panel. On a lake, retrieves stored fish with confirmation.
 - M: Pick up and move building at cursor.
-- R: Rotate building
-- Shift+Space: Destroy building (with confirmation)
+- R/Shift+R: Rotate building clockwise/counterclockwise
+- Shift+Space: Destroy building or remove resource node at cursor (with confirmation)
+- Alt+Space: Toggle pause from inside building panels and menus
 - E: Announce focused building entrance location. Where workers will enter and exit from. Changed with rotation.
 - W: Announce status of worker slots at focused building.
 
@@ -83,10 +86,14 @@ To mark trees for harvesting:
 
 To unmark trees, press Enter on an already-marked tree. This enters unmarking mode, which works the same way—use rectangle or single select to choose which trees to unmark.
 
+You can also press Backspace on any tree to quickly toggle its mark without entering marking mode.
+
 ### Helpers
 
 - D: Building range guide. Press with cursor on a building or while in build mode: contextually announces what current building connects to. For resource gatherers, shows you what resources will be in range. For producers, shows you the nearest warehouse and other suppliers.
-- B: Blight helper: directs you to the nearest Blight Cyst. If on a building with Blight Cysts, tells you how many.
+- Shift+B: Set bookmark at cursor position
+- B: Jump to bookmark
+- Alt+B: Blight helper: directs you to the nearest Blight Cyst. If on a building with Blight Cysts, tells you how many.
 - P: Rainpunk helper: directs you to the nearest Rainpunk engine that's running. If on a building with running engines, Shift+P quickly turns them off without needing to open the panel.
 
 ### Settlement Scanner
@@ -99,23 +106,36 @@ The settlement scanner finds things on the map organized into a three-level hier
 - Alt+PageUp/Down: Cycle through individual items in group
 - Home: Move cursor to current item
 - End: Announce distance and direction to current item
+- Alt+I: Read detailed info about current scanner item
+- Alt+End: Announce distance from bookmark to scanner item
+- Alt+Home: Toggle auto-move cursor mode
 
 Glades category - Groups by danger level (Small, Dangerous, Forbidden). If glade info modifiers are active, contents are shown. Only unrevealed glades are listed.
 
-Resources category - Three subcategories:
+Resources category - Four subcategories:
 - Natural Resources: trees, plants, fertile soil
 - Extracted Resources, e.g., copper, iron, coal, geysers.
-- Collected Resources, e.g., clay, stone, fish ponds
+- Collected Resources (Nodes Small): e.g., clay, stone
+- Collected Resources (Nodes Large): e.g., fish ponds, lakes
 
 Buildings category - Ten subcategories: Essential, Gathering, Production, Trade, Housing and Services, Special Buildings, Blight Fighting, Decorations, Ruins, Roads.
 
 ### Menus
 
-- F1: Info panels (Resources, Villagers, Stats, Modifiers, Announcements)
+- F1: Info panels (Resources, Villagers, Workers, Stats, Modifiers, Announcements)
 - F2: Menu hub (Recipes, Orders, Trade Routes, Payments, Consumption, Trends, Trader)
 - F3: Pending rewards
 - Tab: Building menu (construction). Buildings organised into categories or can type building name directly. In build mode, press Space to place building, Shift+Space to remove. Enter or Escape to exit mode.
 - Alt+H: Announcement history
+
+Direct panel shortcuts:
+- Shift+S: Stats
+- Shift+V: Villagers
+- Shift+W: Workers
+- Shift+M: Modifiers
+- Shift+O: Orders
+
+In the Resources panel, Alt+I reads the description of the focused resource.
 
 ### Trends
 
