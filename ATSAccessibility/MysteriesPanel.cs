@@ -178,8 +178,24 @@ namespace ATSAccessibility
 
         protected override void AnnounceItem()
         {
+            string message = BuildItemAnnouncement();
+            if (message == null) return;
+
+            Speech.Say(message);
             var category = _categories[_currentCategoryIndex];
-            if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return;
+            Debug.Log($"[ATSAccessibility] Modifier item {_currentItemIndex + 1}/{category.Items.Count}: {message}");
+        }
+
+        /// <summary>
+        /// Build the announcement text for the current item without speaking it.
+        /// Returns null if the current item index is out of range.
+        /// </summary>
+        private string BuildItemAnnouncement()
+        {
+            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return null;
+
+            var category = _categories[_currentCategoryIndex];
+            if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return null;
 
             var item = category.Items[_currentItemIndex];
             var parts = new List<string>();
@@ -219,9 +235,7 @@ namespace ATSAccessibility
                     break;
             }
 
-            string message = string.Join(" ", parts);
-            Speech.Say(message);
-            Debug.Log($"[ATSAccessibility] Modifier item {_currentItemIndex + 1}/{category.Items.Count}: {item.Name}");
+            return string.Join(" ", parts);
         }
 
         /// <summary>
@@ -248,6 +262,88 @@ namespace ATSAccessibility
                 return null;
 
             return _categories[index].Name;
+        }
+
+        // ========================================
+        // CROSS-CATEGORY ITEM NAVIGATION
+        // ========================================
+
+        /// <summary>
+        /// Override ProcessKeyEvent to use cross-category item navigation.
+        /// When navigating items, flowing into the next/previous category at boundaries.
+        /// All other keys delegate to the base class.
+        /// </summary>
+        public new bool ProcessKeyEvent(KeyCode keyCode)
+        {
+            if (!_isOpen) return false;
+
+            // Cross-category navigation for items on Up/Down
+            if (_focusOnItems)
+            {
+                if (keyCode == KeyCode.UpArrow)
+                {
+                    _search.ClearOnNavigationKey(keyCode);
+                    NavigateItemAcrossCategories(-1);
+                    return true;
+                }
+                if (keyCode == KeyCode.DownArrow)
+                {
+                    _search.ClearOnNavigationKey(keyCode);
+                    NavigateItemAcrossCategories(1);
+                    return true;
+                }
+            }
+
+            // All other keys handled by base
+            return base.ProcessKeyEvent(keyCode);
+        }
+
+        /// <summary>
+        /// Navigate items, flowing into the next/previous category at boundaries.
+        /// Announces category name when crossing into a new category.
+        /// </summary>
+        private void NavigateItemAcrossCategories(int direction)
+        {
+            int itemCount = CurrentItemCount;
+            if (itemCount == 0) return;
+
+            int newIndex = _currentItemIndex + direction;
+
+            if (newIndex >= itemCount)
+            {
+                // Past end of category - move to next category's first item
+                _currentCategoryIndex = (_currentCategoryIndex + 1) % CategoryCount;
+                _currentItemIndex = 0;
+                AnnounceCategoryAndItem();
+            }
+            else if (newIndex < 0)
+            {
+                // Before start of category - move to previous category's last item
+                _currentCategoryIndex = (_currentCategoryIndex - 1 + CategoryCount) % CategoryCount;
+                _currentItemIndex = CurrentItemCount - 1;
+                AnnounceCategoryAndItem();
+            }
+            else
+            {
+                _currentItemIndex = newIndex;
+                AnnounceItem();
+            }
+        }
+
+        /// <summary>
+        /// Announce category name followed by current item when crossing category boundaries.
+        /// </summary>
+        private void AnnounceCategoryAndItem()
+        {
+            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
+
+            string categoryName = _categories[_currentCategoryIndex].Name;
+            string itemText = BuildItemAnnouncement();
+
+            if (itemText != null)
+                Speech.Say($"{categoryName}. {itemText}");
+            else
+                Speech.Say($"{categoryName}, empty");
         }
 
         // ========================================
