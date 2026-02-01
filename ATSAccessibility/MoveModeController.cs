@@ -240,6 +240,10 @@ namespace ATSAccessibility
                     _awaitingPlaceConfirm = false;
                     return false;
 
+                // Pass B/Shift+B to game
+                case KeyCode.B:
+                    return false;
+
                 default:
                     // Consume other keys without clearing confirm
                     return true;

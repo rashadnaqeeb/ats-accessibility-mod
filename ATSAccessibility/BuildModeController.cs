@@ -140,6 +140,10 @@ namespace ATSAccessibility
                     }
                     return true;
 
+                // Pass B/Shift+B to game
+                case KeyCode.B:
+                    return false;
+
                 default:
                     // Consume other keys to prevent interference
                     return true;

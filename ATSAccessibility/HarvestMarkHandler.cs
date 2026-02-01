@@ -116,6 +116,10 @@ namespace ATSAccessibility
                     // Consume in mark mode
                     return true;
 
+                // Pass B/Shift+B to game
+                case KeyCode.B:
+                    return false;
+
                 default:
                     // Consume unknown keys without clearing glade confirm
                     return true;
