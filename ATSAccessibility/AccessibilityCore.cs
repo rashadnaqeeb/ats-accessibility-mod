@@ -134,6 +134,9 @@ namespace ATSAccessibility
         // Rewards pack popup overlay (port expedition rewards)
         private RewardsPackOverlay _rewardsPackOverlay;
 
+        // Royal Resupply popup overlay (cycle effects pick on world map)
+        private ResupplyOverlay _resupplyOverlay;
+
         // Trader panel overlay for trading with merchants
         private TraderOverlay _traderOverlay;
 
@@ -321,6 +324,9 @@ namespace ATSAccessibility
             // Initialize rewards pack overlay (port expedition rewards)
             _rewardsPackOverlay = new RewardsPackOverlay();
 
+            // Initialize resupply overlay (Royal Resupply on world map)
+            _resupplyOverlay = new ResupplyOverlay();
+
             // Initialize trader overlay
             _traderOverlay = new TraderOverlay();
 
@@ -419,6 +425,7 @@ namespace ATSAccessibility
             _keyboardManager.RegisterHandler(_deedsOverlay);             // Deeds (goals) popup overlay
             _keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
             _keyboardManager.RegisterHandler(_rewardsPackOverlay);  // Rewards pack popup overlay (port rewards)
+            _keyboardManager.RegisterHandler(_resupplyOverlay);    // Royal Resupply popup overlay (world map)
             _keyboardManager.RegisterHandler(_assaultResultOverlay); // Assault result popup overlay (before trader so it gets priority)
             _keyboardManager.RegisterHandler(_traderOverlay);        // Trader panel overlay
             _keyboardManager.RegisterHandler(_dialogueOverlay);      // NPC dialogue overlay
@@ -996,6 +1003,7 @@ namespace ATSAccessibility
             _consumptionOverlay?.Close();
             _deedsOverlay?.Close();
             _rewardsPackOverlay?.Close();
+            _resupplyOverlay?.Close();
             _traderOverlay?.Close();
             _assaultResultOverlay?.Close();
             _dialogueOverlay?.Close();
@@ -1166,6 +1174,15 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Rewards pack popup detected, using RewardsPack overlay");
                 _rewardsPackOverlay?.Open(popup);
+                _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+                return;
+            }
+
+            // Check cycle effects pick popup (Royal Resupply on world map)
+            if (ResupplyOverlay.IsCycleEffectsPickPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Cycle effects pick popup detected, using Resupply overlay");
+                _resupplyOverlay?.Open(popup);
                 _keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
                 return;
             }
@@ -1474,6 +1491,13 @@ namespace ATSAccessibility
             {
                 Debug.Log("[ATSAccessibility] Rewards pack popup closed");
                 _rewardsPackOverlay?.Close();
+                // Fall through to handle context change
+            }
+            // Check cycle effects pick popup (Royal Resupply)
+            else if (ResupplyOverlay.IsCycleEffectsPickPopup(popup))
+            {
+                Debug.Log("[ATSAccessibility] Cycle effects pick popup closed");
+                _resupplyOverlay?.Close();
                 // Fall through to handle context change
             }
             // Check assault result popup
