@@ -240,6 +240,29 @@ namespace ATSAccessibility
                     _awaitingPlaceConfirm = false;
                     return false;
 
+                // Building range info for move preview
+                case KeyCode.D:
+                {
+                    _awaitingPlaceConfirm = false;
+                    var buildingModel = GameReflection.GetBuildingModel(_movingBuilding);
+                    if (buildingModel != null)
+                    {
+                        int cursorX = _mapNavigator.CursorX;
+                        int cursorY = _mapNavigator.CursorY;
+                        Vector2Int cursorPos = new Vector2Int(cursorX, cursorY);
+
+                        // Temporarily set position to cursor to test placement
+                        GameReflection.SetBuildingPosition(_movingBuilding, cursorPos);
+                        bool canPlace = GameReflection.CanPlaceBuilding(_movingBuilding);
+                        GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+
+                        string preview = RangeInfoHelper.GetBuildingRangePreview(
+                            buildingModel, cursorX, cursorY, _currentRotation, canPlace);
+                        Speech.Say(preview);
+                    }
+                    return true;
+                }
+
                 // Pass B/Shift+B to game
                 case KeyCode.B:
                     return false;
