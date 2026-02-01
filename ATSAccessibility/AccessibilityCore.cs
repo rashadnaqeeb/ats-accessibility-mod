@@ -613,14 +613,15 @@ namespace ATSAccessibility
             {
                 _announcedMainMenu = false;
                 _cachedMainMenuCanvas = null;
-                _profilesOverlay?.Close();  // Close if scene unloads during profile switch
             }
             else if (scene.buildIndex == SCENE_WORLDMAP)
             {
                 _announcedWorldMap = false;
                 _worldMapNavigator?.Reset();
-                _worldTutorialsOverlay?.Close();
             }
+
+            // Close all overlays to prevent stale state after scene teardown
+            CloseAllOverlays();
 
             // Dispose popup subscriptions (PopupsService is destroyed on scene change)
             DisposePopupSubscriptions();
@@ -976,6 +977,47 @@ namespace ATSAccessibility
 
             // Close capital overlay if open
             _capitalOverlay?.Close();
+        }
+
+        /// <summary>
+        /// Close all overlays to prevent stale state after scene teardown.
+        /// Each overlay's Close() guards with if (!_isOpen) return, so this is safe to call at any time.
+        /// </summary>
+        private void CloseAllOverlays()
+        {
+            _recipesOverlay?.Close();
+            _wildcardOverlay?.Close();
+            _reputationRewardOverlay?.Close();
+            _cornerstoneOverlay?.Close();
+            _cornerstoneLimitOverlay?.Close();
+            _newcomersOverlay?.Close();
+            _ordersOverlay?.Close();
+            _orderPickOverlay?.Close();
+            _consumptionOverlay?.Close();
+            _deedsOverlay?.Close();
+            _rewardsPackOverlay?.Close();
+            _traderOverlay?.Close();
+            _assaultResultOverlay?.Close();
+            _dialogueOverlay?.Close();
+            _tradeRoutesOverlay?.Close();
+            _cycleEndOverlay?.Close();
+            _paymentsOverlay?.Close();
+            _metaRewardsOverlay?.Reset();
+            _gameResultOverlay?.Close();
+            _blackMarketOverlay?.Close();
+            _altarOverlay?.Close();
+            _perkCrafterOverlay?.Close();
+            _gamesHistoryOverlay?.Close();
+            _profilesOverlay?.Close();
+            _dailyExpeditionOverlay?.Close();
+            _customGamesOverlay?.Close();
+            _capitalOverlay?.Close();
+            _capitalUpgradeOverlay?.Close();
+            _ironmanOverlay?.Close();
+            _worldTutorialsOverlay?.Close();
+            _sealOverlay?.Close();
+            _worldEventOverlay?.Close();
+            _trendsOverlay?.Close();
         }
 
         /// <summary>
