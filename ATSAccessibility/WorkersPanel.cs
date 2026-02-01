@@ -189,41 +189,8 @@ namespace ATSAccessibility
             int itemCount = CurrentItemCount;
             if (itemCount == 0) return;
 
-            int newIndex = _currentItemIndex + direction;
-
-            if (newIndex >= itemCount)
-            {
-                // Past end of category - move to next category's first item
-                _currentCategoryIndex = (_currentCategoryIndex + 1) % CategoryCount;
-                _currentItemIndex = 0;
-                AnnounceCategoryAndItem();
-            }
-            else if (newIndex < 0)
-            {
-                // Before start of category - move to previous category's last item
-                _currentCategoryIndex = (_currentCategoryIndex - 1 + CategoryCount) % CategoryCount;
-                _currentItemIndex = CurrentItemCount - 1;
-                AnnounceCategoryAndItem();
-            }
-            else
-            {
-                _currentItemIndex = newIndex;
-                AnnounceItem();
-            }
-        }
-
-        /// <summary>
-        /// Announce category name followed by current item when crossing category boundaries.
-        /// </summary>
-        private void AnnounceCategoryAndItem()
-        {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return;
-
-            var item = category.Items[_currentItemIndex];
-            Speech.Say($"{category.Name}. {item.Name}, {item.Count}");
+            _currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, itemCount);
+            AnnounceItem();
         }
 
         // ========================================
@@ -319,9 +286,15 @@ namespace ATSAccessibility
         {
             try
             {
+                if (_professionModelField == null)
+                    _professionModelField = villager.GetType().GetField("professionModel", GameReflection.PublicInstance);
+
                 var professionModel = _professionModelField?.GetValue(villager);
                 if (professionModel != null)
                 {
+                    if (_professionDisplayNameField == null)
+                        _professionDisplayNameField = professionModel.GetType().GetField("displayName", GameReflection.PublicInstance);
+
                     var locaText = _professionDisplayNameField?.GetValue(professionModel);
                     return GameReflection.GetLocaText(locaText) ?? "Worker";
                 }
