@@ -183,14 +183,13 @@ namespace ATSAccessibility
                     Speech.Say("3x");
                     return true;
 
-                // Stats hotkeys (also available as Alt+S/V/O in popups via SettlementInfoHandler)
+                // Stats hotkeys (Alt+S/V/O handled by SettlementInfoHandler)
                 case KeyCode.S:
                     if (modifiers.Shift)
                     {
                         _infoPanelMenu?.OpenStatsPanel();
                         return true;
                     }
-                    StatsReader.AnnounceQuickSummary();
                     return true;
                 case KeyCode.V:
                     if (modifiers.Shift)
@@ -198,7 +197,6 @@ namespace ATSAccessibility
                         _infoPanelMenu?.OpenVillagersPanel();
                         return true;
                     }
-                    StatsReader.AnnounceNextSpeciesResolve();
                     return true;
                 case KeyCode.T:
                     StatsReader.AnnounceTimeSummary();
@@ -307,14 +305,13 @@ namespace ATSAccessibility
                     }
                     return true;
 
-                // Tracked orders objectives (also available as Alt+O in popups via SettlementInfoHandler)
+                // Tracked orders (Alt+O handled by SettlementInfoHandler)
                 case KeyCode.O:
                     if (modifiers.Shift)
                     {
                         GameReflection.OpenOrdersPopup();
                         return true;
                     }
-                    SettlementInfoHandler.AnnounceTrackedOrders();
                     return true;
 
                 // Rainpunk info/control
