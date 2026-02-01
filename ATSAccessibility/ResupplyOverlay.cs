@@ -24,7 +24,6 @@ namespace ATSAccessibility
         private static PropertyInfo _modelDisplayNameProperty;
         private static PropertyInfo _modelDescriptionProperty;
         private static MethodInfo _slotOnClickMethod;
-        private static MethodInfo _popupHideMethod;
 
         // ========================================
         // IKeyHandler Implementation
@@ -218,7 +217,6 @@ namespace ATSAccessibility
                 _slots.Add(slot);
             }
 
-            Debug.Log($"[ATSAccessibility] ResupplyOverlay: {_items.Count} resupply options");
         }
 
         // ========================================
@@ -255,11 +253,6 @@ namespace ATSAccessibility
                     _modelDescriptionProperty = modelType.GetProperty("Description", GameReflection.PublicInstance);
                 }
 
-                var basePopupType = assembly.GetType("Eremite.View.Popups.Popup");
-                if (basePopupType != null)
-                {
-                    _popupHideMethod = basePopupType.GetMethod("Hide", GameReflection.PublicInstance);
-                }
             }
             catch (System.Exception ex)
             {
