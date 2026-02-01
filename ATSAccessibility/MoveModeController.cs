@@ -263,6 +263,28 @@ namespace ATSAccessibility
                     return true;
                 }
 
+                // Entrance preview for building being moved
+                case KeyCode.E:
+                {
+                    _awaitingPlaceConfirm = false;
+                    var buildingModel = GameReflection.GetBuildingModel(_movingBuilding);
+                    if (buildingModel != null)
+                    {
+                        int cursorX = _mapNavigator.CursorX;
+                        int cursorY = _mapNavigator.CursorY;
+                        Vector2Int cursorPos = new Vector2Int(cursorX, cursorY);
+
+                        // Temporarily set position to cursor for entrance calculation
+                        GameReflection.SetBuildingPosition(_movingBuilding, cursorPos);
+                        string preview = EntranceInfoHelper.GetEntrancePreview(
+                            _movingBuilding, cursorX, cursorY, buildingModel, _currentRotation);
+                        GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+
+                        Speech.Say(preview);
+                    }
+                    return true;
+                }
+
                 // Pass B/Shift+B to game
                 case KeyCode.B:
                     return false;

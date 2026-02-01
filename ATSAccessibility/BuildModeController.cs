@@ -119,11 +119,30 @@ namespace ATSAccessibility
                 case KeyCode.End:
                     return false;
 
-                // Pass to MapNavigator for position/tile/entrance info
+                // Pass to MapNavigator for position/tile info
                 case KeyCode.K:
                 case KeyCode.I:
-                case KeyCode.E:
                     return false;
+
+                // Entrance preview for building about to be placed
+                case KeyCode.E:
+                    if (_selectedBuildingModel != null)
+                    {
+                        var building = GameReflection.CreateBuilding(_selectedBuildingModel, _rotation);
+                        if (building != null)
+                        {
+                            GameReflection.SetBuildingPosition(building,
+                                new Vector2Int(_mapNavigator.CursorX, _mapNavigator.CursorY));
+                            // Apply visual rotation so entrance Transform is positioned correctly
+                            GameReflection.RotateBuilding(building, _rotation);
+                            string preview = EntranceInfoHelper.GetEntrancePreview(
+                                building, _mapNavigator.CursorX, _mapNavigator.CursorY,
+                                _selectedBuildingModel, _rotation);
+                            GameReflection.RemoveBuilding(building, false);
+                            Speech.Say(preview);
+                        }
+                    }
+                    return true;
 
                 // Building range/orientation info for placement preview
                 case KeyCode.D:
