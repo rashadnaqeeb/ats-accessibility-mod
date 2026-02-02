@@ -132,18 +132,22 @@ namespace ATSAccessibility
                 return;
             }
 
-            _resultIndices.Clear();
-            _resultNames.Clear();
-            _resultCursor = 0;
-            _isSearchActive = true;
-            _announceResult = announceResult;
+            if (announceResult != null)
+                _announceResult = announceResult;
 
             if (!HasBuffer || itemCount == 0)
             {
+                _resultIndices.Clear();
+                _resultNames.Clear();
+                _resultCursor = 0;
+                _isSearchActive = true;
                 Speech.Say($"No match for {_buffer}");
                 return;
             }
 
+            // Search into temp lists so we can roll back on no match
+            var newIndices = new List<int>();
+            var newNames = new List<string>();
             string lowerBuffer = _buffer.ToLowerInvariant();
 
             for (int i = 0; i < itemCount; i++)
@@ -151,17 +155,26 @@ namespace ATSAccessibility
                 string name = nameByIndex(i);
                 if (!string.IsNullOrEmpty(name) && StartsAnyWord(name.ToLowerInvariant(), lowerBuffer))
                 {
-                    _resultIndices.Add(i);
-                    _resultNames.Add(name);
+                    newIndices.Add(i);
+                    newNames.Add(name);
                 }
             }
 
-            if (_resultIndices.Count == 0)
+            if (newIndices.Count == 0)
             {
+                // No match — roll back the failed character, keep previous results
                 Speech.Say($"No match for {_buffer}");
+                if (_buffer.Length > 1)
+                    _buffer = _buffer.Substring(0, _buffer.Length - 1);
+                else
+                    _buffer = "";
             }
             else
             {
+                _resultIndices = newIndices;
+                _resultNames = newNames;
+                _resultCursor = 0;
+                _isSearchActive = true;
                 AnnounceCurrentResult();
             }
         }
