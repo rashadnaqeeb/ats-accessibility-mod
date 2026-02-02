@@ -1411,12 +1411,13 @@ namespace ATSAccessibility
             }
 
             var option = options[subSubItemIndex];
-            string name = BuildingReflection.GetIngredientGoodName(option) ?? "Unknown";
-            name = CleanupName(name);
+            string rawName = BuildingReflection.GetIngredientGoodName(option) ?? "Unknown";
+            string name = CleanupName(rawName);
             int amount = BuildingReflection.GetIngredientAmount(option);
             bool allowed = BuildingReflection.IsIngredientAllowed(option);
+            int inStorage = BuildingReflection.GetStoredGoodAmount(rawName);
 
-            Speech.Say($"{amount} {name}: {(allowed ? "enabled" : "disabled")}. Space to toggle");
+            Speech.Say($"{amount} {name} ({inStorage} in storage): {(allowed ? "enabled" : "disabled")}. Space to toggle");
         }
 
         protected override bool PerformSubSubItemAction(int sectionIndex, int itemIndex, int subItemIndex, int subSubItemIndex)
@@ -1442,11 +1443,12 @@ namespace ATSAccessibility
             BuildingReflection.ToggleIngredientAllowed(option);
 
             // Announce new state
-            string name = BuildingReflection.GetIngredientGoodName(option) ?? "Unknown";
-            name = CleanupName(name);
+            string rawName = BuildingReflection.GetIngredientGoodName(option) ?? "Unknown";
+            string name = CleanupName(rawName);
             int amount = BuildingReflection.GetIngredientAmount(option);
             bool newAllowed = BuildingReflection.IsIngredientAllowed(option);
-            Speech.Say($"{amount} {name}: {(newAllowed ? "enabled" : "disabled")}");
+            int inStorage = BuildingReflection.GetStoredGoodAmount(rawName);
+            Speech.Say($"{amount} {name} ({inStorage} in storage): {(newAllowed ? "enabled" : "disabled")}");
 
             return true;
         }
