@@ -5,9 +5,11 @@ BepInEx accessibility mod for "Against the Storm" - screen reader support via To
 ## Build & Deploy
 
 ```powershell
-.\build.ps1                          # Release build + deploy to game folder
-.\build.ps1 -Configuration Debug     # Debug build + deploy
+powershell -ExecutionPolicy Bypass -File "C:\Users\rasha\Documents\ATS-Accessibility-Mod\build.ps1"                          # Release build + deploy to game folder
+powershell -ExecutionPolicy Bypass -File "C:\Users\rasha\Documents\ATS-Accessibility-Mod\build.ps1" -Configuration Debug     # Debug build + deploy
 ```
+
+**Note**: The path must be quoted and `-ExecutionPolicy Bypass` is required when running from bash.
 
 For release packaging, see `RELEASE-INSTRUCTIONS.md`.
 

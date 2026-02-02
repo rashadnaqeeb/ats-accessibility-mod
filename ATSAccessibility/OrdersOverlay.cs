@@ -175,7 +175,7 @@ namespace ATSAccessibility
                 {
                     State = orderState,
                     Model = model,
-                    Label = $"Slot {slotNum}: {statusLabel}",
+                    Label = $"{slotNum}: {statusLabel}",
                     Status = status,
                     Tracked = tracked
                 });
