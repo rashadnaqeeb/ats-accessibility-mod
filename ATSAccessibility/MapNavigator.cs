@@ -210,6 +210,16 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Returns hearth-relative coordinate string for an arbitrary position, or null if origin unknown.
+        /// </summary>
+        public string GetRelativeCoordinates(int x, int y)
+        {
+            EnsureOriginSet();
+            if (!_originSet) return null;
+            return $"{x - _originX}, {y - _originY}";
+        }
+
+        /// <summary>
         /// Returns hearth-relative coordinate string if the toggle is on, or null.
         /// </summary>
         public string GetCoordinateSuffix()

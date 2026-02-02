@@ -432,14 +432,17 @@ namespace ATSAccessibility
             int dy = item.Position.y - fromY;
             int distance = Math.Max(Math.Abs(dx), Math.Abs(dy));
 
+            string coords = _mapNavigator.GetRelativeCoordinates(item.Position.x, item.Position.y);
+            string coordsSuffix = coords != null ? $", {coords}" : "";
+
             if (distance == 0)
             {
-                Speech.Say(suffix != null ? $"at {suffix}" : "here");
+                Speech.Say(suffix != null ? $"at {suffix}{coordsSuffix}" : $"here{coordsSuffix}");
             }
             else
             {
                 string direction = GetDirection(dx, dy);
-                Speech.Say(suffix != null ? $"{distance} {direction} {suffix}" : $"{distance} tiles {direction}");
+                Speech.Say(suffix != null ? $"{distance} {direction} {suffix}{coordsSuffix}" : $"{distance} tiles {direction}{coordsSuffix}");
             }
         }
 
