@@ -129,6 +129,13 @@ namespace ATSAccessibility
         private FieldInfo _gladeFieldsField = null;
         private FieldInfo _gladeDangerLevelField = null;
         private FieldInfo _gladeWasDiscoveredField = null;
+        private FieldInfo _gladeHasRewardChaseField = null;
+        private FieldInfo _gladeRewardChaseEndField = null;
+        private FieldInfo _gladeRelicsField = null;
+        private FieldInfo _relicIsRewardChaseField = null;
+        private FieldInfo _relicNameField = null;
+        private FieldInfo _relicPositionField = null;
+        private bool _chaseFieldsCached = false;
         private PropertyInfo _naturalResourcesProperty = null;
         private PropertyInfo _depositsProperty = null;
         private PropertyInfo _oresProperty = null;
@@ -709,6 +716,105 @@ namespace ATSAccessibility
                     }
                 }
             }
+
+            // Reward chase relics (treasure stag, etc.)
+            ScanRewardChaseRelics(groups, cursorX, cursorY);
+        }
+
+        /// <summary>
+        /// Scan all glades for active reward chase relics and add them as scanner groups.
+        /// Each chase gets a group named with the relic display name and remaining time.
+        /// </summary>
+        private void ScanRewardChaseRelics(Dictionary<string, ItemGroup> groups, int cursorX, int cursorY)
+        {
+            if (_gladeHasRewardChaseField == null || _gladeRewardChaseEndField == null || _gladeRelicsField == null)
+                return;
+
+            try
+            {
+                var allGlades = GameReflection.GetAllGlades();
+                if (allGlades == null) return;
+
+                var gladesList = allGlades as IEnumerable;
+                if (gladesList == null) return;
+
+                float gameTime = GameReflection.GetGameTime();
+
+                foreach (var glade in gladesList)
+                {
+                    if (glade == null) continue;
+
+                    // Check if this glade has an active reward chase
+                    bool hasChase = false;
+                    try { hasChase = (bool)_gladeHasRewardChaseField.GetValue(glade); }
+                    catch { continue; }
+
+                    if (!hasChase) continue;
+
+                    // Get remaining time
+                    float chaseEnd = 0f;
+                    try { chaseEnd = (float)_gladeRewardChaseEndField.GetValue(glade); }
+                    catch { continue; }
+
+                    float remaining = chaseEnd - gameTime;
+                    if (remaining <= 0f) continue;  // Expired
+
+                    // Get relics list
+                    var relics = _gladeRelicsField.GetValue(glade) as IList;
+                    if (relics == null || relics.Count == 0) continue;
+
+                    // Find the chase relic
+                    foreach (var relic in relics)
+                    {
+                        if (relic == null) continue;
+
+                        EnsureChaseReflectionFields(relic);
+
+                        if (_relicIsRewardChaseField == null) break;
+
+                        bool isChaseRelic = false;
+                        try { isChaseRelic = (bool)_relicIsRewardChaseField.GetValue(relic); }
+                        catch { continue; }
+
+                        if (!isChaseRelic) continue;
+
+                        // Get position
+                        Vector2Int pos;
+                        try { pos = (Vector2Int)_relicPositionField.GetValue(relic); }
+                        catch { continue; }
+
+                        // Get model name and convert to display name
+                        string modelName = null;
+                        try { modelName = _relicNameField?.GetValue(relic) as string; }
+                        catch { }
+
+                        string displayName = !string.IsNullOrEmpty(modelName)
+                            ? GameReflection.GetRelicDisplayName(modelName)
+                            : "Chase relic";
+
+                        // Format remaining time as m:ss
+                        int totalSeconds = (int)remaining;
+                        int minutes = totalSeconds / 60;
+                        int seconds = totalSeconds % 60;
+                        string timeStr = $"{minutes}:{seconds:D2}";
+
+                        string groupName = $"{displayName}, {timeStr}";
+
+                        int distance = CalculateDistance(pos, cursorX, cursorY);
+
+                        if (!groups.ContainsKey(groupName))
+                        {
+                            var group = new ItemGroup(groupName);
+                            group.Items.Add(new ScannedItem(pos, distance));
+                            groups[groupName] = group;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] ScanRewardChaseRelics failed: {ex.Message}");
+            }
         }
 
         private List<ItemGroup> ScanResources()
@@ -1126,6 +1232,12 @@ namespace ATSAccessibility
                                     BindingFlags.Public | BindingFlags.Instance);
                                 _gladeWasDiscoveredField = gladeType.GetField("wasDiscovered",
                                     BindingFlags.Public | BindingFlags.Instance);
+                                _gladeHasRewardChaseField = gladeType.GetField("hasRewardChase",
+                                    BindingFlags.Public | BindingFlags.Instance);
+                                _gladeRewardChaseEndField = gladeType.GetField("rewardChaseEnd",
+                                    BindingFlags.Public | BindingFlags.Instance);
+                                _gladeRelicsField = gladeType.GetField("relics",
+                                    BindingFlags.Public | BindingFlags.Instance);
                                 break;
                             }
                         }
@@ -1428,6 +1540,31 @@ namespace ATSAccessibility
         private bool IsInsideUnrevealedGlade(int x, int y)
         {
             return IsInsideUnrevealedGlade(new Vector2Int(x, y));
+        }
+
+        /// <summary>
+        /// Lazy-cache GladeRelicState fields from the first encountered relic instance.
+        /// </summary>
+        private void EnsureChaseReflectionFields(object relic)
+        {
+            if (_chaseFieldsCached) return;
+
+            try
+            {
+                var relicType = relic.GetType();
+                _relicIsRewardChaseField = relicType.GetField("isRewardChase",
+                    BindingFlags.Public | BindingFlags.Instance);
+                _relicNameField = relicType.GetField("name",
+                    BindingFlags.Public | BindingFlags.Instance);
+                _relicPositionField = relicType.GetField("field",
+                    BindingFlags.Public | BindingFlags.Instance);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] EnsureChaseReflectionFields failed: {ex.Message}");
+            }
+
+            _chaseFieldsCached = true;
         }
 
         // ========================================
