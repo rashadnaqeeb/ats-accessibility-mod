@@ -8449,6 +8449,86 @@ namespace ATSAccessibility
             return GetSealField();
         }
 
+        // ========================================
+        // BUILDING ENUMERATION HELPERS
+        // ========================================
+
+        private static PropertyInfo _allBuildingsProperty = null;
+        private static bool _allBuildingsPropertyCached = false;
+
+        // Note: reuses existing _buildingFieldProperty for Field access
+
+        /// <summary>
+        /// Get all building objects from the BuildingsService.Buildings dictionary.
+        /// Returns empty list on failure.
+        /// </summary>
+        public static List<object> GetAllBuildingObjects()
+        {
+            var result = new List<object>();
+
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return result;
+
+            if (!_allBuildingsPropertyCached)
+            {
+                _allBuildingsProperty = buildingsService.GetType().GetProperty("Buildings", PublicInstance);
+                _allBuildingsPropertyCached = true;
+            }
+
+            if (_allBuildingsProperty == null) return result;
+
+            try
+            {
+                var dict = _allBuildingsProperty.GetValue(buildingsService) as System.Collections.IDictionary;
+                if (dict == null) return result;
+
+                foreach (System.Collections.DictionaryEntry entry in dict)
+                {
+                    if (entry.Value != null)
+                        result.Add(entry.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetAllBuildingObjects failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get a building's grid position via its Field property.
+        /// Returns (-1,-1) on failure.
+        /// </summary>
+        public static Vector2Int GetBuildingPosition(object building)
+        {
+            if (building == null) return new Vector2Int(-1, -1);
+
+            try
+            {
+                if (_buildingFieldProperty == null)
+                    _buildingFieldProperty = building.GetType().GetProperty("Field", PublicInstance);
+
+                if (_buildingFieldProperty != null)
+                    return (Vector2Int)_buildingFieldProperty.GetValue(building);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetBuildingPosition failed: {ex.Message}");
+            }
+
+            return new Vector2Int(-1, -1);
+        }
+
+        /// <summary>
+        /// Get a building's display name.
+        /// Delegates to BuildingReflection.GetBuildingName which uses Building.DisplayName.
+        /// </summary>
+        public static string GetBuildingDisplayName(object building)
+        {
+            return BuildingReflection.GetBuildingName(building);
+        }
+
         public static int LogCacheStatus()
         {
             return ReflectionValidator.TriggerAndValidate(typeof(GameReflection), "GameReflection");

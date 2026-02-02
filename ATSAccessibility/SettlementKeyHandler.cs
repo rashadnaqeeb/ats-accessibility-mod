@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility
@@ -22,6 +23,20 @@ namespace ATSAccessibility
         private bool _hasBookmark;
         private int _bookmarkX;
         private int _bookmarkY;
+
+        // Worker building cycling
+        private int _workerBuildingIndex = -1;
+        private int _workerCategoryIndex = 0;  // 0=All, 1=Gathering, 2=Production, 3=Service, 4=Events
+        private static readonly string[] WorkerCategories = { "All", "Gathering", "Production", "Service", "Events" };
+
+        private static readonly Dictionary<string, int> BuildingTypeToWorkerCategory = new Dictionary<string, int>
+        {
+            { "Camp", 1 }, { "GathererHut", 1 }, { "Farm", 1 }, { "FishingHut", 1 },
+            { "Mine", 1 }, { "Extractor", 1 }, { "RainCatcher", 1 }, { "Collector", 1 },
+            { "Workshop", 2 }, { "BlightPost", 2 },
+            { "Hearth", 3 }, { "Institution", 3 }, { "Storage", 3 },
+            { "Port", 4 }, { "Relic", 4 },
+        };
 
         public SettlementKeyHandler(
             MapNavigator mapNavigator,
@@ -473,10 +488,92 @@ namespace ATSAccessibility
                         Speech.Say("No building here");
                     return true;
 
+                // Worker building cycling
+                case KeyCode.Period:
+                    if (modifiers.Shift)
+                        CycleWorkerCategory(1);
+                    else
+                        CycleWorkerBuilding(1);
+                    return true;
+                case KeyCode.Comma:
+                    if (modifiers.Shift)
+                        CycleWorkerCategory(-1);
+                    else
+                        CycleWorkerBuilding(-1);
+                    return true;
+
                 default:
                     // Consume all keys - mod has full keyboard control in settlement
                     return true;
             }
+        }
+
+        private void CycleWorkerCategory(int direction)
+        {
+            _workerCategoryIndex = NavigationUtils.WrapIndex(_workerCategoryIndex, direction, WorkerCategories.Length);
+            _workerBuildingIndex = -1;
+            Speech.Say(WorkerCategories[_workerCategoryIndex]);
+        }
+
+        private void CycleWorkerBuilding(int direction)
+        {
+            var allBuildings = GameReflection.GetAllBuildingObjects();
+
+            var filtered = new List<(object building, string name, Vector2Int pos)>();
+
+            foreach (var building in allBuildings)
+            {
+                if (!BuildingReflection.IsProductionBuilding(building)) continue;
+                if (GameReflection.IsBuildingUnfinished(building)) continue;
+                if (BuildingReflection.GetMaxWorkers(building) <= 0) continue;
+
+                if (_workerCategoryIndex > 0)
+                {
+                    string typeName = building.GetType().Name;
+                    int cat;
+                    if (!BuildingTypeToWorkerCategory.TryGetValue(typeName, out cat) || cat != _workerCategoryIndex)
+                        continue;
+                }
+
+                string name = GameReflection.GetBuildingDisplayName(building);
+                if (string.IsNullOrEmpty(name)) continue;
+
+                Vector2Int pos = GameReflection.GetBuildingPosition(building);
+                if (pos.x < 0 || pos.y < 0) continue;
+
+                filtered.Add((building, name, pos));
+            }
+
+            // Stable sort: alphabetical by name, then by position
+            filtered.Sort((a, b) =>
+            {
+                int cmp = string.Compare(a.name, b.name, System.StringComparison.OrdinalIgnoreCase);
+                if (cmp != 0) return cmp;
+                cmp = a.pos.x.CompareTo(b.pos.x);
+                if (cmp != 0) return cmp;
+                return a.pos.y.CompareTo(b.pos.y);
+            });
+
+            if (filtered.Count == 0)
+            {
+                if (_workerCategoryIndex > 0)
+                    Speech.Say($"No {WorkerCategories[_workerCategoryIndex].ToLowerInvariant()} buildings");
+                else
+                    Speech.Say("No buildings with worker slots");
+                return;
+            }
+
+            // Advance index, handling initial -1
+            if (_workerBuildingIndex < 0)
+                _workerBuildingIndex = direction > 0 ? 0 : filtered.Count - 1;
+            else
+                _workerBuildingIndex = NavigationUtils.WrapIndex(_workerBuildingIndex, direction, filtered.Count);
+
+            var selected = filtered[_workerBuildingIndex];
+            _mapNavigator.SetCursorPosition(selected.pos.x, selected.pos.y);
+
+            string summary = WorkerInfoHelper.GetWorkerSummary(selected.building);
+            Speech.Say($"{selected.name}, {summary}");
         }
 
         private void ToggleTreeMark()
