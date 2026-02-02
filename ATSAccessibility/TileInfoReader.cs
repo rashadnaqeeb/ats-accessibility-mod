@@ -274,6 +274,13 @@ namespace ATSAccessibility
         /// </summary>
         public static void ReadCurrentTile(int cursorX, int cursorY)
         {
+            var glade = GameReflection.GetGlade(cursorX, cursorY);
+            if (glade != null && !GetGladeWasDiscovered(glade))
+            {
+                Speech.Say("Unrevealed glade");
+                return;
+            }
+
             var objectOn = GameReflection.GetObjectOn(cursorX, cursorY);
 
             if (objectOn == null)
@@ -1097,6 +1104,32 @@ namespace ATSAccessibility
         // ========================================
         // UTILITY METHODS
         // ========================================
+
+        private static FieldInfo _wasDiscoveredField;
+        private static bool _wasDiscoveredCached;
+
+        private static bool GetGladeWasDiscovered(object glade)
+        {
+            if (!_wasDiscoveredCached)
+            {
+                _wasDiscoveredField = glade.GetType().GetField("wasDiscovered",
+                    BindingFlags.Public | BindingFlags.Instance);
+                _wasDiscoveredCached = true;
+            }
+
+            try
+            {
+                if (_wasDiscoveredField != null)
+                    return (bool)_wasDiscoveredField.GetValue(glade);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}");
+            }
+
+            // Default to discovered (don't hide content if we can't determine state)
+            return true;
+        }
 
         /// <summary>
         /// Check if a type inherits from a class with the given name anywhere in its hierarchy.
