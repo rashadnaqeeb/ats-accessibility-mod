@@ -17,6 +17,11 @@ namespace ATSAccessibility
         private int _cursorX = -1;
         private int _cursorY = -1;
 
+        // Coordinate origin (Ancient Hearth position) for hearth-relative display
+        private int _originX;
+        private int _originY;
+        private bool _originSet = false;
+
         // Cached reflection info for Field properties (static per CLAUDE.md Pattern #6)
         private static PropertyInfo _fieldTypeProperty = null;
         private static PropertyInfo _fieldIsTraversableProperty = null;
@@ -59,11 +64,31 @@ namespace ATSAccessibility
         }
 
         /// <summary>
+        /// Ensure coordinate origin is set to the Ancient Hearth position.
+        /// Called lazily in case the hearth hasn't spawned yet at cursor init time.
+        /// </summary>
+        private void EnsureOriginSet()
+        {
+            if (_originSet) return;
+            var hearthPos = GameReflection.GetMainHearthPosition();
+            if (hearthPos.HasValue)
+            {
+                _originX = hearthPos.Value.x;
+                _originY = hearthPos.Value.y;
+                _originSet = true;
+                // Snap cursor to hearth on first discovery
+                _cursorX = _originX;
+                _cursorY = _originY;
+            }
+        }
+
+        /// <summary>
         /// Move the cursor by delta and announce the new tile.
         /// </summary>
         public void MoveCursor(int dx, int dy)
         {
             EnsureCursorInitialized();
+            EnsureOriginSet();
 
             int newX = _cursorX + dx;
             int newY = _cursorY + dy;
@@ -109,6 +134,7 @@ namespace ATSAccessibility
         public void SkipToNextChange(int dx, int dy)
         {
             EnsureCursorInitialized();
+            EnsureOriginSet();
 
             // Get current tile's announcement as baseline (exclude villagers for comparison)
             var currentField = GameReflection.GetField(_cursorX, _cursorY);
@@ -161,11 +187,23 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Announce current coordinates (K key).
+        /// Announce current coordinates relative to Ancient Hearth (K key).
         /// </summary>
         public void AnnounceCurrentPosition()
         {
-            Speech.Say($"{_cursorX}, {_cursorY}");
+            EnsureCursorInitialized();
+            EnsureOriginSet();
+
+            if (_originSet)
+            {
+                int relX = _cursorX - _originX;
+                int relY = _cursorY - _originY;
+                Speech.Say($"{relX}, {relY}");
+            }
+            else
+            {
+                Speech.Say("Coordinates unavailable");
+            }
         }
 
         /// <summary>
@@ -176,6 +214,7 @@ namespace ATSAccessibility
         {
             _cursorX = -1;
             _cursorY = -1;
+            _originSet = false;
         }
 
         /// <summary>
@@ -188,6 +227,7 @@ namespace ATSAccessibility
             {
                 _cursorX = hearthPos.Value.x;
                 _cursorY = hearthPos.Value.y;
+                EnsureOriginSet();
             }
             else
             {
