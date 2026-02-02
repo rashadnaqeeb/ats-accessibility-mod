@@ -436,13 +436,23 @@ namespace ATSAccessibility
                 case KeyCode.Tab:
                     _buildingMenuPanel?.Open();
                     return true;
-                case KeyCode.H:
+                case KeyCode.N:
                     if (modifiers.Alt)
                     {
                         _announcementHistoryPanel?.Open();
                         return true;
                     }
-                    return false;
+                    return true;
+
+                // Reset cursor to hearth
+                case KeyCode.H:
+                    if (modifiers.Alt)
+                    {
+                        _mapNavigator.ResetCursor();
+                        _mapNavigator.MoveCursor(0, 0);
+                        return true;
+                    }
+                    return true;
 
                 // Direct tree mark toggle
                 case KeyCode.Backspace:

@@ -67,8 +67,8 @@ namespace ATSAccessibility
         /// </summary>
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            // Alt+H to open (when not already open)
-            if (!_isOpen && keyCode == KeyCode.H && modifiers.Alt && !modifiers.Control && !modifiers.Shift)
+            // Alt+N to open (when not already open)
+            if (!_isOpen && keyCode == KeyCode.N && modifiers.Alt && !modifiers.Control && !modifiers.Shift)
             {
                 // Only open if we're in a game
                 if (GameReflection.GetIsGameActive())
@@ -122,13 +122,13 @@ namespace ATSAccessibility
                     Close();
                     return true;
 
-                case KeyCode.H:
+                case KeyCode.N:
                     Close();
                     return true;
 
                 default:
-                    // Handle A-Z keys for type-ahead search (except H which closes panel)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z && keyCode != KeyCode.H)
+                    // Handle A-Z keys for type-ahead search
+                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
                     {
                         char c = (char)('a' + (keyCode - KeyCode.A));
                         HandleSearchKey(c);
@@ -168,7 +168,7 @@ namespace ATSAccessibility
             _isOpen = false;
             _search.Clear();
             InputBlocker.BlockCancelOnce = true;  // Prevent game from opening pause menu
-            Speech.Say("History closed");
+            Speech.Say("Notifications closed");
             Debug.Log("[ATSAccessibility] Announcement history panel closed");
         }
 
