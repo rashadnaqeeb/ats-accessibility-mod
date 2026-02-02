@@ -178,6 +178,9 @@ namespace ATSAccessibility
                     string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
                     if (!string.IsNullOrEmpty(prefix))
                         announcement = $"{prefix}, {announcement}";
+                    string coords = GetCoordinateSuffix();
+                    if (coords != null)
+                        announcement = $"{announcement}, {coords}";
                     Speech.Say($"{tilesSkipped} {tileWord}, {announcement}");
 
                     SyncCameraToTile(nextField);
@@ -204,6 +207,18 @@ namespace ATSAccessibility
             {
                 Speech.Say("Coordinates unavailable");
             }
+        }
+
+        /// <summary>
+        /// Returns hearth-relative coordinate string if the toggle is on, or null.
+        /// </summary>
+        private string GetCoordinateSuffix()
+        {
+            if (Plugin.AnnounceCoordinates?.Value != true || !_originSet)
+                return null;
+            int relX = _cursorX - _originX;
+            int relY = _cursorY - _originY;
+            return $"{relX}, {relY}";
         }
 
         /// <summary>
@@ -248,6 +263,9 @@ namespace ATSAccessibility
                 string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
                 if (!string.IsNullOrEmpty(prefix))
                     announcement = $"{prefix}, {announcement}";
+                string coords = GetCoordinateSuffix();
+                if (coords != null)
+                    announcement = $"{announcement}, {coords}";
                 Speech.Say(announcement);
             }
         }

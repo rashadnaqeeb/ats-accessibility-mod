@@ -80,6 +80,9 @@ namespace ATSAccessibility
         // Scanner
         public static ConfigEntry<bool> ScannerAutoMove;
 
+        // Navigation
+        public static ConfigEntry<bool> AnnounceCoordinates;
+
         private void Awake()
         {
             try
@@ -210,6 +213,10 @@ namespace ATSAccessibility
             // Scanner
             ScannerAutoMove = Config.Bind("Scanner", "AutoMoveCursor", false,
                 "Automatically move cursor to scanned item when navigating the scanner");
+
+            // Navigation
+            AnnounceCoordinates = Config.Bind("Navigation", "IncludeCoordinates", false,
+                "Append hearth-relative coordinates to tile announcements");
 
             Logger.LogInfo("Announcement config entries initialized");
         }

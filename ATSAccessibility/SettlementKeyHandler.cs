@@ -87,9 +87,17 @@ namespace ATSAccessibility
                         _mapNavigator.MoveCursor(1, 0);
                     return true;
 
-                // Position announcement
+                // Position announcement / coordinate toggle
                 case KeyCode.K:
-                    _mapNavigator.AnnounceCurrentPosition();
+                    if (modifiers.Alt)
+                    {
+                        Plugin.AnnounceCoordinates.Value = !Plugin.AnnounceCoordinates.Value;
+                        Speech.Say(Plugin.AnnounceCoordinates.Value ? "Coordinates on" : "Coordinates off");
+                    }
+                    else
+                    {
+                        _mapNavigator.AnnounceCurrentPosition();
+                    }
                     return true;
 
                 // Game speed controls
