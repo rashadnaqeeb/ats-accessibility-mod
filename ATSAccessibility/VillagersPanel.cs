@@ -551,10 +551,9 @@ namespace ATSAccessibility
             string raceName = category.RaceName;
             if (raceName == null) return;  // Shared needs category has no favoring
 
-            // Check if already favored
+            // If this race is already favored, toggle it off
             if (GameReflection.IsFavored(raceName))
             {
-                // Stop favoring
                 if (GameReflection.StopFavoringRace())
                 {
                     Speech.Say($"{category.DisplayName} no longer favored");
@@ -567,13 +566,17 @@ namespace ATSAccessibility
                 return;
             }
 
-            // Check cooldown
+            // Check cooldown before stopping - game greys out the button during cooldown,
+            // but we need to tell the player verbally and avoid cancelling existing favoring
             if (GameReflection.IsFavoringOnCooldown())
             {
                 float cooldown = GameReflection.GetFavorCooldownLeft();
                 Speech.Say($"Favoring on cooldown, {Mathf.CeilToInt(cooldown)} seconds remaining");
                 return;
             }
+
+            // Stop any existing favoring on a different race first
+            GameReflection.StopFavoringRace();
 
             // Check if there are other races to penalize (need at least 2 races with villagers)
             int racesWithVillagers = 0;
