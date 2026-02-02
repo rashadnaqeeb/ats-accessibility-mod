@@ -257,7 +257,7 @@ namespace ATSAccessibility
             _eventAnnouncer = new EventAnnouncer();
 
             // Initialize announcement history panel
-            _announcementHistoryPanel = new AnnouncementHistoryPanel();
+            _announcementHistoryPanel = new AnnouncementHistoryPanel(_mapNavigator);
 
             // Initialize info panel menu (unified access to stats, resources, mysteries, villagers, workers, announcements)
             _infoPanelMenu = new InfoPanelMenu(_statsPanel, _settlementResourcePanel, _mysteriesPanel, _villagersPanel, _workersPanel, _announcementsPanel);

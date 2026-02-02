@@ -35,7 +35,7 @@ namespace ATSAccessibility
             new System.Text.RegularExpressions.Regex(@"^\s*alert:?\s*", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         // Message batching to prevent interruption when multiple events fire at once
-        private List<(string message, float time)> _pendingMessages = new List<(string, float)>();
+        private List<(string message, float time, Vector2Int? location)> _pendingMessages = new List<(string, float, Vector2Int?)>();
         private float _batchStartTime = 0f;
         private const float BATCH_WINDOW = 0.15f; // 150ms batching window
 
@@ -51,6 +51,14 @@ namespace ATSAccessibility
 
         // Cached reflection for glade danger level
         private static MethodInfo _gladesGetDangerLevelMethod;
+
+        // Cached reflection for glade fields[0] location
+        private static FieldInfo _gladeFieldsField;
+        private static bool _gladeFieldsCached = false;
+
+        // Cached reflection for villager lastWorkId location
+        private static FieldInfo _villagerLastWorkIdField;
+        private static bool _villagerLocationCached = false;
 
         // Cached reflection metadata
         private static bool _reflectionCached = false;
@@ -135,6 +143,8 @@ namespace ATSAccessibility
             // (services may have different types/methods in different game versions)
             _reflectionCached = false;
             _villagerReflectionCached = false;
+            _gladeFieldsCached = false;
+            _villagerLocationCached = false;
 
             // Clear sacrifice tracking state
             ClearSacrificeState();
@@ -161,11 +171,215 @@ namespace ATSAccessibility
             return Time.realtimeSinceStartup < _gracePeriodEndTime;
         }
 
+        // ========================================
+        // LOCATION HELPERS
+        // ========================================
+
+        private static Vector2Int? GetBuildingLocation(object building)
+        {
+            if (building == null) return null;
+            var pos = GameReflection.GetBuildingGridPosition(building);
+            if (pos == Vector2Int.zero) return null;
+            return pos;
+        }
+
+        private static Vector2Int? GetGladeLocation(object gladeState)
+        {
+            if (gladeState == null) return null;
+
+            if (!_gladeFieldsCached)
+            {
+                _gladeFieldsField = gladeState.GetType().GetField("fields");
+                _gladeFieldsCached = true;
+            }
+
+            if (_gladeFieldsField == null) return null;
+
+            try
+            {
+                var fields = _gladeFieldsField.GetValue(gladeState) as List<Vector2Int>;
+                if (fields != null && fields.Count > 0)
+                    return fields[0];
+            }
+            catch { }
+
+            return null;
+        }
+
+        private static Vector2Int? GetLastRevealedLocation(List<Vector2Int> locations)
+        {
+            if (locations == null || locations.Count == 0) return null;
+            return locations[locations.Count - 1];
+        }
+
+        private Vector2Int? GetVillagerLocation(object villager)
+        {
+            if (villager == null) return null;
+
+            try
+            {
+                if (!_villagerLocationCached)
+                {
+                    var state = _villagerStateField?.GetValue(villager);
+                    if (state != null)
+                        _villagerLastWorkIdField = state.GetType().GetField("lastWorkId");
+                    _villagerLocationCached = true;
+                }
+
+                if (_villagerLastWorkIdField == null || _villagerStateField == null) return null;
+
+                var stateObj = _villagerStateField.GetValue(villager);
+                if (stateObj == null) return null;
+
+                int lastWorkId = (int)_villagerLastWorkIdField.GetValue(stateObj);
+                if (lastWorkId <= 0) return null;
+
+                var building = GameReflection.GetBuildingById(lastWorkId);
+                return GetBuildingLocation(building);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Vector2Int? TryGetAlertBuildingLocation(object alert)
+        {
+            if (alert == null) return null;
+
+            try
+            {
+                // Get clickCallback delegate from alert
+                var callbackField = alert.GetType().GetField("clickCallback");
+                var callback = callbackField?.GetValue(alert) as System.Delegate;
+                if (callback == null) return null;
+
+                // Get the monitor instance (callback target)
+                var monitor = callback.Target;
+                if (monitor == null) return null;
+
+                // Stage 1: Dictionary reverse-lookup for multi-building monitors
+                // (HearthsMonitor, CampsMonitor, FarmsMonitor, MinesMonitor, etc.)
+                var type = monitor.GetType();
+                while (type != null)
+                {
+                    foreach (var field in type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                    {
+                        if (!typeof(System.Collections.IDictionary).IsAssignableFrom(field.FieldType)) continue;
+                        var dict = field.GetValue(monitor) as System.Collections.IDictionary;
+                        if (dict == null) continue;
+
+                        // Reverse-lookup: find which key (building) maps to this alert
+                        foreach (System.Collections.DictionaryEntry entry in dict)
+                        {
+                            if (entry.Value != alert) continue;
+                            // Try to read Field property (Vector2Int) from the building
+                            var fieldProp = entry.Key.GetType().GetProperty("Field", BindingFlags.Public | BindingFlags.Instance);
+                            if (fieldProp != null)
+                            {
+                                var pos = fieldProp.GetValue(entry.Key);
+                                if (pos is Vector2Int v) return v;
+                            }
+                            break;
+                        }
+                    }
+                    type = type.BaseType;
+                }
+
+                // Stage 2: Single-alert monitor fallback
+                // (NoFirekeeperMonitor, BlightMonitor, PortMonitor, etc.)
+                // These store a single MonitorAlert field, not a dictionary.
+                // Detect by finding a MonitorAlert field matching our alert, then use
+                // the monitor's Focus(BuildingType) method signature to find the right
+                // building collection on BuildingsService.
+                type = monitor.GetType();
+                while (type != null)
+                {
+                    foreach (var field in type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                    {
+                        if (typeof(System.Collections.IDictionary).IsAssignableFrom(field.FieldType)) continue;
+                        var val = field.GetValue(monitor);
+                        if (val != alert) continue;
+
+                        // Confirmed: this monitor owns the alert via a single field
+                        return TryGetFirstBuildingFromFocusMethod(monitor);
+                    }
+                    type = type.BaseType;
+                }
+            }
+            catch { }
+
+            return null;
+        }
+
+        /// <summary>
+        /// For single-alert monitors, find the target building by examining the monitor's
+        /// private Focus(BuildingType) method. The parameter type identifies which
+        /// BuildingsService collection holds the target building.
+        /// </summary>
+        private static Vector2Int? TryGetFirstBuildingFromFocusMethod(object monitor)
+        {
+            // Find a private Focus method that takes a single building parameter
+            Type buildingParamType = null;
+            var scanType = monitor.GetType();
+            while (scanType != null && buildingParamType == null)
+            {
+                foreach (var method in scanType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                {
+                    if (method.Name != "Focus") continue;
+                    var parameters = method.GetParameters();
+                    if (parameters.Length != 1) continue;
+                    // Verify parameter type has a Field property (is a Building)
+                    if (parameters[0].ParameterType.GetProperty("Field", BindingFlags.Public | BindingFlags.Instance) == null) continue;
+                    buildingParamType = parameters[0].ParameterType;
+                    break;
+                }
+                scanType = scanType.BaseType;
+            }
+
+            if (buildingParamType == null) return null;
+
+            // Find matching collection on BuildingsService
+            var buildingsService = GameReflection.GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            foreach (var prop in buildingsService.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (!prop.PropertyType.IsGenericType) continue;
+                if (!prop.CanRead) continue;
+
+                var genArgs = prop.PropertyType.GetGenericArguments();
+                if (genArgs.Length != 2) continue;
+                if (!buildingParamType.IsAssignableFrom(genArgs[1])) continue;
+
+                try
+                {
+                    var dict = prop.GetValue(buildingsService) as System.Collections.IDictionary;
+                    if (dict == null || dict.Count == 0) continue;
+
+                    // Get first entry's Field position
+                    foreach (System.Collections.DictionaryEntry entry in dict)
+                    {
+                        var building = entry.Value;
+                        if (building == null) continue;
+                        var fieldProp = building.GetType().GetProperty("Field", BindingFlags.Public | BindingFlags.Instance);
+                        if (fieldProp == null) continue;
+                        var pos = fieldProp.GetValue(building);
+                        if (pos is Vector2Int v) return v;
+                        break;
+                    }
+                }
+                catch { continue; }
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Queue a message for announcement. Messages are batched to prevent
         /// interruption when multiple events fire simultaneously.
         /// </summary>
-        private void Announce(string message)
+        private void Announce(string message, Vector2Int? location = null)
         {
             float currentTime = Time.realtimeSinceStartup;
 
@@ -175,7 +389,7 @@ namespace ATSAccessibility
                 _batchStartTime = currentTime;
             }
 
-            _pendingMessages.Add((message, currentTime));
+            _pendingMessages.Add((message, currentTime, location));
         }
 
         /// <summary>
@@ -193,9 +407,10 @@ namespace ATSAccessibility
 
             // Group messages by content and count duplicates
             var messageCounts = new Dictionary<string, int>();
+            var messageLocations = new Dictionary<string, Vector2Int?>();
             var messageOrder = new List<string>(); // Preserve order of first occurrence
 
-            foreach (var (message, time) in _pendingMessages)
+            foreach (var (message, time, location) in _pendingMessages)
             {
                 // Skip blueprint announcement if overlay is showing description
                 if (ReputationRewardOverlay.SuppressBlueprintAnnouncement &&
@@ -207,10 +422,14 @@ namespace ATSAccessibility
                 if (messageCounts.ContainsKey(message))
                 {
                     messageCounts[message]++;
+                    // Keep first non-null location
+                    if (location.HasValue && !messageLocations[message].HasValue)
+                        messageLocations[message] = location;
                 }
                 else
                 {
                     messageCounts[message] = 1;
+                    messageLocations[message] = location;
                     messageOrder.Add(message);
                 }
             }
@@ -224,7 +443,7 @@ namespace ATSAccessibility
                 formattedMessages.Add(formatted);
 
                 // Add each message to history individually for review
-                AnnouncementHistoryPanel.AddMessage(formatted);
+                AnnouncementHistoryPanel.AddMessage(formatted, messageLocations[message]);
             }
 
             // Combine all messages into single speech output to prevent interruption
@@ -514,7 +733,7 @@ namespace ATSAccessibility
                 if (!string.IsNullOrEmpty(reason))
                     message += $": {reason}";
 
-                Announce(message);
+                Announce(message, GetVillagerLocation(villager));
             }
             catch (Exception ex)
             {
@@ -707,7 +926,7 @@ namespace ATSAccessibility
             }
             catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] OnGladeRevealed danger lookup failed: {ex.Message}"); }
 
-            Announce($"Glade revealed{dangerInfo}");
+            Announce($"Glade revealed{dangerInfo}", GetGladeLocation(gladeState));
         }
 
         // ========================================
@@ -944,7 +1163,7 @@ namespace ATSAccessibility
             if (IsInGracePeriod()) return; // Ignore events during initialization
 
             string buildingName = GetBuildingName(building);
-            Announce($"{buildingName} construction complete");
+            Announce($"{buildingName} construction complete", GetBuildingLocation(building));
         }
 
         /// <summary>
@@ -993,7 +1212,7 @@ namespace ATSAccessibility
         {
             if (!Plugin.AnnounceHearthIgnited.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Hearth ignited");
+            Announce("Hearth ignited", GetBuildingLocation(hearth));
         }
 
         // OnHearthDied removed - covered by game's AlertsFireDown
@@ -1002,21 +1221,21 @@ namespace ATSAccessibility
         {
             if (!Plugin.AnnounceHearthLevelChange.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Hearth leveled up");
+            Announce("Hearth leveled up", GetBuildingLocation(hearth));
         }
 
         private void OnHearthLeveledDown(object hearth)
         {
             if (!Plugin.AnnounceHearthLevelChange.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Hearth leveled down");
+            Announce("Hearth leveled down", GetBuildingLocation(hearth));
         }
 
         private void OnHearthCorrupted(object hearth)
         {
             if (!Plugin.AnnounceHearthCorrupted.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Hearth corrupted by blight");
+            Announce("Hearth corrupted by blight", GetBuildingLocation(hearth));
         }
 
         private void OnGoodDiscovered(object goodName)
@@ -1058,28 +1277,28 @@ namespace ATSAccessibility
             string relicName = GetBuildingName(relic);
             if (relicName == "Building") relicName = "Relic"; // Fallback
 
-            Announce($"{relicName} resolved");
+            Announce($"{relicName} resolved", GetBuildingLocation(relic));
         }
 
         private void OnRewardChaseStarted(object gladeState)
         {
             if (!Plugin.AnnounceRewardChase.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Reward chase started");
+            Announce("Reward chase started", GetGladeLocation(gladeState));
         }
 
         private void OnRewardChaseEnded(object gladeState)
         {
             if (!Plugin.AnnounceRewardChase.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Reward chase ended");
+            Announce("Reward chase ended", GetGladeLocation(gladeState));
         }
 
         private void OnPortExpeditionStarted(object port)
         {
             if (!Plugin.AnnouncePortExpeditionStarted.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Expedition departed");
+            Announce("Expedition departed", GetBuildingLocation(port));
         }
 
         // ========================================
@@ -1111,21 +1330,21 @@ namespace ATSAccessibility
         {
             if (!Plugin.AnnounceLocateMarkers.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Fertile soil location revealed");
+            Announce("Fertile soil location revealed", GetLastRevealedLocation(GameReflection.GetRevealedGrassLocations()));
         }
 
         private void OnSpringsLocationRevealed()
         {
             if (!Plugin.AnnounceLocateMarkers.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Spring location revealed");
+            Announce("Spring location revealed", GetLastRevealedLocation(GameReflection.GetRevealedSpringsLocations()));
         }
 
         private void OnRelicLocationRevealed()
         {
             if (!Plugin.AnnounceLocateMarkers.Value) return;
             if (IsInGracePeriod()) return;
-            Announce("Relic location revealed");
+            Announce("Relic location revealed", GetLastRevealedLocation(GameReflection.GetRevealedRelicLocations()));
         }
 
         private void OnRelicHighlighted(string relicName, UnityEngine.Vector2Int position)
@@ -1135,7 +1354,7 @@ namespace ATSAccessibility
 
             // Get a friendly name for the relic
             string friendlyName = GameReflection.GetRelicDisplayName(relicName);
-            Announce($"Relic highlighted: {friendlyName}");
+            Announce($"Relic highlighted: {friendlyName}", (Vector2Int?)position);
         }
 
         // ========================================
@@ -1255,7 +1474,7 @@ namespace ATSAccessibility
                         // Strip "Alert:" or "Alert" prefix if game already includes it
                         text = AlertPrefixRegex.Replace(text, "");
 
-                        Announce($"Alert: {text}");
+                        Announce($"Alert: {text}", TryGetAlertBuildingLocation(alert));
                     }
                 }
             }

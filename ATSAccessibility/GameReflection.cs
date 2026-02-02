@@ -990,6 +990,43 @@ namespace ATSAccessibility
             return TryGetPropertyValue<object>(_gsBuildingsServiceProperty, GetGameServices());
         }
 
+        private static MethodInfo _getBuildingByIdMethod;
+        private static MethodInfo _hasBuildingByIdMethod;
+        private static bool _getBuildingByIdCached = false;
+
+        /// <summary>
+        /// Get a building by its numeric ID from BuildingsService.
+        /// Returns null if building not found or not in game.
+        /// </summary>
+        public static object GetBuildingById(int id)
+        {
+            if (!GetIsGameActive()) return null;
+
+            var buildingsService = GetBuildingsService();
+            if (buildingsService == null) return null;
+
+            if (!_getBuildingByIdCached)
+            {
+                var bsType = buildingsService.GetType();
+                _hasBuildingByIdMethod = bsType.GetMethod("HasBuilding", new[] { typeof(int) });
+                _getBuildingByIdMethod = bsType.GetMethod("GetBuilding", new[] { typeof(int) });
+                _getBuildingByIdCached = true;
+            }
+
+            if (_hasBuildingByIdMethod == null || _getBuildingByIdMethod == null) return null;
+
+            try
+            {
+                bool has = (bool)_hasBuildingByIdMethod.Invoke(buildingsService, new object[] { id });
+                if (!has) return null;
+                return _getBuildingByIdMethod.Invoke(buildingsService, new object[] { id });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         /// <summary>
         /// Get ConditionsService from GameServices.
         /// </summary>
