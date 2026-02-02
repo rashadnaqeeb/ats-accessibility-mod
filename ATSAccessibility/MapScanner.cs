@@ -1935,24 +1935,19 @@ namespace ATSAccessibility
             UpdateScanOrigin();
             if (_currentCategory == ScanCategory.Buildings)
             {
-                // Rescan if needed
-                if (_cachedBuildingsBySubcategory == null)
-                {
-                    ScanBuildingsWithSubcategories();
-                }
+                EnsureReflectionCache();
+                BuildUnrevealedGladeTilesMap();
+                ScanBuildingsWithSubcategories();
+                _unrevealedGladeTiles = null;
 
                 ChangeSubcategoryInternal(direction, SubcategoryNames, _cachedBuildingsBySubcategory, "No buildings in any subcategory");
             }
             else if (_currentCategory == ScanCategory.Resources)
             {
-                // Rescan if needed
-                if (_cachedResourcesBySubcategory == null)
-                {
-                    EnsureReflectionCache();
-                    BuildUnrevealedGladeTilesMap();
-                    ScanResourcesWithSubcategories();
-                    _unrevealedGladeTiles = null;
-                }
+                EnsureReflectionCache();
+                BuildUnrevealedGladeTilesMap();
+                ScanResourcesWithSubcategories();
+                _unrevealedGladeTiles = null;
 
                 ChangeSubcategoryInternal(direction, ResourceSubcategoryNames, _cachedResourcesBySubcategory, "No resources in any subcategory");
             }
