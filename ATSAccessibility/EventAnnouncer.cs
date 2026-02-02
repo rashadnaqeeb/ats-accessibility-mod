@@ -51,14 +51,20 @@ namespace ATSAccessibility
 
         // Cached reflection for glade danger level
         private static MethodInfo _gladesGetDangerLevelMethod;
+        private static bool _gladesGetDangerLevelCached = false;
+
+        // Cached reflection for MonitorAlert fields
+        private static FieldInfo _alertTextField;
+        private static FieldInfo _alertDismissedField;
+        private static FieldInfo _alertShowTimeField;
+        private static bool _alertFieldsCached = false;
 
         // Cached reflection for glade fields[0] location
         private static FieldInfo _gladeFieldsField;
         private static bool _gladeFieldsCached = false;
 
-        // Cached reflection for villager lastWorkId location
+        // Cached reflection for villager lastWorkId location (cached in EnsureVillagerReflectionCached)
         private static FieldInfo _villagerLastWorkIdField;
-        private static bool _villagerLocationCached = false;
 
         // Cached reflection metadata
         private static bool _reflectionCached = false;
@@ -144,7 +150,8 @@ namespace ATSAccessibility
             _reflectionCached = false;
             _villagerReflectionCached = false;
             _gladeFieldsCached = false;
-            _villagerLocationCached = false;
+            _alertFieldsCached = false;
+            _gladesGetDangerLevelCached = false;
 
             // Clear sacrifice tracking state
             ClearSacrificeState();
@@ -218,14 +225,6 @@ namespace ATSAccessibility
 
             try
             {
-                if (!_villagerLocationCached)
-                {
-                    var state = _villagerStateField?.GetValue(villager);
-                    if (state != null)
-                        _villagerLastWorkIdField = state.GetType().GetField("lastWorkId");
-                    _villagerLocationCached = true;
-                }
-
                 if (_villagerLastWorkIdField == null || _villagerStateField == null) return null;
 
                 var stateObj = _villagerStateField.GetValue(villager);
@@ -688,6 +687,7 @@ namespace ATSAccessibility
                 var stateType = stateObj.GetType();
                 _villagerStateLossTypeField = stateType.GetField("lossType");
                 _villagerStateLossReasonField = stateType.GetField("lossReasonKey");
+                _villagerLastWorkIdField = stateType.GetField("lastWorkId");
             }
 
             _villagerReflectionCached = true;
@@ -908,9 +908,10 @@ namespace ATSAccessibility
                 if (gladesService != null)
                 {
                     // Cache the method on first use
-                    if (_gladesGetDangerLevelMethod == null)
+                    if (!_gladesGetDangerLevelCached)
                     {
                         _gladesGetDangerLevelMethod = gladesService.GetType().GetMethod("GetDangerLevel");
+                        _gladesGetDangerLevelCached = true;
                     }
 
                     var dangerLevel = _gladesGetDangerLevelMethod?.Invoke(gladesService, new[] { gladeState });
@@ -1440,14 +1441,19 @@ namespace ATSAccessibility
                 {
                     if (alert == null) continue;
 
-                    // Get alert properties
-                    var textField = alert.GetType().GetField("text");
-                    var dismissedField = alert.GetType().GetField("dismissed");
-                    var showTimeField = alert.GetType().GetField("showTime");
+                    // Cache alert field metadata on first use
+                    if (!_alertFieldsCached)
+                    {
+                        var alertType = alert.GetType();
+                        _alertTextField = alertType.GetField("text");
+                        _alertDismissedField = alertType.GetField("dismissed");
+                        _alertShowTimeField = alertType.GetField("showTime");
+                        _alertFieldsCached = true;
+                    }
 
-                    string text = textField?.GetValue(alert) as string;
-                    bool dismissed = dismissedField != null && (bool)dismissedField.GetValue(alert);
-                    float showTime = showTimeField != null ? (float)showTimeField.GetValue(alert) : 0f;
+                    string text = _alertTextField?.GetValue(alert) as string;
+                    bool dismissed = _alertDismissedField != null && (bool)_alertDismissedField.GetValue(alert);
+                    float showTime = _alertShowTimeField != null ? (float)_alertShowTimeField.GetValue(alert) : 0f;
 
                     if (string.IsNullOrEmpty(text) || dismissed) continue;
 

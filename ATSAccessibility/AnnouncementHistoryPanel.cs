@@ -81,20 +81,6 @@ namespace ATSAccessibility
         /// </summary>
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            // Alt+N to open (when not already open)
-            if (!_isOpen && keyCode == KeyCode.N && modifiers.Alt && !modifiers.Control && !modifiers.Shift)
-            {
-                // Only open if we're in a game
-                if (GameReflection.GetIsGameActive())
-                {
-                    Open();
-                    return true;
-                }
-                return false;
-            }
-
-            if (!_isOpen) return false;
-
             _search.ClearOnNavigationKey(keyCode);
 
             // Panel is open - handle navigation
@@ -176,7 +162,6 @@ namespace ATSAccessibility
             _currentIndex = 0;
             _search.Clear();
             AnnounceCurrentItem(includeHeader: true);
-            Debug.Log("[ATSAccessibility] Announcement history panel opened");
         }
 
         /// <summary>
@@ -188,7 +173,6 @@ namespace ATSAccessibility
             _search.Clear();
             InputBlocker.BlockCancelOnce = true;  // Prevent game from opening pause menu
             Speech.Say("Notifications closed");
-            Debug.Log("[ATSAccessibility] Announcement history panel closed");
         }
 
         private void Navigate(int direction)
@@ -212,7 +196,10 @@ namespace ATSAccessibility
                 }
 
                 string message = _history[_currentIndex].Message;
-                Speech.Say(message);
+                if (includeHeader)
+                    Speech.Say($"Notifications. {message}");
+                else
+                    Speech.Say(message);
             }
         }
 
@@ -238,6 +225,42 @@ namespace ATSAccessibility
             _mapNavigator.MoveCursor(0, 0);
         }
 
+        /// <summary>
+        /// Jump to the most recent event that has a location.
+        /// Called via Shift+N from SettlementKeyHandler.
+        /// </summary>
+        public void JumpToLatestEventLocation()
+        {
+            string message = null;
+            Vector2Int? location = null;
+
+            lock (_lock)
+            {
+                for (int i = 0; i < _history.Count; i++)
+                {
+                    if (_history[i].Location.HasValue)
+                    {
+                        message = _history[i].Message;
+                        location = _history[i].Location;
+                        break;
+                    }
+                }
+            }
+
+            if (!location.HasValue)
+            {
+                Speech.Say("No event locations");
+                return;
+            }
+
+            var pos = location.Value;
+            _isOpen = false;
+            _search.Clear();
+            _mapNavigator.SetCursorPosition(pos.x, pos.y);
+            _mapNavigator.MoveCursor(0, 0);  // Announces tile
+            Speech.Say(message, interrupt: false);  // Queue after tile announcement
+        }
+
         // ========================================
         // TYPE-AHEAD SEARCH
         // ========================================
@@ -252,20 +275,7 @@ namespace ATSAccessibility
                 if (_history.Count == 0) return;
 
                 _search.AddChar(c);
-
-                // Search for first matching item
-                string prefix = _search.Buffer.ToLowerInvariant();
-                for (int i = 0; i < _history.Count; i++)
-                {
-                    if (_history[i].Message.ToLowerInvariant().StartsWith(prefix))
-                    {
-                        _currentIndex = i;
-                        AnnounceCurrentItem(includeHeader: false);
-                        return;
-                    }
-                }
-
-                Speech.Say($"No match for {_search.Buffer}");
+                SearchAndAnnounce();
             }
         }
 
@@ -282,20 +292,26 @@ namespace ATSAccessibility
                 return;
             }
 
-            // Re-search with shortened buffer
             lock (_lock)
             {
-                string prefix = _search.Buffer.ToLowerInvariant();
-                for (int i = 0; i < _history.Count; i++)
-                {
-                    if (_history[i].Message.ToLowerInvariant().StartsWith(prefix))
-                    {
-                        _currentIndex = i;
-                        AnnounceCurrentItem(includeHeader: false);
-                        return;
-                    }
-                }
+                SearchAndAnnounce();
+            }
+        }
 
+        /// <summary>
+        /// Search history for current buffer and announce result.
+        /// Must be called inside _lock.
+        /// </summary>
+        private void SearchAndAnnounce()
+        {
+            int match = _search.FindMatch(_history, e => e.Message);
+            if (match >= 0)
+            {
+                _currentIndex = match;
+                AnnounceCurrentItem(includeHeader: false);
+            }
+            else
+            {
                 Speech.Say($"No match for {_search.Buffer}");
             }
         }

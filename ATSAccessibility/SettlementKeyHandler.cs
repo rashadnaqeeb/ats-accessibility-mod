@@ -457,6 +457,11 @@ namespace ATSAccessibility
                         _announcementHistoryPanel?.Open();
                         return true;
                     }
+                    if (modifiers.Shift)
+                    {
+                        _announcementHistoryPanel?.JumpToLatestEventLocation();
+                        return true;
+                    }
                     return true;
 
                 // Reset cursor to hearth
