@@ -121,6 +121,17 @@ namespace ATSAccessibility
         /// index of the matched item. When null, falls back to announcing the search name.</param>
         public void Search(int itemCount, Func<int, string> nameByIndex, Action<int> announceResult = null)
         {
+            // Repeat single-letter: typing the same letter again cycles through results
+            // e.g., b → Beaver, b → Bat, b → Brewery
+            if (_isSearchActive && _resultIndices.Count > 0 && _buffer.Length > 1 && IsAllSameChar(_buffer))
+            {
+                _buffer = _buffer.Substring(0, 1);
+                if (announceResult != null)
+                    _announceResult = announceResult;
+                NavigateResults(1);
+                return;
+            }
+
             _resultIndices.Clear();
             _resultNames.Clear();
             _resultCursor = 0;
@@ -197,6 +208,16 @@ namespace ATSAccessibility
                 _announceResult(_resultIndices[_resultCursor]);
             else
                 Speech.Say(_resultNames[_resultCursor]);
+        }
+
+        private static bool IsAllSameChar(string s)
+        {
+            char first = s[0];
+            for (int i = 1; i < s.Length; i++)
+            {
+                if (s[i] != first) return false;
+            }
+            return true;
         }
 
         private static bool StartsAnyWord(string lowerName, string lowerPrefix)
