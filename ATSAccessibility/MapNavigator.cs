@@ -212,7 +212,7 @@ namespace ATSAccessibility
         /// <summary>
         /// Returns hearth-relative coordinate string if the toggle is on, or null.
         /// </summary>
-        private string GetCoordinateSuffix()
+        public string GetCoordinateSuffix()
         {
             if (Plugin.AnnounceCoordinates?.Value != true || !_originSet)
                 return null;

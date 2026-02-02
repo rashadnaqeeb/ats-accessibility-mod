@@ -489,7 +489,11 @@ namespace ATSAccessibility
             _mapNavigator.SetCursorPosition(item.Position.x, item.Position.y);
 
             // Announce where we moved
-            Speech.Say($"moved to {currentGroup.TypeName}");
+            string announcement = $"moved to {currentGroup.TypeName}";
+            string coords = _mapNavigator.GetCoordinateSuffix();
+            if (coords != null)
+                announcement = $"{announcement}, {coords}";
+            Speech.Say(announcement);
         }
 
         // ========================================
