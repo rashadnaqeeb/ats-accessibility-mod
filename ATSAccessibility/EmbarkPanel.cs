@@ -140,7 +140,46 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        // Apply selection, clear search, then fall through to normal Enter
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0)
+                            {
+                                if (_currentSection == EmbarkSection.SpendPoints || _focusOnDetails)
+                                    _currentDetailIndex = idx;
+                                else
+                                    _currentCategoryIndex = idx;
+                            }
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -178,13 +217,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     return HandleEscape();  // Returns false at top menu to let game handle it
 
                 default:
@@ -1235,22 +1267,7 @@ namespace ATSAccessibility
         private void HandleSearchKey(char c)
         {
             _search.AddChar(c);
-
-            if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                // Search within current spend points panel's items
-                SearchSpendPointsItems();
-            }
-            else if (_focusOnDetails)
-            {
-                // Search within current category's details
-                SearchDetails();
-            }
-            else
-            {
-                // Search within categories
-                SearchCategories();
-            }
+            SearchCurrentContext();
         }
 
         /// <summary>
@@ -1262,84 +1279,50 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            // Re-search with shortened buffer
+            SearchCurrentContext();
+        }
+
+        private void SearchCurrentContext()
+        {
             if (_currentSection == EmbarkSection.SpendPoints)
             {
-                SearchSpendPointsItems();
+                // Search within current spend points panel's items
+                if (_categories.Count == 0) return;
+                var category = _categories[_currentCategoryIndex];
+                _search.Search(category.Details.Count, i => category.Details[i], i => {
+                    int save = _currentDetailIndex;
+                    _currentDetailIndex = i;
+                    AnnounceSpendPointsItem();
+                    _currentDetailIndex = save;
+                });
             }
             else if (_focusOnDetails)
             {
-                SearchDetails();
+                // Search within current category's details
+                if (_categories.Count == 0) return;
+                var category = _categories[_currentCategoryIndex];
+                _search.Search(category.Details.Count, i => category.Details[i], i => {
+                    int save = _currentDetailIndex;
+                    _currentDetailIndex = i;
+                    AnnounceCurrentDetail();
+                    _currentDetailIndex = save;
+                });
             }
             else
             {
-                SearchCategories();
-            }
-        }
-
-        private void SearchCategories()
-        {
-            if (_categories.Count == 0) return;
-
-            string prefix = _search.Buffer.ToLowerInvariant();
-            for (int i = 0; i < _categories.Count; i++)
-            {
-                if (_categories[i].Name.ToLowerInvariant().StartsWith(prefix))
-                {
+                // Search within categories
+                _search.Search(_categories.Count, i => _categories[i].Name, i => {
+                    int save = _currentCategoryIndex;
                     _currentCategoryIndex = i;
-                    _currentDetailIndex = 0;
                     AnnounceCurrentCategory();
-                    return;
-                }
+                    _currentCategoryIndex = save;
+                });
             }
-
-            Speech.Say($"No match for {_search.Buffer}");
-        }
-
-        private void SearchDetails()
-        {
-            if (_categories.Count == 0) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (category.Details.Count == 0) return;
-
-            string prefix = _search.Buffer.ToLowerInvariant();
-            for (int i = 0; i < category.Details.Count; i++)
-            {
-                if (category.Details[i].ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentDetailIndex = i;
-                    AnnounceCurrentDetail();
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
-        }
-
-        private void SearchSpendPointsItems()
-        {
-            if (_categories.Count == 0) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (category.Details.Count == 0) return;
-
-            string prefix = _search.Buffer.ToLowerInvariant();
-            for (int i = 0; i < category.Details.Count; i++)
-            {
-                if (category.Details[i].ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentDetailIndex = i;
-                    AnnounceSpendPointsItem();
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
         }
     }
 }

@@ -71,7 +71,39 @@ namespace ATSAccessibility
         {
             if (_building == null) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            // Search-active routing: intercept navigation keys for filtered results
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        // Apply selection, clear search, then fall through to normal Enter
+                        ApplySearchSelection();
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    // A-Z, Backspace, and other keys fall through to main switch
+                }
+            }
 
             switch (keyCode)
             {
@@ -296,8 +328,6 @@ namespace ATSAccessibility
         /// Get the searchable name for a section at the given index.
         /// Subclasses can override this to enable type-ahead search at Level 0.
         /// </summary>
-        /// <param name="sectionIndex">The section index.</param>
-        /// <returns>The searchable name, or null if search is not supported.</returns>
         protected virtual string GetSectionName(int sectionIndex)
         {
             // Default: use section names from GetSections()
@@ -311,9 +341,6 @@ namespace ATSAccessibility
         /// Get the searchable name for an item at the given index within a section.
         /// Subclasses can override this to enable type-ahead search at Level 1.
         /// </summary>
-        /// <param name="sectionIndex">The section index.</param>
-        /// <param name="itemIndex">The item index within the section.</param>
-        /// <returns>The searchable name, or null if search is not supported.</returns>
         protected virtual string GetItemName(int sectionIndex, int itemIndex)
         {
             return null;  // Default: search not supported
@@ -323,10 +350,6 @@ namespace ATSAccessibility
         /// Get the searchable name for a sub-item at the given indices.
         /// Subclasses can override this to enable type-ahead search at Level 2.
         /// </summary>
-        /// <param name="sectionIndex">The section index.</param>
-        /// <param name="itemIndex">The item index within the section.</param>
-        /// <param name="subItemIndex">The sub-item index within the item.</param>
-        /// <returns>The searchable name, or null if search is not supported.</returns>
         protected virtual string GetSubItemName(int sectionIndex, int itemIndex, int subItemIndex)
         {
             return null;  // Default: search not supported
@@ -336,11 +359,6 @@ namespace ATSAccessibility
         /// Get the searchable name for a sub-sub-item at the given indices.
         /// Subclasses can override this to enable type-ahead search at Level 3.
         /// </summary>
-        /// <param name="sectionIndex">The section index.</param>
-        /// <param name="itemIndex">The item index within the section.</param>
-        /// <param name="subItemIndex">The sub-item index within the item.</param>
-        /// <param name="subSubItemIndex">The sub-sub-item index within the sub-item.</param>
-        /// <returns>The searchable name, or null if search is not supported.</returns>
         protected virtual string GetSubSubItemName(int sectionIndex, int itemIndex, int subItemIndex, int subSubItemIndex)
         {
             return null;  // Default: search not supported
@@ -721,6 +739,34 @@ namespace ATSAccessibility
         // TYPE-AHEAD SEARCH
         // ========================================
 
+        private void ApplySearchSelection()
+        {
+            int idx = _search.SelectedOriginalIndex;
+            if (idx < 0) return;
+
+            switch (_navigationLevel)
+            {
+                case 0:
+                    _currentSectionIndex = idx;
+                    _currentItemIndex = 0;
+                    _currentSubItemIndex = 0;
+                    _currentSubSubItemIndex = 0;
+                    break;
+                case 1:
+                    _currentItemIndex = idx;
+                    _currentSubItemIndex = 0;
+                    _currentSubSubItemIndex = 0;
+                    break;
+                case 2:
+                    _currentSubItemIndex = idx;
+                    _currentSubSubItemIndex = 0;
+                    break;
+                case 3:
+                    _currentSubSubItemIndex = idx;
+                    break;
+            }
+        }
+
         /// <summary>
         /// Handle a search key (A-Z) for type-ahead navigation.
         /// Searches within the current navigation level.
@@ -728,105 +774,36 @@ namespace ATSAccessibility
         private void HandleSearchKey(char c)
         {
             _search.AddChar(c);
-            string prefix = _search.Buffer.ToLowerInvariant();
+            PerformSearchAtCurrentLevel();
+        }
 
+        private void PerformSearchAtCurrentLevel()
+        {
             switch (_navigationLevel)
             {
                 case 0:
-                    SearchSections(prefix);
+                    var sections = GetSections();
+                    int sectionCount = sections != null ? sections.Length : 0;
+                    _search.Search(sectionCount, i => GetSectionName(i), i => AnnounceSection(i));
                     break;
                 case 1:
-                    SearchItems(prefix);
+                    int secIdx1 = _currentSectionIndex;
+                    _search.Search(GetItemCount(secIdx1), i => GetItemName(secIdx1, i), i => AnnounceItem(secIdx1, i));
                     break;
                 case 2:
-                    SearchSubItems(prefix);
+                    int secIdx2 = _currentSectionIndex;
+                    int itemIdx2 = _currentItemIndex;
+                    _search.Search(GetSubItemCount(secIdx2, itemIdx2),
+                        i => GetSubItemName(secIdx2, itemIdx2, i), i => AnnounceSubItem(secIdx2, itemIdx2, i));
                     break;
                 case 3:
-                    SearchSubSubItems(prefix);
+                    int secIdx3 = _currentSectionIndex;
+                    int itemIdx3 = _currentItemIndex;
+                    int subIdx3 = _currentSubItemIndex;
+                    _search.Search(GetSubSubItemCount(secIdx3, itemIdx3, subIdx3),
+                        i => GetSubSubItemName(secIdx3, itemIdx3, subIdx3, i), i => AnnounceSubSubItem(secIdx3, itemIdx3, subIdx3, i));
                     break;
             }
-        }
-
-        private void SearchSections(string prefix)
-        {
-            var sections = GetSections();
-            if (sections == null || sections.Length == 0) return;
-
-            for (int i = 0; i < sections.Length; i++)
-            {
-                string name = GetSectionName(i);
-                if (!string.IsNullOrEmpty(name) && name.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentSectionIndex = i;
-                    _currentItemIndex = 0;
-                    _currentSubItemIndex = 0;
-                    _currentSubSubItemIndex = 0;
-                    AnnounceSection(_currentSectionIndex);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
-        }
-
-        private void SearchItems(string prefix)
-        {
-            int itemCount = GetItemCount(_currentSectionIndex);
-            if (itemCount == 0) return;
-
-            for (int i = 0; i < itemCount; i++)
-            {
-                string name = GetItemName(_currentSectionIndex, i);
-                if (!string.IsNullOrEmpty(name) && name.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentItemIndex = i;
-                    _currentSubItemIndex = 0;
-                    _currentSubSubItemIndex = 0;
-                    AnnounceItem(_currentSectionIndex, _currentItemIndex);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
-        }
-
-        private void SearchSubItems(string prefix)
-        {
-            int subItemCount = GetSubItemCount(_currentSectionIndex, _currentItemIndex);
-            if (subItemCount == 0) return;
-
-            for (int i = 0; i < subItemCount; i++)
-            {
-                string name = GetSubItemName(_currentSectionIndex, _currentItemIndex, i);
-                if (!string.IsNullOrEmpty(name) && name.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentSubItemIndex = i;
-                    _currentSubSubItemIndex = 0;
-                    AnnounceSubItem(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
-        }
-
-        private void SearchSubSubItems(string prefix)
-        {
-            int subSubItemCount = GetSubSubItemCount(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex);
-            if (subSubItemCount == 0) return;
-
-            for (int i = 0; i < subSubItemCount; i++)
-            {
-                string name = GetSubSubItemName(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex, i);
-                if (!string.IsNullOrEmpty(name) && name.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentSubSubItemIndex = i;
-                    AnnounceSubSubItem(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex, _currentSubSubItemIndex);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
         }
 
         /// <summary>
@@ -839,27 +816,12 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            // Re-search with shortened buffer at current level
-            string prefix = _search.Buffer.ToLowerInvariant();
-            switch (_navigationLevel)
-            {
-                case 0:
-                    SearchSections(prefix);
-                    break;
-                case 1:
-                    SearchItems(prefix);
-                    break;
-                case 2:
-                    SearchSubItems(prefix);
-                    break;
-                case 3:
-                    SearchSubSubItems(prefix);
-                    break;
-            }
+            PerformSearchAtCurrentLevel();
         }
 
         // ========================================

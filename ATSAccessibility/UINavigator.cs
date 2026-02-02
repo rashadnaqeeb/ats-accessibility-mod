@@ -111,8 +111,40 @@ namespace ATSAccessibility
                 return ProcessDropdownKey(keyCode);
             }
 
-            // Clear search buffer on navigation keys
-            _search.ClearOnNavigationKey(keyCode);
+            // Clear search buffer on level change keys
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentElementIndex = idx;
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -677,17 +709,12 @@ namespace ATSAccessibility
             if (_elements.Count == 0) return false;
 
             _search.AddChar(c);
-            int matchIndex = _search.FindMatch(_elements, UIElementFinder.GetElementText);
-
-            if (matchIndex >= 0)
-            {
-                _currentElementIndex = matchIndex;
+            _search.Search(_elements.Count, i => UIElementFinder.GetElementText(_elements[i]), i => {
+                int save = _currentElementIndex;
+                _currentElementIndex = i;
                 AnnounceCurrentElement();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _currentElementIndex = save;
+            });
 
             return true;
         }
@@ -703,19 +730,16 @@ namespace ATSAccessibility
 
             if (_search.HasBuffer)
             {
-                int matchIndex = _search.FindMatch(_elements, UIElementFinder.GetElementText);
-                if (matchIndex >= 0)
-                {
-                    _currentElementIndex = matchIndex;
+                _search.Search(_elements.Count, i => UIElementFinder.GetElementText(_elements[i]), i => {
+                    int save = _currentElementIndex;
+                    _currentElementIndex = i;
                     AnnounceCurrentElement();
-                }
-                else
-                {
-                    Speech.Say($"No match for {_search.Buffer}");
-                }
+                    _currentElementIndex = save;
+                });
             }
             else
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
             }
 

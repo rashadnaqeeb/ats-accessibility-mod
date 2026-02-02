@@ -84,7 +84,39 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            // Search-active routing: intercept navigation keys for filtered results
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        // Apply selection, clear search, then fall through to normal Enter
+                        ApplySearchSelection();
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    // A-Z, Backspace, and other keys fall through to main switch
+                }
+            }
 
             switch (keyCode)
             {
@@ -316,8 +348,6 @@ namespace ATSAccessibility
         /// Get the searchable name for an item at the given index.
         /// Subclasses must override this to enable type-ahead search.
         /// </summary>
-        /// <param name="index">The item index within the current category.</param>
-        /// <returns>The searchable name, or null if search is not supported.</returns>
         protected virtual string GetCurrentItemName(int index)
         {
             return null;  // Default: search not supported
@@ -327,54 +357,54 @@ namespace ATSAccessibility
         /// Get the searchable name for a category at the given index.
         /// Subclasses must override this to enable type-ahead search at category level.
         /// </summary>
-        /// <param name="index">The category index.</param>
-        /// <returns>The searchable name, or null if search is not supported.</returns>
         protected virtual string GetCategoryName(int index)
         {
             return null;  // Default: search not supported
         }
 
-        // ----------------------------------------
-        // Category Search
-        // ----------------------------------------
-
-        private int FindMatchingCategory()
+        private void ApplySearchSelection()
         {
-            if (!_search.HasBuffer) return -1;
+            int idx = _search.SelectedOriginalIndex;
+            if (idx < 0) return;
 
-            int count = CategoryCount;
-            if (count == 0) return -1;
-
-            string lowerBuffer = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < count; i++)
+            if (_focusOnItems)
             {
-                string name = GetCategoryName(i);
-                if (!string.IsNullOrEmpty(name) &&
-                    name.ToLowerInvariant().StartsWith(lowerBuffer))
-                {
-                    return i;
-                }
+                _currentItemIndex = idx;
             }
+            else
+            {
+                _currentCategoryIndex = idx;
+                _currentItemIndex = 0;
+            }
+        }
 
-            return -1;
+        private void AnnounceCategoryAtIndex(int index)
+        {
+            int save = _currentCategoryIndex;
+            _currentCategoryIndex = index;
+            _currentItemIndex = 0;
+            AnnounceCategory();
+            _currentCategoryIndex = save;
+        }
+
+        private void AnnounceItemAtIndex(int index)
+        {
+            int save = _currentItemIndex;
+            _currentItemIndex = index;
+            AnnounceItem();
+            _currentItemIndex = save;
         }
 
         private void HandleCategorySearchKey(char c)
         {
             _search.AddChar(c);
+            _search.Search(CategoryCount, i => GetCategoryName(i), AnnounceCategoryAtIndex);
+        }
 
-            int matchIndex = FindMatchingCategory();
-            if (matchIndex >= 0)
-            {
-                _currentCategoryIndex = matchIndex;
-                _currentItemIndex = 0;
-                AnnounceCategory();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+        private void HandleItemSearchKey(char c)
+        {
+            _search.AddChar(c);
+            _search.Search(CurrentItemCount, i => GetCurrentItemName(i), AnnounceItemAtIndex);
         }
 
         private void HandleCategoryBackspace()
@@ -383,63 +413,12 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindMatchingCategory();
-            if (matchIndex >= 0)
-            {
-                _currentCategoryIndex = matchIndex;
-                _currentItemIndex = 0;
-                AnnounceCategory();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        // ----------------------------------------
-        // Item Search
-        // ----------------------------------------
-
-        private int FindMatchingItem()
-        {
-            if (!_search.HasBuffer) return -1;
-
-            int itemCount = CurrentItemCount;
-            if (itemCount == 0) return -1;
-
-            string lowerBuffer = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < itemCount; i++)
-            {
-                string name = GetCurrentItemName(i);
-                if (!string.IsNullOrEmpty(name) &&
-                    name.ToLowerInvariant().StartsWith(lowerBuffer))
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
-
-        private void HandleItemSearchKey(char c)
-        {
-            _search.AddChar(c);
-
-            int matchIndex = FindMatchingItem();
-            if (matchIndex >= 0)
-            {
-                _currentItemIndex = matchIndex;
-                AnnounceItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            _search.Search(CategoryCount, i => GetCategoryName(i), AnnounceCategoryAtIndex);
         }
 
         private void HandleItemBackspace()
@@ -448,20 +427,12 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindMatchingItem();
-            if (matchIndex >= 0)
-            {
-                _currentItemIndex = matchIndex;
-                AnnounceItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            _search.Search(CurrentItemCount, i => GetCurrentItemName(i), AnnounceItemAtIndex);
         }
     }
 }

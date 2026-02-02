@@ -190,7 +190,39 @@ namespace ATSAccessibility
         {
             var currentSection = _sections[_topMenuIndex];
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _sectionItemIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -1188,17 +1220,13 @@ namespace ATSAccessibility
 
             _search.AddChar(c);
             FilterModifiers();
-
-            if (_filteredModifiers.Count > 0)
-            {
-                _sectionItemIndex = 0;
-                Speech.Say($"{_filteredModifiers.Count} matches for {_search.Buffer}");
+            _sectionItemIndex = 0;
+            _search.Search(_filteredModifiers.Count, i => _filteredModifiers[i].DisplayName, i => {
+                int save = _sectionItemIndex;
+                _sectionItemIndex = i;
                 AnnounceSectionItem();
-            }
-            else
-            {
-                Speech.Say($"No matches for {_search.Buffer}");
-            }
+                _sectionItemIndex = save;
+            });
         }
 
         private void HandleBackspace()
@@ -1210,27 +1238,21 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 FilterModifiers();
                 _sectionItemIndex = 0;
                 Speech.Say("Search cleared");
-                if (_filteredModifiers.Count > 0)
-                {
-                    AnnounceSectionItem();
-                }
+                return;
             }
-            else
-            {
-                FilterModifiers();
-                _sectionItemIndex = 0;
-                if (_filteredModifiers.Count > 0)
-                {
-                    AnnounceSectionItem();
-                }
-                else
-                {
-                    Speech.Say($"No matches for {_search.Buffer}");
-                }
-            }
+
+            FilterModifiers();
+            _sectionItemIndex = 0;
+            _search.Search(_filteredModifiers.Count, i => _filteredModifiers[i].DisplayName, i => {
+                int save = _sectionItemIndex;
+                _sectionItemIndex = i;
+                AnnounceSectionItem();
+                _sectionItemIndex = save;
+            });
         }
 
         // ========================================

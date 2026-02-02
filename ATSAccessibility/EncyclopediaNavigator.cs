@@ -47,7 +47,45 @@ namespace ATSAccessibility
         {
             if (!IsActive) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0)
+                            {
+                                if (_currentPanel == WikiPanel.Categories)
+                                    _categoryIndex = idx;
+                                else if (_currentPanel == WikiPanel.Articles)
+                                    _articleIndex = idx;
+                            }
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -80,8 +118,9 @@ namespace ATSAccessibility
                 case KeyCode.Escape:
                     if (_search.HasBuffer)
                     {
-                        ClearSearchBuffer();
+                        _search.Clear();
                         InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
                         return true;
                     }
                     // Pass to game to close encyclopedia
@@ -1125,21 +1164,16 @@ namespace ATSAccessibility
                 if (_categoryButtons.Count == 0) return;
 
                 _search.AddChar(c);
-                int matchIndex = _search.FindMatch(_categoryButtons, button =>
+                _search.Search(_categoryButtons.Count, i =>
                 {
-                    var comp = button as Component;
+                    var comp = _categoryButtons[i] as Component;
                     return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
-                });
-
-                if (matchIndex >= 0)
-                {
-                    _categoryIndex = matchIndex;
+                }, i => {
+                    int save = _categoryIndex;
+                    _categoryIndex = i;
                     AnnounceCategoryElement();
-                }
-                else
-                {
-                    Speech.Say($"No match for {_search.Buffer}");
-                }
+                    _categoryIndex = save;
+                });
                 return;
             }
 
@@ -1150,23 +1184,16 @@ namespace ATSAccessibility
                 return;
 
             _search.AddChar(c);
-
-            // Find first article starting with buffer
-            int matchIndex2 = _search.FindMatch(_articleSlots, slot =>
+            _search.Search(_articleSlots.Count, i =>
             {
-                var comp = slot as Component;
+                var comp = _articleSlots[i] as Component;
                 return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
-            });
-
-            if (matchIndex2 >= 0)
-            {
-                _articleIndex = matchIndex2;
+            }, i => {
+                int save = _articleIndex;
+                _articleIndex = i;
                 AnnounceArticleElement();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _articleIndex = save;
+            });
         }
 
         /// <summary>
@@ -1182,57 +1209,36 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
             if (_currentPanel == WikiPanel.Categories)
             {
-                int matchIndex = _search.FindMatch(_categoryButtons, button =>
+                _search.Search(_categoryButtons.Count, i =>
                 {
-                    var comp = button as Component;
+                    var comp = _categoryButtons[i] as Component;
                     return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
-                });
-
-                if (matchIndex >= 0)
-                {
-                    _categoryIndex = matchIndex;
+                }, i => {
+                    int save = _categoryIndex;
+                    _categoryIndex = i;
                     AnnounceCategoryElement();
-                }
-                else
-                {
-                    Speech.Say($"No match for {_search.Buffer}");
-                }
+                    _categoryIndex = save;
+                });
             }
             else
             {
-                int matchIndex = _search.FindMatch(_articleSlots, slot =>
+                _search.Search(_articleSlots.Count, i =>
                 {
-                    var comp = slot as Component;
+                    var comp = _articleSlots[i] as Component;
                     return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
-                });
-
-                if (matchIndex >= 0)
-                {
-                    _articleIndex = matchIndex;
+                }, i => {
+                    int save = _articleIndex;
+                    _articleIndex = i;
                     AnnounceArticleElement();
-                }
-                else
-                {
-                    Speech.Say($"No match for {_search.Buffer}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Clear the search buffer.
-        /// </summary>
-        private void ClearSearchBuffer()
-        {
-            if (_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
+                    _articleIndex = save;
+                });
             }
         }
 

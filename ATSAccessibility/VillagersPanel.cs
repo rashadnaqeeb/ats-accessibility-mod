@@ -117,7 +117,47 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0)
+                            {
+                                if (_focusOnSubDetails)
+                                    _currentSubDetailIndex = idx;
+                                else if (_focusOnDetails)
+                                    _currentDetailIndex = idx;
+                                else
+                                    _currentCategoryIndex = idx;
+                            }
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -443,6 +483,7 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
@@ -464,38 +505,24 @@ namespace ATSAccessibility
 
         private void SearchCategories()
         {
-            string prefix = _search.Buffer.ToLowerInvariant();
-            for (int i = 0; i < _categories.Count; i++)
-            {
-                if (_categories[i].DisplayName.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentCategoryIndex = i;
-                    _currentDetailIndex = 0;
-                    _currentSubDetailIndex = 0;
-                    AnnounceCategory();
-                    return;
-                }
-            }
-            Speech.Say($"No match for {_search.Buffer}");
+            _search.Search(_categories.Count, i => _categories[i].DisplayName, i => {
+                int save = _currentCategoryIndex;
+                _currentCategoryIndex = i;
+                AnnounceCategory();
+                _currentCategoryIndex = save;
+            });
         }
 
         private void SearchDetails()
         {
             if (_currentCategoryIndex >= _categories.Count) return;
             var category = _categories[_currentCategoryIndex];
-            string prefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < category.Details.Count; i++)
-            {
-                if (category.Details[i].Label.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentDetailIndex = i;
-                    _currentSubDetailIndex = 0;
-                    AnnounceDetail();
-                    return;
-                }
-            }
-            Speech.Say($"No match for {_search.Buffer}");
+            _search.Search(category.Details.Count, i => category.Details[i].Label, i => {
+                int save = _currentDetailIndex;
+                _currentDetailIndex = i;
+                AnnounceDetail();
+                _currentDetailIndex = save;
+            });
         }
 
         private void SearchSubDetails()
@@ -504,18 +531,12 @@ namespace ATSAccessibility
             var category = _categories[_currentCategoryIndex];
             if (_currentDetailIndex >= category.Details.Count) return;
             var detail = category.Details[_currentDetailIndex];
-
-            string prefix = _search.Buffer.ToLowerInvariant();
-            for (int i = 0; i < detail.SubDetails.Count; i++)
-            {
-                if (detail.SubDetails[i].ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentSubDetailIndex = i;
-                    AnnounceSubDetail();
-                    return;
-                }
-            }
-            Speech.Say($"No match for {_search.Buffer}");
+            _search.Search(detail.SubDetails.Count, i => detail.SubDetails[i], i => {
+                int save = _currentSubDetailIndex;
+                _currentSubDetailIndex = i;
+                AnnounceSubDetail();
+                _currentSubDetailIndex = save;
+            });
         }
 
         // ========================================

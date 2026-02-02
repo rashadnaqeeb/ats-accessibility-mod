@@ -31,7 +31,40 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        // Apply selection, clear search, then fall through to normal Enter
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -188,17 +221,12 @@ namespace ATSAccessibility
         private void HandleSearchKey(char c)
         {
             _search.AddChar(c);
-
-            int match = FindMatch();
-            if (match >= 0)
-            {
-                _currentIndex = match;
+            _search.Search(_items.Count, i => _items[i].name, i => {
+                int save = _currentIndex;
+                _currentIndex = i;
                 AnnounceCurrentItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _currentIndex = save;
+            });
         }
 
         private void HandleBackspace()
@@ -207,35 +235,17 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int match = FindMatch();
-            if (match >= 0)
-            {
-                _currentIndex = match;
+            _search.Search(_items.Count, i => _items[i].name, i => {
+                int save = _currentIndex;
+                _currentIndex = i;
                 AnnounceCurrentItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        private int FindMatch()
-        {
-            if (!_search.HasBuffer) return -1;
-
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _items.Count; i++)
-            {
-                if (_items[i].name.ToLowerInvariant().StartsWith(lowerPrefix))
-                    return i;
-            }
-
-            return -1;
+                _currentIndex = save;
+            });
         }
 
         private void AnnounceCurrentItem()

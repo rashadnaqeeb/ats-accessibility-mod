@@ -73,7 +73,40 @@ namespace ATSAccessibility
                 return true;
             }
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        // Apply selection, clear search, then fall through to normal Enter
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) SetCurrentIndex(idx);
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -108,13 +141,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     if (_level != MenuLevel.Main)
                     {
                         GoBack();
@@ -638,17 +664,7 @@ namespace ATSAccessibility
             }
 
             _search.AddChar(c);
-
-            int matchIndex = FindMatch();
-            if (matchIndex >= 0)
-            {
-                SetCurrentIndex(matchIndex);
-                AnnounceCurrent();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            SearchCurrentLevel();
         }
 
         private void HandleBackspace()
@@ -657,64 +673,48 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindMatch();
-            if (matchIndex >= 0)
-            {
-                SetCurrentIndex(matchIndex);
-                AnnounceCurrent();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            SearchCurrentLevel();
         }
 
-        private int FindMatch()
+        private void SearchCurrentLevel()
         {
-            if (!_search.HasBuffer) return -1;
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
             switch (_level)
             {
                 case MenuLevel.Currencies:
                     if (_currencies != null)
-                    {
-                        for (int i = 0; i < _currencies.Count; i++)
-                        {
-                            if (_currencies[i].DisplayName.ToLowerInvariant().StartsWith(lowerPrefix))
-                                return i;
-                        }
-                    }
+                        _search.Search(_currencies.Count, i => _currencies[i].DisplayName, i => {
+                            int save = _currencyIndex;
+                            _currencyIndex = i;
+                            AnnounceCurrency();
+                            _currencyIndex = save;
+                        });
                     break;
 
                 case MenuLevel.Races:
                     if (_races != null)
-                    {
-                        for (int i = 0; i < _races.Count; i++)
-                        {
-                            if (_races[i].DisplayName.ToLowerInvariant().StartsWith(lowerPrefix))
-                                return i;
-                        }
-                    }
+                        _search.Search(_races.Count, i => _races[i].DisplayName, i => {
+                            int save = _raceIndex;
+                            _raceIndex = i;
+                            AnnounceRace();
+                            _raceIndex = save;
+                        });
                     break;
 
                 case MenuLevel.Cornerstones:
                     if (_cornerstones != null)
-                    {
-                        for (int i = 0; i < _cornerstones.Count; i++)
-                        {
-                            if (_cornerstones[i].DisplayName.ToLowerInvariant().StartsWith(lowerPrefix))
-                                return i;
-                        }
-                    }
+                        _search.Search(_cornerstones.Count, i => _cornerstones[i].DisplayName, i => {
+                            int save = _cornerstoneIndex;
+                            _cornerstoneIndex = i;
+                            AnnounceCornerstone();
+                            _cornerstoneIndex = save;
+                        });
                     break;
             }
-
-            return -1;
         }
 
         private void SetCurrentIndex(int index)

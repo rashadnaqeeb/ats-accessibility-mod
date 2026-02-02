@@ -81,7 +81,40 @@ namespace ATSAccessibility
         /// </summary>
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        // Apply selection, clear search, then fall through to normal Enter
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             // Panel is open - handle navigation
             switch (keyCode)
@@ -117,13 +150,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     Close();
                     return true;
 
@@ -275,7 +301,12 @@ namespace ATSAccessibility
                 if (_history.Count == 0) return;
 
                 _search.AddChar(c);
-                SearchAndAnnounce();
+                _search.Search(_history.Count, i => _history[i].Message, i => {
+                    int save = _currentIndex;
+                    _currentIndex = i;
+                    AnnounceCurrentItem(includeHeader: false);
+                    _currentIndex = save;
+                });
             }
         }
 
@@ -288,31 +319,19 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
             lock (_lock)
             {
-                SearchAndAnnounce();
-            }
-        }
-
-        /// <summary>
-        /// Search history for current buffer and announce result.
-        /// Must be called inside _lock.
-        /// </summary>
-        private void SearchAndAnnounce()
-        {
-            int match = _search.FindMatch(_history, e => e.Message);
-            if (match >= 0)
-            {
-                _currentIndex = match;
-                AnnounceCurrentItem(includeHeader: false);
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
+                _search.Search(_history.Count, i => _history[i].Message, i => {
+                    int save = _currentIndex;
+                    _currentIndex = i;
+                    AnnounceCurrentItem(includeHeader: false);
+                    _currentIndex = save;
+                });
             }
         }
     }

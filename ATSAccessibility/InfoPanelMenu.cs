@@ -152,7 +152,7 @@ namespace ATSAccessibility
                 return true;
             }
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
 
             // If a child panel is open, handle navigation
             if (_activeChildPanel.HasValue)
@@ -191,6 +191,39 @@ namespace ATSAccessibility
                         }
                         // Delegate to child panel
                         return ProcessChildPanelKey(keyCode);
+                }
+            }
+
+            // Search-active routing for root menu
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
                 }
             }
 
@@ -362,19 +395,12 @@ namespace ATSAccessibility
         private void HandleSearchKey(char c)
         {
             _search.AddChar(c);
-
-            string prefix = _search.Buffer.ToLowerInvariant();
-            for (int i = 0; i < _menuLabels.Length; i++)
-            {
-                if (_menuLabels[i].ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentIndex = i;
-                    AnnounceCurrentItem(includePrefix: false);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
+            _search.Search(_menuLabels.Length, i => _menuLabels[i], i => {
+                int save = _currentIndex;
+                _currentIndex = i;
+                AnnounceCurrentItem(includePrefix: false);
+                _currentIndex = save;
+            });
         }
 
         private void HandleBackspace()
@@ -383,23 +409,17 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            // Re-search with shortened buffer
-            string prefix = _search.Buffer.ToLowerInvariant();
-            for (int i = 0; i < _menuLabels.Length; i++)
-            {
-                if (_menuLabels[i].ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentIndex = i;
-                    AnnounceCurrentItem(includePrefix: false);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
+            _search.Search(_menuLabels.Length, i => _menuLabels[i], i => {
+                int save = _currentIndex;
+                _currentIndex = i;
+                AnnounceCurrentItem(includePrefix: false);
+                _currentIndex = save;
+            });
         }
     }
 }

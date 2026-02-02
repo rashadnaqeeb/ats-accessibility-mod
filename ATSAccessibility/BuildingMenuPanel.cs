@@ -124,7 +124,45 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0 && idx < _allBuildings.Count)
+                            {
+                                var match = _allBuildings[idx];
+                                _currentCategoryIndex = match.categoryIndex;
+                                _currentBuildingIndex = match.buildingIndex;
+                                _focusOnBuildings = true;
+                            }
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -182,8 +220,9 @@ namespace ATSAccessibility
                 case KeyCode.Escape:
                     if (_search.HasBuffer)
                     {
-                        ClearSearchBuffer();
+                        _search.Clear();
                         InputBlocker.BlockCancelOnce = true;  // Block the Cancel action
+                        Speech.Say("Search cleared");
                         return true;
                     }
                     SoundManager.PlayButtonClick();
@@ -513,21 +552,18 @@ namespace ATSAccessibility
             if (_allBuildings.Count == 0) return;
 
             _search.AddChar(c);
-
-            // Find first building starting with buffer (case-insensitive)
-            int matchIndex = _search.FindMatch(_allBuildings, entry => entry.name);
-            if (matchIndex >= 0)
-            {
-                var match = _allBuildings[matchIndex];
-                _currentCategoryIndex = match.categoryIndex;
-                _currentBuildingIndex = match.buildingIndex;
-                _focusOnBuildings = true;  // Auto-enter buildings panel
+            _search.Search(_allBuildings.Count, i => _allBuildings[i].name, i => {
+                int saveCat = _currentCategoryIndex;
+                int saveBld = _currentBuildingIndex;
+                bool saveFocus = _focusOnBuildings;
+                _currentCategoryIndex = _allBuildings[i].categoryIndex;
+                _currentBuildingIndex = _allBuildings[i].buildingIndex;
+                _focusOnBuildings = true;
                 AnnounceCurrentBuilding();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _currentCategoryIndex = saveCat;
+                _currentBuildingIndex = saveBld;
+                _focusOnBuildings = saveFocus;
+            });
         }
 
         /// <summary>
@@ -540,33 +576,23 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            // Re-search with shortened buffer
-            int matchIndex = _search.FindMatch(_allBuildings, entry => entry.name);
-            if (matchIndex >= 0)
-            {
-                var match = _allBuildings[matchIndex];
-                _currentCategoryIndex = match.categoryIndex;
-                _currentBuildingIndex = match.buildingIndex;
+            _search.Search(_allBuildings.Count, i => _allBuildings[i].name, i => {
+                int saveCat = _currentCategoryIndex;
+                int saveBld = _currentBuildingIndex;
+                bool saveFocus = _focusOnBuildings;
+                _currentCategoryIndex = _allBuildings[i].categoryIndex;
+                _currentBuildingIndex = _allBuildings[i].buildingIndex;
                 _focusOnBuildings = true;
                 AnnounceCurrentBuilding();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        /// <summary>
-        /// Clear the search buffer and announce.
-        /// </summary>
-        private void ClearSearchBuffer()
-        {
-            _search.Clear();
-            Speech.Say("Search cleared");
+                _currentCategoryIndex = saveCat;
+                _currentBuildingIndex = saveBld;
+                _focusOnBuildings = saveFocus;
+            });
         }
     }
 }

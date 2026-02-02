@@ -64,7 +64,45 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0)
+                            {
+                                var match = _allBuildings[idx];
+                                _categoryIndex = match.catIdx;
+                                _buildingIndex = match.bldIdx;
+                                _navigationLevel = LEVEL_BUILDINGS;
+                            }
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -432,20 +470,18 @@ namespace ATSAccessibility
             if (_allBuildings.Count == 0) return;
 
             _search.AddChar(c);
-
-            int matchIndex = _search.FindMatch(_allBuildings, entry => entry.name);
-            if (matchIndex >= 0)
-            {
-                var match = _allBuildings[matchIndex];
-                _categoryIndex = match.catIdx;
-                _buildingIndex = match.bldIdx;
-                _navigationLevel = LEVEL_BUILDINGS;  // Auto-enter buildings
+            _search.Search(_allBuildings.Count, i => _allBuildings[i].name, i => {
+                int saveCat = _categoryIndex;
+                int saveBld = _buildingIndex;
+                int saveLevel = _navigationLevel;
+                _categoryIndex = _allBuildings[i].catIdx;
+                _buildingIndex = _allBuildings[i].bldIdx;
+                _navigationLevel = LEVEL_BUILDINGS;
                 AnnounceBuilding();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _categoryIndex = saveCat;
+                _buildingIndex = saveBld;
+                _navigationLevel = saveLevel;
+            });
         }
 
         private void HandleBackspace()
@@ -454,23 +490,23 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = _search.FindMatch(_allBuildings, entry => entry.name);
-            if (matchIndex >= 0)
-            {
-                var match = _allBuildings[matchIndex];
-                _categoryIndex = match.catIdx;
-                _buildingIndex = match.bldIdx;
+            _search.Search(_allBuildings.Count, i => _allBuildings[i].name, i => {
+                int saveCat = _categoryIndex;
+                int saveBld = _buildingIndex;
+                int saveLevel = _navigationLevel;
+                _categoryIndex = _allBuildings[i].catIdx;
+                _buildingIndex = _allBuildings[i].bldIdx;
                 _navigationLevel = LEVEL_BUILDINGS;
                 AnnounceBuilding();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _categoryIndex = saveCat;
+                _buildingIndex = saveBld;
+                _navigationLevel = saveLevel;
+            });
         }
 
         private void ClearSearch()

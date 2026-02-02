@@ -124,7 +124,39 @@ namespace ATSAccessibility
 
         private bool ProcessCategoryKey(KeyCode keyCode)
         {
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _categoryIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -270,7 +302,39 @@ namespace ATSAccessibility
 
         private bool ProcessItemKey(KeyCode keyCode)
         {
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _itemIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -429,7 +493,39 @@ namespace ATSAccessibility
 
         private bool ProcessRaceKey(KeyCode keyCode)
         {
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _raceIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -624,17 +720,12 @@ namespace ATSAccessibility
         private void HandleCategorySearchKey(char c)
         {
             _search.AddChar(c);
-
-            int matchIndex = FindCategoryMatch();
-            if (matchIndex >= 0)
-            {
-                _categoryIndex = matchIndex;
-                Speech.Say(GetCategoryAnnouncement(_categoryIndex));
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            _search.Search(_categories.Count, i => _categories[i].Name, i => {
+                int save = _categoryIndex;
+                _categoryIndex = i;
+                Speech.Say(GetCategoryAnnouncement(i));
+                _categoryIndex = save;
+            });
         }
 
         private void HandleCategoryBackspace()
@@ -643,37 +734,17 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindCategoryMatch();
-            if (matchIndex >= 0)
-            {
-                _categoryIndex = matchIndex;
-                Speech.Say(GetCategoryAnnouncement(_categoryIndex));
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        private int FindCategoryMatch()
-        {
-            if (!_search.HasBuffer || _categories.Count == 0) return -1;
-
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _categories.Count; i++)
-            {
-                if (string.IsNullOrEmpty(_categories[i].Name)) continue;
-
-                if (_categories[i].Name.ToLowerInvariant().StartsWith(lowerPrefix))
-                    return i;
-            }
-
-            return -1;
+            _search.Search(_categories.Count, i => _categories[i].Name, i => {
+                int save = _categoryIndex;
+                _categoryIndex = i;
+                Speech.Say(GetCategoryAnnouncement(i));
+                _categoryIndex = save;
+            });
         }
 
         // ========================================
@@ -683,17 +754,9 @@ namespace ATSAccessibility
         private void HandleItemSearchKey(char c)
         {
             _search.AddChar(c);
-
-            int matchIndex = FindItemMatch();
-            if (matchIndex >= 0)
-            {
-                _itemIndex = matchIndex;
-                Speech.Say(GetItemAnnouncement(_itemIndex));
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            _search.Search(_itemNames.Count, i => _itemNames[i], i => {
+                Speech.Say(GetItemAnnouncement(i));
+            });
         }
 
         private void HandleItemBackspace()
@@ -702,37 +765,14 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindItemMatch();
-            if (matchIndex >= 0)
-            {
-                _itemIndex = matchIndex;
-                Speech.Say(GetItemAnnouncement(_itemIndex));
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        private int FindItemMatch()
-        {
-            if (!_search.HasBuffer || _itemNames.Count == 0) return -1;
-
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _itemNames.Count; i++)
-            {
-                if (string.IsNullOrEmpty(_itemNames[i])) continue;
-
-                if (_itemNames[i].ToLowerInvariant().StartsWith(lowerPrefix))
-                    return i;
-            }
-
-            return -1;
+            _search.Search(_itemNames.Count, i => _itemNames[i], i => {
+                Speech.Say(GetItemAnnouncement(i));
+            });
         }
 
         // ========================================
@@ -742,17 +782,9 @@ namespace ATSAccessibility
         private void HandleRaceSearchKey(char c)
         {
             _search.AddChar(c);
-
-            int matchIndex = FindRaceMatch();
-            if (matchIndex >= 0)
-            {
-                _raceIndex = matchIndex;
-                Speech.Say(GetRaceAnnouncement(_raceIndex));
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            _search.Search(_raceNames.Count, i => _raceNames[i], i => {
+                Speech.Say(GetRaceAnnouncement(i));
+            });
         }
 
         private void HandleRaceBackspace()
@@ -761,37 +793,14 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindRaceMatch();
-            if (matchIndex >= 0)
-            {
-                _raceIndex = matchIndex;
-                Speech.Say(GetRaceAnnouncement(_raceIndex));
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        private int FindRaceMatch()
-        {
-            if (!_search.HasBuffer || _raceNames.Count == 0) return -1;
-
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _raceNames.Count; i++)
-            {
-                if (string.IsNullOrEmpty(_raceNames[i])) continue;
-
-                if (_raceNames[i].ToLowerInvariant().StartsWith(lowerPrefix))
-                    return i;
-            }
-
-            return -1;
+            _search.Search(_raceNames.Count, i => _raceNames[i], i => {
+                Speech.Say(GetRaceAnnouncement(i));
+            });
         }
     }
 }

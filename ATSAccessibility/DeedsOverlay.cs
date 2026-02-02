@@ -77,7 +77,7 @@ namespace ATSAccessibility
                 return false;
             }
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
 
             if (_focusOnItems)
                 return ProcessItemKey(keyCode);
@@ -91,6 +91,45 @@ namespace ATSAccessibility
 
         private bool ProcessCategoryKey(KeyCode keyCode)
         {
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0)
+                            {
+                                // Resolve flat index to (categoryIndex, itemIndex)
+                                ResolveFlatGoalIndex(idx, out int catIdx, out int itemIdx);
+                                _currentCategoryIndex = catIdx;
+                                _currentItemIndex = itemIdx;
+                                _focusOnItems = true;
+                            }
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -151,6 +190,38 @@ namespace ATSAccessibility
 
         private bool ProcessItemKey(KeyCode keyCode)
         {
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentItemIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -523,18 +594,16 @@ namespace ATSAccessibility
 
         private void HandleSearchKey(char c)
         {
-            _search.AddChar(c);
+            var goals = GetCurrentGoals();
+            if (goals == null) return;
 
-            int matchIndex = FindGoalMatch();
-            if (matchIndex >= 0)
-            {
-                _currentItemIndex = matchIndex;
+            _search.AddChar(c);
+            _search.Search(goals.Count, i => goals[i].Name, i => {
+                int save = _currentItemIndex;
+                _currentItemIndex = i;
                 AnnounceItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _currentItemIndex = save;
+            });
         }
 
         private void HandleBackspace()
@@ -543,39 +612,19 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindGoalMatch();
-            if (matchIndex >= 0)
-            {
-                _currentItemIndex = matchIndex;
-                AnnounceItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        private int FindGoalMatch()
-        {
-            if (!_search.HasBuffer) return -1;
-
             var goals = GetCurrentGoals();
-            if (goals == null || goals.Count == 0) return -1;
-
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < goals.Count; i++)
-            {
-                if (string.IsNullOrEmpty(goals[i].Name)) continue;
-                if (goals[i].Name.ToLowerInvariant().StartsWith(lowerPrefix))
-                    return i;
-            }
-
-            return -1;
+            if (goals == null) return;
+            _search.Search(goals.Count, i => goals[i].Name, i => {
+                int save = _currentItemIndex;
+                _currentItemIndex = i;
+                AnnounceItem();
+                _currentItemIndex = save;
+            });
         }
 
         // ========================================
@@ -587,19 +636,20 @@ namespace ATSAccessibility
         private void HandleCategorySearchKey(char c)
         {
             _search.AddChar(c);
-
-            var match = FindGlobalGoalMatch();
-            if (match.categoryIndex >= 0)
-            {
-                _currentCategoryIndex = match.categoryIndex;
-                _currentItemIndex = match.itemIndex;
+            int flatCount = GetFlatGoalCount();
+            _search.Search(flatCount, i => GetFlatGoalName(i), i => {
+                ResolveFlatGoalIndex(i, out int catIdx, out int itemIdx);
+                int saveCat = _currentCategoryIndex;
+                int saveItem = _currentItemIndex;
+                bool saveFocus = _focusOnItems;
+                _currentCategoryIndex = catIdx;
+                _currentItemIndex = itemIdx;
                 _focusOnItems = true;
                 AnnounceItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _currentCategoryIndex = saveCat;
+                _currentItemIndex = saveItem;
+                _focusOnItems = saveFocus;
+            });
         }
 
         private void HandleCategoryBackspace()
@@ -608,42 +658,73 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            var match = FindGlobalGoalMatch();
-            if (match.categoryIndex >= 0)
-            {
-                _currentCategoryIndex = match.categoryIndex;
-                _currentItemIndex = match.itemIndex;
+            int flatCount = GetFlatGoalCount();
+            _search.Search(flatCount, i => GetFlatGoalName(i), i => {
+                ResolveFlatGoalIndex(i, out int catIdx, out int itemIdx);
+                int saveCat = _currentCategoryIndex;
+                int saveItem = _currentItemIndex;
+                bool saveFocus = _focusOnItems;
+                _currentCategoryIndex = catIdx;
+                _currentItemIndex = itemIdx;
                 _focusOnItems = true;
                 AnnounceItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _currentCategoryIndex = saveCat;
+                _currentItemIndex = saveItem;
+                _focusOnItems = saveFocus;
+            });
         }
 
-        private (int categoryIndex, int itemIndex) FindGlobalGoalMatch()
+        /// <summary>
+        /// Get the total number of goals across all categories (for flat search indexing).
+        /// </summary>
+        private int GetFlatGoalCount()
         {
-            if (!_search.HasBuffer) return (-1, -1);
+            int count = 0;
+            for (int c = 0; c < _categories.Count; c++)
+                count += _categories[c].Goals.Count;
+            return count;
+        }
 
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
+        /// <summary>
+        /// Get a goal name by flat index across all categories.
+        /// </summary>
+        private string GetFlatGoalName(int flatIndex)
+        {
+            int remaining = flatIndex;
             for (int c = 0; c < _categories.Count; c++)
             {
                 var goals = _categories[c].Goals;
-                for (int i = 0; i < goals.Count; i++)
-                {
-                    if (string.IsNullOrEmpty(goals[i].Name)) continue;
-                    if (goals[i].Name.ToLowerInvariant().StartsWith(lowerPrefix))
-                        return (c, i);
-                }
+                if (remaining < goals.Count)
+                    return goals[remaining].Name;
+                remaining -= goals.Count;
             }
+            return null;
+        }
 
-            return (-1, -1);
+        /// <summary>
+        /// Resolve a flat goal index to (categoryIndex, itemIndex).
+        /// </summary>
+        private void ResolveFlatGoalIndex(int flatIndex, out int categoryIndex, out int itemIndex)
+        {
+            int remaining = flatIndex;
+            for (int c = 0; c < _categories.Count; c++)
+            {
+                var goals = _categories[c].Goals;
+                if (remaining < goals.Count)
+                {
+                    categoryIndex = c;
+                    itemIndex = remaining;
+                    return;
+                }
+                remaining -= goals.Count;
+            }
+            categoryIndex = 0;
+            itemIndex = 0;
         }
 
         // ========================================

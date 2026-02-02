@@ -43,7 +43,7 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
 
             switch (_level)
             {
@@ -109,6 +109,38 @@ namespace ATSAccessibility
 
         private bool ProcessMainMenuKey(KeyCode keyCode)
         {
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _mainMenuIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -178,16 +210,12 @@ namespace ATSAccessibility
         private void HandleMainMenuSearch(char c)
         {
             _search.AddChar(c);
-            int match = FindMainMenuMatch();
-            if (match >= 0)
-            {
-                _mainMenuIndex = match;
+            _search.Search(MainMenuItems.Length, i => MainMenuItems[i], i => {
+                int save = _mainMenuIndex;
+                _mainMenuIndex = i;
                 AnnounceMainMenuItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _mainMenuIndex = save;
+            });
         }
 
         private void HandleMainMenuBackspace()
@@ -196,33 +224,17 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int match = FindMainMenuMatch();
-            if (match >= 0)
-            {
-                _mainMenuIndex = match;
+            _search.Search(MainMenuItems.Length, i => MainMenuItems[i], i => {
+                int save = _mainMenuIndex;
+                _mainMenuIndex = i;
                 AnnounceMainMenuItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        private int FindMainMenuMatch()
-        {
-            if (!_search.HasBuffer) return -1;
-            string lowerBuffer = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < MainMenuItems.Length; i++)
-            {
-                if (MainMenuItems[i].ToLowerInvariant().StartsWith(lowerBuffer))
-                    return i;
-            }
-            return -1;
+                _mainMenuIndex = save;
+            });
         }
 
         // ========================================
@@ -231,6 +243,38 @@ namespace ATSAccessibility
 
         private bool ProcessSubmenuKey(KeyCode keyCode)
         {
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _submenuIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -373,16 +417,13 @@ namespace ATSAccessibility
         private void HandleSubmenuSearch(char c)
         {
             _search.AddChar(c);
-            int match = FindSubmenuMatch();
-            if (match >= 0)
-            {
-                _submenuIndex = match;
+            int count = GetCurrentSubmenuCount();
+            _search.Search(count, i => GetSubmenuItemName(i), i => {
+                int save = _submenuIndex;
+                _submenuIndex = i;
                 AnnounceSubmenuItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _submenuIndex = save;
+            });
         }
 
         private void HandleSubmenuBackspace()
@@ -391,49 +432,33 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int match = FindSubmenuMatch();
-            if (match >= 0)
-            {
-                _submenuIndex = match;
+            int count = GetCurrentSubmenuCount();
+            _search.Search(count, i => GetSubmenuItemName(i), i => {
+                int save = _submenuIndex;
+                _submenuIndex = i;
                 AnnounceSubmenuItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _submenuIndex = save;
+            });
         }
 
-        private int FindSubmenuMatch()
+        private string GetSubmenuItemName(int index)
         {
-            if (!_search.HasBuffer) return -1;
-            string lowerBuffer = _search.Buffer.ToLowerInvariant();
-
-            int count = GetCurrentSubmenuCount();
-            for (int i = 0; i < count; i++)
+            switch ((MainMenuItem)_mainMenuIndex)
             {
-                string name = "";
-                switch ((MainMenuItem)_mainMenuIndex)
-                {
-                    case MainMenuItem.CycleStats:
-                        name = _cycleStats[i].label;
-                        break;
-                    case MainMenuItem.Upgrades:
-                        name = _upgrades[i].label;
-                        break;
-                    case MainMenuItem.History:
-                        name = GamesHistoryReflection.GetSettlementName(_settlements[i]);
-                        break;
-                }
-
-                if (!string.IsNullOrEmpty(name) && name.ToLowerInvariant().StartsWith(lowerBuffer))
-                    return i;
+                case MainMenuItem.CycleStats:
+                    return index < (_cycleStats?.Count ?? 0) ? _cycleStats[index].label : null;
+                case MainMenuItem.Upgrades:
+                    return index < (_upgrades?.Count ?? 0) ? _upgrades[index].label : null;
+                case MainMenuItem.History:
+                    return index < (_settlements?.Count ?? 0) ? GamesHistoryReflection.GetSettlementName(_settlements[index]) : null;
+                default:
+                    return null;
             }
-
-            return -1;
         }
 
         // ========================================
@@ -544,6 +569,38 @@ namespace ATSAccessibility
 
         private bool ProcessSettlementDetailsKey(KeyCode keyCode)
         {
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _detailIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -636,16 +693,13 @@ namespace ATSAccessibility
         private void HandleDetailsSearch(char c)
         {
             _search.AddChar(c);
-            int match = FindDetailsMatch();
-            if (match >= 0)
-            {
-                _detailIndex = match;
+            int count = _settlementDetailItems?.Count ?? 0;
+            _search.Search(count, i => _settlementDetailItems[i], i => {
+                int save = _detailIndex;
+                _detailIndex = i;
                 AnnounceDetailItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _detailIndex = save;
+            });
         }
 
         private void HandleDetailsBackspace()
@@ -654,34 +708,18 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int match = FindDetailsMatch();
-            if (match >= 0)
-            {
-                _detailIndex = match;
+            int count = _settlementDetailItems?.Count ?? 0;
+            _search.Search(count, i => _settlementDetailItems[i], i => {
+                int save = _detailIndex;
+                _detailIndex = i;
                 AnnounceDetailItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        private int FindDetailsMatch()
-        {
-            if (!_search.HasBuffer || _settlementDetailItems == null) return -1;
-            string lowerBuffer = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _settlementDetailItems.Count; i++)
-            {
-                if (_settlementDetailItems[i].ToLowerInvariant().StartsWith(lowerBuffer))
-                    return i;
-            }
-
-            return -1;
+                _detailIndex = save;
+            });
         }
     }
 }

@@ -82,7 +82,7 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
 
             // Confirmation mode (trade or assault)
             if (_inConfirmation)
@@ -299,6 +299,38 @@ namespace ATSAccessibility
 
         private bool ProcessNoTraderKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -350,7 +382,10 @@ namespace ATSAccessibility
                     if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
                     {
                         char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearch(c, _noTraderItems, item => item.SearchName);
+                        HandleSearch(c, _noTraderItems, item => item.SearchName, i => {
+                            if (i >= 0 && i < _noTraderItems.Count)
+                                Speech.Say(_noTraderItems[i].Label);
+                        });
                         return true;
                     }
                     // Consume all other keys while overlay is active
@@ -566,6 +601,38 @@ namespace ATSAccessibility
 
         private bool ProcessMainMenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -617,7 +684,10 @@ namespace ATSAccessibility
                     if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
                     {
                         char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearch(c, _mainMenuItems, item => item.SearchName);
+                        HandleSearch(c, _mainMenuItems, item => item.SearchName, i => {
+                            if (i >= 0 && i < _mainMenuItems.Count)
+                                Speech.Say(_mainMenuItems[i].Label);
+                        });
                         return true;
                     }
                     return true;
@@ -711,6 +781,38 @@ namespace ATSAccessibility
         private bool ProcessGoodsTradeKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             var currentList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -956,19 +1058,10 @@ namespace ATSAccessibility
             if (currentList.Count == 0) return;
 
             _search.AddChar(c);
-            string prefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < currentList.Count; i++)
-            {
-                if (currentList[i].DisplayName.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentIndex = i;
+            _search.Search(currentList.Count, i => currentList[i].DisplayName, i => {
+                if (i >= 0 && i < currentList.Count)
                     Speech.Say(BuildGoodLabel(currentList[i]));
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
+            });
         }
 
         // ========================================
@@ -1016,6 +1109,38 @@ namespace ATSAccessibility
 
         private bool ProcessPerksKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -1133,19 +1258,10 @@ namespace ATSAccessibility
             if (_perks.Count == 0) return;
 
             _search.AddChar(c);
-            string prefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _perks.Count; i++)
-            {
-                if (_perks[i].DisplayName.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentIndex = i;
+            _search.Search(_perks.Count, i => _perks[i].DisplayName, i => {
+                if (i >= 0 && i < _perks.Count)
                     Speech.Say(BuildPerkLabel(_perks[i]));
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
+            });
         }
 
         // ========================================
@@ -1292,27 +1408,12 @@ namespace ATSAccessibility
         // SEARCH HELPERS
         // ========================================
 
-        private void HandleSearch<T>(char c, List<T> items, Func<T, string> nameSelector)
+        private void HandleSearch<T>(char c, List<T> items, Func<T, string> nameSelector, Action<int> announceResult = null)
         {
             if (items.Count == 0) return;
 
             _search.AddChar(c);
-            string prefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < items.Count; i++)
-            {
-                string name = nameSelector(items[i]);
-                if (!string.IsNullOrEmpty(name) && name.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentIndex = i;
-                    // Announce via the level-specific method
-                    if (items is List<NavItem> navItems)
-                        Speech.Say(navItems[i].Label);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
+            _search.Search(items.Count, i => nameSelector(items[i]), announceResult);
         }
 
         private void HandleBackspace()
@@ -1321,6 +1422,7 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
             }
         }

@@ -39,7 +39,40 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        // Apply selection, clear search, then fall through to normal Enter
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -66,13 +99,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Pass to game to close popup (OnPopupHidden will close our overlay)
                     return false;
 
@@ -446,17 +472,12 @@ namespace ATSAccessibility
         private void HandleSearchKey(char c)
         {
             _search.AddChar(c);
-
-            int matchIndex = FindCornerstoneMatch();
-            if (matchIndex >= 0)
-            {
-                _currentIndex = matchIndex;
+            _search.Search(_items.Count, i => _items[i].Type == ItemType.Cornerstone ? _items[i].SearchName : null, i => {
+                int save = _currentIndex;
+                _currentIndex = i;
                 AnnounceCurrentItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _currentIndex = save;
+            });
         }
 
         private void HandleBackspace()
@@ -465,41 +486,17 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindCornerstoneMatch();
-            if (matchIndex >= 0)
-            {
-                _currentIndex = matchIndex;
+            _search.Search(_items.Count, i => _items[i].Type == ItemType.Cornerstone ? _items[i].SearchName : null, i => {
+                int save = _currentIndex;
+                _currentIndex = i;
                 AnnounceCurrentItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        /// <summary>
-        /// Find the first cornerstone item whose name starts with the search buffer.
-        /// </summary>
-        private int FindCornerstoneMatch()
-        {
-            if (!_search.HasBuffer || _items.Count == 0) return -1;
-
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _items.Count; i++)
-            {
-                if (_items[i].Type != ItemType.Cornerstone) continue;
-                if (string.IsNullOrEmpty(_items[i].SearchName)) continue;
-
-                if (_items[i].SearchName.ToLowerInvariant().StartsWith(lowerPrefix))
-                    return i;
-            }
-
-            return -1;
+                _currentIndex = save;
+            });
         }
     }
 }

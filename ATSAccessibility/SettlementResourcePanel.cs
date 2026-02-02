@@ -271,7 +271,47 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            // When search is active, route navigation keys to search results
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0)
+                            {
+                                var match = _allResources[idx];
+                                _currentCategoryIndex = match.categoryIndex;
+                                _currentItemIndex = match.itemIndex;
+                                _focusOnItems = true;
+                            }
+                        }
+                        _search.Clear();
+                        AnnounceItem();
+                        return true;
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -355,21 +395,24 @@ namespace ATSAccessibility
             if (_allResources.Count == 0) return;
 
             _search.AddChar(c);
+            _search.Search(_allResources.Count, i => _allResources[i].name, AnnounceCrossSearchResult);
+        }
 
-            // Find first resource starting with buffer (case-insensitive)
-            int matchIndex = _search.FindMatch(_allResources, entry => entry.name);
-            if (matchIndex >= 0)
-            {
-                var match = _allResources[matchIndex];
-                _currentCategoryIndex = match.categoryIndex;
-                _currentItemIndex = match.itemIndex;
-                _focusOnItems = true;  // Auto-enter items panel
-                AnnounceItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+        /// <summary>
+        /// Announce a cross-category search result by temporarily navigating to its location.
+        /// </summary>
+        private void AnnounceCrossSearchResult(int flatIndex)
+        {
+            if (flatIndex < 0 || flatIndex >= _allResources.Count) return;
+
+            var match = _allResources[flatIndex];
+            int saveCat = _currentCategoryIndex;
+            int saveItem = _currentItemIndex;
+            _currentCategoryIndex = match.categoryIndex;
+            _currentItemIndex = match.itemIndex;
+            AnnounceItem();
+            _currentCategoryIndex = saveCat;
+            _currentItemIndex = saveItem;
         }
 
         /// <summary>
@@ -381,24 +424,12 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            // Re-search with shortened buffer
-            int matchIndex = _search.FindMatch(_allResources, entry => entry.name);
-            if (matchIndex >= 0)
-            {
-                var match = _allResources[matchIndex];
-                _currentCategoryIndex = match.categoryIndex;
-                _currentItemIndex = match.itemIndex;
-                _focusOnItems = true;
-                AnnounceItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            _search.Search(_allResources.Count, i => _allResources[i].name, AnnounceCrossSearchResult);
         }
     }
 }

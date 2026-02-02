@@ -40,7 +40,40 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        // Apply selection, clear search, then fall through to normal Enter
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) SetCurrentIndex(idx);
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (_level)
             {
@@ -501,17 +534,7 @@ namespace ATSAccessibility
         {
             char c = (char)('a' + (keyCode - KeyCode.A));
             _search.AddChar(c);
-
-            int match = FindMatch();
-            if (match >= 0)
-            {
-                SetCurrentIndex(match);
-                AnnounceCurrentLevel();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            SearchCurrentLevel();
         }
 
         private void HandleBackspace()
@@ -520,56 +543,45 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int match = FindMatch();
-            if (match >= 0)
-            {
-                SetCurrentIndex(match);
-                AnnounceCurrentLevel();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+            SearchCurrentLevel();
         }
 
-        private int FindMatch()
+        private void SearchCurrentLevel()
         {
-            if (!_search.HasBuffer) return -1;
-
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
             switch (_level)
             {
                 case Level.Structures:
-                    for (int i = 0; i < _structures.Count; i++)
-                    {
-                        if (_structures[i].Name.ToLowerInvariant().StartsWith(lowerPrefix))
-                            return i;
-                    }
+                    _search.Search(_structures.Count, i => _structures[i].Name, i => {
+                        int save = _currentStructureIndex;
+                        _currentStructureIndex = i;
+                        AnnounceStructure();
+                        _currentStructureIndex = save;
+                    });
                     break;
 
                 case Level.Upgrades:
-                    for (int i = 0; i < _upgrades.Count; i++)
-                    {
-                        if (_upgrades[i].Name.ToLowerInvariant().StartsWith(lowerPrefix))
-                            return i;
-                    }
+                    _search.Search(_upgrades.Count, i => _upgrades[i].Name, i => {
+                        int save = _currentUpgradeIndex;
+                        _currentUpgradeIndex = i;
+                        AnnounceUpgrade();
+                        _currentUpgradeIndex = save;
+                    });
                     break;
 
                 case Level.Rewards:
-                    for (int i = 0; i < _rewards.Count; i++)
-                    {
-                        if (_rewards[i].Name.ToLowerInvariant().StartsWith(lowerPrefix))
-                            return i;
-                    }
+                    _search.Search(_rewards.Count, i => _rewards[i].Name, i => {
+                        int save = _currentRewardIndex;
+                        _currentRewardIndex = i;
+                        AnnounceReward();
+                        _currentRewardIndex = save;
+                    });
                     break;
             }
-
-            return -1;
         }
 
         private void SetCurrentIndex(int index)

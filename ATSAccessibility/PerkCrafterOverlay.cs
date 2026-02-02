@@ -64,7 +64,7 @@ namespace ATSAccessibility
                 return ProcessNameEditKey(keyCode, modifiers);
             }
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
 
             if (_navigationLevel == LEVEL_SUBMENU)
             {
@@ -462,6 +462,38 @@ namespace ATSAccessibility
 
         private bool ProcessSubmenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _submenuIndex = idx;
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
+
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -659,17 +691,12 @@ namespace ATSAccessibility
         private void HandleSubmenuSearch(char c)
         {
             _search.AddChar(c);
-
-            int matchIndex = FindSubmenuMatch();
-            if (matchIndex >= 0)
-            {
-                _submenuIndex = matchIndex;
+            _search.Search(GetSubmenuItemCount(), GetSubmenuItemName, i => {
+                int save = _submenuIndex;
+                _submenuIndex = i;
                 AnnounceSubmenuItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _submenuIndex = save;
+            });
         }
 
         private void HandleSubmenuBackspace()
@@ -678,66 +705,41 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindSubmenuMatch();
-            if (matchIndex >= 0)
-            {
-                _submenuIndex = matchIndex;
+            _search.Search(GetSubmenuItemCount(), GetSubmenuItemName, i => {
+                int save = _submenuIndex;
+                _submenuIndex = i;
                 AnnounceSubmenuItem();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+                _submenuIndex = save;
+            });
         }
 
-        private int FindSubmenuMatch()
+        private string GetSubmenuItemName(int index)
         {
-            if (!_search.HasBuffer) return -1;
-
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
             switch (_activeSubmenu)
             {
                 case MenuItem.Hook:
-                    if (_hookOptions != null)
-                    {
-                        for (int i = 0; i < _hookOptions.Count; i++)
-                        {
-                            if (_hookOptions[i].Description.ToLowerInvariant().StartsWith(lowerPrefix))
-                                return i;
-                        }
-                    }
+                    if (_hookOptions != null && index < _hookOptions.Count)
+                        return _hookOptions[index].Description;
                     break;
 
                 case MenuItem.Positive:
-                    if (_positiveOptions != null)
-                    {
-                        for (int i = 0; i < _positiveOptions.Count; i++)
-                        {
-                            if (_positiveOptions[i].Description.ToLowerInvariant().StartsWith(lowerPrefix))
-                                return i;
-                        }
-                    }
+                    if (_positiveOptions != null && index < _positiveOptions.Count)
+                        return _positiveOptions[index].Description;
                     break;
 
                 case MenuItem.Negative:
-                    // Skip "None" (index 0) for search
-                    if (_negativeOptions != null)
-                    {
-                        for (int i = 0; i < _negativeOptions.Count; i++)
-                        {
-                            if (_negativeOptions[i].Description.ToLowerInvariant().StartsWith(lowerPrefix))
-                                return i + 1; // +1 because "None" is at 0
-                        }
-                    }
+                    if (index == 0) return "None";
+                    int negIdx = index - 1;
+                    if (_negativeOptions != null && negIdx < _negativeOptions.Count)
+                        return _negativeOptions[negIdx].Description;
                     break;
             }
-
-            return -1;
+            return null;
         }
 
         // ========================================

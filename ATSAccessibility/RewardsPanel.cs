@@ -93,7 +93,40 @@ namespace ATSAccessibility
                 return false;  // Let SettlementKeyHandler open the target panel
             }
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            // When search is active, route navigation keys to search results
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -122,8 +155,8 @@ namespace ATSAccessibility
                     if (_search.HasBuffer)
                     {
                         _search.Clear();
-                        Speech.Say("Search cleared");
                         InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
                         return true;
                     }
                     SoundManager.PlayButtonClick();
@@ -140,8 +173,7 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
+                    HandleBackspace();
                     return true;
 
                 default:
@@ -282,17 +314,15 @@ namespace ATSAccessibility
         private void HandleSearchKey(char c)
         {
             _search.AddChar(c);
+            _search.Search(_items.Count, i => i < _searchNames.Length ? _searchNames[i] : null, AnnounceRewardAtIndex);
+        }
 
-            int matchIndex = FindMatch();
-            if (matchIndex >= 0)
-            {
-                _currentIndex = matchIndex;
-                AnnounceCurrentReward();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
+        private void AnnounceRewardAtIndex(int index)
+        {
+            int save = _currentIndex;
+            _currentIndex = index;
+            AnnounceCurrentReward();
+            _currentIndex = save;
         }
 
         private void HandleBackspace()
@@ -301,35 +331,12 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            int matchIndex = FindMatch();
-            if (matchIndex >= 0)
-            {
-                _currentIndex = matchIndex;
-                AnnounceCurrentReward();
-            }
-            else
-            {
-                Speech.Say($"No match for {_search.Buffer}");
-            }
-        }
-
-        private int FindMatch()
-        {
-            if (!_search.HasBuffer || _items.Count == 0) return -1;
-
-            string lowerPrefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _items.Count && i < _searchNames.Length; i++)
-            {
-                if (_searchNames[i].ToLowerInvariant().StartsWith(lowerPrefix))
-                    return i;
-            }
-
-            return -1;
+            _search.Search(_items.Count, i => i < _searchNames.Length ? _searchNames[i] : null, AnnounceRewardAtIndex);
         }
     }
 }

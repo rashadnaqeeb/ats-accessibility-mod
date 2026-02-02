@@ -41,8 +41,40 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            // Clear search on navigation keys
-            _search.ClearOnNavigationKey(keyCode);
+            // Clear search on level change keys
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -70,10 +102,20 @@ namespace ATSAccessibility
                 case KeyCode.Backspace:
                     if (_search.RemoveChar())
                     {
-                        if (_search.HasBuffer)
-                            Speech.Say($"Search: {_search.Buffer}");
-                        else
+                        if (!_search.HasBuffer)
+                        {
+                            _search.Clear();
                             Speech.Say("Search cleared");
+                        }
+                        else
+                        {
+                            _search.Search(_items.Count, i => _items[i].Type == ItemType.Option ? _items[i].Text : null, i => {
+                                int save = _currentIndex;
+                                _currentIndex = i;
+                                AnnounceCurrentItem();
+                                _currentIndex = save;
+                            });
+                        }
                     }
                     return true;
 
@@ -93,17 +135,12 @@ namespace ATSAccessibility
                     {
                         char c = (char)('a' + (keyCode - KeyCode.A));
                         _search.AddChar(c);
-
-                        int match = FindMatchingOption();
-                        if (match >= 0)
-                        {
-                            _currentIndex = match;
+                        _search.Search(_items.Count, i => _items[i].Type == ItemType.Option ? _items[i].Text : null, i => {
+                            int save = _currentIndex;
+                            _currentIndex = i;
                             AnnounceCurrentItem();
-                        }
-                        else
-                        {
-                            Speech.Say($"No match for {_search.Buffer}");
-                        }
+                            _currentIndex = save;
+                        });
                         return true;
                     }
 
@@ -244,28 +281,6 @@ namespace ATSAccessibility
 
             var item = _items[_currentIndex];
             Speech.Say(item.Text);
-        }
-
-        private int FindMatchingOption()
-        {
-            if (!_search.HasBuffer) return -1;
-
-            string lowerBuffer = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _items.Count; i++)
-            {
-                var item = _items[i];
-                // Only match Option items
-                if (item.Type != ItemType.Option) continue;
-
-                if (!string.IsNullOrEmpty(item.Text) &&
-                    item.Text.ToLowerInvariant().StartsWith(lowerBuffer))
-                {
-                    return i;
-                }
-            }
-
-            return -1;
         }
 
         // ========================================

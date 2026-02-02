@@ -54,7 +54,39 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;  // Fall through to level dispatch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (_level)
             {
@@ -422,21 +454,12 @@ namespace ATSAccessibility
         private void HandleMainMenuSearch(char c)
         {
             _search.AddChar(c);
-            string prefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _mainMenuItems.Count; i++)
-            {
-                var item = _mainMenuItems[i];
-                if (!string.IsNullOrEmpty(item.SearchName) &&
-                    item.SearchName.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentIndex = i;
-                    Speech.Say(item.Label);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
+            _search.Search(_mainMenuItems.Count, i => _mainMenuItems[i].SearchName, i => {
+                int save = _currentIndex;
+                _currentIndex = i;
+                Speech.Say(_mainMenuItems[_currentIndex].Label);
+                _currentIndex = save;
+            });
         }
 
         // ========================================
@@ -929,21 +952,13 @@ namespace ATSAccessibility
         private void HandleOfferSearch(char c)
         {
             _search.AddChar(c);
-            string prefix = _search.Buffer.ToLowerInvariant();
-
-            for (int i = 0; i < _offers.Count; i++)
-            {
-                var offer = _offers[i];
-                if (offer.GoodName.ToLowerInvariant().StartsWith(prefix))
-                {
-                    // Offer index i maps to menu index i+1 (index 0 is Extend Offers)
-                    _currentIndex = i + 1;
-                    Speech.Say(BuildOfferLabel(offer));
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
+            // Search across all town offer items: index 0 is Extend Offers (null name), then offers
+            _search.Search(GetTownOffersItemCount(), i => i == 0 ? null : _offers[i - 1].GoodName, i => {
+                int save = _currentIndex;
+                _currentIndex = i;
+                AnnounceTownOffersItem();
+                _currentIndex = save;
+            });
         }
 
         // ========================================
@@ -972,7 +987,29 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
+                return;
+            }
+
+            // Re-search at the appropriate level
+            if (_level == Level.MainMenu)
+            {
+                _search.Search(_mainMenuItems.Count, i => _mainMenuItems[i].SearchName, i => {
+                    int save = _currentIndex;
+                    _currentIndex = i;
+                    Speech.Say(_mainMenuItems[_currentIndex].Label);
+                    _currentIndex = save;
+                });
+            }
+            else if (_level == Level.TownOffers)
+            {
+                _search.Search(GetTownOffersItemCount(), i => i == 0 ? null : _offers[i - 1].GoodName, i => {
+                    int save = _currentIndex;
+                    _currentIndex = i;
+                    AnnounceTownOffersItem();
+                    _currentIndex = save;
+                });
             }
         }
     }

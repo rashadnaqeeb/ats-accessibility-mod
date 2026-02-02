@@ -60,7 +60,40 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnNavigationKey(keyCode);
+            _search.ClearOnLevelChangeKey(keyCode);
+
+            if (_search.IsSearchActive)
+            {
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        _search.NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        _search.NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        _search.JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        _search.JumpToLastResult();
+                        return true;
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        // Apply selection, clear search, then fall through to normal Enter
+                        {
+                            int idx = _search.SelectedOriginalIndex;
+                            if (idx >= 0) _currentIndex = idx;
+                        }
+                        _search.Clear();
+                        break;  // Fall through to main switch for normal Enter handling
+                    case KeyCode.Escape:
+                        _search.Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                }
+            }
 
             switch (keyCode)
             {
@@ -95,13 +128,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     // No search to clear - let parent handle closing
                     return false;
 
@@ -226,20 +252,12 @@ namespace ATSAccessibility
             if (_items.Count == 0) return;
 
             _search.AddChar(c);
-
-            // Search for first matching item
-            string prefix = _search.Buffer.ToLowerInvariant();
-            for (int i = 0; i < _items.Count; i++)
-            {
-                if (_items[i].Label.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentIndex = i;
-                    AnnounceCurrentItem(includeHeader: false);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
+            _search.Search(_items.Count, i => _items[i].Label, i => {
+                int save = _currentIndex;
+                _currentIndex = i;
+                AnnounceCurrentItem(includeHeader: false);
+                _currentIndex = save;
+            });
         }
 
         /// <summary>
@@ -251,23 +269,17 @@ namespace ATSAccessibility
 
             if (!_search.HasBuffer)
             {
+                _search.Clear();
                 Speech.Say("Search cleared");
                 return;
             }
 
-            // Re-search with shortened buffer
-            string prefix = _search.Buffer.ToLowerInvariant();
-            for (int i = 0; i < _items.Count; i++)
-            {
-                if (_items[i].Label.ToLowerInvariant().StartsWith(prefix))
-                {
-                    _currentIndex = i;
-                    AnnounceCurrentItem(includeHeader: false);
-                    return;
-                }
-            }
-
-            Speech.Say($"No match for {_search.Buffer}");
+            _search.Search(_items.Count, i => _items[i].Label, i => {
+                int save = _currentIndex;
+                _currentIndex = i;
+                AnnounceCurrentItem(includeHeader: false);
+                _currentIndex = save;
+            });
         }
     }
 }
