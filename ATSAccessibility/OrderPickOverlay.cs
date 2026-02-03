@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the OrderPickPopup (order pick option selection).
     /// Provides flat list navigation through pick options with objectives and rewards.
     /// </summary>
-    public class OrderPickOverlay : IKeyHandler
+    public class OrderPickOverlay : MenuBase, IKeyHandler
     {
         private class PickItem
         {
@@ -18,116 +18,40 @@ namespace ATSAccessibility
             public string Label;        // Announcement text
         }
 
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;         // The OrderPickPopup instance
         private object _orderState;    // The order being picked
-        private int _currentIndex;
         private List<PickItem> _items = new List<PickItem>();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Pick order";
+        protected override string EmptyMessage => "No options available";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateCurrent();
-                    return true;
-
-                case KeyCode.S:
-                    AnnounceStoredAmounts();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup (OnPopupHidden will close our overlay)
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Label;
+            return null;
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when OrderPickPopup is shown.
-        /// </summary>
-        public void Open(object popup)
-        {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _currentIndex = 0;
-
-            RefreshData();
-
-            if (_items.Count > 0)
-            {
-                // Skip to first non-failed item for initial announcement
-                int firstValid = GetFirstNonFailedIndex();
-                _currentIndex = firstValid >= 0 ? firstValid : 0;
-                Speech.Say($"Pick order. {_items[_currentIndex].Label}");
-            }
-            else
-            {
-                Speech.Say("Pick order. No options available");
-            }
-
-            Debug.Log($"[ATSAccessibility] OrderPickOverlay opened, {_items.Count} items");
-        }
-
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _orderState = null;
-            _items.Clear();
-
-            Debug.Log("[ATSAccessibility] OrderPickOverlay closed");
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
-            // Get the order from the popup's own field (set in its Show method)
             _orderState = OrdersReflection.GetPopupOrder(_popup);
             if (_orderState == null)
             {
@@ -160,88 +84,13 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] OrderPickOverlay refreshed: {_items.Count} picks");
         }
 
-        private string BuildPickLabel(object pickState, object orderModel, bool failed)
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
         {
-            string name = OrdersReflection.GetOrderDisplayName(orderModel) ?? "Unknown";
+            if (index < 0 || index >= _items.Count) return;
 
-            if (failed)
-            {
-                return $"{name}, expired";
-            }
-
-            int setIndex = OrdersReflection.GetPickSetIndex(pickState);
-            bool timed = OrdersReflection.CanBeFailed(orderModel);
-
-            // Build objectives text
-            var objectives = OrdersReflection.GetPickObjectiveTexts(orderModel, setIndex);
-            string objText = objectives.Count > 0 ? "Requirements: " + string.Join(", ", objectives) : "";
-
-            // Build rewards text
-            var rewards = OrdersReflection.GetPickRewardTexts(pickState);
-            string repReward = OrdersReflection.GetReputationRewardText(orderModel);
-            if (!string.IsNullOrEmpty(repReward))
-                rewards.Add(repReward);
-            string rewardText = rewards.Count > 0 ? "Rewards: " + string.Join(", ", rewards) : "";
-
-            // Combine
-            var parts = new List<string>();
-            if (timed)
-            {
-                float timeToFail = OrdersReflection.GetTimeToFail(orderModel);
-                parts.Add($"{name}, timed {OrdersReflection.FormatTime(timeToFail)}");
-            }
-            else
-            {
-                parts.Add(name);
-            }
-
-            if (!string.IsNullOrEmpty(objText))
-                parts.Add(objText);
-            if (!string.IsNullOrEmpty(rewardText))
-                parts.Add(rewardText);
-
-            // Add warnings (e.g. "Missing building")
-            var warnings = OrdersReflection.GetPickWarningTexts(orderModel, setIndex);
-            if (warnings.Count > 0)
-                parts.Add("Warning: " + string.Join(", ", warnings));
-
-            return string.Join(". ", parts);
-        }
-
-        // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-            Speech.Say(_items[_currentIndex].Label);
-        }
-
-        // ========================================
-        // ACTIONS
-        // ========================================
-
-        private void ActivateCurrent()
-        {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
+            var item = _items[index];
 
             if (item.Failed)
             {
@@ -271,11 +120,56 @@ namespace ATSAccessibility
             }
         }
 
+        protected override int SearchItemCount => 0; // No search for order picks
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.S)
+            {
+                AnnounceStoredAmounts();
+                return true;
+            }
+            return null;
+        }
+
+        // Escape passes to game to close popup (OnPopupHidden will close our overlay)
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_items.Count == 0) return EmptyMessage;
+
+            // Skip to first non-failed item for initial announcement
+            int firstValid = GetFirstNonFailedIndex();
+            if (firstValid >= 0)
+            {
+                CurrentIndex = firstValid;
+                return $"{OverlayName}. {_items[firstValid].Label}";
+            }
+            return $"{OverlayName}. {_items[0].Label}";
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _orderState = null;
+            _items.Clear();
+        }
+
+        // ========================================
+        // ACTIONS
+        // ========================================
+
         private void AnnounceStoredAmounts()
         {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
+            if (_items.Count == 0 || CurrentIndex < 0 || CurrentIndex >= _items.Count) return;
 
-            var item = _items[_currentIndex];
+            var item = _items[CurrentIndex];
             if (item.Failed)
             {
                 Speech.Say("Expired");
@@ -305,6 +199,50 @@ namespace ATSAccessibility
                 if (!_items[i].Failed) return i;
             }
             return -1;
+        }
+
+        private string BuildPickLabel(object pickState, object orderModel, bool failed)
+        {
+            string name = OrdersReflection.GetOrderDisplayName(orderModel) ?? "Unknown";
+
+            if (failed)
+            {
+                return $"{name}, expired";
+            }
+
+            int setIndex = OrdersReflection.GetPickSetIndex(pickState);
+            bool timed = OrdersReflection.CanBeFailed(orderModel);
+
+            var objectives = OrdersReflection.GetPickObjectiveTexts(orderModel, setIndex);
+            string objText = objectives.Count > 0 ? "Requirements: " + string.Join(", ", objectives) : "";
+
+            var rewards = OrdersReflection.GetPickRewardTexts(pickState);
+            string repReward = OrdersReflection.GetReputationRewardText(orderModel);
+            if (!string.IsNullOrEmpty(repReward))
+                rewards.Add(repReward);
+            string rewardText = rewards.Count > 0 ? "Rewards: " + string.Join(", ", rewards) : "";
+
+            var parts = new List<string>();
+            if (timed)
+            {
+                float timeToFail = OrdersReflection.GetTimeToFail(orderModel);
+                parts.Add($"{name}, timed {OrdersReflection.FormatTime(timeToFail)}");
+            }
+            else
+            {
+                parts.Add(name);
+            }
+
+            if (!string.IsNullOrEmpty(objText))
+                parts.Add(objText);
+            if (!string.IsNullOrEmpty(rewardText))
+                parts.Add(rewardText);
+
+            var warnings = OrdersReflection.GetPickWarningTexts(orderModel, setIndex);
+            if (warnings.Count > 0)
+                parts.Add("Warning: " + string.Join(", ", warnings));
+
+            return string.Join(". ", parts);
         }
     }
 }

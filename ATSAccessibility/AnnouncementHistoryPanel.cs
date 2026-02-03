@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Stores recent announcements and provides a panel to review them.
     /// Opened with Alt+N during settlement gameplay.
     /// </summary>
-    public class AnnouncementHistoryPanel : IKeyHandler, ISearchable
+    public class AnnouncementHistoryPanel : MenuBase, IKeyHandler
     {
         private const int MAX_HISTORY = 10;
 
@@ -21,28 +21,26 @@ namespace ATSAccessibility
         private static readonly List<HistoryEntry> _history = new List<HistoryEntry>();
         private static readonly object _lock = new object();
 
-        private int _currentIndex = 0;
-        private bool _isOpen = false;
-
-        // Type-ahead search
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
-
         private readonly MapNavigator _mapNavigator;
+        private bool _suppressCloseAnnouncement;
 
         public AnnouncementHistoryPanel(MapNavigator mapNavigator)
         {
             _mapNavigator = mapNavigator;
         }
 
-        /// <summary>
-        /// Whether this handler is currently active (IKeyHandler).
-        /// </summary>
-        public bool IsActive => _isOpen;
+        // ========================================
+        // IKEYHANDLER
+        // ========================================
 
-        /// <summary>
-        /// Whether the history panel is currently open.
-        /// </summary>
-        public bool IsOpen => _isOpen;
+        public bool IsActive => IsOpen;
+
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // STATIC API
+        // ========================================
 
         /// <summary>
         /// Add a message to the history.
@@ -76,116 +74,95 @@ namespace ATSAccessibility
             }
         }
 
-        /// <summary>
-        /// Process a key event (IKeyHandler).
-        /// </summary>
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        // ========================================
+        // MENUBASE ABSTRACTS
+        // ========================================
+
+        protected override string OverlayName => "Notifications";
+        protected override string EmptyMessage => "No messages";
+
+        protected override int GetItemCount()
         {
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
+            lock (_lock) { return _history.Count; }
+        }
+
+        protected override string GetLabel(int index)
+        {
+            lock (_lock)
+            {
+                return index >= 0 && index < _history.Count ? _history[index].Message : null;
+            }
+        }
+
+        protected override void RefreshData() { }  // Static list, no refresh needed
+
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override void OnAction(int index) => GoToEventLocation();
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.N)
+            {
+                Close();
                 return true;
+            }
+            return null;
+        }
 
-            // Panel is open - handle navigation
-            switch (keyCode)
+        protected override EscapeAction OnEscape() => EscapeAction.Close;
+
+        protected override string GetOpenAnnouncement()
+        {
+            lock (_lock)
             {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    _currentIndex = 0;
-                    AnnounceCurrentItem(includeHeader: false);
-                    return true;
-
-                case KeyCode.End:
-                    lock (_lock)
-                    {
-                        _currentIndex = _history.Count > 0 ? _history.Count - 1 : 0;
-                    }
-                    AnnounceCurrentItem(includeHeader: false);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    GoToEventLocation();
-                    return true;
-
-                case KeyCode.Escape:
-                    Close();
-                    return true;
-
-                case KeyCode.N:
-                    Close();
-                    return true;
-
-                default:
-                    // Consume other keys while panel is open
-                    return true;
+                if (_history.Count == 0)
+                    return EmptyMessage;
+                return $"Notifications. {_history[0].Message}";
             }
         }
 
-        /// <summary>
-        /// Open the history panel.
-        /// </summary>
-        public void Open()
+        protected override void OnOpened()
         {
             lock (_lock)
             {
                 if (_history.Count == 0)
                 {
-                    Speech.Say("No messages");
+                    _suppressCloseAnnouncement = true;
+                    Close();
                     return;
                 }
             }
-
-            _isOpen = true;
-            _currentIndex = 0;
-            _search.Clear();
-            AnnounceCurrentItem(includeHeader: true);
         }
 
-        /// <summary>
-        /// Close the history panel.
-        /// </summary>
-        public void Close()
+        protected override void OnClosed()
         {
-            _isOpen = false;
-            _search.Clear();
-            InputBlocker.BlockCancelOnce = true;  // Prevent game from opening pause menu
-            Speech.Say("Notifications closed");
+            if (!_suppressCloseAnnouncement)
+            {
+                InputBlocker.BlockCancelOnce = true;
+                Speech.Say("Notifications closed");
+            }
+            _suppressCloseAnnouncement = false;
         }
 
-        private void Navigate(int direction)
+        // Search overrides with locking
+        protected override int SearchItemCount { get { lock (_lock) { return _history.Count; } } }
+
+        protected override string GetSearchName(int index)
         {
             lock (_lock)
             {
-                if (_history.Count == 0) return;
-                _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _history.Count);
-            }
-            AnnounceCurrentItem(includeHeader: false);
-        }
-
-        private void AnnounceCurrentItem(bool includeHeader)
-        {
-            lock (_lock)
-            {
-                if (_history.Count == 0)
-                {
-                    Speech.Say("No messages");
-                    return;
-                }
-
-                string message = _history[_currentIndex].Message;
-                if (includeHeader)
-                    Speech.Say($"Notifications. {message}");
-                else
-                    Speech.Say(message);
+                return index >= 0 && index < _history.Count ? _history[index].Message : null;
             }
         }
+
+        // ========================================
+        // NAVIGATION TO EVENTS
+        // ========================================
 
         private void GoToEventLocation()
         {
@@ -193,7 +170,7 @@ namespace ATSAccessibility
             lock (_lock)
             {
                 if (_history.Count == 0) return;
-                location = _history[_currentIndex].Location;
+                location = _history[CurrentIndex].Location;
             }
 
             if (!location.HasValue)
@@ -203,8 +180,8 @@ namespace ATSAccessibility
             }
 
             var pos = location.Value;
-            _isOpen = false;
-            _search.Clear();
+            _suppressCloseAnnouncement = true;
+            Close();
             _mapNavigator.SetCursorPosition(pos.x, pos.y);
             _mapNavigator.MoveCursor(0, 0);
         }
@@ -238,33 +215,14 @@ namespace ATSAccessibility
             }
 
             var pos = location.Value;
-            _isOpen = false;
-            _search.Clear();
+            if (IsOpen)
+            {
+                _suppressCloseAnnouncement = true;
+                Close();
+            }
             _mapNavigator.SetCursorPosition(pos.x, pos.y);
             _mapNavigator.MoveCursor(0, 0);  // Announces tile
             Speech.Say(message, interrupt: false);  // Queue after tile announcement
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount { get { lock (_lock) { return _history.Count; } } }
-
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            lock (_lock)
-            {
-                return index >= 0 && index < _history.Count ? _history[index].Message : null;
-            }
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem(includeHeader: false);
         }
     }
 }

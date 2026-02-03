@@ -5,15 +5,12 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Accessible overlay for the ConsumptionPopup (consumption control).
-    /// Three-level navigation: categories → items → races.
+    /// Three-level navigation: categories -> items -> races.
+    /// Pattern B: Right drills down, Enter does nothing at any level.
+    /// Space toggles at all levels.
     /// </summary>
-    public class ConsumptionOverlay : IKeyHandler, ISearchable
+    public class ConsumptionOverlay : MenuBase, IKeyHandler
     {
-        // Navigation levels
-        private const int LEVEL_CATEGORIES = 0;
-        private const int LEVEL_ITEMS = 1;
-        private const int LEVEL_RACES = 2;
-
         // Category data
         private class CategoryData
         {
@@ -25,24 +22,18 @@ namespace ATSAccessibility
         }
 
         // State
-        private bool _isOpen;
         private bool _isBlocked;
-        private int _level;
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Level 0: Categories
         private List<CategoryData> _categories = new List<CategoryData>();
-        private int _categoryIndex;
 
         // Level 1: Items (raw food IDs or need objects)
         private List<object> _items = new List<object>();
         private List<string> _itemNames = new List<string>();
-        private int _itemIndex;
 
         // Level 2: Races (for selected need)
         private List<object> _races = new List<object>();
         private List<string> _raceNames = new List<string>();
-        private int _raceIndex;
 
         // Track whether current category is raw food (for level 1 behavior)
         private bool _currentCategoryIsRawFood;
@@ -51,147 +42,178 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Consumption";
+        protected override string EmptyMessage => "No categories available";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
-
-            // Centralized search handling
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (_level)
+            switch (Level)
             {
-                case LEVEL_CATEGORIES:
-                    return ProcessCategoryKey(keyCode);
-                case LEVEL_ITEMS:
-                    return ProcessItemKey(keyCode);
-                case LEVEL_RACES:
-                    return ProcessRaceKey(keyCode);
-                default:
-                    return true;
+                case 0: return _categories.Count;
+                case 1: return _items.Count;
+                case 2: return _races.Count;
+                default: return 0;
             }
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        public void Open()
+        protected override string GetLabel(int index)
         {
-            if (_isOpen) return;
+            switch (Level)
+            {
+                case 0: return GetCategoryAnnouncement(index);
+                case 1: return GetItemAnnouncement(index);
+                case 2: return GetRaceAnnouncement(index);
+                default: return null;
+            }
+        }
 
-            _isOpen = true;
-            _level = LEVEL_CATEGORIES;
-            _categoryIndex = 0;
+        protected override void RefreshData()
+        {
             _isBlocked = ConsumptionReflection.IsBlocked();
-            _search.Clear();
-
             RefreshCategories();
+        }
 
+        protected override EnterAction OnEnter(int index) => EnterAction.None;
+
+        protected override void OnSpace(int index)
+        {
+            switch (Level)
+            {
+                case 0: ToggleCategory(); break;
+                case 1: ToggleItem(); break;
+                case 2: ToggleRace(); break;
+            }
+        }
+
+        /// <summary>
+        /// Pattern B: Right drills down, Enter does nothing.
+        /// CanDrillDown also loads data for the next level and validates it.
+        /// </summary>
+        protected override bool CanDrillDown(int index)
+        {
+            if (Level == 0)
+            {
+                if (index < 0 || index >= _categories.Count || _categories[index].IsRace)
+                    return false;
+
+                _currentCategoryIsRawFood = _categories[index].IsRawFood;
+                RefreshItems(_categories[index]);
+
+                if (_items.Count == 0)
+                {
+                    Speech.Say("No items");
+                    return false;
+                }
+                return true;
+            }
+
+            if (Level == 1)
+            {
+                if (_currentCategoryIsRawFood)
+                    return false;
+
+                RefreshRaces(_items[index]);
+
+                if (_races.Count == 0)
+                {
+                    Speech.Say("No races");
+                    return false;
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        protected override void OnDrillDown(int index)
+        {
+            // Data already loaded in CanDrillDown
+        }
+
+        protected override void OnGoBack()
+        {
+            if (Level == 2)
+            {
+                _races.Clear();
+                _raceNames.Clear();
+            }
+            else if (Level == 1)
+            {
+                _items.Clear();
+                _itemNames.Clear();
+            }
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
             if (_isBlocked)
             {
                 string effects = ConsumptionReflection.GetBlockingEffectsList();
                 if (!string.IsNullOrEmpty(effects))
-                    Speech.Say($"Consumption control blocked by {effects}");
-                else
-                    Speech.Say("Consumption control blocked");
+                    return $"Consumption control blocked by {effects}";
+                return "Consumption control blocked";
             }
-            else if (_categories.Count > 0)
-            {
-                Speech.Say($"Consumption. {GetCategoryAnnouncement(0)}");
-            }
-            else
-            {
-                Speech.Say("Consumption. No categories available");
-            }
+
+            if (_categories.Count > 0)
+                return $"Consumption. {GetCategoryAnnouncement(0)}";
+
+            return $"Consumption. {EmptyMessage}";
         }
 
-        public void Close()
+        protected override void OnClosed()
         {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _level = LEVEL_CATEGORIES;
             _categories.Clear();
             _items.Clear();
             _itemNames.Clear();
             _races.Clear();
             _raceNames.Clear();
-            _search.Clear();
         }
 
         // ========================================
-        // LEVEL 0: CATEGORIES
+        // SEARCH
         // ========================================
 
-        private bool ProcessCategoryKey(KeyCode keyCode)
+        protected override int SearchItemCount
         {
-            switch (keyCode)
+            get
             {
-                case KeyCode.UpArrow:
-                    NavigateCategory(-1);
-                    return true;
+                switch (Level)
+                {
+                    case 0: return _categories.Count;
+                    case 1: return _itemNames.Count;
+                    case 2: return _raceNames.Count;
+                    default: return 0;
+                }
+            }
+        }
 
-                case KeyCode.DownArrow:
-                    NavigateCategory(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_categories.Count > 0) { _categoryIndex = 0; Speech.Say(GetCategoryAnnouncement(0)); }
-                    return true;
-
-                case KeyCode.End:
-                    if (_categories.Count > 0) { _categoryIndex = _categories.Count - 1; Speech.Say(GetCategoryAnnouncement(_categoryIndex)); }
-                    return true;
-
-                case KeyCode.RightArrow:
-                    ExpandCategory();
-                    return true;
-
-                case KeyCode.Space:
-                    ToggleCategory();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
+        protected override string GetSearchName(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    return (index >= 0 && index < _categories.Count) ? _categories[index].Name : null;
+                case 1:
+                    return (index >= 0 && index < _itemNames.Count) ? _itemNames[index] : null;
+                case 2:
+                    return (index >= 0 && index < _raceNames.Count) ? _raceNames[index] : null;
                 default:
-                    // Consume all other keys while overlay is active
-                    return true;
+                    return null;
             }
         }
 
-        private void NavigateCategory(int direction)
-        {
-            if (_categories.Count == 0) return;
-            _categoryIndex = NavigationUtils.WrapIndex(_categoryIndex, direction, _categories.Count);
-            Speech.Say(GetCategoryAnnouncement(_categoryIndex));
-        }
-
-        private void ExpandCategory()
-        {
-            if (_categories.Count == 0) return;
-
-            var cat = _categories[_categoryIndex];
-            if (cat.IsRace) return;
-
-            _currentCategoryIsRawFood = cat.IsRawFood;
-            RefreshItems(cat);
-
-            if (_items.Count == 0)
-            {
-                Speech.Say("No items");
-                return;
-            }
-
-            _search.Clear();
-            _level = LEVEL_ITEMS;
-            _itemIndex = 0;
-            Speech.Say(GetItemAnnouncement(0));
-        }
+        // ========================================
+        // TOGGLE ACTIONS
+        // ========================================
 
         private void ToggleCategory()
         {
@@ -204,12 +226,12 @@ namespace ATSAccessibility
                 return;
             }
 
-            var cat = _categories[_categoryIndex];
+            var cat = _categories[_indices[0]];
             bool setTo;
 
             if (cat.IsRawFood)
             {
-                // Toggle all raw foods: only permit if all prohibited; mixed → prohibit
+                // Toggle all raw foods: only permit if all prohibited; mixed -> prohibit
                 setTo = ConsumptionReflection.IsAllRawFoodProhibited();
                 ConsumptionReflection.SetAllRawFoodPermission(setTo);
             }
@@ -232,102 +254,6 @@ namespace ATSAccessibility
             Speech.Say(setTo ? "Permitted" : "Prohibited");
         }
 
-        private string GetCategoryAnnouncement(int index)
-        {
-            if (index < 0 || index >= _categories.Count) return "";
-            var cat = _categories[index];
-
-            if (cat.IsRace)
-            {
-                string status = ConsumptionReflection.GetRaceNeedsStatus(cat.Race);
-                return $"{cat.Name}, {status}";
-            }
-
-            string catStatus = ConsumptionReflection.GetCategoryStatus(cat.Category, cat.IsRawFood);
-            return $"{cat.Name}, {catStatus}";
-        }
-
-        // ========================================
-        // LEVEL 1: ITEMS
-        // ========================================
-
-        private bool ProcessItemKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateItem(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateItem(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_items.Count > 0) { _itemIndex = 0; Speech.Say(GetItemAnnouncement(0)); }
-                    return true;
-
-                case KeyCode.End:
-                    if (_items.Count > 0) { _itemIndex = _items.Count - 1; Speech.Say(GetItemAnnouncement(_itemIndex)); }
-                    return true;
-
-                case KeyCode.RightArrow:
-                    if (!_currentCategoryIsRawFood)
-                        ExpandNeedToRaces();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    CollapseToCategories();
-                    return true;
-
-                case KeyCode.Space:
-                    ToggleItem();
-                    return true;
-
-                case KeyCode.Escape:
-                    CollapseToCategories();
-                    return true;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
-        }
-
-        private void NavigateItem(int direction)
-        {
-            if (_items.Count == 0) return;
-            _itemIndex = NavigationUtils.WrapIndex(_itemIndex, direction, _items.Count);
-            Speech.Say(GetItemAnnouncement(_itemIndex));
-        }
-
-        private void ExpandNeedToRaces()
-        {
-            if (_items.Count == 0 || _currentCategoryIsRawFood) return;
-
-            var need = _items[_itemIndex];
-            RefreshRaces(need);
-
-            if (_races.Count == 0)
-            {
-                Speech.Say("No races");
-                return;
-            }
-
-            _search.Clear();
-            _level = LEVEL_RACES;
-            _raceIndex = 0;
-            Speech.Say(GetRaceAnnouncement(0));
-        }
-
-        private void CollapseToCategories()
-        {
-            _level = LEVEL_CATEGORIES;
-            _items.Clear();
-            _itemNames.Clear();
-            Speech.Say(GetCategoryAnnouncement(_categoryIndex));
-        }
-
         private void ToggleItem()
         {
             if (_items.Count == 0) return;
@@ -344,7 +270,7 @@ namespace ATSAccessibility
             if (_currentCategoryIsRawFood)
             {
                 // Toggle individual raw food
-                string id = _items[_itemIndex] as string;
+                string id = _items[CurrentIndex] as string;
                 if (id == null) return;
 
                 setTo = !ConsumptionReflection.IsRawFoodPermitted(id);
@@ -353,7 +279,7 @@ namespace ATSAccessibility
             else
             {
                 // Blanket toggle for a need (all races)
-                var need = _items[_itemIndex];
+                var need = _items[CurrentIndex];
                 string status = ConsumptionReflection.GetNeedStatus(need);
                 setTo = (status == "all prohibited");
                 ConsumptionReflection.SetNeedBlanketPermission(need, setTo);
@@ -361,6 +287,45 @@ namespace ATSAccessibility
 
             SoundManager.PlayButtonClick();
             Speech.Say(setTo ? "Permitted" : "Prohibited");
+        }
+
+        private void ToggleRace()
+        {
+            if (_races.Count == 0 || _items.Count == 0) return;
+
+            if (_isBlocked)
+            {
+                Speech.Say("Blocked");
+                SoundManager.PlayFailed();
+                return;
+            }
+
+            var race = _races[CurrentIndex];
+            var need = _items[_indices[1]];
+            bool setTo = !ConsumptionReflection.IsNeedPermittedForRace(race, need);
+            ConsumptionReflection.SetNeedPermissionForRace(race, need, setTo);
+
+            SoundManager.PlayButtonClick();
+            Speech.Say(setTo ? "Permitted" : "Prohibited");
+        }
+
+        // ========================================
+        // ANNOUNCEMENTS
+        // ========================================
+
+        private string GetCategoryAnnouncement(int index)
+        {
+            if (index < 0 || index >= _categories.Count) return "";
+            var cat = _categories[index];
+
+            if (cat.IsRace)
+            {
+                string status = ConsumptionReflection.GetRaceNeedsStatus(cat.Race);
+                return $"{cat.Name}, {status}";
+            }
+
+            string catStatus = ConsumptionReflection.GetCategoryStatus(cat.Category, cat.IsRawFood);
+            return $"{cat.Name}, {catStatus}";
         }
 
         private string GetItemAnnouncement(int index)
@@ -383,90 +348,13 @@ namespace ATSAccessibility
             }
         }
 
-        // ========================================
-        // LEVEL 2: RACES
-        // ========================================
-
-        private bool ProcessRaceKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateRace(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateRace(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_races.Count > 0) { _raceIndex = 0; Speech.Say(GetRaceAnnouncement(0)); }
-                    return true;
-
-                case KeyCode.End:
-                    if (_races.Count > 0) { _raceIndex = _races.Count - 1; Speech.Say(GetRaceAnnouncement(_raceIndex)); }
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    CollapseToItems();
-                    return true;
-
-                case KeyCode.Space:
-                    ToggleRace();
-                    return true;
-
-                case KeyCode.Escape:
-                    CollapseToItems();
-                    return true;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
-        }
-
-        private void NavigateRace(int direction)
-        {
-            if (_races.Count == 0) return;
-            _raceIndex = NavigationUtils.WrapIndex(_raceIndex, direction, _races.Count);
-            Speech.Say(GetRaceAnnouncement(_raceIndex));
-        }
-
-        private void CollapseToItems()
-        {
-            _level = LEVEL_ITEMS;
-            _races.Clear();
-            _raceNames.Clear();
-            Speech.Say(GetItemAnnouncement(_itemIndex));
-        }
-
-        private void ToggleRace()
-        {
-            if (_races.Count == 0 || _items.Count == 0) return;
-
-            if (_isBlocked)
-            {
-                Speech.Say("Blocked");
-                SoundManager.PlayFailed();
-                return;
-            }
-
-            var race = _races[_raceIndex];
-            var need = _items[_itemIndex];
-            bool setTo = !ConsumptionReflection.IsNeedPermittedForRace(race, need);
-            ConsumptionReflection.SetNeedPermissionForRace(race, need, setTo);
-
-            SoundManager.PlayButtonClick();
-            Speech.Say(setTo ? "Permitted" : "Prohibited");
-        }
-
         private string GetRaceAnnouncement(int index)
         {
             if (index < 0 || index >= _races.Count || _items.Count == 0) return "";
 
             string name = (index < _raceNames.Count) ? _raceNames[index] : "Unknown";
             var race = _races[index];
-            var need = _items[_itemIndex];
+            var need = _items[_indices[1]];
 
             bool permitted = ConsumptionReflection.IsNeedPermittedForRace(race, need);
             var (_, max) = ConsumptionReflection.GetResolveImpact(race, need);
@@ -551,76 +439,6 @@ namespace ATSAccessibility
             {
                 _races.Add(race);
                 _raceNames.Add(ConsumptionReflection.GetRaceName(race));
-            }
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount
-        {
-            get
-            {
-                switch (_level)
-                {
-                    case LEVEL_CATEGORIES:
-                        return _categories.Count;
-                    case LEVEL_ITEMS:
-                        return _itemNames.Count;
-                    case LEVEL_RACES:
-                        return _raceNames.Count;
-                    default:
-                        return 0;
-                }
-            }
-        }
-
-        public int SearchCurrentIndex
-        {
-            get
-            {
-                switch (_level)
-                {
-                    case LEVEL_CATEGORIES: return _categoryIndex;
-                    case LEVEL_ITEMS: return _itemIndex;
-                    case LEVEL_RACES: return _raceIndex;
-                    default: return 0;
-                }
-            }
-        }
-
-        public string GetSearchLabel(int index)
-        {
-            switch (_level)
-            {
-                case LEVEL_CATEGORIES:
-                    return (index >= 0 && index < _categories.Count) ? _categories[index].Name : null;
-                case LEVEL_ITEMS:
-                    return (index >= 0 && index < _itemNames.Count) ? _itemNames[index] : null;
-                case LEVEL_RACES:
-                    return (index >= 0 && index < _raceNames.Count) ? _raceNames[index] : null;
-                default:
-                    return null;
-            }
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            switch (_level)
-            {
-                case LEVEL_CATEGORIES:
-                    _categoryIndex = index;
-                    Speech.Say(GetCategoryAnnouncement(index));
-                    break;
-                case LEVEL_ITEMS:
-                    _itemIndex = index;
-                    Speech.Say(GetItemAnnouncement(index));
-                    break;
-                case LEVEL_RACES:
-                    _raceIndex = index;
-                    Speech.Say(GetRaceAnnouncement(index));
-                    break;
             }
         }
     }

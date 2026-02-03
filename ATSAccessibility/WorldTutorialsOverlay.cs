@@ -8,139 +8,32 @@ namespace ATSAccessibility
     /// Provides keyboard navigation for the 4 tutorial missions on the world map.
     /// Opened via F1 key from WorldMapKeyHandler.
     /// </summary>
-    public class WorldTutorialsOverlay : IKeyHandler
+    public class WorldTutorialsOverlay : MenuBase, IKeyHandler
     {
-        // State
-        private bool _isOpen = false;
-        private int _currentIndex = 0;
+        // Data
         private List<TutorialReflection.TutorialInfo> _tutorials = new List<TutorialReflection.TutorialInfo>();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_tutorials.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    SelectCurrentTutorial();
-                    return true;
-
-                case KeyCode.Escape:
-                case KeyCode.F1:
-                    // Close the HUD and overlay (F1 toggles, Escape just closes)
-                    TutorialReflection.ToggleWorldTutorialsHUD();
-                    Close();
-                    return true;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
-        }
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
         // ========================================
-        // LIFECYCLE
+        // MENUBASE OVERRIDES
         // ========================================
 
-        /// <summary>
-        /// Open the overlay when WorldTutorialsHUD becomes visible.
-        /// Called from AccessibilityCore when polling detects visibility change.
-        /// </summary>
-        public void Open()
+        protected override string OverlayName => "Tutorials";
+        protected override string EmptyMessage => "No tutorials available";
+
+        protected override int GetItemCount() => _tutorials.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _currentIndex = 0;
-
-            RefreshData();
-
-            if (_tutorials.Count > 0)
-            {
-                Speech.Say($"Tutorials. {GetTutorialAnnouncement(0)}");
-            }
-            else
-            {
-                Speech.Say("Tutorials. No tutorials available");
-            }
-
-            Debug.Log($"[ATSAccessibility] WorldTutorialsOverlay opened, {_tutorials.Count} tutorials");
-        }
-
-        /// <summary>
-        /// Close the overlay when WorldTutorialsHUD is hidden.
-        /// Called from AccessibilityCore when polling detects visibility change.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _tutorials.Clear();
-
-            Debug.Log("[ATSAccessibility] WorldTutorialsOverlay closed");
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
-        {
-            _tutorials = TutorialReflection.GetAllTutorials();
-        }
-
-        // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_tutorials.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _tutorials.Count);
-            AnnounceCurrentTutorial();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_tutorials.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _tutorials.Count - 1);
-            AnnounceCurrentTutorial();
-        }
-
-        private void AnnounceCurrentTutorial()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _tutorials.Count) return;
-            Speech.Say(GetTutorialAnnouncement(_currentIndex));
-        }
-
-        private string GetTutorialAnnouncement(int index)
-        {
-            if (index < 0 || index >= _tutorials.Count) return "";
+            if (index < 0 || index >= _tutorials.Count) return null;
 
             var tutorial = _tutorials[index];
             var status = "";
@@ -157,19 +50,21 @@ namespace ATSAccessibility
             return $"{tutorial.DisplayName}{status}";
         }
 
-        // ========================================
-        // SELECTION
-        // ========================================
-
-        private void SelectCurrentTutorial()
+        protected override void RefreshData()
         {
-            if (_tutorials.Count == 0 || _currentIndex < 0 || _currentIndex >= _tutorials.Count) return;
+            _tutorials = TutorialReflection.GetAllTutorials();
+        }
 
-            var tutorial = _tutorials[_currentIndex];
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
+        {
+            if (index < 0 || index >= _tutorials.Count) return;
+
+            var tutorial = _tutorials[index];
 
             if (!tutorial.IsUnlocked)
             {
-                // Announce locked reason
                 var reason = tutorial.LockedReason;
                 if (!string.IsNullOrEmpty(reason))
                 {
@@ -183,7 +78,6 @@ namespace ATSAccessibility
                 return;
             }
 
-            // Start the tutorial - game will show its own confirmation popup
             if (TutorialReflection.StartTutorial(tutorial.Config))
             {
                 SoundManager.PlayButtonClick();
@@ -194,6 +88,32 @@ namespace ATSAccessibility
                 Speech.Say("Could not start tutorial");
                 SoundManager.PlayFailed();
             }
+        }
+
+        protected override int SearchItemCount => 0; // No search
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.F1)
+            {
+                // Close the HUD and overlay (F1 toggles)
+                TutorialReflection.ToggleWorldTutorialsHUD();
+                Close();
+                return true;
+            }
+            return null;
+        }
+
+        protected override EscapeAction OnEscape()
+        {
+            // Close the HUD and overlay
+            TutorialReflection.ToggleWorldTutorialsHUD();
+            return EscapeAction.Close;
+        }
+
+        protected override void OnClosed()
+        {
+            _tutorials.Clear();
         }
     }
 }

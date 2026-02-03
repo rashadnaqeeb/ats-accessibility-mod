@@ -307,7 +307,7 @@ namespace ATSAccessibility
             _selectedBuildingName = null;
 
             // Open the menu
-            _buildingMenuPanel?.Open();
+            _buildingMenuPanel?.Toggle();
         }
 
         /// <summary>

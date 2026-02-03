@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,8 +7,12 @@ namespace ATSAccessibility
     /// Accessible overlay for the TrendsPopup.
     /// Provides navigation through goods and their storage operations.
     /// Number keys toggle time frame for aggregating operations.
+    ///
+    /// This overlay has parallel navigation axes: Left/Right navigates goods,
+    /// Up/Down navigates operations for the current good. MenuBase Level 0
+    /// tracks the operation index; _goodIndex is a separate axis.
     /// </summary>
-    public class TrendsOverlay : IKeyHandler, ISearchable
+    public class TrendsOverlay : MenuBase, IKeyHandler
     {
         // Time frame options (in ticks)
         private const int TICKS_10_SECONDS = 1;
@@ -17,35 +20,90 @@ namespace ATSAccessibility
         private const int TICKS_5_MINUTES = 30;
 
         // State
-        private bool _isOpen;
         private object _popup;
         private int _timeFrameTicks = TICKS_1_MINUTE;  // Default: 1 minute
 
-        // Goods list
+        // Goods list (separate navigation axis, not managed by MenuBase)
         private List<string> _goods = new List<string>();
         private int _goodIndex;
 
-        // Operations for current good
+        // Operations for current good (navigated via MenuBase Level 0)
         private List<TrendsReflection.AggregatedOperation> _operations = new List<TrendsReflection.AggregatedOperation>();
-        private int _operationIndex;
-
-        // Type-ahead search for goods
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Trends";
+
+        protected override string EmptyMessage => "No goods with trend data";
+
+        protected override int GetItemCount() => _operations.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
+            if (index < 0 || index >= _operations.Count) return null;
+            var op = _operations[index];
+            return $"{op.DisplayName}: {FormatAmount(op.TotalAmount)}";
+        }
 
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
+        protected override void RefreshData()
+        {
+            _goods = TrendsReflection.GetAllGoods();
 
+            if (_goods.Count > 0)
+            {
+                // Try to start with the good selected in the popup
+                string currentGood = _popup != null ? TrendsReflection.GetCurrentGood(_popup) : null;
+                if (!string.IsNullOrEmpty(currentGood))
+                {
+                    int idx = _goods.IndexOf(currentGood);
+                    if (idx >= 0)
+                        _goodIndex = idx;
+                }
+
+                RefreshOperations();
+            }
+        }
+
+        protected override EnterAction OnEnter(int index) => EnterAction.None;
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_goods.Count == 0) return EmptyMessage;
+
+            string goodName = GetCurrentGoodDisplayName();
+            string changeText = FormatNetChange(GetNetChangeFromOperations());
+            return $"{goodName}, {changeText}";
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _goods.Clear();
+            _operations.Clear();
+        }
+
+        // ========================================
+        // SPECIAL KEY HANDLING
+        // ========================================
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
             switch (keyCode)
             {
                 // Time frame toggles
@@ -64,37 +122,22 @@ namespace ATSAccessibility
                     SetTimeFrame(TICKS_5_MINUTES, "Last 5 minutes");
                     return true;
 
-                // Goods navigation
+                // Goods navigation (separate axis)
                 case KeyCode.LeftArrow:
-                    NavigateGoods(-1);
-                    return true;
-
-                case KeyCode.RightArrow:
-                    NavigateGoods(1);
-                    return true;
-
-                // Operations navigation
-                case KeyCode.UpArrow:
-                    NavigateOperations(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateOperations(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_operations.Count > 0)
+                    if (_goods.Count > 0)
                     {
-                        _operationIndex = 0;
-                        AnnounceCurrentOperation();
+                        _goodIndex = NavigationUtils.WrapIndex(_goodIndex, -1, _goods.Count);
+                        RefreshOperations();
+                        AnnounceCurrentGood();
                     }
                     return true;
 
-                case KeyCode.End:
-                    if (_operations.Count > 0)
+                case KeyCode.RightArrow:
+                    if (_goods.Count > 0)
                     {
-                        _operationIndex = _operations.Count - 1;
-                        AnnounceCurrentOperation();
+                        _goodIndex = NavigationUtils.WrapIndex(_goodIndex, 1, _goods.Count);
+                        RefreshOperations();
+                        AnnounceCurrentGood();
                     }
                     return true;
 
@@ -103,25 +146,28 @@ namespace ATSAccessibility
                     return false;
 
                 default:
-                    // Consume all other keys while overlay is active
-                    return true;
+                    // Let Up/Down/Home/End go through standard nav for operations
+                    return null;
             }
         }
 
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
         // ========================================
-        // ISearchable Implementation
+        // SEARCH OVERRIDES (searches goods, not operations)
         // ========================================
 
-        public int SearchItemCount => _goods.Count;
-        public int SearchCurrentIndex => _goodIndex;
+        protected override int SearchItemCount => _goods.Count;
 
-        public string GetSearchLabel(int index)
+        protected override int SearchCurrentIndex => _goodIndex;
+
+        protected override string GetSearchName(int index)
         {
             if (index < 0 || index >= _goods.Count) return null;
             return TrendsReflection.GetGoodDisplayName(_goods[index]);
         }
 
-        public void SearchMoveTo(int index)
+        protected override void SearchMoveTo(int index)
         {
             _goodIndex = index;
             RefreshOperations();
@@ -129,58 +175,20 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // LIFECYCLE
+        // OPERATIONS
         // ========================================
 
-        /// <summary>
-        /// Open the overlay when TrendsPopup is shown.
-        /// </summary>
-        public void Open(object popup)
+        private void RefreshOperations()
         {
-            if (_isOpen) return;
+            CurrentIndex = 0;
 
-            _isOpen = true;
-            _popup = popup;
-            _goodIndex = 0;
-            _operationIndex = 0;
-            _search.Clear();
-
-            // Get all goods with trend data
-            _goods = TrendsReflection.GetAllGoods();
-
-            if (_goods.Count == 0)
+            if (_goods.Count == 0 || _goodIndex < 0 || _goodIndex >= _goods.Count)
             {
-                Speech.Say("No goods with trend data");
+                _operations = new List<TrendsReflection.AggregatedOperation>();
                 return;
             }
 
-            // Try to start with the good selected in the popup
-            string currentGood = TrendsReflection.GetCurrentGood(popup);
-            if (!string.IsNullOrEmpty(currentGood))
-            {
-                int idx = _goods.IndexOf(currentGood);
-                if (idx >= 0)
-                {
-                    _goodIndex = idx;
-                }
-            }
-
-            RefreshOperations();
-            AnnounceCurrentGood();
-        }
-
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _goods.Clear();
-            _operations.Clear();
-            _search.Clear();
+            _operations = TrendsReflection.GetAggregatedOperations(_goods[_goodIndex], _timeFrameTicks);
         }
 
         // ========================================
@@ -215,17 +223,8 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // GOODS NAVIGATION
+        // GOODS HELPERS
         // ========================================
-
-        private void NavigateGoods(int direction)
-        {
-            if (_goods.Count == 0) return;
-
-            _goodIndex = NavigationUtils.WrapIndex(_goodIndex, direction, _goods.Count);
-            RefreshOperations();
-            AnnounceCurrentGood();
-        }
 
         private void AnnounceCurrentGood()
         {
@@ -246,48 +245,6 @@ namespace ATSAccessibility
                 return "Unknown";
 
             return TrendsReflection.GetGoodDisplayName(_goods[_goodIndex]);
-        }
-
-        // ========================================
-        // OPERATIONS NAVIGATION
-        // ========================================
-
-        private void RefreshOperations()
-        {
-            _operationIndex = 0;
-
-            if (_goods.Count == 0 || _goodIndex < 0 || _goodIndex >= _goods.Count)
-            {
-                _operations = new List<TrendsReflection.AggregatedOperation>();
-                return;
-            }
-
-            _operations = TrendsReflection.GetAggregatedOperations(_goods[_goodIndex], _timeFrameTicks);
-        }
-
-        private void NavigateOperations(int direction)
-        {
-            if (_operations.Count == 0)
-            {
-                Speech.Say("No changes");
-                return;
-            }
-
-            _operationIndex = NavigationUtils.WrapIndex(_operationIndex, direction, _operations.Count);
-            AnnounceCurrentOperation();
-        }
-
-        private void AnnounceCurrentOperation()
-        {
-            if (_operations.Count == 0 || _operationIndex < 0 || _operationIndex >= _operations.Count)
-            {
-                Speech.Say("No changes");
-                return;
-            }
-
-            var op = _operations[_operationIndex];
-            string amountText = FormatAmount(op.TotalAmount);
-            Speech.Say($"{op.DisplayName}: {amountText}");
         }
 
         private int GetNetChangeFromOperations()

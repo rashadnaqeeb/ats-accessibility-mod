@@ -6,10 +6,10 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Accessible overlay for the ProfilesPopup (save selection screen).
-    /// Two-level navigation: main level (save slots) and submenu (actions per slot).
+    /// Two-level navigation: Level 0 = save slots, Level 1 = submenu (actions per slot).
     /// Supports text input for rename and confirmation for destructive actions.
     /// </summary>
-    public class ProfilesOverlay : IKeyHandler, ISearchable
+    public class ProfilesOverlay : MenuBase, IKeyHandler
     {
         // ========================================
         // ENUMS
@@ -17,17 +17,17 @@ namespace ATSAccessibility
 
         private enum ItemType
         {
-            SaveSlot,       // Existing profile - opens submenu
-            CreateNew,      // Empty slot - creates new profile
-            SwitchMode      // Toggle between Regular/Queen's Hand
+            SaveSlot,
+            CreateNew,
+            SwitchMode
         }
 
         private enum SubMenuItem
         {
-            Name,           // Edit name
-            Switch,         // Switch to this save
-            Reset,          // Reset progress
-            Delete          // Delete save
+            Name,
+            Switch,
+            Reset,
+            Delete
         }
 
         private enum ConfirmAction
@@ -41,26 +41,16 @@ namespace ATSAccessibility
         // STATE
         // ========================================
 
-        private bool _isOpen;
         private bool _viewingQueensHand;
-        private int _currentIndex;
-        private bool _inSubmenu;
-        private int _submenuIndex;
 
-        // Confirmation state
         private ConfirmAction _awaitingConfirm = ConfirmAction.None;
 
-        // Text editing state
         private bool _editingName;
         private StringBuilder _editBuffer = new StringBuilder();
 
-        // Data
         private List<ProfileItem> _items = new List<ProfileItem>();
         private List<SubMenuItem> _submenuItems = new List<SubMenuItem>();
         private object _currentSlotProfile;
-
-        // Type-ahead search
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // ========================================
         // INTERNAL DATA CLASS
@@ -69,92 +59,161 @@ namespace ATSAccessibility
         private class ProfileItem
         {
             public ItemType Type;
-            public object Profile;      // null for CreateNew/SwitchMode
+            public object Profile;
             public bool IsCurrent;
-            public bool IsDefault;      // Can't delete (regular saves only)
-            public bool IsIronman;      // Queen's Hand profile (can't delete at all)
-            public bool IsPickable;     // Can switch to this profile
+            public bool IsDefault;
+            public bool IsIronman;
+            public bool IsPickable;
             public string DisplayName;
-            public string IronmanStatus; // "In Progress", "Won", "Lost", or null
-            public int SlotNumber;      // 1-based
+            public string IronmanStatus;
+            public int SlotNumber;
         }
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Saves";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
+            if (Level == 0)
+                return _items.Count;
+            return _submenuItems.Count;
+        }
 
-            // Text editing mode takes priority
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0)
+                return GetItemAnnouncement(index);
+            return GetSubmenuItemLabel(index);
+        }
+
+        protected override void RefreshData()
+        {
+            RefreshItems();
+        }
+
+        protected override EnterAction OnEnter(int index)
+        {
+            if (Level == 0)
+            {
+                if (index >= 0 && index < _items.Count && _items[index].Type == ItemType.SaveSlot)
+                    return EnterAction.DrillDown;
+                return EnterAction.Action;
+            }
+            return EnterAction.Action;
+        }
+
+        protected override bool CanDrillDown(int index)
+        {
+            if (Level == 0)
+                return index >= 0 && index < _items.Count && _items[index].Type == ItemType.SaveSlot;
+            return false;
+        }
+
+        protected override void OnDrillDown(int index)
+        {
+            if (Level == 0 && index >= 0 && index < _items.Count)
+            {
+                _currentSlotProfile = _items[index].Profile;
+                RefreshSubmenuItems();
+            }
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 0)
+            {
+                if (index < 0 || index >= _items.Count) return;
+                var item = _items[index];
+
+                switch (item.Type)
+                {
+                    case ItemType.CreateNew:
+                        CreateNewProfile();
+                        break;
+
+                    case ItemType.SwitchMode:
+                        ToggleMode();
+                        break;
+                }
+            }
+            else
+            {
+                ActivateSubmenuItem();
+            }
+        }
+
+        protected override void OnGoBack()
+        {
+            _submenuItems.Clear();
+            _currentSlotProfile = null;
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
             if (_editingName)
             {
                 return ProcessEditingKey(keyCode, modifiers);
             }
 
-            // Confirmation mode
             if (_awaitingConfirm != ConfirmAction.None)
             {
                 return ProcessConfirmKey(keyCode);
             }
 
-            // Submenu mode
-            if (_inSubmenu)
-            {
-                return ProcessSubmenuKey(keyCode);
-            }
-
-            // Main level
-            return ProcessMainKey(keyCode, modifiers);
+            return null;
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        public void Open()
+        protected override EscapeAction OnEscape()
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _viewingQueensHand = false;
-            _currentIndex = 0;
-            _inSubmenu = false;
-            _submenuIndex = 0;
-            _awaitingConfirm = ConfirmAction.None;
-            _editingName = false;
-            _editBuffer.Clear();
-            _search.Clear();
-
-            RefreshItems();
-
-            string announcement = "Saves";
-            if (_items.Count > 0)
-            {
-                announcement += $". {GetItemAnnouncement(0)}";
-            }
-            Speech.Say(announcement);
-
-            Debug.Log($"[ATSAccessibility] ProfilesOverlay opened, {_items.Count} items");
+            if (Level > 0)
+                return EscapeAction.GoBack;
+            // Pass to game to close popup
+            return EscapeAction.PassThrough;
         }
 
-        public void Close()
+        protected override string GetOpenAnnouncement()
         {
-            if (!_isOpen) return;
+            if (_items.Count == 0) return OverlayName;
+            return $"{OverlayName}. {GetItemAnnouncement(0)}";
+        }
 
-            _isOpen = false;
+        protected override void OnClosed()
+        {
             _items.Clear();
             _submenuItems.Clear();
             _currentSlotProfile = null;
             _awaitingConfirm = ConfirmAction.None;
             _editingName = false;
             _editBuffer.Clear();
-            _search.Clear();
+        }
 
-            Debug.Log("[ATSAccessibility] ProfilesOverlay closed");
+        // ========================================
+        // SEARCH OVERRIDES
+        // ========================================
+
+        protected override int SearchItemCount =>
+            Level == 0 ? _items.Count : 0;
+
+        protected override int SearchCurrentIndex =>
+            Level == 0 ? CurrentIndex : 0;
+
+        protected override string GetSearchName(int index)
+        {
+            if (index < 0 || index >= _items.Count) return null;
+            return _items[index].DisplayName;
         }
 
         // ========================================
@@ -169,7 +228,6 @@ namespace ATSAccessibility
             var currentProfile = ProfilesReflection.GetCurrentProfile();
             int maxSlots = ProfilesReflection.GetMaxProfiles(_viewingQueensHand);
 
-            // Add existing profiles as slots
             int slotNum = 1;
             foreach (var profile in profiles)
             {
@@ -187,7 +245,6 @@ namespace ATSAccessibility
                 });
             }
 
-            // Add empty slots for remaining capacity
             while (slotNum <= maxSlots)
             {
                 _items.Add(new ProfileItem
@@ -201,7 +258,6 @@ namespace ATSAccessibility
                 });
             }
 
-            // Add mode switch button (only for regular mode if QH unlocked, always for QH mode)
             if (_viewingQueensHand)
             {
                 _items.Add(new ProfileItem
@@ -227,7 +283,6 @@ namespace ATSAccessibility
             _submenuItems.Clear();
             if (_currentSlotProfile == null) return;
 
-            // Find the current item to get cached properties
             ProfileItem currentItem = null;
             foreach (var item in _items)
             {
@@ -239,19 +294,15 @@ namespace ATSAccessibility
             }
             if (currentItem == null) return;
 
-            // Name editing
             _submenuItems.Add(SubMenuItem.Name);
 
-            // Switch to save (hidden if current or not pickable - e.g. completed ironman)
             if (!currentItem.IsCurrent && currentItem.IsPickable)
             {
                 _submenuItems.Add(SubMenuItem.Switch);
             }
 
-            // Reset progress (always available)
             _submenuItems.Add(SubMenuItem.Reset);
 
-            // Delete (hidden for default profile AND all ironman profiles)
             if (!currentItem.IsDefault && !currentItem.IsIronman)
             {
                 _submenuItems.Add(SubMenuItem.Delete);
@@ -259,73 +310,8 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // MAIN LEVEL NAVIGATION
+        // ANNOUNCEMENTS
         // ========================================
-
-        private bool ProcessMainKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_items.Count > 0)
-                    {
-                        _currentIndex = 0;
-                        AnnounceCurrentItem();
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_items.Count > 0)
-                    {
-                        _currentIndex = _items.Count - 1;
-                        AnnounceCurrentItem();
-                    }
-                    return true;
-
-                case KeyCode.RightArrow:
-                    // Right arrow only enters submenu for save slots
-                    EnterSubmenuIfSaveSlot();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateCurrentItem();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
-        }
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-            Speech.Say(GetItemAnnouncement(_currentIndex));
-        }
 
         private string GetItemAnnouncement(int index)
         {
@@ -343,7 +329,6 @@ namespace ATSAccessibility
                     }
                     else if (item.IronmanStatus != null)
                     {
-                        // Show ironman status (In Progress, Won, Lost)
                         status = $", {item.IronmanStatus}";
                     }
                     return $"Save {item.SlotNumber}: {item.DisplayName}{status}";
@@ -359,61 +344,40 @@ namespace ATSAccessibility
             }
         }
 
-        private void EnterSubmenuIfSaveSlot()
+        private string GetSubmenuItemLabel(int index)
         {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
+            if (index < 0 || index >= _submenuItems.Count) return null;
 
-            var item = _items[_currentIndex];
+            var item = _submenuItems[index];
+            string name = ProfilesReflection.GetProfileDisplayName(_currentSlotProfile);
 
-            // Right arrow only enters submenu for existing save slots
-            if (item.Type == ItemType.SaveSlot)
+            switch (item)
             {
-                EnterSubmenu(item);
-            }
-            // For other items, do nothing on right arrow
-        }
+                case SubMenuItem.Name:
+                    return $"Name: {name}";
 
-        private void ActivateCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
+                case SubMenuItem.Switch:
+                    return "Switch to save";
 
-            var item = _items[_currentIndex];
+                case SubMenuItem.Reset:
+                    if (ProfilesReflection.IsIronman(_currentSlotProfile))
+                    {
+                        bool canResetSeed = ProfilesReflection.CanResetIronmanSeed(_currentSlotProfile);
+                        return canResetSeed ? "Reset progress, new seed" : "Reset progress, same seed";
+                    }
+                    return "Reset progress";
 
-            switch (item.Type)
-            {
-                case ItemType.SaveSlot:
-                    EnterSubmenu(item);
-                    break;
+                case SubMenuItem.Delete:
+                    return "Delete";
 
-                case ItemType.CreateNew:
-                    CreateNewProfile();
-                    break;
-
-                case ItemType.SwitchMode:
-                    ToggleMode();
-                    break;
+                default:
+                    return null;
             }
         }
 
-        private void EnterSubmenu(ProfileItem item)
-        {
-            _currentSlotProfile = item.Profile;
-            _inSubmenu = true;
-            _submenuIndex = 0;
-            _search.Clear();
-
-            RefreshSubmenuItems();
-
-            if (_submenuItems.Count > 0)
-            {
-                AnnounceSubmenuItem();
-            }
-            else
-            {
-                Speech.Say("No actions available");
-                _inSubmenu = false;
-            }
-        }
+        // ========================================
+        // MAIN LEVEL ACTIONS
+        // ========================================
 
         private void CreateNewProfile()
         {
@@ -422,12 +386,11 @@ namespace ATSAccessibility
                 SoundManager.PlayButtonClick();
                 RefreshItems();
 
-                // Move to the newly created slot (last profile, before empty slots and switch button)
                 var profiles = ProfilesReflection.GetProfiles(_viewingQueensHand);
-                _currentIndex = profiles.Count - 1;
-                if (_currentIndex < 0) _currentIndex = 0;
+                CurrentIndex = profiles.Count - 1;
+                if (CurrentIndex < 0) CurrentIndex = 0;
 
-                Speech.Say($"Created. {GetItemAnnouncement(_currentIndex)}");
+                Speech.Say($"Created. {GetItemAnnouncement(CurrentIndex)}");
             }
             else
             {
@@ -439,7 +402,7 @@ namespace ATSAccessibility
         private void ToggleMode()
         {
             _viewingQueensHand = !_viewingQueensHand;
-            _currentIndex = 0;
+            CurrentIndex = 0;
             _search.Clear();
 
             RefreshItems();
@@ -456,105 +419,14 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // SUBMENU NAVIGATION
+        // SUBMENU ACTIONS
         // ========================================
-
-        private bool ProcessSubmenuKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateSubmenu(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateSubmenu(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_submenuItems.Count > 0)
-                    {
-                        _submenuIndex = 0;
-                        AnnounceSubmenuItem();
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_submenuItems.Count > 0)
-                    {
-                        _submenuIndex = _submenuItems.Count - 1;
-                        AnnounceSubmenuItem();
-                    }
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    ExitSubmenu();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateSubmenuItem();
-                    return true;
-
-                case KeyCode.Escape:
-                    ExitSubmenu();
-                    InputBlocker.BlockCancelOnce = true;  // Prevent game from closing popup
-                    return true;
-
-                default:
-                    // Consume all keys in submenu
-                    return true;
-            }
-        }
-
-        private void NavigateSubmenu(int direction)
-        {
-            if (_submenuItems.Count == 0) return;
-
-            _submenuIndex = NavigationUtils.WrapIndex(_submenuIndex, direction, _submenuItems.Count);
-            AnnounceSubmenuItem();
-        }
-
-        private void AnnounceSubmenuItem()
-        {
-            if (_submenuIndex < 0 || _submenuIndex >= _submenuItems.Count) return;
-
-            var item = _submenuItems[_submenuIndex];
-            string name = ProfilesReflection.GetProfileDisplayName(_currentSlotProfile);
-
-            switch (item)
-            {
-                case SubMenuItem.Name:
-                    Speech.Say($"Name: {name}");
-                    break;
-
-                case SubMenuItem.Switch:
-                    Speech.Say("Switch to save");
-                    break;
-
-                case SubMenuItem.Reset:
-                    if (ProfilesReflection.IsIronman(_currentSlotProfile))
-                    {
-                        bool canResetSeed = ProfilesReflection.CanResetIronmanSeed(_currentSlotProfile);
-                        Speech.Say(canResetSeed ? "Reset progress, new seed" : "Reset progress, same seed");
-                    }
-                    else
-                    {
-                        Speech.Say("Reset progress");
-                    }
-                    break;
-
-                case SubMenuItem.Delete:
-                    Speech.Say("Delete");
-                    break;
-            }
-        }
 
         private void ActivateSubmenuItem()
         {
-            if (_submenuIndex < 0 || _submenuIndex >= _submenuItems.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _submenuItems.Count) return;
 
-            var item = _submenuItems[_submenuIndex];
+            var item = _submenuItems[CurrentIndex];
 
             switch (item)
             {
@@ -576,17 +448,6 @@ namespace ATSAccessibility
             }
         }
 
-        private void ExitSubmenu()
-        {
-            _inSubmenu = false;
-            _submenuItems.Clear();
-            _currentSlotProfile = null;
-            _search.Clear();
-
-            // Re-announce current main item
-            AnnounceCurrentItem();
-        }
-
         private void SwitchToProfile()
         {
             if (ProfilesReflection.ChangeProfile(_currentSlotProfile))
@@ -594,7 +455,6 @@ namespace ATSAccessibility
                 SoundManager.PlayButtonClick();
                 string name = ProfilesReflection.GetProfileDisplayName(_currentSlotProfile);
                 Speech.Say($"Switching to {name}");
-                // The popup will close and the game will reload
             }
             else
             {
@@ -622,7 +482,6 @@ namespace ATSAccessibility
                 return true;
             }
 
-            // Any other key cancels
             if (keyCode == KeyCode.Escape)
                 InputBlocker.BlockCancelOnce = true;  // Prevent game from closing popup
             Speech.Say("Cancelled");
@@ -642,7 +501,6 @@ namespace ATSAccessibility
                     {
                         SoundManager.PlayButtonClick();
                         Speech.Say("Progress reset");
-                        // Exit submenu as data may have changed
                         ExitSubmenu();
                         RefreshItems();
                     }
@@ -661,11 +519,10 @@ namespace ATSAccessibility
                         ExitSubmenu();
                         RefreshItems();
 
-                        // Adjust index if we were past the end
-                        if (_currentIndex >= _items.Count)
-                            _currentIndex = _items.Count - 1;
-                        if (_currentIndex < 0)
-                            _currentIndex = 0;
+                        if (CurrentIndex >= _items.Count)
+                            CurrentIndex = _items.Count - 1;
+                        if (CurrentIndex < 0)
+                            CurrentIndex = 0;
 
                         AnnounceCurrentItem();
                     }
@@ -676,6 +533,14 @@ namespace ATSAccessibility
                     }
                     break;
             }
+        }
+
+        private void ExitSubmenu()
+        {
+            _submenuItems.Clear();
+            _currentSlotProfile = null;
+            SetLevel(0);
+            _search.Clear();
         }
 
         // ========================================
@@ -719,7 +584,6 @@ namespace ATSAccessibility
                     return true;
 
                 default:
-                    // Handle letters
                     if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
                     {
                         char c = modifiers.Shift
@@ -730,7 +594,6 @@ namespace ATSAccessibility
                         return true;
                     }
 
-                    // Handle numbers
                     if (keyCode >= KeyCode.Alpha0 && keyCode <= KeyCode.Alpha9)
                     {
                         char c = (char)('0' + (keyCode - KeyCode.Alpha0));
@@ -747,7 +610,6 @@ namespace ATSAccessibility
                         return true;
                     }
 
-                    // Common symbols
                     switch (keyCode)
                     {
                         case KeyCode.Minus:
@@ -777,7 +639,7 @@ namespace ATSAccessibility
             if (string.IsNullOrEmpty(newName))
             {
                 Speech.Say("Name cannot be empty. Cancelled");
-                AnnounceSubmenuItem();
+                AnnounceCurrentItem();
                 return;
             }
 
@@ -786,15 +648,13 @@ namespace ATSAccessibility
                 SoundManager.PlayButtonClick();
                 Speech.Say($"Saved: {newName}");
 
-                // Refresh the items to update display names
                 RefreshItems();
 
-                // Update current index to match the renamed profile
                 for (int i = 0; i < _items.Count; i++)
                 {
                     if (_items[i].Profile == _currentSlotProfile)
                     {
-                        _currentIndex = i;
+                        _indices[0] = i;
                         break;
                     }
                 }
@@ -805,7 +665,7 @@ namespace ATSAccessibility
                 Speech.Say("Could not rename");
             }
 
-            AnnounceSubmenuItem();
+            AnnounceCurrentItem();
         }
 
         private void CancelNameEditing()
@@ -813,28 +673,6 @@ namespace ATSAccessibility
             _editingName = false;
             _editBuffer.Clear();
             Speech.Say("Cancelled");
-            AnnounceSubmenuItem();
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        int ISearchable.SearchItemCount =>
-            !_inSubmenu ? _items.Count : 0;
-
-        int ISearchable.SearchCurrentIndex =>
-            !_inSubmenu ? _currentIndex : 0;
-
-        string ISearchable.GetSearchLabel(int index)
-        {
-            if (index < 0 || index >= _items.Count) return null;
-            return _items[index].DisplayName;
-        }
-
-        void ISearchable.SearchMoveTo(int index)
-        {
-            _currentIndex = index;
             AnnounceCurrentItem();
         }
     }

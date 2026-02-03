@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the ReputationRewardsPopup (mid-game blueprint reward selection).
     /// Provides flat list navigation through building choices plus extend and reroll options.
     /// </summary>
-    public class ReputationRewardOverlay : IKeyHandler, ISearchable
+    public class ReputationRewardOverlay : MenuBase, IKeyHandler
     {
         // Navigation item types
         private enum ItemType { Building, Extend, Reroll }
@@ -20,128 +20,46 @@ namespace ATSAccessibility
             public string SearchName;  // Name for type-ahead (buildings only)
         }
 
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private int _currentIndex;
+        private List<NavItem> _items = new List<NavItem>();
 
         // Flag to suppress EventAnnouncer's "New blueprint available" when we announce description
         public static bool SuppressBlueprintAnnouncement { get; private set; }
-
-        // Navigation list
-        private List<NavItem> _items = new List<NavItem>();
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Reputation reward";
+        protected override string EmptyMessage => "No options available";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    ActivateCurrent();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup (OnPopupHidden will close our overlay)
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Label;
+            return null;
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when a ReputationRewardsPopup is shown.
-        /// </summary>
-        public void Open(object popup)
+        protected override string GetSearchName(int index)
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _currentIndex = 0;
-            _search.Clear();
-
-            RefreshData();
-
-            // Get popup description (includes tutorial text if in tutorial)
-            string description = ReputationRewardReflection.GetPopupDescription(popup);
-
-            if (!string.IsNullOrEmpty(description))
-            {
-                // Suppress the EventAnnouncer's "New blueprint available" message
-                SuppressBlueprintAnnouncement = true;
-                // Announce just the description (tutorial text)
-                // Don't include first item - let user navigate to it
-                Speech.Say(description);
-            }
-            else if (_items.Count > 0)
-            {
-                Speech.Say($"Reputation reward. {_items[0].Label}");
-            }
-            else
-            {
-                Speech.Say("Reputation reward. No options available");
-            }
-
-            Debug.Log($"[ATSAccessibility] ReputationRewardOverlay opened, {_items.Count} items");
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Type == ItemType.Building ? _items[index].SearchName : null;
+            return null;
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _search.Clear();
-            _items.Clear();
-            SuppressBlueprintAnnouncement = false;
-
-            Debug.Log("[ATSAccessibility] ReputationRewardOverlay closed");
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -176,9 +94,7 @@ namespace ATSAccessibility
                 _items.Add(new NavItem
                 {
                     Type = ItemType.Extend,
-                    Model = null,
-                    Label = extendLabel,
-                    SearchName = null
+                    Label = extendLabel
                 });
             }
 
@@ -193,64 +109,70 @@ namespace ATSAccessibility
                 _items.Add(new NavItem
                 {
                     Type = ItemType.Reroll,
-                    Model = null,
-                    Label = rerollLabel,
-                    SearchName = null
+                    Label = rerollLabel
                 });
             }
 
             Debug.Log($"[ATSAccessibility] ReputationRewardOverlay refreshed: {_items.Count} items");
         }
 
-        // ========================================
-        // NAVIGATION
-        // ========================================
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
 
-        private void Navigate(int direction)
+        protected override void OnAction(int index)
         {
-            if (_items.Count == 0) return;
+            if (index < 0 || index >= _items.Count) return;
 
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-            Speech.Say(_items[_currentIndex].Label);
-        }
-
-        // ========================================
-        // ACTIVATION
-        // ========================================
-
-        private void ActivateCurrent()
-        {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
+            var item = _items[index];
             switch (item.Type)
             {
                 case ItemType.Building:
                     ActivateBuilding(item);
                     break;
-
                 case ItemType.Extend:
                     ActivateExtend();
                     break;
-
                 case ItemType.Reroll:
                     ActivateReroll();
                     break;
             }
         }
+
+        // Escape passes to game to close popup (OnPopupHidden will close our overlay)
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            // Get popup description (includes tutorial text if in tutorial)
+            string description = ReputationRewardReflection.GetPopupDescription(_popup);
+
+            if (!string.IsNullOrEmpty(description))
+            {
+                // Suppress the EventAnnouncer's "New blueprint available" message
+                SuppressBlueprintAnnouncement = true;
+                return description;
+            }
+
+            if (_items.Count > 0)
+                return $"{OverlayName}. {_items[0].Label}";
+
+            return EmptyMessage;
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _items.Clear();
+            SuppressBlueprintAnnouncement = false;
+        }
+
+        // ========================================
+        // ACTIVATION
+        // ========================================
 
         private void ActivateBuilding(NavItem item)
         {
@@ -263,19 +185,18 @@ namespace ATSAccessibility
 
             SoundManager.PlayButtonClick();
 
-            // After pick: popup either refreshed (more rewards) or hiding (done)
             var newOptions = ReputationRewardReflection.GetCurrentOptions();
             if (newOptions != null && newOptions.Count > 0)
             {
                 Speech.Say("Unlocked");
                 RefreshData();
-                _currentIndex = 0;
+                CurrentIndex = 0;
                 AnnounceCurrentItem();
             }
             else
             {
                 Speech.Say("Unlocked");
-                // Popup hides → OnPopupHidden → Close()
+                // Popup hides -> OnPopupHidden -> Close()
             }
         }
 
@@ -304,13 +225,11 @@ namespace ATSAccessibility
             int newBuildingCount = CountBuildings();
             if (newBuildingCount > prevBuildingCount)
             {
-                // Navigate to the newly added building (last one)
-                _currentIndex = GetLastBuildingIndex();
+                CurrentIndex = GetLastBuildingIndex();
                 AnnounceCurrentItem();
             }
             else
             {
-                // Extend succeeded (cost paid) but no building was available to add
                 Speech.Say("No new option available");
             }
         }
@@ -334,13 +253,14 @@ namespace ATSAccessibility
 
             SoundManager.PlayReroll();
             RefreshData();
-            _currentIndex = 0;
+            CurrentIndex = 0;
             AnnounceCurrentItem();
         }
 
-        /// <summary>
-        /// Count the number of building items in the current nav list.
-        /// </summary>
+        // ========================================
+        // HELPERS
+        // ========================================
+
         private int CountBuildings()
         {
             int count = 0;
@@ -352,9 +272,6 @@ namespace ATSAccessibility
             return count;
         }
 
-        /// <summary>
-        /// Find the index of the last building item (before extend/reroll).
-        /// </summary>
         private int GetLastBuildingIndex()
         {
             for (int i = _items.Count - 1; i >= 0; i--)
@@ -363,26 +280,6 @@ namespace ATSAccessibility
                     return i;
             }
             return 0;
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _items.Count;
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            if (index < 0 || index >= _items.Count) return null;
-            // Only building items are searchable
-            return _items[index].Type == ItemType.Building ? _items[index].SearchName : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem();
         }
     }
 }

@@ -8,12 +8,10 @@ namespace ATSAccessibility
     /// Overlay for RewardsPackPopup (shown after port expedition rewards are granted).
     /// Provides flat list navigation through goods and effects received.
     /// </summary>
-    public class RewardsPackOverlay : IKeyHandler
+    public class RewardsPackOverlay : MenuBase, IKeyHandler
     {
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private int _currentIndex;
         private List<string> _items = new List<string>();
 
         // Cached reflection
@@ -34,142 +32,28 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Rewards";
+        protected override string EmptyMessage => "No items";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    Dismiss();
-                    return true;
-
-                case KeyCode.Escape:
-                    Dismiss();
-                    InputBlocker.BlockCancelOnce = true;
-                    Speech.Say("Closed");
-                    return true;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
+            if (index >= 0 && index < _items.Count)
+                return _items[index];
+            return null;
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        public void Open(object popup)
-        {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _currentIndex = 0;
-
-            EnsureTypes();
-            RefreshData();
-
-            string flavorText = GetPopupText(_descField);
-            string announcement = !string.IsNullOrEmpty(flavorText) ? flavorText : "Rewards";
-
-            if (_items.Count > 0)
-            {
-                Speech.Say($"{announcement}. {_items[0]}");
-            }
-            else
-            {
-                Speech.Say($"{announcement}. No items");
-            }
-
-            Debug.Log($"[ATSAccessibility] RewardsPackOverlay opened, {_items.Count} items");
-        }
-
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _items.Clear();
-
-            Debug.Log("[ATSAccessibility] RewardsPackOverlay closed");
-        }
-
-        // ========================================
-        // DETECTION
-        // ========================================
-
-        public static bool IsRewardsPackPopup(object popup)
-        {
-            if (popup == null) return false;
-            return popup.GetType().Name == "RewardsPackPopup";
-        }
-
-        // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            Speech.Say(_items[_currentIndex]);
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            Speech.Say(_items[_currentIndex]);
-        }
-
-        private void Dismiss()
-        {
-            if (_popup == null) return;
-
-            EnsureTypes();
-            if (_popupHideMethod != null)
-            {
-                try
-                {
-                    _popupHideMethod.Invoke(_popup, null);
-                    SoundManager.PlayButtonClick();
-                }
-                catch (System.Exception ex)
-                {
-                    Debug.LogError($"[ATSAccessibility] RewardsPackOverlay: Failed to hide popup: {ex.Message}");
-                }
-            }
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -183,7 +67,6 @@ namespace ATSAccessibility
                 {
                     if (slot == null) continue;
 
-                    // Check if slot is active
                     var mb = slot as MonoBehaviour;
                     if (mb != null && !mb.gameObject.activeSelf) continue;
 
@@ -234,6 +117,82 @@ namespace ATSAccessibility
 
             Debug.Log($"[ATSAccessibility] RewardsPackOverlay: {_items.Count} reward items");
         }
+
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
+        {
+            Dismiss();
+        }
+
+        protected override int SearchItemCount => 0; // No search for rewards
+
+        protected override EscapeAction OnEscape()
+        {
+            Dismiss();
+            Speech.Say("Closed");
+            InputBlocker.BlockCancelOnce = true;
+            return EscapeAction.Close;
+        }
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+            EnsureTypes();
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            string flavorText = GetPopupText(_descField);
+            string announcement = !string.IsNullOrEmpty(flavorText) ? flavorText : OverlayName;
+
+            if (_items.Count > 0)
+                return $"{announcement}. {_items[0]}";
+            return $"{announcement}. {EmptyMessage}";
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _items.Clear();
+        }
+
+        // ========================================
+        // DETECTION
+        // ========================================
+
+        public static bool IsRewardsPackPopup(object popup)
+        {
+            if (popup == null) return false;
+            return popup.GetType().Name == "RewardsPackPopup";
+        }
+
+        // ========================================
+        // ACTIONS
+        // ========================================
+
+        private void Dismiss()
+        {
+            if (_popup == null) return;
+
+            EnsureTypes();
+            if (_popupHideMethod != null)
+            {
+                try
+                {
+                    _popupHideMethod.Invoke(_popup, null);
+                    SoundManager.PlayButtonClick();
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[ATSAccessibility] RewardsPackOverlay: Failed to hide popup: {ex.Message}");
+                }
+            }
+        }
+
+        // ========================================
+        // HELPERS
+        // ========================================
 
         private string GetGoodDisplayName(string goodName)
         {
@@ -311,7 +270,6 @@ namespace ATSAccessibility
                         BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
                     if (_effectSlotModelField == null)
                     {
-                        // model is 'protected' in EffectSlot, try getting it directly
                         _effectSlotModelField = effectSlotType.GetField("model", GameReflection.NonPublicInstance);
                     }
                 }

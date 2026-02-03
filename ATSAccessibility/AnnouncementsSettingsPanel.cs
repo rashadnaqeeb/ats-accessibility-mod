@@ -7,8 +7,9 @@ namespace ATSAccessibility
     /// <summary>
     /// Settings panel for toggling event announcements.
     /// Accessed from the F1 Information Panels menu.
+    /// Not an IKeyHandler - called by InfoPanelMenu via ProcessKeyEvent(KeyCode).
     /// </summary>
-    public class AnnouncementsSettingsPanel : ISearchable
+    public class AnnouncementsSettingsPanel : MenuBase
     {
         private class SettingItem
         {
@@ -17,127 +18,75 @@ namespace ATSAccessibility
         }
 
         private List<SettingItem> _items = new List<SettingItem>();
-        private int _currentIndex = 0;
-        private bool _isOpen = false;
 
-        // Type-ahead search
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
-
-        /// <summary>
-        /// Whether the announcements panel is currently open.
-        /// </summary>
-        public bool IsOpen => _isOpen;
+        // ========================================
+        // BRIDGE
+        // ========================================
 
         /// <summary>
-        /// Open the announcements settings panel.
+        /// Bridge for InfoPanelMenu which calls ProcessKeyEvent(KeyCode).
         /// </summary>
-        public void Open()
+        public bool ProcessKeyEvent(KeyCode keyCode) =>
+            ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
+
+        // ========================================
+        // MENUBASE ABSTRACTS
+        // ========================================
+
+        protected override string OverlayName => "Announcement settings";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            _isOpen = true;
-            BuildItemList();
-            _currentIndex = 0;
-            _search.Clear();
-            AnnounceCurrentItem(includeHeader: true);
-            Debug.Log("[ATSAccessibility] Announcements settings panel opened");
+            if (index < 0 || index >= _items.Count) return null;
+            var item = _items[index];
+            return $"{item.Label}, {(item.ConfigEntry.Value ? "On" : "Off")}";
         }
 
-        /// <summary>
-        /// Close the announcements settings panel.
-        /// Config is automatically saved by BepInEx.
-        /// </summary>
-        public void Close()
+        protected override void RefreshData() => BuildItemList();
+
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override void OnAction(int index) => ToggleCurrentSetting();
+
+        protected override void OnSpace(int index) => ToggleCurrentSetting();
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            _isOpen = false;
-            _search.Clear();
-            Debug.Log("[ATSAccessibility] Announcements settings panel closed");
+            if (keyCode == KeyCode.LeftArrow)
+                return false;  // Signal parent to close this panel and return to menu
+            return null;
         }
 
-        /// <summary>
-        /// Process a key event for the announcements panel.
-        /// Returns true if the key was handled, false if parent should handle it.
-        /// </summary>
-        public bool ProcessKeyEvent(KeyCode keyCode)
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;  // Let parent handle closing
+
+        protected override void OnClosed()
         {
-            if (!_isOpen) return false;
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, default(KeyboardManager.KeyModifiers), this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    ToggleCurrentSetting();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    // Signal to parent to close this panel and return to menu
-                    return false;
-
-                case KeyCode.Escape:
-                    // Let parent handle closing
-                    return false;
-
-                default:
-                    // Consume other keys while panel is open
-                    return true;
-            }
+            _items.Clear();
         }
 
-        private void Navigate(int direction)
+        protected override string GetSearchName(int index)
         {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem(includeHeader: false);
+            return index >= 0 && index < _items.Count ? _items[index].Label : null;
         }
 
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem(includeHeader: false);
-        }
+        // ========================================
+        // PRIVATE
+        // ========================================
 
         private void ToggleCurrentSetting()
         {
-            if (_items.Count == 0 || _currentIndex >= _items.Count) return;
+            if (_items.Count == 0 || CurrentIndex >= _items.Count) return;
 
-            var item = _items[_currentIndex];
+            var item = _items[CurrentIndex];
             item.ConfigEntry.Value = !item.ConfigEntry.Value;
-            AnnounceCurrentItem(includeHeader: false);
-        }
-
-        private void AnnounceCurrentItem(bool includeHeader)
-        {
-            if (_items.Count == 0) return;
-
-            var item = _items[_currentIndex];
-            string state = item.ConfigEntry.Value ? "On" : "Off";
-            string position = $"{_currentIndex + 1} of {_items.Count}";
-
-            string message = includeHeader
-                ? $"Announcement settings. {item.Label}, {state}. {position}"
-                : $"{item.Label}, {state}";
-            Speech.Say(message);
+            AnnounceCurrentItem();
         }
 
         private void BuildItemList()
@@ -196,25 +145,6 @@ namespace ATSAccessibility
 
             // Sealed Forest
             _items.Add(new SettingItem { Label = "Plague events", ConfigEntry = Plugin.AnnouncePlagueEvents });
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _items.Count;
-
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            return index >= 0 && index < _items.Count ? _items[index].Label : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem(includeHeader: false);
         }
     }
 }

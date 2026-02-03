@@ -8,8 +8,12 @@ namespace ATSAccessibility
     /// Accessible overlay for the Daily Expedition (Daily Challenge) popup.
     /// Provides flat list navigation with informational items, submenus for
     /// difficulty selection and modifiers, and embark button.
+    ///
+    /// Uses MenuBase Level 0 for the main list only. Submenus (difficulty,
+    /// modifiers) are handled entirely via _submenuMode and HandleSpecialKey,
+    /// which intercepts ALL keys when a submenu is active.
     /// </summary>
-    public class DailyExpeditionOverlay : IKeyHandler, ISearchable
+    public class DailyExpeditionOverlay : MenuBase, IKeyHandler
     {
         private enum ItemType
         {
@@ -33,12 +37,9 @@ namespace ATSAccessibility
             Modifiers
         }
 
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private int _currentIndex;
         private List<(ItemType type, string text)> _items = new List<(ItemType, string)>();
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Submenu state
         private SubmenuMode _submenuMode = SubmenuMode.None;
@@ -61,71 +62,140 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MenuBase Overrides
+        // ========================================
+
+        protected override string OverlayName => "Daily Expedition";
+
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
+            return index >= 0 && index < _items.Count ? _items[index].text : null;
+        }
 
-            // Handle submenu if open
-            if (_submenuMode != SubmenuMode.None)
+        protected override void RefreshData()
+        {
+            _items.Clear();
+
+            var currentDifficulty = DailyExpeditionReflection.GetCurrentDifficulty(_popup);
+
+            // Build static items
+            BuildStaticItems();
+
+            // Build difficulty-dependent items
+            BuildDifficultyDependentItems(currentDifficulty);
+
+            // Add interactive items at the end
+            string diffName = currentDifficulty != null
+                ? DailyExpeditionReflection.GetDifficultyDisplayName(currentDifficulty)
+                : "Unknown";
+            _items.Add((ItemType.Difficulty, $"Difficulty: {diffName}"));
+            _items.Add((ItemType.Embark, "Embark"));
+
+            Debug.Log($"[ATSAccessibility] DailyExpeditionOverlay: Built {_items.Count} items");
+        }
+
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
+        {
+            if (index < 0 || index >= _items.Count) return;
+
+            var item = _items[index];
+
+            switch (item.type)
             {
-                return ProcessSubmenuKey(keyCode, modifiers);
-            }
+                case ItemType.Difficulty:
+                    OpenDifficultySubmenu();
+                    break;
 
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
+                case ItemType.Modifiers:
+                    OpenModifiersSubmenu();
+                    break;
 
-            switch (keyCode)
-            {
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_items.Count > 0)
-                    {
-                        _currentIndex = 0;
-                        AnnounceCurrentItem();
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_items.Count > 0)
-                    {
-                        _currentIndex = _items.Count - 1;
-                        AnnounceCurrentItem();
-                    }
-                    return true;
-
-                case KeyCode.RightArrow:
-                    // Open submenu for modifiers
-                    if (_currentIndex >= 0 && _currentIndex < _items.Count &&
-                        _items[_currentIndex].type == ItemType.Modifiers)
-                    {
-                        OpenModifiersSubmenu();
-                        return true;
-                    }
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateCurrentItem();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
+                case ItemType.Embark:
+                    TriggerEmbark();
+                    break;
 
                 default:
-                    // Consume all other keys while active
-                    return true;
+                    // Non-interactive item - just re-announce
+                    AnnounceCurrentItem();
+                    break;
             }
         }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            // If submenu is active, intercept ALL keys
+            if (_submenuMode != SubmenuMode.None)
+                return ProcessSubmenuKey(keyCode, modifiers);
+
+            // Main list special keys
+            if (keyCode == KeyCode.RightArrow)
+            {
+                if (CurrentIndex >= 0 && CurrentIndex < _items.Count &&
+                    _items[CurrentIndex].type == ItemType.Modifiers)
+                {
+                    OpenModifiersSubmenu();
+                    return true;
+                }
+                return true; // Consume (no other Right action)
+            }
+
+            if (keyCode == KeyCode.Escape)
+            {
+                // Pass to game to close popup
+                return false;
+            }
+
+            return null; // Standard nav for Up/Down/Home/End/Enter
+        }
+
+        protected override bool CanDrillDown(int index) => false;
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_items.Count > 0)
+                return $"Daily Expedition. {_items[0].text}";
+            return "Daily Expedition";
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _items.Clear();
+            _difficulties.Clear();
+            _modifiers.Clear();
+            _submenuMode = SubmenuMode.None;
+            _submenuIndex = 0;
+            _submenuSearch.Clear();
+        }
+
+        protected override int SearchItemCount =>
+            _submenuMode == SubmenuMode.None ? _items.Count : 0;
+
+        protected override string GetSearchName(int index)
+        {
+            return index >= 0 && index < _items.Count ? _items[index].text : null;
+        }
+
+        // ========================================
+        // Submenu Key Processing
+        // ========================================
 
         private bool ProcessSubmenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
@@ -193,95 +263,6 @@ namespace ATSAccessibility
                 default:
                     // Consume all other keys while submenu is open
                     return true;
-            }
-        }
-
-        // ========================================
-        // Public Methods
-        // ========================================
-
-        public void Open(object popup)
-        {
-            if (_isOpen) return;
-
-            _popup = popup;
-            _isOpen = true;
-            _currentIndex = 0;
-            _submenuMode = SubmenuMode.None;
-            _search.Clear();
-
-            RefreshData();
-
-            string announcement = "Daily Expedition";
-            if (_items.Count > 0)
-            {
-                announcement += $". {_items[0].text}";
-            }
-
-            Speech.Say(announcement);
-            Debug.Log($"[ATSAccessibility] DailyExpeditionOverlay opened, {_items.Count} items");
-        }
-
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _items.Clear();
-            _difficulties.Clear();
-            _modifiers.Clear();
-            _currentIndex = 0;
-            _submenuMode = SubmenuMode.None;
-            _submenuIndex = 0;
-            _search.Clear();
-            _submenuSearch.Clear();
-
-            Debug.Log("[ATSAccessibility] DailyExpeditionOverlay closed");
-        }
-
-        // ========================================
-        // Main List Navigation
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-            Speech.Say(_items[_currentIndex].text);
-        }
-
-        private void ActivateCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-
-            switch (item.type)
-            {
-                case ItemType.Difficulty:
-                    OpenDifficultySubmenu();
-                    break;
-
-                case ItemType.Modifiers:
-                    OpenModifiersSubmenu();
-                    break;
-
-                case ItemType.Embark:
-                    TriggerEmbark();
-                    break;
-
-                default:
-                    // Non-interactive item - just re-announce
-                    AnnounceCurrentItem();
-                    break;
             }
         }
 
@@ -518,49 +499,8 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // ISearchable Implementation (main list)
-        // ========================================
-
-        public int SearchItemCount => _items.Count;
-
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            return index >= 0 && index < _items.Count ? _items[index].text : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem();
-        }
-
-        // ========================================
         // Data Building
         // ========================================
-
-        private void RefreshData()
-        {
-            _items.Clear();
-
-            var currentDifficulty = DailyExpeditionReflection.GetCurrentDifficulty(_popup);
-
-            // Build static items
-            BuildStaticItems();
-
-            // Build difficulty-dependent items
-            BuildDifficultyDependentItems(currentDifficulty);
-
-            // Add interactive items at the end
-            string diffName = currentDifficulty != null
-                ? DailyExpeditionReflection.GetDifficultyDisplayName(currentDifficulty)
-                : "Unknown";
-            _items.Add((ItemType.Difficulty, $"Difficulty: {diffName}"));
-            _items.Add((ItemType.Embark, "Embark"));
-
-            Debug.Log($"[ATSAccessibility] DailyExpeditionOverlay: Built {_items.Count} items");
-        }
 
         private void BuildStaticItems()
         {
@@ -668,7 +608,7 @@ namespace ATSAccessibility
             {
                 if (_items[i].type == ItemType.Difficulty)
                 {
-                    _currentIndex = i;
+                    CurrentIndex = i;
                     break;
                 }
             }

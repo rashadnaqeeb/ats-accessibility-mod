@@ -9,13 +9,12 @@ namespace ATSAccessibility
     /// <summary>
     /// Overlay for WorldCycleEndPopup (shown when ending a Blightstorm cycle on world map).
     /// Provides navigation through XP summary and unlocked capital upgrades.
+    /// Single-level flat list of strings.
     /// </summary>
-    public class CycleEndOverlay : IKeyHandler
+    public class CycleEndOverlay : MenuBase, IKeyHandler
     {
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private int _currentIndex;
         private List<string> _items = new List<string>();
 
         // Cached reflection
@@ -64,81 +63,94 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    ConfirmCycleEnd();
-                    return true;
-
-                case KeyCode.Escape:
-                    CancelAndClose();
-                    InputBlocker.BlockCancelOnce = true;
-                    return true;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
-        }
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
         // ========================================
-        // LIFECYCLE
+        // MENUBASE OVERRIDES
         // ========================================
 
-        public void Open(object popup)
+        protected override string OverlayName => "End Cycle";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _currentIndex = 0;
-
-            EnsureTypes();
-            RefreshData();
-
-            string announcement = "End Cycle";
-            if (_items.Count > 0)
-            {
-                announcement += $". {_items[0]}";
-            }
-
-            Speech.Say(announcement);
-            Debug.Log($"[ATSAccessibility] CycleEndOverlay opened, {_items.Count} items");
+            if (index >= 0 && index < _items.Count)
+                return _items[index];
+            return null;
         }
 
-        public void Close()
+        protected override void RefreshData()
         {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
             _items.Clear();
 
-            Debug.Log("[ATSAccessibility] CycleEndOverlay closed");
+            EnsureTypes();
+
+            // Get XP summary
+            string xpSummary = GetXpSummary();
+            if (!string.IsNullOrEmpty(xpSummary))
+            {
+                _items.Add(xpSummary);
+            }
+
+            // Get unlocked upgrades
+            var upgradeNames = GetUnlockedUpgradeNames();
+            foreach (var name in upgradeNames)
+            {
+                _items.Add(name);
+            }
+
+            Debug.Log($"[ATSAccessibility] CycleEndOverlay: {_items.Count} items refreshed");
+        }
+
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
+        {
+            ConfirmCycleEnd();
+        }
+
+        protected override void OnSpace(int index)
+        {
+            ConfirmCycleEnd();
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.Escape)
+            {
+                CancelAndClose();
+                Close();
+                InputBlocker.BlockCancelOnce = true;
+                return true;
+            }
+
+            return null;
+        }
+
+        protected override int SearchItemCount => 0; // No search
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+            EnsureTypes();
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_items.Count > 0)
+                return $"End Cycle. {_items[0]}";
+            return "End Cycle";
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _items.Clear();
         }
 
         // ========================================
@@ -152,23 +164,8 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // NAVIGATION
+        // ACTIONS
         // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            Speech.Say(_items[_currentIndex]);
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            Speech.Say(_items[_currentIndex]);
-        }
 
         private void ConfirmCycleEnd()
         {
@@ -236,27 +233,6 @@ namespace ATSAccessibility
         // ========================================
         // DATA
         // ========================================
-
-        private void RefreshData()
-        {
-            _items.Clear();
-
-            // Get XP summary
-            string xpSummary = GetXpSummary();
-            if (!string.IsNullOrEmpty(xpSummary))
-            {
-                _items.Add(xpSummary);
-            }
-
-            // Get unlocked upgrades
-            var upgradeNames = GetUnlockedUpgradeNames();
-            foreach (var name in upgradeNames)
-            {
-                _items.Add(name);
-            }
-
-            Debug.Log($"[ATSAccessibility] CycleEndOverlay: {_items.Count} items refreshed");
-        }
 
         private string GetXpSummary()
         {

@@ -8,12 +8,12 @@ namespace ATSAccessibility
     /// <summary>
     /// Virtual speech-only panel for navigating villager information.
     ///
-    /// Navigation model:
-    /// - Level 1 (Categories): Shared Needs (if any), then each race - Up/Down to navigate, Enter/Right to enter details
-    /// - Level 2 (Details): Resolve, Needs, Favoring - Up/Down to navigate, Left to return
-    /// - Level 3 (Sub-details): Resolve breakdown - Right to expand
+    /// Navigation model (3 levels via MenuBase):
+    /// - Level 0 (Categories): Shared Needs (if any), then each race - Up/Down to navigate, Enter/Right to enter details
+    /// - Level 1 (Details): Resolve, Needs, Favoring - Up/Down to navigate, Left to return
+    /// - Level 2 (Sub-details): Resolve breakdown - Right to expand
     /// </summary>
-    public class VillagersPanel : ISearchable
+    public class VillagersPanel : MenuBase
     {
         // ========================================
         // DETAIL ITEM TYPES
@@ -47,16 +47,7 @@ namespace ATSAccessibility
         // STATE
         // ========================================
 
-        private bool _isOpen;
         private List<RaceCategory> _categories = new List<RaceCategory>();
-        private int _currentCategoryIndex;
-        private int _currentDetailIndex;
-        private int _currentSubDetailIndex;
-        private bool _focusOnDetails;
-        private bool _focusOnSubDetails;
-
-        // Type-ahead search
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Cached reflection metadata
         private static MethodInfo _villGetDefaultProfessionAmountMethod;
@@ -67,403 +58,281 @@ namespace ATSAccessibility
         // PUBLIC API
         // ========================================
 
-        public bool IsOpen => _isOpen;
-
-        public void Open()
-        {
-            if (_isOpen)
-            {
-                Close();
-                return;
-            }
-
-            RefreshData();
-
-            if (_categories.Count == 0)
-            {
-                Speech.Say("No villagers present");
-                return;
-            }
-
-            _isOpen = true;
-            _currentCategoryIndex = 0;
-            _currentDetailIndex = 0;
-            _currentSubDetailIndex = 0;
-            _focusOnDetails = false;
-            _focusOnSubDetails = false;
-            _search.Clear();
-
-            AnnounceCategory();
-            Debug.Log("[ATSAccessibility] Villagers panel opened");
-        }
-
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _categories.Clear();
-            _search.Clear();
-            InputBlocker.BlockCancelOnce = true;
-            Speech.Say("Villagers panel closed");
-            Debug.Log("[ATSAccessibility] Villagers panel closed");
-        }
-
         /// <summary>
-        /// Process a key event for the panel.
-        /// Returns true if the key was handled.
+        /// Bridge for InfoPanelMenu which calls ProcessKeyEvent(KeyCode).
         /// </summary>
         public bool ProcessKeyEvent(KeyCode keyCode)
         {
-            if (!_isOpen) return false;
-
-            if (_search.HandleKey(keyCode, default(KeyboardManager.KeyModifiers), this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateUp();
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateDown();
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateToFirst();
-                    return true;
-
-                case KeyCode.End:
-                    NavigateToLast();
-                    return true;
-
-                case KeyCode.RightArrow:
-                    DrillIn();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    NavigateRight();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    return NavigateLeft();
-
-                case KeyCode.Escape:
-                    // Pass to parent to handle panel closing
-                    return false;
-
-                default:
-                    return true;  // Consume all keys while panel is open
-            }
+            if (!IsOpen) return false;
+            return ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
         }
 
         // ========================================
-        // NAVIGATION
+        // MENUBASE ABSTRACT IMPLEMENTATIONS
         // ========================================
 
-        private void NavigateUp()
-        {
-            if (_focusOnSubDetails)
-            {
-                NavigateSubDetail(-1);
-            }
-            else if (_focusOnDetails)
-            {
-                NavigateDetail(-1);
-            }
-            else
-            {
-                NavigateCategoryInternal(-1);
-            }
-        }
+        protected override string OverlayName => "Villagers";
 
-        private void NavigateDown()
-        {
-            if (_focusOnSubDetails)
-            {
-                NavigateSubDetail(1);
-            }
-            else if (_focusOnDetails)
-            {
-                NavigateDetail(1);
-            }
-            else
-            {
-                NavigateCategoryInternal(1);
-            }
-        }
+        protected override string EmptyMessage => "No villagers present";
 
-        private void DrillIn()
+        protected override int GetItemCount()
         {
-            if (_focusOnSubDetails)
+            switch (Level)
             {
-                return;
-            }
-
-            if (_focusOnDetails)
-            {
-                var category = _categories[_currentCategoryIndex];
-                if (_currentDetailIndex < category.Details.Count)
+                case 2:
                 {
-                    var detail = category.Details[_currentDetailIndex];
-
-                    // Only drill into sub-details, never trigger actions
-                    if (detail.SubDetails.Count > 0)
-                    {
-                        _focusOnSubDetails = true;
-                        _currentSubDetailIndex = 0;
-                        AnnounceSubDetail();
-                    }
+                    if (_indices[0] >= _categories.Count) return 0;
+                    var category = _categories[_indices[0]];
+                    if (_indices[1] >= category.Details.Count) return 0;
+                    return category.Details[_indices[1]].SubDetails.Count;
                 }
-                return;
-            }
-
-            // Enter details from category level
-            var cat = _categories[_currentCategoryIndex];
-            if (cat.Details.Count > 0)
-            {
-                _focusOnDetails = true;
-                _currentDetailIndex = 0;
-                AnnounceDetail();
+                case 1:
+                {
+                    if (_indices[0] >= _categories.Count) return 0;
+                    return _categories[_indices[0]].Details.Count;
+                }
+                default:
+                    return _categories.Count;
             }
         }
 
-        private void NavigateRight()
+        protected override string GetLabel(int index)
         {
-            if (_focusOnSubDetails)
+            switch (Level)
             {
-                // Already at deepest level, re-announce
-                AnnounceSubDetail();
-                return;
+                case 2:
+                {
+                    if (_indices[0] >= _categories.Count) return null;
+                    var category = _categories[_indices[0]];
+                    if (_indices[1] >= category.Details.Count) return null;
+                    var detail = category.Details[_indices[1]];
+                    return index < detail.SubDetails.Count ? detail.SubDetails[index] : null;
+                }
+                case 1:
+                {
+                    if (_indices[0] >= _categories.Count) return null;
+                    var category = _categories[_indices[0]];
+                    return index < category.Details.Count ? category.Details[index].Label : null;
+                }
+                default:
+                    return index < _categories.Count ? _categories[index].DisplayName : null;
+            }
+        }
+
+        protected override void RefreshData()
+        {
+            _categories.Clear();
+            EnsureTypes();
+
+            var races = StatsReader.GetPresentRaces();
+
+            // Track needs per race for shared needs detection
+            var needRaces = new Dictionary<string, List<SharedNeedRaceInfo>>();
+            var needOrder = new List<string>();
+
+            foreach (var raceName in races)
+            {
+                var category = new RaceCategory
+                {
+                    RaceName = raceName,
+                    DisplayName = GetRaceDisplayName(raceName),
+                    Population = StatsReader.GetRaceCount(raceName),
+                    FreeWorkers = GetFreeWorkers(raceName),
+                    Homeless = GetHomeless(raceName)
+                };
+
+                var needs = GetRaceNeeds(raceName);
+                BuildRaceDetails(category, raceName, needs);
+                _categories.Add(category);
+
+                // Collect needs for shared detection
+                foreach (var need in needs)
+                {
+                    if (!needRaces.ContainsKey(need.name))
+                    {
+                        needRaces[need.name] = new List<SharedNeedRaceInfo>();
+                        needOrder.Add(need.name);
+                    }
+                    needRaces[need.name].Add(new SharedNeedRaceInfo
+                    {
+                        RaceName = raceName,
+                        DisplayName = category.DisplayName,
+                        NeedModel = need.model,
+                        Population = category.Population
+                    });
+                }
             }
 
-            if (_focusOnDetails)
-            {
-                var category = _categories[_currentCategoryIndex];
-                if (_currentDetailIndex < category.Details.Count)
-                {
-                    var detail = category.Details[_currentDetailIndex];
+            // Build shared needs category (needs appearing in 2+ races)
+            BuildSharedNeedsCategory(needRaces, needOrder);
 
-                    // Handle Favoring action
+            Debug.Log($"[ATSAccessibility] Villagers panel refreshed: {_categories.Count} categories");
+        }
+
+        protected override EnterAction OnEnter(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                {
+                    var cat = _categories[index];
+                    if (cat.Details.Count > 0)
+                        return EnterAction.DrillDown;
+                    Speech.Say("No details for this race");
+                    return EnterAction.None;
+                }
+                case 1:
+                {
+                    var category = _categories[_indices[0]];
+                    if (index < category.Details.Count)
+                    {
+                        var detail = category.Details[index];
+                        if (detail.Type == DetailType.Favoring)
+                            return EnterAction.Action;
+                        if (detail.SubDetails.Count > 0)
+                            return EnterAction.DrillDown;
+                    }
+                    // Re-announce for items with no sub-details and no action
+                    AnnounceDetail();
+                    return EnterAction.None;
+                }
+                default:
+                    // Level 2: re-announce at deepest level
+                    AnnounceSubDetail();
+                    return EnterAction.None;
+            }
+        }
+
+        // ========================================
+        // MENUBASE VIRTUAL OVERRIDES
+        // ========================================
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 1)
+            {
+                var category = _categories[_indices[0]];
+                if (index < category.Details.Count)
+                {
+                    var detail = category.Details[index];
                     if (detail.Type == DetailType.Favoring)
                     {
                         PerformFavoringAction();
-                        return;
-                    }
-
-                    // Try to enter sub-details if available
-                    if (detail.SubDetails.Count > 0)
-                    {
-                        _focusOnSubDetails = true;
-                        _currentSubDetailIndex = 0;
-                        AnnounceSubDetail();
-                        return;
-                    }
-                }
-                // No sub-details, re-announce
-                AnnounceDetail();
-                return;
-            }
-
-            // Enter details
-            var cat = _categories[_currentCategoryIndex];
-            if (cat.Details.Count > 0)
-            {
-                _focusOnDetails = true;
-                _currentDetailIndex = 0;
-                AnnounceDetail();
-            }
-            else
-            {
-                Speech.Say("No details for this race");
-            }
-        }
-
-        private bool NavigateLeft()
-        {
-            if (_focusOnSubDetails)
-            {
-                _focusOnSubDetails = false;
-                AnnounceDetail();
-                return true;
-            }
-
-            if (_focusOnDetails)
-            {
-                _focusOnDetails = false;
-                AnnounceCategory();
-                return true;
-            }
-
-            // Pass to parent (InfoPanelMenu) to close this panel
-            return false;
-        }
-
-        private void NavigateCategoryInternal(int direction)
-        {
-            if (_categories.Count == 0) return;
-            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
-            _currentDetailIndex = 0;
-            _currentSubDetailIndex = 0;
-            AnnounceCategory();
-        }
-
-        private void NavigateDetail(int direction)
-        {
-            var category = _categories[_currentCategoryIndex];
-            if (category.Details.Count == 0) return;
-            _currentDetailIndex = NavigationUtils.WrapIndex(_currentDetailIndex, direction, category.Details.Count);
-            _currentSubDetailIndex = 0;
-            AnnounceDetail();
-        }
-
-        private void NavigateSubDetail(int direction)
-        {
-            var category = _categories[_currentCategoryIndex];
-            if (_currentDetailIndex >= category.Details.Count) return;
-            var detail = category.Details[_currentDetailIndex];
-            if (detail.SubDetails.Count == 0) return;
-            _currentSubDetailIndex = NavigationUtils.WrapIndex(_currentSubDetailIndex, direction, detail.SubDetails.Count);
-            AnnounceSubDetail();
-        }
-
-        private void NavigateToFirst()
-        {
-            if (_focusOnSubDetails)
-            {
-                var category = _categories[_currentCategoryIndex];
-                if (_currentDetailIndex < category.Details.Count && category.Details[_currentDetailIndex].SubDetails.Count > 0)
-                {
-                    _currentSubDetailIndex = 0;
-                    AnnounceSubDetail();
-                }
-            }
-            else if (_focusOnDetails)
-            {
-                _currentDetailIndex = 0;
-                _currentSubDetailIndex = 0;
-                AnnounceDetail();
-            }
-            else
-            {
-                if (_categories.Count == 0) return;
-                _currentCategoryIndex = 0;
-                _currentDetailIndex = 0;
-                _currentSubDetailIndex = 0;
-                AnnounceCategory();
-            }
-        }
-
-        private void NavigateToLast()
-        {
-            if (_focusOnSubDetails)
-            {
-                var category = _categories[_currentCategoryIndex];
-                if (_currentDetailIndex < category.Details.Count)
-                {
-                    var detail = category.Details[_currentDetailIndex];
-                    if (detail.SubDetails.Count > 0)
-                    {
-                        _currentSubDetailIndex = detail.SubDetails.Count - 1;
-                        AnnounceSubDetail();
                     }
                 }
             }
-            else if (_focusOnDetails)
+        }
+
+        protected override bool CanDrillDown(int index)
+        {
+            switch (Level)
             {
-                var category = _categories[_currentCategoryIndex];
-                if (category.Details.Count > 0)
+                case 0:
                 {
-                    _currentDetailIndex = category.Details.Count - 1;
-                    _currentSubDetailIndex = 0;
+                    if (index < _categories.Count)
+                        return _categories[index].Details.Count > 0;
+                    return false;
+                }
+                case 1:
+                {
+                    var category = _categories[_indices[0]];
+                    if (index < category.Details.Count)
+                        return category.Details[index].SubDetails.Count > 0;
+                    return false;
+                }
+                default:
+                    return false;
+            }
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.LeftArrow && Level == 0)
+                return false; // Pass to parent (InfoPanelMenu) to close this panel
+
+            if (keyCode == KeyCode.Escape)
+                return false; // Pass to parent to handle panel closing
+
+            return null;
+        }
+
+        protected override void OnClosed()
+        {
+            _categories.Clear();
+        }
+
+        protected override void AnnounceCurrentItem()
+        {
+            switch (Level)
+            {
+                case 0:
+                    AnnounceCategory();
+                    break;
+                case 1:
                     AnnounceDetail();
-                }
+                    break;
+                case 2:
+                    AnnounceSubDetail();
+                    break;
             }
-            else
-            {
-                if (_categories.Count == 0) return;
-                _currentCategoryIndex = _categories.Count - 1;
-                _currentDetailIndex = 0;
-                _currentSubDetailIndex = 0;
-                AnnounceCategory();
-            }
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_categories.Count == 0)
+                return EmptyMessage;
+
+            return BuildCategoryAnnouncement(0);
         }
 
         // ========================================
-        // ISearchable Implementation
+        // SEARCH OVERRIDES
         // ========================================
 
-        public int SearchItemCount
+        protected override int SearchItemCount
         {
             get
             {
-                if (_focusOnSubDetails)
+                switch (Level)
                 {
-                    if (_currentCategoryIndex >= _categories.Count) return 0;
-                    var category = _categories[_currentCategoryIndex];
-                    if (_currentDetailIndex >= category.Details.Count) return 0;
-                    return category.Details[_currentDetailIndex].SubDetails.Count;
+                    case 2:
+                    {
+                        if (_indices[0] >= _categories.Count) return 0;
+                        var category = _categories[_indices[0]];
+                        if (_indices[1] >= category.Details.Count) return 0;
+                        return category.Details[_indices[1]].SubDetails.Count;
+                    }
+                    case 1:
+                    {
+                        if (_indices[0] >= _categories.Count) return 0;
+                        return _categories[_indices[0]].Details.Count;
+                    }
+                    default:
+                        return _categories.Count;
                 }
+            }
+        }
 
-                if (_focusOnDetails)
+        protected override string GetSearchName(int index)
+        {
+            switch (Level)
+            {
+                case 2:
                 {
-                    if (_currentCategoryIndex >= _categories.Count) return 0;
-                    return _categories[_currentCategoryIndex].Details.Count;
+                    if (_indices[0] >= _categories.Count) return null;
+                    var category = _categories[_indices[0]];
+                    if (_indices[1] >= category.Details.Count) return null;
+                    var detail = category.Details[_indices[1]];
+                    return index < detail.SubDetails.Count ? detail.SubDetails[index] : null;
                 }
-
-                return _categories.Count;
-            }
-        }
-
-        public int SearchCurrentIndex
-        {
-            get
-            {
-                if (_focusOnSubDetails) return _currentSubDetailIndex;
-                if (_focusOnDetails) return _currentDetailIndex;
-                return _currentCategoryIndex;
-            }
-        }
-
-        public string GetSearchLabel(int index)
-        {
-            if (_focusOnSubDetails)
-            {
-                if (_currentCategoryIndex >= _categories.Count) return null;
-                var category = _categories[_currentCategoryIndex];
-                if (_currentDetailIndex >= category.Details.Count) return null;
-                var detail = category.Details[_currentDetailIndex];
-                return index < detail.SubDetails.Count ? detail.SubDetails[index] : null;
-            }
-
-            if (_focusOnDetails)
-            {
-                if (_currentCategoryIndex >= _categories.Count) return null;
-                var category = _categories[_currentCategoryIndex];
-                return index < category.Details.Count ? category.Details[index].Label : null;
-            }
-
-            return index < _categories.Count ? _categories[index].DisplayName : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            if (_focusOnSubDetails)
-            {
-                _currentSubDetailIndex = index;
-                AnnounceSubDetail();
-            }
-            else if (_focusOnDetails)
-            {
-                _currentDetailIndex = index;
-                AnnounceDetail();
-            }
-            else
-            {
-                _currentCategoryIndex = index;
-                AnnounceCategory();
+                case 1:
+                {
+                    if (_indices[0] >= _categories.Count) return null;
+                    var category = _categories[_indices[0]];
+                    return index < category.Details.Count ? category.Details[index].Label : null;
+                }
+                default:
+                    return index < _categories.Count ? _categories[index].DisplayName : null;
             }
         }
 
@@ -473,9 +342,9 @@ namespace ATSAccessibility
 
         private void PerformFavoringAction()
         {
-            if (_currentCategoryIndex >= _categories.Count) return;
+            if (_indices[0] >= _categories.Count) return;
 
-            var category = _categories[_currentCategoryIndex];
+            var category = _categories[_indices[0]];
             string raceName = category.RaceName;
             if (raceName == null) return;  // Shared needs category has no favoring
 
@@ -583,33 +452,40 @@ namespace ATSAccessibility
         // ANNOUNCEMENTS
         // ========================================
 
-        private void AnnounceCategory()
+        private string BuildCategoryAnnouncement(int index)
         {
-            if (_currentCategoryIndex >= _categories.Count) return;
+            if (index >= _categories.Count) return null;
 
-            var category = _categories[_currentCategoryIndex];
+            var category = _categories[index];
 
             if (category.RaceName == null)
             {
                 // Shared needs category - just the name
-                Speech.Say(category.DisplayName);
-            }
-            else
-            {
-                string favoredStatus = GameReflection.IsFavored(category.RaceName) ? ", favored" : "";
-                string message = $"{category.DisplayName}{favoredStatus}. {category.Population} villagers, {category.FreeWorkers} free, {category.Homeless} homeless";
-                Speech.Say(message);
+                return category.DisplayName;
             }
 
-            Debug.Log($"[ATSAccessibility] Villagers category: {category.DisplayName}");
+            string favoredStatus = GameReflection.IsFavored(category.RaceName) ? ", favored" : "";
+            return $"{category.DisplayName}{favoredStatus}. {category.Population} villagers, {category.FreeWorkers} free, {category.Homeless} homeless";
+        }
+
+        private void AnnounceCategory()
+        {
+            string message = BuildCategoryAnnouncement(CurrentIndex);
+            if (message != null)
+            {
+                Speech.Say(message);
+                Debug.Log($"[ATSAccessibility] Villagers category: {_categories[CurrentIndex].DisplayName}");
+            }
         }
 
         private void AnnounceDetail()
         {
-            var category = _categories[_currentCategoryIndex];
-            if (_currentDetailIndex >= category.Details.Count) return;
+            if (_indices[0] >= _categories.Count) return;
+            var category = _categories[_indices[0]];
+            int detailIndex = Level == 1 ? CurrentIndex : _indices[1];
+            if (detailIndex >= category.Details.Count) return;
 
-            var detail = category.Details[_currentDetailIndex];
+            var detail = category.Details[detailIndex];
             string message = detail.Label;
 
             // Add type-specific suffix if expandable
@@ -624,69 +500,20 @@ namespace ATSAccessibility
 
         private void AnnounceSubDetail()
         {
-            var category = _categories[_currentCategoryIndex];
-            if (_currentDetailIndex >= category.Details.Count) return;
-            var detail = category.Details[_currentDetailIndex];
-            if (_currentSubDetailIndex >= detail.SubDetails.Count) return;
+            if (_indices[0] >= _categories.Count) return;
+            var category = _categories[_indices[0]];
+            if (_indices[1] >= category.Details.Count) return;
+            var detail = category.Details[_indices[1]];
+            if (CurrentIndex >= detail.SubDetails.Count) return;
 
-            string message = detail.SubDetails[_currentSubDetailIndex];
+            string message = detail.SubDetails[CurrentIndex];
             Speech.Say(message);
             Debug.Log($"[ATSAccessibility] Villagers sub-detail: {message}");
         }
 
         // ========================================
-        // DATA REFRESH
+        // DATA BUILDING
         // ========================================
-
-        private void RefreshData()
-        {
-            _categories.Clear();
-            EnsureTypes();
-
-            var races = StatsReader.GetPresentRaces();
-
-            // Track needs per race for shared needs detection
-            var needRaces = new Dictionary<string, List<SharedNeedRaceInfo>>();
-            var needOrder = new List<string>();
-
-            foreach (var raceName in races)
-            {
-                var category = new RaceCategory
-                {
-                    RaceName = raceName,
-                    DisplayName = GetRaceDisplayName(raceName),
-                    Population = StatsReader.GetRaceCount(raceName),
-                    FreeWorkers = GetFreeWorkers(raceName),
-                    Homeless = GetHomeless(raceName)
-                };
-
-                var needs = GetRaceNeeds(raceName);
-                BuildRaceDetails(category, raceName, needs);
-                _categories.Add(category);
-
-                // Collect needs for shared detection
-                foreach (var need in needs)
-                {
-                    if (!needRaces.ContainsKey(need.name))
-                    {
-                        needRaces[need.name] = new List<SharedNeedRaceInfo>();
-                        needOrder.Add(need.name);
-                    }
-                    needRaces[need.name].Add(new SharedNeedRaceInfo
-                    {
-                        RaceName = raceName,
-                        DisplayName = category.DisplayName,
-                        NeedModel = need.model,
-                        Population = category.Population
-                    });
-                }
-            }
-
-            // Build shared needs category (needs appearing in 2+ races)
-            BuildSharedNeedsCategory(needRaces, needOrder);
-
-            Debug.Log($"[ATSAccessibility] Villagers panel refreshed: {_categories.Count} categories");
-        }
 
         private void BuildSharedNeedsCategory(Dictionary<string, List<SharedNeedRaceInfo>> needRaces, List<string> needOrder)
         {

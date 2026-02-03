@@ -7,21 +7,11 @@ namespace ATSAccessibility
     /// <summary>
     /// Accessible overlay for the CapitalUpgradePopup (Buy Upgrades screen).
     /// Three-level navigation: structures -> upgrades -> rewards.
+    /// Pattern B at Level 1: Enter=buy (Action), Right=view rewards (CanDrillDown).
     /// </summary>
-    public class CapitalUpgradeOverlay : IKeyHandler, ISearchable
+    public class CapitalUpgradeOverlay : MenuBase, IKeyHandler
     {
         private static readonly Regex NumberPattern = new Regex(@"([+-]\d+)(%?)", RegexOptions.Compiled);
-
-        private enum Level { Structures, Upgrades, Rewards }
-
-        // State
-        private bool _isOpen;
-        private bool _suspended;
-        private Level _level;
-        private int _currentStructureIndex;
-        private int _currentUpgradeIndex;
-        private int _currentRewardIndex;
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Data
         private List<CapitalUpgradeReflection.StructureInfo> _structures = new List<CapitalUpgradeReflection.StructureInfo>();
@@ -32,286 +22,254 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen && !_suspended;
+        public bool IsActive => IsOpen && !IsSuspended;
 
-        public bool IsSuspended => _isOpen && _suspended;
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Capital Upgrades";
+        protected override string EmptyMessage => "No structures available";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (_level)
+            switch (Level)
             {
-                case Level.Structures:
-                    return ProcessStructureKey(keyCode);
-                case Level.Upgrades:
-                    return ProcessUpgradeKey(keyCode);
-                case Level.Rewards:
-                    return ProcessRewardKey(keyCode);
-                default:
-                    return true;
+                case 0: return _structures.Count;
+                case 1: return _upgrades.Count;
+                case 2: return _rewards.Count;
+                default: return 0;
             }
         }
 
-        // ========================================
-        // Public Methods
-        // ========================================
+        protected override string GetLabel(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    return (index >= 0 && index < _structures.Count) ? _structures[index].Name : null;
+                case 1:
+                    return (index >= 0 && index < _upgrades.Count) ? _upgrades[index].Name : null;
+                case 2:
+                    return (index >= 0 && index < _rewards.Count) ? _rewards[index].Name : null;
+                default:
+                    return null;
+            }
+        }
 
-        public void Open()
+        protected override void AnnounceCurrentItem()
+        {
+            switch (Level)
+            {
+                case 0:
+                    AnnounceStructure();
+                    break;
+                case 1:
+                    AnnounceUpgrade();
+                    break;
+                case 2:
+                    AnnounceReward();
+                    break;
+            }
+        }
+
+        protected override void RefreshData()
         {
             _structures = CapitalUpgradeReflection.GetStructures();
-
-            if (_structures.Count == 0)
-            {
-                Debug.LogWarning("[ATSAccessibility] Capital upgrade overlay: no structures available");
-                return;
-            }
-
-            _isOpen = true;
-            _suspended = false;
-            _level = Level.Structures;
-            _currentStructureIndex = 0;
-            _currentUpgradeIndex = 0;
-            _currentRewardIndex = 0;
-            _upgrades.Clear();
-            _rewards.Clear();
-            _search.Clear();
-            AnnounceStructure();
-            Debug.Log("[ATSAccessibility] Capital upgrade overlay opened");
         }
 
-        public void Close()
+        protected override EnterAction OnEnter(int index)
         {
-            _isOpen = false;
-            _suspended = false;
+            switch (Level)
+            {
+                case 0:
+                    if (index < 0 || index >= _structures.Count) return EnterAction.None;
+                    var upgrades = CapitalUpgradeReflection.GetUpgrades(_structures[index].StructureObj);
+                    if (upgrades.Count == 0)
+                    {
+                        Speech.Say("No upgrades");
+                        return EnterAction.None;
+                    }
+                    _upgrades = upgrades;
+                    return EnterAction.DrillDown;
+
+                case 1:
+                    return EnterAction.Action;
+
+                default:
+                    return EnterAction.None;
+            }
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 1)
+                ActivateUpgrade();
+        }
+
+        protected override bool CanDrillDown(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    // Right arrow: load upgrades, check empty
+                    if (index < 0 || index >= _structures.Count) return false;
+                    var upgrades = CapitalUpgradeReflection.GetUpgrades(_structures[index].StructureObj);
+                    if (upgrades.Count == 0)
+                    {
+                        Speech.Say("No upgrades");
+                        return false;
+                    }
+                    _upgrades = upgrades;
+                    return true;
+
+                case 1:
+                    // Right arrow: load rewards, check empty
+                    if (index < 0 || index >= _upgrades.Count) return false;
+                    var rewards = CapitalUpgradeReflection.GetRewards(_upgrades[index].UpgradeObj);
+                    if (rewards.Count == 0)
+                    {
+                        Speech.Say("No rewards");
+                        return false;
+                    }
+                    _rewards = rewards;
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        protected override void OnDrillDown(int index)
+        {
+            // Data already loaded by OnEnter or CanDrillDown
+        }
+
+        protected override void OnGoBack()
+        {
+            if (Level == 2)
+                _rewards.Clear();
+            else if (Level == 1)
+                _upgrades.Clear();
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.Escape)
+            {
+                Close();
+                // Pass to game to close popup
+                return false;
+            }
+            return null;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            // Custom announcement handled in OnOpened
+            return null;
+        }
+
+        protected override void OnOpened()
+        {
+            AnnounceStructure();
+        }
+
+        protected override void OnClosed()
+        {
             _structures.Clear();
             _upgrades.Clear();
             _rewards.Clear();
-            _currentStructureIndex = 0;
-            _currentUpgradeIndex = 0;
-            _currentRewardIndex = 0;
-            _search.Clear();
-            Debug.Log("[ATSAccessibility] Capital upgrade overlay closed");
-        }
-
-        public void Resume()
-        {
-            if (!_isOpen) return;
-
-            _suspended = false;
-            AnnounceCurrentLevel();
-            Debug.Log("[ATSAccessibility] Capital upgrade overlay resumed");
         }
 
         // ========================================
-        // Structure Level Keys
+        // SEARCH
         // ========================================
 
-        private bool ProcessStructureKey(KeyCode keyCode)
+        protected override string GetSearchName(int index)
         {
-            switch (keyCode)
+            switch (Level)
             {
-                case KeyCode.DownArrow:
-                    NavigateStructures(1);
-                    return true;
-
-                case KeyCode.UpArrow:
-                    NavigateStructures(-1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_structures.Count > 0) { _currentStructureIndex = 0; AnnounceStructure(); }
-                    return true;
-
-                case KeyCode.End:
-                    if (_structures.Count > 0) { _currentStructureIndex = _structures.Count - 1; AnnounceStructure(); }
-                    return true;
-
-                case KeyCode.RightArrow:
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    EnterUpgrades();
-                    return true;
-
-                case KeyCode.Escape:
-                    Close();
-                    // Pass to game to close popup
-                    return false;
-
+                case 0:
+                    return (index >= 0 && index < _structures.Count) ? _structures[index].Name : null;
+                case 1:
+                    return (index >= 0 && index < _upgrades.Count) ? _upgrades[index].Name : null;
+                case 2:
+                    return (index >= 0 && index < _rewards.Count) ? _rewards[index].Name : null;
                 default:
-                    // Consume all other keys while active
-                    return true;
+                    return null;
             }
         }
 
         // ========================================
-        // Upgrade Level Keys
+        // ANNOUNCEMENTS
         // ========================================
 
-        private bool ProcessUpgradeKey(KeyCode keyCode)
+        private void AnnounceStructure()
         {
-            switch (keyCode)
+            if (_indices[0] < 0 || _indices[0] >= _structures.Count) return;
+
+            var structure = _structures[_indices[0]];
+            Speech.Say($"{structure.Name}, {structure.UnlockedCount} of {structure.TotalUpgrades}");
+        }
+
+        private void AnnounceUpgrade()
+        {
+            if (_indices[1] < 0 || _indices[1] >= _upgrades.Count) return;
+
+            var upgrade = _upgrades[_indices[1]];
+            int level = _indices[1] + 1;
+
+            switch (upgrade.Status)
             {
-                case KeyCode.DownArrow:
-                    NavigateUpgrades(1);
-                    return true;
+                case CapitalUpgradeReflection.UpgradeStatus.Unlocked:
+                    Speech.Say($"{upgrade.Name}, level {level}, unlocked");
+                    break;
 
-                case KeyCode.UpArrow:
-                    NavigateUpgrades(-1);
-                    return true;
+                case CapitalUpgradeReflection.UpgradeStatus.Buyable:
+                    Speech.Say($"{upgrade.Name}, level {level}, {upgrade.PriceText}");
+                    break;
 
-                case KeyCode.Home:
-                    if (_upgrades.Count > 0) { _currentUpgradeIndex = 0; AnnounceUpgrade(); }
-                    return true;
+                case CapitalUpgradeReflection.UpgradeStatus.TooExpensive:
+                    Speech.Say($"{upgrade.Name}, level {level}, {upgrade.PriceText}, can't afford");
+                    break;
 
-                case KeyCode.End:
-                    if (_upgrades.Count > 0) { _currentUpgradeIndex = _upgrades.Count - 1; AnnounceUpgrade(); }
-                    return true;
+                case CapitalUpgradeReflection.UpgradeStatus.LevelRequired:
+                    Speech.Say($"{upgrade.Name}, level {level}, requires player level {upgrade.RequiredLevel}");
+                    break;
 
-                case KeyCode.RightArrow:
-                    EnterRewards();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateUpgrade();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    _level = Level.Structures;
-                    _upgrades.Clear();
-                    _search.Clear();
-                    AnnounceStructure();
-                    return true;
-
-                case KeyCode.Escape:
-                    Close();
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
+                case CapitalUpgradeReflection.UpgradeStatus.Locked:
+                    Speech.Say($"{upgrade.Name}, level {level}, locked");
+                    break;
             }
         }
 
-        // ========================================
-        // Reward Level Keys
-        // ========================================
-
-        private bool ProcessRewardKey(KeyCode keyCode)
+        private void AnnounceReward()
         {
-            switch (keyCode)
-            {
-                case KeyCode.DownArrow:
-                    NavigateRewards(1);
-                    return true;
+            if (_indices[2] < 0 || _indices[2] >= _rewards.Count) return;
 
-                case KeyCode.UpArrow:
-                    NavigateRewards(-1);
-                    return true;
+            var reward = _rewards[_indices[2]];
+            int level = _indices[1] + 1;
+            string totalSuffix = _indices[2] == 0 ? GetRewardTotalSuffix(reward.Description, level) : "";
 
-                case KeyCode.Home:
-                    if (_rewards.Count > 0) { _currentRewardIndex = 0; AnnounceReward(); }
-                    return true;
-
-                case KeyCode.End:
-                    if (_rewards.Count > 0) { _currentRewardIndex = _rewards.Count - 1; AnnounceReward(); }
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    _level = Level.Upgrades;
-                    _rewards.Clear();
-                    _search.Clear();
-                    AnnounceUpgrade();
-                    return true;
-
-                case KeyCode.Escape:
-                    Close();
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
+            if (!string.IsNullOrEmpty(reward.Description))
+                Speech.Say($"{reward.Name}, {reward.Description}{totalSuffix}");
+            else
+                Speech.Say($"{reward.Name}{totalSuffix}");
         }
 
         // ========================================
-        // Navigation
+        // ACTIONS
         // ========================================
-
-        private void NavigateStructures(int direction)
-        {
-            if (_structures.Count == 0) return;
-
-            _currentStructureIndex = NavigationUtils.WrapIndex(_currentStructureIndex, direction, _structures.Count);
-            AnnounceStructure();
-        }
-
-        private void NavigateUpgrades(int direction)
-        {
-            if (_upgrades.Count == 0) return;
-
-            _currentUpgradeIndex = NavigationUtils.WrapIndex(_currentUpgradeIndex, direction, _upgrades.Count);
-            AnnounceUpgrade();
-        }
-
-        private void NavigateRewards(int direction)
-        {
-            if (_rewards.Count == 0) return;
-
-            _currentRewardIndex = NavigationUtils.WrapIndex(_currentRewardIndex, direction, _rewards.Count);
-            AnnounceReward();
-        }
-
-        private void EnterUpgrades()
-        {
-            if (_currentStructureIndex < 0 || _currentStructureIndex >= _structures.Count) return;
-
-            var structure = _structures[_currentStructureIndex];
-            _upgrades = CapitalUpgradeReflection.GetUpgrades(structure.StructureObj);
-
-            if (_upgrades.Count == 0)
-            {
-                Speech.Say("No upgrades");
-                return;
-            }
-
-            _level = Level.Upgrades;
-            _currentUpgradeIndex = 0;
-            _search.Clear();
-            AnnounceUpgrade();
-        }
-
-        private void EnterRewards()
-        {
-            if (_currentUpgradeIndex < 0 || _currentUpgradeIndex >= _upgrades.Count) return;
-
-            var upgrade = _upgrades[_currentUpgradeIndex];
-            _rewards = CapitalUpgradeReflection.GetRewards(upgrade.UpgradeObj);
-
-            if (_rewards.Count == 0)
-            {
-                Speech.Say("No rewards");
-                return;
-            }
-
-            _level = Level.Rewards;
-            _currentRewardIndex = 0;
-            _search.Clear();
-            AnnounceReward();
-        }
 
         private void ActivateUpgrade()
         {
-            if (_currentUpgradeIndex < 0 || _currentUpgradeIndex >= _upgrades.Count) return;
+            if (_indices[1] < 0 || _indices[1] >= _upgrades.Count) return;
 
-            var upgrade = _upgrades[_currentUpgradeIndex];
+            var upgrade = _upgrades[_indices[1]];
 
             switch (upgrade.Status)
             {
@@ -353,93 +311,24 @@ namespace ATSAccessibility
 
         private void RefreshCurrentUpgrades()
         {
-            if (_currentStructureIndex < 0 || _currentStructureIndex >= _structures.Count) return;
+            if (_indices[0] < 0 || _indices[0] >= _structures.Count) return;
 
             // Refresh structures to update unlocked counts
             _structures = CapitalUpgradeReflection.GetStructures();
 
-            if (_currentStructureIndex >= _structures.Count) return;
+            if (_indices[0] >= _structures.Count) return;
 
-            var structure = _structures[_currentStructureIndex];
+            var structure = _structures[_indices[0]];
             _upgrades = CapitalUpgradeReflection.GetUpgrades(structure.StructureObj);
 
             // Clamp index if needed
-            if (_currentUpgradeIndex >= _upgrades.Count)
-                _currentUpgradeIndex = _upgrades.Count - 1;
+            if (_indices[1] >= _upgrades.Count)
+                _indices[1] = _upgrades.Count - 1;
         }
 
         // ========================================
-        // Announcements
+        // HELPERS
         // ========================================
-
-        private void AnnounceCurrentLevel()
-        {
-            switch (_level)
-            {
-                case Level.Structures:
-                    AnnounceStructure();
-                    break;
-                case Level.Upgrades:
-                    AnnounceUpgrade();
-                    break;
-                case Level.Rewards:
-                    AnnounceReward();
-                    break;
-            }
-        }
-
-        private void AnnounceStructure()
-        {
-            if (_currentStructureIndex < 0 || _currentStructureIndex >= _structures.Count) return;
-
-            var structure = _structures[_currentStructureIndex];
-            Speech.Say($"{structure.Name}, {structure.UnlockedCount} of {structure.TotalUpgrades}");
-        }
-
-        private void AnnounceUpgrade()
-        {
-            if (_currentUpgradeIndex < 0 || _currentUpgradeIndex >= _upgrades.Count) return;
-
-            var upgrade = _upgrades[_currentUpgradeIndex];
-            int level = _currentUpgradeIndex + 1;
-
-            switch (upgrade.Status)
-            {
-                case CapitalUpgradeReflection.UpgradeStatus.Unlocked:
-                    Speech.Say($"{upgrade.Name}, level {level}, unlocked");
-                    break;
-
-                case CapitalUpgradeReflection.UpgradeStatus.Buyable:
-                    Speech.Say($"{upgrade.Name}, level {level}, {upgrade.PriceText}");
-                    break;
-
-                case CapitalUpgradeReflection.UpgradeStatus.TooExpensive:
-                    Speech.Say($"{upgrade.Name}, level {level}, {upgrade.PriceText}, can't afford");
-                    break;
-
-                case CapitalUpgradeReflection.UpgradeStatus.LevelRequired:
-                    Speech.Say($"{upgrade.Name}, level {level}, requires player level {upgrade.RequiredLevel}");
-                    break;
-
-                case CapitalUpgradeReflection.UpgradeStatus.Locked:
-                    Speech.Say($"{upgrade.Name}, level {level}, locked");
-                    break;
-            }
-        }
-
-        private void AnnounceReward()
-        {
-            if (_currentRewardIndex < 0 || _currentRewardIndex >= _rewards.Count) return;
-
-            var reward = _rewards[_currentRewardIndex];
-            int level = _currentUpgradeIndex + 1;
-            string totalSuffix = _currentRewardIndex == 0 ? GetRewardTotalSuffix(reward.Description, level) : "";
-
-            if (!string.IsNullOrEmpty(reward.Description))
-                Speech.Say($"{reward.Name}, {reward.Description}{totalSuffix}");
-            else
-                Speech.Say($"{reward.Name}{totalSuffix}");
-        }
 
         /// <summary>
         /// Compute a cumulative total suffix for a stacking reward.
@@ -463,72 +352,6 @@ namespace ATSAccessibility
             }
 
             return $" ({level} stacks)";
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount
-        {
-            get
-            {
-                switch (_level)
-                {
-                    case Level.Structures: return _structures.Count;
-                    case Level.Upgrades: return _upgrades.Count;
-                    case Level.Rewards: return _rewards.Count;
-                    default: return 0;
-                }
-            }
-        }
-
-        public int SearchCurrentIndex
-        {
-            get
-            {
-                switch (_level)
-                {
-                    case Level.Structures: return _currentStructureIndex;
-                    case Level.Upgrades: return _currentUpgradeIndex;
-                    case Level.Rewards: return _currentRewardIndex;
-                    default: return 0;
-                }
-            }
-        }
-
-        public string GetSearchLabel(int index)
-        {
-            switch (_level)
-            {
-                case Level.Structures:
-                    return (index >= 0 && index < _structures.Count) ? _structures[index].Name : null;
-                case Level.Upgrades:
-                    return (index >= 0 && index < _upgrades.Count) ? _upgrades[index].Name : null;
-                case Level.Rewards:
-                    return (index >= 0 && index < _rewards.Count) ? _rewards[index].Name : null;
-                default:
-                    return null;
-            }
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            switch (_level)
-            {
-                case Level.Structures:
-                    _currentStructureIndex = index;
-                    AnnounceStructure();
-                    break;
-                case Level.Upgrades:
-                    _currentUpgradeIndex = index;
-                    AnnounceUpgrade();
-                    break;
-                case Level.Rewards:
-                    _currentRewardIndex = index;
-                    AnnounceReward();
-                    break;
-            }
         }
     }
 }

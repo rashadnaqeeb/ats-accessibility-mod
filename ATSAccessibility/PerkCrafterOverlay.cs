@@ -6,16 +6,12 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Accessible overlay for the PerkCrafterPopup (Cornerstone Forge).
-    /// Provides two-level menu navigation: main menu and submenus for hook/effect selection.
+    /// Level 0: Main menu (7 crafting items) or finished mode (dialogue + crafted perks).
+    /// Level 1: Submenu for hook/positive/negative selection.
+    /// Level 2: Name editing (handled entirely in HandleSpecialKey).
     /// </summary>
-    public class PerkCrafterOverlay : IKeyHandler, ISearchable
+    public class PerkCrafterOverlay : MenuBase, IKeyHandler
     {
-        // Navigation levels
-        private const int LEVEL_MAIN = 0;
-        private const int LEVEL_SUBMENU = 1;
-        private const int LEVEL_NAME_EDIT = 2;
-
-        // Main menu items (active state)
         private enum MenuItem
         {
             Dialogue = 0,
@@ -27,24 +23,14 @@ namespace ATSAccessibility
             Craft = 6
         }
 
-        // State
-        private bool _isOpen;
-        private int _navigationLevel;
-        private int _mainMenuIndex;
-        private int _submenuIndex;
         private MenuItem _activeSubmenu;
         private bool _isFinishedMode;
 
-        // Data caches
         private List<PerkCrafterReflection.HookOption> _hookOptions;
         private List<PerkCrafterReflection.EffectOption> _positiveOptions;
         private List<PerkCrafterReflection.EffectOption> _negativeOptions;
         private List<PerkCrafterReflection.CraftedPerkInfo> _craftedPerks;
 
-        // Type-ahead search for submenus
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
-
-        // Name editing buffer
         private StringBuilder _nameBuffer;
         private bool _nameEditing;
 
@@ -52,90 +38,47 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Cornerstone Forge";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
-
-            // Handle name editing mode separately
-            if (_navigationLevel == LEVEL_NAME_EDIT)
+            switch (Level)
             {
-                return ProcessNameEditKey(keyCode, modifiers);
+                case 0:
+                    if (_isFinishedMode)
+                        return 1 + (_craftedPerks?.Count ?? 0);
+                    return 7;
+                case 1:
+                    return GetSubmenuItemCount();
+                default:
+                    return 0;
             }
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            if (_navigationLevel == LEVEL_SUBMENU)
-            {
-                return ProcessSubmenuKey(keyCode, modifiers);
-            }
-
-            return ProcessMainMenuKey(keyCode, modifiers);
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when PerkCrafterPopup is shown.
-        /// </summary>
-        public void Open()
+        protected override string GetLabel(int index)
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _navigationLevel = LEVEL_MAIN;
-            _mainMenuIndex = 0;
-            _submenuIndex = 0;
-            _search.Clear();
-            _nameEditing = false;
-            _nameBuffer = null;
-
-            RefreshData();
-
-            if (_isFinishedMode)
+            switch (Level)
             {
-                Speech.Say($"Cornerstone Forge, finished. {_craftedPerks?.Count ?? 0} cornerstones crafted");
-                if (_craftedPerks != null && _craftedPerks.Count > 0)
-                {
-                    _mainMenuIndex = 0;
-                    AnnounceFinishedItem();
-                }
+                case 0:
+                    return _isFinishedMode ? GetFinishedLabel(index) : GetMainMenuLabel(index);
+                case 1:
+                    return GetSubmenuLabel(index);
+                default:
+                    return null;
             }
-            else
-            {
-                Speech.Say("Cornerstone Forge");
-                AnnounceMainMenuItem();
-            }
-
-            Debug.Log("[ATSAccessibility] PerkCrafterOverlay opened");
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _navigationLevel = LEVEL_MAIN;
-            _search.Clear();
-            _nameEditing = false;
-            ClearData();
-
-            Debug.Log("[ATSAccessibility] PerkCrafterOverlay closed");
-        }
-
-        // ========================================
-        // DATA MANAGEMENT
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _isFinishedMode = PerkCrafterReflection.HasUsedAllCharges();
 
@@ -151,503 +94,160 @@ namespace ATSAccessibility
             }
         }
 
-        private void ClearData()
+        protected override EnterAction OnEnter(int index)
         {
-            _hookOptions?.Clear();
-            _positiveOptions?.Clear();
-            _negativeOptions?.Clear();
-            _craftedPerks?.Clear();
+            switch (Level)
+            {
+                case 0:
+                    if (_isFinishedMode) return EnterAction.None;
+                    var item = (MenuItem)index;
+                    if (item == MenuItem.Hook || item == MenuItem.Positive || item == MenuItem.Negative)
+                        return EnterAction.DrillDown;
+                    return EnterAction.Action;
+                case 1:
+                    return EnterAction.Action;
+                default:
+                    return EnterAction.None;
+            }
         }
 
-        // ========================================
-        // MAIN MENU NAVIGATION (Level 0)
-        // ========================================
+        protected override bool CanDrillDown(int index)
+        {
+            if (Level != 0 || _isFinishedMode) return false;
+            var item = (MenuItem)index;
+            return item == MenuItem.Hook || item == MenuItem.Positive || item == MenuItem.Negative;
+        }
 
-        private bool ProcessMainMenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        protected override void OnDrillDown(int index)
+        {
+            var item = (MenuItem)index;
+            _activeSubmenu = item;
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 0)
+            {
+                ActivateMainMenuItem(index);
+            }
+            else if (Level == 1)
+            {
+                SelectSubmenuItem();
+            }
+        }
+
+        protected override void OnGoBack()
+        {
+            _activeSubmenu = MenuItem.Dialogue;
+        }
+
+        protected override EscapeAction OnEscape()
+        {
+            if (Level > 0) return EscapeAction.GoBack;
+            // Pass to game to close popup
+            return EscapeAction.PassThrough;
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (Level == 2)
+                return ProcessNameEditKey(keyCode, modifiers);
+
+            if (Level == 0 && _isFinishedMode)
+            {
+                if (keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter ||
+                    keyCode == KeyCode.RightArrow)
+                {
+                    AnnounceCurrentItem();
+                    return true;
+                }
+            }
+
+            if (Level == 1)
+            {
+                if (keyCode == KeyCode.RightArrow)
+                {
+                    SelectSubmenuItem();
+                    return true;
+                }
+            }
+
+            return null;
+        }
+
+        protected override string GetOpenAnnouncement()
         {
             if (_isFinishedMode)
             {
-                return ProcessFinishedModeKey(keyCode);
-            }
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateMainMenu(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateMainMenu(1);
-                    return true;
-
-                case KeyCode.Home:
-                    _mainMenuIndex = 0;
-                    AnnounceMainMenuItem();
-                    return true;
-
-                case KeyCode.End:
-                    _mainMenuIndex = 6; // Last item: Craft
-                    AnnounceMainMenuItem();
-                    return true;
-
-                case KeyCode.RightArrow:
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateMainMenuItem();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys
-                    return true;
-            }
-        }
-
-        private void NavigateMainMenu(int direction)
-        {
-            int itemCount = 7; // Dialogue, Shards, Hook, Positive, Negative, Result, Craft
-            _mainMenuIndex = NavigationUtils.WrapIndex(_mainMenuIndex, direction, itemCount);
-            AnnounceMainMenuItem();
-        }
-
-        private void AnnounceMainMenuItem()
-        {
-            var item = (MenuItem)_mainMenuIndex;
-
-            switch (item)
-            {
-                case MenuItem.Dialogue:
-                    AnnounceDialogue();
-                    break;
-
-                case MenuItem.Shards:
-                    AnnounceShards();
-                    break;
-
-                case MenuItem.Hook:
-                    AnnounceHook();
-                    break;
-
-                case MenuItem.Positive:
-                    AnnouncePositive();
-                    break;
-
-                case MenuItem.Negative:
-                    AnnounceNegative();
-                    break;
-
-                case MenuItem.Result:
-                    AnnounceResult();
-                    break;
-
-                case MenuItem.Craft:
-                    AnnounceCraft();
-                    break;
-            }
-        }
-
-        private void AnnounceDialogue()
-        {
-            var dialogue = PerkCrafterReflection.GetNpcDialogue();
-            if (!string.IsNullOrEmpty(dialogue))
-            {
-                Speech.Say($"Malzor Stonespine: {dialogue}");
-            }
-            else
-            {
-                Speech.Say("Malzor Stonespine");
-            }
-        }
-
-        private void AnnounceShards()
-        {
-            int usesLeft = PerkCrafterReflection.GetUsesLeft();
-            int total = PerkCrafterReflection.GetTotalCharges();
-            int crafted = PerkCrafterReflection.GetCraftedPerksCount();
-
-            if (usesLeft > 0)
-            {
-                Speech.Say($"Crafting {crafted + 1} of {total}");
-            }
-            else
-            {
-                Speech.Say("All crafts used");
-            }
-        }
-
-        private void AnnounceHook()
-        {
-            var currentHook = PerkCrafterReflection.GetCurrentHook();
-            if (currentHook != null)
-            {
-                Speech.Say($"Hook: {currentHook.Description}");
-            }
-            else
-            {
-                Speech.Say("Hook: not selected");
-            }
-        }
-
-        private void AnnouncePositive()
-        {
-            var currentPositive = PerkCrafterReflection.GetCurrentPositive();
-            if (currentPositive != null)
-            {
-                Speech.Say($"Positive effect: {currentPositive.Description}");
-            }
-            else
-            {
-                Speech.Say("Positive effect: not selected");
-            }
-        }
-
-        private void AnnounceNegative()
-        {
-            int negIndex = PerkCrafterReflection.GetPickedNegativeIndex();
-            if (negIndex < 0)
-            {
-                Speech.Say("Negative effect: none");
-            }
-            else
-            {
-                var currentNegative = PerkCrafterReflection.GetCurrentNegative();
-                if (currentNegative != null)
+                string msg = $"Cornerstone Forge, finished. {_craftedPerks?.Count ?? 0} cornerstones crafted";
+                if (_craftedPerks != null && _craftedPerks.Count > 0)
                 {
-                    Speech.Say($"Negative effect: {currentNegative.Description}");
+                    string first = GetFinishedLabel(0);
+                    if (!string.IsNullOrEmpty(first))
+                        msg += ". " + first;
                 }
-                else
-                {
-                    Speech.Say("Negative effect: not selected");
-                }
+                return msg;
             }
+
+            string label = GetMainMenuLabel(0);
+            if (!string.IsNullOrEmpty(label))
+                return "Cornerstone Forge. " + label;
+            return "Cornerstone Forge";
         }
 
-        private void AnnounceResult()
+        protected override void AnnounceCurrentItem()
         {
-            var resultName = PerkCrafterReflection.GetResultName();
-            if (!string.IsNullOrEmpty(resultName))
-            {
-                Speech.Say($"Result: {resultName}");
-            }
-            else
-            {
-                Speech.Say("Result: unnamed");
-            }
-        }
-
-        private void AnnounceCraft()
-        {
-            var (amount, goodName) = PerkCrafterReflection.GetPrice();
-            int have = PerkCrafterReflection.GetStorageAmount();
-
-            if (PerkCrafterReflection.CanAffordCraft())
-            {
-                Speech.Say($"Craft, costs {amount} {goodName}, have {have}");
-            }
-            else
-            {
-                Speech.Say($"Craft, unavailable, need {amount} {goodName}, have {have}");
-            }
-        }
-
-        // ========================================
-        // MAIN MENU ACTIVATION
-        // ========================================
-
-        private void ActivateMainMenuItem()
-        {
-            var item = (MenuItem)_mainMenuIndex;
-
-            switch (item)
-            {
-                case MenuItem.Dialogue:
-                case MenuItem.Shards:
-                    // Read-only items, re-announce
-                    AnnounceMainMenuItem();
-                    break;
-
-                case MenuItem.Hook:
-                    OpenHookSubmenu();
-                    break;
-
-                case MenuItem.Positive:
-                    OpenPositiveSubmenu();
-                    break;
-
-                case MenuItem.Negative:
-                    OpenNegativeSubmenu();
-                    break;
-
-                case MenuItem.Result:
-                    OpenNameEdit();
-                    break;
-
-                case MenuItem.Craft:
-                    PerformCraft();
-                    break;
-            }
-        }
-
-        // ========================================
-        // SUBMENU NAVIGATION (Level 1)
-        // ========================================
-
-        private void OpenHookSubmenu()
-        {
-            if (_hookOptions == null || _hookOptions.Count == 0)
-            {
-                Speech.Say("No hooks available");
-                return;
-            }
-
-            _navigationLevel = LEVEL_SUBMENU;
-            _activeSubmenu = MenuItem.Hook;
-            _submenuIndex = PerkCrafterReflection.GetPickedHookIndex();
-            if (_submenuIndex < 0 || _submenuIndex >= _hookOptions.Count)
-                _submenuIndex = 0;
-
-            _search.Clear();
-            AnnounceSubmenuItem();
-        }
-
-        private void OpenPositiveSubmenu()
-        {
-            if (_positiveOptions == null || _positiveOptions.Count == 0)
-            {
-                Speech.Say("No positive effects available");
-                return;
-            }
-
-            _navigationLevel = LEVEL_SUBMENU;
-            _activeSubmenu = MenuItem.Positive;
-            _submenuIndex = PerkCrafterReflection.GetPickedPositiveIndex();
-            if (_submenuIndex < 0 || _submenuIndex >= _positiveOptions.Count)
-                _submenuIndex = 0;
-
-            _search.Clear();
-            AnnounceSubmenuItem();
-        }
-
-        private void OpenNegativeSubmenu()
-        {
-            if (_negativeOptions == null || _negativeOptions.Count == 0)
-            {
-                Speech.Say("No negative effects available");
-                return;
-            }
-
-            _navigationLevel = LEVEL_SUBMENU;
-            _activeSubmenu = MenuItem.Negative;
-
-            // For negative, index 0 is "None", then actual options
-            int pickedIndex = PerkCrafterReflection.GetPickedNegativeIndex();
-            if (pickedIndex < 0 || _negativeOptions == null)
-                _submenuIndex = 0;
-            else if (pickedIndex < _negativeOptions.Count)
-                _submenuIndex = pickedIndex + 1;  // +1 because "None" is at 0
-            else
-                _submenuIndex = 0;  // Fallback for out-of-range
-
-            _search.Clear();
-            AnnounceSubmenuItem();
-        }
-
-        private bool ProcessSubmenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateSubmenu(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateSubmenu(1);
-                    return true;
-
-                case KeyCode.Home:
-                    {
-                        int count = GetSubmenuItemCount();
-                        if (count > 0)
-                        {
-                            _submenuIndex = 0;
-                            AnnounceSubmenuItem();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    {
-                        int count = GetSubmenuItemCount();
-                        if (count > 0)
-                        {
-                            _submenuIndex = count - 1;
-                            AnnounceSubmenuItem();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.RightArrow:
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    SelectSubmenuItem();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                case KeyCode.Escape:
-                    ReturnToMainMenu();
-                    if (keyCode == KeyCode.Escape)
-                        InputBlocker.BlockCancelOnce = true;
-                    return true;
-
-                default:
-                    // Consume all other keys
-                    return true;
-            }
-        }
-
-        private int GetSubmenuItemCount()
-        {
-            switch (_activeSubmenu)
-            {
-                case MenuItem.Hook:
-                    return _hookOptions?.Count ?? 0;
-
-                case MenuItem.Positive:
-                    return _positiveOptions?.Count ?? 0;
-
-                case MenuItem.Negative:
-                    // +1 for "None" option at the start
-                    return (_negativeOptions?.Count ?? 0) + 1;
-
-                default:
-                    return 0;
-            }
-        }
-
-        private void NavigateSubmenu(int direction)
-        {
-            int count = GetSubmenuItemCount();
+            int count = GetItemCount();
             if (count == 0) return;
 
-            _submenuIndex = NavigationUtils.WrapIndex(_submenuIndex, direction, count);
-            AnnounceSubmenuItem();
-        }
-
-        private void AnnounceSubmenuItem()
-        {
-            switch (_activeSubmenu)
+            if (Level == 0)
             {
-                case MenuItem.Hook:
-                    if (_hookOptions != null && _submenuIndex < _hookOptions.Count)
-                    {
-                        var hook = _hookOptions[_submenuIndex];
-                        Speech.Say(hook.Description);
-                    }
-                    break;
-
-                case MenuItem.Positive:
-                    if (_positiveOptions != null && _submenuIndex < _positiveOptions.Count)
-                    {
-                        var effect = _positiveOptions[_submenuIndex];
-                        Speech.Say(effect.Description);
-                    }
-                    break;
-
-                case MenuItem.Negative:
-                    if (_submenuIndex == 0)
-                    {
-                        Speech.Say("None: skip negative effect");
-                    }
-                    else if (_negativeOptions != null && _submenuIndex - 1 < _negativeOptions.Count)
-                    {
-                        var effect = _negativeOptions[_submenuIndex - 1];
-                        Speech.Say(effect.Description);
-                    }
-                    break;
+                if (_isFinishedMode)
+                    AnnounceFinishedItem();
+                else
+                    AnnounceMainMenuItem();
+            }
+            else if (Level == 1)
+            {
+                AnnounceSubmenuItem();
             }
         }
 
-        private void SelectSubmenuItem()
+        protected override void OnClosed()
         {
-            bool success = false;
-
-            switch (_activeSubmenu)
-            {
-                case MenuItem.Hook:
-                    if (_hookOptions != null && _submenuIndex < _hookOptions.Count)
-                    {
-                        success = PerkCrafterReflection.SelectHook(_hookOptions[_submenuIndex]);
-                    }
-                    break;
-
-                case MenuItem.Positive:
-                    if (_positiveOptions != null && _submenuIndex < _positiveOptions.Count)
-                    {
-                        success = PerkCrafterReflection.SelectPositive(_positiveOptions[_submenuIndex]);
-                    }
-                    break;
-
-                case MenuItem.Negative:
-                    if (_submenuIndex == 0)
-                    {
-                        // "None" selected - clear negative
-                        success = PerkCrafterReflection.SelectNegative(null);
-                    }
-                    else if (_negativeOptions != null && _submenuIndex - 1 < _negativeOptions.Count)
-                    {
-                        success = PerkCrafterReflection.SelectNegative(_negativeOptions[_submenuIndex - 1]);
-                    }
-                    break;
-            }
-
-            if (success)
-            {
-                SoundManager.PlayButtonClick();
-                Speech.Say("Selected");
-
-                // Refresh data since selections affect the result
-                RefreshData();
-            }
-            else
-            {
-                SoundManager.PlayFailed();
-                Speech.Say("Cannot select");
-            }
-
-            ReturnToMainMenu();
-        }
-
-        private void ReturnToMainMenu()
-        {
-            _navigationLevel = LEVEL_MAIN;
-            _search.Clear();
-            AnnounceMainMenuItem();
+            _nameEditing = false;
+            ClearData();
         }
 
         // ========================================
-        // ISearchable Implementation
+        // SEARCH OVERRIDES
         // ========================================
 
-        public int SearchItemCount => _navigationLevel == LEVEL_SUBMENU ? GetSubmenuItemCount() : 0;
-        public int SearchCurrentIndex => _submenuIndex;
-
-        public string GetSearchLabel(int index)
+        protected override int SearchItemCount
         {
+            get
+            {
+                if (Level == 1) return GetSubmenuItemCount();
+                return 0;
+            }
+        }
+
+        protected override int SearchCurrentIndex => Level == 1 ? CurrentIndex : 0;
+
+        protected override string GetSearchName(int index)
+        {
+            if (Level != 1) return null;
+
             switch (_activeSubmenu)
             {
                 case MenuItem.Hook:
                     if (_hookOptions != null && index >= 0 && index < _hookOptions.Count)
                         return _hookOptions[index].Description;
                     break;
-
                 case MenuItem.Positive:
                     if (_positiveOptions != null && index >= 0 && index < _positiveOptions.Count)
                         return _positiveOptions[index].Description;
                     break;
-
                 case MenuItem.Negative:
                     if (index == 0) return "None";
                     int negIdx = index - 1;
@@ -658,10 +258,190 @@ namespace ATSAccessibility
             return null;
         }
 
-        public void SearchMoveTo(int index)
+        // ========================================
+        // MAIN MENU LABELS (Level 0)
+        // ========================================
+
+        private string GetMainMenuLabel(int index)
         {
-            _submenuIndex = index;
-            AnnounceSubmenuItem();
+            var item = (MenuItem)index;
+            switch (item)
+            {
+                case MenuItem.Dialogue:
+                {
+                    var dialogue = PerkCrafterReflection.GetNpcDialogue();
+                    return !string.IsNullOrEmpty(dialogue)
+                        ? $"Malzor Stonespine: {dialogue}"
+                        : "Malzor Stonespine";
+                }
+                case MenuItem.Shards:
+                {
+                    int usesLeft = PerkCrafterReflection.GetUsesLeft();
+                    int total = PerkCrafterReflection.GetTotalCharges();
+                    int crafted = PerkCrafterReflection.GetCraftedPerksCount();
+                    return usesLeft > 0
+                        ? $"Crafting {crafted + 1} of {total}"
+                        : "All crafts used";
+                }
+                case MenuItem.Hook:
+                {
+                    var currentHook = PerkCrafterReflection.GetCurrentHook();
+                    return currentHook != null
+                        ? $"Hook: {currentHook.Description}"
+                        : "Hook: not selected";
+                }
+                case MenuItem.Positive:
+                {
+                    var currentPositive = PerkCrafterReflection.GetCurrentPositive();
+                    return currentPositive != null
+                        ? $"Positive effect: {currentPositive.Description}"
+                        : "Positive effect: not selected";
+                }
+                case MenuItem.Negative:
+                {
+                    int negIndex = PerkCrafterReflection.GetPickedNegativeIndex();
+                    if (negIndex < 0)
+                        return "Negative effect: none";
+                    var currentNegative = PerkCrafterReflection.GetCurrentNegative();
+                    return currentNegative != null
+                        ? $"Negative effect: {currentNegative.Description}"
+                        : "Negative effect: not selected";
+                }
+                case MenuItem.Result:
+                {
+                    var resultName = PerkCrafterReflection.GetResultName();
+                    return !string.IsNullOrEmpty(resultName)
+                        ? $"Result: {resultName}"
+                        : "Result: unnamed";
+                }
+                case MenuItem.Craft:
+                {
+                    var (amount, goodName) = PerkCrafterReflection.GetPrice();
+                    int have = PerkCrafterReflection.GetStorageAmount();
+                    return PerkCrafterReflection.CanAffordCraft()
+                        ? $"Craft, costs {amount} {goodName}, have {have}"
+                        : $"Craft, unavailable, need {amount} {goodName}, have {have}";
+                }
+                default:
+                    return null;
+            }
+        }
+
+        private void AnnounceMainMenuItem()
+        {
+            string label = GetMainMenuLabel(CurrentIndex);
+            if (!string.IsNullOrEmpty(label))
+                Speech.Say(label);
+        }
+
+        // ========================================
+        // MAIN MENU ACTIVATION
+        // ========================================
+
+        private void ActivateMainMenuItem(int index)
+        {
+            var item = (MenuItem)index;
+            switch (item)
+            {
+                case MenuItem.Dialogue:
+                case MenuItem.Shards:
+                    AnnounceMainMenuItem();
+                    break;
+                case MenuItem.Result:
+                    OpenNameEdit();
+                    break;
+                case MenuItem.Craft:
+                    PerformCraft();
+                    break;
+            }
+        }
+
+        // ========================================
+        // SUBMENU (Level 1)
+        // ========================================
+
+        private int GetSubmenuItemCount()
+        {
+            switch (_activeSubmenu)
+            {
+                case MenuItem.Hook:
+                    return _hookOptions?.Count ?? 0;
+                case MenuItem.Positive:
+                    return _positiveOptions?.Count ?? 0;
+                case MenuItem.Negative:
+                    return (_negativeOptions?.Count ?? 0) + 1;
+                default:
+                    return 0;
+            }
+        }
+
+        private string GetSubmenuLabel(int index)
+        {
+            switch (_activeSubmenu)
+            {
+                case MenuItem.Hook:
+                    if (_hookOptions != null && index >= 0 && index < _hookOptions.Count)
+                        return _hookOptions[index].Description;
+                    break;
+                case MenuItem.Positive:
+                    if (_positiveOptions != null && index >= 0 && index < _positiveOptions.Count)
+                        return _positiveOptions[index].Description;
+                    break;
+                case MenuItem.Negative:
+                    if (index == 0) return "None: skip negative effect";
+                    int negIdx = index - 1;
+                    if (_negativeOptions != null && negIdx >= 0 && negIdx < _negativeOptions.Count)
+                        return _negativeOptions[negIdx].Description;
+                    break;
+            }
+            return null;
+        }
+
+        private void AnnounceSubmenuItem()
+        {
+            string label = GetSubmenuLabel(CurrentIndex);
+            if (!string.IsNullOrEmpty(label))
+                Speech.Say(label);
+        }
+
+        private void SelectSubmenuItem()
+        {
+            bool success = false;
+            int index = CurrentIndex;
+
+            switch (_activeSubmenu)
+            {
+                case MenuItem.Hook:
+                    if (_hookOptions != null && index < _hookOptions.Count)
+                        success = PerkCrafterReflection.SelectHook(_hookOptions[index]);
+                    break;
+                case MenuItem.Positive:
+                    if (_positiveOptions != null && index < _positiveOptions.Count)
+                        success = PerkCrafterReflection.SelectPositive(_positiveOptions[index]);
+                    break;
+                case MenuItem.Negative:
+                    if (index == 0)
+                        success = PerkCrafterReflection.SelectNegative(null);
+                    else if (_negativeOptions != null && index - 1 < _negativeOptions.Count)
+                        success = PerkCrafterReflection.SelectNegative(_negativeOptions[index - 1]);
+                    break;
+            }
+
+            if (success)
+            {
+                SoundManager.PlayButtonClick();
+                Speech.Say("Selected");
+                RefreshData();
+            }
+            else
+            {
+                SoundManager.PlayFailed();
+                Speech.Say("Cannot select");
+            }
+
+            SetLevel(0);
+            _search.Clear();
+            AnnounceMainMenuItem();
         }
 
         // ========================================
@@ -672,7 +452,7 @@ namespace ATSAccessibility
         {
             var currentName = PerkCrafterReflection.GetResultName() ?? "";
             _nameBuffer = new StringBuilder(currentName);
-            _navigationLevel = LEVEL_NAME_EDIT;
+            SetLevel(2);
             _nameEditing = true;
 
             Speech.Say($"Editing name: {currentName}. Type to replace, Alt R to randomize, Enter to confirm");
@@ -701,24 +481,20 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.R:
-                    // Alt+R to randomize name
                     if (modifiers.Alt && !modifiers.Shift && !modifiers.Control)
                     {
                         RandomizeName();
                         return true;
                     }
-                    // Plain R types the letter
                     goto default;
 
                 default:
-                    // Type letters (A-Z)
                     if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
                     {
                         char c = modifiers.Shift ?
                             (char)('A' + (keyCode - KeyCode.A)) :
                             (char)('a' + (keyCode - KeyCode.A));
 
-                        // If this is the first character after opening, clear existing name
                         if (_nameEditing)
                         {
                             _nameBuffer.Clear();
@@ -729,14 +505,12 @@ namespace ATSAccessibility
                         Speech.Say(_nameBuffer.ToString());
                         return true;
                     }
-                    // Space
                     else if (keyCode == KeyCode.Space)
                     {
                         _nameBuffer.Append(' ');
                         Speech.Say(_nameBuffer.ToString());
                         return true;
                     }
-                    // Consume all other keys
                     return true;
             }
         }
@@ -754,14 +528,14 @@ namespace ATSAccessibility
                 Speech.Say("Name unchanged");
             }
 
-            _navigationLevel = LEVEL_MAIN;
+            SetLevel(0);
             _nameEditing = false;
         }
 
         private void CancelNameEdit()
         {
             Speech.Say("Cancelled");
-            _navigationLevel = LEVEL_MAIN;
+            SetLevel(0);
             _nameEditing = false;
         }
 
@@ -799,14 +573,12 @@ namespace ATSAccessibility
             if (PerkCrafterReflection.PerformCraft())
             {
                 SoundManager.PlayButtonClick();
-
-                // Refresh data to check if we're now in finished mode
                 RefreshData();
 
                 if (_isFinishedMode)
                 {
                     Speech.Say("Crafted. All cornerstones complete");
-                    _mainMenuIndex = 0;
+                    CurrentIndex = 0;
                 }
                 else
                 {
@@ -823,66 +595,45 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // FINISHED MODE (All Charges Used)
+        // FINISHED MODE
         // ========================================
 
-        private bool ProcessFinishedModeKey(KeyCode keyCode)
+        private string GetFinishedLabel(int index)
         {
-            switch (keyCode)
+            if (index == 0)
             {
-                case KeyCode.UpArrow:
-                    NavigateFinished(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateFinished(1);
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys
-                    return true;
+                var dialogue = PerkCrafterReflection.GetNpcDialogue();
+                return !string.IsNullOrEmpty(dialogue)
+                    ? $"Malzor Stonespine: {dialogue}"
+                    : "Malzor Stonespine: That's all I can do for you.";
             }
-        }
 
-        private void NavigateFinished(int direction)
-        {
-            // Items: Dialogue + crafted perks
-            int itemCount = 1 + (_craftedPerks?.Count ?? 0);
-            if (itemCount == 0) return;
-
-            _mainMenuIndex = NavigationUtils.WrapIndex(_mainMenuIndex, direction, itemCount);
-            AnnounceFinishedItem();
+            int perkIndex = index - 1;
+            if (_craftedPerks != null && perkIndex < _craftedPerks.Count)
+            {
+                var perk = _craftedPerks[perkIndex];
+                return $"Crafted cornerstone {perkIndex + 1}: {perk.Name}. {perk.Description}";
+            }
+            return null;
         }
 
         private void AnnounceFinishedItem()
         {
-            if (_mainMenuIndex == 0)
-            {
-                // NPC dialogue for finished state
-                var dialogue = PerkCrafterReflection.GetNpcDialogue();
-                if (!string.IsNullOrEmpty(dialogue))
-                {
-                    Speech.Say($"Malzor Stonespine: {dialogue}");
-                }
-                else
-                {
-                    Speech.Say("Malzor Stonespine: That's all I can do for you.");
-                }
-            }
-            else
-            {
-                // Crafted perk
-                int perkIndex = _mainMenuIndex - 1;
-                if (_craftedPerks != null && perkIndex < _craftedPerks.Count)
-                {
-                    var perk = _craftedPerks[perkIndex];
-                    Speech.Say($"Crafted cornerstone {perkIndex + 1}: {perk.Name}. {perk.Description}");
-                }
-            }
+            string label = GetFinishedLabel(CurrentIndex);
+            if (!string.IsNullOrEmpty(label))
+                Speech.Say(label);
+        }
+
+        // ========================================
+        // HELPERS
+        // ========================================
+
+        private void ClearData()
+        {
+            _hookOptions?.Clear();
+            _positiveOptions?.Clear();
+            _negativeOptions?.Clear();
+            _craftedPerks?.Clear();
         }
     }
 }

@@ -7,8 +7,9 @@ namespace ATSAccessibility
     /// <summary>
     /// Virtual speech-only panel for selecting buildings to place.
     /// Two-panel system: left panel has categories, right panel has buildings in category.
+    /// Extends MenuBase for level-based navigation with cross-category building navigation.
     /// </summary>
-    public class BuildingMenuPanel : IKeyHandler, ISearchable
+    public class BuildingMenuPanel : MenuBase, IKeyHandler
     {
         /// <summary>
         /// Represents a building category (e.g., Housing, Food Production).
@@ -31,14 +32,7 @@ namespace ATSAccessibility
             public object Model { get; set; }
         }
 
-        private bool _isOpen = false;
         private List<Category> _categories = new List<Category>();
-        private int _currentCategoryIndex = 0;
-        private int _currentBuildingIndex = 0;
-        private bool _focusOnBuildings = false;  // Left panel (categories) vs right panel (buildings)
-
-        // Type-ahead search for cross-category building search
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Flat list of all buildings for cross-category search
         private List<(int categoryIndex, int buildingIndex, string name)> _allBuildings =
@@ -47,15 +41,23 @@ namespace ATSAccessibility
         // Reference to build mode controller for entering build mode
         private BuildModeController _buildModeController;
 
-        /// <summary>
-        /// Whether the building menu is currently open.
-        /// </summary>
-        public bool IsOpen => _isOpen;
+        // When closing for build placement, suppress "Building menu closed" speech
+        private bool _closingForBuild;
+
+        // ========================================
+        // IKEYHANDLER
+        // ========================================
 
         /// <summary>
         /// Whether this handler is currently active (IKeyHandler).
         /// </summary>
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
+
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) => ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // PUBLIC API
+        // ========================================
 
         /// <summary>
         /// Set the build mode controller reference.
@@ -66,160 +68,210 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Open the building menu and announce the first category.
-        /// Toggles closed if already open.
+        /// Toggle the building menu open/closed.
         /// </summary>
-        public void Open()
+        public void Toggle()
         {
-            if (_isOpen)
+            if (IsOpen)
             {
                 SoundManager.PlayButtonClick();
                 Close();
                 return;
             }
+            Open();
+        }
 
-            // Build category list from game data
-            RefreshCategories();
+        // ========================================
+        // MENUBASE ABSTRACTS
+        // ========================================
 
-            if (_categories.Count == 0)
+        protected override string OverlayName => "Building Menu";
+        protected override string EmptyMessage => "No buildings available";
+
+        protected override int GetItemCount()
+        {
+            if (Level == 0) return _categories.Count;
+            if (Level == 1) return _indices[0] < _categories.Count ? _categories[_indices[0]].Buildings.Count : 0;
+            return 0;
+        }
+
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0)
             {
-                Speech.Say("No buildings available");
+                if (index < 0 || index >= _categories.Count) return null;
+                return _categories[index].Name;
+            }
+            if (Level == 1)
+            {
+                if (_indices[0] < 0 || _indices[0] >= _categories.Count) return null;
+                var buildings = _categories[_indices[0]].Buildings;
+                if (index < 0 || index >= buildings.Count) return null;
+                return buildings[index].Name;
+            }
+            return null;
+        }
+
+        protected override void RefreshData()
+        {
+            RefreshCategories();
+        }
+
+        protected override EnterAction OnEnter(int index)
+        {
+            if (Level == 0)
+            {
+                if (index < 0 || index >= _categories.Count) return EnterAction.None;
+                var category = _categories[index];
+                if (category.Buildings.Count == 0)
+                {
+                    Speech.Say("No buildings in this category");
+                    return EnterAction.None;
+                }
+                return EnterAction.DrillDown;
+            }
+            return EnterAction.Action; // Level 1: select building
+        }
+
+        // ========================================
+        // MENUBASE VIRTUAL OVERRIDES
+        // ========================================
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 1)
+                SelectBuilding();
+        }
+
+        protected override bool CanDrillDown(int index)
+        {
+            if (Level == 0)
+            {
+                if (index < 0 || index >= _categories.Count) return false;
+                return _categories[index].Buildings.Count > 0;
+            }
+            return false; // Level 1: no deeper drilling
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            // Cross-category Up/Down at building level
+            if (Level == 1)
+            {
+                if (keyCode == KeyCode.UpArrow)
+                {
+                    NavigateBuildingAcrossCategories(-1);
+                    return true;
+                }
+                if (keyCode == KeyCode.DownArrow)
+                {
+                    NavigateBuildingAcrossCategories(1);
+                    return true;
+                }
+                if (keyCode == KeyCode.Home)
+                {
+                    JumpToBuilding(0);
+                    return true;
+                }
+                if (keyCode == KeyCode.End)
+                {
+                    var cat = _categories[_indices[0]];
+                    JumpToBuilding(cat.Buildings.Count - 1);
+                    return true;
+                }
+            }
+
+            if (keyCode == KeyCode.Escape)
+            {
+                SoundManager.PlayButtonClick();
+                Close();
+                return true;
+            }
+
+            return null;
+        }
+
+        protected override EscapeAction OnEscape()
+        {
+            // Handled in HandleSpecialKey
+            return EscapeAction.PassThrough;
+        }
+
+        protected override void AnnounceCurrentItem()
+        {
+            if (Level == 0)
+            {
+                AnnounceCurrentCategory();
                 return;
             }
-
-            _isOpen = true;
-            _currentCategoryIndex = 0;
-            _currentBuildingIndex = 0;
-            _focusOnBuildings = false;
-            _search.Clear();
-
-            SoundManager.PlayPopupShow();
-            // Announce menu opening with first category in one speech to avoid cutoff
-            var category = _categories[_currentCategoryIndex];
-            int buildingCount = category.Buildings.Count;
-            Speech.Say($"Building Menu. {category.Name}: {buildingCount}");
-            Debug.Log("[ATSAccessibility] Building menu opened");
-        }
-
-        /// <summary>
-        /// Close the building menu.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            InputBlocker.BlockCancelOnce = true;  // Block the Cancel action that will fire this frame
-            _categories.Clear();
-            _search.Clear();
-            Speech.Say("Building menu closed");
-            Debug.Log("[ATSAccessibility] Building menu closed");
-        }
-
-        /// <summary>
-        /// Process a key event for the building menu (IKeyHandler).
-        /// Returns true if the key was handled.
-        /// </summary>
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
+            if (Level == 1)
             {
-                case KeyCode.UpArrow:
-                    if (_focusOnBuildings)
-                        NavigateBuildingAcrossCategories(-1);
-                    else
-                        NavigateCategory(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    if (_focusOnBuildings)
-                        NavigateBuildingAcrossCategories(1);
-                    else
-                        NavigateCategory(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_focusOnBuildings)
-                        JumpToBuilding(0);
-                    else
-                        JumpToCategory(0);
-                    return true;
-
-                case KeyCode.End:
-                    if (_focusOnBuildings)
-                    {
-                        var endCat = _categories[_currentCategoryIndex];
-                        JumpToBuilding(endCat.Buildings.Count - 1);
-                    }
-                    else
-                        JumpToCategory(_categories.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    if (_focusOnBuildings)
-                        SelectBuilding();
-                    else
-                        EnterBuildings();
-                    return true;
-
-                case KeyCode.RightArrow:
-                    EnterBuildings();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    ReturnToCategories();
-                    return true;
-
-                case KeyCode.Escape:
-                    SoundManager.PlayButtonClick();
-                    Close();
-                    return true;
-
-                default:
-                    return true;  // Consume all other keys while panel is open
+                AnnounceCurrentBuilding();
+                return;
             }
         }
 
-        /// <summary>
-        /// Navigate categories (left panel) with Up/Down.
-        /// </summary>
-        private void NavigateCategory(int direction)
+        protected override string GetOpenAnnouncement()
         {
-            if (!_isOpen || _categories.Count == 0) return;
-
-            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
-            _currentBuildingIndex = 0;  // Reset building index when changing category
-            AnnounceCurrentCategory();
+            if (_categories.Count == 0) return EmptyMessage;
+            var category = _categories[0];
+            return $"Building Menu. {category.Name}: {category.Buildings.Count}";
         }
 
-        /// <summary>
-        /// Jump to a specific category index (Home/End).
-        /// </summary>
-        private void JumpToCategory(int index)
+        protected override void OnOpened()
         {
-            if (_categories.Count == 0) return;
-            _currentCategoryIndex = Mathf.Clamp(index, 0, _categories.Count - 1);
-            _currentBuildingIndex = 0;
-            AnnounceCurrentCategory();
+            SoundManager.PlayPopupShow();
         }
 
-        /// <summary>
-        /// Jump to a specific building index (Home/End).
-        /// </summary>
-        private void JumpToBuilding(int index)
+        protected override void OnClosed()
         {
-            if (!_focusOnBuildings) return;
-            var category = _categories[_currentCategoryIndex];
-            if (category.Buildings.Count == 0) return;
-            _currentBuildingIndex = Mathf.Clamp(index, 0, category.Buildings.Count - 1);
+            _categories.Clear();
+            if (!_closingForBuild)
+            {
+                InputBlocker.BlockCancelOnce = true;
+                Speech.Say("Building menu closed");
+            }
+            _closingForBuild = false;
+        }
+
+        // ========================================
+        // SEARCH (cross-category via ISearchable)
+        // ========================================
+
+        protected override int SearchItemCount => _allBuildings.Count;
+
+        protected override int SearchCurrentIndex
+        {
+            get
+            {
+                for (int i = 0; i < _allBuildings.Count; i++)
+                {
+                    if (_allBuildings[i].categoryIndex == _indices[0] &&
+                        _allBuildings[i].buildingIndex == CurrentIndex)
+                        return i;
+                }
+                return 0;
+            }
+        }
+
+        protected override string GetSearchName(int index)
+        {
+            if (index < 0 || index >= _allBuildings.Count) return null;
+            return _allBuildings[index].name;
+        }
+
+        protected override void SearchMoveTo(int index)
+        {
+            if (index < 0 || index >= _allBuildings.Count) return;
+            _indices[0] = _allBuildings[index].categoryIndex;
+            SetLevel(1);
+            CurrentIndex = _allBuildings[index].buildingIndex;
             AnnounceCurrentBuilding();
         }
+
+        // ========================================
+        // CROSS-CATEGORY NAVIGATION
+        // ========================================
 
         /// <summary>
         /// Navigate buildings, flowing into the next/previous category at boundaries.
@@ -227,103 +279,56 @@ namespace ATSAccessibility
         /// </summary>
         private void NavigateBuildingAcrossCategories(int direction)
         {
-            if (!_isOpen || !_focusOnBuildings) return;
-
-            var category = _categories[_currentCategoryIndex];
+            var category = _categories[_indices[0]];
             if (category.Buildings.Count == 0) return;
 
-            int newIndex = _currentBuildingIndex + direction;
+            int newIndex = CurrentIndex + direction;
 
             if (newIndex >= category.Buildings.Count)
             {
                 // Past end of category - move to next category's first building
-                _currentCategoryIndex = (_currentCategoryIndex + 1) % _categories.Count;
-                _currentBuildingIndex = 0;
+                _indices[0] = (_indices[0] + 1) % _categories.Count;
+                CurrentIndex = 0;
                 AnnounceCategoryAndBuilding();
             }
             else if (newIndex < 0)
             {
                 // Before start of category - move to previous category's last building
-                _currentCategoryIndex = (_currentCategoryIndex - 1 + _categories.Count) % _categories.Count;
-                _currentBuildingIndex = _categories[_currentCategoryIndex].Buildings.Count - 1;
+                _indices[0] = (_indices[0] - 1 + _categories.Count) % _categories.Count;
+                CurrentIndex = _categories[_indices[0]].Buildings.Count - 1;
                 AnnounceCategoryAndBuilding();
             }
             else
             {
-                _currentBuildingIndex = newIndex;
+                CurrentIndex = newIndex;
                 AnnounceCurrentBuilding();
             }
         }
 
         /// <summary>
-        /// Announce category name followed by current building when crossing category boundaries.
+        /// Jump to a specific building index (Home/End).
         /// </summary>
-        private void AnnounceCategoryAndBuilding()
+        private void JumpToBuilding(int index)
         {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (_currentBuildingIndex < 0 || _currentBuildingIndex >= category.Buildings.Count) return;
-
-            var building = category.Buildings[_currentBuildingIndex];
-            var size = GameReflection.GetBuildingSize(building.Model);
-            string sizeText = $"{size.x}x{size.y}";
-            string costs = GameReflection.GetBuildingCosts(building.Model);
-            string costsText = !string.IsNullOrEmpty(costs) ? $" {costs}." : "";
-            string description = GameReflection.GetBuildingDescription(building.Model) ?? "";
-            bool canConstruct = GameReflection.CanConstructBuilding(building.Model);
-            string status = canConstruct ? "" : ", at maximum";
-
-            string announcement = $"{category.Name}. {building.Name}{status}, {sizeText}.{costsText} {description}";
-            Speech.Say(announcement);
-            Debug.Log($"[ATSAccessibility] Building (cross-category): {category.Name} > {building.Name}{status}, {sizeText}");
-        }
-
-        /// <summary>
-        /// Enter buildings mode (Enter or Right arrow).
-        /// </summary>
-        private void EnterBuildings()
-        {
-            if (!_isOpen) return;
-
-            var category = _categories[_currentCategoryIndex];
-
-            if (category.Buildings.Count == 0)
-            {
-                Speech.Say("No buildings in this category");
-                return;
-            }
-
-            _focusOnBuildings = true;
-            _currentBuildingIndex = 0;
+            var category = _categories[_indices[0]];
+            if (category.Buildings.Count == 0) return;
+            CurrentIndex = Mathf.Clamp(index, 0, category.Buildings.Count - 1);
             AnnounceCurrentBuilding();
         }
 
-        /// <summary>
-        /// Return to categories (Left arrow).
-        /// </summary>
-        private void ReturnToCategories()
-        {
-            if (!_isOpen) return;
-
-            if (_focusOnBuildings)
-            {
-                _focusOnBuildings = false;
-                AnnounceCurrentCategory();
-            }
-        }
+        // ========================================
+        // ACTIONS
+        // ========================================
 
         /// <summary>
         /// Select the current building and enter build mode.
         /// </summary>
         private void SelectBuilding()
         {
-            if (!_isOpen || !_focusOnBuildings) return;
+            var category = _categories[_indices[0]];
+            if (CurrentIndex < 0 || CurrentIndex >= category.Buildings.Count) return;
 
-            var category = _categories[_currentCategoryIndex];
-            if (_currentBuildingIndex < 0 || _currentBuildingIndex >= category.Buildings.Count) return;
-
-            var building = category.Buildings[_currentBuildingIndex];
+            var building = category.Buildings[CurrentIndex];
 
             // Check if building can still be constructed
             if (!GameReflection.CanConstructBuilding(building.Model))
@@ -334,8 +339,8 @@ namespace ATSAccessibility
 
             // Close menu and enter build mode
             SoundManager.PlayButtonClick();
-            _isOpen = false;
-            _categories.Clear();
+            _closingForBuild = true;
+            Close();
 
             if (_buildModeController != null)
             {
@@ -347,6 +352,10 @@ namespace ATSAccessibility
                 Speech.Say("Build mode unavailable");
             }
         }
+
+        // ========================================
+        // DATA
+        // ========================================
 
         /// <summary>
         /// Refresh the category list with current game data.
@@ -444,18 +453,22 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Building menu refreshed: {_categories.Count} categories, {unlockedCount} buildings");
         }
 
+        // ========================================
+        // ANNOUNCEMENTS
+        // ========================================
+
         /// <summary>
         /// Announce the current category (left panel).
         /// </summary>
         private void AnnounceCurrentCategory()
         {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
+            if (_indices[0] < 0 || _indices[0] >= _categories.Count) return;
 
-            var category = _categories[_currentCategoryIndex];
+            var category = _categories[_indices[0]];
             int buildingCount = category.Buildings.Count;
 
             Speech.Say($"{category.Name}: {buildingCount}");
-            Debug.Log($"[ATSAccessibility] Category {_currentCategoryIndex + 1}/{_categories.Count}: {category.Name}, {buildingCount} buildings");
+            Debug.Log($"[ATSAccessibility] Category {_indices[0] + 1}/{_categories.Count}: {category.Name}, {buildingCount} buildings");
         }
 
         /// <summary>
@@ -463,10 +476,10 @@ namespace ATSAccessibility
         /// </summary>
         private void AnnounceCurrentBuilding()
         {
-            var category = _categories[_currentCategoryIndex];
-            if (_currentBuildingIndex < 0 || _currentBuildingIndex >= category.Buildings.Count) return;
+            var category = _categories[_indices[0]];
+            if (CurrentIndex < 0 || CurrentIndex >= category.Buildings.Count) return;
 
-            var building = category.Buildings[_currentBuildingIndex];
+            var building = category.Buildings[CurrentIndex];
 
             // Get building size
             var size = GameReflection.GetBuildingSize(building.Model);
@@ -489,40 +502,28 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Building: {building.Name}{status}, {sizeText}");
         }
 
-        // ========================================
-        // ISEARCHABLE
-        // ========================================
-
-        int ISearchable.SearchItemCount => _allBuildings.Count;
-
-        int ISearchable.SearchCurrentIndex
+        /// <summary>
+        /// Announce category name followed by current building when crossing category boundaries.
+        /// </summary>
+        private void AnnounceCategoryAndBuilding()
         {
-            get
-            {
-                // Find flat index for current category+building position
-                for (int i = 0; i < _allBuildings.Count; i++)
-                {
-                    if (_allBuildings[i].categoryIndex == _currentCategoryIndex &&
-                        _allBuildings[i].buildingIndex == _currentBuildingIndex)
-                        return i;
-                }
-                return 0;
-            }
-        }
+            if (_indices[0] < 0 || _indices[0] >= _categories.Count) return;
 
-        string ISearchable.GetSearchLabel(int index)
-        {
-            if (index < 0 || index >= _allBuildings.Count) return null;
-            return _allBuildings[index].name;
-        }
+            var category = _categories[_indices[0]];
+            if (CurrentIndex < 0 || CurrentIndex >= category.Buildings.Count) return;
 
-        void ISearchable.SearchMoveTo(int index)
-        {
-            if (index < 0 || index >= _allBuildings.Count) return;
-            _currentCategoryIndex = _allBuildings[index].categoryIndex;
-            _currentBuildingIndex = _allBuildings[index].buildingIndex;
-            _focusOnBuildings = true;
-            AnnounceCurrentBuilding();
+            var building = category.Buildings[CurrentIndex];
+            var size = GameReflection.GetBuildingSize(building.Model);
+            string sizeText = $"{size.x}x{size.y}";
+            string costs = GameReflection.GetBuildingCosts(building.Model);
+            string costsText = !string.IsNullOrEmpty(costs) ? $" {costs}." : "";
+            string description = GameReflection.GetBuildingDescription(building.Model) ?? "";
+            bool canConstruct = GameReflection.CanConstructBuilding(building.Model);
+            string status = canConstruct ? "" : ", at maximum";
+
+            string announcement = $"{category.Name}. {building.Name}{status}, {sizeText}.{costsText} {description}";
+            Speech.Say(announcement);
+            Debug.Log($"[ATSAccessibility] Building (cross-category): {category.Name} > {building.Name}{status}, {sizeText}");
         }
     }
 }

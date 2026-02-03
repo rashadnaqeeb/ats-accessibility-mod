@@ -5,305 +5,181 @@ using UnityEngine;
 namespace ATSAccessibility
 {
     /// <summary>
-    /// Accessible overlay for the Recipes popup (F2 Menu Hub → Recipes).
+    /// Accessible overlay for the Recipes popup (F2 Menu Hub -> Recipes).
     /// Provides keyboard navigation of recipes organized by produced good,
     /// with controls for global production limits and recipe toggling.
+    ///
+    /// Level 0 = goods, Level 1 = recipes for the selected good.
     /// </summary>
-    public class RecipesOverlay : IKeyHandler, ISearchable
+    public class RecipesOverlay : MenuBase, IKeyHandler
     {
-        // Navigation levels
-        private const int LEVEL_GOODS = 0;
-        private const int LEVEL_RECIPES = 1;
-
-        // Navigation state
-        private bool _isOpen;
-        private int _navigationLevel;
-        private int _goodIndex;
-        private int _recipeIndex;
-        private bool _showAllGoods;  // false = unlocked buildings only, true = include locked buildings
-
         // Data
         private List<RecipesReflection.GoodInfo> _goods;
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+        private bool _showAllGoods;  // false = unlocked buildings only, true = include locked buildings
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        /// <summary>
-        /// Whether this handler is currently active.
-        /// </summary>
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        /// <summary>
-        /// Process a key event.
-        /// </summary>
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Recipes";
+        protected override string EmptyMessage => "No goods available";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
+            switch (Level)
+            {
+                case 0: return _goods?.Count ?? 0;
+                case 1: return GetCurrentGood()?.Recipes.Count ?? 0;
+                default: return 0;
+            }
+        }
 
-            // Modifier shortcuts BEFORE search handling
+        protected override string GetLabel(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    if (_goods == null || index < 0 || index >= _goods.Count) return null;
+                    var good = _goods[index];
+                    var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
+                    return $"{good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}";
+
+                case 1:
+                    var parentGood = GetCurrentGood();
+                    if (parentGood == null || index < 0 || index >= parentGood.Recipes.Count) return null;
+                    var recipe = parentGood.Recipes[index];
+
+                    string workshopPart = recipe.IsBuilt && recipe.WorkshopIndex > 0
+                        ? $"{recipe.WorkshopName} #{recipe.WorkshopIndex}"
+                        : recipe.WorkshopName;
+
+                    int gradeLevel = RecipesReflection.GetRecipeGradeLevel(recipe.RecipeModel);
+                    string stars = gradeLevel == 1 ? ", 1 star" : $", {gradeLevel} stars";
+
+                    string status = recipe.IsBuilt
+                        ? (recipe.IsActive ? "active" : "inactive")
+                        : "not built";
+
+                    return $"{workshopPart}{stars}, {status}";
+
+                default: return null;
+            }
+        }
+
+        protected override void RefreshData()
+        {
+            _goods = RecipesReflection.GetAllGoods(_showAllGoods);
+        }
+
+        protected override EnterAction OnEnter(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    var good = GetCurrentGood();
+                    if (good == null || good.Recipes.Count == 0)
+                    {
+                        Speech.Say("No recipes for this good");
+                        return EnterAction.None;
+                    }
+                    return EnterAction.DrillDown;
+
+                case 1:
+                    return EnterAction.Action;
+
+                default:
+                    return EnterAction.None;
+            }
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 1)
+                AnnounceRecipeFull();
+        }
+
+        protected override void OnSpace(int index)
+        {
+            if (Level == 1)
+                ToggleCurrentRecipe();
+        }
+
+        protected override void OnAdjust(int index, int dir, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (Level == 0)
+                AdjustLimit(dir * (modifiers.Shift ? 10 : 1));
+        }
+
+        // ========================================
+        // SPECIAL KEYS
+        // ========================================
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
             if (modifiers.Control && keyCode == KeyCode.T)
             {
                 ToggleShowAll();
                 return true;
             }
 
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
+            // Plus key (non-keypad) handled here because base only maps Equals for +
+            if (keyCode == KeyCode.Plus && Level == 0)
             {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_navigationLevel == LEVEL_GOODS)
-                    {
-                        if (_goods != null && _goods.Count > 0)
-                        {
-                            _goodIndex = 0;
-                            AnnounceGood();
-                        }
-                    }
-                    else
-                    {
-                        var homeGood = GetCurrentGood();
-                        if (homeGood != null && homeGood.Recipes.Count > 0)
-                        {
-                            _recipeIndex = 0;
-                            AnnounceRecipe();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_navigationLevel == LEVEL_GOODS)
-                    {
-                        if (_goods != null && _goods.Count > 0)
-                        {
-                            _goodIndex = _goods.Count - 1;
-                            AnnounceGood();
-                        }
-                    }
-                    else
-                    {
-                        var endGood = GetCurrentGood();
-                        if (endGood != null && endGood.Recipes.Count > 0)
-                        {
-                            _recipeIndex = endGood.Recipes.Count - 1;
-                            AnnounceRecipe();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    OnEnter();
-                    return true;
-
-                case KeyCode.RightArrow:
-                    if (_navigationLevel == LEVEL_GOODS)
-                    {
-                        OnEnter();
-                    }
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    NavigateBack();
-                    return true;
-
-                case KeyCode.Escape:
-                    if (_navigationLevel == LEVEL_RECIPES)
-                    {
-                        NavigateBack();
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
-                    // Pass to game to close popup (OnPopupHidden will close our overlay)
-                    return false;
-
-                case KeyCode.Space:
-                    if (_navigationLevel == LEVEL_RECIPES)
-                    {
-                        ToggleCurrentRecipe();
-                    }
-                    return true;
-
-                case KeyCode.Plus:
-                case KeyCode.KeypadPlus:
-                case KeyCode.Equals:
-                    if (_navigationLevel == LEVEL_GOODS)
-                    {
-                        AdjustLimit(GetLimitDelta(modifiers));
-                    }
-                    return true;
-
-                case KeyCode.Minus:
-                case KeyCode.KeypadMinus:
-                    if (_navigationLevel == LEVEL_GOODS)
-                    {
-                        AdjustLimit(-GetLimitDelta(modifiers));
-                    }
-                    return true;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
+                AdjustLimit(modifiers.Shift ? 10 : 1);
+                return true;
             }
+
+            return null;
+        }
+
+        // ========================================
+        // SEARCH
+        // ========================================
+
+        protected override int SearchItemCount =>
+            Level == 0 ? (_goods?.Count ?? 0) : 0;
+
+        protected override string GetSearchName(int index)
+        {
+            if (Level == 0 && _goods != null && index >= 0 && index < _goods.Count)
+                return _goods[index].DisplayName;
+            return null;
         }
 
         // ========================================
         // LIFECYCLE
         // ========================================
 
-        /// <summary>
-        /// Open the overlay.
-        /// </summary>
-        public void Open()
+        protected override string GetOpenAnnouncement()
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _navigationLevel = LEVEL_GOODS;
-            _goodIndex = 0;
-            _recipeIndex = 0;
-            _search.Clear();
-
-            RefreshData();
+            var modeLabel = _showAllGoods ? "Showing all recipes" : "Showing available recipes";
 
             if (_goods == null || _goods.Count == 0)
-            {
-                Speech.Say("Showing available recipes. Press Control T for all recipes. No goods available");
-            }
-            else
-            {
-                var good = GetCurrentGood();
-                var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
-                Speech.Say($"Showing available recipes. Press Control T for all recipes. {good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}");
-            }
+                return $"{modeLabel}. {EmptyMessage}";
+
+            var good = _goods[0];
+            var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
+            return $"{modeLabel}. {good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}";
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _search.Clear();
-            ClearData();
-
-            Debug.Log("[ATSAccessibility] RecipesOverlay closed");
-        }
-
-        /// <summary>
-        /// Refresh the data from the game.
-        /// </summary>
-        private void RefreshData()
-        {
-            _goods = RecipesReflection.GetAllGoods(_showAllGoods);
-        }
-
-        /// <summary>
-        /// Clear cached data.
-        /// </summary>
-        private void ClearData()
+        protected override void OnClosed()
         {
             _goods?.Clear();
             _goods = null;
         }
 
         // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_navigationLevel == LEVEL_GOODS)
-            {
-                NavigateGoods(direction);
-            }
-            else
-            {
-                NavigateRecipes(direction);
-            }
-        }
-
-        private void NavigateGoods(int direction)
-        {
-            if (_goods == null || _goods.Count == 0) return;
-
-            _goodIndex = NavigationUtils.WrapIndex(_goodIndex, direction, _goods.Count);
-            AnnounceGood();
-        }
-
-        private void NavigateRecipes(int direction)
-        {
-            var currentGood = GetCurrentGood();
-            if (currentGood == null || currentGood.Recipes.Count == 0) return;
-
-            _recipeIndex = NavigationUtils.WrapIndex(_recipeIndex, direction, currentGood.Recipes.Count);
-            AnnounceRecipe();
-        }
-
-        private void NavigateBack()
-        {
-            if (_navigationLevel == LEVEL_RECIPES)
-            {
-                _navigationLevel = LEVEL_GOODS;
-                Speech.Say("Goods");
-                AnnounceGood();
-            }
-            // At top level - do nothing, let popup handle its own closing
-        }
-
-        private void OnEnter()
-        {
-            if (_navigationLevel == LEVEL_GOODS)
-            {
-                // Expand to recipes
-                var currentGood = GetCurrentGood();
-                if (currentGood == null)
-                {
-                    Speech.Say("No good selected");
-                    return;
-                }
-
-                if (currentGood.Recipes.Count == 0)
-                {
-                    Speech.Say("No recipes for this good");
-                    return;
-                }
-
-                _navigationLevel = LEVEL_RECIPES;
-                _recipeIndex = 0;
-                Speech.Say("Recipes");
-                AnnounceRecipe();
-            }
-            else
-            {
-                // Announce full recipe details
-                AnnounceRecipeFull();
-            }
-        }
-
-        // ========================================
         // LIMIT CONTROL
         // ========================================
-
-        private int GetLimitDelta(KeyboardManager.KeyModifiers modifiers)
-        {
-            if (modifiers.Shift)
-                return 10;
-            return 1;
-        }
 
         private void AdjustLimit(int delta)
         {
@@ -376,15 +252,15 @@ namespace ATSAccessibility
             RefreshData();
 
             // Reset navigation
-            _goodIndex = 0;
-            _recipeIndex = 0;
-            _navigationLevel = LEVEL_GOODS;
+            SetLevel(0);
+            _indices[0] = 0;
+            _indices[1] = 0;
 
             var modeLabel = _showAllGoods ? "Showing all recipes" : "Showing available recipes";
 
             if (_goods != null && _goods.Count > 0)
             {
-                var good = GetCurrentGood();
+                var good = _goods[0];
                 var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
                 Speech.Say($"{modeLabel}. {good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}");
             }
@@ -395,44 +271,22 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        int ISearchable.SearchItemCount =>
-            _navigationLevel == LEVEL_GOODS ? (_goods?.Count ?? 0) : 0;
-
-        int ISearchable.SearchCurrentIndex =>
-            _navigationLevel == LEVEL_GOODS ? _goodIndex : 0;
-
-        string ISearchable.GetSearchLabel(int index)
-        {
-            if (_goods == null || index < 0 || index >= _goods.Count) return null;
-            return _goods[index].DisplayName;
-        }
-
-        void ISearchable.SearchMoveTo(int index)
-        {
-            _goodIndex = index;
-            AnnounceGood();
-        }
-
-        // ========================================
         // DATA ACCESS
         // ========================================
 
         private RecipesReflection.GoodInfo GetCurrentGood()
         {
-            if (_goods == null || _goodIndex < 0 || _goodIndex >= _goods.Count)
+            if (_goods == null || _indices[0] < 0 || _indices[0] >= _goods.Count)
                 return null;
-            return _goods[_goodIndex];
+            return _goods[_indices[0]];
         }
 
         private RecipesReflection.RecipeInfo GetCurrentRecipe()
         {
             var good = GetCurrentGood();
-            if (good == null || _recipeIndex < 0 || _recipeIndex >= good.Recipes.Count)
+            if (good == null || CurrentIndex < 0 || CurrentIndex >= good.Recipes.Count)
                 return null;
-            return good.Recipes[_recipeIndex];
+            return good.Recipes[CurrentIndex];
         }
 
         // ========================================
@@ -440,52 +294,8 @@ namespace ATSAccessibility
         // ========================================
 
         /// <summary>
-        /// Announce the current good.
-        /// Format: "{GoodName}, {StorageAmount} in storage, {LimitInfo}"
-        /// </summary>
-        private void AnnounceGood()
-        {
-            var good = GetCurrentGood();
-            if (good == null)
-            {
-                Speech.Say("No good selected");
-                return;
-            }
-
-            var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
-            Speech.Say($"{good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}");
-        }
-
-        /// <summary>
-        /// Announce the current recipe (brief).
-        /// Format: "{WorkshopName}#{Index}: {Status}"
-        /// </summary>
-        private void AnnounceRecipe()
-        {
-            var recipe = GetCurrentRecipe();
-            if (recipe == null)
-            {
-                Speech.Say("No recipe selected");
-                return;
-            }
-
-            string workshopPart = recipe.IsBuilt && recipe.WorkshopIndex > 0
-                ? $"{recipe.WorkshopName} #{recipe.WorkshopIndex}"
-                : recipe.WorkshopName;
-
-            int gradeLevel = RecipesReflection.GetRecipeGradeLevel(recipe.RecipeModel);
-            string stars = gradeLevel == 1 ? ", 1 star" : $", {gradeLevel} stars";
-
-            string status = recipe.IsBuilt
-                ? (recipe.IsActive ? "active" : "inactive")
-                : "not built";
-
-            Speech.Say($"{workshopPart}{stars}, {status}");
-        }
-
-        /// <summary>
         /// Announce the current recipe in full encyclopedia format.
-        /// Format: "{WorkshopName}: {Output} x {Amount}: {Inputs} {Time}{Stars}. {Status}"
+        /// Format: "{OutputName} x {Amount}: {Inputs} {Time}{Stars}"
         /// </summary>
         private void AnnounceRecipeFull()
         {
@@ -510,6 +320,5 @@ namespace ATSAccessibility
 
             Speech.Say($"{outputName} x {outputAmount}: {inputs} {time}{stars}");
         }
-
     }
 }

@@ -60,7 +60,7 @@ namespace ATSAccessibility
         }
 
         public bool IsOpen => _isOpen;
-        protected bool IsSuspended => _suspended;
+        public bool IsSuspended => _suspended;
         protected int ItemCount => GetItemCount();
 
         // ========================================

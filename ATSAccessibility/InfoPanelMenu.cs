@@ -6,7 +6,7 @@ namespace ATSAccessibility
     /// Unified menu for accessing information panels (Stats, Resources, Mysteries, Villagers, Announcements).
     /// Opened with F1 from the settlement map.
     /// </summary>
-    public class InfoPanelMenu : IKeyHandler, ISearchable
+    public class InfoPanelMenu : MenuBase, IKeyHandler
     {
         private enum MenuPanel
         {
@@ -27,27 +27,24 @@ namespace ATSAccessibility
         private readonly WorkersPanel _workersPanel;
         private readonly AnnouncementsSettingsPanel _announcementsPanel;
 
-        private bool _isOpen;
-        private int _currentIndex;
         private MenuPanel? _activeChildPanel;
 
-        // Type-ahead search for root menu
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
-
-        /// <summary>
-        /// Whether the info panel menu is currently open.
-        /// </summary>
-        public bool IsOpen => _isOpen;
-
-        /// <summary>
-        /// Whether this handler is currently active (IKeyHandler).
-        /// </summary>
-        public bool IsActive => _isOpen;
+        // Flag to suppress announcement when opening directly to a child panel
+        private bool _directOpen;
 
         /// <summary>
         /// Whether a child panel (Stats, Resources, or Mysteries) is currently open.
         /// </summary>
         public bool IsInChildPanel => _activeChildPanel.HasValue;
+
+        // ========================================
+        // IKeyHandler Implementation
+        // ========================================
+
+        public bool IsActive => IsOpen;
+
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
         public InfoPanelMenu(StatsPanel statsPanel, SettlementResourcePanel resourcePanel, MysteriesPanel mysteriesPanel, VillagersPanel villagersPanel, WorkersPanel workersPanel, AnnouncementsSettingsPanel announcementsPanel)
         {
@@ -59,90 +56,37 @@ namespace ATSAccessibility
             _announcementsPanel = announcementsPanel;
         }
 
-        /// <summary>
-        /// Open the info panel menu. If already open, closes it.
-        /// </summary>
-        public void Open()
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Information panels";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount() => _menuLabels.Length;
+
+        protected override string GetLabel(int index)
         {
-            if (_isOpen)
-            {
-                SoundManager.PlayButtonClick();
-                Close();
-                return;
-            }
-
-            _isOpen = true;
-            _currentIndex = 0;
-            _activeChildPanel = null;
-            _search.Clear();
-
-            SoundManager.PlayPopupShow();
-            AnnounceCurrentItem(includePrefix: true);
-            Debug.Log("[ATSAccessibility] Info panel menu opened");
+            if (index < 0 || index >= _menuLabels.Length) return null;
+            return _menuLabels[index];
         }
 
-        /// <summary>
-        /// Open a specific panel directly, bypassing the menu.
-        /// If already open with the same panel, closes everything (toggle behavior).
-        /// </summary>
-        public void OpenStatsPanel() => OpenPanelDirect(MenuPanel.Stats);
-        public void OpenModifiersPanel() => OpenPanelDirect(MenuPanel.Modifiers);
-        public void OpenVillagersPanel() => OpenPanelDirect(MenuPanel.Villagers);
-        public void OpenWorkersPanel() => OpenPanelDirect(MenuPanel.Workers);
+        protected override void RefreshData() { } // Static list
 
-        private void OpenPanelDirect(MenuPanel panel)
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
         {
-            int panelIndex = (int)panel;
-
-            // If already open with this same panel, close everything
-            if (_isOpen && _activeChildPanel == panel)
-            {
-                SoundManager.PlayButtonClick();
-                Close();
-                return;
-            }
-
-            // If open with different panel or menu, close current child
-            if (_isOpen)
-                CloseActiveChildPanel();
-            else
-                _isOpen = true;
-
-            _currentIndex = panelIndex;
-            _search.Clear();
             OpenSelectedPanel();
         }
 
-        /// <summary>
-        /// Close the info panel menu and any active child panel.
-        /// </summary>
-        public void Close()
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            if (!_isOpen) return;
-
-            // Close any active child panel
-            CloseActiveChildPanel();
-
-            _isOpen = false;
-            _search.Clear();
-            InputBlocker.BlockCancelOnce = true;
-            Speech.Say("Closed");
-            Debug.Log("[ATSAccessibility] Info panel menu closed");
-        }
-
-        /// <summary>
-        /// Process a key event for the info panel menu (IKeyHandler).
-        /// Returns true if the key was handled.
-        /// </summary>
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
             // F-key panel switching - close self and pass through to open target panel
             if (keyCode == KeyCode.F2 || keyCode == KeyCode.F3)
             {
                 Close();
-                return false;  // Let SettlementKeyHandler open the target panel
+                return false; // Let SettlementKeyHandler open the target panel
             }
             // F1 closes own panel (works from child panels too)
             if (keyCode == KeyCode.F1)
@@ -152,27 +96,27 @@ namespace ATSAccessibility
                 return true;
             }
 
-            // If a child panel is open, handle navigation
+            // If a child panel is open, delegate all keys
             if (_activeChildPanel.HasValue)
             {
                 switch (keyCode)
                 {
                     case KeyCode.LeftArrow:
-                        // Try to let child panel handle Left first (for internal navigation)
+                        // Try to let child handle Left first (for internal navigation)
                         if (ProcessChildPanelKey(keyCode))
                         {
-                            return true;  // Child handled it (was in nested view)
+                            return true; // Child handled it (was in nested view)
                         }
                         // Child returned false (at root level), return to menu
                         CloseActiveChildPanel();
-                        AnnounceCurrentItem(includePrefix: false);
+                        AnnounceCurrentItem();
                         return true;
 
                     case KeyCode.Escape:
-                        // Let child panel handle Escape first (e.g., to clear search)
+                        // Let child handle Escape first (e.g., to clear search)
                         if (ProcessChildPanelKey(keyCode))
                         {
-                            return true;  // Child handled it (cleared search)
+                            return true; // Child handled it
                         }
                         // Close entire overlay
                         SoundManager.PlayButtonClick();
@@ -192,60 +136,111 @@ namespace ATSAccessibility
                 }
             }
 
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            // Menu navigation (no child panel open)
-            switch (keyCode)
+            // Right arrow at root: open panel (same as Enter)
+            if (keyCode == KeyCode.RightArrow)
             {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_menuLabels.Length - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.RightArrow:
+                if (GetItemCount() > 0)
                     OpenSelectedPanel();
-                    return true;
-
-                case KeyCode.Escape:
-                    SoundManager.PlayButtonClick();
-                    Close();
-                    return true;
-
-                default:
-                    return true; // Consume all keys while menu is open
+                return true;
             }
+
+            return null; // Proceed with normal MenuBase processing
         }
 
-        private void Navigate(int direction)
+        protected override EscapeAction OnEscape()
         {
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _menuLabels.Length);
-            AnnounceCurrentItem(includePrefix: false);
+            SoundManager.PlayButtonClick();
+            return EscapeAction.Close;
         }
 
-        private void NavigateTo(int index)
+        protected override void OnOpened()
         {
-            if (_menuLabels.Length == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _menuLabels.Length - 1);
-            AnnounceCurrentItem(includePrefix: false);
+            SoundManager.PlayPopupShow();
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_directOpen)
+            {
+                _directOpen = false;
+                return null; // Suppress - the child panel will announce
+            }
+
+            if (_menuLabels.Length > 0)
+                return $"{OverlayName}. {_menuLabels[0]}";
+            return OverlayName;
+        }
+
+        protected override void OnClosed()
+        {
+            CloseActiveChildPanel();
+            InputBlocker.BlockCancelOnce = true;
+            Speech.Say("Closed");
+        }
+
+        // ========================================
+        // PUBLIC METHODS
+        // ========================================
+
+        /// <summary>
+        /// Toggle the info panel menu. If already open, closes it.
+        /// Callers should use this instead of Open() for toggle behavior.
+        /// </summary>
+        public void Toggle()
+        {
+            if (IsOpen)
+            {
+                SoundManager.PlayButtonClick();
+                Close();
+                return;
+            }
+
+            Open();
+        }
+
+        /// <summary>
+        /// Open a specific panel directly, bypassing the menu.
+        /// If already open with the same panel, closes everything (toggle behavior).
+        /// </summary>
+        public void OpenStatsPanel() => OpenPanelDirect(MenuPanel.Stats);
+        public void OpenModifiersPanel() => OpenPanelDirect(MenuPanel.Modifiers);
+        public void OpenVillagersPanel() => OpenPanelDirect(MenuPanel.Villagers);
+        public void OpenWorkersPanel() => OpenPanelDirect(MenuPanel.Workers);
+
+        // ========================================
+        // CHILD PANEL MANAGEMENT
+        // ========================================
+
+        private void OpenPanelDirect(MenuPanel panel)
+        {
+            int panelIndex = (int)panel;
+
+            // If already open with this same panel, close everything
+            if (IsOpen && _activeChildPanel == panel)
+            {
+                SoundManager.PlayButtonClick();
+                Close();
+                return;
+            }
+
+            // If open with different panel or menu, close current child
+            if (IsOpen)
+            {
+                CloseActiveChildPanel();
+            }
+            else
+            {
+                _directOpen = true;
+                Open();
+            }
+
+            CurrentIndex = panelIndex;
+            OpenSelectedPanel();
         }
 
         private void OpenSelectedPanel()
         {
-            var panel = (MenuPanel)_currentIndex;
+            var panel = (MenuPanel)CurrentIndex;
 
             switch (panel)
             {
@@ -329,34 +324,6 @@ namespace ATSAccessibility
             }
 
             return false;
-        }
-
-        private void AnnounceCurrentItem(bool includePrefix)
-        {
-            string label = _menuLabels[_currentIndex];
-
-            string message = includePrefix ? $"Information panels. {label}" : label;
-            Speech.Say(message);
-        }
-
-        // ========================================
-        // ISEARCHABLE
-        // ========================================
-
-        int ISearchable.SearchItemCount => _menuLabels.Length;
-
-        int ISearchable.SearchCurrentIndex => _currentIndex;
-
-        string ISearchable.GetSearchLabel(int index)
-        {
-            if (index < 0 || index >= _menuLabels.Length) return null;
-            return _menuLabels[index];
-        }
-
-        void ISearchable.SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem(includePrefix: false);
         }
     }
 }

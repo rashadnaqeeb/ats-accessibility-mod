@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the CornerstonesLimitPickPopup (choose-one-to-remove sub-popup).
     /// Provides flat list navigation through active cornerstones with selection and confirm/cancel.
     /// </summary>
-    public class CornerstoneLimitOverlay : IKeyHandler, ISearchable
+    public class CornerstoneLimitOverlay : MenuBase, IKeyHandler
     {
         private class NavItem
         {
@@ -16,119 +16,48 @@ namespace ATSAccessibility
             public string SearchName;  // Name for type-ahead
         }
 
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private int _currentIndex;
         private int _selectedIndex = -1;  // Which cornerstone is marked for removal
-
-        // Navigation list
         private List<NavItem> _items = new List<NavItem>();
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Choose cornerstone to remove";
+        protected override string EmptyMessage => "No cornerstones found";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
+            if (index < 0 || index >= _items.Count) return null;
 
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
+            string announcement = _items[index].Label;
+            if (index == _selectedIndex)
+                announcement += ", selected";
 
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Space:
-                    ToggleSelection();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ConfirmRemoval();
-                    return true;
-
-                case KeyCode.Escape:
-                    Cancel();
-                    return true;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
+            return announcement;
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when a CornerstonesLimitPickPopup is shown.
-        /// </summary>
-        public void Open(object popup)
+        protected override string GetSearchName(int index)
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _currentIndex = 0;
-            _selectedIndex = -1;
-            _search.Clear();
-
-            RefreshData();
-
-            if (_items.Count > 0)
-            {
-                Speech.Say($"Choose cornerstone to remove. {_items[0].Label}");
-            }
-            else
-            {
-                Speech.Say("Choose cornerstone to remove. No cornerstones found");
-            }
-
-            Debug.Log($"[ATSAccessibility] CornerstoneLimitOverlay opened, {_items.Count} items");
+            if (index >= 0 && index < _items.Count)
+                return _items[index].SearchName;
+            return null;
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _selectedIndex = -1;
-            _items.Clear();
-            _search.Clear();
-
-            Debug.Log("[ATSAccessibility] CornerstoneLimitOverlay closed");
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -149,34 +78,40 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] CornerstoneLimitOverlay refreshed: {_items.Count} items");
         }
 
-        // ========================================
-        // NAVIGATION
-        // ========================================
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
 
-        private void Navigate(int direction)
+        protected override void OnAction(int index)
         {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
+            ConfirmRemoval();
         }
 
-        private void NavigateTo(int index)
+        protected override void OnSpace(int index)
         {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
+            ToggleSelection();
         }
 
-        private void AnnounceCurrentItem()
+        protected override EscapeAction OnEscape() => EscapeAction.Close;
+
+        protected override void StorePopup(object popup)
         {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
+            _popup = popup;
+        }
 
-            string announcement = _items[_currentIndex].Label;
-            if (_currentIndex == _selectedIndex)
-                announcement += ", selected";
+        protected override void OnClosed()
+        {
+            // Cancel if closing without confirming
+            if (_popup != null)
+            {
+                CornerstoneReflection.CancelLimitPopup(_popup);
+            }
+            _popup = null;
+            _selectedIndex = -1;
+            _items.Clear();
+        }
 
-            Speech.Say(announcement);
+        protected override void OnOpened()
+        {
+            _selectedIndex = -1;
         }
 
         // ========================================
@@ -185,18 +120,17 @@ namespace ATSAccessibility
 
         private void ToggleSelection()
         {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
+            if (_items.Count == 0 || CurrentIndex < 0 || CurrentIndex >= _items.Count) return;
 
-            if (_selectedIndex == _currentIndex)
+            if (_selectedIndex == CurrentIndex)
             {
-                // Deselect
                 _selectedIndex = -1;
-                Speech.Say($"{_items[_currentIndex].Label} deselected");
+                Speech.Say($"{_items[CurrentIndex].Label} deselected");
             }
             else
             {
-                _selectedIndex = _currentIndex;
-                Speech.Say($"{_items[_currentIndex].Label} selected for removal");
+                _selectedIndex = CurrentIndex;
+                Speech.Say($"{_items[CurrentIndex].Label} selected for removal");
             }
         }
 
@@ -212,34 +146,10 @@ namespace ATSAccessibility
             var item = _items[_selectedIndex];
             SoundManager.PlayButtonClick();
             Speech.Say($"Removed {item.Label}");
-            CornerstoneReflection.RemoveAndConfirm(_popup, item.Model);
-            // Popup hides → OnPopupHidden → Close()
-        }
-
-        private void Cancel()
-        {
-            Speech.Say("Cancelled");
-            CornerstoneReflection.CancelLimitPopup(_popup);
-            // Popup hides → OnPopupHidden → Close()
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _items.Count;
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            if (index < 0 || index >= _items.Count) return null;
-            return _items[index].SearchName;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem();
+            var popup = _popup;
+            _popup = null; // Prevent OnClosed from cancelling
+            CornerstoneReflection.RemoveAndConfirm(popup, item.Model);
+            // Popup hides -> OnPopupHidden -> Close()
         }
     }
 }

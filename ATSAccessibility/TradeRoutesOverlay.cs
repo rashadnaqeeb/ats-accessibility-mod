@@ -6,122 +6,218 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Accessible overlay for the TradeRoutesPopup.
-    /// Provides multi-level navigation:
-    /// - MainMenu: Active routes summary, towns, toggles
-    /// - ActiveRoutes: Navigate and collect completed routes
-    /// - TownOffers: Navigate offers, adjust amount, accept
+    /// Level 0: Main menu (active routes summary, towns, toggles).
+    /// Level 1: Active Routes or Town Offers (determined by _branch).
     /// </summary>
-    public class TradeRoutesOverlay : IKeyHandler, ISearchable
+    public class TradeRoutesOverlay : MenuBase, IKeyHandler
     {
-        // ========================================
-        // NAVIGATION STATE
-        // ========================================
-
-        private enum Level { MainMenu, ActiveRoutes, TownOffers }
+        private enum Branch { MainMenu, ActiveRoutes, TownOffers }
         private enum MainMenuItemType { ActiveRoutes, Town, AutoCollect, OnlyAvailable }
 
-        // Navigation item for main menu
         private class MainMenuItem
         {
             public MainMenuItemType Type;
             public string Label;
             public string SearchName;
-            public int TownIndex;  // For Town items - index into _towns list
+            public int TownIndex;
         }
 
-        // State
-        private bool _isOpen;
-        private Level _level;
-        private int _currentIndex;
-        private int _currentTownIndex;  // Which town we're viewing offers for
+        private Branch _branch;
+        private int _currentTownIndex;
 
-        // Data caches
         private List<MainMenuItem> _mainMenuItems = new List<MainMenuItem>();
         private List<TradeRoutesReflection.RouteInfo> _routes = new List<TradeRoutesReflection.RouteInfo>();
         private List<TradeRoutesReflection.TownInfo> _towns = new List<TradeRoutesReflection.TownInfo>();
         private List<TradeRoutesReflection.OfferInfo> _offers = new List<TradeRoutesReflection.OfferInfo>();
 
-        // Type-ahead search
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
-
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Trade Routes";
+        protected override string EmptyMessage => "No data available";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
-
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (_level)
+            switch (_branch)
             {
-                case Level.MainMenu:
-                    return ProcessMainMenuKey(keyCode, modifiers);
-                case Level.ActiveRoutes:
-                    return ProcessActiveRoutesKey(keyCode, modifiers);
-                case Level.TownOffers:
-                    return ProcessTownOffersKey(keyCode, modifiers);
+                case Branch.MainMenu:
+                    return _mainMenuItems.Count;
+                case Branch.ActiveRoutes:
+                    return _routes.Count;
+                case Branch.TownOffers:
+                    return _offers.Count + 1;
                 default:
-                    return true;
+                    return 0;
             }
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when TradeRoutesPopup is shown.
-        /// </summary>
-        public void Open(object popup)
+        protected override string GetLabel(int index)
         {
-            if (_isOpen) return;
+            switch (_branch)
+            {
+                case Branch.MainMenu:
+                    if (index >= 0 && index < _mainMenuItems.Count)
+                        return _mainMenuItems[index].Label;
+                    break;
+                case Branch.ActiveRoutes:
+                    if (index >= 0 && index < _routes.Count)
+                        return BuildRouteLabel(_routes[index]);
+                    break;
+                case Branch.TownOffers:
+                    if (index == 0)
+                    {
+                        if (_currentTownIndex >= 0 && _currentTownIndex < _towns.Count)
+                            return BuildExtendOffersLabel(_towns[_currentTownIndex]);
+                        return null;
+                    }
+                    int offerIdx = index - 1;
+                    if (offerIdx >= 0 && offerIdx < _offers.Count)
+                        return BuildOfferLabel(_offers[offerIdx]);
+                    break;
+            }
+            return null;
+        }
 
-            _isOpen = true;
-            _level = Level.MainMenu;
-            _currentIndex = 0;
-            _currentTownIndex = 0;
-            _search.Clear();
-
+        protected override void RefreshData()
+        {
             RefreshAllData();
             RefreshMainMenu();
-
-            if (_mainMenuItems.Count > 0)
-            {
-                Speech.Say($"Trade Routes. {_mainMenuItems[0].Label}");
-            }
-            else
-            {
-                Speech.Say("Trade Routes. No data available");
-            }
-
-            Debug.Log($"[ATSAccessibility] TradeRoutesOverlay opened");
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
+        protected override EnterAction OnEnter(int index)
         {
-            if (!_isOpen) return;
+            return EnterAction.Action;
+        }
 
-            _isOpen = false;
-            _search.Clear();
+        protected override void OnAction(int index)
+        {
+            switch (_branch)
+            {
+                case Branch.MainMenu:
+                    ActivateMainMenuItem(index);
+                    break;
+                case Branch.ActiveRoutes:
+                    CollectCurrentRoute();
+                    break;
+                case Branch.TownOffers:
+                    ActivateTownOffersItem();
+                    break;
+            }
+        }
+
+        protected override bool CanDrillDown(int index)
+        {
+            if (_branch != Branch.MainMenu) return false;
+            if (index < 0 || index >= _mainMenuItems.Count) return false;
+            var type = _mainMenuItems[index].Type;
+            return type == MainMenuItemType.ActiveRoutes || type == MainMenuItemType.Town;
+        }
+
+        protected override void OnAdjust(int index, int dir, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (_branch == Branch.TownOffers)
+                AdjustAmount(dir);
+        }
+
+        protected override void OnGoBack()
+        {
+            _branch = Branch.MainMenu;
+            RefreshAllData();
+            RefreshMainMenu();
+        }
+
+        protected override EscapeAction OnEscape()
+        {
+            if (Level > 0) return EscapeAction.GoBack;
+            // Pass to game to close popup
+            return EscapeAction.PassThrough;
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (_branch == Branch.MainMenu && keyCode == KeyCode.RightArrow)
+            {
+                if (CurrentIndex >= 0 && CurrentIndex < _mainMenuItems.Count)
+                {
+                    var type = _mainMenuItems[CurrentIndex].Type;
+                    if (type == MainMenuItemType.ActiveRoutes)
+                    {
+                        EnterActiveRoutes();
+                        return true;
+                    }
+                    else if (type == MainMenuItemType.Town)
+                    {
+                        EnterTownOffers(_mainMenuItems[CurrentIndex]);
+                        return true;
+                    }
+                }
+                return true;
+            }
+
+            return null;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_mainMenuItems.Count == 0) return EmptyMessage;
+            return $"Trade Routes. {_mainMenuItems[0].Label}";
+        }
+
+        protected override void AnnounceCurrentItem()
+        {
+            string label = GetLabel(CurrentIndex);
+            if (!string.IsNullOrEmpty(label))
+                Speech.Say(label);
+        }
+
+        protected override void OnClosed()
+        {
             ClearData();
-
-            Debug.Log("[ATSAccessibility] TradeRoutesOverlay closed");
         }
 
-        private void ClearData()
+        // ========================================
+        // SEARCH OVERRIDES
+        // ========================================
+
+        protected override int SearchItemCount
         {
-            _mainMenuItems.Clear();
-            _routes.Clear();
-            _towns.Clear();
-            _offers.Clear();
+            get
+            {
+                switch (_branch)
+                {
+                    case Branch.MainMenu: return _mainMenuItems.Count;
+                    case Branch.TownOffers: return _offers.Count + 1;
+                    default: return 0;
+                }
+            }
+        }
+
+        protected override string GetSearchName(int index)
+        {
+            switch (_branch)
+            {
+                case Branch.MainMenu:
+                    if (index >= 0 && index < _mainMenuItems.Count)
+                        return _mainMenuItems[index].SearchName;
+                    break;
+                case Branch.TownOffers:
+                    if (index == 0) return null;
+                    int offerIdx = index - 1;
+                    if (offerIdx >= 0 && offerIdx < _offers.Count)
+                        return _offers[offerIdx].GoodName;
+                    break;
+            }
+            return null;
         }
 
         // ========================================
@@ -138,7 +234,6 @@ namespace ATSAccessibility
         {
             _mainMenuItems.Clear();
 
-            // Active routes summary
             int activeCount = _routes.Count;
             int maxRoutes = TradeRoutesReflection.GetMaxRoutes();
             int readyCount = 0;
@@ -156,22 +251,18 @@ namespace ATSAccessibility
                 SearchName = "Active"
             });
 
-            // Town entries
             for (int i = 0; i < _towns.Count; i++)
             {
                 var town = _towns[i];
-                string townLabel = BuildTownLabel(town);
-
                 _mainMenuItems.Add(new MainMenuItem
                 {
                     Type = MainMenuItemType.Town,
-                    Label = townLabel,
+                    Label = BuildTownLabel(town),
                     SearchName = town.Name,
                     TownIndex = i
                 });
             }
 
-            // Auto-collect toggle
             bool autoCollect = TradeRoutesReflection.IsAutoCollectEnabled();
             _mainMenuItems.Add(new MainMenuItem
             {
@@ -180,7 +271,6 @@ namespace ATSAccessibility
                 SearchName = "Auto"
             });
 
-            // Only available toggle - filters to show only affordable offers
             bool onlyAvailable = TradeRoutesReflection.IsOnlyAvailableEnabled();
             _mainMenuItems.Add(new MainMenuItem
             {
@@ -207,125 +297,36 @@ namespace ATSAccessibility
             _offers = TradeRoutesReflection.GetTownOffers(town.State);
         }
 
-        /// <summary>
-        /// Check if the current index in TownOffers is the Extend Offers item (always index 0).
-        /// </summary>
-        private bool IsExtendOffersItem => _level == Level.TownOffers && _currentIndex == 0;
-
-        /// <summary>
-        /// Get the actual offer index (accounting for Extend Offers item at index 0).
-        /// </summary>
-        private int GetOfferIndex(int menuIndex) => menuIndex - 1;
-
-        /// <summary>
-        /// Get the total item count in TownOffers (offers + extend item).
-        /// </summary>
-        private int GetTownOffersItemCount() => _offers.Count + 1;
-
-        // ========================================
-        // MAIN MENU LEVEL
-        // ========================================
-
-        private bool ProcessMainMenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        private void ClearData()
         {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateMainMenu(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateMainMenu(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_mainMenuItems.Count > 0)
-                    {
-                        _currentIndex = 0;
-                        Speech.Say(_mainMenuItems[_currentIndex].Label);
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_mainMenuItems.Count > 0)
-                    {
-                        _currentIndex = _mainMenuItems.Count - 1;
-                        Speech.Say(_mainMenuItems[_currentIndex].Label);
-                    }
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateMainMenuItem();
-                    return true;
-
-                case KeyCode.RightArrow:
-                    DrillIntoSubmenu();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
+            _mainMenuItems.Clear();
+            _routes.Clear();
+            _towns.Clear();
+            _offers.Clear();
         }
 
-        private void NavigateMainMenu(int direction)
-        {
-            if (_mainMenuItems.Count == 0) return;
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _mainMenuItems.Count);
-            Speech.Say(_mainMenuItems[_currentIndex].Label);
-        }
+        // ========================================
+        // MAIN MENU ACTIVATION
+        // ========================================
 
-        private void ActivateMainMenuItem()
+        private void ActivateMainMenuItem(int index)
         {
-            if (_currentIndex < 0 || _currentIndex >= _mainMenuItems.Count) return;
+            if (index < 0 || index >= _mainMenuItems.Count) return;
 
-            var item = _mainMenuItems[_currentIndex];
+            var item = _mainMenuItems[index];
             switch (item.Type)
             {
                 case MainMenuItemType.ActiveRoutes:
                     EnterActiveRoutes();
                     break;
-
                 case MainMenuItemType.Town:
                     EnterTownOffers(item);
                     break;
-
                 case MainMenuItemType.AutoCollect:
                     ToggleAutoCollect();
                     break;
-
                 case MainMenuItemType.OnlyAvailable:
                     ToggleOnlyAvailable();
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Right arrow only drills into submenus (Active Routes, Towns), not toggles.
-        /// </summary>
-        private void DrillIntoSubmenu()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _mainMenuItems.Count) return;
-
-            var item = _mainMenuItems[_currentIndex];
-            switch (item.Type)
-            {
-                case MainMenuItemType.ActiveRoutes:
-                    EnterActiveRoutes();
-                    break;
-
-                case MainMenuItemType.Town:
-                    EnterTownOffers(item);
-                    break;
-
-                // Toggles do nothing on right arrow
-                case MainMenuItemType.AutoCollect:
-                case MainMenuItemType.OnlyAvailable:
                     break;
             }
         }
@@ -337,11 +338,9 @@ namespace ATSAccessibility
             TradeRoutesReflection.SetAutoCollect(newState);
             SoundManager.PlayButtonClick();
 
-            // Update label
-            var item = _mainMenuItems[_currentIndex];
+            var item = _mainMenuItems[CurrentIndex];
             item.Label = newState ? "Auto-Collect, enabled" : "Auto-Collect, disabled";
 
-            // When enabling auto-collect, immediately collect all ready routes (matches game behavior)
             if (newState)
             {
                 int collected = TradeRoutesReflection.AutoCollectAllReady();
@@ -357,52 +356,19 @@ namespace ATSAccessibility
             Speech.Say(item.Label);
         }
 
-        private string BuildTownLabel(TradeRoutesReflection.TownInfo town)
-        {
-            // Format: "Name, Faction (if any), distance X, Standing Y, label, progress"
-            var parts = new System.Collections.Generic.List<string>();
-            parts.Add(town.Name);
-
-            // Add faction if present
-            if (!string.IsNullOrEmpty(town.Faction))
-            {
-                parts.Add(town.Faction);
-            }
-
-            // Add distance
-            parts.Add($"distance {town.Distance}");
-
-            // Add standing info
-            parts.Add($"Standing {town.StandingLevel}");
-            parts.Add(town.StandingLabel);
-
-            // Add progress or max
-            if (town.IsMaxStanding)
-            {
-                parts.Add("max");
-            }
-            else
-            {
-                parts.Add($"{town.CurrentStandingValue} of {town.ValueForLevelUp}");
-            }
-
-            return string.Join(", ", parts);
-        }
-
         private void ToggleOnlyAvailable()
         {
             bool current = TradeRoutesReflection.IsOnlyAvailableEnabled();
             TradeRoutesReflection.SetOnlyAvailable(!current);
             SoundManager.PlayButtonClick();
 
-            // Update label
-            var item = _mainMenuItems[_currentIndex];
+            var item = _mainMenuItems[CurrentIndex];
             item.Label = !current ? "Show affordable only, enabled" : "Show affordable only, disabled";
             Speech.Say(item.Label);
         }
 
         // ========================================
-        // ACTIVE ROUTES LEVEL
+        // ACTIVE ROUTES (Level 1, Branch.ActiveRoutes)
         // ========================================
 
         private void EnterActiveRoutes()
@@ -416,66 +382,12 @@ namespace ATSAccessibility
                 return;
             }
 
-            _level = Level.ActiveRoutes;
-            _currentIndex = 0;
+            _branch = Branch.ActiveRoutes;
+            SetLevel(1);
+            _indices[1] = 0;
             _search.Clear();
 
             Speech.Say($"Active Routes. {BuildRouteLabel(_routes[0])}");
-        }
-
-        private bool ProcessActiveRoutesKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateRoutes(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateRoutes(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_routes.Count > 0)
-                    {
-                        _currentIndex = 0;
-                        Speech.Say(BuildRouteLabel(_routes[_currentIndex]));
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_routes.Count > 0)
-                    {
-                        _currentIndex = _routes.Count - 1;
-                        Speech.Say(BuildRouteLabel(_routes[_currentIndex]));
-                    }
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    CollectCurrentRoute();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    ReturnToMainMenu();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Return to main menu
-                    ReturnToMainMenu();
-                    return true;
-
-                default:
-                    // Consume all keys
-                    return true;
-            }
-        }
-
-        private void NavigateRoutes(int direction)
-        {
-            if (_routes.Count == 0) return;
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _routes.Count);
-            Speech.Say(BuildRouteLabel(_routes[_currentIndex]));
         }
 
         private string BuildRouteLabel(TradeRoutesReflection.RouteInfo route)
@@ -494,9 +406,9 @@ namespace ATSAccessibility
 
         private void CollectCurrentRoute()
         {
-            if (_currentIndex < 0 || _currentIndex >= _routes.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _routes.Count) return;
 
-            var route = _routes[_currentIndex];
+            var route = _routes[CurrentIndex];
             if (!route.CanCollect)
             {
                 int percent = Mathf.RoundToInt(route.Progress * 100);
@@ -510,19 +422,16 @@ namespace ATSAccessibility
                 SoundManager.PlayButtonClick();
                 Speech.Say($"Collected {route.PriceAmount} {route.PriceName}");
 
-                // Refresh routes
                 RefreshActiveRoutes();
 
                 if (_routes.Count == 0)
                 {
-                    // Return to main menu - data changed since we collected a route
                     ReturnToMainMenu(true);
                 }
                 else
                 {
-                    // Clamp index and announce current
-                    _currentIndex = Mathf.Min(_currentIndex, _routes.Count - 1);
-                    Speech.Say(BuildRouteLabel(_routes[_currentIndex]));
+                    CurrentIndex = Mathf.Min(CurrentIndex, _routes.Count - 1);
+                    Speech.Say(BuildRouteLabel(_routes[CurrentIndex]));
                 }
             }
             else
@@ -533,12 +442,11 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TOWN OFFERS LEVEL
+        // TOWN OFFERS (Level 1, Branch.TownOffers)
         // ========================================
 
         private void EnterTownOffers(MainMenuItem item)
         {
-            // Use the stored town index directly
             if (item.TownIndex < 0 || item.TownIndex >= _towns.Count)
             {
                 Speech.Say("Town not found");
@@ -549,18 +457,17 @@ namespace ATSAccessibility
             _currentTownIndex = item.TownIndex;
             RefreshTownOffers(_currentTownIndex);
 
-            _level = Level.TownOffers;
-            _currentIndex = 0;
+            _branch = Branch.TownOffers;
+            SetLevel(1);
+            _indices[1] = 0;
             _search.Clear();
 
-            // Build header with town info and extend option
             var town = _towns[_currentTownIndex];
             AnnounceTownHeader(town);
         }
 
         private void AnnounceTownHeader(TradeRoutesReflection.TownInfo town)
         {
-            // First announce town standing info, then the Extend Offers item (index 0)
             string standingInfo = town.IsMaxStanding
                 ? $"{town.Name}, {town.StandingLabel}"
                 : $"{town.Name}, {town.StandingLabel}, {town.CurrentStandingValue} of {town.ValueForLevelUp}";
@@ -568,160 +475,56 @@ namespace ATSAccessibility
             Speech.Say($"{standingInfo}. {BuildExtendOffersLabel(town)}");
         }
 
+        private string BuildTownLabel(TradeRoutesReflection.TownInfo town)
+        {
+            var parts = new List<string>();
+            parts.Add(town.Name);
+
+            if (!string.IsNullOrEmpty(town.Faction))
+                parts.Add(town.Faction);
+
+            parts.Add($"distance {town.Distance}");
+            parts.Add($"Standing {town.StandingLevel}");
+            parts.Add(town.StandingLabel);
+
+            if (town.IsMaxStanding)
+                parts.Add("max");
+            else
+                parts.Add($"{town.CurrentStandingValue} of {town.ValueForLevelUp}");
+
+            return string.Join(", ", parts);
+        }
+
         private string BuildExtendOffersLabel(TradeRoutesReflection.TownInfo town)
         {
             if (town.CanExtend)
-            {
                 return $"Extend Offers, costs {town.ExtendCost}, available";
-            }
             else if (town.ReachedMaxOffers)
-            {
                 return "Extend Offers, maximum reached";
-            }
             else
-            {
                 return $"Extend Offers, costs {town.ExtendCost}, not enough resources";
-            }
-        }
-
-        private bool ProcessTownOffersKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateOffers(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateOffers(1);
-                    return true;
-
-                case KeyCode.Home:
-                    {
-                        int itemCount = GetTownOffersItemCount();
-                        if (itemCount > 0)
-                        {
-                            _currentIndex = 0;
-                            AnnounceTownOffersItem();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    {
-                        int itemCount = GetTownOffersItemCount();
-                        if (itemCount > 0)
-                        {
-                            _currentIndex = itemCount - 1;
-                            AnnounceTownOffersItem();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateTownOffersItem();
-                    return true;
-
-                case KeyCode.Plus:
-                case KeyCode.KeypadPlus:
-                case KeyCode.Equals:
-                    AdjustAmount(1);
-                    return true;
-
-                case KeyCode.Minus:
-                case KeyCode.KeypadMinus:
-                    AdjustAmount(-1);
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    ReturnToMainMenu();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Return to main menu
-                    ReturnToMainMenu();
-                    return true;
-
-                default:
-                    // Consume all other keys
-                    return true;
-            }
-        }
-
-        private void NavigateOffers(int direction)
-        {
-            int itemCount = GetTownOffersItemCount();
-            if (itemCount == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, itemCount);
-            AnnounceTownOffersItem();
-        }
-
-        private void AnnounceTownOffersItem()
-        {
-            if (IsExtendOffersItem)
-            {
-                // Index 0 is Extend Offers
-                var town = _towns[_currentTownIndex];
-                Speech.Say(BuildExtendOffersLabel(town));
-            }
-            else
-            {
-                // Actual offer
-                int offerIndex = GetOfferIndex(_currentIndex);
-                if (offerIndex >= 0 && offerIndex < _offers.Count)
-                {
-                    Speech.Say(BuildOfferLabel(_offers[offerIndex]));
-                }
-            }
-        }
-
-        private void ActivateTownOffersItem()
-        {
-            if (IsExtendOffersItem)
-            {
-                ExtendOffers();
-            }
-            else
-            {
-                AcceptCurrentOffer();
-            }
         }
 
         private string BuildOfferLabel(TradeRoutesReflection.OfferInfo offer)
         {
-            // Base: "Planks, 10"
             string baseLabel = $"{offer.GoodName}, {offer.GoodAmount * offer.Multiplier}";
 
-            // Add multiplier if > 1
             if (offer.Multiplier > 1)
-            {
                 baseLabel += $", x{offer.Multiplier}";
-            }
 
-            // Add reward
             baseLabel += $", sells for {offer.PriceAmount} {offer.PriceName}";
-
-            // Add travel time
             baseLabel += $", time {TradeRoutesReflection.FormatTime(offer.TravelTime)}";
-
-            // Add fuel requirement
             baseLabel += $", requires {offer.FuelAmount} {offer.FuelName}";
 
-            // Add availability
             if (offer.Accepted)
             {
                 baseLabel += ", already accepted";
             }
             else if (!string.IsNullOrEmpty(offer.BlockedReason))
             {
-                // Use fuel name in the blocked reason for clarity
                 string reason = offer.BlockedReason;
                 if (reason == "not enough fuel")
-                {
                     reason = $"not enough {offer.FuelName}";
-                }
                 baseLabel += $", {reason}";
             }
             else
@@ -732,16 +535,23 @@ namespace ATSAccessibility
             return baseLabel;
         }
 
+        private void ActivateTownOffersItem()
+        {
+            if (CurrentIndex == 0)
+                ExtendOffers();
+            else
+                AcceptCurrentOffer();
+        }
+
         private void AdjustAmount(int delta)
         {
-            // +/- only works on actual offers, not on Extend Offers item
-            if (IsExtendOffersItem)
+            if (CurrentIndex == 0)
             {
                 Speech.Say("Navigate to an offer to adjust amount");
                 return;
             }
 
-            int offerIndex = GetOfferIndex(_currentIndex);
+            int offerIndex = CurrentIndex - 1;
             if (offerIndex < 0 || offerIndex >= _offers.Count) return;
 
             var offer = _offers[offerIndex];
@@ -760,24 +570,19 @@ namespace ATSAccessibility
                 TradeRoutesReflection.SetOfferAmount(offer.State, newAmount);
                 SoundManager.PlayButtonClick();
 
-                // Refresh the offer data to get new calculations
                 RefreshTownOffers(_currentTownIndex);
-                // Announce updated offer
                 if (offerIndex < _offers.Count)
-                {
                     Speech.Say(BuildOfferLabel(_offers[offerIndex]));
-                }
             }
             else
             {
-                // At limit
                 Speech.Say(newAmount == 1 ? "Minimum amount" : "Maximum amount");
             }
         }
 
         private void AcceptCurrentOffer()
         {
-            int offerIndex = GetOfferIndex(_currentIndex);
+            int offerIndex = CurrentIndex - 1;
             if (offerIndex < 0 || offerIndex >= _offers.Count) return;
 
             var offer = _offers[offerIndex];
@@ -801,20 +606,17 @@ namespace ATSAccessibility
                 SoundManager.PlayButtonClick();
                 Speech.Say($"Accepted, {offer.GoodAmount * offer.Multiplier} {offer.GoodName} to {offer.TownName}");
 
-                // Refresh data
                 RefreshAllData();
                 RefreshTownOffers(_currentTownIndex);
 
-                // Check if we should stay or go back
                 if (_offers.Count == 0)
                 {
-                    ReturnToMainMenu();
+                    ReturnToMainMenu(false);
                 }
                 else
                 {
-                    // Clamp to valid range (index 0 is Extend Offers, so max is _offers.Count)
-                    _currentIndex = Mathf.Min(_currentIndex, _offers.Count);
-                    AnnounceTownOffersItem();
+                    CurrentIndex = Mathf.Min(CurrentIndex, _offers.Count);
+                    AnnounceCurrentItem();
                 }
             }
             else
@@ -840,14 +642,12 @@ namespace ATSAccessibility
             {
                 SoundManager.PlayButtonClick();
 
-                // Refresh data
                 _towns = TradeRoutesReflection.GetTradeTowns();
                 RefreshTownOffers(_currentTownIndex);
 
                 if (_offers.Count > 0)
                 {
-                    // Go to new offer (last one). Index 0 is Extend Offers, so last offer is at _offers.Count
-                    _currentIndex = _offers.Count;
+                    CurrentIndex = _offers.Count;
                     Speech.Say($"Offers extended. {BuildOfferLabel(_offers[_offers.Count - 1])}");
                 }
                 else
@@ -866,71 +666,21 @@ namespace ATSAccessibility
         // NAVIGATION HELPERS
         // ========================================
 
-        private void ReturnToMainMenu(bool dataChanged = false)
+        private void ReturnToMainMenu(bool dataChanged)
         {
-            _level = Level.MainMenu;
+            _branch = Branch.MainMenu;
             _search.Clear();
 
             if (dataChanged)
             {
                 RefreshAllData();
-                RefreshMainMenu();
             }
 
-            _currentIndex = 0;
+            RefreshMainMenu();
+            SetLevel(0);
+            _indices[0] = 0;
             InputBlocker.BlockCancelOnce = true;
             Speech.Say($"Main menu. {_mainMenuItems[0].Label}");
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        int ISearchable.SearchItemCount
-        {
-            get
-            {
-                switch (_level)
-                {
-                    case Level.MainMenu: return _mainMenuItems.Count;
-                    case Level.TownOffers: return GetTownOffersItemCount();
-                    default: return 0;
-                }
-            }
-        }
-
-        int ISearchable.SearchCurrentIndex => _currentIndex;
-
-        string ISearchable.GetSearchLabel(int index)
-        {
-            switch (_level)
-            {
-                case Level.MainMenu:
-                    if (index < 0 || index >= _mainMenuItems.Count) return null;
-                    return _mainMenuItems[index].SearchName;
-                case Level.TownOffers:
-                    if (index == 0) return null;  // Extend Offers item - skip in search
-                    int offerIndex = index - 1;
-                    if (offerIndex < 0 || offerIndex >= _offers.Count) return null;
-                    return _offers[offerIndex].GoodName;
-                default:
-                    return null;
-            }
-        }
-
-        void ISearchable.SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            switch (_level)
-            {
-                case Level.MainMenu:
-                    if (index >= 0 && index < _mainMenuItems.Count)
-                        Speech.Say(_mainMenuItems[index].Label);
-                    break;
-                case Level.TownOffers:
-                    AnnounceTownOffersItem();
-                    break;
-            }
         }
     }
 }

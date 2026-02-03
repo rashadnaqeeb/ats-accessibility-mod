@@ -7,20 +7,12 @@ namespace ATSAccessibility
     /// Accessible overlay for the Games History popup.
     /// Three-level navigation: Main Menu -> Submenu -> Settlement Details (flat list).
     /// </summary>
-    public class GamesHistoryOverlay : IKeyHandler, ISearchable
+    public class GamesHistoryOverlay : MenuBase, IKeyHandler
     {
-        // Navigation levels
-        private enum Level { MainMenu, Submenu, SettlementDetails }
         private enum MainMenuItem { CycleStats, Upgrades, History }
 
-        // State
-        private bool _isOpen;
-        private Level _level;
-        private int _mainMenuIndex;
-        private int _submenuIndex;
-        private int _detailIndex;
-
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+        // Main menu items
+        private static readonly string[] MainMenuItems = { "Cycle Stats", "Upgrades", "History" };
 
         // Cached data
         private List<(string label, string value)> _cycleStats;
@@ -30,74 +22,103 @@ namespace ATSAccessibility
         // Current settlement detail items (flat list)
         private List<string> _settlementDetailItems;
 
-        // Main menu items
-        private static readonly string[] MainMenuItems = { "Cycle Stats", "Upgrades", "History" };
-
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Games History";
+
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
-
-            // Centralized search handling
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (_level)
+            switch (Level)
             {
-                case Level.MainMenu:
-                    return ProcessMainMenuKey(keyCode);
-                case Level.Submenu:
-                    return ProcessSubmenuKey(keyCode);
-                case Level.SettlementDetails:
-                    return ProcessSettlementDetailsKey(keyCode);
-                default:
-                    return true;
+                case 0: return MainMenuItems.Length;
+                case 1: return GetCurrentSubmenuCount();
+                case 2: return _settlementDetailItems?.Count ?? 0;
+                default: return 0;
             }
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        public void Open()
+        protected override string GetLabel(int index)
         {
-            if (_isOpen) return;
+            switch (Level)
+            {
+                case 0:
+                    return (index >= 0 && index < MainMenuItems.Length) ? MainMenuItems[index] : null;
 
-            _isOpen = true;
-            _level = Level.MainMenu;
-            _mainMenuIndex = 0;
-            _submenuIndex = 0;
-            _detailIndex = 0;
-            _search.Clear();
+                case 1:
+                    return GetSubmenuLabel(index);
 
-            RefreshData();
+                case 2:
+                    return (_settlementDetailItems != null && index >= 0 && index < _settlementDetailItems.Count)
+                        ? _settlementDetailItems[index] : null;
 
-            Speech.Say($"Games History. {MainMenuItems[0]}");
+                default:
+                    return null;
+            }
         }
 
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _level = Level.MainMenu;
-            _search.Clear();
-            ClearData();
-        }
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _cycleStats = GamesHistoryReflection.GetCycleStats();
             _upgrades = GamesHistoryReflection.GetUpgrades();
             _settlements = GamesHistoryReflection.GetHistoryRecords();
         }
 
-        private void ClearData()
+        protected override EnterAction OnEnter(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    return EnterAction.DrillDown;
+
+                case 1:
+                    if (_indices[0] == (int)MainMenuItem.History && _settlements != null && _settlements.Count > 0)
+                        return EnterAction.DrillDown;
+                    return EnterAction.None;
+
+                case 2:
+                    return EnterAction.None;
+
+                default:
+                    return EnterAction.None;
+            }
+        }
+
+        protected override void OnDrillDown(int index)
+        {
+            // When drilling from Level 1 into Level 2, build settlement detail items
+            if (Level == 1)
+            {
+                if (_settlements != null && index >= 0 && index < _settlements.Count)
+                    BuildSettlementDetailItems(_settlements[index]);
+            }
+        }
+
+        protected override void OnGoBack()
+        {
+            // Clean up detail items when going back from Level 2
+            if (Level == 2)
+                _settlementDetailItems?.Clear();
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            return $"Games History. {MainMenuItems[0]}";
+        }
+
+        protected override void OnClosed()
         {
             _cycleStats?.Clear();
             _upgrades?.Clear();
@@ -106,144 +127,49 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // MAIN MENU LEVEL
+        // SEARCH OVERRIDES
         // ========================================
 
-        private bool ProcessMainMenuKey(KeyCode keyCode)
+        protected override int SearchItemCount
         {
-            switch (keyCode)
+            get
             {
-                case KeyCode.UpArrow:
-                    NavigateMainMenu(-1);
-                    return true;
+                switch (Level)
+                {
+                    case 0: return MainMenuItems.Length;
+                    case 1: return GetCurrentSubmenuCount();
+                    case 2: return _settlementDetailItems?.Count ?? 0;
+                    default: return 0;
+                }
+            }
+        }
 
-                case KeyCode.DownArrow:
-                    NavigateMainMenu(1);
-                    return true;
+        protected override string GetSearchName(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    return (index >= 0 && index < MainMenuItems.Length) ? MainMenuItems[index] : null;
 
-                case KeyCode.Home:
-                    _mainMenuIndex = 0;
-                    AnnounceMainMenuItem();
-                    return true;
+                case 1:
+                    return GetSubmenuItemName(index);
 
-                case KeyCode.End:
-                    _mainMenuIndex = MainMenuItems.Length - 1;
-                    AnnounceMainMenuItem();
-                    return true;
-
-                case KeyCode.RightArrow:
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    EnterSubmenu();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
+                case 2:
+                    return (_settlementDetailItems != null && index >= 0 && index < _settlementDetailItems.Count)
+                        ? _settlementDetailItems[index] : null;
 
                 default:
-                    // Consume all other keys
-                    return true;
+                    return null;
             }
-        }
-
-        private void NavigateMainMenu(int direction)
-        {
-            _mainMenuIndex = NavigationUtils.WrapIndex(_mainMenuIndex, direction, MainMenuItems.Length);
-            AnnounceMainMenuItem();
-        }
-
-        private void AnnounceMainMenuItem()
-        {
-            Speech.Say(MainMenuItems[_mainMenuIndex]);
-        }
-
-        private void EnterSubmenu()
-        {
-            _level = Level.Submenu;
-            _submenuIndex = 0;
-            _search.Clear();
-            AnnounceSubmenuItem();
         }
 
         // ========================================
-        // SUBMENU LEVEL
+        // HELPERS
         // ========================================
-
-        private bool ProcessSubmenuKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateSubmenu(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateSubmenu(1);
-                    return true;
-
-                case KeyCode.Home:
-                    {
-                        int count = GetCurrentSubmenuCount();
-                        if (count > 0)
-                        {
-                            _submenuIndex = 0;
-                            AnnounceSubmenuItem();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    {
-                        int count = GetCurrentSubmenuCount();
-                        if (count > 0)
-                        {
-                            _submenuIndex = count - 1;
-                            AnnounceSubmenuItem();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    ReturnToMainMenu();
-                    return true;
-
-                case KeyCode.RightArrow:
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    // For History, enter settlement details
-                    if ((MainMenuItem)_mainMenuIndex == MainMenuItem.History)
-                    {
-                        EnterSettlementDetails();
-                    }
-                    return true;
-
-                case KeyCode.Escape:
-                    ReturnToMainMenu();
-                    return true;
-
-                default:
-                    // Consume all other keys
-                    return true;
-            }
-        }
-
-        private void NavigateSubmenu(int direction)
-        {
-            int count = GetCurrentSubmenuCount();
-            if (count == 0)
-            {
-                Speech.Say("Empty");
-                return;
-            }
-
-            _submenuIndex = NavigationUtils.WrapIndex(_submenuIndex, direction, count);
-            AnnounceSubmenuItem();
-        }
 
         private int GetCurrentSubmenuCount()
         {
-            switch ((MainMenuItem)_mainMenuIndex)
+            switch ((MainMenuItem)_indices[0])
             {
                 case MainMenuItem.CycleStats:
                     return _cycleStats?.Count ?? 0;
@@ -256,46 +182,43 @@ namespace ATSAccessibility
             }
         }
 
-        private void AnnounceSubmenuItem()
+        private string GetSubmenuLabel(int index)
         {
-            int count = GetCurrentSubmenuCount();
-            if (count == 0 || _submenuIndex < 0 || _submenuIndex >= count)
-            {
-                Speech.Say("Empty");
-                return;
-            }
-
-            switch ((MainMenuItem)_mainMenuIndex)
+            switch ((MainMenuItem)_indices[0])
             {
                 case MainMenuItem.CycleStats:
-                    var stat = _cycleStats[_submenuIndex];
-                    Speech.Say($"{stat.label}, {stat.value}");
-                    break;
+                    if (_cycleStats != null && index >= 0 && index < _cycleStats.Count)
+                    {
+                        var stat = _cycleStats[index];
+                        return $"{stat.label}, {stat.value}";
+                    }
+                    return null;
 
                 case MainMenuItem.Upgrades:
-                    var upgrade = _upgrades[_submenuIndex];
-                    Speech.Say($"{upgrade.label}, {upgrade.value}");
-                    break;
+                    if (_upgrades != null && index >= 0 && index < _upgrades.Count)
+                    {
+                        var upgrade = _upgrades[index];
+                        return $"{upgrade.label}, {upgrade.value}";
+                    }
+                    return null;
 
                 case MainMenuItem.History:
-                    var settlement = _settlements[_submenuIndex];
-                    string name = GamesHistoryReflection.GetSettlementName(settlement);
-                    bool won = GamesHistoryReflection.GetSettlementWon(settlement);
-                    Speech.Say($"{name}, {(won ? "Won" : "Lost")}");
-                    break;
-            }
-        }
+                    if (_settlements != null && index >= 0 && index < _settlements.Count)
+                    {
+                        string name = GamesHistoryReflection.GetSettlementName(_settlements[index]);
+                        bool won = GamesHistoryReflection.GetSettlementWon(_settlements[index]);
+                        return $"{name}, {(won ? "Won" : "Lost")}";
+                    }
+                    return null;
 
-        private void ReturnToMainMenu()
-        {
-            _level = Level.MainMenu;
-            _search.Clear();
-            AnnounceMainMenuItem();
+                default:
+                    return null;
+            }
         }
 
         private string GetSubmenuItemName(int index)
         {
-            switch ((MainMenuItem)_mainMenuIndex)
+            switch ((MainMenuItem)_indices[0])
             {
                 case MainMenuItem.CycleStats:
                     return index < (_cycleStats?.Count ?? 0) ? _cycleStats[index].label : null;
@@ -306,31 +229,6 @@ namespace ATSAccessibility
                 default:
                     return null;
             }
-        }
-
-        // ========================================
-        // SETTLEMENT DETAILS LEVEL (FLAT LIST)
-        // ========================================
-
-        private void EnterSettlementDetails()
-        {
-            if (_settlements == null || _submenuIndex < 0 || _submenuIndex >= _settlements.Count)
-                return;
-
-            var settlement = _settlements[_submenuIndex];
-            BuildSettlementDetailItems(settlement);
-
-            if (_settlementDetailItems == null || _settlementDetailItems.Count == 0)
-            {
-                Speech.Say("No details available");
-                return;
-            }
-
-            _level = Level.SettlementDetails;
-            _detailIndex = 0;
-            _search.Clear();
-
-            AnnounceDetailItem();
         }
 
         private void BuildSettlementDetailItems(object settlement)
@@ -411,150 +309,6 @@ namespace ATSAccessibility
             else
             {
                 _settlementDetailItems.Add("Seasonal Effects: none");
-            }
-        }
-
-        private bool ProcessSettlementDetailsKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateDetails(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateDetails(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_settlementDetailItems != null && _settlementDetailItems.Count > 0)
-                    {
-                        _detailIndex = 0;
-                        AnnounceDetailItem();
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_settlementDetailItems != null && _settlementDetailItems.Count > 0)
-                    {
-                        _detailIndex = _settlementDetailItems.Count - 1;
-                        AnnounceDetailItem();
-                    }
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    ReturnToSubmenu();
-                    return true;
-
-                case KeyCode.Escape:
-                    ReturnToSubmenu();
-                    return true;
-
-                default:
-                    // Consume all other keys
-                    return true;
-            }
-        }
-
-        private void NavigateDetails(int direction)
-        {
-            if (_settlementDetailItems == null || _settlementDetailItems.Count == 0)
-            {
-                Speech.Say("Empty");
-                return;
-            }
-
-            _detailIndex = NavigationUtils.WrapIndex(_detailIndex, direction, _settlementDetailItems.Count);
-            AnnounceDetailItem();
-        }
-
-        private void AnnounceDetailItem()
-        {
-            if (_settlementDetailItems == null || _detailIndex < 0 || _detailIndex >= _settlementDetailItems.Count)
-            {
-                Speech.Say("Empty");
-                return;
-            }
-
-            Speech.Say(_settlementDetailItems[_detailIndex]);
-        }
-
-        private void ReturnToSubmenu()
-        {
-            _level = Level.Submenu;
-            _search.Clear();
-            _settlementDetailItems?.Clear();
-            AnnounceSubmenuItem();
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount
-        {
-            get
-            {
-                switch (_level)
-                {
-                    case Level.MainMenu:
-                        return MainMenuItems.Length;
-                    case Level.Submenu:
-                        return GetCurrentSubmenuCount();
-                    case Level.SettlementDetails:
-                        return _settlementDetailItems?.Count ?? 0;
-                    default:
-                        return 0;
-                }
-            }
-        }
-
-        public int SearchCurrentIndex
-        {
-            get
-            {
-                switch (_level)
-                {
-                    case Level.MainMenu: return _mainMenuIndex;
-                    case Level.Submenu: return _submenuIndex;
-                    case Level.SettlementDetails: return _detailIndex;
-                    default: return 0;
-                }
-            }
-        }
-
-        public string GetSearchLabel(int index)
-        {
-            switch (_level)
-            {
-                case Level.MainMenu:
-                    return (index >= 0 && index < MainMenuItems.Length) ? MainMenuItems[index] : null;
-                case Level.Submenu:
-                    return GetSubmenuItemName(index);
-                case Level.SettlementDetails:
-                    return (_settlementDetailItems != null && index >= 0 && index < _settlementDetailItems.Count)
-                        ? _settlementDetailItems[index] : null;
-                default:
-                    return null;
-            }
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            switch (_level)
-            {
-                case Level.MainMenu:
-                    _mainMenuIndex = index;
-                    AnnounceMainMenuItem();
-                    break;
-                case Level.Submenu:
-                    _submenuIndex = index;
-                    AnnounceSubmenuItem();
-                    break;
-                case Level.SettlementDetails:
-                    _detailIndex = index;
-                    AnnounceDetailItem();
-                    break;
             }
         }
     }

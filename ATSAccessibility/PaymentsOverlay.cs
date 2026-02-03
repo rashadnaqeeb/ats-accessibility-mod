@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the PaymentsPopup (pending payments/obligations).
     /// Flat list navigation with static header text.
     /// </summary>
-    public class PaymentsOverlay : IKeyHandler
+    public class PaymentsOverlay : MenuBase, IKeyHandler
     {
         private enum ItemType { Header, Payment }
 
@@ -18,10 +18,8 @@ namespace ATSAccessibility
             public string Label;
         }
 
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private int _currentIndex;
         private List<NavItem> _items = new List<NavItem>();
 
         // Header text (Zhera Mossback quote)
@@ -34,98 +32,28 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Payments";
+        protected override string EmptyMessage => "No payments due";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    PayCurrent();
-                    return true;
-
-                case KeyCode.Space:
-                    CycleAutoPayment();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Label;
+            return null;
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when PaymentsPopup is shown.
-        /// </summary>
-        public void Open(object popup)
-        {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _currentIndex = 0;
-
-            RefreshData();
-
-            if (_items.Count > 1)
-            {
-                // Announce header first
-                Speech.Say($"Payments. {_items[0].Label}");
-            }
-            else
-            {
-                Speech.Say("Payments. No payments due");
-            }
-
-            Debug.Log($"[ATSAccessibility] PaymentsOverlay opened, {_items.Count} items");
-        }
-
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _items.Clear();
-
-            Debug.Log("[ATSAccessibility] PaymentsOverlay closed");
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -151,74 +79,15 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] PaymentsOverlay refreshed: {payments.Count} payments");
         }
 
-        private string BuildPaymentLabel(PaymentsReflection.PaymentInfo payment)
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
         {
-            var parts = new List<string>();
+            if (index < 0 || index >= _items.Count) return;
 
-            // Type (e.g., "Tax")
-            if (!string.IsNullOrEmpty(payment.TypeLabel))
-                parts.Add(payment.TypeLabel);
-            else
-                parts.Add("Payment");
-
-            // Amount and good name
-            parts.Add($"{payment.GoodAmount} {payment.GoodName}");
-
-            // Due date
-            string yearStr = PaymentsReflection.YearToRoman(payment.DueYear);
-            parts.Add($"due Year {yearStr} {payment.DueSeason}");
-
-            // Time remaining
-            string timeStr = PaymentsReflection.FormatTime(payment.TimeRemaining);
-            parts.Add(timeStr);
-
-            // Auto-payment setting
-            string autoLabel = PaymentsReflection.GetAutoPaymentLabel(payment.AutoPaymentType);
-            parts.Add($"auto: {autoLabel}");
-
-            // Can pay status
-            parts.Add(payment.CanPay ? "can pay" : "cannot pay");
-
-            return string.Join(", ", parts);
-        }
-
-        // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-            Speech.Say(_items[_currentIndex].Label);
-        }
-
-        // ========================================
-        // ACTIONS
-        // ========================================
-
-        private void PayCurrent()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
+            var item = _items[index];
             if (item.Type != ItemType.Payment || !item.Payment.HasValue)
             {
-                // Header or invalid - just re-announce
                 AnnounceCurrentItem();
                 return;
             }
@@ -236,13 +105,11 @@ namespace ATSAccessibility
                 SoundManager.PlayTraderTransactionCompleted();
                 Speech.Say("Paid");
 
-                // Refresh data and adjust index if needed
                 RefreshData();
 
-                if (_currentIndex >= _items.Count)
-                    _currentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
+                if (CurrentIndex >= _items.Count)
+                    CurrentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
 
-                // Announce new current item
                 if (_items.Count > 1)
                     AnnounceCurrentItem();
                 else
@@ -255,14 +122,13 @@ namespace ATSAccessibility
             }
         }
 
-        private void CycleAutoPayment()
+        protected override void OnSpace(int index)
         {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
+            if (index < 0 || index >= _items.Count) return;
 
-            var item = _items[_currentIndex];
+            var item = _items[index];
             if (item.Type != ItemType.Payment || !item.Payment.HasValue)
             {
-                // Header or invalid - just re-announce
                 AnnounceCurrentItem();
                 return;
             }
@@ -289,6 +155,51 @@ namespace ATSAccessibility
                 Speech.Say("Cannot change auto-payment");
                 SoundManager.PlayFailed();
             }
+        }
+
+        protected override int SearchItemCount => 0; // No search for payments
+
+        // Escape passes to game to close popup
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _items.Clear();
+        }
+
+        // ========================================
+        // DATA HELPERS
+        // ========================================
+
+        private string BuildPaymentLabel(PaymentsReflection.PaymentInfo payment)
+        {
+            var parts = new List<string>();
+
+            if (!string.IsNullOrEmpty(payment.TypeLabel))
+                parts.Add(payment.TypeLabel);
+            else
+                parts.Add("Payment");
+
+            parts.Add($"{payment.GoodAmount} {payment.GoodName}");
+
+            string yearStr = PaymentsReflection.YearToRoman(payment.DueYear);
+            parts.Add($"due Year {yearStr} {payment.DueSeason}");
+
+            string timeStr = PaymentsReflection.FormatTime(payment.TimeRemaining);
+            parts.Add(timeStr);
+
+            string autoLabel = PaymentsReflection.GetAutoPaymentLabel(payment.AutoPaymentType);
+            parts.Add($"auto: {autoLabel}");
+
+            parts.Add(payment.CanPay ? "can pay" : "cannot pay");
+
+            return string.Join(", ", parts);
         }
     }
 }

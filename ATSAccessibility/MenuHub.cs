@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Opened with F2 from the settlement map.
     /// Isolated in a single file for easy removal if needed.
     /// </summary>
-    public class MenuHub : IKeyHandler, ISearchable
+    public class MenuHub : MenuBase, IKeyHandler
     {
         private static readonly string[] _menuLabels = {
             "Recipes",
@@ -19,133 +19,127 @@ namespace ATSAccessibility
             "Trader"
         };
 
-        private bool _isOpen;
-        private int _currentIndex;
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+        // Flag to suppress "Closed" speech when closing to open a popup
+        private bool _closingForPopup;
 
-        /// <summary>
-        /// Whether the menu hub is currently open.
-        /// </summary>
-        public bool IsOpen => _isOpen;
+        // ========================================
+        // IKeyHandler Implementation
+        // ========================================
 
-        /// <summary>
-        /// Whether this handler is currently active (IKeyHandler).
-        /// </summary>
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        /// <summary>
-        /// Open the menu hub. If already open, closes it.
-        /// </summary>
-        public void Open()
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Menu Hub";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount() => _menuLabels.Length;
+
+        protected override string GetLabel(int index)
         {
-            if (_isOpen)
+            if (index < 0 || index >= _menuLabels.Length) return null;
+
+            string label = _menuLabels[index];
+            string lockSuffix = "";
+            if (index == 2 && !GameReflection.AreTradeRoutesUnlocked())
+                lockSuffix = ", locked";
+            else if (index == 4 && !GameReflection.IsConsumptionControlUnlocked())
+                lockSuffix = ", locked";
+
+            return $"{label}{lockSuffix}";
+        }
+
+        protected override string GetSearchName(int index)
+        {
+            if (index < 0 || index >= _menuLabels.Length) return null;
+            return _menuLabels[index];
+        }
+
+        protected override void RefreshData() { } // Static list, nothing to refresh
+
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
+        {
+            if (index < 0 || index >= _menuLabels.Length) return;
+            OpenSelectedMenu(index);
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            // F-key panel switching - close self and pass through to open target panel
+            if (keyCode == KeyCode.F1 || keyCode == KeyCode.F3)
+            {
+                Close();
+                return false; // Let SettlementKeyHandler open the target panel
+            }
+            if (keyCode == KeyCode.F2)
+            {
+                SoundManager.PlayButtonClick();
+                Close();
+                return true;
+            }
+            return null;
+        }
+
+        protected override EscapeAction OnEscape()
+        {
+            SoundManager.PlayButtonClick();
+            return EscapeAction.Close;
+        }
+
+        protected override void OnOpened()
+        {
+            SoundManager.PlayPopupShow();
+        }
+
+        protected override void OnClosed()
+        {
+            if (!_closingForPopup)
+            {
+                InputBlocker.BlockCancelOnce = true;
+                Speech.Say("Closed");
+            }
+            _closingForPopup = false;
+        }
+
+        // ========================================
+        // PUBLIC METHODS
+        // ========================================
+
+        /// <summary>
+        /// Toggle the menu hub. If already open, closes it.
+        /// Callers should use this instead of Open() for toggle behavior.
+        /// </summary>
+        public void Toggle()
+        {
+            if (IsOpen)
             {
                 SoundManager.PlayButtonClick();
                 Close();
                 return;
             }
 
-            _isOpen = true;
-            _currentIndex = 0;
-            _search.Clear();
-
-            SoundManager.PlayPopupShow();
-            AnnounceCurrentItem(withPrefix: true);
-            Debug.Log("[ATSAccessibility] Menu Hub opened");
+            Open();
         }
 
-        /// <summary>
-        /// Close the menu hub.
-        /// </summary>
-        public void Close()
+        // ========================================
+        // POPUP OPENING
+        // ========================================
+
+        private void OpenSelectedMenu(int index)
         {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _search.Clear();
-            InputBlocker.BlockCancelOnce = true;
-            Speech.Say("Closed");
-            Debug.Log("[ATSAccessibility] Menu Hub closed");
-        }
-
-        /// <summary>
-        /// Process a key event for the menu hub (IKeyHandler).
-        /// Returns true if the key was handled.
-        /// </summary>
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
-            // F-key panel switching - close self and pass through to open target panel
-            if (keyCode == KeyCode.F1 || keyCode == KeyCode.F3)
-            {
-                Close();
-                return false;  // Let SettlementKeyHandler open the target panel
-            }
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_menuLabels.Length - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    OpenSelectedMenu();
-                    return true;
-
-                case KeyCode.Escape:
-                    SoundManager.PlayButtonClick();
-                    Close();
-                    return true;
-
-                case KeyCode.F2:
-                    SoundManager.PlayButtonClick();
-                    Close();
-                    return true;
-
-                default:
-                    return true; // Consume other keys while menu is open
-            }
-        }
-
-        private void Navigate(int direction)
-        {
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _menuLabels.Length);
-            AnnounceCurrentItem(withPrefix: false);
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_menuLabels.Length == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _menuLabels.Length - 1);
-            AnnounceCurrentItem(withPrefix: false);
-        }
-
-        private void OpenSelectedMenu()
-        {
-            string menuName = _menuLabels[_currentIndex];
+            string menuName = _menuLabels[index];
             Debug.Log($"[ATSAccessibility] Opening {menuName} from Menu Hub");
 
             bool success = false;
 
-            switch (_currentIndex)
+            switch (index)
             {
                 case 0: // Recipes
                     success = GameReflection.OpenRecipesPopup();
@@ -167,7 +161,7 @@ namespace ATSAccessibility
                     break;
                 case 3: // Payments
                     success = GameReflection.OpenPaymentsPopup();
-                    if (success) SoundManager.PlayMenuRecipes();  // Shares sound with Recipes
+                    if (success) SoundManager.PlayMenuRecipes();
                     break;
                 case 4: // Consumption Control
                     if (!GameReflection.IsConsumptionControlUnlocked())
@@ -187,7 +181,6 @@ namespace ATSAccessibility
                     success = GameReflection.OpenTraderPanel();
                     if (!success)
                     {
-                        // Give specific feedback for trader panel
                         Speech.Say("Trader unavailable. Build a Trading Post first");
                         SoundManager.PlayFailed();
                         Debug.Log("[ATSAccessibility] Trader panel unavailable - no Trading Post");
@@ -198,8 +191,8 @@ namespace ATSAccessibility
 
             if (success)
             {
-                // Close menu hub after opening popup
-                _isOpen = false;
+                _closingForPopup = true;
+                Close();
                 Debug.Log($"[ATSAccessibility] Successfully opened {menuName}");
             }
             else
@@ -207,40 +200,6 @@ namespace ATSAccessibility
                 Speech.Say($"{menuName} unavailable");
                 Debug.Log($"[ATSAccessibility] Failed to open {menuName}");
             }
-        }
-
-        private void AnnounceCurrentItem(bool withPrefix)
-        {
-            string label = _menuLabels[_currentIndex];
-
-            // Check if item is locked
-            string lockSuffix = "";
-            if (_currentIndex == 2 && !GameReflection.AreTradeRoutesUnlocked())
-                lockSuffix = ", locked";
-            else if (_currentIndex == 4 && !GameReflection.IsConsumptionControlUnlocked())
-                lockSuffix = ", locked";
-
-            string message = withPrefix ? $"Menu Hub. {label}{lockSuffix}" : $"{label}{lockSuffix}";
-            Speech.Say(message);
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _menuLabels.Length;
-
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            return index >= 0 && index < _menuLabels.Length ? _menuLabels[index] : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem(withPrefix: false);
         }
     }
 }

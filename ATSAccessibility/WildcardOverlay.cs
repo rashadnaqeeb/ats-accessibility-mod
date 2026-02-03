@@ -8,13 +8,11 @@ namespace ATSAccessibility
     /// Accessible overlay for the WildcardPopup (mid-game blueprint selection).
     /// Provides two-level category/building navigation with type-ahead search,
     /// Space to toggle selection, and Enter to confirm picks.
+    ///
+    /// Level 0 = categories, Level 1 = buildings within the selected category.
     /// </summary>
-    public class WildcardOverlay : IKeyHandler, ISearchable
+    public class WildcardOverlay : MenuBase, IKeyHandler
     {
-        // Navigation levels
-        private const int LEVEL_CATEGORIES = 0;
-        private const int LEVEL_BUILDINGS = 1;
-
         /// <summary>
         /// Represents a building category with its buildings.
         /// </summary>
@@ -35,20 +33,11 @@ namespace ATSAccessibility
             public object Model { get; set; }
         }
 
-        // State
-        private bool _isOpen;
-        private object _popup;
-
-        // Navigation
-        private int _navigationLevel;
-        private int _categoryIndex;
-        private int _buildingIndex;
-
         // Data
+        private object _popup;
         private List<Category> _categories = new List<Category>();
         private List<(int catIdx, int bldIdx, string name)> _allBuildings =
             new List<(int, int, string)>();
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Picks
         private int _picksRequired;
@@ -58,174 +47,53 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Wildcard";
+        protected override string EmptyMessage => "No buildings available";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
+            switch (Level)
             {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_navigationLevel == LEVEL_CATEGORIES)
-                    {
-                        if (_categories.Count > 0)
-                        {
-                            _categoryIndex = 0;
-                            AnnounceCategory();
-                        }
-                    }
-                    else
-                    {
-                        if (_categories.Count > 0)
-                        {
-                            var category = _categories[_categoryIndex];
-                            if (category.Buildings.Count > 0)
-                            {
-                                _buildingIndex = 0;
-                                AnnounceBuilding();
-                            }
-                        }
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_navigationLevel == LEVEL_CATEGORIES)
-                    {
-                        if (_categories.Count > 0)
-                        {
-                            _categoryIndex = _categories.Count - 1;
-                            AnnounceCategory();
-                        }
-                    }
-                    else
-                    {
-                        if (_categories.Count > 0)
-                        {
-                            var category = _categories[_categoryIndex];
-                            if (category.Buildings.Count > 0)
-                            {
-                                _buildingIndex = category.Buildings.Count - 1;
-                                AnnounceBuilding();
-                            }
-                        }
-                    }
-                    return true;
-
-                case KeyCode.RightArrow:
-                    if (_navigationLevel == LEVEL_CATEGORIES)
-                        EnterBuildings();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    if (_navigationLevel == LEVEL_BUILDINGS)
-                        ReturnToCategories();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    if (_navigationLevel == LEVEL_CATEGORIES)
-                        EnterBuildings();
-                    else
-                        ConfirmPicks();
-                    return true;
-
-                case KeyCode.Space:
-                    if (_navigationLevel == LEVEL_BUILDINGS)
-                        ToggleCurrentBuilding();
-                    return true;
-
-                case KeyCode.Escape:
-                    if (_navigationLevel == LEVEL_BUILDINGS)
-                    {
-                        ReturnToCategories();
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
-                    // Pass to game to close popup (OnPopupHidden will close our overlay)
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
+                case 0: return _categories.Count;
+                case 1:
+                    if (_categories.Count > 0 && _indices[0] >= 0 && _indices[0] < _categories.Count)
+                        return _categories[_indices[0]].Buildings.Count;
+                    return 0;
+                default: return 0;
             }
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when a WildcardPopup is shown.
-        /// </summary>
-        public void Open(object popup)
+        protected override string GetLabel(int index)
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _navigationLevel = LEVEL_CATEGORIES;
-            _categoryIndex = 0;
-            _buildingIndex = 0;
-            _search.Clear();
-            _selectedModels.Clear();
-
-            // Read picks required
-            _picksRequired = WildcardReflection.GetPicksRequired();
-
-            // Read any existing picks from popup
-            var existingPicks = WildcardReflection.GetCurrentPicks(popup);
-            foreach (var pick in existingPicks)
-                _selectedModels.Add(pick);
-
-            RefreshData();
-
-            if (_categories.Count == 0)
+            switch (Level)
             {
-                Speech.Say($"Wildcard pick, select {_picksRequired}. No buildings available");
-            }
-            else
-            {
-                var category = _categories[_categoryIndex];
-                Speech.Say($"Wildcard pick, select {_picksRequired}. {category.Name}");
-            }
+                case 0:
+                    if (index < 0 || index >= _categories.Count) return null;
+                    return _categories[index].Name;
 
-            Debug.Log($"[ATSAccessibility] WildcardOverlay opened, {_picksRequired} picks required, {_categories.Count} categories");
+                case 1:
+                    if (_categories.Count == 0 || _indices[0] < 0 || _indices[0] >= _categories.Count) return null;
+                    var category = _categories[_indices[0]];
+                    if (index < 0 || index >= category.Buildings.Count) return null;
+
+                    var building = category.Buildings[index];
+                    bool isSelected = _selectedModels.Contains(building.Model);
+                    return isSelected ? $"{building.Name}, selected" : building.Name;
+
+                default: return null;
+            }
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _search.Clear();
-            _selectedModels.Clear();
-            ClearData();
-
-            Debug.Log("[ATSAccessibility] WildcardOverlay closed");
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _categories.Clear();
             _allBuildings.Clear();
@@ -270,7 +138,7 @@ namespace ATSAccessibility
                     .ToList();
             }
 
-            // Build flat list for type-ahead
+            // Build flat list for cross-category type-ahead search
             for (int ci = 0; ci < _categories.Count; ci++)
             {
                 var cat = _categories[ci];
@@ -283,62 +151,104 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] WildcardOverlay data refreshed: {_categories.Count} categories, {_allBuildings.Count} buildings");
         }
 
-        private void ClearData()
+        protected override EnterAction OnEnter(int index)
         {
+            switch (Level)
+            {
+                case 0:
+                    if (_categories.Count == 0 || index < 0 || index >= _categories.Count) return EnterAction.None;
+                    if (_categories[index].Buildings.Count == 0)
+                    {
+                        Speech.Say("No buildings in this category");
+                        return EnterAction.None;
+                    }
+                    return EnterAction.DrillDown;
+
+                case 1:
+                    return EnterAction.Action;
+
+                default:
+                    return EnterAction.None;
+            }
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 1)
+                ConfirmPicks();
+        }
+
+        protected override void OnSpace(int index)
+        {
+            if (Level == 1)
+                ToggleCurrentBuilding();
+        }
+
+        // ========================================
+        // LIFECYCLE
+        // ========================================
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+            _picksRequired = WildcardReflection.GetPicksRequired();
+
+            var existingPicks = WildcardReflection.GetCurrentPicks(popup);
+            foreach (var pick in existingPicks)
+                _selectedModels.Add(pick);
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_categories.Count == 0)
+                return $"Wildcard pick, select {_picksRequired}. {EmptyMessage}";
+            return $"Wildcard pick, select {_picksRequired}. {_categories[0].Name}";
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _selectedModels.Clear();
             _categories.Clear();
             _allBuildings.Clear();
         }
 
         // ========================================
-        // NAVIGATION
+        // CROSS-CATEGORY SEARCH
         // ========================================
 
-        private void Navigate(int direction)
+        protected override int SearchItemCount => _allBuildings.Count;
+
+        protected override int SearchCurrentIndex
         {
-            if (_navigationLevel == LEVEL_CATEGORIES)
-                NavigateCategories(direction);
-            else
-                NavigateBuildings(direction);
-        }
-
-        private void NavigateCategories(int direction)
-        {
-            if (_categories.Count == 0) return;
-
-            _categoryIndex = NavigationUtils.WrapIndex(_categoryIndex, direction, _categories.Count);
-            AnnounceCategory();
-        }
-
-        private void NavigateBuildings(int direction)
-        {
-            if (_categories.Count == 0) return;
-            var category = _categories[_categoryIndex];
-            if (category.Buildings.Count == 0) return;
-
-            _buildingIndex = NavigationUtils.WrapIndex(_buildingIndex, direction, category.Buildings.Count);
-            AnnounceBuilding();
-        }
-
-        private void EnterBuildings()
-        {
-            if (_categories.Count == 0) return;
-
-            var category = _categories[_categoryIndex];
-            if (category.Buildings.Count == 0)
+            get
             {
-                Speech.Say("No buildings in this category");
-                return;
-            }
+                if (Level != 1 || _categories.Count == 0) return 0;
 
-            _navigationLevel = LEVEL_BUILDINGS;
-            _buildingIndex = 0;
-            AnnounceBuilding();
+                // Compute flat index from category + building indices
+                int flatIndex = 0;
+                for (int ci = 0; ci < _indices[0] && ci < _categories.Count; ci++)
+                    flatIndex += _categories[ci].Buildings.Count;
+                flatIndex += CurrentIndex;
+                return flatIndex;
+            }
         }
 
-        private void ReturnToCategories()
+        protected override string GetSearchName(int index)
         {
-            _navigationLevel = LEVEL_CATEGORIES;
-            AnnounceCategory();
+            if (index >= 0 && index < _allBuildings.Count)
+                return _allBuildings[index].name;
+            return null;
+        }
+
+        protected override void SearchMoveTo(int index)
+        {
+            if (index < 0 || index >= _allBuildings.Count) return;
+            var match = _allBuildings[index];
+            _indices[0] = match.catIdx;
+            SetLevel(1);
+            _indices[1] = match.bldIdx;
+            AnnounceCurrentItem();
         }
 
         // ========================================
@@ -347,11 +257,11 @@ namespace ATSAccessibility
 
         private void ToggleCurrentBuilding()
         {
-            if (_categories.Count == 0) return;
-            var category = _categories[_categoryIndex];
-            if (_buildingIndex < 0 || _buildingIndex >= category.Buildings.Count) return;
+            if (_categories.Count == 0 || _indices[0] < 0 || _indices[0] >= _categories.Count) return;
+            var category = _categories[_indices[0]];
+            if (CurrentIndex < 0 || CurrentIndex >= category.Buildings.Count) return;
 
-            var building = category.Buildings[_buildingIndex];
+            var building = category.Buildings[CurrentIndex];
 
             bool toggled = WildcardReflection.ToggleSlot(_popup, building.Model);
             if (!toggled)
@@ -398,62 +308,13 @@ namespace ATSAccessibility
             {
                 SoundManager.PlayButtonClick();
                 Speech.Say("Blueprints unlocked");
-                // Popup hides itself → OnPopupHidden → Close()
+                // Popup hides itself -> OnPopupHidden -> Close()
             }
             else
             {
                 Speech.Say("Could not confirm");
                 SoundManager.PlayFailed();
             }
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _allBuildings.Count;
-        public int SearchCurrentIndex => _navigationLevel == LEVEL_BUILDINGS ? _buildingIndex : _categoryIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            if (index < 0 || index >= _allBuildings.Count) return null;
-            return _allBuildings[index].name;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            if (index < 0 || index >= _allBuildings.Count) return;
-            var match = _allBuildings[index];
-            _categoryIndex = match.catIdx;
-            _buildingIndex = match.bldIdx;
-            _navigationLevel = LEVEL_BUILDINGS;
-            AnnounceBuilding();
-        }
-
-        // ========================================
-        // ANNOUNCEMENTS
-        // ========================================
-
-        private void AnnounceCategory()
-        {
-            if (_categoryIndex < 0 || _categoryIndex >= _categories.Count) return;
-            var category = _categories[_categoryIndex];
-            Speech.Say(category.Name);
-        }
-
-        private void AnnounceBuilding()
-        {
-            if (_categories.Count == 0) return;
-            var category = _categories[_categoryIndex];
-            if (_buildingIndex < 0 || _buildingIndex >= category.Buildings.Count) return;
-
-            var building = category.Buildings[_buildingIndex];
-            bool isSelected = _selectedModels.Contains(building.Model);
-
-            if (isSelected)
-                Speech.Say($"{building.Name}, selected");
-            else
-                Speech.Say(building.Name);
         }
     }
 }

@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the RewardPickPopup (mid-game cornerstone/perk selection).
     /// Provides flat list navigation through NPC dialogue, cornerstone choices, extend, reroll, and skip.
     /// </summary>
-    public class CornerstoneOverlay : IKeyHandler, ISearchable
+    public class CornerstoneOverlay : MenuBase, IKeyHandler
     {
         // Navigation item types
         private enum ItemType { Dialogue, Cornerstone, Extend, Reroll, Skip }
@@ -20,129 +20,43 @@ namespace ATSAccessibility
             public string SearchName;  // Name for type-ahead (cornerstones only)
         }
 
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private int _currentIndex;
-
-        // Navigation list
         private List<NavItem> _items = new List<NavItem>();
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    ActivateCurrent();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup (OnPopupHidden will close our overlay)
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
-        }
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
         // ========================================
-        // LIFECYCLE
+        // MENUBASE OVERRIDES
         // ========================================
 
-        /// <summary>
-        /// Open the overlay when a RewardPickPopup is shown.
-        /// </summary>
-        public void Open(object popup)
+        protected override string OverlayName => "Cornerstone";
+        protected override string EmptyMessage => "No options available";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _currentIndex = 0;
-            _search.Clear();
-
-            RefreshData();
-
-            if (_items.Count > 0)
-            {
-                Speech.Say($"Cornerstone. {_items[0].Label}");
-            }
-            else
-            {
-                Speech.Say("Cornerstone. No options available");
-            }
-
-            Debug.Log($"[ATSAccessibility] CornerstoneOverlay opened, {_items.Count} items");
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Label;
+            return null;
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
+        protected override string GetSearchName(int index)
         {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _search.Clear();
-            _items.Clear();
-
-            Debug.Log("[ATSAccessibility] CornerstoneOverlay closed");
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Type == ItemType.Cornerstone ? _items[index].SearchName : null;
+            return null;
         }
 
-        /// <summary>
-        /// Refresh data after the limit popup closes.
-        /// If options changed (new pick loaded), announce the new state.
-        /// </summary>
-        public void RefreshAfterLimit()
-        {
-            if (!_isOpen) return;
-
-            RefreshData();
-            _currentIndex = GetFirstCornerstoneIndex();
-            if (_items.Count > 0)
-            {
-                AnnounceCurrentItem();
-            }
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -157,9 +71,7 @@ namespace ATSAccessibility
                 _items.Add(new NavItem
                 {
                     Type = ItemType.Dialogue,
-                    Model = null,
-                    Label = dialogueLabel,
-                    SearchName = null
+                    Label = dialogueLabel
                 });
             }
 
@@ -198,9 +110,7 @@ namespace ATSAccessibility
                 _items.Add(new NavItem
                 {
                     Type = ItemType.Extend,
-                    Model = null,
-                    Label = extendLabel,
-                    SearchName = null
+                    Label = extendLabel
                 });
             }
 
@@ -211,9 +121,7 @@ namespace ATSAccessibility
                 _items.Add(new NavItem
                 {
                     Type = ItemType.Reroll,
-                    Model = null,
-                    Label = $"Reroll, {rerolls} remaining",
-                    SearchName = null
+                    Label = $"Reroll, {rerolls} remaining"
                 });
             }
 
@@ -223,73 +131,77 @@ namespace ATSAccessibility
                 _items.Add(new NavItem
                 {
                     Type = ItemType.Skip,
-                    Model = null,
-                    Label = $"Skip, receive {skipAmount} {skipGoodName}",
-                    SearchName = null
+                    Label = $"Skip, receive {skipAmount} {skipGoodName}"
                 });
             }
 
             Debug.Log($"[ATSAccessibility] CornerstoneOverlay refreshed: {_items.Count} items");
         }
 
-        // ========================================
-        // NAVIGATION
-        // ========================================
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
 
-        private void Navigate(int direction)
+        protected override void OnAction(int index)
         {
-            if (_items.Count == 0) return;
+            if (index < 0 || index >= _items.Count) return;
 
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-            Speech.Say(_items[_currentIndex].Label);
-        }
-
-        // ========================================
-        // ACTIVATION
-        // ========================================
-
-        private void ActivateCurrent()
-        {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
+            var item = _items[index];
             switch (item.Type)
             {
                 case ItemType.Dialogue:
-                    // Read-only, re-announce for clarity
                     AnnounceCurrentItem();
                     break;
-
                 case ItemType.Cornerstone:
                     ActivateCornerstone(item);
                     break;
-
                 case ItemType.Extend:
                     ActivateExtend();
                     break;
-
                 case ItemType.Reroll:
                     ActivateReroll();
                     break;
-
                 case ItemType.Skip:
                     ActivateSkip();
                     break;
             }
         }
+
+        // Escape passes to game to close popup (OnPopupHidden will close our overlay)
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _items.Clear();
+        }
+
+        // ========================================
+        // PUBLIC METHODS
+        // ========================================
+
+        /// <summary>
+        /// Refresh data after the limit popup closes.
+        /// If options changed (new pick loaded), announce the new state.
+        /// </summary>
+        public void RefreshAfterLimit()
+        {
+            if (!IsOpen) return;
+
+            RefreshData();
+            CurrentIndex = GetFirstCornerstoneIndex();
+            if (_items.Count > 0)
+            {
+                AnnounceCurrentItem();
+            }
+        }
+
+        // ========================================
+        // ACTIVATION
+        // ========================================
 
         private void ActivateCornerstone(NavItem item)
         {
@@ -302,21 +214,19 @@ namespace ATSAccessibility
 
             SoundManager.PlayButtonClick();
 
-            // After pick: popup either rebuilt (more picks), hidden (done),
-            // or limit popup opened (at limit).
             var newOptions = CornerstoneReflection.GetCurrentOptions();
             if (newOptions != null && newOptions.Count > 0)
             {
                 Speech.Say("Picked");
                 RefreshData();
-                _currentIndex = GetFirstCornerstoneIndex();
+                CurrentIndex = GetFirstCornerstoneIndex();
                 AnnounceCurrentItem();
             }
             else
             {
                 Speech.Say("Picked");
-                // Popup hides → OnPopupHidden → Close()
-                // OR limit popup opened → handled by CornerstoneLimitOverlay
+                // Popup hides -> OnPopupHidden -> Close()
+                // OR limit popup opened -> handled by CornerstoneLimitOverlay
             }
         }
 
@@ -345,7 +255,7 @@ namespace ATSAccessibility
             int newCount = CountCornerstones();
             if (newCount > prevCount)
             {
-                _currentIndex = GetLastCornerstoneIndex();
+                CurrentIndex = GetLastCornerstoneIndex();
                 AnnounceCurrentItem();
             }
             else
@@ -365,7 +275,7 @@ namespace ATSAccessibility
 
             SoundManager.PlayReroll();
             RefreshData();
-            _currentIndex = GetFirstCornerstoneIndex();
+            CurrentIndex = GetFirstCornerstoneIndex();
             AnnounceCurrentItem();
         }
 
@@ -380,19 +290,18 @@ namespace ATSAccessibility
 
             SoundManager.PlayDecline();
 
-            // After skip: popup either rebuilt (more picks) or hidden (done)
             var afterSkip = CornerstoneReflection.GetCurrentOptions();
             if (afterSkip != null && afterSkip.Count > 0)
             {
                 Speech.Say("Skipped");
                 RefreshData();
-                _currentIndex = GetFirstCornerstoneIndex();
+                CurrentIndex = GetFirstCornerstoneIndex();
                 AnnounceCurrentItem();
             }
             else
             {
                 Speech.Say("Skipped");
-                // Popup hides → Close()
+                // Popup hides -> Close()
             }
         }
 
@@ -420,26 +329,6 @@ namespace ATSAccessibility
             for (int i = 0; i < _items.Count; i++)
                 if (_items[i].Type == ItemType.Cornerstone) count++;
             return count;
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _items.Count;
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            if (index < 0 || index >= _items.Count) return null;
-            // Only cornerstone items are searchable
-            return _items[index].Type == ItemType.Cornerstone ? _items[index].SearchName : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem();
         }
     }
 }

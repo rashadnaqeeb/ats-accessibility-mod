@@ -7,9 +7,9 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Accessible overlay for the GameResultPopup (victory/defeat screen).
-    /// Flat top-level list with expandable sections for details.
+    /// Level 0 = top-level items, Level 1 = sub-items within Section items.
     /// </summary>
-    public class GameResultOverlay : IKeyHandler
+    public class GameResultOverlay : MenuBase, IKeyHandler
     {
         private enum ItemType { ReadOnly, Section, Button }
 
@@ -21,21 +21,18 @@ namespace ATSAccessibility
             public List<string> SubItems;       // For Section type
         }
 
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private bool _inSection;
-        private int _topIndex;
-        private int _subIndex;
-
-        // Navigation data
         private List<TopLevelItem> _items = new List<TopLevelItem>();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen && IsPopupVisible();
+        public bool IsActive => IsOpen && IsPopupVisible();
+
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
         private bool IsPopupVisible()
         {
@@ -45,191 +42,46 @@ namespace ATSAccessibility
             return mb.gameObject != null && mb.gameObject.activeSelf;
         }
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Game Result";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
+            if (Level == 0)
+                return _items.Count;
 
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    if (_inSection)
-                        NavigateSubItem(-1);
-                    else
-                        NavigateTopLevel(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    if (_inSection)
-                        NavigateSubItem(1);
-                    else
-                        NavigateTopLevel(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_inSection)
-                    {
-                        var homeItem = _items[_topIndex];
-                        if (homeItem.SubItems != null && homeItem.SubItems.Count > 0)
-                        {
-                            _subIndex = 0;
-                            Speech.Say(homeItem.SubItems[_subIndex]);
-                        }
-                    }
-                    else if (_items.Count > 0)
-                    {
-                        _topIndex = 0;
-                        Speech.Say(_items[_topIndex].Label);
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_inSection)
-                    {
-                        var endItem = _items[_topIndex];
-                        if (endItem.SubItems != null && endItem.SubItems.Count > 0)
-                        {
-                            _subIndex = endItem.SubItems.Count - 1;
-                            Speech.Say(endItem.SubItems[_subIndex]);
-                        }
-                    }
-                    else if (_items.Count > 0)
-                    {
-                        _topIndex = _items.Count - 1;
-                        Speech.Say(_items[_topIndex].Label);
-                    }
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.RightArrow:
-                    if (_inSection)
-                        return true;  // No action in sub-items, just consume
-                    else
-                        ActivateOrEnter();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    if (_inSection)
-                    {
-                        ReturnToTopLevel();
-                        return true;
-                    }
-                    // Consume at top level
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
+            // Level 1: sub-items of the current top-level Section
+            int topIdx = _indices[0];
+            if (topIdx >= 0 && topIdx < _items.Count)
+                return _items[topIdx].SubItems?.Count ?? 0;
+            return 0;
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        public void Open(object popup)
+        protected override string GetLabel(int index)
         {
-            _isOpen = true;
-            _popup = popup;
-            _inSection = false;
-            _topIndex = 0;
-            _subIndex = 0;
-
-            RefreshData();
-
-            // Announce first item (the summary)
-            if (_items.Count > 0)
+            if (Level == 0)
             {
-                Speech.Say(_items[0].Label);
+                if (index >= 0 && index < _items.Count)
+                    return _items[index].Label;
+                return null;
             }
 
-            Debug.Log($"[ATSAccessibility] GameResultOverlay opened, {_items.Count} top-level items");
-        }
-
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _items.Clear();
-
-            Debug.Log("[ATSAccessibility] GameResultOverlay closed");
-        }
-
-        // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void NavigateTopLevel(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _topIndex = NavigationUtils.WrapIndex(_topIndex, direction, _items.Count);
-            Speech.Say(_items[_topIndex].Label);
-        }
-
-        private void ActivateOrEnter()
-        {
-            if (_items.Count == 0 || _topIndex < 0 || _topIndex >= _items.Count) return;
-
-            var item = _items[_topIndex];
-
-            switch (item.Type)
+            // Level 1: sub-item label
+            int topIdx = _indices[0];
+            if (topIdx >= 0 && topIdx < _items.Count)
             {
-                case ItemType.ReadOnly:
-                    // Just re-announce
-                    Speech.Say(item.Label);
-                    break;
-
-                case ItemType.Section:
-                    if (item.SubItems != null && item.SubItems.Count > 0)
-                    {
-                        _inSection = true;
-                        _subIndex = 0;
-                        Speech.Say(item.SubItems[0]);
-                    }
-                    else
-                    {
-                        Speech.Say("Empty");
-                    }
-                    break;
-
-                case ItemType.Button:
-                    if (item.OnActivate != null)
-                    {
-                        item.OnActivate();
-                        SoundManager.PlayButtonClick();
-                    }
-                    break;
+                var subItems = _items[topIdx].SubItems;
+                if (subItems != null && index >= 0 && index < subItems.Count)
+                    return subItems[index];
             }
+            return null;
         }
 
-        private void NavigateSubItem(int direction)
-        {
-            var item = _items[_topIndex];
-            if (item.SubItems == null || item.SubItems.Count == 0) return;
-
-            _subIndex = NavigationUtils.WrapIndex(_subIndex, direction, item.SubItems.Count);
-            Speech.Say(item.SubItems[_subIndex]);
-        }
-
-        private void ReturnToTopLevel()
-        {
-            _inSection = false;
-            _subIndex = 0;
-            Speech.Say(_items[_topIndex].Label);
-        }
-
-        // ========================================
-        // DATA REFRESH
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -251,6 +103,85 @@ namespace ATSAccessibility
             // 6. Action buttons at the end
             AddActionButtons();
         }
+
+        protected override EnterAction OnEnter(int index)
+        {
+            if (Level == 0)
+            {
+                if (index >= 0 && index < _items.Count)
+                {
+                    var item = _items[index];
+                    if (item.Type == ItemType.Section && item.SubItems != null && item.SubItems.Count > 0)
+                        return EnterAction.DrillDown;
+                }
+                return EnterAction.Action;
+            }
+
+            // Level 1: no action in sub-items
+            return EnterAction.None;
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level != 0) return;
+            if (index < 0 || index >= _items.Count) return;
+
+            var item = _items[index];
+
+            switch (item.Type)
+            {
+                case ItemType.ReadOnly:
+                    // Re-announce
+                    AnnounceCurrentItem();
+                    break;
+
+                case ItemType.Section:
+                    // Section with no sub-items
+                    Speech.Say("Empty");
+                    break;
+
+                case ItemType.Button:
+                    if (item.OnActivate != null)
+                    {
+                        item.OnActivate();
+                        SoundManager.PlayButtonClick();
+                    }
+                    break;
+            }
+        }
+
+        protected override EscapeAction OnEscape()
+        {
+            if (Level > 0)
+                return EscapeAction.GoBack;
+
+            // Pass to game to close popup
+            return EscapeAction.PassThrough;
+        }
+
+        protected override int SearchItemCount => 0; // No search in this overlay
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_items.Count > 0)
+                return _items[0].Label;
+            return OverlayName;
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _items.Clear();
+        }
+
+        // ========================================
+        // DATA REFRESH
+        // ========================================
 
         private void AddSummaryItem()
         {

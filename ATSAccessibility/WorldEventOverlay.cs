@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Accessible overlay for WorldEventPopup (decision screen for world events on the world map).
     /// Provides flat list navigation: header (event name + description), then decision options.
     /// </summary>
-    public class WorldEventOverlay : IKeyHandler, ISearchable
+    public class WorldEventOverlay : MenuBase, IKeyHandler
     {
         // Item types in the flat list
         private enum ItemType { Header, Option }
@@ -19,137 +19,46 @@ namespace ATSAccessibility
             public int OptionIndex;  // Only for Option type
         }
 
-        // State
-        private bool _isOpen;
-        private int _currentIndex;
+        // Data
         private List<ListItem> _items = new List<ListItem>();
 
         // Cached instance data (extracted from popup on open)
         private object _model;
         private object _state;
 
-        // Type-ahead for options
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
-
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "World Event";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateCurrent();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Text;
+            return null;
         }
 
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _items.Count;
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
+        protected override string GetSearchName(int index)
         {
-            if (index < 0 || index >= _items.Count) return null;
-            return _items[index].Type == ItemType.Option ? _items[index].Text : null;
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Type == ItemType.Option ? _items[index].Text : null;
+            return null;
         }
 
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem();
-        }
-
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when WorldEventPopup is shown.
-        /// </summary>
-        public void Open(object popup)
-        {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _currentIndex = 0;
-            _search.Clear();
-
-            // Extract model and state from popup
-            var worldEvent = WorldEventReflection.GetWorldEvent(popup);
-            _model = WorldEventReflection.GetModel(worldEvent);
-            _state = WorldEventReflection.GetState(worldEvent);
-
-            // Build the list
-            BuildList();
-
-            // Announce event name and description
-            if (_items.Count > 0)
-            {
-                Speech.Say(_items[0].Text);
-            }
-
-            Debug.Log($"[ATSAccessibility] WorldEventOverlay opened, {_items.Count} items");
-        }
-
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _items.Clear();
-            _search.Clear();
-            _model = null;
-            _state = null;
-
-            Debug.Log("[ATSAccessibility] WorldEventOverlay closed");
-        }
-
-        // ========================================
-        // LIST BUILDING
-        // ========================================
-
-        private void BuildList()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -186,6 +95,86 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] WorldEventOverlay: Built {_items.Count} items ({optionCount} options)");
         }
 
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
+        {
+            if (index < 0 || index >= _items.Count) return;
+
+            var item = _items[index];
+            switch (item.Type)
+            {
+                case ItemType.Header:
+                    AnnounceCurrentItem();
+                    break;
+                case ItemType.Option:
+                    ExecuteOption(item.OptionIndex);
+                    break;
+            }
+        }
+
+        // Escape passes to game to close popup
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override string GetOpenAnnouncement()
+        {
+            // Announce header text (event name + description)
+            if (_items.Count > 0)
+                return _items[0].Text;
+            return OverlayName;
+        }
+
+        protected override void StorePopup(object popup)
+        {
+            var worldEvent = WorldEventReflection.GetWorldEvent(popup);
+            _model = WorldEventReflection.GetModel(worldEvent);
+            _state = WorldEventReflection.GetState(worldEvent);
+        }
+
+        protected override void OnClosed()
+        {
+            _items.Clear();
+            _model = null;
+            _state = null;
+        }
+
+        // ========================================
+        // ACTIONS
+        // ========================================
+
+        private void ExecuteOption(int index)
+        {
+            if (!WorldEventReflection.CanExecuteOption(_model, index))
+            {
+                string blockReason = WorldEventReflection.GetExecutionBlockReason(_model, index);
+                if (!string.IsNullOrEmpty(blockReason))
+                {
+                    Speech.Say($"Cannot select. {blockReason}");
+                }
+                else
+                {
+                    Speech.Say("Cannot select");
+                }
+                SoundManager.PlayFailed();
+                return;
+            }
+
+            if (WorldEventReflection.ExecuteDecision(_model, _state, index))
+            {
+                SoundManager.PlayButtonClick();
+                // Game will close the popup on success
+            }
+            else
+            {
+                Speech.Say("Failed to execute");
+                SoundManager.PlayFailed();
+            }
+        }
+
+        // ========================================
+        // HELPERS
+        // ========================================
+
         private string BuildOptionText(int index)
         {
             string desc = WorldEventReflection.GetOptionDescription(_model, index) ?? $"Option {index + 1}";
@@ -202,87 +191,6 @@ namespace ATSAccessibility
             }
 
             return desc;
-        }
-
-        // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-            Speech.Say(item.Text);
-        }
-
-        // ========================================
-        // ACTIONS
-        // ========================================
-
-        private void ActivateCurrent()
-        {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-
-            switch (item.Type)
-            {
-                case ItemType.Header:
-                    // Re-announce header (read-only)
-                    AnnounceCurrentItem();
-                    break;
-
-                case ItemType.Option:
-                    ExecuteOption(item.OptionIndex);
-                    break;
-            }
-        }
-
-        private void ExecuteOption(int index)
-        {
-            // Check if option can be executed
-            if (!WorldEventReflection.CanExecuteOption(_model, index))
-            {
-                string blockReason = WorldEventReflection.GetExecutionBlockReason(_model, index);
-                if (!string.IsNullOrEmpty(blockReason))
-                {
-                    Speech.Say($"Cannot select. {blockReason}");
-                }
-                else
-                {
-                    Speech.Say("Cannot select");
-                }
-                SoundManager.PlayFailed();
-                return;
-            }
-
-            // Execute the decision
-            if (WorldEventReflection.ExecuteDecision(_model, _state, index))
-            {
-                SoundManager.PlayButtonClick();
-                // Game will close the popup on success
-            }
-            else
-            {
-                Speech.Say("Failed to execute");
-                SoundManager.PlayFailed();
-            }
         }
     }
 }

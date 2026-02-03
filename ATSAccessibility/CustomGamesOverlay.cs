@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -7,16 +6,10 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Accessible overlay for the Custom Games (Training Expeditions) popup.
-    /// Provides hierarchical navigation through configuration panels.
+    /// Two-level navigation: Level 0 = top menu (13 sections), Level 1 = section items.
     /// </summary>
-    public class CustomGamesOverlay : IKeyHandler, ISearchable
+    public class CustomGamesOverlay : MenuBase, IKeyHandler
     {
-        private enum MenuLevel
-        {
-            TopMenu,
-            InSection
-        }
-
         private enum SectionType
         {
             Difficulty,
@@ -34,12 +27,7 @@ namespace ATSAccessibility
             Embark
         }
 
-        // Navigation state
-        private bool _isOpen;
         private object _popup;
-        private MenuLevel _menuLevel = MenuLevel.TopMenu;
-        private int _topMenuIndex;
-        private int _sectionItemIndex;
 
         // Top menu items
         private readonly List<SectionType> _sections = new List<SectionType>
@@ -75,9 +63,6 @@ namespace ATSAccessibility
         private int _modifierCategoryIndex = 0;  // 0=WorldMap, 1=Daily, 2=Difficulty, 3=All
         private readonly string[] _categoryNames = { "World Map", "Daily", "Difficulty", "All" };
 
-        // Type-ahead search
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
-
         // Seed text editing state
         private bool _isEditingSeed = false;
         private TMPro.TMP_InputField _seedInputField = null;
@@ -86,13 +71,116 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Training Expeditions";
+        protected override string EmptyMessage => "";
+
+        protected override void StorePopup(object popup)
         {
-            if (!_isOpen) return false;
+            _popup = popup;
+        }
 
-            // If editing seed, handle escape to exit edit mode
+        protected override int GetItemCount()
+        {
+            if (Level == 0)
+                return _sections.Count;
+            return GetSectionItemCount(CurrentSection);
+        }
+
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0)
+                return GetTopMenuItemAnnouncement(_sections[index]);
+            return GetSectionItemLabel(index);
+        }
+
+        protected override void RefreshData()
+        {
+        }
+
+        protected override EnterAction OnEnter(int index)
+        {
+            return EnterAction.Action;
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 0)
+            {
+                var section = _sections[index];
+
+                if (section == SectionType.Embark)
+                {
+                    TriggerEmbark();
+                    return;
+                }
+
+                if (section == SectionType.Seed)
+                {
+                    StartSeedEdit();
+                    return;
+                }
+
+                EnterSection(section);
+            }
+            else
+            {
+                ActivateSectionItem();
+            }
+        }
+
+        protected override void OnSpace(int index)
+        {
+            if (Level == 0)
+            {
+                var section = _sections[index];
+
+                if (section == SectionType.Seed)
+                {
+                    RandomizeSeed();
+                    return;
+                }
+                if (section == SectionType.Blight)
+                {
+                    ToggleBlightFromMenu();
+                    return;
+                }
+                if (section == SectionType.SeasonalEffects)
+                {
+                    ToggleSeasonalEffectsModeFromMenu();
+                    return;
+                }
+            }
+            else
+            {
+                ToggleSectionItem();
+            }
+        }
+
+        protected override void OnAdjust(int index, int dir, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (Level != 1) return;
+
+            var section = CurrentSection;
+            int multiplier;
+            if (modifiers.Shift)
+                multiplier = section == SectionType.EmbarkGoods ? 10 : 5;
+            else
+                multiplier = 1;
+
+            AdjustSlider(dir * multiplier);
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
             if (_isEditingSeed)
             {
                 if (keyCode == KeyCode.Escape || keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter)
@@ -104,225 +192,82 @@ namespace ATSAccessibility
                 return false;
             }
 
-            if (_menuLevel == MenuLevel.InSection)
+            if (Level == 0 && keyCode == KeyCode.RightArrow)
             {
-                return ProcessSectionKey(keyCode, modifiers);
-            }
-
-            return ProcessTopMenuKey(keyCode, modifiers);
-        }
-
-        private bool ProcessTopMenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            var currentSection = _sections[_topMenuIndex];
-
-            switch (keyCode)
-            {
-                case KeyCode.DownArrow:
-                    NavigateTopMenu(1);
-                    return true;
-
-                case KeyCode.UpArrow:
-                    NavigateTopMenu(-1);
-                    return true;
-
-                case KeyCode.Home:
-                    _topMenuIndex = 0;
-                    AnnounceTopMenuItem();
-                    return true;
-
-                case KeyCode.End:
-                    _topMenuIndex = _sections.Count - 1;
-                    AnnounceTopMenuItem();
-                    return true;
-
-                case KeyCode.Space:
-                    // Space randomizes seed when on Seed option
-                    if (currentSection == SectionType.Seed)
-                    {
-                        RandomizeSeed();
-                        return true;
-                    }
-                    // Space toggles blight on/off from main menu
-                    if (currentSection == SectionType.Blight)
-                    {
-                        ToggleBlightFromMenu();
-                        return true;
-                    }
-                    // Space toggles seasonal effects random/manual from main menu
-                    if (currentSection == SectionType.SeasonalEffects)
-                    {
-                        ToggleSeasonalEffectsModeFromMenu();
-                        return true;
-                    }
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    // Enter on Seed starts text editing
-                    if (currentSection == SectionType.Seed)
-                    {
-                        StartSeedEdit();
-                        return true;
-                    }
-                    EnterSection();
-                    return true;
-
-                case KeyCode.RightArrow:
-                    // Right arrow doesn't activate seed edit, just enters sections
-                    if (currentSection != SectionType.Seed)
-                    {
-                        EnterSection();
-                    }
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
-        }
-
-        private bool ProcessSectionKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            var currentSection = _sections[_topMenuIndex];
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
+                var section = _sections[CurrentIndex];
+                if (section != SectionType.Seed)
+                {
+                    OnAction(CurrentIndex);
+                }
                 return true;
+            }
 
-            switch (keyCode)
+            if (Level == 1 && keyCode == KeyCode.Tab)
             {
-                case KeyCode.DownArrow:
-                    NavigateSectionItem(1);
-                    return true;
+                if (CurrentSection == SectionType.Modifiers)
+                {
+                    CycleModifierCategory(modifiers.Shift ? -1 : 1);
+                }
+                return true;
+            }
 
-                case KeyCode.UpArrow:
-                    NavigateSectionItem(-1);
-                    return true;
+            return null;
+        }
 
-                case KeyCode.Home:
-                    _sectionItemIndex = 0;
-                    AnnounceSectionItem();
-                    return true;
+        protected override EscapeAction OnEscape()
+        {
+            if (Level > 0)
+                return EscapeAction.GoBack;
+            // Pass to game to close popup
+            return EscapeAction.PassThrough;
+        }
 
-                case KeyCode.End:
-                    {
-                        var section = _sections[_topMenuIndex];
-                        int count = GetSectionItemCount(section);
-                        if (count > 0)
-                        {
-                            _sectionItemIndex = count - 1;
-                            AnnounceSectionItem();
-                        }
-                    }
-                    return true;
+        protected override void OnGoBack()
+        {
+            ClearCachedData();
+        }
 
-                case KeyCode.LeftArrow:
-                case KeyCode.Escape:
-                    ExitSection();
-                    InputBlocker.BlockCancelOnce = true;  // Prevent game from closing popup
-                    return true;
+        protected override string GetOpenAnnouncement()
+        {
+            if (_sections.Count == 0) return OverlayName;
+            string firstLabel = GetTopMenuItemAnnouncement(_sections[0]);
+            return $"{OverlayName}. {firstLabel}";
+        }
 
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateSectionItem();
-                    return true;
+        protected override void OnClosed()
+        {
+            ClearCachedData();
+            _popup = null;
+        }
 
-                case KeyCode.Space:
-                    ToggleSectionItem();
-                    return true;
+        // ========================================
+        // SEARCH OVERRIDES
+        // ========================================
 
-                case KeyCode.Tab:
-                    // Tab cycles categories in Modifiers
-                    if (currentSection == SectionType.Modifiers)
-                    {
-                        CycleModifierCategory(modifiers.Shift ? -1 : 1);
-                        return true;
-                    }
-                    return true;
-
-                case KeyCode.Plus:
-                case KeyCode.KeypadPlus:
-                case KeyCode.Equals:
-                    // Embark goods uses 10 for shift, others use 5
-                    {
-                        var section = _sections[_topMenuIndex];
-                        int increment = modifiers.Shift ? (section == SectionType.EmbarkGoods ? 10 : 5) : 1;
-                        AdjustSlider(increment);
-                    }
-                    return true;
-
-                case KeyCode.Minus:
-                case KeyCode.KeypadMinus:
-                    // Embark goods uses 10 for shift, others use 5
-                    {
-                        var section = _sections[_topMenuIndex];
-                        int decrement = modifiers.Shift ? (section == SectionType.EmbarkGoods ? 10 : 5) : 1;
-                        AdjustSlider(-decrement);
-                    }
-                    return true;
-
-                default:
-                    // Consume all other keys while in section
-                    return true;
+        protected override int SearchItemCount
+        {
+            get
+            {
+                if (Level != 1) return 0;
+                if (CurrentSection == SectionType.Modifiers) return _filteredModifiers.Count;
+                return 0;
             }
         }
 
-        // ========================================
-        // Public Methods
-        // ========================================
+        protected override int SearchCurrentIndex => Level == 1 ? CurrentIndex : 0;
 
-        public void Open(object popup)
+        protected override string GetSearchName(int index)
         {
-            if (_isOpen) return;
-
-            _popup = popup;
-            _isOpen = true;
-            _topMenuIndex = 0;
-            _menuLevel = MenuLevel.TopMenu;
-            _search.Clear();
-
-            Speech.Say("Training Expeditions");
-            AnnounceTopMenuItem();
-
-            Debug.Log("[ATSAccessibility] CustomGamesOverlay opened");
-        }
-
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _menuLevel = MenuLevel.TopMenu;
-            _topMenuIndex = 0;
-            _sectionItemIndex = 0;
-
-            ClearCachedData();
-
-            Debug.Log("[ATSAccessibility] CustomGamesOverlay closed");
+            if (Level == 1 && CurrentSection == SectionType.Modifiers)
+                return index >= 0 && index < _filteredModifiers.Count ? _filteredModifiers[index].DisplayName : null;
+            return null;
         }
 
         // ========================================
-        // Top Menu Navigation
+        // HELPERS
         // ========================================
 
-        private void NavigateTopMenu(int direction)
-        {
-            _topMenuIndex = NavigationUtils.WrapIndex(_topMenuIndex, direction, _sections.Count);
-            AnnounceTopMenuItem();
-        }
-
-        private void AnnounceTopMenuItem()
-        {
-            var section = _sections[_topMenuIndex];
-            string announcement = GetTopMenuItemAnnouncement(section);
-            Speech.Say(announcement);
-        }
+        private SectionType CurrentSection => _sections[_indices[0]];
 
         private string GetTopMenuItemAnnouncement(SectionType section)
         {
@@ -393,36 +338,129 @@ namespace ATSAccessibility
             }
         }
 
+        private string GetSectionItemLabel(int index)
+        {
+            if (_popup == null) return null;
+
+            var section = CurrentSection;
+
+            switch (section)
+            {
+                case SectionType.Difficulty:
+                    if (index < _difficulties.Count)
+                    {
+                        var diff = _difficulties[index];
+                        string name = CustomGamesReflection.GetDifficultyDisplayName(diff);
+                        var current = CustomGamesReflection.GetCurrentDifficulty(_popup);
+                        bool isCurrent = CustomGamesReflection.GetDifficultyIndex(diff) ==
+                                        CustomGamesReflection.GetDifficultyIndex(current);
+                        return isCurrent ? $"{name}, current" : name;
+                    }
+                    return null;
+
+                case SectionType.Biome:
+                    if (index < _biomes.Count)
+                    {
+                        var biome = _biomes[index];
+                        int currentIdx = CustomGamesReflection.GetCurrentBiomeIndex(_popup);
+                        bool isCurrent = index == currentIdx;
+                        return isCurrent ? $"{biome.name}, current" : biome.name;
+                    }
+                    return null;
+
+                case SectionType.Races:
+                    if (index < _races.Count)
+                    {
+                        var race = _races[index];
+                        return race.selected ? $"{race.name}, selected" : $"{race.name}, not selected";
+                    }
+                    return null;
+
+                case SectionType.Reputation:
+                case SectionType.Seasons:
+                case SectionType.Blight:
+                    if (index < _sliders.Count)
+                    {
+                        var slider = _sliders[index];
+                        return $"{slider.name}: {slider.value:F1}";
+                    }
+                    return null;
+
+                case SectionType.TradeTowns:
+                    if (index < _tradeTowns.Count)
+                    {
+                        var town = _tradeTowns[index];
+                        return town.selected ? $"{town.name}, selected" : $"{town.name}, not selected";
+                    }
+                    return null;
+
+                case SectionType.Modifiers:
+                    if (index < _filteredModifiers.Count)
+                    {
+                        var mod = _filteredModifiers[index];
+                        string polarity = mod.IsPositive ? "positive" : "negative";
+                        string status = mod.IsPicked ? "enabled" : "disabled";
+                        string label = $"{mod.DisplayName}, {polarity}, {status}";
+                        if (!string.IsNullOrEmpty(mod.Description))
+                        {
+                            label += $". {mod.Description}";
+                        }
+                        return label;
+                    }
+                    return null;
+
+                case SectionType.EmbarkGoods:
+                    if (index < _embarkGoods.Count)
+                    {
+                        var good = _embarkGoods[index];
+                        return $"{good.amount} {good.name}";
+                    }
+                    return null;
+
+                case SectionType.EmbarkEffects:
+                    if (index < _embarkEffects.Count)
+                    {
+                        var effect = _embarkEffects[index];
+                        return effect.selected ? $"{effect.name}, selected" : $"{effect.name}, not selected";
+                    }
+                    return null;
+
+                case SectionType.Seed:
+                    return "Press Space to randomize seed";
+
+                case SectionType.SeasonalEffects:
+                    if (CustomGamesReflection.IsSeasonalEffectsRandom(_popup))
+                    {
+                        var seasonalCounts = CustomGamesReflection.GetSeasonalEffectsCounts(_popup);
+                        return $"Positive effects: {seasonalCounts.positive}, Negative effects: {seasonalCounts.negative}";
+                    }
+                    if (index < _seasonalEffects.Count)
+                    {
+                        var effect = _seasonalEffects[index];
+                        string polarity = effect.IsPositive ? "positive" : "negative";
+                        string status = effect.IsPicked ? "selected" : "not selected";
+                        string desc = !string.IsNullOrEmpty(effect.Description) ? $". {effect.Description}" : "";
+                        return $"{effect.DisplayName}, {polarity}, {status}{desc}";
+                    }
+                    return null;
+
+                default:
+                    return null;
+            }
+        }
+
         // ========================================
         // Section Entry/Exit
         // ========================================
 
-        private void EnterSection()
+        private void EnterSection(SectionType section)
         {
-            var section = _sections[_topMenuIndex];
-
-            // Handle Embark action directly
-            if (section == SectionType.Embark)
-            {
-                TriggerEmbark();
-                return;
-            }
-
-            // Seed is handled at top menu level (Space to randomize, Enter to edit)
-            // Don't enter it as a section
-            if (section == SectionType.Seed)
-            {
-                return;
-            }
-
-            // Blight submenu only available when blight is enabled
             if (section == SectionType.Blight && !CustomGamesReflection.IsBlightEnabled(_popup))
             {
                 Speech.Say("Blight is disabled. Press Space to enable.");
                 return;
             }
 
-            // Load section data
             LoadSectionData(section);
 
             if (GetSectionItemCount(section) == 0)
@@ -431,20 +469,10 @@ namespace ATSAccessibility
                 return;
             }
 
-            _menuLevel = MenuLevel.InSection;
-            _sectionItemIndex = 0;
+            SetLevel(1);
+            CurrentIndex = 0;
             _search.Clear();
-
-            AnnounceSectionItem();
-        }
-
-        private void ExitSection()
-        {
-            _menuLevel = MenuLevel.TopMenu;
-            _search.Clear();
-            ClearCachedData();
-
-            AnnounceTopMenuItem();
+            AnnounceCurrentItem();
         }
 
         // ========================================
@@ -464,10 +492,8 @@ namespace ATSAccessibility
             _isEditingSeed = true;
             _seedInputField = inputField;
 
-            // Disable input blocker so typing works
             InputBlocker.IsBlocking = false;
 
-            // Focus the input field
             inputField.Select();
             inputField.ActivateInputField();
 
@@ -481,17 +507,14 @@ namespace ATSAccessibility
 
             _isEditingSeed = false;
 
-            // Re-enable input blocker
             InputBlocker.IsBlocking = true;
 
-            // Deactivate input field
             if (_seedInputField != null)
             {
                 _seedInputField.DeactivateInputField();
             }
             _seedInputField = null;
 
-            // Announce the new seed value
             string newSeed = CustomGamesReflection.GetSeed(_popup);
             Speech.Say($"Seed set to: {newSeed}");
         }
@@ -511,7 +534,7 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // Section Navigation
+        // Section Data
         // ========================================
 
         private void LoadSectionData(SectionType section)
@@ -554,7 +577,6 @@ namespace ATSAccessibility
                     break;
 
                 case SectionType.SeasonalEffects:
-                    // In manual mode, load effects list; in random mode, just show slider
                     if (!CustomGamesReflection.IsSeasonalEffectsRandom(_popup))
                     {
                         _seasonalEffects = CustomGamesReflection.GetAllSeasonalEffects(_popup);
@@ -583,7 +605,6 @@ namespace ATSAccessibility
             _tradeTowns.Clear();
             _embarkGoods.Clear();
             _embarkEffects.Clear();
-            _search.Clear();
         }
 
         private int GetSectionItemCount(SectionType section)
@@ -611,138 +632,13 @@ namespace ATSAccessibility
                 case SectionType.EmbarkEffects:
                     return _embarkEffects.Count;
                 case SectionType.SeasonalEffects:
-                    // In random mode, just show slider info; in manual mode, show effects list
                     if (CustomGamesReflection.IsSeasonalEffectsRandom(_popup))
                         return 1;
                     return _seasonalEffects.Count;
                 case SectionType.Seed:
-                    return 1;  // Just randomize option
+                    return 1;
                 default:
                     return 0;
-            }
-        }
-
-        private void NavigateSectionItem(int direction)
-        {
-            var section = _sections[_topMenuIndex];
-            int count = GetSectionItemCount(section);
-            if (count == 0) return;
-
-            _sectionItemIndex = NavigationUtils.WrapIndex(_sectionItemIndex, direction, count);
-            AnnounceSectionItem();
-        }
-
-        private void AnnounceSectionItem()
-        {
-            if (_popup == null) return;
-
-            var section = _sections[_topMenuIndex];
-            string announcement = "";
-
-            switch (section)
-            {
-                case SectionType.Difficulty:
-                    if (_sectionItemIndex < _difficulties.Count)
-                    {
-                        var diff = _difficulties[_sectionItemIndex];
-                        string name = CustomGamesReflection.GetDifficultyDisplayName(diff);
-                        var current = CustomGamesReflection.GetCurrentDifficulty(_popup);
-                        bool isCurrent = CustomGamesReflection.GetDifficultyIndex(diff) ==
-                                        CustomGamesReflection.GetDifficultyIndex(current);
-                        announcement = isCurrent ? $"{name}, current" : name;
-                    }
-                    break;
-
-                case SectionType.Biome:
-                    if (_sectionItemIndex < _biomes.Count)
-                    {
-                        var biome = _biomes[_sectionItemIndex];
-                        int currentIdx = CustomGamesReflection.GetCurrentBiomeIndex(_popup);
-                        bool isCurrent = _sectionItemIndex == currentIdx;
-                        announcement = isCurrent ? $"{biome.name}, current" : biome.name;
-                    }
-                    break;
-
-                case SectionType.Races:
-                    if (_sectionItemIndex < _races.Count)
-                    {
-                        var race = _races[_sectionItemIndex];
-                        announcement = race.selected ? $"{race.name}, selected" : $"{race.name}, not selected";
-                    }
-                    break;
-
-                case SectionType.Reputation:
-                case SectionType.Seasons:
-                case SectionType.Blight:
-                    if (_sectionItemIndex < _sliders.Count)
-                    {
-                        var slider = _sliders[_sectionItemIndex];
-                        announcement = $"{slider.name}: {slider.value:F1}";
-                    }
-                    break;
-
-                case SectionType.TradeTowns:
-                    if (_sectionItemIndex < _tradeTowns.Count)
-                    {
-                        var town = _tradeTowns[_sectionItemIndex];
-                        announcement = town.selected ? $"{town.name}, selected" : $"{town.name}, not selected";
-                    }
-                    break;
-
-                case SectionType.Modifiers:
-                    if (_sectionItemIndex < _filteredModifiers.Count)
-                    {
-                        var mod = _filteredModifiers[_sectionItemIndex];
-                        string polarity = mod.IsPositive ? "positive" : "negative";
-                        string status = mod.IsPicked ? "enabled" : "disabled";
-                        announcement = $"{mod.DisplayName}, {polarity}, {status}";
-                        if (!string.IsNullOrEmpty(mod.Description))
-                        {
-                            announcement += $". {mod.Description}";
-                        }
-                    }
-                    break;
-
-                case SectionType.EmbarkGoods:
-                    if (_sectionItemIndex < _embarkGoods.Count)
-                    {
-                        var good = _embarkGoods[_sectionItemIndex];
-                        announcement = $"{good.amount} {good.name}";
-                    }
-                    break;
-
-                case SectionType.EmbarkEffects:
-                    if (_sectionItemIndex < _embarkEffects.Count)
-                    {
-                        var effect = _embarkEffects[_sectionItemIndex];
-                        announcement = effect.selected ? $"{effect.name}, selected" : $"{effect.name}, not selected";
-                    }
-                    break;
-
-                case SectionType.Seed:
-                    announcement = "Press Space to randomize seed";
-                    break;
-
-                case SectionType.SeasonalEffects:
-                    if (CustomGamesReflection.IsSeasonalEffectsRandom(_popup))
-                    {
-                        var seasonalCounts = CustomGamesReflection.GetSeasonalEffectsCounts(_popup);
-                        announcement = $"Positive effects: {seasonalCounts.positive}, Negative effects: {seasonalCounts.negative}";
-                    }
-                    else if (_sectionItemIndex < _seasonalEffects.Count)
-                    {
-                        var effect = _seasonalEffects[_sectionItemIndex];
-                        string polarity = effect.IsPositive ? "positive" : "negative";
-                        string status = effect.IsPicked ? "selected" : "not selected";
-                        string desc = !string.IsNullOrEmpty(effect.Description) ? $". {effect.Description}" : "";
-                        announcement = $"{effect.DisplayName}, {polarity}, {status}{desc}";
-                    }
-                    break;
-            }
-
-            if (!string.IsNullOrEmpty(announcement))
-            {
-                Speech.Say(announcement);
             }
         }
 
@@ -752,7 +648,7 @@ namespace ATSAccessibility
 
         private void ActivateSectionItem()
         {
-            var section = _sections[_topMenuIndex];
+            var section = CurrentSection;
 
             switch (section)
             {
@@ -772,7 +668,6 @@ namespace ATSAccessibility
                     break;
 
                 case SectionType.SeasonalEffects:
-                    // Only toggle in manual mode
                     if (!CustomGamesReflection.IsSeasonalEffectsRandom(_popup))
                     {
                         ToggleSectionItem();
@@ -780,15 +675,14 @@ namespace ATSAccessibility
                     break;
 
                 default:
-                    // Re-announce current item
-                    AnnounceSectionItem();
+                    AnnounceCurrentItem();
                     break;
             }
         }
 
         private void ToggleSectionItem()
         {
-            var section = _sections[_topMenuIndex];
+            var section = CurrentSection;
 
             switch (section)
             {
@@ -817,8 +711,7 @@ namespace ATSAccessibility
                     break;
 
                 default:
-                    // Re-announce
-                    AnnounceSectionItem();
+                    AnnounceCurrentItem();
                     break;
             }
         }
@@ -826,15 +719,15 @@ namespace ATSAccessibility
         private void SelectDifficulty()
         {
             if (_popup == null) return;
-            if (_sectionItemIndex < 0 || _sectionItemIndex >= _difficulties.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _difficulties.Count) return;
 
-            var diff = _difficulties[_sectionItemIndex];
+            var diff = _difficulties[CurrentIndex];
             if (CustomGamesReflection.SetDifficulty(_popup, diff))
             {
                 SoundManager.PlayButtonClick();
                 string name = CustomGamesReflection.GetDifficultyDisplayName(diff);
                 Speech.Say($"Selected {name}");
-                ExitSection();
+                GoBackToTopMenu();
             }
             else
             {
@@ -846,14 +739,14 @@ namespace ATSAccessibility
         private void SelectBiome()
         {
             if (_popup == null) return;
-            if (_sectionItemIndex < 0 || _sectionItemIndex >= _biomes.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _biomes.Count) return;
 
-            if (CustomGamesReflection.SetBiomeIndex(_popup, _sectionItemIndex))
+            if (CustomGamesReflection.SetBiomeIndex(_popup, CurrentIndex))
             {
                 SoundManager.PlayButtonClick();
-                var biome = _biomes[_sectionItemIndex];
+                var biome = _biomes[CurrentIndex];
                 Speech.Say($"Selected {biome.name}");
-                ExitSection();
+                GoBackToTopMenu();
             }
             else
             {
@@ -865,24 +758,22 @@ namespace ATSAccessibility
         private void ToggleRace()
         {
             if (_popup == null) return;
-            if (_sectionItemIndex < 0 || _sectionItemIndex >= _races.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _races.Count) return;
 
-            if (CustomGamesReflection.ToggleRaceSlot(_popup, _sectionItemIndex))
+            if (CustomGamesReflection.ToggleRaceSlot(_popup, CurrentIndex))
             {
                 SoundManager.PlayButtonClick();
-                // Refresh and re-announce
                 _races = CustomGamesReflection.GetRaceSlots(_popup);
-                if (_sectionItemIndex < _races.Count)
+                if (CurrentIndex < _races.Count)
                 {
-                    var race = _races[_sectionItemIndex];
+                    var race = _races[CurrentIndex];
                     Speech.Say(race.selected ? $"{race.name}, selected" : $"{race.name}, not selected");
                 }
             }
             else
             {
                 SoundManager.PlayFailed();
-                // If the race wasn't already selected, we hit the max limit
-                if (_sectionItemIndex < _races.Count && !_races[_sectionItemIndex].selected)
+                if (CurrentIndex < _races.Count && !_races[CurrentIndex].selected)
                 {
                     Speech.Say("Maximum races selected");
                 }
@@ -892,24 +783,22 @@ namespace ATSAccessibility
         private void ToggleTradeTown()
         {
             if (_popup == null) return;
-            if (_sectionItemIndex < 0 || _sectionItemIndex >= _tradeTowns.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _tradeTowns.Count) return;
 
-            if (CustomGamesReflection.ToggleTradeTownSlot(_popup, _sectionItemIndex))
+            if (CustomGamesReflection.ToggleTradeTownSlot(_popup, CurrentIndex))
             {
                 SoundManager.PlayButtonClick();
-                // Refresh and re-announce
                 _tradeTowns = CustomGamesReflection.GetTradeTownSlots(_popup);
-                if (_sectionItemIndex < _tradeTowns.Count)
+                if (CurrentIndex < _tradeTowns.Count)
                 {
-                    var town = _tradeTowns[_sectionItemIndex];
+                    var town = _tradeTowns[CurrentIndex];
                     Speech.Say(town.selected ? $"{town.name}, selected" : $"{town.name}, not selected");
                 }
             }
             else
             {
                 SoundManager.PlayFailed();
-                // If the town wasn't already selected, we hit the max limit
-                if (_sectionItemIndex < _tradeTowns.Count && !_tradeTowns[_sectionItemIndex].selected)
+                if (CurrentIndex < _tradeTowns.Count && !_tradeTowns[CurrentIndex].selected)
                 {
                     Speech.Say("Maximum trade towns selected");
                 }
@@ -919,13 +808,12 @@ namespace ATSAccessibility
         private void ToggleSeasonalEffect()
         {
             if (_popup == null) return;
-            if (_sectionItemIndex < 0 || _sectionItemIndex >= _seasonalEffects.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _seasonalEffects.Count) return;
 
-            var effect = _seasonalEffects[_sectionItemIndex];
+            var effect = _seasonalEffects[CurrentIndex];
             int maxEffects = CustomGamesReflection.GetMaxSeasonalEffects();
             int currentPicked = _seasonalEffects.Count(e => e.IsPicked);
 
-            // Check max limit if trying to select
             if (!effect.IsPicked && currentPicked >= maxEffects)
             {
                 SoundManager.PlayFailed();
@@ -936,7 +824,6 @@ namespace ATSAccessibility
             if (CustomGamesReflection.ToggleSeasonalEffect(_popup, effect))
             {
                 SoundManager.PlayButtonClick();
-                // Refresh the effect's IsPicked status
                 effect.IsPicked = !effect.IsPicked;
                 string polarity = effect.IsPositive ? "positive" : "negative";
                 string status = effect.IsPicked ? "selected" : "not selected";
@@ -951,13 +838,12 @@ namespace ATSAccessibility
         private void ToggleModifier()
         {
             if (_popup == null) return;
-            if (_sectionItemIndex < 0 || _sectionItemIndex >= _filteredModifiers.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _filteredModifiers.Count) return;
 
-            var mod = _filteredModifiers[_sectionItemIndex];
+            var mod = _filteredModifiers[CurrentIndex];
             if (CustomGamesReflection.ToggleModifier(_popup, mod))
             {
                 SoundManager.PlayButtonClick();
-                // mod.IsPicked is already updated by ToggleModifier
                 string status = mod.IsPicked ? "enabled" : "disabled";
                 Speech.Say($"{mod.DisplayName}, {status}");
             }
@@ -970,16 +856,15 @@ namespace ATSAccessibility
         private void ToggleEmbarkEffect()
         {
             if (_popup == null) return;
-            if (_sectionItemIndex < 0 || _sectionItemIndex >= _embarkEffects.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _embarkEffects.Count) return;
 
-            if (CustomGamesReflection.ToggleEmbarkEffect(_popup, _sectionItemIndex))
+            if (CustomGamesReflection.ToggleEmbarkEffect(_popup, CurrentIndex))
             {
                 SoundManager.PlayButtonClick();
-                // Refresh and re-announce
                 _embarkEffects = CustomGamesReflection.GetEmbarkEffects(_popup);
-                if (_sectionItemIndex < _embarkEffects.Count)
+                if (CurrentIndex < _embarkEffects.Count)
                 {
-                    var effect = _embarkEffects[_sectionItemIndex];
+                    var effect = _embarkEffects[CurrentIndex];
                     Speech.Say(effect.selected ? $"{effect.name}, selected" : $"{effect.name}, not selected");
                 }
             }
@@ -999,7 +884,6 @@ namespace ATSAccessibility
                 bool isOn = CustomGamesReflection.IsBlightEnabled(_popup);
                 Speech.Say(isOn ? "Blight enabled" : "Blight disabled");
 
-                // Refresh sliders if now enabled
                 if (isOn)
                 {
                     _sliders = CustomGamesReflection.GetBlightSliders(_popup);
@@ -1018,8 +902,7 @@ namespace ATSAccessibility
             if (CustomGamesReflection.ToggleBlight(_popup))
             {
                 SoundManager.PlayButtonClick();
-                // Re-announce with new state
-                AnnounceTopMenuItem();
+                AnnounceCurrentItem();
             }
             else
             {
@@ -1034,8 +917,7 @@ namespace ATSAccessibility
             if (CustomGamesReflection.ToggleSeasonalEffectsMode(_popup))
             {
                 SoundManager.PlayButtonClick();
-                // Re-announce with new state
-                AnnounceTopMenuItem();
+                AnnounceCurrentItem();
             }
             else
             {
@@ -1051,28 +933,25 @@ namespace ATSAccessibility
         {
             if (_popup == null) return;
 
-            var section = _sections[_topMenuIndex];
+            var section = CurrentSection;
 
-            // Handle SeasonalEffects separately (single slider, not in _sliders list)
             if (section == SectionType.SeasonalEffects)
             {
                 if (CustomGamesReflection.AdjustSeasonalEffectsPositive(_popup, delta))
                 {
                     SoundManager.PlayButtonClick();
-                    AnnounceSectionItem();
+                    AnnounceCurrentItem();
                 }
                 return;
             }
 
-            // Handle EmbarkGoods - adjust amounts with +/-
             if (section == SectionType.EmbarkGoods)
             {
-                if (CustomGamesReflection.AdjustEmbarkGood(_popup, _sectionItemIndex, delta))
+                if (CustomGamesReflection.AdjustEmbarkGood(_popup, CurrentIndex, delta))
                 {
                     SoundManager.PlayButtonClick();
-                    // Refresh and re-announce
                     _embarkGoods = CustomGamesReflection.GetEmbarkGoods(_popup);
-                    AnnounceSectionItem();
+                    AnnounceCurrentItem();
                 }
                 return;
             }
@@ -1082,26 +961,25 @@ namespace ATSAccessibility
                 return;
             }
 
-            if (_sectionItemIndex < 0 || _sectionItemIndex >= _sliders.Count) return;
+            if (CurrentIndex < 0 || CurrentIndex >= _sliders.Count) return;
 
             bool success = false;
             switch (section)
             {
                 case SectionType.Reputation:
-                    success = CustomGamesReflection.AdjustReputationSlider(_popup, _sectionItemIndex, delta);
+                    success = CustomGamesReflection.AdjustReputationSlider(_popup, CurrentIndex, delta);
                     break;
                 case SectionType.Seasons:
-                    success = CustomGamesReflection.AdjustSeasonsSlider(_popup, _sectionItemIndex, delta);
+                    success = CustomGamesReflection.AdjustSeasonsSlider(_popup, CurrentIndex, delta);
                     break;
                 case SectionType.Blight:
-                    success = CustomGamesReflection.AdjustBlightSlider(_popup, _sectionItemIndex, delta);
+                    success = CustomGamesReflection.AdjustBlightSlider(_popup, CurrentIndex, delta);
                     break;
             }
 
             if (success)
             {
                 SoundManager.PlayButtonClick();
-                // Refresh slider data
                 switch (section)
                 {
                     case SectionType.Reputation:
@@ -1115,7 +993,7 @@ namespace ATSAccessibility
                         break;
                 }
 
-                AnnounceSectionItem();
+                AnnounceCurrentItem();
             }
         }
 
@@ -1127,7 +1005,7 @@ namespace ATSAccessibility
         {
             _modifierCategoryIndex = NavigationUtils.WrapIndex(_modifierCategoryIndex, direction, _categoryNames.Length);
             FilterModifiers();
-            _sectionItemIndex = 0;
+            CurrentIndex = 0;
 
             string categoryName = _categoryNames[_modifierCategoryIndex];
             int count = _filteredModifiers.Count;
@@ -1135,7 +1013,7 @@ namespace ATSAccessibility
 
             if (count > 0)
             {
-                AnnounceSectionItem();
+                AnnounceCurrentItem();
             }
         }
 
@@ -1155,35 +1033,15 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // ISearchable Implementation
+        // GoBack Helper
         // ========================================
 
-        public int SearchItemCount
+        private void GoBackToTopMenu()
         {
-            get
-            {
-                // Only support search when inside a section, and only for Modifiers
-                if (_menuLevel != MenuLevel.InSection) return 0;
-                var section = _sections[_topMenuIndex];
-                if (section == SectionType.Modifiers) return _filteredModifiers.Count;
-                return 0;
-            }
-        }
-
-        public int SearchCurrentIndex => _sectionItemIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            var section = _sections[_topMenuIndex];
-            if (section == SectionType.Modifiers)
-                return index >= 0 && index < _filteredModifiers.Count ? _filteredModifiers[index].DisplayName : null;
-            return null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _sectionItemIndex = index;
-            AnnounceSectionItem();
+            ClearCachedData();
+            SetLevel(0);
+            _search.Clear();
+            AnnounceCurrentItem();
         }
 
         // ========================================

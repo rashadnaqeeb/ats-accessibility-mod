@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
@@ -7,33 +6,31 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Accessible overlay for the Seal building panel in Sealed Forest biome.
-    /// Provides keyboard navigation through seal information, plague effects,
-    /// stage progress, and delivery objectives.
+    /// Two-level navigation: sections -> offerings detail.
+    /// Level 0 = 5 sections (Effects, Progress, Dialogue, Offerings, Reward).
+    /// Level 1 = offerings list (Enter/Space delivers, T toggles tracking).
     /// </summary>
-    public class SealOverlay : IKeyHandler, ISearchable
+    public class SealOverlay : MenuBase, IKeyHandler
     {
         // ========================================
-        // NAVIGATION STATE
+        // TYPES
         // ========================================
 
         private enum Section { Effects, Progress, Dialogue, Offerings, Reward }
         private static readonly Section[] _allSections = (Section[])Enum.GetValues(typeof(Section));
 
-        private bool _isOpen;
-        private object _seal;
+        // ========================================
+        // STATE
+        // ========================================
 
-        private Section _currentSection;
-        private bool _inOfferingsDetail;  // true when navigating within Offerings
-        private int _currentOfferingIndex;
+        private object _seal;
+        private bool _sealUnavailable;
 
         // Cached data
         private object _currentStage;       // SealKitState
         private object _currentStageModel;  // SealKitModel
         private Array _offerings;           // SealPartModel[]
         private Array _offeringOrders;      // OrderState[]
-
-        // Type-ahead search (for offerings)
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Cached effect property info
         private static PropertyInfo _effectDisplayNameProperty = null;
@@ -44,223 +41,156 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Seal";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
+            if (_sealUnavailable) return 0;
 
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
+            if (Level == 0)
+                return _allSections.Length;
+            else
+                return _offerings?.Length ?? 0;
+        }
 
-            switch (keyCode)
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0)
             {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_inOfferingsDetail)
-                    {
-                        if (_offerings != null && _offerings.Length > 0)
-                        {
-                            _currentOfferingIndex = 0;
-                            AnnounceOffering(_currentOfferingIndex);
-                        }
-                    }
-                    else
-                    {
-                        _currentSection = _allSections[0];
-                        AnnounceSection();
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_inOfferingsDetail)
-                    {
-                        if (_offerings != null && _offerings.Length > 0)
-                        {
-                            _currentOfferingIndex = _offerings.Length - 1;
-                            AnnounceOffering(_currentOfferingIndex);
-                        }
-                    }
-                    else
-                    {
-                        _currentSection = _allSections[_allSections.Length - 1];
-                        AnnounceSection();
-                    }
-                    return true;
-
-                case KeyCode.RightArrow:
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    if (_currentSection == Section.Offerings && !_inOfferingsDetail)
-                    {
-                        EnterOfferingsDetail();
-                        return true;
-                    }
-                    if (_inOfferingsDetail)
-                    {
-                        TryDeliver();
-                        return true;
-                    }
-                    // Re-announce for other sections
-                    AnnounceSection();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    if (_inOfferingsDetail)
-                    {
-                        ExitOfferingsDetail();
-                        return true;
-                    }
-                    return true;
-
-                case KeyCode.Space:
-                    if (_inOfferingsDetail)
-                    {
-                        TryDeliver();
-                        return true;
-                    }
-                    return true;
-
-                case KeyCode.T:
-                    if (_inOfferingsDetail)
-                    {
-                        ToggleTracking();
-                        return true;
-                    }
-                    return true;
-
-                case KeyCode.Escape:
-                    if (_inOfferingsDetail)
-                    {
-                        ExitOfferingsDetail();
-                        return true;
-                    }
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
+                if (index < 0 || index >= _allSections.Length) return null;
+                return _allSections[index].ToString();
+            }
+            else
+            {
+                if (_offerings == null || index < 0 || index >= _offerings.Length) return null;
+                return SealReflection.GetOfferingDisplayName(_offerings.GetValue(index));
             }
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when SealPanel is shown.
-        /// </summary>
-        public void Open()
+        protected override void RefreshData()
         {
             _seal = SealReflection.GetFirstSeal();
-            if (_seal == null)
+            if (_seal == null || SealReflection.IsSealCompleted(_seal))
             {
-                Debug.LogWarning("[ATSAccessibility] SealOverlay: No seal found");
+                _sealUnavailable = true;
                 return;
             }
 
-            if (SealReflection.IsSealCompleted(_seal))
-            {
-                Speech.Say("Seal completed");
-                return;
-            }
-
-            _isOpen = true;
-            _currentSection = Section.Effects;
-            _inOfferingsDetail = false;
-            _currentOfferingIndex = 0;
-            _search.Clear();
-
-            RefreshData();
-            AnnounceSection();
-        }
-
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            _isOpen = false;
-            ClearData();
-        }
-
-        private void RefreshData()
-        {
+            _sealUnavailable = false;
             _currentStage = SealReflection.GetFirstUncompletedStage(_seal);
             _currentStageModel = SealReflection.GetStageModel(_seal, _currentStage);
             _offerings = SealReflection.GetStageOfferings(_currentStageModel);
             _offeringOrders = SealReflection.GetStageOrders(_currentStage);
         }
 
-        private void ClearData()
+        protected override EnterAction OnEnter(int index)
+        {
+            if (Level == 0)
+            {
+                if (index >= 0 && index < _allSections.Length && _allSections[index] == Section.Offerings)
+                    return EnterAction.DrillDown;
+                return EnterAction.Action;
+            }
+            // Level 1: deliver on Enter
+            return EnterAction.Action;
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 0)
+            {
+                // Re-announce section detail
+                AnnounceCurrentItem();
+            }
+            else
+            {
+                TryDeliver();
+            }
+        }
+
+        protected override void OnSpace(int index)
+        {
+            if (Level == 1)
+                TryDeliver();
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.T && Level == 1)
+            {
+                ToggleTracking();
+                return true;
+            }
+            return null;
+        }
+
+        protected override void OnDrillDown(int index)
+        {
+            // Offerings data already loaded in RefreshData
+        }
+
+        /// <summary>
+        /// Custom announcement: sections have unique announce methods, offerings use AnnounceOffering.
+        /// </summary>
+        protected override void AnnounceCurrentItem()
+        {
+            if (Level == 0)
+                AnnounceSection();
+            else
+                AnnounceOffering(CurrentIndex);
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_sealUnavailable)
+            {
+                if (_seal != null && SealReflection.IsSealCompleted(_seal))
+                    return "Seal completed";
+                return "No seal found";
+            }
+            // OnOpened will handle the section announcement
+            return null;
+        }
+
+        protected override void OnOpened()
+        {
+            if (!_sealUnavailable)
+                AnnounceSection();
+        }
+
+        protected override void OnClosed()
         {
             _seal = null;
             _currentStage = null;
             _currentStageModel = null;
             _offerings = null;
             _offeringOrders = null;
-            _search.Clear();
         }
 
         // ========================================
-        // NAVIGATION
+        // SEARCH (offerings only)
         // ========================================
 
-        private void Navigate(int direction)
+        protected override int SearchItemCount => Level == 1 ? (_offerings?.Length ?? 0) : 0;
+
+        protected override string GetSearchName(int index)
         {
-            if (_inOfferingsDetail)
+            if (Level == 1)
             {
-                NavigateOfferings(direction);
+                if (_offerings == null || index < 0 || index >= _offerings.Length) return null;
+                return SealReflection.GetOfferingDisplayName(_offerings.GetValue(index));
             }
-            else
-            {
-                NavigateSections(direction);
-            }
-        }
-
-        private void NavigateSections(int direction)
-        {
-            int currentIndex = (int)_currentSection;
-            int newIndex = NavigationUtils.WrapIndex(currentIndex, direction, _allSections.Length);
-            _currentSection = _allSections[newIndex];
-            AnnounceSection();
-        }
-
-        private void NavigateOfferings(int direction)
-        {
-            if (_offerings == null || _offerings.Length == 0) return;
-
-            _currentOfferingIndex = NavigationUtils.WrapIndex(_currentOfferingIndex, direction, _offerings.Length);
-            AnnounceOffering(_currentOfferingIndex);
-        }
-
-        private void EnterOfferingsDetail()
-        {
-            if (_offerings == null || _offerings.Length == 0)
-            {
-                Speech.Say("No offerings available");
-                return;
-            }
-
-            _inOfferingsDetail = true;
-            _currentOfferingIndex = 0;
-            AnnounceOffering(_currentOfferingIndex);
-        }
-
-        private void ExitOfferingsDetail()
-        {
-            _inOfferingsDetail = false;
-            _search.Clear();
-            AnnounceSection();
+            return null;
         }
 
         // ========================================
@@ -269,7 +199,10 @@ namespace ATSAccessibility
 
         private void AnnounceSection()
         {
-            switch (_currentSection)
+            int index = CurrentIndex;
+            if (index < 0 || index >= _allSections.Length) return;
+
+            switch (_allSections[index])
             {
                 case Section.Effects:
                     AnnounceEffects();
@@ -281,10 +214,7 @@ namespace ATSAccessibility
                     AnnounceDialogue();
                     break;
                 case Section.Offerings:
-                    if (_inOfferingsDetail)
-                        AnnounceOffering(_currentOfferingIndex);
-                    else
-                        Speech.Say($"Offerings, {_offerings?.Length ?? 0} alternatives");
+                    Speech.Say($"Offerings, {_offerings?.Length ?? 0} alternatives");
                     break;
                 case Section.Reward:
                     AnnounceReward();
@@ -411,16 +341,16 @@ namespace ATSAccessibility
 
         private void TryDeliver()
         {
-            if (_offerings == null || _currentOfferingIndex < 0 || _currentOfferingIndex >= _offerings.Length)
+            if (_offerings == null || CurrentIndex < 0 || CurrentIndex >= _offerings.Length)
             {
                 Speech.Say("Cannot deliver");
                 SoundManager.PlayFailed();
                 return;
             }
 
-            var offering = _offerings.GetValue(_currentOfferingIndex);
-            var order = (_offeringOrders != null && _currentOfferingIndex < _offeringOrders.Length)
-                ? _offeringOrders.GetValue(_currentOfferingIndex)
+            var offering = _offerings.GetValue(CurrentIndex);
+            var order = (_offeringOrders != null && CurrentIndex < _offeringOrders.Length)
+                ? _offeringOrders.GetValue(CurrentIndex)
                 : null;
 
             if (!CanDeliverOffering(order, offering))
@@ -431,13 +361,16 @@ namespace ATSAccessibility
             }
 
             // Complete the offering
-            if (SealReflection.CompleteOffering(_currentStage, _currentStageModel, _currentOfferingIndex))
+            if (SealReflection.CompleteOffering(_currentStage, _currentStageModel, CurrentIndex))
             {
                 string name = SealReflection.GetOfferingDisplayName(offering) ?? "Offering";
                 SoundManager.PlaySealOrderDeliver();
 
                 // Refresh data for next stage
-                RefreshData();
+                _currentStage = SealReflection.GetFirstUncompletedStage(_seal);
+                _currentStageModel = SealReflection.GetStageModel(_seal, _currentStage);
+                _offerings = SealReflection.GetStageOfferings(_currentStageModel);
+                _offeringOrders = SealReflection.GetStageOrders(_currentStage);
 
                 // Check if seal is now complete and close overlay
                 if (SealReflection.IsSealCompleted(_seal))
@@ -450,8 +383,8 @@ namespace ATSAccessibility
                 Speech.Say($"{name} delivered");
 
                 // Reset to section view
-                _inOfferingsDetail = false;
-                _currentOfferingIndex = 0;
+                SetLevel(0);
+                CurrentIndex = 0;
             }
             else
             {
@@ -462,13 +395,13 @@ namespace ATSAccessibility
 
         private void ToggleTracking()
         {
-            if (_offeringOrders == null || _currentOfferingIndex < 0 || _currentOfferingIndex >= _offeringOrders.Length)
+            if (_offeringOrders == null || CurrentIndex < 0 || CurrentIndex >= _offeringOrders.Length)
             {
                 Speech.Say("Cannot toggle tracking");
                 return;
             }
 
-            var order = _offeringOrders.GetValue(_currentOfferingIndex);
+            var order = _offeringOrders.GetValue(CurrentIndex);
             if (order == null)
             {
                 Speech.Say("Cannot toggle tracking");
@@ -484,25 +417,6 @@ namespace ATSAccessibility
             {
                 Speech.Say("Failed to toggle tracking");
             }
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _inOfferingsDetail ? (_offerings?.Length ?? 0) : 0;
-        public int SearchCurrentIndex => _currentOfferingIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            if (_offerings == null || index < 0 || index >= _offerings.Length) return null;
-            return SealReflection.GetOfferingDisplayName(_offerings.GetValue(index));
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentOfferingIndex = index;
-            AnnounceOffering(_currentOfferingIndex);
         }
 
         // ========================================

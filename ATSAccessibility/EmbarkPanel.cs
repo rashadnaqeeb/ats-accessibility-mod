@@ -9,8 +9,11 @@ namespace ATSAccessibility
     /// Virtual speech-only panel for accessible embark screen navigation.
     /// Top-level menu with sections: Mission Info, Caravans, Spend Embark Points, Difficulty, Embark.
     /// Each section uses two-panel navigation (categories/details) like StatsPanel.
+    ///
+    /// Level 0: top menu (MenuBase standard nav).
+    /// Level 1: section content (all keys handled via HandleSpecialKey).
     /// </summary>
-    public class EmbarkPanel : IKeyHandler, ISearchable
+    public class EmbarkPanel : MenuBase, IKeyHandler
     {
         /// <summary>
         /// Top-level menu sections.
@@ -37,7 +40,6 @@ namespace ATSAccessibility
         }
 
         // Panel state
-        private bool _isOpen = false;
         private object _currentField;  // WorldField object
         private Vector3Int _cachedFieldPos;  // Cached field position (avoids repeated reflection)
 
@@ -49,29 +51,440 @@ namespace ATSAccessibility
             "Difficulty",
             "Embark"
         };
-        private int _topMenuIndex = 0;
 
         // Current section
         private EmbarkSection _currentSection = EmbarkSection.TopMenu;
 
-        // Section navigation (category/detail like StatsPanel)
+        // Section navigation (category/detail) - separate from MenuBase's _indices/Level
         private List<Category> _categories = new List<Category>();
-        private int _currentCategoryIndex = 0;
-        private int _currentDetailIndex = 0;
-        private bool _focusOnDetails = false;
+        private int _sectionCategoryIndex = 0;
+        private int _sectionDetailIndex = 0;
+        private bool _sectionFocusOnDetails = false;
 
-        // Type-ahead search
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+        // ========================================
+        // IKeyHandler
+        // ========================================
+
+        public bool IsActive => IsOpen;
+
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) => ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE ABSTRACTS
+        // ========================================
+
+        protected override string OverlayName => "Embark screen";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount()
+        {
+            if (Level == 0) return _topMenuItems.Length;
+            return 0;  // Section navigation handled in HandleSpecialKey
+        }
+
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0 && index >= 0 && index < _topMenuItems.Length)
+                return _topMenuItems[index];
+            return null;
+        }
+
+        protected override void RefreshData()
+        {
+            // Data is populated on-demand when entering sections
+        }
+
+        protected override EnterAction OnEnter(int index)
+        {
+            if (Level == 0)
+            {
+                if (index == 4) return EnterAction.Action;  // Embark
+                return EnterAction.DrillDown;
+            }
+            return EnterAction.None;
+        }
+
+        // ========================================
+        // MENUBASE VIRTUALS
+        // ========================================
+
+        protected override bool CanDrillDown(int index)
+        {
+            if (Level == 0) return index != 4;
+            return false;
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 0 && index == 4)
+                TriggerEmbark();
+        }
+
+        protected override void OnDrillDown(int index)
+        {
+            if (Level == 0)
+            {
+                _sectionCategoryIndex = 0;
+                _sectionDetailIndex = 0;
+                _sectionFocusOnDetails = false;
+
+                switch (index)
+                {
+                    case 0:
+                        _currentSection = EmbarkSection.MissionInfo;
+                        BuildMissionInfoCategories();
+                        break;
+                    case 1:
+                        _currentSection = EmbarkSection.Caravans;
+                        BuildCaravanCategories();
+                        break;
+                    case 2:
+                        _currentSection = EmbarkSection.SpendPoints;
+                        BuildSpendPointsCategories();
+                        break;
+                    case 3:
+                        _currentSection = EmbarkSection.Difficulty;
+                        BuildDifficultyCategories();
+                        break;
+                }
+            }
+        }
+
+        protected override void OnGoBack()
+        {
+            _currentSection = EmbarkSection.TopMenu;
+            _categories.Clear();
+        }
+
+        protected override EscapeAction OnEscape()
+        {
+            if (Level == 0)
+                return EscapeAction.PassThrough;  // Pass to game to show confirm dialog
+            return EscapeAction.GoBack;  // Should not be reached; Level 1 Escape handled in HandleSpecialKey
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_topMenuItems.Length > 0)
+                return $"Embark screen. {_topMenuItems[0]}";
+            return "Embark screen";
+        }
+
+        protected override void OnOpened()
+        {
+            _currentSection = EmbarkSection.TopMenu;
+        }
+
+        protected override void OnClosed()
+        {
+            _currentField = null;
+            _cachedFieldPos = Vector3Int.zero;
+            _categories.Clear();
+            EmbarkReflection.ClearInstanceCaches();
+            Speech.Say("Embark panel closed");
+        }
+
+        // ========================================
+        // SEARCH (ISearchable via MenuBase)
+        // ========================================
+
+        protected override int SearchItemCount
+        {
+            get
+            {
+                if (Level == 0 || _currentSection == EmbarkSection.TopMenu)
+                    return 0;  // No search at top menu level
+
+                if (_currentSection == EmbarkSection.SpendPoints)
+                {
+                    if (_categories.Count == 0) return 0;
+                    return _categories[_sectionCategoryIndex].Details.Count;
+                }
+
+                if (_sectionFocusOnDetails)
+                {
+                    if (_categories.Count == 0) return 0;
+                    return _categories[_sectionCategoryIndex].Details.Count;
+                }
+
+                return _categories.Count;
+            }
+        }
+
+        protected override int SearchCurrentIndex
+        {
+            get
+            {
+                if (_currentSection == EmbarkSection.SpendPoints || _sectionFocusOnDetails)
+                    return _sectionDetailIndex;
+                return _sectionCategoryIndex;
+            }
+        }
+
+        protected override string GetSearchName(int index)
+        {
+            if (_currentSection == EmbarkSection.SpendPoints)
+            {
+                if (_categories.Count == 0) return null;
+                var category = _categories[_sectionCategoryIndex];
+                return index < category.Details.Count ? category.Details[index] : null;
+            }
+
+            if (_sectionFocusOnDetails)
+            {
+                if (_categories.Count == 0) return null;
+                var category = _categories[_sectionCategoryIndex];
+                return index < category.Details.Count ? category.Details[index] : null;
+            }
+
+            return index < _categories.Count ? _categories[index].Name : null;
+        }
+
+        protected override void SearchMoveTo(int index)
+        {
+            if (_currentSection == EmbarkSection.SpendPoints)
+            {
+                _sectionDetailIndex = index;
+                AnnounceSpendPointsItem();
+            }
+            else if (_sectionFocusOnDetails)
+            {
+                _sectionDetailIndex = index;
+                AnnounceCurrentDetail();
+            }
+            else
+            {
+                _sectionCategoryIndex = index;
+                AnnounceCurrentCategory();
+            }
+        }
+
+        // ========================================
+        // SPECIAL KEY HANDLING (Level 1+)
+        // ========================================
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (Level >= 1)
+                return HandleSectionKey(keyCode, modifiers);
+            return null;  // Let MenuBase handle Level 0
+        }
 
         /// <summary>
-        /// Whether the embark panel is currently open.
+        /// Handle all keys when inside a section (Level 1).
+        /// Returns true if consumed, false to pass through.
         /// </summary>
-        public bool IsOpen => _isOpen;
+        private bool HandleSectionKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            // Let search handle letter keys first
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
+
+            switch (_currentSection)
+            {
+                case EmbarkSection.SpendPoints:
+                    return HandleSpendPointsKey(keyCode);
+                default:
+                    return HandleStandardSectionKey(keyCode);
+            }
+        }
 
         /// <summary>
-        /// Whether this handler is currently active (IKeyHandler).
+        /// Key handling for standard category/detail sections (MissionInfo, Caravans, Difficulty).
         /// </summary>
-        public bool IsActive => _isOpen;
+        private bool HandleStandardSectionKey(KeyCode keyCode)
+        {
+            switch (keyCode)
+            {
+                case KeyCode.UpArrow:
+                    if (_sectionFocusOnDetails)
+                        NavigateDetail(-1);
+                    else
+                        NavigateCategory(-1);
+                    return true;
+
+                case KeyCode.DownArrow:
+                    if (_sectionFocusOnDetails)
+                        NavigateDetail(1);
+                    else
+                        NavigateCategory(1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_sectionFocusOnDetails)
+                    {
+                        if (_categories.Count > 0)
+                        {
+                            _sectionDetailIndex = 0;
+                            AnnounceCurrentDetail();
+                        }
+                    }
+                    else
+                    {
+                        if (_categories.Count > 0)
+                        {
+                            _sectionCategoryIndex = 0;
+                            _sectionDetailIndex = 0;
+                            AnnounceCurrentCategory();
+                        }
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_sectionFocusOnDetails)
+                    {
+                        if (_categories.Count > 0)
+                        {
+                            var category = _categories[_sectionCategoryIndex];
+                            if (category.Details.Count > 0)
+                            {
+                                _sectionDetailIndex = category.Details.Count - 1;
+                                AnnounceCurrentDetail();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (_categories.Count > 0)
+                        {
+                            _sectionCategoryIndex = _categories.Count - 1;
+                            _sectionDetailIndex = 0;
+                            AnnounceCurrentCategory();
+                        }
+                    }
+                    return true;
+
+                case KeyCode.RightArrow:
+                    if (!_sectionFocusOnDetails && _categories.Count > 0)
+                    {
+                        var category = _categories[_sectionCategoryIndex];
+                        if (category.Details.Count > 0)
+                        {
+                            _sectionFocusOnDetails = true;
+                            _sectionDetailIndex = 0;
+                            AnnounceCurrentDetail();
+                        }
+                        else
+                        {
+                            Speech.Say("No details");
+                        }
+                    }
+                    return true;
+
+                case KeyCode.LeftArrow:
+                    if (_sectionFocusOnDetails)
+                    {
+                        _sectionFocusOnDetails = false;
+                        AnnounceCurrentCategory();
+                    }
+                    else
+                    {
+                        // At category level, return to top menu
+                        ReturnToTopMenu();
+                    }
+                    return true;
+
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                    if (_sectionFocusOnDetails)
+                        ActivateDetail();
+                    else
+                        ActivateCategory();
+                    return true;
+
+                case KeyCode.Escape:
+                    if (_sectionFocusOnDetails)
+                    {
+                        InputBlocker.BlockCancelOnce = true;
+                        _sectionFocusOnDetails = false;
+                        AnnounceCurrentCategory();
+                    }
+                    else
+                    {
+                        InputBlocker.BlockCancelOnce = true;
+                        ReturnToTopMenu();
+                    }
+                    return true;
+
+                default:
+                    // Consume all other keys while in section
+                    return true;
+            }
+        }
+
+        /// <summary>
+        /// Key handling for SpendPoints section (Left/Right = panel nav, Up/Down = item nav).
+        /// </summary>
+        private bool HandleSpendPointsKey(KeyCode keyCode)
+        {
+            switch (keyCode)
+            {
+                case KeyCode.UpArrow:
+                    NavigateSpendPointsItem(-1);
+                    return true;
+
+                case KeyCode.DownArrow:
+                    NavigateSpendPointsItem(1);
+                    return true;
+
+                case KeyCode.Home:
+                    if (_categories.Count > 0)
+                    {
+                        _sectionDetailIndex = 0;
+                        AnnounceSpendPointsItem();
+                    }
+                    return true;
+
+                case KeyCode.End:
+                    if (_categories.Count > 0)
+                    {
+                        var category = _categories[_sectionCategoryIndex];
+                        if (category.Details.Count > 0)
+                        {
+                            _sectionDetailIndex = category.Details.Count - 1;
+                            AnnounceSpendPointsItem();
+                        }
+                    }
+                    return true;
+
+                case KeyCode.RightArrow:
+                    NavigateSpendPointsPanel(1);
+                    return true;
+
+                case KeyCode.LeftArrow:
+                    // At first panel, return to top menu; otherwise navigate panels
+                    if (_sectionCategoryIndex == 0)
+                        ReturnToTopMenu();
+                    else
+                        NavigateSpendPointsPanel(-1);
+                    return true;
+
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                    ActivateSpendPointsItem();
+                    return true;
+
+                case KeyCode.Escape:
+                    InputBlocker.BlockCancelOnce = true;
+                    ReturnToTopMenu();
+                    return true;
+
+                default:
+                    // Consume all other keys while in section
+                    return true;
+            }
+        }
+
+        /// <summary>
+        /// Return to top menu from a section.
+        /// </summary>
+        private void ReturnToTopMenu()
+        {
+            _currentSection = EmbarkSection.TopMenu;
+            _categories.Clear();
+            SetLevel(0);
+            AnnounceCurrentItem();
+        }
 
         // ========================================
         // LIFECYCLE
@@ -80,452 +493,21 @@ namespace ATSAccessibility
         /// <summary>
         /// Open the embark panel when field preview is shown.
         /// </summary>
-        public void Open(object worldField)
+        public new void Open(object worldField)
         {
-            if (_isOpen)
+            if (IsOpen)
             {
                 Close();
                 return;
             }
 
             _currentField = worldField;
-            _cachedFieldPos = GetFieldPositionInternal();  // Cache field position once
-            _isOpen = true;
-            _currentSection = EmbarkSection.TopMenu;
-            _topMenuIndex = 0;
-            _categories.Clear();
-            _currentCategoryIndex = 0;
-            _currentDetailIndex = 0;
-            _focusOnDetails = false;
-            _search.Clear();
+            _cachedFieldPos = GetFieldPositionInternal();
 
             // Cache expensive instance references (pass field pos for min difficulty calculation)
             EmbarkReflection.CacheInstancesOnOpen(_cachedFieldPos);
 
-            Speech.Say("Embark screen");
-            AnnounceTopMenu();
-
-            Debug.Log("[ATSAccessibility] EmbarkPanel opened");
-        }
-
-        /// <summary>
-        /// Close the embark panel.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _currentField = null;
-            _cachedFieldPos = Vector3Int.zero;
-            _categories.Clear();
-            _search.Clear();
-
-            // Clear cached instance references
-            EmbarkReflection.ClearInstanceCaches();
-
-            Speech.Say("Embark panel closed");
-            Debug.Log("[ATSAccessibility] EmbarkPanel closed");
-        }
-
-        // ========================================
-        // INPUT HANDLING
-        // ========================================
-
-        /// <summary>
-        /// Process a key event for the embark panel (IKeyHandler).
-        /// Returns true if the key was handled (consumed), false to let game receive it.
-        /// </summary>
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateUp();
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateDown();
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateToFirst();
-                    return true;
-
-                case KeyCode.End:
-                    NavigateToLast();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    NavigateLeft();
-                    return true;
-
-                case KeyCode.RightArrow:
-                    NavigateRight();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    Activate();
-                    return true;
-
-                case KeyCode.Escape:
-                    return HandleEscape();  // Returns false at top menu to let game handle it
-
-                default:
-                    // Consume all other keys while panel is open
-                    return true;
-            }
-        }
-
-        private void NavigateUp()
-        {
-            if (_currentSection == EmbarkSection.TopMenu)
-            {
-                _topMenuIndex = NavigationUtils.WrapIndex(_topMenuIndex, -1, _topMenuItems.Length);
-                AnnounceTopMenu();
-            }
-            else if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                // Up/Down navigates items within current panel
-                NavigateSpendPointsItem(-1);
-            }
-            else if (_focusOnDetails)
-            {
-                NavigateDetail(-1);
-            }
-            else
-            {
-                NavigateCategory(-1);
-            }
-        }
-
-        private void NavigateDown()
-        {
-            if (_currentSection == EmbarkSection.TopMenu)
-            {
-                _topMenuIndex = NavigationUtils.WrapIndex(_topMenuIndex, 1, _topMenuItems.Length);
-                AnnounceTopMenu();
-            }
-            else if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                // Up/Down navigates items within current panel
-                NavigateSpendPointsItem(1);
-            }
-            else if (_focusOnDetails)
-            {
-                NavigateDetail(1);
-            }
-            else
-            {
-                NavigateCategory(1);
-            }
-        }
-
-        private void NavigateToFirst()
-        {
-            if (_currentSection == EmbarkSection.TopMenu)
-            {
-                _topMenuIndex = 0;
-                AnnounceTopMenu();
-            }
-            else if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                if (_categories.Count > 0)
-                {
-                    _currentDetailIndex = 0;
-                    AnnounceSpendPointsItem();
-                }
-            }
-            else if (_focusOnDetails)
-            {
-                if (_categories.Count > 0)
-                {
-                    _currentDetailIndex = 0;
-                    AnnounceCurrentDetail();
-                }
-            }
-            else
-            {
-                if (_categories.Count > 0)
-                {
-                    _currentCategoryIndex = 0;
-                    _currentDetailIndex = 0;
-                    AnnounceCurrentCategory();
-                }
-            }
-        }
-
-        private void NavigateToLast()
-        {
-            if (_currentSection == EmbarkSection.TopMenu)
-            {
-                _topMenuIndex = _topMenuItems.Length - 1;
-                AnnounceTopMenu();
-            }
-            else if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                if (_categories.Count > 0)
-                {
-                    var category = _categories[_currentCategoryIndex];
-                    if (category.Details.Count > 0)
-                    {
-                        _currentDetailIndex = category.Details.Count - 1;
-                        AnnounceSpendPointsItem();
-                    }
-                }
-            }
-            else if (_focusOnDetails)
-            {
-                if (_categories.Count > 0)
-                {
-                    var category = _categories[_currentCategoryIndex];
-                    if (category.Details.Count > 0)
-                    {
-                        _currentDetailIndex = category.Details.Count - 1;
-                        AnnounceCurrentDetail();
-                    }
-                }
-            }
-            else
-            {
-                if (_categories.Count > 0)
-                {
-                    _currentCategoryIndex = _categories.Count - 1;
-                    _currentDetailIndex = 0;
-                    AnnounceCurrentCategory();
-                }
-            }
-        }
-
-        private void NavigateLeft()
-        {
-            if (_currentSection == EmbarkSection.TopMenu) return;
-
-            if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                // At first panel, return to top menu; otherwise navigate panels
-                if (_currentCategoryIndex == 0)
-                {
-                    _currentSection = EmbarkSection.TopMenu;
-                    AnnounceTopMenu();
-                }
-                else
-                {
-                    NavigateSpendPointsPanel(-1);
-                }
-            }
-            else if (_focusOnDetails)
-            {
-                // Return to categories
-                _focusOnDetails = false;
-                AnnounceCurrentCategory();
-            }
-            else
-            {
-                // At category level, return to top menu
-                _currentSection = EmbarkSection.TopMenu;
-                AnnounceTopMenu();
-            }
-        }
-
-        private void NavigateRight()
-        {
-            if (_currentSection == EmbarkSection.TopMenu)
-            {
-                // Right arrow enters the selected submenu (same as Enter)
-                ActivateTopMenuItem();
-                return;
-            }
-
-            if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                // Left/Right navigates between panels
-                NavigateSpendPointsPanel(1);
-            }
-            else if (!_focusOnDetails && _categories.Count > 0)
-            {
-                var category = _categories[_currentCategoryIndex];
-                if (category.Details.Count > 0)
-                {
-                    _focusOnDetails = true;
-                    _currentDetailIndex = 0;
-                    AnnounceCurrentDetail();
-                }
-                else
-                {
-                    Speech.Say("No details");
-                }
-            }
-        }
-
-        private void NavigateSpendPointsPanel(int direction)
-        {
-            if (_categories.Count == 0) return;
-
-            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
-            _currentDetailIndex = 0;
-            AnnounceSpendPointsPanel();
-        }
-
-        private void NavigateSpendPointsItem(int direction)
-        {
-            if (_categories.Count == 0) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (category.Details.Count == 0)
-            {
-                Speech.Say("No items in this panel");
-                return;
-            }
-
-            _currentDetailIndex = NavigationUtils.WrapIndex(_currentDetailIndex, direction, category.Details.Count);
-            AnnounceSpendPointsItem();
-        }
-
-        private void AnnounceSpendPointsPanel()
-        {
-            if (_categories.Count == 0) return;
-
-            var category = _categories[_currentCategoryIndex];
-            int used = EmbarkReflection.CalculatePointsUsed();
-            int total = EmbarkReflection.GetTotalPreparationPoints();
-
-            Speech.Say($"{category.Name}. {used} of {total} points spent");
-        }
-
-        private void AnnounceSpendPointsItem()
-        {
-            if (_categories.Count == 0) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (category.Details.Count == 0) return;
-
-            string item = category.Details[_currentDetailIndex];
-            Speech.Say(item);
-        }
-
-        private void Activate()
-        {
-            if (_currentSection == EmbarkSection.TopMenu)
-            {
-                ActivateTopMenuItem();
-            }
-            else if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                ActivateSpendPointsItem();
-            }
-            else if (_focusOnDetails)
-            {
-                ActivateDetail();
-            }
-            else
-            {
-                ActivateCategory();
-            }
-        }
-
-        private void ActivateSpendPointsItem()
-        {
-            if (_categories.Count == 0) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (category.Details.Count == 0 || category.DataList == null || category.DataList.Count == 0)
-            {
-                Speech.Say("No item selected");
-                return;
-            }
-
-            if (_currentDetailIndex >= category.DataList.Count)
-            {
-                Speech.Say("Invalid selection");
-                return;
-            }
-
-            var item = category.DataList[_currentDetailIndex];
-            ToggleBonus(category.Name, item);
-        }
-
-        /// <summary>
-        /// Handle escape key. Returns true if consumed, false to let game handle it.
-        /// </summary>
-        private bool HandleEscape()
-        {
-            if (_currentSection == EmbarkSection.TopMenu)
-            {
-                // Pass to game to show confirm dialog
-                return false;
-            }
-            else if (_focusOnDetails)
-            {
-                // Back to categories - block game from receiving Escape
-                InputBlocker.BlockCancelOnce = true;
-                _focusOnDetails = false;
-                AnnounceCurrentCategory();
-                return true;  // Consumed
-            }
-            else
-            {
-                // Back to top menu - block game from receiving Escape
-                InputBlocker.BlockCancelOnce = true;
-                _currentSection = EmbarkSection.TopMenu;
-                AnnounceTopMenu();
-                return true;  // Consumed
-            }
-        }
-
-        // ========================================
-        // TOP MENU
-        // ========================================
-
-        private void AnnounceTopMenu()
-        {
-            string item = _topMenuItems[_topMenuIndex];
-            Speech.Say(item);
-        }
-
-        private void ActivateTopMenuItem()
-        {
-            switch (_topMenuIndex)
-            {
-                case 0: // Mission Info
-                    EnterSection(EmbarkSection.MissionInfo);
-                    BuildMissionInfoCategories();
-                    break;
-
-                case 1: // Caravans
-                    EnterSection(EmbarkSection.Caravans);
-                    BuildCaravanCategories();
-                    break;
-
-                case 2: // Spend Embark Points
-                    EnterSection(EmbarkSection.SpendPoints);
-                    BuildSpendPointsCategories();
-                    break;
-
-                case 3: // Difficulty
-                    EnterSection(EmbarkSection.Difficulty);
-                    BuildDifficultyCategories();
-                    break;
-
-                case 4: // Embark
-                    TriggerEmbark();
-                    break;
-            }
-        }
-
-        private void EnterSection(EmbarkSection section)
-        {
-            _currentSection = section;
-            _categories.Clear();
-            _currentCategoryIndex = 0;
-            _currentDetailIndex = 0;
-            _focusOnDetails = false;
+            Open();  // MenuBase.Open()
         }
 
         // ========================================
@@ -536,20 +518,20 @@ namespace ATSAccessibility
         {
             if (_categories.Count == 0) return;
 
-            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
-            _currentDetailIndex = 0;
+            _sectionCategoryIndex = NavigationUtils.WrapIndex(_sectionCategoryIndex, direction, _categories.Count);
+            _sectionDetailIndex = 0;
             AnnounceCurrentCategory();
         }
 
         private void AnnounceCurrentCategory()
         {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count)
+            if (_sectionCategoryIndex < 0 || _sectionCategoryIndex >= _categories.Count)
             {
                 Speech.Say("No items");
                 return;
             }
 
-            var category = _categories[_currentCategoryIndex];
+            var category = _categories[_sectionCategoryIndex];
             string message = category.Name;
 
             if (!string.IsNullOrEmpty(category.Value))
@@ -567,7 +549,7 @@ namespace ATSAccessibility
         {
             if (_categories.Count == 0) return;
 
-            var category = _categories[_currentCategoryIndex];
+            var category = _categories[_sectionCategoryIndex];
 
             // Section-specific activation
             switch (_currentSection)
@@ -588,8 +570,8 @@ namespace ATSAccessibility
                     // Enter details to see/toggle bonuses
                     if (category.Details.Count > 0)
                     {
-                        _focusOnDetails = true;
-                        _currentDetailIndex = 0;
+                        _sectionFocusOnDetails = true;
+                        _sectionDetailIndex = 0;
                         AnnounceCurrentDetail();
                     }
                     break;
@@ -605,8 +587,8 @@ namespace ATSAccessibility
                     // Just enter details if available
                     if (category.Details.Count > 0)
                     {
-                        _focusOnDetails = true;
-                        _currentDetailIndex = 0;
+                        _sectionFocusOnDetails = true;
+                        _sectionDetailIndex = 0;
                         AnnounceCurrentDetail();
                     }
                     break;
@@ -621,23 +603,23 @@ namespace ATSAccessibility
         {
             if (_categories.Count == 0) return;
 
-            var category = _categories[_currentCategoryIndex];
+            var category = _categories[_sectionCategoryIndex];
             if (category.Details.Count == 0) return;
 
-            _currentDetailIndex = NavigationUtils.WrapIndex(_currentDetailIndex, direction, category.Details.Count);
+            _sectionDetailIndex = NavigationUtils.WrapIndex(_sectionDetailIndex, direction, category.Details.Count);
             AnnounceCurrentDetail();
         }
 
         private void AnnounceCurrentDetail()
         {
-            var category = _categories[_currentCategoryIndex];
-            if (_currentDetailIndex < 0 || _currentDetailIndex >= category.Details.Count)
+            var category = _categories[_sectionCategoryIndex];
+            if (_sectionDetailIndex < 0 || _sectionDetailIndex >= category.Details.Count)
             {
                 Speech.Say("No details");
                 return;
             }
 
-            string detail = category.Details[_currentDetailIndex];
+            string detail = category.Details[_sectionDetailIndex];
             Speech.Say(detail);
         }
 
@@ -645,10 +627,10 @@ namespace ATSAccessibility
         {
             if (_categories.Count == 0) return;
 
-            var category = _categories[_currentCategoryIndex];
-            if (category.DataList == null || _currentDetailIndex >= category.DataList.Count) return;
+            var category = _categories[_sectionCategoryIndex];
+            if (category.DataList == null || _sectionDetailIndex >= category.DataList.Count) return;
 
-            var item = category.DataList[_currentDetailIndex];
+            var item = category.DataList[_sectionDetailIndex];
 
             // Section-specific detail activation
             switch (_currentSection)
@@ -662,6 +644,77 @@ namespace ATSAccessibility
                     AnnounceCurrentDetail();
                     break;
             }
+        }
+
+        // ========================================
+        // SPEND POINTS NAVIGATION
+        // ========================================
+
+        private void NavigateSpendPointsPanel(int direction)
+        {
+            if (_categories.Count == 0) return;
+
+            _sectionCategoryIndex = NavigationUtils.WrapIndex(_sectionCategoryIndex, direction, _categories.Count);
+            _sectionDetailIndex = 0;
+            AnnounceSpendPointsPanel();
+        }
+
+        private void NavigateSpendPointsItem(int direction)
+        {
+            if (_categories.Count == 0) return;
+
+            var category = _categories[_sectionCategoryIndex];
+            if (category.Details.Count == 0)
+            {
+                Speech.Say("No items in this panel");
+                return;
+            }
+
+            _sectionDetailIndex = NavigationUtils.WrapIndex(_sectionDetailIndex, direction, category.Details.Count);
+            AnnounceSpendPointsItem();
+        }
+
+        private void AnnounceSpendPointsPanel()
+        {
+            if (_categories.Count == 0) return;
+
+            var category = _categories[_sectionCategoryIndex];
+            int used = EmbarkReflection.CalculatePointsUsed();
+            int total = EmbarkReflection.GetTotalPreparationPoints();
+
+            Speech.Say($"{category.Name}. {used} of {total} points spent");
+        }
+
+        private void AnnounceSpendPointsItem()
+        {
+            if (_categories.Count == 0) return;
+
+            var category = _categories[_sectionCategoryIndex];
+            if (category.Details.Count == 0) return;
+
+            string item = category.Details[_sectionDetailIndex];
+            Speech.Say(item);
+        }
+
+        private void ActivateSpendPointsItem()
+        {
+            if (_categories.Count == 0) return;
+
+            var category = _categories[_sectionCategoryIndex];
+            if (category.Details.Count == 0 || category.DataList == null || category.DataList.Count == 0)
+            {
+                Speech.Say("No item selected");
+                return;
+            }
+
+            if (_sectionDetailIndex >= category.DataList.Count)
+            {
+                Speech.Say("Invalid selection");
+                return;
+            }
+
+            var item = category.DataList[_sectionDetailIndex];
+            ToggleBonus(category.Name, item);
         }
 
         // ========================================
@@ -828,7 +881,7 @@ namespace ATSAccessibility
             }
 
             // Start at the selected caravan
-            _currentCategoryIndex = Math.Max(0, pickedIndex);
+            _sectionCategoryIndex = Math.Max(0, pickedIndex);
             AnnounceCurrentCategory();
         }
 
@@ -875,9 +928,9 @@ namespace ATSAccessibility
             EmbarkReflection.SetPickedCaravan(caravan);
 
             // Rebuild to update selected state
-            int prevIndex = _currentCategoryIndex;
+            int prevIndex = _sectionCategoryIndex;
             BuildCaravanCategories();
-            _currentCategoryIndex = prevIndex;
+            _sectionCategoryIndex = prevIndex;
 
             Speech.Say("Caravan selected");
         }
@@ -1007,16 +1060,16 @@ namespace ATSAccessibility
                 Speech.Say($"{action}. {remaining} points remaining");
 
                 // Rebuild the section, preserving position (don't announce since we already gave feedback)
-                int prevCategoryIndex = _currentCategoryIndex;
-                int prevDetailIndex = _currentDetailIndex;
+                int prevCategoryIndex = _sectionCategoryIndex;
+                int prevDetailIndex = _sectionDetailIndex;
                 BuildSpendPointsCategories(announce: false);
 
                 // Restore position
                 if (_categories.Count > 0)
                 {
-                    _currentCategoryIndex = Math.Min(prevCategoryIndex, _categories.Count - 1);
-                    var category = _categories[_currentCategoryIndex];
-                    _currentDetailIndex = Math.Min(prevDetailIndex, Math.Max(0, category.Details.Count - 1));
+                    _sectionCategoryIndex = Math.Min(prevCategoryIndex, _categories.Count - 1);
+                    var category = _categories[_sectionCategoryIndex];
+                    _sectionDetailIndex = Math.Min(prevDetailIndex, Math.Max(0, category.Details.Count - 1));
                 }
             }
             else
@@ -1088,7 +1141,7 @@ namespace ATSAccessibility
             }
 
             // Start at current difficulty
-            _currentCategoryIndex = Math.Max(0, currentIndex);
+            _sectionCategoryIndex = Math.Max(0, currentIndex);
 
             if (_categories.Count > 0)
             {
@@ -1120,9 +1173,9 @@ namespace ATSAccessibility
             if (success)
             {
                 // Rebuild to update selected state
-                int prevIndex = _currentCategoryIndex;
+                int prevIndex = _sectionCategoryIndex;
                 BuildDifficultyCategories();
-                _currentCategoryIndex = prevIndex;
+                _sectionCategoryIndex = prevIndex;
 
                 var name = EmbarkReflection.GetDifficultyDisplayName(difficulty);
                 Speech.Say($"{name} selected");
@@ -1202,81 +1255,6 @@ namespace ATSAccessibility
             }
 
             return Vector3Int.zero;
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount
-        {
-            get
-            {
-                if (_currentSection == EmbarkSection.TopMenu)
-                    return 0;  // No search at top menu level
-
-                if (_currentSection == EmbarkSection.SpendPoints)
-                {
-                    if (_categories.Count == 0) return 0;
-                    return _categories[_currentCategoryIndex].Details.Count;
-                }
-
-                if (_focusOnDetails)
-                {
-                    if (_categories.Count == 0) return 0;
-                    return _categories[_currentCategoryIndex].Details.Count;
-                }
-
-                return _categories.Count;
-            }
-        }
-
-        public int SearchCurrentIndex
-        {
-            get
-            {
-                if (_currentSection == EmbarkSection.SpendPoints || _focusOnDetails)
-                    return _currentDetailIndex;
-                return _currentCategoryIndex;
-            }
-        }
-
-        public string GetSearchLabel(int index)
-        {
-            if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                if (_categories.Count == 0) return null;
-                var category = _categories[_currentCategoryIndex];
-                return index < category.Details.Count ? category.Details[index] : null;
-            }
-
-            if (_focusOnDetails)
-            {
-                if (_categories.Count == 0) return null;
-                var category = _categories[_currentCategoryIndex];
-                return index < category.Details.Count ? category.Details[index] : null;
-            }
-
-            return index < _categories.Count ? _categories[index].Name : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            if (_currentSection == EmbarkSection.SpendPoints)
-            {
-                _currentDetailIndex = index;
-                AnnounceSpendPointsItem();
-            }
-            else if (_focusOnDetails)
-            {
-                _currentDetailIndex = index;
-                AnnounceCurrentDetail();
-            }
-            else
-            {
-                _currentCategoryIndex = index;
-                AnnounceCurrentCategory();
-            }
         }
     }
 }

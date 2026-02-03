@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the NewcomersPopup (newcomers arrival group selection).
     /// Provides flat list navigation: dialogue, group 1, group 2.
     /// </summary>
-    public class NewcomersOverlay : IKeyHandler
+    public class NewcomersOverlay : MenuBase, IKeyHandler
     {
         // Navigation item types
         private enum ItemType { Dialogue, Group }
@@ -20,106 +20,36 @@ namespace ATSAccessibility
             public string Label;       // Announcement text
         }
 
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private int _currentIndex;
-
-        // Navigation list
         private List<NavItem> _items = new List<NavItem>();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Newcomers";
+        protected override string EmptyMessage => "No groups available";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    ActivateCurrent();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup (OnPopupHidden will close our overlay)
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Label;
+            return null;
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when a NewcomersPopup is shown.
-        /// </summary>
-        public void Open(object popup)
-        {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _currentIndex = 0;
-
-            RefreshData();
-
-            if (_items.Count > 0)
-            {
-                Speech.Say($"Newcomers. {_items[0].Label}");
-            }
-            else
-            {
-                Speech.Say("Newcomers. No groups available");
-            }
-
-            Debug.Log($"[ATSAccessibility] NewcomersOverlay opened, {_items.Count} items");
-        }
-
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _items.Clear();
-
-            Debug.Log("[ATSAccessibility] NewcomersOverlay closed");
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -127,7 +57,6 @@ namespace ATSAccessibility
             _items.Add(new NavItem
             {
                 Type = ItemType.Dialogue,
-                GroupData = null,
                 Label = "Pervun Runebeak, Royal Stormwalker: These people have been sent here by the Crown. Which group do you want to stay, Viceroy? The other will continue on to the next settlement."
             });
 
@@ -153,52 +82,43 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] NewcomersOverlay refreshed: {_items.Count} items");
         }
 
-        // ========================================
-        // NAVIGATION
-        // ========================================
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
 
-        private void Navigate(int direction)
+        protected override void OnAction(int index)
         {
-            if (_items.Count == 0) return;
+            if (index < 0 || index >= _items.Count) return;
 
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-            Speech.Say(_items[_currentIndex].Label);
-        }
-
-        // ========================================
-        // ACTIVATION
-        // ========================================
-
-        private void ActivateCurrent()
-        {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
+            var item = _items[index];
             switch (item.Type)
             {
                 case ItemType.Dialogue:
-                    // Read-only, re-announce
                     AnnounceCurrentItem();
                     break;
-
                 case ItemType.Group:
                     ActivateGroup(item);
                     break;
             }
         }
+
+        protected override int SearchItemCount => 0; // No search for newcomers
+
+        // Escape passes to game to close popup (OnPopupHidden will close our overlay)
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _items.Clear();
+        }
+
+        // ========================================
+        // ACTIVATION
+        // ========================================
 
         private void ActivateGroup(NavItem item)
         {

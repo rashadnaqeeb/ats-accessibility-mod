@@ -9,7 +9,7 @@ namespace ATSAccessibility
     /// Available rewards open the game's popup when selected.
     /// Unavailable rewards show when they will next be available.
     /// </summary>
-    public class RewardsPanel : IKeyHandler, ISearchable
+    public class RewardsPanel : MenuBase, IKeyHandler
     {
         private enum RewardType
         {
@@ -25,120 +25,122 @@ namespace ATSAccessibility
             public string Label;
         }
 
-        private bool _isOpen;
         private List<RewardItem> _items = new List<RewardItem>();
-        private int _currentIndex;
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
+        private bool _closingForPopup;
+
+        // ========================================
+        // IKEYHANDLER
+        // ========================================
+
+        public bool IsActive => IsOpen;
+
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // PUBLIC API
+        // ========================================
 
         /// <summary>
-        /// Whether the rewards panel is currently open.
+        /// Toggle the rewards panel open/closed.
+        /// Called from SettlementKeyHandler on F3.
         /// </summary>
-        public bool IsOpen => _isOpen;
-
-        /// <summary>
-        /// Whether this handler is currently active (IKeyHandler).
-        /// </summary>
-        public bool IsActive => _isOpen;
-
-        /// <summary>
-        /// Open the rewards panel. Always opens with all 3 reward types.
-        /// </summary>
-        public void Open()
+        public void Toggle()
         {
-            if (_isOpen)
+            if (IsOpen)
             {
                 SoundManager.PlayButtonClick();
                 Close();
                 return;
             }
-
-            RefreshItems();
-
-            _isOpen = true;
-            _currentIndex = 0;
-            _search.Clear();
-
-            SoundManager.PlayPopupShow();
-            AnnounceCurrentReward();
-            Debug.Log("[ATSAccessibility] Rewards panel opened");
+            Open();
         }
 
-        /// <summary>
-        /// Close the rewards panel.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
+        // ========================================
+        // MENUBASE ABSTRACTS
+        // ========================================
 
-            _isOpen = false;
-            _items.Clear();
-            _search.Clear();
-            InputBlocker.BlockCancelOnce = true;
-            Speech.Say("Closed");
-            Debug.Log("[ATSAccessibility] Rewards panel closed");
+        protected override string OverlayName => "Rewards";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
+        {
+            if (index < 0 || index >= _items.Count) return null;
+            return _items[index].Label;
         }
 
-        /// <summary>
-        /// Process a key event for the rewards panel (IKeyHandler).
-        /// Returns true if the key was handled.
-        /// </summary>
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
+        protected override void RefreshData() => RefreshItems();
 
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override void OnAction(int index) => ActivateSelected();
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
             // F-key panel switching - close self and pass through to open target panel
             if (keyCode == KeyCode.F1 || keyCode == KeyCode.F2)
             {
                 Close();
                 return false;  // Let SettlementKeyHandler open the target panel
             }
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
+            // F3 toggles self closed
+            if (keyCode == KeyCode.F3)
             {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateSelected();
-                    return true;
-
-                case KeyCode.Escape:
-                    SoundManager.PlayButtonClick();
-                    Close();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    // Consume but do nothing - flat list, no drill-out
-                    return true;
-
-                case KeyCode.F3:
-                    SoundManager.PlayButtonClick();
-                    Close();
-                    return true;
-
-                default:
-                    // Consume all other keys while panel is open
-                    return true;
+                SoundManager.PlayButtonClick();
+                Close();
+                return true;
             }
+            // Consume LeftArrow - flat list, no drill-out
+            if (keyCode == KeyCode.LeftArrow)
+                return true;
+            return null;
         }
+
+        protected override EscapeAction OnEscape()
+        {
+            SoundManager.PlayButtonClick();
+            return EscapeAction.Close;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_items.Count == 0) return OverlayName;
+            return _items[0].Label;
+        }
+
+        protected override void OnOpened()
+        {
+            SoundManager.PlayPopupShow();
+        }
+
+        protected override void OnClosed()
+        {
+            _items.Clear();
+            if (!_closingForPopup)
+            {
+                InputBlocker.BlockCancelOnce = true;
+                Speech.Say("Closed");
+            }
+            _closingForPopup = false;
+        }
+
+        // Search uses short names, not full labels
+        private static readonly string[] _searchNames = { "Blueprints", "Cornerstones", "Newcomers" };
+
+        protected override string GetSearchName(int index)
+        {
+            return index >= 0 && index < _searchNames.Length ? _searchNames[index] : null;
+        }
+
+        // ========================================
+        // PRIVATE
+        // ========================================
 
         private void RefreshItems()
         {
@@ -189,26 +191,11 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Rewards panel refreshed: {_items.Count} items");
         }
 
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentReward();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentReward();
-        }
-
         private void ActivateSelected()
         {
-            if (_items.Count == 0 || _currentIndex >= _items.Count) return;
+            if (_items.Count == 0 || CurrentIndex >= _items.Count) return;
 
-            var item = _items[_currentIndex];
+            var item = _items[CurrentIndex];
 
             if (!item.Available)
             {
@@ -238,8 +225,8 @@ namespace ATSAccessibility
 
             if (success)
             {
-                _isOpen = false;
-                _items.Clear();
+                _closingForPopup = true;
+                Close();
                 Debug.Log($"[ATSAccessibility] Successfully opened {item.Label}");
             }
             else
@@ -247,34 +234,6 @@ namespace ATSAccessibility
                 Speech.Say($"{item.Label} unavailable");
                 Debug.Log($"[ATSAccessibility] Failed to open {item.Label}");
             }
-        }
-
-        private void AnnounceCurrentReward()
-        {
-            if (_items.Count == 0 || _currentIndex >= _items.Count) return;
-
-            Speech.Say(_items[_currentIndex].Label);
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        private static readonly string[] _searchNames = { "Blueprints", "Cornerstones", "Newcomers" };
-
-        public int SearchItemCount => _items.Count;
-
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            return index >= 0 && index < _searchNames.Length ? _searchNames[index] : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentReward();
         }
     }
 }

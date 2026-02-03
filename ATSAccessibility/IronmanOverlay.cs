@@ -7,20 +7,11 @@ namespace ATSAccessibility
     /// Accessible overlay for the IronmanUpgradePopup (Queen's Hand Trial upgrades).
     /// Three-level navigation: sections -> items -> rewards.
     /// Sections: Pick Options (3 choices), Core Upgrades, and Unlocked.
+    /// Pattern B at Level 1: Enter/Space=buy (Action), Right=view rewards (CanDrillDown).
     /// </summary>
-    public class IronmanOverlay : IKeyHandler, ISearchable
+    public class IronmanOverlay : MenuBase, IKeyHandler
     {
-        private enum Level { Sections, Items, Rewards }
         private enum SectionType { PickOptions, CoreUpgrades, Unlocked }
-
-        // State
-        private bool _isOpen;
-        private bool _suspended;
-        private Level _level;
-        private int _currentSectionIndex;
-        private int _currentItemIndex;
-        private int _currentRewardIndex;
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Section data
         private SectionType[] _sections;
@@ -34,82 +25,203 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen && !_suspended;
+        public bool IsActive => IsOpen && !IsSuspended;
 
-        public bool IsSuspended => _isOpen && _suspended;
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Ironman Upgrades";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return false;
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (_level)
+            switch (Level)
             {
-                case Level.Sections:
-                    return ProcessSectionKey(keyCode);
-                case Level.Items:
-                    return ProcessItemKey(keyCode);
-                case Level.Rewards:
-                    return ProcessRewardKey(keyCode);
-                default:
-                    return true;
+                case 0: return _sections?.Length ?? 0;
+                case 1: return _currentItems.Count;
+                case 2: return _rewards.Count;
+                default: return 0;
             }
         }
 
-        // ========================================
-        // Public Methods
-        // ========================================
+        protected override string GetLabel(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    return (_sectionNames != null && index >= 0 && index < _sectionNames.Length)
+                        ? _sectionNames[index] : null;
+                case 1:
+                    return (index >= 0 && index < _currentItems.Count) ? _currentItems[index].Name : null;
+                case 2:
+                    return (index >= 0 && index < _rewards.Count) ? _rewards[index].Name : null;
+                default:
+                    return null;
+            }
+        }
 
-        public void Open()
+        protected override void AnnounceCurrentItem()
+        {
+            switch (Level)
+            {
+                case 0:
+                    AnnounceSection();
+                    break;
+                case 1:
+                    AnnounceItem();
+                    break;
+                case 2:
+                    AnnounceReward();
+                    break;
+            }
+        }
+
+        protected override void RefreshData()
         {
             BuildSections();
+        }
 
-            if (_sections.Length == 0)
+        protected override EnterAction OnEnter(int index)
+        {
+            switch (Level)
             {
-                Debug.LogWarning("[ATSAccessibility] Ironman overlay: no sections available");
-                return;
+                case 0:
+                    if (_sections == null || index < 0 || index >= _sections.Length) return EnterAction.None;
+                    var items = LoadItemsForSection(_sections[index]);
+                    if (items.Count == 0)
+                    {
+                        Speech.Say("No upgrades");
+                        return EnterAction.None;
+                    }
+                    _currentItems = items;
+                    return EnterAction.DrillDown;
+
+                case 1:
+                    return EnterAction.Action;
+
+                default:
+                    return EnterAction.None;
             }
+        }
 
-            _isOpen = true;
-            _suspended = false;
-            _level = Level.Sections;
-            _currentSectionIndex = 0;
-            _currentItemIndex = 0;
-            _currentRewardIndex = 0;
-            _currentItems.Clear();
-            _rewards.Clear();
-            _search.Clear();
+        protected override void OnAction(int index)
+        {
+            if (Level == 1)
+                ActivateItem();
+        }
 
+        protected override void OnSpace(int index)
+        {
+            if (Level == 1)
+                ActivateItem();
+        }
+
+        protected override bool CanDrillDown(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    // Right arrow: load items, check empty
+                    if (_sections == null || index < 0 || index >= _sections.Length) return false;
+                    var items = LoadItemsForSection(_sections[index]);
+                    if (items.Count == 0)
+                    {
+                        Speech.Say("No upgrades");
+                        return false;
+                    }
+                    _currentItems = items;
+                    return true;
+
+                case 1:
+                    // Right arrow: load rewards, check empty
+                    if (index < 0 || index >= _currentItems.Count) return false;
+                    var rewards = IronmanReflection.GetRewards(_currentItems[index].UpgradeObj);
+                    if (rewards.Count == 0)
+                    {
+                        Speech.Say("No rewards");
+                        return false;
+                    }
+                    _rewards = rewards;
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        protected override void OnDrillDown(int index)
+        {
+            // Data already loaded by OnEnter or CanDrillDown
+        }
+
+        protected override void OnGoBack()
+        {
+            if (Level == 2)
+                _rewards.Clear();
+            else if (Level == 1)
+                _currentItems.Clear();
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            // At section level, Escape and Left both close and pass to game
+            if (Level == 0 && (keyCode == KeyCode.Escape || keyCode == KeyCode.LeftArrow))
+            {
+                Close();
+                // Pass to game to close popup
+                return false;
+            }
+            return null;
+        }
+
+        // Default OnEscape: GoBack if level > 0, PassThrough if level 0
+        // Level 0 Escape is handled in HandleSpecialKey before reaching OnEscape
+
+        protected override string GetOpenAnnouncement()
+        {
+            // Custom announcement handled in OnOpened
+            return null;
+        }
+
+        protected override void OnOpened()
+        {
             AnnounceOpen();
         }
 
-        public void Close()
+        protected override void OnClosed()
         {
-            _isOpen = false;
-            _suspended = false;
             _sections = null;
             _sectionNames = null;
             _currentItems.Clear();
             _rewards.Clear();
-            _currentSectionIndex = 0;
-            _currentItemIndex = 0;
-            _currentRewardIndex = 0;
-            _search.Clear();
-        }
-
-        public void Resume()
-        {
-            if (!_isOpen) return;
-
-            _suspended = false;
-            AnnounceCurrentLevel();
         }
 
         // ========================================
-        // Section Building
+        // SEARCH
+        // ========================================
+
+        protected override string GetSearchName(int index)
+        {
+            switch (Level)
+            {
+                case 0:
+                    return (_sectionNames != null && index >= 0 && index < _sectionNames.Length)
+                        ? _sectionNames[index] : null;
+                case 1:
+                    return (index >= 0 && index < _currentItems.Count) ? _currentItems[index].Name : null;
+                case 2:
+                    return (index >= 0 && index < _rewards.Count) ? _rewards[index].Name : null;
+                default:
+                    return null;
+            }
+        }
+
+        // ========================================
+        // SECTION BUILDING
         // ========================================
 
         private void BuildSections()
@@ -140,252 +252,110 @@ namespace ATSAccessibility
             _sectionNames = nameList.ToArray();
         }
 
-        // ========================================
-        // Section Level Keys
-        // ========================================
-
-        private bool ProcessSectionKey(KeyCode keyCode)
+        /// <summary>
+        /// Load items for a section type. Returns the item list (caller stores it).
+        /// </summary>
+        private List<IronmanReflection.UpgradeInfo> LoadItemsForSection(SectionType sectionType)
         {
-            switch (keyCode)
-            {
-                case KeyCode.DownArrow:
-                    NavigateSections(1);
-                    return true;
-
-                case KeyCode.UpArrow:
-                    NavigateSections(-1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_sections != null && _sections.Length > 0)
-                    {
-                        _currentSectionIndex = 0;
-                        AnnounceSection();
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_sections != null && _sections.Length > 0)
-                    {
-                        _currentSectionIndex = _sections.Length - 1;
-                        AnnounceSection();
-                    }
-                    return true;
-
-                case KeyCode.RightArrow:
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    EnterItems();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    Close();
-                    // Pass to game to close popup
-                    return false;
-
-                case KeyCode.Escape:
-                    Close();
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
-        }
-
-        // ========================================
-        // Item Level Keys
-        // ========================================
-
-        private bool ProcessItemKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.DownArrow:
-                    NavigateItems(1);
-                    return true;
-
-                case KeyCode.UpArrow:
-                    NavigateItems(-1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_currentItems.Count > 0)
-                    {
-                        _currentItemIndex = 0;
-                        AnnounceItem();
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_currentItems.Count > 0)
-                    {
-                        _currentItemIndex = _currentItems.Count - 1;
-                        AnnounceItem();
-                    }
-                    return true;
-
-                case KeyCode.RightArrow:
-                    EnterRewards();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    ActivateItem();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    _level = Level.Sections;
-                    _currentItems.Clear();
-                    _search.Clear();
-                    AnnounceSection();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Go back to sections, don't close popup
-                    _level = Level.Sections;
-                    _currentItems.Clear();
-                    AnnounceSection();
-                    InputBlocker.BlockCancelOnce = true;
-                    return true;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
-        }
-
-        // ========================================
-        // Reward Level Keys
-        // ========================================
-
-        private bool ProcessRewardKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.DownArrow:
-                    NavigateRewards(1);
-                    return true;
-
-                case KeyCode.UpArrow:
-                    NavigateRewards(-1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_rewards.Count > 0)
-                    {
-                        _currentRewardIndex = 0;
-                        AnnounceReward();
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_rewards.Count > 0)
-                    {
-                        _currentRewardIndex = _rewards.Count - 1;
-                        AnnounceReward();
-                    }
-                    return true;
-
-                case KeyCode.LeftArrow:
-                case KeyCode.Escape:
-                    _level = Level.Items;
-                    _rewards.Clear();
-                    AnnounceItem();
-                    InputBlocker.BlockCancelOnce = true;
-                    return true;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
-        }
-
-        // ========================================
-        // Navigation
-        // ========================================
-
-        private void NavigateSections(int direction)
-        {
-            if (_sections == null || _sections.Length == 0) return;
-
-            _currentSectionIndex = NavigationUtils.WrapIndex(_currentSectionIndex, direction, _sections.Length);
-            AnnounceSection();
-        }
-
-        private void NavigateItems(int direction)
-        {
-            if (_currentItems.Count == 0) return;
-
-            _currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, _currentItems.Count);
-            AnnounceItem();
-        }
-
-        private void NavigateRewards(int direction)
-        {
-            if (_rewards.Count == 0) return;
-
-            _currentRewardIndex = NavigationUtils.WrapIndex(_currentRewardIndex, direction, _rewards.Count);
-            AnnounceReward();
-        }
-
-        private void EnterItems()
-        {
-            if (_currentSectionIndex < 0 || _currentSectionIndex >= _sections.Length) return;
-
-            var sectionType = _sections[_currentSectionIndex];
-
             switch (sectionType)
             {
                 case SectionType.PickOptions:
-                    _currentItems = IronmanReflection.GetCurrentPickOptions();
+                    return IronmanReflection.GetCurrentPickOptions();
+                case SectionType.CoreUpgrades:
+                    return IronmanReflection.GetCoreUpgrades();
+                case SectionType.Unlocked:
+                    return IronmanReflection.GetUnlockedUpgrades();
+                default:
+                    return new List<IronmanReflection.UpgradeInfo>();
+            }
+        }
+
+        // ========================================
+        // ANNOUNCEMENTS
+        // ========================================
+
+        private void AnnounceOpen()
+        {
+            int completed = IronmanReflection.GetCompletedPicks();
+            int max = IronmanReflection.GetMaxPicks();
+
+            if (IronmanReflection.HasReachedMaxPicks())
+            {
+                Speech.Say($"Ironman Upgrades. All {max} picks complete");
+            }
+            else
+            {
+                Speech.Say($"Ironman Upgrades. Pick {completed + 1} of {max}");
+            }
+
+            AnnounceSection();
+        }
+
+        private void AnnounceSection()
+        {
+            if (_sectionNames == null || _indices[0] < 0 || _indices[0] >= _sectionNames.Length) return;
+
+            string name = _sectionNames[_indices[0]];
+            var sectionType = _sections[_indices[0]];
+
+            int count = 0;
+            switch (sectionType)
+            {
+                case SectionType.PickOptions:
+                    count = IronmanReflection.GetCurrentPickOptions().Count;
                     break;
                 case SectionType.CoreUpgrades:
-                    _currentItems = IronmanReflection.GetCoreUpgrades();
+                    count = IronmanReflection.GetCoreUpgrades().Count;
                     break;
                 case SectionType.Unlocked:
-                    _currentItems = IronmanReflection.GetUnlockedUpgrades();
+                    count = IronmanReflection.GetUnlockedUpgrades().Count;
                     break;
             }
 
-            if (_currentItems.Count == 0)
-            {
-                Speech.Say("No upgrades");
-                return;
-            }
-
-            _level = Level.Items;
-            _currentItemIndex = 0;
-            _search.Clear();
-            AnnounceItem();
+            Speech.Say($"{name}, {count} upgrades");
         }
 
-        private void EnterRewards()
+        private void AnnounceItem()
         {
-            if (_currentItemIndex < 0 || _currentItemIndex >= _currentItems.Count) return;
+            if (_indices[1] < 0 || _indices[1] >= _currentItems.Count) return;
 
-            var upgrade = _currentItems[_currentItemIndex];
-            _rewards = IronmanReflection.GetRewards(upgrade.UpgradeObj);
+            var upgrade = _currentItems[_indices[1]];
 
-            if (_rewards.Count == 0)
+            if (upgrade.IsUnlocked)
             {
-                Speech.Say("No rewards");
-                return;
+                Speech.Say($"{upgrade.Name}, unlocked");
             }
-
-            _level = Level.Rewards;
-            _currentRewardIndex = 0;
-            _search.Clear();
-            AnnounceReward();
+            else if (upgrade.CanAfford)
+            {
+                Speech.Say($"{upgrade.Name}, {upgrade.PriceText}");
+            }
+            else
+            {
+                Speech.Say($"{upgrade.Name}, {upgrade.PriceText}, can't afford");
+            }
         }
+
+        private void AnnounceReward()
+        {
+            if (_indices[2] < 0 || _indices[2] >= _rewards.Count) return;
+
+            var reward = _rewards[_indices[2]];
+
+            if (!string.IsNullOrEmpty(reward.Description))
+                Speech.Say($"{reward.Name}, {reward.Description}");
+            else
+                Speech.Say(reward.Name);
+        }
+
+        // ========================================
+        // ACTIONS
+        // ========================================
 
         private void ActivateItem()
         {
-            if (_currentItemIndex < 0 || _currentItemIndex >= _currentItems.Count) return;
+            if (_indices[1] < 0 || _indices[1] >= _currentItems.Count) return;
 
-            var upgrade = _currentItems[_currentItemIndex];
+            var upgrade = _currentItems[_indices[1]];
 
             if (upgrade.IsUnlocked)
             {
@@ -418,45 +388,46 @@ namespace ATSAccessibility
         private void RefreshAfterPurchase()
         {
             // Remember if we were in Random Upgrades section
-            bool wasInRandomUpgrades = _level == Level.Items &&
-                _currentSectionIndex < _sections.Length &&
-                _sections[_currentSectionIndex] == SectionType.PickOptions;
+            bool wasInRandomUpgrades = Level == 1 &&
+                _sections != null &&
+                _indices[0] < _sections.Length &&
+                _sections[_indices[0]] == SectionType.PickOptions;
 
             // Rebuild sections (pick options might be gone if max reached)
             BuildSections();
 
             // If we're still in items level, refresh the current section
-            if (_level == Level.Items && _currentSectionIndex < _sections.Length)
+            if (Level == 1 && _sections != null && _indices[0] < _sections.Length)
             {
-                var sectionType = _sections[_currentSectionIndex];
+                var sectionType = _sections[_indices[0]];
 
                 switch (sectionType)
                 {
                     case SectionType.PickOptions:
                         _currentItems = IronmanReflection.GetCurrentPickOptions();
                         // Reset to first item since these are completely new options
-                        _currentItemIndex = 0;
+                        _indices[1] = 0;
                         break;
                     case SectionType.CoreUpgrades:
                         _currentItems = IronmanReflection.GetCoreUpgrades();
                         // Clamp index if needed
-                        if (_currentItemIndex >= _currentItems.Count)
-                            _currentItemIndex = Mathf.Max(0, _currentItems.Count - 1);
+                        if (_indices[1] >= _currentItems.Count)
+                            _indices[1] = Mathf.Max(0, _currentItems.Count - 1);
                         break;
                     case SectionType.Unlocked:
                         _currentItems = IronmanReflection.GetUnlockedUpgrades();
                         // Clamp index if needed
-                        if (_currentItemIndex >= _currentItems.Count)
-                            _currentItemIndex = Mathf.Max(0, _currentItems.Count - 1);
+                        if (_indices[1] >= _currentItems.Count)
+                            _indices[1] = Mathf.Max(0, _currentItems.Count - 1);
                         break;
                 }
 
                 // If no items left in section, go back to sections
                 if (_currentItems.Count == 0)
                 {
-                    _level = Level.Sections;
-                    if (_currentSectionIndex >= _sections.Length)
-                        _currentSectionIndex = Mathf.Max(0, _sections.Length - 1);
+                    SetLevel(0);
+                    if (_indices[0] >= _sections.Length)
+                        _indices[0] = Mathf.Max(0, _sections.Length - 1);
                     AnnounceSection();
                 }
                 else if (wasInRandomUpgrades && sectionType == SectionType.PickOptions)
@@ -468,182 +439,15 @@ namespace ATSAccessibility
                     AnnounceItem();
                 }
             }
-            else if (_currentSectionIndex >= _sections.Length)
+            else if (_sections == null || _indices[0] >= _sections.Length)
             {
                 // Section was removed (pick options gone), adjust index
-                _currentSectionIndex = Mathf.Max(0, _sections.Length - 1);
-                _level = Level.Sections;
+                _indices[0] = Mathf.Max(0, (_sections?.Length ?? 1) - 1);
+                SetLevel(0);
                 // Announce that all picks are complete
                 int max = IronmanReflection.GetMaxPicks();
                 Speech.Say($"All {max} picks complete");
                 AnnounceSection();
-            }
-        }
-
-        // ========================================
-        // Announcements
-        // ========================================
-
-        private void AnnounceOpen()
-        {
-            int completed = IronmanReflection.GetCompletedPicks();
-            int max = IronmanReflection.GetMaxPicks();
-
-            if (IronmanReflection.HasReachedMaxPicks())
-            {
-                Speech.Say($"Ironman Upgrades. All {max} picks complete");
-            }
-            else
-            {
-                Speech.Say($"Ironman Upgrades. Pick {completed + 1} of {max}");
-            }
-
-            AnnounceSection();
-        }
-
-        private void AnnounceCurrentLevel()
-        {
-            switch (_level)
-            {
-                case Level.Sections:
-                    AnnounceSection();
-                    break;
-                case Level.Items:
-                    AnnounceItem();
-                    break;
-                case Level.Rewards:
-                    AnnounceReward();
-                    break;
-            }
-        }
-
-        private void AnnounceSection()
-        {
-            if (_currentSectionIndex < 0 || _currentSectionIndex >= _sectionNames.Length) return;
-
-            string name = _sectionNames[_currentSectionIndex];
-            var sectionType = _sections[_currentSectionIndex];
-
-            int count = 0;
-            switch (sectionType)
-            {
-                case SectionType.PickOptions:
-                    count = IronmanReflection.GetCurrentPickOptions().Count;
-                    break;
-                case SectionType.CoreUpgrades:
-                    count = IronmanReflection.GetCoreUpgrades().Count;
-                    break;
-                case SectionType.Unlocked:
-                    count = IronmanReflection.GetUnlockedUpgrades().Count;
-                    break;
-            }
-
-            Speech.Say($"{name}, {count} upgrades");
-        }
-
-        private void AnnounceItem()
-        {
-            if (_currentItemIndex < 0 || _currentItemIndex >= _currentItems.Count) return;
-
-            var upgrade = _currentItems[_currentItemIndex];
-
-            if (upgrade.IsUnlocked)
-            {
-                Speech.Say($"{upgrade.Name}, unlocked");
-            }
-            else if (upgrade.CanAfford)
-            {
-                Speech.Say($"{upgrade.Name}, {upgrade.PriceText}");
-            }
-            else
-            {
-                Speech.Say($"{upgrade.Name}, {upgrade.PriceText}, can't afford");
-            }
-        }
-
-        private void AnnounceReward()
-        {
-            if (_currentRewardIndex < 0 || _currentRewardIndex >= _rewards.Count) return;
-
-            var reward = _rewards[_currentRewardIndex];
-
-            if (!string.IsNullOrEmpty(reward.Description))
-                Speech.Say($"{reward.Name}, {reward.Description}");
-            else
-                Speech.Say(reward.Name);
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount
-        {
-            get
-            {
-                switch (_level)
-                {
-                    case Level.Sections: return _sectionNames?.Length ?? 0;
-                    case Level.Items: return _currentItems.Count;
-                    case Level.Rewards: return _rewards.Count;
-                    default: return 0;
-                }
-            }
-        }
-
-        public int SearchCurrentIndex
-        {
-            get
-            {
-                switch (_level)
-                {
-                    case Level.Sections: return _currentSectionIndex;
-                    case Level.Items: return _currentItemIndex;
-                    case Level.Rewards: return _currentRewardIndex;
-                    default: return 0;
-                }
-            }
-        }
-
-        public string GetSearchLabel(int index)
-        {
-            switch (_level)
-            {
-                case Level.Sections:
-                    if (_sectionNames != null && index >= 0 && index < _sectionNames.Length)
-                        return _sectionNames[index];
-                    break;
-                case Level.Items:
-                    if (index >= 0 && index < _currentItems.Count)
-                        return _currentItems[index].Name;
-                    break;
-                case Level.Rewards:
-                    if (index >= 0 && index < _rewards.Count)
-                        return _rewards[index].Name;
-                    break;
-            }
-            return null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            SetCurrentIndex(index);
-            AnnounceCurrentLevel();
-        }
-
-        private void SetCurrentIndex(int index)
-        {
-            switch (_level)
-            {
-                case Level.Sections:
-                    _currentSectionIndex = index;
-                    break;
-                case Level.Items:
-                    _currentItemIndex = index;
-                    break;
-                case Level.Rewards:
-                    _currentRewardIndex = index;
-                    break;
             }
         }
     }

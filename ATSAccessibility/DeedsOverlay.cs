@@ -7,8 +7,9 @@ namespace ATSAccessibility
     /// <summary>
     /// Accessible overlay for the GoalsPopup (Deeds menu).
     /// Two-level navigation: categories -> goals.
+    /// Level 0 = categories, Level 1 = goals within current category.
     /// </summary>
-    public class DeedsOverlay : IKeyHandler, ISearchable
+    public class DeedsOverlay : MenuBase, IKeyHandler
     {
         // Goal entry within a category
         private class GoalEntry
@@ -28,14 +29,8 @@ namespace ATSAccessibility
         }
 
         // State
-        private bool _isOpen;
-        private bool _suspended;
         private bool _captureNextPopup;
         private object _childPopup;
-        private bool _focusOnItems;
-        private int _currentCategoryIndex;
-        private int _currentItemIndex;
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
         // Data
         private List<CategoryEntry> _categories = new List<CategoryEntry>();
@@ -44,12 +39,10 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen && !_suspended;
+        public bool IsActive => IsOpen && !IsSuspended;
 
-        /// <summary>
-        /// Whether the overlay is open but temporarily suspended (child popup active).
-        /// </summary>
-        public bool IsSuspended => _isOpen && _suspended;
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
         /// <summary>
         /// Whether the next popup should be captured as a child (reward display after claim).
@@ -64,177 +57,10 @@ namespace ATSAccessibility
             }
         }
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
-            // If a child popup (reward display) is open, pass Escape to game to close it.
-            // Don't clear _childPopup here — OnPopupHidden will handle cleanup.
-            if (_childPopup != null && keyCode == KeyCode.Escape)
-            {
-                Speech.Say("Rewards popup closed");
-                // Pass to game to close the reward popup
-                return false;
-            }
-
-            // Centralized search handling
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            if (_focusOnItems)
-                return ProcessItemKey(keyCode);
-            else
-                return ProcessCategoryKey(keyCode);
-        }
-
-        // ========================================
-        // CATEGORY LEVEL KEYS
-        // ========================================
-
-        private bool ProcessCategoryKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateCategory(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateCategory(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_categories.Count > 0)
-                    {
-                        _currentCategoryIndex = 0;
-                        AnnounceCategory();
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    if (_categories.Count > 0)
-                    {
-                        _currentCategoryIndex = _categories.Count - 1;
-                        AnnounceCategory();
-                    }
-                    return true;
-
-                case KeyCode.RightArrow:
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    EnterItems();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
-        }
-
-        // ========================================
-        // ITEM LEVEL KEYS
-        // ========================================
-
-        private bool ProcessItemKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    NavigateItem(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    NavigateItem(1);
-                    return true;
-
-                case KeyCode.Home:
-                    {
-                        var goals = GetCurrentGoals();
-                        if (goals != null && goals.Count > 0)
-                        {
-                            _currentItemIndex = 0;
-                            AnnounceItem();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.End:
-                    {
-                        var goals = GetCurrentGoals();
-                        if (goals != null && goals.Count > 0)
-                        {
-                            _currentItemIndex = goals.Count - 1;
-                            AnnounceItem();
-                        }
-                    }
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    ReturnToCategories();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateCurrentItem();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
-        }
-
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        public void Open()
-        {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _suspended = false;
-            _focusOnItems = false;
-            _currentCategoryIndex = 0;
-            _currentItemIndex = 0;
-            _search.Clear();
-
-            RefreshData();
-
-            if (_categories.Count > 0)
-            {
-                Speech.Say($"Deeds. {_categories[0].Name}");
-            }
-            else
-            {
-                Speech.Say("Deeds. No categories available");
-            }
-
-            Debug.Log($"[ATSAccessibility] DeedsOverlay opened, {_categories.Count} categories");
-        }
-
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _suspended = false;
-            _childPopup = null;
-            _captureNextPopup = false;
-            _focusOnItems = false;
-            _search.Clear();
-            _categories.Clear();
-
-            Debug.Log("[ATSAccessibility] DeedsOverlay closed");
-        }
+        /// <summary>
+        /// Whether a child popup is currently being tracked.
+        /// </summary>
+        public bool HasChildPopup => _childPopup != null;
 
         /// <summary>
         /// Store a child popup reference (reward display opened after claim).
@@ -247,11 +73,6 @@ namespace ATSAccessibility
         }
 
         /// <summary>
-        /// Whether a child popup is currently being tracked.
-        /// </summary>
-        public bool HasChildPopup => _childPopup != null;
-
-        /// <summary>
         /// Clear the child popup reference (called when it's closed externally).
         /// </summary>
         public void ClearChildPopup()
@@ -259,35 +80,64 @@ namespace ATSAccessibility
             _childPopup = null;
         }
 
-        /// <summary>
-        /// Suspend the overlay when a child popup (e.g. reward display) opens on top.
-        /// </summary>
-        public void Suspend()
-        {
-            if (!_isOpen) return;
-            _suspended = true;
-            Debug.Log("[ATSAccessibility] DeedsOverlay suspended");
-        }
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
 
-        /// <summary>
-        /// Resume the overlay after a child popup closes.
-        /// </summary>
-        public void Resume()
+        protected override string OverlayName => "Deeds";
+        protected override string EmptyMessage => "No categories available";
+
+        protected override int GetItemCount()
         {
-            if (!_isOpen) return;
-            _suspended = false;
-            if (_focusOnItems)
-                AnnounceItem();
+            if (Level == 0)
+                return _categories.Count;
             else
-                AnnounceCategory();
-            Debug.Log("[ATSAccessibility] DeedsOverlay resumed");
+                return GetCurrentGoals()?.Count ?? 0;
         }
 
-        // ========================================
-        // DATA
-        // ========================================
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0)
+            {
+                if (index >= 0 && index < _categories.Count)
+                    return _categories[index].Name;
+                return null;
+            }
+            else
+            {
+                var goals = GetCurrentGoals();
+                if (goals == null || index < 0 || index >= goals.Count) return null;
 
-        private void RefreshData()
+                var goal = goals[index];
+                var description = DeedsReflection.GetGoalDescription(goal.Model);
+                string status;
+
+                if (goal.Completed && !goal.Rewarded)
+                {
+                    status = "ready to collect";
+                }
+                else if (goal.Completed && goal.Rewarded)
+                {
+                    status = "completed";
+                }
+                else
+                {
+                    status = DeedsReflection.GetGoalProgressText(goal.Model, goal.State);
+                }
+
+                // Description already ends with a period from localization
+                if (!string.IsNullOrEmpty(description) && !string.IsNullOrEmpty(status))
+                    return $"{goal.Name}. {description} {status}";
+                else if (!string.IsNullOrEmpty(description))
+                    return $"{goal.Name}. {description}";
+                else if (!string.IsNullOrEmpty(status))
+                    return $"{goal.Name}, {status}";
+                else
+                    return goal.Name;
+            }
+        }
+
+        protected override void RefreshData()
         {
             _categories.Clear();
 
@@ -354,108 +204,123 @@ namespace ATSAccessibility
             }
         }
 
-        // ========================================
-        // CATEGORY NAVIGATION
-        // ========================================
-
-        private void NavigateCategory(int direction)
+        protected override EnterAction OnEnter(int index)
         {
-            if (_categories.Count == 0) return;
-
-            _currentCategoryIndex = NavigationUtils.WrapIndex(_currentCategoryIndex, direction, _categories.Count);
-            AnnounceCategory();
-        }
-
-        private void AnnounceCategory()
-        {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
-            Speech.Say(_categories[_currentCategoryIndex].Name);
-        }
-
-        private void EnterItems()
-        {
-            if (_categories.Count == 0) return;
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (category.Goals.Count == 0)
+            if (Level == 0)
             {
-                Speech.Say("No goals");
+                if (index < 0 || index >= _categories.Count) return EnterAction.None;
+                var category = _categories[index];
+                if (category.Goals.Count == 0)
+                {
+                    Speech.Say("No goals");
+                    return EnterAction.None;
+                }
+                return EnterAction.DrillDown;
+            }
+            else
+            {
+                return EnterAction.Action;
+            }
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 1)
+                ActivateCurrentItem(index);
+        }
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            // If a child popup (reward display) is open, pass Escape to game to close it.
+            // Don't clear _childPopup here -- OnPopupHidden will handle cleanup.
+            if (_childPopup != null && keyCode == KeyCode.Escape)
+            {
+                Speech.Say("Rewards popup closed");
+                // Pass to game to close the reward popup
+                return false;
+            }
+            return null;
+        }
+
+        // Escape passes to game to close popup at both levels
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_categories.Count > 0)
+                return $"Deeds. {_categories[0].Name}";
+            return $"Deeds. {EmptyMessage}";
+        }
+
+        protected override void OnClosed()
+        {
+            _childPopup = null;
+            _captureNextPopup = false;
+            _categories.Clear();
+        }
+
+        // ========================================
+        // CROSS-CATEGORY SEARCH
+        // ========================================
+
+        protected override int SearchItemCount
+        {
+            get
+            {
+                if (Level == 1)
+                    return GetCurrentGoals()?.Count ?? 0;
+                // Category level: flat cross-category search across all goals
+                return GetFlatGoalCount();
+            }
+        }
+
+        protected override int SearchCurrentIndex
+        {
+            get
+            {
+                if (Level == 1)
+                    return CurrentIndex;
+                return _indices[0];
+            }
+        }
+
+        protected override string GetSearchName(int index)
+        {
+            if (Level == 1)
+            {
+                var goals = GetCurrentGoals();
+                return (goals != null && index >= 0 && index < goals.Count) ? goals[index].Name : null;
+            }
+            // Category level: flat cross-category search
+            return GetFlatGoalName(index);
+        }
+
+        protected override void SearchMoveTo(int index)
+        {
+            if (Level == 1)
+            {
+                NavigateTo(index);
                 return;
             }
 
-            _focusOnItems = true;
-            _currentItemIndex = 0;
-            _search.Clear();
-            AnnounceItem();
-        }
-
-        // ========================================
-        // ITEM NAVIGATION
-        // ========================================
-
-        private void NavigateItem(int direction)
-        {
-            var goals = GetCurrentGoals();
-            if (goals == null || goals.Count == 0) return;
-
-            _currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, goals.Count);
-            AnnounceItem();
-        }
-
-        private void AnnounceItem()
-        {
-            var goals = GetCurrentGoals();
-            if (goals == null || _currentItemIndex < 0 || _currentItemIndex >= goals.Count) return;
-
-            var goal = goals[_currentItemIndex];
-            var description = DeedsReflection.GetGoalDescription(goal.Model);
-            string status;
-
-            if (goal.Completed && !goal.Rewarded)
-            {
-                status = "ready to collect";
-            }
-            else if (goal.Completed && goal.Rewarded)
-            {
-                status = "completed";
-            }
-            else
-            {
-                status = DeedsReflection.GetGoalProgressText(goal.Model, goal.State);
-            }
-
-            // Description already ends with a period from localization
-            string announcement;
-            if (!string.IsNullOrEmpty(description) && !string.IsNullOrEmpty(status))
-                announcement = $"{goal.Name}. {description} {status}";
-            else if (!string.IsNullOrEmpty(description))
-                announcement = $"{goal.Name}. {description}";
-            else if (!string.IsNullOrEmpty(status))
-                announcement = $"{goal.Name}, {status}";
-            else
-                announcement = goal.Name;
-
-            Speech.Say(announcement);
-        }
-
-        private void ReturnToCategories()
-        {
-            _focusOnItems = false;
-            _search.Clear();
-            AnnounceCategory();
+            // Category level: resolve flat index to (category, item) and enter items
+            ResolveFlatGoalIndex(index, out int catIdx, out int itemIdx);
+            _indices[0] = catIdx;
+            SetLevel(1);
+            _indices[1] = itemIdx;
+            AnnounceCurrentItem();
         }
 
         // ========================================
         // ACTIVATION
         // ========================================
 
-        private void ActivateCurrentItem()
+        private void ActivateCurrentItem(int index)
         {
             var goals = GetCurrentGoals();
-            if (goals == null || _currentItemIndex < 0 || _currentItemIndex >= goals.Count) return;
+            if (goals == null || index < 0 || index >= goals.Count) return;
 
-            var goal = goals[_currentItemIndex];
+            var goal = goals[index];
 
             if (goal.Completed && !goal.Rewarded)
             {
@@ -489,64 +354,15 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // ISearchable Implementation
+        // HELPERS
         // ========================================
 
-        public int SearchItemCount
+        private List<GoalEntry> GetCurrentGoals()
         {
-            get
-            {
-                if (_focusOnItems)
-                {
-                    var goals = GetCurrentGoals();
-                    return goals?.Count ?? 0;
-                }
-                else
-                {
-                    // Category level: flat cross-category search across all goals
-                    return GetFlatGoalCount();
-                }
-            }
-        }
-
-        public int SearchCurrentIndex
-        {
-            get
-            {
-                return _focusOnItems ? _currentItemIndex : _currentCategoryIndex;
-            }
-        }
-
-        public string GetSearchLabel(int index)
-        {
-            if (_focusOnItems)
-            {
-                var goals = GetCurrentGoals();
-                return (goals != null && index >= 0 && index < goals.Count) ? goals[index].Name : null;
-            }
-            else
-            {
-                // Category level: flat cross-category search
-                return GetFlatGoalName(index);
-            }
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            if (_focusOnItems)
-            {
-                _currentItemIndex = index;
-                AnnounceItem();
-            }
-            else
-            {
-                // Category level: resolve flat index to (category, item) and enter items
-                ResolveFlatGoalIndex(index, out int catIdx, out int itemIdx);
-                _currentCategoryIndex = catIdx;
-                _currentItemIndex = itemIdx;
-                _focusOnItems = true;
-                AnnounceItem();
-            }
+            if (_categories.Count == 0) return null;
+            int catIdx = _indices[0];
+            if (catIdx < 0 || catIdx >= _categories.Count) return null;
+            return _categories[catIdx].Goals;
         }
 
         /// <summary>
@@ -595,17 +411,6 @@ namespace ATSAccessibility
             }
             categoryIndex = 0;
             itemIndex = 0;
-        }
-
-        // ========================================
-        // HELPERS
-        // ========================================
-
-        private List<GoalEntry> GetCurrentGoals()
-        {
-            if (_categories.Count == 0) return null;
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return null;
-            return _categories[_currentCategoryIndex].Goals;
         }
     }
 }

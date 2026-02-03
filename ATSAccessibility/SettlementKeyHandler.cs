@@ -446,10 +446,10 @@ namespace ATSAccessibility
                     _menuHub?.Open();
                     return true;
                 case KeyCode.F3:
-                    _rewardsPanel?.Open();
+                    _rewardsPanel?.Toggle();
                     return true;
                 case KeyCode.Tab:
-                    _buildingMenuPanel?.Open();
+                    _buildingMenuPanel?.Toggle();
                     return true;
                 case KeyCode.N:
                     if (modifiers.Alt)

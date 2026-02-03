@@ -5,9 +5,10 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Accessible overlay for the BlackMarketPopup.
-    /// Flat list navigation with NPC flavor text header and offer buttons.
+    /// Level 0 = main list (header + reroll + offers).
+    /// Level 1 = sub-menu (buy now / buy on credit).
     /// </summary>
-    public class BlackMarketOverlay : IKeyHandler, ISearchable
+    public class BlackMarketOverlay : MenuBase, IKeyHandler
     {
         private enum ItemType { Header, Reroll, Offer }
 
@@ -20,172 +21,72 @@ namespace ATSAccessibility
         }
 
         // State
-        private bool _isOpen;
         private object _blackMarket;
-        private int _currentIndex;
-        private List<NavItem> _items = new List<NavItem>();
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
-        // Sub-menu state (for offer buy/credit selection)
-        private bool _inSubMenu;
-        private int _subMenuIndex;  // 0=Buy, 1=Credit
+        // Data
+        private List<NavItem> _items = new List<NavItem>();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
-            // Sub-menu navigation
-            if (_inSubMenu)
-            {
-                return ProcessSubMenuKey(keyCode);
-            }
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.RightArrow:
-                    // Enter sub-menu for offers only
-                    TryEnterSubMenu();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateCurrent();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
-        }
-
-        private bool ProcessSubMenuKey(KeyCode keyCode)
-        {
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    _subMenuIndex = 0;
-                    AnnounceSubMenuItem();
-                    return true;
-
-                case KeyCode.DownArrow:
-                    _subMenuIndex = 1;
-                    AnnounceSubMenuItem();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ExecuteSubMenuAction();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Exit sub-menu, return to main list
-                    _inSubMenu = false;
-                    AnnounceCurrentItem();
-                    InputBlocker.BlockCancelOnce = true;
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    // Exit sub-menu, return to main list
-                    _inSubMenu = false;
-                    AnnounceCurrentItem();
-                    return true;
-
-                default:
-                    // Consume all other keys
-                    return true;
-            }
-        }
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
         // ========================================
-        // LIFECYCLE
+        // MENUBASE OVERRIDES
         // ========================================
 
-        /// <summary>
-        /// Open the overlay when BlackMarketPopup is shown.
-        /// </summary>
-        public void Open(object popup)
+        protected override string OverlayName => "Black Market";
+        protected override string EmptyMessage => "No offers available";
+
+        protected override int GetItemCount()
         {
-            if (_isOpen) return;
+            if (Level == 0)
+                return _items.Count;
+            else
+                return 2;  // Buy now / Buy on credit
+        }
 
-            _blackMarket = BlackMarketReflection.GetBlackMarket(popup);
-            if (_blackMarket == null)
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0)
             {
-                Debug.LogWarning("[ATSAccessibility] BlackMarketOverlay: Could not get BlackMarket from popup");
-                return;
-            }
-
-            _isOpen = true;
-            _currentIndex = 0;
-            _inSubMenu = false;
-            _subMenuIndex = 0;
-            _search.Clear();
-
-            RefreshData();
-
-            // Announce panel with header
-            if (_items.Count > 0)
-            {
-                Speech.Say($"Black Market. {_items[0].Label}");
+                if (index >= 0 && index < _items.Count)
+                    return _items[index].Label;
+                return null;
             }
             else
             {
-                Speech.Say("Black Market. No offers available");
+                // Sub-menu: format buy/credit info from parent offer
+                int parentIdx = _indices[0];
+                if (parentIdx < 0 || parentIdx >= _items.Count) return null;
+
+                var item = _items[parentIdx];
+                if (item.Type != ItemType.Offer || !item.Offer.HasValue) return null;
+
+                var offer = item.Offer.Value;
+                if (index == 0)
+                {
+                    // Buy now
+                    bool canAfford = BlackMarketReflection.CanAffordBuy(offer.State);
+                    string affordStr = canAfford ? "" : ", cannot afford";
+                    return $"Buy now, {offer.BuyPrice} Amber, {offer.BuyRating}{affordStr}";
+                }
+                else
+                {
+                    // Buy on credit
+                    string paymentTerms = !string.IsNullOrEmpty(offer.PaymentTerms)
+                        ? $", payment due {offer.PaymentTerms}"
+                        : "";
+                    return $"Buy on credit, {offer.CreditPrice} Amber, {offer.CreditRating}{paymentTerms}";
+                }
             }
-
-            Debug.Log($"[ATSAccessibility] BlackMarketOverlay opened, {_items.Count} items");
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _blackMarket = null;
-            _items.Clear();
-            _inSubMenu = false;
-            _search.Clear();
-
-            Debug.Log("[ATSAccessibility] BlackMarketOverlay closed");
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -221,6 +122,95 @@ namespace ATSAccessibility
 
             Debug.Log($"[ATSAccessibility] BlackMarketOverlay refreshed: {_items.Count} items");
         }
+
+        protected override EnterAction OnEnter(int index)
+        {
+            if (Level == 0)
+            {
+                if (index < 0 || index >= _items.Count) return EnterAction.None;
+
+                var item = _items[index];
+                switch (item.Type)
+                {
+                    case ItemType.Header:
+                        return EnterAction.Action;
+                    case ItemType.Reroll:
+                        return EnterAction.Action;
+                    case ItemType.Offer:
+                        return EnterAction.DrillDown;
+                    default:
+                        return EnterAction.None;
+                }
+            }
+            else
+            {
+                return EnterAction.Action;
+            }
+        }
+
+        protected override void OnAction(int index)
+        {
+            if (Level == 0)
+            {
+                if (index < 0 || index >= _items.Count) return;
+
+                var item = _items[index];
+                switch (item.Type)
+                {
+                    case ItemType.Header:
+                        AnnounceCurrentItem();
+                        break;
+                    case ItemType.Reroll:
+                        ExecuteReroll();
+                        break;
+                }
+            }
+            else
+            {
+                ExecuteSubMenuAction(index);
+            }
+        }
+
+        // Default OnEscape behavior: GoBack if level > 0, PassThrough if level 0
+
+        protected override void StorePopup(object popup)
+        {
+            _blackMarket = BlackMarketReflection.GetBlackMarket(popup);
+            if (_blackMarket == null)
+            {
+                Debug.LogWarning("[ATSAccessibility] BlackMarketOverlay: Could not get BlackMarket from popup");
+            }
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_items.Count > 0)
+                return $"Black Market. {_items[0].Label}";
+            return $"Black Market. {EmptyMessage}";
+        }
+
+        protected override void OnClosed()
+        {
+            _blackMarket = null;
+            _items.Clear();
+        }
+
+        // ========================================
+        // SEARCH
+        // ========================================
+
+        protected override int SearchItemCount => Level == 0 ? _items.Count : 0;
+
+        protected override string GetSearchName(int index)
+        {
+            if (Level == 0 && index >= 0 && index < _items.Count)
+                return _items[index].Type == ItemType.Offer ? _items[index].SearchName : null;
+            return null;
+        }
+
+        // ========================================
+        // DATA HELPERS
+        // ========================================
 
         private string BuildRerollLabel()
         {
@@ -262,75 +252,8 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
-        }
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-            Speech.Say(_items[_currentIndex].Label);
-        }
-
-        // ========================================
         // ACTIONS
         // ========================================
-
-        private void TryEnterSubMenu()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-            if (item.Type == ItemType.Offer && item.Offer.HasValue)
-            {
-                _inSubMenu = true;
-                _subMenuIndex = 0;
-                AnnounceSubMenuItem();
-            }
-        }
-
-        private void ActivateCurrent()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-
-            switch (item.Type)
-            {
-                case ItemType.Header:
-                    // Just re-announce
-                    AnnounceCurrentItem();
-                    break;
-
-                case ItemType.Reroll:
-                    ExecuteReroll();
-                    break;
-
-                case ItemType.Offer:
-                    // Enter sub-menu
-                    if (item.Offer.HasValue)
-                    {
-                        _inSubMenu = true;
-                        _subMenuIndex = 0;
-                        AnnounceSubMenuItem();
-                    }
-                    break;
-            }
-        }
 
         private void ExecuteReroll()
         {
@@ -358,7 +281,7 @@ namespace ATSAccessibility
                 // Announce "Rerolled" then first offer
                 if (_items.Count > 2)  // Header + Reroll + at least one offer
                 {
-                    _currentIndex = 2;  // First offer
+                    CurrentIndex = 2;  // First offer
                     Speech.Say($"Rerolled. {_items[2].Label}");
                 }
                 else
@@ -379,46 +302,22 @@ namespace ATSAccessibility
 
         private void ExitSubMenuAfterPurchase()
         {
-            _inSubMenu = false;
+            SetLevel(0);
             RefreshData();
-            if (_currentIndex >= _items.Count)
-                _currentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
+            if (_indices[0] >= _items.Count)
+                _indices[0] = _items.Count > 0 ? _items.Count - 1 : 0;
             if (_items.Count > 0)
                 AnnounceCurrentItem();
         }
 
-        private void AnnounceSubMenuItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-            if (item.Type != ItemType.Offer || !item.Offer.HasValue) return;
-
-            var offer = item.Offer.Value;
-
-            if (_subMenuIndex == 0)
-            {
-                // Buy now
-                bool canAfford = BlackMarketReflection.CanAffordBuy(offer.State);
-                string affordStr = canAfford ? "" : ", cannot afford";
-                Speech.Say($"Buy now, {offer.BuyPrice} Amber, {offer.BuyRating}{affordStr}");
-            }
-            else
-            {
-                // Buy on credit
-                string paymentTerms = !string.IsNullOrEmpty(offer.PaymentTerms)
-                    ? $", payment due {offer.PaymentTerms}"
-                    : "";
-                Speech.Say($"Buy on credit, {offer.CreditPrice} Amber, {offer.CreditRating}{paymentTerms}");
-            }
-        }
-
-        private void ExecuteSubMenuAction()
+        private void ExecuteSubMenuAction(int index)
         {
             if (_blackMarket == null) return;
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
 
-            var item = _items[_currentIndex];
+            int parentIdx = _indices[0];
+            if (parentIdx < 0 || parentIdx >= _items.Count) return;
+
+            var item = _items[parentIdx];
             if (item.Type != ItemType.Offer || !item.Offer.HasValue) return;
 
             var offer = item.Offer.Value;
@@ -430,7 +329,7 @@ namespace ATSAccessibility
                 return;
             }
 
-            if (_subMenuIndex == 0)
+            if (index == 0)
             {
                 // Buy now
                 if (!BlackMarketReflection.CanAffordBuy(offer.State))
@@ -467,26 +366,6 @@ namespace ATSAccessibility
                     SoundManager.PlayFailed();
                 }
             }
-        }
-
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _items.Count;
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
-        {
-            if (index < 0 || index >= _items.Count) return null;
-            return _items[index].Type == ItemType.Offer ? _items[index].SearchName : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            if (index < 0 || index >= _items.Count) return;
-            _currentIndex = index;
-            AnnounceCurrentItem();
         }
     }
 }

@@ -8,12 +8,10 @@ namespace ATSAccessibility
     /// Overlay for TraderAssaultResultPopup (shown after assaulting a trader).
     /// Provides flat list navigation through stolen goods, perks, consequences, and villagers lost.
     /// </summary>
-    public class AssaultResultOverlay : IKeyHandler
+    public class AssaultResultOverlay : MenuBase, IKeyHandler
     {
-        // State
-        private bool _isOpen;
+        // Data
         private object _popup;
-        private int _currentIndex;
         private List<string> _items = new List<string>();
 
         // Cached reflection
@@ -35,139 +33,28 @@ namespace ATSAccessibility
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Assault result";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.Space:
-                    Dismiss();
-                    return true;
-
-                case KeyCode.Escape:
-                    Dismiss();
-                    Speech.Say("Closed");
-                    InputBlocker.BlockCancelOnce = true;
-                    return true;
-
-                default:
-                    // Consume all other keys while active
-                    return true;
-            }
+            if (index >= 0 && index < _items.Count)
+                return _items[index];
+            return null;
         }
 
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        public void Open(object popup)
-        {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _popup = popup;
-            _currentIndex = 0;
-
-            EnsureTypes();
-            RefreshData();
-
-            if (_items.Count > 0)
-            {
-                Speech.Say($"Assault result. {_items[0]}");
-            }
-            else
-            {
-                Speech.Say("Assault result");
-            }
-
-            Debug.Log($"[ATSAccessibility] AssaultResultOverlay opened, {_items.Count} items");
-        }
-
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _popup = null;
-            _items.Clear();
-
-            Debug.Log("[ATSAccessibility] AssaultResultOverlay closed");
-        }
-
-        // ========================================
-        // DETECTION
-        // ========================================
-
-        public static bool IsAssaultResultPopup(object popup)
-        {
-            if (popup == null) return false;
-            return popup.GetType().Name == "TraderAssaultResultPopup";
-        }
-
-        // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            Speech.Say(_items[_currentIndex]);
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            Speech.Say(_items[_currentIndex]);
-        }
-
-        private void Dismiss()
-        {
-            if (_popup == null) return;
-
-            EnsureTypes();
-            if (_popupHideMethod != null)
-            {
-                try
-                {
-                    _popupHideMethod.Invoke(_popup, null);
-                    SoundManager.PlayButtonClick();
-                }
-                catch (System.Exception ex)
-                {
-                    Debug.LogError($"[ATSAccessibility] AssaultResultOverlay: Failed to hide popup: {ex.Message}");
-                }
-            }
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -199,6 +86,72 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] AssaultResultOverlay: {_items.Count} items");
         }
 
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
+        {
+            Dismiss();
+        }
+
+        protected override int SearchItemCount => 0; // No search
+
+        protected override EscapeAction OnEscape()
+        {
+            Dismiss();
+            Speech.Say("Closed");
+            InputBlocker.BlockCancelOnce = true;
+            return EscapeAction.Close;
+        }
+
+        protected override void StorePopup(object popup)
+        {
+            _popup = popup;
+            EnsureTypes();
+        }
+
+        protected override void OnClosed()
+        {
+            _popup = null;
+            _items.Clear();
+        }
+
+        // ========================================
+        // DETECTION
+        // ========================================
+
+        public static bool IsAssaultResultPopup(object popup)
+        {
+            if (popup == null) return false;
+            return popup.GetType().Name == "TraderAssaultResultPopup";
+        }
+
+        // ========================================
+        // ACTIONS
+        // ========================================
+
+        private void Dismiss()
+        {
+            if (_popup == null) return;
+
+            EnsureTypes();
+            if (_popupHideMethod != null)
+            {
+                try
+                {
+                    _popupHideMethod.Invoke(_popup, null);
+                    SoundManager.PlayButtonClick();
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[ATSAccessibility] AssaultResultOverlay: Failed to hide popup: {ex.Message}");
+                }
+            }
+        }
+
+        // ========================================
+        // DATA READING
+        // ========================================
+
         private void ReadGoodsSlots(FieldInfo slotsField, string prefix)
         {
             if (slotsField == null || _popup == null) return;
@@ -210,7 +163,6 @@ namespace ATSAccessibility
                 {
                     if (slot == null) continue;
 
-                    // Check if slot is active
                     var mb = slot as MonoBehaviour;
                     if (mb != null && !mb.gameObject.activeSelf) continue;
 
@@ -263,6 +215,10 @@ namespace ATSAccessibility
                 }
             }
         }
+
+        // ========================================
+        // HELPERS
+        // ========================================
 
         private string GetTextFieldValue(FieldInfo textField)
         {

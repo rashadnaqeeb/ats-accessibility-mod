@@ -9,19 +9,17 @@ namespace ATSAccessibility
     /// Provides flat list navigation through header, dialogue text, and choices/continue.
     /// Queues rapid events to prevent missing dialogue.
     /// </summary>
-    public class DialogueOverlay : IKeyHandler, ISearchable
+    public class DialogueOverlay : MenuBase, IKeyHandler
     {
-        // Item types in the flat list
         private enum ItemType { Header, Dialogue, Continue, Choice }
 
         private class ListItem
         {
             public ItemType Type;
             public string Text;
-            public NarrationReflection.ChoiceInfo Choice;  // Only for Choice type
+            public NarrationReflection.ChoiceInfo Choice;
         }
 
-        // Queued event types
         private enum EventType { Dialogue, Branch }
         private class QueuedEvent
         {
@@ -30,18 +28,12 @@ namespace ATSAccessibility
         }
 
         // State
-        private bool _isOpen;
-        private int _currentIndex;
         private List<ListItem> _items = new List<ListItem>();
-
-        // Current popup reference (for reading displayed text)
         private object _currentPopup;
-
-        // Current dialogue/branch for actions
         private object _currentDialogue;
         private object _currentBranch;
 
-        // Event queue to handle rapid successive events
+        // Event queue
         private Queue<QueuedEvent> _eventQueue = new Queue<QueuedEvent>();
         private bool _processingEvent = false;
 
@@ -49,95 +41,96 @@ namespace ATSAccessibility
         private IDisposable _dialogueSub;
         private IDisposable _branchSub;
 
-        // Type-ahead for choices
-        private readonly TypeAheadSearch _search = new TypeAheadSearch();
-
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
+
+        // ========================================
+        // MENUBASE OVERRIDES
+        // ========================================
+
+        protected override string OverlayName => "Dialogue";
+        protected override string EmptyMessage => "";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (!_isOpen) return false;
+            if (index < 0 || index >= _items.Count) return null;
+            return _items[index].Text;
+        }
 
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, modifiers, this))
-                return true;
+        protected override void RefreshData() { }
 
-            switch (keyCode)
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
+        {
+            if (_items.Count == 0 || index < 0 || index >= _items.Count) return;
+
+            var item = _items[index];
+
+            switch (item.Type)
             {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
+                case ItemType.Continue:
+                    if (_currentDialogue != null)
+                    {
+                        _eventQueue.Clear();
+                        _processingEvent = false;
+                        if (!NarrationReflection.ExecuteTransition(_currentDialogue))
+                        {
+                            Speech.Say("Cannot continue");
+                            SoundManager.PlayFailed();
+                        }
+                    }
+                    break;
 
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
+                case ItemType.Choice:
+                    if (item.Choice != null)
+                    {
+                        _eventQueue.Clear();
+                        _processingEvent = false;
+                        if (!NarrationReflection.SelectChoice(item.Choice))
+                        {
+                            Speech.Say("Cannot select");
+                            SoundManager.PlayFailed();
+                        }
+                    }
+                    break;
 
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateCurrent();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
+                case ItemType.Header:
+                case ItemType.Dialogue:
+                    if (_eventQueue.Count > 0)
+                        ProcessNextEvent();
+                    else
+                        AnnounceCurrentItem();
+                    break;
             }
         }
 
-        // ========================================
-        // ISearchable Implementation
-        // ========================================
-
-        public int SearchItemCount => _items.Count;
-        public int SearchCurrentIndex => _currentIndex;
-
-        public string GetSearchLabel(int index)
+        protected override void StorePopup(object popup)
         {
-            if (index < 0 || index >= _items.Count) return null;
-            return _items[index].Type == ItemType.Choice ? _items[index].Text : null;
-        }
-
-        public void SearchMoveTo(int index)
-        {
-            _currentIndex = index;
-            AnnounceCurrentItem();
-        }
-
-        // ========================================
-        // LIFECYCLE
-        // ========================================
-
-        /// <summary>
-        /// Open the overlay when HomePopup is shown.
-        /// </summary>
-        public void Open(object popup)
-        {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _currentIndex = 0;
-            _items.Clear();
             _currentPopup = popup;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            string npcName = NarrationReflection.GetNPCName();
+            if (!string.IsNullOrEmpty(npcName))
+                return $"Dialogue with {npcName}";
+            return null;
+        }
+
+        protected override void OnOpened()
+        {
             _currentDialogue = null;
             _currentBranch = null;
-            _search.Clear();
 
-            // Subscribe to dialogue and branch events
             _dialogueSub = NarrationReflection.SubscribeToDialogue(OnDialogueRequested);
             _branchSub = NarrationReflection.SubscribeToBranch(OnBranchRequested);
 
@@ -145,74 +138,65 @@ namespace ATSAccessibility
             {
                 Debug.LogWarning("[ATSAccessibility] DialogueOverlay: Failed to subscribe to events");
             }
-
-            // Announce the popup opening - first dialogue will be announced via event
-            string npcName = NarrationReflection.GetNPCName();
-            string npcTitle = NarrationReflection.GetNPCTitle();
-            if (!string.IsNullOrEmpty(npcName))
-            {
-                Speech.Say($"Dialogue with {npcName}");
-            }
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
+        protected override void OnClosed()
         {
-            if (!_isOpen) return;
+            _dialogueSub?.Dispose();
+            _branchSub?.Dispose();
+            _dialogueSub = null;
+            _branchSub = null;
 
-            _isOpen = false;
             _items.Clear();
             _currentPopup = null;
             _currentDialogue = null;
             _currentBranch = null;
             _eventQueue.Clear();
             _processingEvent = false;
-            _search.Clear();
+        }
 
-            // Dispose subscriptions
-            _dialogueSub?.Dispose();
-            _branchSub?.Dispose();
-            _dialogueSub = null;
-            _branchSub = null;
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override void AnnounceCurrentItem()
+        {
+            if (CurrentIndex < 0 || CurrentIndex >= _items.Count) return;
+            Speech.Say(_items[CurrentIndex].Text);
         }
 
         // ========================================
-        // EVENT HANDLERS (with queueing)
+        // SEARCH
+        // ========================================
+
+        protected override string GetSearchName(int index)
+        {
+            if (index < 0 || index >= _items.Count) return null;
+            return _items[index].Type == ItemType.Choice ? _items[index].Text : null;
+        }
+
+        // ========================================
+        // EVENT HANDLERS
         // ========================================
 
         private void OnDialogueRequested(object dialogue)
         {
-            if (!_isOpen) return;  // Guard against stale events
+            if (!IsOpen) return;
 
-            // Queue the event
             _eventQueue.Enqueue(new QueuedEvent { Type = EventType.Dialogue, Data = dialogue });
 
-            // Process immediately if this is the first/only event
             if (!_processingEvent)
-            {
                 ProcessNextEvent();
-            }
         }
 
         private void OnBranchRequested(object branch)
         {
-            if (!_isOpen) return;  // Guard against stale events
+            if (!IsOpen) return;
 
-            // Queue the event
             _eventQueue.Enqueue(new QueuedEvent { Type = EventType.Branch, Data = branch });
 
-            // Process immediately if this is the first/only event
             if (!_processingEvent)
-            {
                 ProcessNextEvent();
-            }
         }
 
-        /// <summary>
-        /// Process the next queued event.
-        /// </summary>
         private void ProcessNextEvent()
         {
             if (_eventQueue.Count == 0)
@@ -242,7 +226,7 @@ namespace ATSAccessibility
                     BuildBranchList(evt.Data);
                 }
 
-                _currentIndex = 0;
+                CurrentIndex = 0;
                 AnnounceCurrentItem();
             }
             catch (Exception ex)
@@ -259,7 +243,6 @@ namespace ATSAccessibility
         {
             _items.Clear();
 
-            // [0] Header: NPC name and title
             string npcName = NarrationReflection.GetNPCName() ?? "Unknown";
             string npcTitle = NarrationReflection.GetNPCTitle();
             string headerText = string.IsNullOrEmpty(npcTitle) ? npcName : $"{npcName}, {npcTitle}";
@@ -270,7 +253,6 @@ namespace ATSAccessibility
                 Text = headerText
             });
 
-            // [1] Dialogue: the actual text
             string dialogueText = NarrationReflection.GetDialogueText(dialogue) ?? "...";
             _items.Add(new ListItem
             {
@@ -278,7 +260,6 @@ namespace ATSAccessibility
                 Text = dialogueText
             });
 
-            // [2] Continue: if has transition
             if (NarrationReflection.HasTransition(dialogue))
             {
                 _items.Add(new ListItem
@@ -287,14 +268,12 @@ namespace ATSAccessibility
                     Text = "Continue"
                 });
             }
-
         }
 
         private void BuildBranchList(object branch)
         {
             _items.Clear();
 
-            // [0] Header: NPC name and title
             string npcName = NarrationReflection.GetNPCName() ?? "Unknown";
             string npcTitle = NarrationReflection.GetNPCTitle();
             string headerText = string.IsNullOrEmpty(npcTitle) ? npcName : $"{npcName}, {npcTitle}";
@@ -305,8 +284,6 @@ namespace ATSAccessibility
                 Text = headerText
             });
 
-            // [1] Dialogue: read currently displayed text from UI
-            // (The text may have been set by a DialogueModel before the branch)
             string displayedText = NarrationReflection.GetCurrentDisplayedText(_currentPopup);
             if (!string.IsNullOrEmpty(displayedText))
             {
@@ -317,10 +294,7 @@ namespace ATSAccessibility
                 });
             }
 
-            // Get available choices
             var choices = NarrationReflection.GetChoices(branch);
-
-            // [2+] Choices
             foreach (var choice in choices)
             {
                 _items.Add(new ListItem
@@ -329,93 +303,6 @@ namespace ATSAccessibility
                     Text = choice.Text,
                     Choice = choice
                 });
-            }
-
-        }
-
-        // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-            Speech.Say(item.Text);
-        }
-
-        // ========================================
-        // ACTIONS
-        // ========================================
-
-        private void ActivateCurrent()
-        {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-
-            switch (item.Type)
-            {
-                case ItemType.Continue:
-                    if (_currentDialogue != null)
-                    {
-                        // Clear queue and allow new events to process immediately
-                        _eventQueue.Clear();
-                        _processingEvent = false;
-                        if (!NarrationReflection.ExecuteTransition(_currentDialogue))
-                        {
-                            Speech.Say("Cannot continue");
-                            SoundManager.PlayFailed();
-                        }
-                        // Game will fire OnDialogueRequested or OnBranchRequested next
-                    }
-                    break;
-
-                case ItemType.Choice:
-                    if (item.Choice != null)
-                    {
-                        // Clear queue and allow new events to process immediately
-                        _eventQueue.Clear();
-                        _processingEvent = false;
-                        if (!NarrationReflection.SelectChoice(item.Choice))
-                        {
-                            Speech.Say("Cannot select");
-                            SoundManager.PlayFailed();
-                        }
-                        // Game will fire OnDialogueRequested or OnBranchRequested next
-                    }
-                    break;
-
-                case ItemType.Header:
-                case ItemType.Dialogue:
-                    // For informational items, check if there are queued events
-                    if (_eventQueue.Count > 0)
-                    {
-                        // Process next queued event
-                        ProcessNextEvent();
-                    }
-                    else
-                    {
-                        // Re-announce for informational items
-                        AnnounceCurrentItem();
-                    }
-                    break;
             }
         }
     }

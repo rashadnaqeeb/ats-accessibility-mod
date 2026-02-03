@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the OrdersPopup (order list navigation).
     /// Provides flat list navigation through all orders with front-loaded announcements.
     /// </summary>
-    public class OrdersOverlay : IKeyHandler
+    public class OrdersOverlay : MenuBase, IKeyHandler
     {
         // Order status for sorting and announcement
         private enum OrderStatus { ToPick, Completable, Active, Locked, Completed, Failed }
@@ -22,138 +22,35 @@ namespace ATSAccessibility
             public bool Tracked;
         }
 
-        // State
-        private bool _isOpen;
-        private int _currentIndex;
+        // Data
         private List<OrderItem> _items = new List<OrderItem>();
 
         // ========================================
         // IKeyHandler Implementation
         // ========================================
 
-        public bool IsActive => _isOpen;
+        public bool IsActive => IsOpen;
 
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isOpen) return false;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    Navigate(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    Navigate(1);
-                    return true;
-
-                case KeyCode.Home:
-                    NavigateTo(0);
-                    return true;
-
-                case KeyCode.End:
-                    NavigateTo(_items.Count - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    ActivateCurrent();
-                    return true;
-
-                case KeyCode.T:
-                    ToggleTracking();
-                    return true;
-
-                case KeyCode.Escape:
-                    // Pass to game to close popup (OnPopupHidden will close our overlay)
-                    return false;
-
-                default:
-                    // Consume all other keys while overlay is active
-                    return true;
-            }
-        }
+        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+            ProcessKey(keyCode, modifiers);
 
         // ========================================
-        // LIFECYCLE
+        // MENUBASE OVERRIDES
         // ========================================
 
-        /// <summary>
-        /// Open the overlay when OrdersPopup is shown.
-        /// </summary>
-        public void Open(object popup)
+        protected override string OverlayName => "Orders";
+        protected override string EmptyMessage => "No orders available";
+
+        protected override int GetItemCount() => _items.Count;
+
+        protected override string GetLabel(int index)
         {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            _currentIndex = 0;
-
-            RefreshData();
-
-            if (_items.Count > 0)
-            {
-                Speech.Say($"Orders. {_items[0].Label}");
-            }
-            else
-            {
-                Speech.Say("Orders. No orders available");
-            }
-
-            Debug.Log($"[ATSAccessibility] OrdersOverlay opened, {_items.Count} items");
+            if (index >= 0 && index < _items.Count)
+                return _items[index].Label;
+            return null;
         }
 
-        /// <summary>
-        /// Close the overlay.
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            _items.Clear();
-
-            Debug.Log("[ATSAccessibility] OrdersOverlay closed");
-        }
-
-        /// <summary>
-        /// Refresh data after the OrderPickPopup closes.
-        /// The picked order is now Active, so re-announce current.
-        /// </summary>
-        public void RefreshAfterPick()
-        {
-            if (!_isOpen) return;
-
-            RefreshData();
-            if (_currentIndex >= _items.Count)
-                _currentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
-
-            if (_items.Count > 0)
-            {
-                AnnounceCurrentItem();
-            }
-        }
-
-        /// <summary>
-        /// Refresh data when a new order becomes available.
-        /// Called by EventAnnouncer when OnOrderStarted fires.
-        /// </summary>
-        public void RefreshOnNewOrder()
-        {
-            if (!_isOpen) return;
-
-            RefreshData();
-            if (_currentIndex >= _items.Count)
-                _currentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
-
-            // Announce that the list was updated
-            Speech.Say("Orders updated");
-        }
-
-        // ========================================
-        // DATA
-        // ========================================
-
-        private void RefreshData()
+        protected override void RefreshData()
         {
             _items.Clear();
 
@@ -184,6 +81,143 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] OrdersOverlay refreshed: {_items.Count} items");
         }
 
+        protected override EnterAction OnEnter(int index) => EnterAction.Action;
+
+        protected override void OnAction(int index)
+        {
+            if (index < 0 || index >= _items.Count) return;
+
+            var item = _items[index];
+            switch (item.Status)
+            {
+                case OrderStatus.ToPick:
+                    if (OrdersReflection.FireOrderPickPopupRequested(item.State))
+                    {
+                        SoundManager.PlayButtonClick();
+                    }
+                    else
+                    {
+                        Speech.Say("Cannot open picks");
+                        SoundManager.PlayFailed();
+                    }
+                    break;
+
+                case OrderStatus.Completable:
+                    string name = OrdersReflection.GetOrderDisplayName(item.Model) ?? "order";
+                    if (OrdersReflection.CompleteOrder(item.State, item.Model))
+                    {
+                        SoundManager.PlayButtonClick();
+                        Speech.Say($"Delivered, {name}");
+                        RefreshData();
+                        if (CurrentIndex >= _items.Count)
+                            CurrentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
+                        if (_items.Count > 0)
+                            AnnounceCurrentItem();
+                    }
+                    else
+                    {
+                        Speech.Say("Cannot deliver");
+                        SoundManager.PlayFailed();
+                    }
+                    break;
+
+                default:
+                    AnnounceCurrentItem();
+                    break;
+            }
+        }
+
+        protected override int SearchItemCount => 0; // No search for orders
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.T)
+            {
+                ToggleTracking();
+                return true;
+            }
+            return null;
+        }
+
+        // Escape passes to game to close popup (OnPopupHidden will close our overlay)
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override void OnClosed()
+        {
+            _items.Clear();
+        }
+
+        // ========================================
+        // PUBLIC METHODS
+        // ========================================
+
+        /// <summary>
+        /// Refresh data after the OrderPickPopup closes.
+        /// The picked order is now Active, so re-announce current.
+        /// </summary>
+        public void RefreshAfterPick()
+        {
+            if (!IsOpen) return;
+
+            RefreshData();
+            if (CurrentIndex >= _items.Count)
+                CurrentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
+
+            if (_items.Count > 0)
+            {
+                AnnounceCurrentItem();
+            }
+        }
+
+        /// <summary>
+        /// Refresh data when a new order becomes available.
+        /// Called by EventAnnouncer when OnOrderStarted fires.
+        /// </summary>
+        public void RefreshOnNewOrder()
+        {
+            if (!IsOpen) return;
+
+            RefreshData();
+            if (CurrentIndex >= _items.Count)
+                CurrentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
+
+            Speech.Say("Orders updated");
+        }
+
+        // ========================================
+        // ACTIONS
+        // ========================================
+
+        private void ToggleTracking()
+        {
+            if (_items.Count == 0 || CurrentIndex < 0 || CurrentIndex >= _items.Count) return;
+
+            var item = _items[CurrentIndex];
+
+            if (item.Status != OrderStatus.Active && item.Status != OrderStatus.Completable)
+            {
+                Speech.Say("Cannot track");
+                SoundManager.PlayFailed();
+                return;
+            }
+
+            if (OrdersReflection.ToggleTracking(item.State))
+            {
+                bool nowTracked = OrdersReflection.IsTracked(item.State);
+                item.Tracked = nowTracked;
+                Speech.Say(nowTracked ? "Tracked" : "Untracked");
+                SoundManager.PlayButtonClick();
+            }
+            else
+            {
+                Speech.Say("Cannot toggle tracking");
+            }
+        }
+
+        // ========================================
+        // DATA HELPERS
+        // ========================================
+
         private OrderStatus DetermineStatus(object orderState, object orderModel)
         {
             if (OrdersReflection.IsFailed(orderState))
@@ -194,7 +228,6 @@ namespace ATSAccessibility
                 return OrderStatus.Locked;
             if (!OrdersReflection.IsPicked(orderState))
                 return OrderStatus.ToPick;
-            // Active orders should always have a model; guard just in case
             if (orderModel == null)
                 return OrderStatus.Active;
             if (OrdersReflection.CanComplete(orderState, orderModel))
@@ -241,7 +274,6 @@ namespace ATSAccessibility
                 return $"Locked, requires {prereqName}";
             }
 
-            // Timer-based lock: startTime - gameTime
             float startTime = OrdersReflection.GetStartTime(orderState);
             float gameTime = OrdersReflection.GetGameTime();
             float remaining = startTime - gameTime;
@@ -293,110 +325,6 @@ namespace ATSAccessibility
             if (!string.IsNullOrEmpty(repReward))
                 rewards.Add(repReward);
             return rewards.Count > 0 ? "Rewards: " + string.Join(", ", rewards) : "";
-        }
-
-        // ========================================
-        // NAVIGATION
-        // ========================================
-
-        private void Navigate(int direction)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = NavigationUtils.WrapIndex(_currentIndex, direction, _items.Count);
-            AnnounceCurrentItem();
-        }
-
-        private void NavigateTo(int index)
-        {
-            if (_items.Count == 0) return;
-
-            _currentIndex = Mathf.Clamp(index, 0, _items.Count - 1);
-            AnnounceCurrentItem();
-        }
-
-        private void AnnounceCurrentItem()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _items.Count) return;
-            Speech.Say(_items[_currentIndex].Label);
-        }
-
-        // ========================================
-        // ACTIONS
-        // ========================================
-
-        private void ActivateCurrent()
-        {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-            switch (item.Status)
-            {
-                case OrderStatus.ToPick:
-                    // Open pick popup
-                    if (OrdersReflection.FireOrderPickPopupRequested(item.State))
-                    {
-                        SoundManager.PlayButtonClick();
-                    }
-                    else
-                    {
-                        Speech.Say("Cannot open picks");
-                        SoundManager.PlayFailed();
-                    }
-                    break;
-
-                case OrderStatus.Completable:
-                    // Deliver the order
-                    string name = OrdersReflection.GetOrderDisplayName(item.Model) ?? "order";
-                    if (OrdersReflection.CompleteOrder(item.State, item.Model))
-                    {
-                        SoundManager.PlayButtonClick();
-                        Speech.Say($"Delivered, {name}");
-                        RefreshData();
-                        if (_currentIndex >= _items.Count)
-                            _currentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
-                        if (_items.Count > 0)
-                            AnnounceCurrentItem();
-                    }
-                    else
-                    {
-                        Speech.Say("Cannot deliver");
-                        SoundManager.PlayFailed();
-                    }
-                    break;
-
-                default:
-                    // Re-announce for all other states
-                    AnnounceCurrentItem();
-                    break;
-            }
-        }
-
-        private void ToggleTracking()
-        {
-            if (_items.Count == 0 || _currentIndex < 0 || _currentIndex >= _items.Count) return;
-
-            var item = _items[_currentIndex];
-
-            // Only active orders can be tracked
-            if (item.Status != OrderStatus.Active && item.Status != OrderStatus.Completable)
-            {
-                Speech.Say("Cannot track");
-                SoundManager.PlayFailed();
-                return;
-            }
-
-            if (OrdersReflection.ToggleTracking(item.State))
-            {
-                bool nowTracked = OrdersReflection.IsTracked(item.State);
-                item.Tracked = nowTracked;
-                Speech.Say(nowTracked ? "Tracked" : "Untracked");
-                SoundManager.PlayButtonClick();
-            }
-            else
-            {
-                Speech.Say("Cannot toggle tracking");
-            }
         }
     }
 }
