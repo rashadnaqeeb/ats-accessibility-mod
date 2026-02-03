@@ -8,11 +8,10 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Virtual speech-only panel for navigating worker profession counts by race.
-    /// Categories: "All" (aggregate), then each present race.
-    /// Items: each assigned profession with its worker count, sorted by count descending then name ascending.
-    /// Cross-category item navigation flows between categories on Up/Down at boundaries.
+    /// Level 0 = categories ("All", then each present race).
+    /// Level 1 = each assigned profession with its worker count, sorted by count descending then name ascending.
     /// </summary>
-    public class WorkersPanel : TwoLevelPanel
+    public class WorkersPanel : MenuBase
     {
         private class ProfessionItem
         {
@@ -35,17 +34,63 @@ namespace ATSAccessibility
         private static FieldInfo _professionDisplayNameField;
         private static bool _typesCached;
 
+        // Compatibility aliases for readability
+        private int _currentCategoryIndex { get => _indices[0]; set => _indices[0] = value; }
+        private int _currentItemIndex { get => _indices[1]; set => _indices[1] = value; }
+
         // ========================================
-        // ABSTRACT MEMBER IMPLEMENTATIONS
+        // MENUBASE OVERRIDES
         // ========================================
 
-        protected override string PanelName => "Workers panel";
+        protected override string OverlayName => "Workers panel";
         protected override string EmptyMessage => "No workers present";
-        protected override int CategoryCount => _categories.Count;
-        protected override int CurrentItemCount =>
-            _currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count
-                ? _categories[_currentCategoryIndex].Items.Count
-                : 0;
+
+        protected override int GetItemCount()
+        {
+            if (Level == 0)
+                return _categories.Count;
+
+            if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count)
+                return _categories[_currentCategoryIndex].Items.Count;
+
+            return 0;
+        }
+
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0)
+            {
+                if (index >= 0 && index < _categories.Count)
+                    return _categories[index].Name;
+                return null;
+            }
+
+            if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count)
+            {
+                var items = _categories[_currentCategoryIndex].Items;
+                if (index >= 0 && index < items.Count)
+                    return $"{items[index].Name}, {items[index].Count}";
+            }
+            return null;
+        }
+
+        protected override string GetSearchName(int index)
+        {
+            if (Level == 0)
+            {
+                if (index >= 0 && index < _categories.Count)
+                    return _categories[index].Name;
+                return null;
+            }
+
+            if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count)
+            {
+                var items = _categories[_currentCategoryIndex].Items;
+                if (index >= 0 && index < items.Count)
+                    return items[index].Name;
+            }
+            return null;
+        }
 
         protected override void RefreshData()
         {
@@ -113,88 +158,47 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Workers panel refreshed: {_categories.Count} categories");
         }
 
-        protected override void ClearData()
+        protected override EnterAction OnEnter(int index)
+        {
+            if (Level == 0)
+            {
+                if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count
+                    && _categories[_currentCategoryIndex].Items.Count > 0)
+                    return EnterAction.DrillDown;
+
+                Speech.Say("No items in this category");
+                return EnterAction.None;
+            }
+            return EnterAction.None;
+        }
+
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.LeftArrow && Level == 0)
+                return false; // Pass to InfoPanelMenu to close child panel
+            return null;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_categories.Count == 0) return EmptyMessage;
+            return GetLabel(0);
+        }
+
+        protected override void OnClosed()
         {
             _categories.Clear();
-        }
-
-        protected override void AnnounceCategory()
-        {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
-
-            var category = _categories[_currentCategoryIndex];
-            Speech.Say(category.Name);
-        }
-
-        protected override void AnnounceItem()
-        {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
-
-            var category = _categories[_currentCategoryIndex];
-            if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return;
-
-            var item = category.Items[_currentItemIndex];
-            Speech.Say($"{item.Name}, {item.Count}");
-        }
-
-        protected override string GetCategoryName(int index)
-        {
-            if (index >= 0 && index < _categories.Count)
-                return _categories[index].Name;
-            return null;
-        }
-
-        protected override string GetCurrentItemName(int index)
-        {
-            if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count)
-            {
-                var items = _categories[_currentCategoryIndex].Items;
-                if (index >= 0 && index < items.Count)
-                    return items[index].Name;
-            }
-            return null;
-        }
-
-        // ========================================
-        // CROSS-CATEGORY ITEM NAVIGATION
-        // ========================================
-
-        /// <summary>
-        /// Override ProcessKeyEvent to use cross-category item navigation on Up/Down.
-        /// All other keys (search, Home/End, Left, Escape, etc.) use base class behavior.
-        /// </summary>
-        public new bool ProcessKeyEvent(KeyCode keyCode)
-        {
-            if (!_isOpen) return false;
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, default(KeyboardManager.KeyModifiers), this))
-                return true;
-
-            // Only intercept Up/Down when browsing items — flow across category boundaries
-            if (_focusOnItems && (keyCode == KeyCode.UpArrow || keyCode == KeyCode.DownArrow))
-            {
-                int direction = keyCode == KeyCode.DownArrow ? 1 : -1;
-                NavigateItemAcrossCategories(direction);
-                return true;
-            }
-
-            // Everything else: category nav, Home/End, Left, Escape
-            return base.ProcessKeyEvent(keyCode);
+            InputBlocker.BlockCancelOnce = true;
+            Speech.Say($"{OverlayName} closed");
         }
 
         /// <summary>
-        /// Navigate items, flowing into the next/previous category at boundaries.
-        /// Announces category name when crossing into a new category.
+        /// Bridge for InfoPanelMenu which calls ProcessKeyEvent(KeyCode).
         /// </summary>
-        private void NavigateItemAcrossCategories(int direction)
-        {
-            int itemCount = CurrentItemCount;
-            if (itemCount == 0) return;
-
-            _currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, itemCount);
-            AnnounceItem();
-        }
+        public bool ProcessKeyEvent(KeyCode keyCode) =>
+            ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
 
         // ========================================
         // HELPERS

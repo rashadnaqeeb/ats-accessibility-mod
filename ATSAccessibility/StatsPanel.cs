@@ -5,9 +5,9 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Virtual speech-only panel for navigating game stats.
-    /// Two-panel system: left panel has categories, right panel has details.
+    /// Two-level system: Level 0 = categories, Level 1 = details.
     /// </summary>
-    public class StatsPanel : TwoLevelPanel
+    public class StatsPanel : MenuBase
     {
         /// <summary>
         /// Represents a category in the left panel.
@@ -21,18 +21,59 @@ namespace ATSAccessibility
 
         private List<Category> _categories = new List<Category>();
 
+        // Compatibility aliases for readability
+        private int _currentCategoryIndex { get => _indices[0]; set => _indices[0] = value; }
+        private int _currentItemIndex { get => _indices[1]; set => _indices[1] = value; }
+
         // ========================================
-        // ABSTRACT MEMBER IMPLEMENTATIONS
+        // MENUBASE OVERRIDES
         // ========================================
 
-        protected override string PanelName => "Stats panel";
+        protected override string OverlayName => "Stats panel";
         protected override string EmptyMessage => "No stats available";
-        protected override string NoItemsMessage => "No additional details";
-        protected override int CategoryCount => _categories.Count;
-        protected override int CurrentItemCount =>
-            _currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count
-                ? _categories[_currentCategoryIndex].Details.Count
-                : 0;
+
+        protected override int GetItemCount()
+        {
+            if (Level == 0)
+                return _categories.Count;
+
+            if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count)
+                return _categories[_currentCategoryIndex].Details.Count;
+
+            return 0;
+        }
+
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0)
+            {
+                if (index >= 0 && index < _categories.Count)
+                {
+                    var cat = _categories[index];
+                    return $"{cat.Name}, {cat.Value}";
+                }
+                return null;
+            }
+
+            if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count)
+            {
+                var details = _categories[_currentCategoryIndex].Details;
+                if (index >= 0 && index < details.Count)
+                    return details[index];
+            }
+            return null;
+        }
+
+        protected override string GetSearchName(int index)
+        {
+            if (Level == 0)
+            {
+                if (index >= 0 && index < _categories.Count)
+                    return _categories[index].Name;
+                return null;
+            }
+            return GetLabel(index);
+        }
 
         protected override void RefreshData()
         {
@@ -87,57 +128,46 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Stats panel refreshed: {_categories.Count} categories");
         }
 
-        protected override void ClearData()
+        protected override EnterAction OnEnter(int index)
+        {
+            if (Level == 0)
+            {
+                if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count
+                    && _categories[_currentCategoryIndex].Details.Count > 0)
+                    return EnterAction.DrillDown;
+
+                Speech.Say("No additional details");
+                return EnterAction.None;
+            }
+            return EnterAction.None;
+        }
+
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.LeftArrow && Level == 0)
+                return false; // Pass to InfoPanelMenu to close child panel
+            return null;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_categories.Count == 0) return EmptyMessage;
+            return GetLabel(0);
+        }
+
+        protected override void OnClosed()
         {
             _categories.Clear();
-        }
-
-        protected override void AnnounceCategory()
-        {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
-
-            var category = _categories[_currentCategoryIndex];
-            string message = $"{category.Name}, {category.Value}";
-
-            Speech.Say(message);
-            Debug.Log($"[ATSAccessibility] Category {_currentCategoryIndex + 1}/{_categories.Count}: {message}");
-        }
-
-        protected override void AnnounceItem()
-        {
-            var category = _categories[_currentCategoryIndex];
-            if (_currentItemIndex < 0 || _currentItemIndex >= category.Details.Count) return;
-
-            string detail = category.Details[_currentItemIndex];
-            Speech.Say(detail);
-            Debug.Log($"[ATSAccessibility] Detail: {detail}");
+            InputBlocker.BlockCancelOnce = true;
+            Speech.Say($"{OverlayName} closed");
         }
 
         /// <summary>
-        /// Get the searchable name for a detail item.
-        /// Uses the full detail string for searching.
+        /// Bridge for InfoPanelMenu which calls ProcessKeyEvent(KeyCode).
         /// </summary>
-        protected override string GetCurrentItemName(int index)
-        {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count)
-                return null;
-
-            var category = _categories[_currentCategoryIndex];
-            if (index < 0 || index >= category.Details.Count)
-                return null;
-
-            return category.Details[index];
-        }
-
-        /// <summary>
-        /// Get the searchable name for a category.
-        /// </summary>
-        protected override string GetCategoryName(int index)
-        {
-            if (index < 0 || index >= _categories.Count)
-                return null;
-
-            return _categories[index].Name;
-        }
+        public bool ProcessKeyEvent(KeyCode keyCode) =>
+            ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
     }
 }

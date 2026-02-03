@@ -6,9 +6,11 @@ namespace ATSAccessibility
 {
     /// <summary>
     /// Virtual speech-only panel for navigating settlement resources by category.
-    /// Two-panel system: left panel has categories, right panel has items in category.
+    /// Level 0 = categories, Level 1 = items in category.
+    /// Cross-category item navigation flows between categories on Up/Down at boundaries.
+    /// Flat cross-category search across all resources.
     /// </summary>
-    public class SettlementResourcePanel : TwoLevelPanel
+    public class SettlementResourcePanel : MenuBase
     {
         /// <summary>
         /// Represents a resource category (e.g., Food, Building Materials).
@@ -38,17 +40,50 @@ namespace ATSAccessibility
         private List<(int categoryIndex, int itemIndex, string name)> _allResources =
             new List<(int, int, string)>();
 
+        // Compatibility aliases for readability
+        private int _currentCategoryIndex { get => _indices[0]; set => _indices[0] = value; }
+        private int _currentItemIndex { get => _indices[1]; set => _indices[1] = value; }
+
         // ========================================
-        // ABSTRACT MEMBER IMPLEMENTATIONS
+        // MENUBASE OVERRIDES
         // ========================================
 
-        protected override string PanelName => "Resource panel";
+        protected override string OverlayName => "Resource panel";
         protected override string EmptyMessage => "No resources in storage";
-        protected override int CategoryCount => _categories.Count;
-        protected override int CurrentItemCount =>
-            _currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count
-                ? _categories[_currentCategoryIndex].Items.Count
-                : 0;
+
+        protected override int GetItemCount()
+        {
+            if (Level == 0)
+                return _categories.Count;
+
+            if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count)
+                return _categories[_currentCategoryIndex].Items.Count;
+
+            return 0;
+        }
+
+        protected override string GetLabel(int index)
+        {
+            if (Level == 0)
+            {
+                if (index >= 0 && index < _categories.Count)
+                {
+                    var cat = _categories[index];
+                    int itemCount = cat.Items.Count;
+                    string typeWord = itemCount == 1 ? "type" : "types";
+                    return $"{cat.Name}: {itemCount} {typeWord}";
+                }
+                return null;
+            }
+
+            if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count)
+            {
+                var items = _categories[_currentCategoryIndex].Items;
+                if (index >= 0 && index < items.Count)
+                    return $"{items[index].Name}, {items[index].Amount}";
+            }
+            return null;
+        }
 
         protected override void RefreshData()
         {
@@ -152,33 +187,56 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Resource panel refreshed: {_categories.Count} categories, {storedGoods.Count} goods");
         }
 
-        protected override void ClearData()
+        protected override EnterAction OnEnter(int index)
+        {
+            if (Level == 0)
+            {
+                if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count
+                    && _categories[_currentCategoryIndex].Items.Count > 0)
+                    return EnterAction.DrillDown;
+
+                Speech.Say("No items in this category");
+                return EnterAction.None;
+            }
+            return EnterAction.None;
+        }
+
+        protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
+        {
+            if (keyCode == KeyCode.LeftArrow && Level == 0)
+                return false; // Pass to InfoPanelMenu to close child panel
+
+            // Cross-category item navigation at Level 1
+            if (Level == 1 && (keyCode == KeyCode.UpArrow || keyCode == KeyCode.DownArrow))
+            {
+                NavigateItemAcrossCategories(keyCode == KeyCode.DownArrow ? 1 : -1);
+                return true;
+            }
+
+            return null;
+        }
+
+        protected override string GetOpenAnnouncement()
+        {
+            if (_categories.Count == 0) return EmptyMessage;
+            return GetLabel(0);
+        }
+
+        protected override void OnClosed()
         {
             _categories.Clear();
             _allResources.Clear();
+            InputBlocker.BlockCancelOnce = true;
+            Speech.Say($"{OverlayName} closed");
         }
 
-        protected override void AnnounceCategory()
-        {
-            if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
-
-            var category = _categories[_currentCategoryIndex];
-            int itemCount = category.Items.Count;
-            string typeWord = itemCount == 1 ? "type" : "types";
-
-            Speech.Say($"{category.Name}: {itemCount} {typeWord}");
-            Debug.Log($"[ATSAccessibility] Category {_currentCategoryIndex + 1}/{_categories.Count}: {category.Name}, {itemCount} {typeWord}");
-        }
-
-        protected override void AnnounceItem()
-        {
-            var category = _categories[_currentCategoryIndex];
-            if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return;
-
-            var item = category.Items[_currentItemIndex];
-            Speech.Say($"{item.Name}, {item.Amount}");
-            Debug.Log($"[ATSAccessibility] Item: {item.Name} x{item.Amount}");
-        }
+        /// <summary>
+        /// Bridge for InfoPanelMenu which calls ProcessKeyEvent(KeyCode).
+        /// </summary>
+        public bool ProcessKeyEvent(KeyCode keyCode) =>
+            ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
 
         // ========================================
         // RESOURCE DESCRIPTION (Alt+I)
@@ -190,7 +248,7 @@ namespace ATSAccessibility
         /// </summary>
         public void AnnounceCurrentItemDescription()
         {
-            if (!_focusOnItems) return;
+            if (Level != 1) return;
             if (_currentCategoryIndex < 0 || _currentCategoryIndex >= _categories.Count) return;
 
             var category = _categories[_currentCategoryIndex];
@@ -219,7 +277,7 @@ namespace ATSAccessibility
         /// </summary>
         private void NavigateItemAcrossCategories(int direction)
         {
-            int itemCount = CurrentItemCount;
+            int itemCount = GetItemCount();
             if (itemCount == 0) return;
 
             int newIndex = _currentItemIndex + direction;
@@ -227,21 +285,22 @@ namespace ATSAccessibility
             if (newIndex >= itemCount)
             {
                 // Past end of category - move to next category's first item
-                _currentCategoryIndex = (_currentCategoryIndex + 1) % CategoryCount;
+                _currentCategoryIndex = (_currentCategoryIndex + 1) % _categories.Count;
                 _currentItemIndex = 0;
                 AnnounceCategoryAndItem();
             }
             else if (newIndex < 0)
             {
                 // Before start of category - move to previous category's last item
-                _currentCategoryIndex = (_currentCategoryIndex - 1 + CategoryCount) % CategoryCount;
-                _currentItemIndex = CurrentItemCount - 1;
+                _currentCategoryIndex = (_currentCategoryIndex - 1 + _categories.Count) % _categories.Count;
+                int newItemCount = _categories[_currentCategoryIndex].Items.Count;
+                _currentItemIndex = newItemCount > 0 ? newItemCount - 1 : 0;
                 AnnounceCategoryAndItem();
             }
             else
             {
                 _currentItemIndex = newIndex;
-                AnnounceItem();
+                AnnounceCurrentItem();
             }
         }
 
@@ -260,100 +319,27 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // ISearchable OVERRIDES (cross-category search)
+        // ISEARCHABLE OVERRIDES (flat cross-category search)
         // ========================================
 
-        /// <summary>
-        /// Search all resources across all categories.
-        /// </summary>
-        public override int SearchItemCount => _allResources.Count;
+        protected override int SearchItemCount => _allResources.Count;
 
-        public override string GetSearchLabel(int index)
+        protected override string GetSearchName(int index)
         {
             if (index >= 0 && index < _allResources.Count)
                 return _allResources[index].name;
             return null;
         }
 
-        public override void SearchMoveTo(int index)
+        protected override void SearchMoveTo(int index)
         {
-            if (index >= 0 && index < _allResources.Count)
-            {
-                var match = _allResources[index];
-                _currentCategoryIndex = match.categoryIndex;
-                _currentItemIndex = match.itemIndex;
-                _focusOnItems = true;
-                AnnounceItem();
-            }
-        }
+            if (index < 0 || index >= _allResources.Count) return;
 
-        // ========================================
-        // CROSS-CATEGORY KEY HANDLING (OVERRIDE BASE)
-        // ========================================
-
-        /// <summary>
-        /// Override ProcessKeyEvent for cross-category item navigation on Up/Down.
-        /// </summary>
-        public new bool ProcessKeyEvent(KeyCode keyCode)
-        {
-            if (!_isOpen) return false;
-
-            // Search handles A-Z, Backspace, and all active-search navigation
-            if (_search.HandleKey(keyCode, default(KeyboardManager.KeyModifiers), this))
-                return true;
-
-            switch (keyCode)
-            {
-                case KeyCode.UpArrow:
-                    if (_focusOnItems)
-                        NavigateItemAcrossCategories(-1);
-                    else
-                        NavigateCategory(-1);
-                    return true;
-
-                case KeyCode.DownArrow:
-                    if (_focusOnItems)
-                        NavigateItemAcrossCategories(1);
-                    else
-                        NavigateCategory(1);
-                    return true;
-
-                case KeyCode.Home:
-                    if (_focusOnItems)
-                        JumpToItem(0);
-                    else
-                        JumpToCategory(0);
-                    return true;
-
-                case KeyCode.End:
-                    if (_focusOnItems)
-                        JumpToItem(CurrentItemCount - 1);
-                    else
-                        JumpToCategory(CategoryCount - 1);
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                case KeyCode.RightArrow:
-                    EnterItems();
-                    return true;
-
-                case KeyCode.LeftArrow:
-                    if (_focusOnItems)
-                    {
-                        ReturnToCategories();
-                        return true;
-                    }
-                    // Pass to parent (InfoPanelMenu) to close this panel
-                    return false;
-
-                case KeyCode.Escape:
-                    // Pass to parent to handle panel closing
-                    return false;
-
-                default:
-                    return true;  // Consume all keys while panel is open
-            }
+            var match = _allResources[index];
+            _currentCategoryIndex = match.categoryIndex;
+            _currentItemIndex = match.itemIndex;
+            if (Level == 0) SetLevel(1);
+            AnnounceCurrentItem();
         }
     }
 }

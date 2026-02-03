@@ -59,7 +59,7 @@ namespace ATSAccessibility
             set => _indices[_level] = value;
         }
 
-        protected bool IsOpen => _isOpen;
+        public bool IsOpen => _isOpen;
         protected bool IsSuspended => _suspended;
         protected int ItemCount => GetItemCount();
 
@@ -199,13 +199,15 @@ namespace ATSAccessibility
         // ========================================
 
         /// <summary>
-        /// Set level directly. Clears search. No callbacks, no announce.
+        /// Set level directly. No callbacks, no announce.
         /// For subclasses that force level changes after actions.
+        /// Search is not cleared — callers in action handlers don't need it
+        /// (TypeAheadSearch already exits search before actions run), and
+        /// callers in SearchMoveTo must not clear mid-search.
         /// </summary>
         protected void SetLevel(int level)
         {
             _level = level;
-            _search.Clear();
         }
 
         // ========================================
@@ -426,6 +428,9 @@ namespace ATSAccessibility
 
         string ISearchable.GetSearchLabel(int index) => GetSearchName(index);
 
-        void ISearchable.SearchMoveTo(int index) => NavigateTo(index);
+        /// <summary>Move to index on search match. Override for custom search navigation (e.g., flat cross-category).</summary>
+        protected virtual void SearchMoveTo(int index) => NavigateTo(index);
+
+        void ISearchable.SearchMoveTo(int index) => SearchMoveTo(index);
     }
 }
