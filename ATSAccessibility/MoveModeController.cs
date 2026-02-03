@@ -285,13 +285,9 @@ namespace ATSAccessibility
                     return true;
                 }
 
-                // Pass B/Shift+B to game
-                case KeyCode.B:
-                    return false;
-
                 default:
-                    // Consume other keys without clearing confirm
-                    return true;
+                    // Pass unhandled keys through to other handlers
+                    return false;
             }
         }
 

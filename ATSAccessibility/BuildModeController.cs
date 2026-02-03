@@ -105,25 +105,6 @@ namespace ATSAccessibility
                     ExitBuildMode();
                     return true;
 
-                // Pass to MapNavigator for cursor movement
-                case KeyCode.UpArrow:
-                case KeyCode.DownArrow:
-                case KeyCode.LeftArrow:
-                case KeyCode.RightArrow:
-                    return false;
-
-                // Pass to MapScanner for building/resource scanning
-                case KeyCode.PageUp:
-                case KeyCode.PageDown:
-                case KeyCode.Home:
-                case KeyCode.End:
-                    return false;
-
-                // Pass to MapNavigator for position/tile info
-                case KeyCode.K:
-                case KeyCode.I:
-                    return false;
-
                 // Entrance preview for building about to be placed
                 case KeyCode.E:
                     if (_selectedBuildingModel != null)
@@ -159,13 +140,9 @@ namespace ATSAccessibility
                     }
                     return true;
 
-                // Pass B/Shift+B to game
-                case KeyCode.B:
-                    return false;
-
                 default:
-                    // Consume other keys to prevent interference
-                    return true;
+                    // Pass unhandled keys through to other handlers
+                    return false;
             }
         }
 
