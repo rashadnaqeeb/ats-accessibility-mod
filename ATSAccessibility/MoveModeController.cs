@@ -1,369 +1,332 @@
 using UnityEngine;
 
-namespace ATSAccessibility
-{
-    /// <summary>
-    /// Controls building move mode: relocating existing buildings.
-    /// Works with MapNavigator for cursor position.
-    /// </summary>
-    public class MoveModeController : IKeyHandler
-    {
-        private bool _isActive = false;
-        private object _movingBuilding = null;
-        private string _buildingName = null;
-        private Vector2Int _originalPosition;
-        private int _originalRotation;
-        private int _currentRotation;
-        private bool _pricePaid = false;
-        private bool _awaitingPlaceConfirm = false;
+namespace ATSAccessibility {
+	/// <summary>
+	/// Controls building move mode: relocating existing buildings.
+	/// Works with MapNavigator for cursor position.
+	/// </summary>
+	public class MoveModeController: IKeyHandler {
+		private bool _isActive = false;
+		private object _movingBuilding = null;
+		private string _buildingName = null;
+		private Vector2Int _originalPosition;
+		private int _originalRotation;
+		private int _currentRotation;
+		private bool _pricePaid = false;
+		private bool _awaitingPlaceConfirm = false;
 
-        // Reference to map navigator for cursor position
-        private readonly MapNavigator _mapNavigator;
+		// Reference to map navigator for cursor position
+		private readonly MapNavigator _mapNavigator;
 
-        /// <summary>
-        /// Whether move mode is currently active.
-        /// </summary>
-        public bool IsActive => _isActive;
+		/// <summary>
+		/// Whether move mode is currently active.
+		/// </summary>
+		public bool IsActive => _isActive;
 
-        public MoveModeController(MapNavigator mapNavigator)
-        {
-            _mapNavigator = mapNavigator;
-        }
+		public MoveModeController(MapNavigator mapNavigator) {
+			_mapNavigator = mapNavigator;
+		}
 
-        /// <summary>
-        /// Enter move mode for a building at the specified position.
-        /// </summary>
-        public void EnterMoveMode(object building)
-        {
-            if (building == null)
-            {
-                Speech.Say("No building here");
-                return;
-            }
+		/// <summary>
+		/// Enter move mode for a building at the specified position.
+		/// </summary>
+		public void EnterMoveMode(object building) {
+			if (building == null) {
+				Speech.Say("No building here");
+				return;
+			}
 
-            // Check if building can be moved
-            if (!GameReflection.CanMovePlacedBuilding(building))
-            {
-                Speech.Say("Unmovable");
-                Debug.Log($"[ATSAccessibility] Building cannot be moved");
-                return;
-            }
+			// Check if building can be moved
+			if (!GameReflection.CanMovePlacedBuilding(building)) {
+				Speech.Say("Unmovable");
+				Debug.Log($"[ATSAccessibility] Building cannot be moved");
+				return;
+			}
 
-            // Check if player can afford the move
-            if (!GameReflection.CanAffordMove(building))
-            {
-                var costInfo = GameReflection.GetMovingCostInfo(building);
-                string costDesc = costInfo.HasValue ? $"{costInfo.Value.amount} {costInfo.Value.displayName}" : "resources";
-                Speech.Say($"Cannot afford to move, requires {costDesc}");
-                SoundManager.PlayFailed();
-                return;
-            }
+			// Check if player can afford the move
+			if (!GameReflection.CanAffordMove(building)) {
+				var costInfo = GameReflection.GetMovingCostInfo(building);
+				string costDesc = costInfo.HasValue ? $"{costInfo.Value.amount} {costInfo.Value.displayName}" : "resources";
+				Speech.Say($"Cannot afford to move, requires {costDesc}");
+				SoundManager.PlayFailed();
+				return;
+			}
 
-            // Pay moving cost (resources taken pre-move, refunded on cancel)
-            _pricePaid = GameReflection.HasMovingCost(building) && GameReflection.PayForMoving(building);
+			// Pay moving cost (resources taken pre-move, refunded on cancel)
+			_pricePaid = GameReflection.HasMovingCost(building) && GameReflection.PayForMoving(building);
 
-            // Store original state for potential cancellation
-            _originalPosition = GameReflection.GetBuildingGridPosition(building);
-            _originalRotation = GameReflection.GetBuildingRotation(building);
-            _currentRotation = _originalRotation;
+			// Store original state for potential cancellation
+			_originalPosition = GameReflection.GetBuildingGridPosition(building);
+			_originalRotation = GameReflection.GetBuildingRotation(building);
+			_currentRotation = _originalRotation;
 
-            _movingBuilding = building;
-            _buildingName = GameReflection.GetDisplayName(building) ?? "Building";
+			_movingBuilding = building;
+			_buildingName = GameReflection.GetDisplayName(building) ?? "Building";
 
-            // Lift building from grid (removes from grid but keeps the object)
-            GameReflection.LiftBuilding(building);
+			// Lift building from grid (removes from grid but keeps the object)
+			GameReflection.LiftBuilding(building);
 
-            _isActive = true;
-            SoundManager.PlayBuildingMoveStarted();
+			_isActive = true;
+			SoundManager.PlayBuildingMoveStarted();
 
-            // Get building size for extension announcement
-            var buildingModel = GameReflection.GetBuildingModel(building);
-            Vector2Int size = buildingModel != null
-                ? GameReflection.GetBuildingSize(buildingModel)
-                : new Vector2Int(1, 1);
+			// Get building size for extension announcement
+			var buildingModel = GameReflection.GetBuildingModel(building);
+			Vector2Int size = buildingModel != null
+				? GameReflection.GetBuildingSize(buildingModel)
+				: new Vector2Int(1, 1);
 
-            bool isRotated = (_currentRotation % 2) == 1;
-            int extendEast = (isRotated ? size.y : size.x) - 1;
-            int extendNorth = (isRotated ? size.x : size.y) - 1;
-            string extension = GetExtensionAnnouncement(extendEast, extendNorth);
+			bool isRotated = (_currentRotation % 2) == 1;
+			int extendEast = (isRotated ? size.y : size.x) - 1;
+			int extendNorth = (isRotated ? size.x : size.y) - 1;
+			string extension = GetExtensionAnnouncement(extendEast, extendNorth);
 
-            string costNote = "";
-            if (_pricePaid)
-            {
-                var costInfo = GameReflection.GetMovingCostInfo(building);
-                if (costInfo.HasValue)
-                    costNote = $"cost: {costInfo.Value.amount} {costInfo.Value.displayName}, ";
-            }
+			string costNote = "";
+			if (_pricePaid) {
+				var costInfo = GameReflection.GetMovingCostInfo(building);
+				if (costInfo.HasValue)
+					costNote = $"cost: {costInfo.Value.amount} {costInfo.Value.displayName}, ";
+			}
 
-            Speech.Say($"Move mode: {costNote}{extension}");
-            Debug.Log($"[ATSAccessibility] Entered move mode for: {_buildingName} at ({_originalPosition.x}, {_originalPosition.y})");
-        }
+			Speech.Say($"Move mode: {costNote}{extension}");
+			Debug.Log($"[ATSAccessibility] Entered move mode for: {_buildingName} at ({_originalPosition.x}, {_originalPosition.y})");
+		}
 
-        /// <summary>
-        /// Exit move mode, either placing at new position or cancelling.
-        /// </summary>
-        /// <param name="cancel">True to restore original position, false to place at cursor.</param>
-        public void ExitMoveMode(bool cancel)
-        {
-            if (!_isActive || _movingBuilding == null) return;
+		/// <summary>
+		/// Exit move mode, either placing at new position or cancelling.
+		/// </summary>
+		/// <param name="cancel">True to restore original position, false to place at cursor.</param>
+		public void ExitMoveMode(bool cancel) {
+			if (!_isActive || _movingBuilding == null) return;
 
-            if (cancel)
-            {
-                // Restore original position and rotation
-                GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-                if (_currentRotation != _originalRotation)
-                {
-                    GameReflection.RotateBuilding(_movingBuilding, _originalRotation);
-                }
-                GameReflection.PlaceBuildingOnGrid(_movingBuilding);
+			if (cancel) {
+				// Restore original position and rotation
+				GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+				if (_currentRotation != _originalRotation) {
+					GameReflection.RotateBuilding(_movingBuilding, _originalRotation);
+				}
+				GameReflection.PlaceBuildingOnGrid(_movingBuilding);
 
-                // Refund moving cost if it was paid
-                if (_pricePaid)
-                {
-                    GameReflection.RefundMoving(_movingBuilding);
-                    _pricePaid = false;
-                }
+				// Refund moving cost if it was paid
+				if (_pricePaid) {
+					GameReflection.RefundMoving(_movingBuilding);
+					_pricePaid = false;
+				}
 
-                InputBlocker.BlockCancelOnce = true;
-                Speech.Say("Move cancelled");
-                Debug.Log($"[ATSAccessibility] Move cancelled, restored to ({_originalPosition.x}, {_originalPosition.y})");
-            }
-            else
-            {
-                // Try to place at current cursor position
-                int x = _mapNavigator.CursorX;
-                int y = _mapNavigator.CursorY;
-                Vector2Int newPos = new Vector2Int(x, y);
+				InputBlocker.BlockCancelOnce = true;
+				Speech.Say("Move cancelled");
+				Debug.Log($"[ATSAccessibility] Move cancelled, restored to ({_originalPosition.x}, {_originalPosition.y})");
+			} else {
+				// Try to place at current cursor position
+				int x = _mapNavigator.CursorX;
+				int y = _mapNavigator.CursorY;
+				Vector2Int newPos = new Vector2Int(x, y);
 
-                // Set position to cursor
-                GameReflection.SetBuildingPosition(_movingBuilding, newPos);
+				// Set position to cursor
+				GameReflection.SetBuildingPosition(_movingBuilding, newPos);
 
-                // Check if placement is valid
-                if (!GameReflection.CanPlaceBuilding(_movingBuilding))
-                {
-                    // Restore position (building stays lifted for another attempt)
-                    GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-                    Speech.Say("Cannot place here");
-                    Debug.Log($"[ATSAccessibility] Cannot place {_buildingName} at ({x}, {y})");
-                    return; // Don't exit move mode, let user try another position
-                }
+				// Check if placement is valid
+				if (!GameReflection.CanPlaceBuilding(_movingBuilding)) {
+					// Restore position (building stays lifted for another attempt)
+					GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+					Speech.Say("Cannot place here");
+					Debug.Log($"[ATSAccessibility] Cannot place {_buildingName} at ({x}, {y})");
+					return; // Don't exit move mode, let user try another position
+				}
 
-                // Place building on grid at new position
-                GameReflection.PlaceBuildingOnGrid(_movingBuilding);
+				// Place building on grid at new position
+				GameReflection.PlaceBuildingOnGrid(_movingBuilding);
 
-                SoundManager.PlayBuildingMoveFinished();
-                Speech.Say($"{_buildingName} moved");
-                Debug.Log($"[ATSAccessibility] Moved {_buildingName} from ({_originalPosition.x}, {_originalPosition.y}) to ({x}, {y})");
-            }
+				SoundManager.PlayBuildingMoveFinished();
+				Speech.Say($"{_buildingName} moved");
+				Debug.Log($"[ATSAccessibility] Moved {_buildingName} from ({_originalPosition.x}, {_originalPosition.y}) to ({x}, {y})");
+			}
 
-            // Clean up state
-            _isActive = false;
-            _movingBuilding = null;
-            _buildingName = null;
-            _pricePaid = false;
-            _awaitingPlaceConfirm = false;
-        }
+			// Clean up state
+			_isActive = false;
+			_movingBuilding = null;
+			_buildingName = null;
+			_pricePaid = false;
+			_awaitingPlaceConfirm = false;
+		}
 
-        /// <summary>
-        /// Process a key event for move mode (IKeyHandler).
-        /// Returns true if the key was handled.
-        /// </summary>
-        public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isActive) return false;
+		/// <summary>
+		/// Process a key event for move mode (IKeyHandler).
+		/// Returns true if the key was handled.
+		/// </summary>
+		public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			if (!_isActive) return false;
 
-            switch (keyCode)
-            {
-                case KeyCode.R:
-                    _awaitingPlaceConfirm = false;
-                    RotateBuilding(!modifiers.Shift);
-                    return true;
+			switch (keyCode) {
+				case KeyCode.R:
+					_awaitingPlaceConfirm = false;
+					RotateBuilding(!modifiers.Shift);
+					return true;
 
-                case KeyCode.Space:
-                    if (_awaitingPlaceConfirm)
-                    {
-                        _awaitingPlaceConfirm = false;
-                        ExitMoveMode(false); // Confirmed placement
-                    }
-                    else if (_pricePaid)
-                    {
-                        // Check placement validity first
-                        int x = _mapNavigator.CursorX;
-                        int y = _mapNavigator.CursorY;
-                        Vector2Int newPos = new Vector2Int(x, y);
-                        GameReflection.SetBuildingPosition(_movingBuilding, newPos);
-                        if (!GameReflection.CanPlaceBuilding(_movingBuilding))
-                        {
-                            GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-                            Speech.Say("Cannot place here");
-                        }
-                        else
-                        {
-                            // Valid spot but has cost - restore position and ask for confirm
-                            GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-                            _awaitingPlaceConfirm = true;
-                            Speech.Say("Space to confirm move");
-                        }
-                    }
-                    else
-                    {
-                        ExitMoveMode(false); // Free move, no confirm needed
-                    }
-                    return true;
+				case KeyCode.Space:
+					if (_awaitingPlaceConfirm) {
+						_awaitingPlaceConfirm = false;
+						ExitMoveMode(false); // Confirmed placement
+					} else if (_pricePaid) {
+						// Check placement validity first
+						int x = _mapNavigator.CursorX;
+						int y = _mapNavigator.CursorY;
+						Vector2Int newPos = new Vector2Int(x, y);
+						GameReflection.SetBuildingPosition(_movingBuilding, newPos);
+						if (!GameReflection.CanPlaceBuilding(_movingBuilding)) {
+							GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							Speech.Say("Cannot place here");
+						} else {
+							// Valid spot but has cost - restore position and ask for confirm
+							GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							_awaitingPlaceConfirm = true;
+							Speech.Say("Space to confirm move");
+						}
+					} else {
+						ExitMoveMode(false); // Free move, no confirm needed
+					}
+					return true;
 
-                case KeyCode.Escape:
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    _awaitingPlaceConfirm = false;
-                    ExitMoveMode(true); // Cancel
-                    return true;
+				case KeyCode.Escape:
+				case KeyCode.Return:
+				case KeyCode.KeypadEnter:
+					_awaitingPlaceConfirm = false;
+					ExitMoveMode(true); // Cancel
+					return true;
 
-                // Pass to MapNavigator for cursor movement
-                case KeyCode.UpArrow:
-                case KeyCode.DownArrow:
-                case KeyCode.LeftArrow:
-                case KeyCode.RightArrow:
-                    _awaitingPlaceConfirm = false;
-                    return false;
+				// Pass to MapNavigator for cursor movement
+				case KeyCode.UpArrow:
+				case KeyCode.DownArrow:
+				case KeyCode.LeftArrow:
+				case KeyCode.RightArrow:
+					_awaitingPlaceConfirm = false;
+					return false;
 
-                // Pass to MapScanner for building/resource scanning
-                case KeyCode.PageUp:
-                case KeyCode.PageDown:
-                case KeyCode.Home:
-                case KeyCode.End:
-                    _awaitingPlaceConfirm = false;
-                    return false;
+				// Pass to MapScanner for building/resource scanning
+				case KeyCode.PageUp:
+				case KeyCode.PageDown:
+				case KeyCode.Home:
+				case KeyCode.End:
+					_awaitingPlaceConfirm = false;
+					return false;
 
-                // Pass to MapNavigator for position/tile info
-                case KeyCode.K:
-                case KeyCode.I:
-                    _awaitingPlaceConfirm = false;
-                    return false;
+				// Pass to MapNavigator for position/tile info
+				case KeyCode.K:
+				case KeyCode.I:
+					_awaitingPlaceConfirm = false;
+					return false;
 
-                // Building range info for move preview
-                case KeyCode.D:
-                {
-                    _awaitingPlaceConfirm = false;
-                    var buildingModel = GameReflection.GetBuildingModel(_movingBuilding);
-                    if (buildingModel != null)
-                    {
-                        int cursorX = _mapNavigator.CursorX;
-                        int cursorY = _mapNavigator.CursorY;
-                        Vector2Int cursorPos = new Vector2Int(cursorX, cursorY);
+				// Building range info for move preview
+				case KeyCode.D: {
+						_awaitingPlaceConfirm = false;
+						var buildingModel = GameReflection.GetBuildingModel(_movingBuilding);
+						if (buildingModel != null) {
+							int cursorX = _mapNavigator.CursorX;
+							int cursorY = _mapNavigator.CursorY;
+							Vector2Int cursorPos = new Vector2Int(cursorX, cursorY);
 
-                        // Temporarily set position to cursor to test placement
-                        GameReflection.SetBuildingPosition(_movingBuilding, cursorPos);
-                        bool canPlace = GameReflection.CanPlaceBuilding(_movingBuilding);
-                        GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							// Temporarily set position to cursor to test placement
+							GameReflection.SetBuildingPosition(_movingBuilding, cursorPos);
+							bool canPlace = GameReflection.CanPlaceBuilding(_movingBuilding);
+							GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 
-                        string preview = RangeInfoHelper.GetBuildingRangePreview(
-                            buildingModel, cursorX, cursorY, _currentRotation, canPlace);
-                        Speech.Say(preview);
-                    }
-                    return true;
-                }
+							string preview = RangeInfoHelper.GetBuildingRangePreview(
+								buildingModel, cursorX, cursorY, _currentRotation, canPlace);
+							Speech.Say(preview);
+						}
+						return true;
+					}
 
-                // Entrance preview for building being moved
-                case KeyCode.E:
-                {
-                    _awaitingPlaceConfirm = false;
-                    var buildingModel = GameReflection.GetBuildingModel(_movingBuilding);
-                    if (buildingModel != null)
-                    {
-                        int cursorX = _mapNavigator.CursorX;
-                        int cursorY = _mapNavigator.CursorY;
-                        Vector2Int cursorPos = new Vector2Int(cursorX, cursorY);
+				// Entrance preview for building being moved
+				case KeyCode.E: {
+						_awaitingPlaceConfirm = false;
+						var buildingModel = GameReflection.GetBuildingModel(_movingBuilding);
+						if (buildingModel != null) {
+							int cursorX = _mapNavigator.CursorX;
+							int cursorY = _mapNavigator.CursorY;
+							Vector2Int cursorPos = new Vector2Int(cursorX, cursorY);
 
-                        // Temporarily set position to cursor for entrance calculation
-                        GameReflection.SetBuildingPosition(_movingBuilding, cursorPos);
-                        string preview = EntranceInfoHelper.GetEntrancePreview(
-                            _movingBuilding, cursorX, cursorY, buildingModel, _currentRotation);
-                        GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							// Temporarily set position to cursor for entrance calculation
+							GameReflection.SetBuildingPosition(_movingBuilding, cursorPos);
+							string preview = EntranceInfoHelper.GetEntrancePreview(
+								_movingBuilding, cursorX, cursorY, buildingModel, _currentRotation);
+							GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 
-                        Speech.Say(preview);
-                    }
-                    return true;
-                }
+							Speech.Say(preview);
+						}
+						return true;
+					}
 
-                default:
-                    // Pass unhandled keys through to other handlers
-                    return false;
-            }
-        }
+				default:
+					// Pass unhandled keys through to other handlers
+					return false;
+			}
+		}
 
-        /// <summary>
-        /// Rotate the building and announce the new direction.
-        /// </summary>
-        private void RotateBuilding(bool clockwise)
-        {
-            if (_movingBuilding == null) return;
+		/// <summary>
+		/// Rotate the building and announce the new direction.
+		/// </summary>
+		private void RotateBuilding(bool clockwise) {
+			if (_movingBuilding == null) return;
 
-            // Check if building can be rotated
-            var buildingModel = GameReflection.GetBuildingModel(_movingBuilding);
-            if (buildingModel != null && !GameReflection.CanRotateBuildingModel(buildingModel))
-            {
-                Speech.Say("Cannot rotate");
-                return;
-            }
+			// Check if building can be rotated
+			var buildingModel = GameReflection.GetBuildingModel(_movingBuilding);
+			if (buildingModel != null && !GameReflection.CanRotateBuildingModel(buildingModel)) {
+				Speech.Say("Cannot rotate");
+				return;
+			}
 
-            // Increment rotation
-            _currentRotation = (_currentRotation + (clockwise ? 3 : 1)) % 4;
-            GameReflection.RotateBuilding(_movingBuilding, _currentRotation);
-            SoundManager.PlayBuildingRotated();
+			// Increment rotation
+			_currentRotation = (_currentRotation + (clockwise ? 3 : 1)) % 4;
+			GameReflection.RotateBuilding(_movingBuilding, _currentRotation);
+			SoundManager.PlayBuildingRotated();
 
-            string direction = GetCardinalDirection(_currentRotation);
+			string direction = GetCardinalDirection(_currentRotation);
 
-            // Get building size and adjust for rotation
-            Vector2Int baseSize = buildingModel != null
-                ? GameReflection.GetBuildingSize(buildingModel)
-                : new Vector2Int(1, 1);
-            bool isRotated = (_currentRotation % 2) == 1;
-            int extendEast = (isRotated ? baseSize.y : baseSize.x) - 1;
-            int extendNorth = (isRotated ? baseSize.x : baseSize.y) - 1;
+			// Get building size and adjust for rotation
+			Vector2Int baseSize = buildingModel != null
+				? GameReflection.GetBuildingSize(buildingModel)
+				: new Vector2Int(1, 1);
+			bool isRotated = (_currentRotation % 2) == 1;
+			int extendEast = (isRotated ? baseSize.y : baseSize.x) - 1;
+			int extendNorth = (isRotated ? baseSize.x : baseSize.y) - 1;
 
-            string extension = GetExtensionAnnouncement(extendEast, extendNorth);
+			string extension = GetExtensionAnnouncement(extendEast, extendNorth);
 
-            Speech.Say($"{direction}, {extension}");
-            Debug.Log($"[ATSAccessibility] Building rotated to {_currentRotation} ({direction})");
-        }
+			Speech.Say($"{direction}, {extension}");
+			Debug.Log($"[ATSAccessibility] Building rotated to {_currentRotation} ({direction})");
+		}
 
-        /// <summary>
-        /// Get a readable announcement of how far the building extends from cursor.
-        /// </summary>
-        private string GetExtensionAnnouncement(int east, int north)
-        {
-            if (east == 0 && north == 0)
-            {
-                return "1 tile";
-            }
+		/// <summary>
+		/// Get a readable announcement of how far the building extends from cursor.
+		/// </summary>
+		private string GetExtensionAnnouncement(int east, int north) {
+			if (east == 0 && north == 0) {
+				return "1 tile";
+			}
 
-            var parts = new System.Collections.Generic.List<string>();
+			var parts = new System.Collections.Generic.List<string>();
 
-            if (east > 0)
-            {
-                parts.Add($"{east} east");
-            }
-            if (north > 0)
-            {
-                parts.Add($"{north} north");
-            }
+			if (east > 0) {
+				parts.Add($"{east} east");
+			}
+			if (north > 0) {
+				parts.Add($"{north} north");
+			}
 
-            return "extends " + string.Join(", ", parts);
-        }
+			return "extends " + string.Join(", ", parts);
+		}
 
-        /// <summary>
-        /// Get the cardinal direction name for a rotation value.
-        /// </summary>
-        private string GetCardinalDirection(int rotation)
-        {
-            return rotation switch
-            {
-                0 => "North",
-                1 => "West",
-                2 => "South",
-                3 => "East",
-                _ => "Unknown"
-            };
-        }
-    }
+		/// <summary>
+		/// Get the cardinal direction name for a rotation value.
+		/// </summary>
+		private string GetCardinalDirection(int rotation) {
+			return rotation switch {
+				0 => "North",
+				1 => "West",
+				2 => "South",
+				3 => "East",
+				_ => "Unknown"
+			};
+		}
+	}
 }

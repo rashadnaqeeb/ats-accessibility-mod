@@ -1,435 +1,373 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ATSAccessibility
-{
-    /// <summary>
-    /// Accessible overlay for the Forsaken Altar panel.
-    /// Provides multi-level navigation: Main Menu -> Resources/Cornerstones -> Currencies/Races.
-    /// </summary>
-    public class AltarOverlay : MenuBase, IKeyHandler
-    {
-        // ========================================
-        // MENU LEVELS
-        // ========================================
+namespace ATSAccessibility {
+	/// <summary>
+	/// Accessible overlay for the Forsaken Altar panel.
+	/// Provides multi-level navigation: Main Menu -> Resources/Cornerstones -> Currencies/Races.
+	/// </summary>
+	public class AltarOverlay: MenuBase, IKeyHandler {
+		// ========================================
+		// MENU LEVELS
+		// ========================================
 
-        private enum MenuLevel
-        {
-            Main,           // Resources, Cornerstones, Skip
-            Resources,      // Currencies, Villagers
-            Currencies,     // Individual currency toggles
-            Races,          // Individual race toggles
-            Cornerstones    // Cornerstone options
-        }
+		private enum MenuLevel {
+			Main,           // Resources, Cornerstones, Skip
+			Resources,      // Currencies, Villagers
+			Currencies,     // Individual currency toggles
+			Races,          // Individual race toggles
+			Cornerstones    // Cornerstone options
+		}
 
-        private enum MainItem { Resources, Cornerstones, Skip }
+		private enum MainItem { Resources, Cornerstones, Skip }
 
-        private enum ResourceItem { Currencies, Villagers }
+		private enum ResourceItem { Currencies, Villagers }
 
-        // ========================================
-        // STATE
-        // ========================================
+		// ========================================
+		// STATE
+		// ========================================
 
-        private bool _isActive;
-        private MenuLevel _menuLevel;
+		private bool _isActive;
+		private MenuLevel _menuLevel;
 
-        private List<AltarReflection.CurrencyInfo> _currencies;
-        private List<AltarReflection.RaceInfo> _races;
-        private List<AltarReflection.EffectInfo> _cornerstones;
+		private List<AltarReflection.CurrencyInfo> _currencies;
+		private List<AltarReflection.RaceInfo> _races;
+		private List<AltarReflection.EffectInfo> _cornerstones;
 
-        // ========================================
-        // IKeyHandler Implementation
-        // ========================================
+		// ========================================
+		// IKeyHandler Implementation
+		// ========================================
 
-        public bool IsActive => IsOpen;
+		public bool IsActive => IsOpen;
 
-        bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-            ProcessKey(keyCode, modifiers);
+		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
+			ProcessKey(keyCode, modifiers);
 
-        // ========================================
-        // MENUBASE OVERRIDES
-        // ========================================
+		// ========================================
+		// MENUBASE OVERRIDES
+		// ========================================
 
-        protected override string OverlayName => "Forsaken Altar";
-        protected override string EmptyMessage => "";
+		protected override string OverlayName => "Forsaken Altar";
+		protected override string EmptyMessage => "";
 
-        protected override int GetItemCount()
-        {
-            switch (_menuLevel)
-            {
-                case MenuLevel.Main: return 3;
-                case MenuLevel.Resources: return 2;
-                case MenuLevel.Currencies: return _currencies?.Count ?? 0;
-                case MenuLevel.Races: return _races?.Count ?? 0;
-                case MenuLevel.Cornerstones: return _cornerstones?.Count ?? 0;
-                default: return 0;
-            }
-        }
+		protected override int GetItemCount() {
+			switch (_menuLevel) {
+				case MenuLevel.Main: return 3;
+				case MenuLevel.Resources: return 2;
+				case MenuLevel.Currencies: return _currencies?.Count ?? 0;
+				case MenuLevel.Races: return _races?.Count ?? 0;
+				case MenuLevel.Cornerstones: return _cornerstones?.Count ?? 0;
+				default: return 0;
+			}
+		}
 
-        protected override string GetLabel(int index)
-        {
-            switch (_menuLevel)
-            {
-                case MenuLevel.Main:
-                    switch ((MainItem)index)
-                    {
-                        case MainItem.Resources: return "Resources";
-                        case MainItem.Cornerstones: return "Cornerstones";
-                        case MainItem.Skip: return "Skip this pick";
-                        default: return null;
-                    }
+		protected override string GetLabel(int index) {
+			switch (_menuLevel) {
+				case MenuLevel.Main:
+					switch ((MainItem)index) {
+						case MainItem.Resources: return "Resources";
+						case MainItem.Cornerstones: return "Cornerstones";
+						case MainItem.Skip: return "Skip this pick";
+						default: return null;
+					}
 
-                case MenuLevel.Resources:
-                    switch ((ResourceItem)index)
-                    {
-                        case ResourceItem.Currencies:
-                            int totalValue = AltarReflection.GetTotalMetaValue();
-                            return $"Currencies, {totalValue} total value";
-                        case ResourceItem.Villagers:
-                            int totalVillagers = AltarReflection.GetTotalVillagers();
-                            bool villagersEnabled = AltarReflection.AreVillagersAllowed();
-                            return $"Villagers, {totalVillagers} available, {(villagersEnabled ? "enabled" : "disabled")}";
-                        default: return null;
-                    }
+				case MenuLevel.Resources:
+					switch ((ResourceItem)index) {
+						case ResourceItem.Currencies:
+							int totalValue = AltarReflection.GetTotalMetaValue();
+							return $"Currencies, {totalValue} total value";
+						case ResourceItem.Villagers:
+							int totalVillagers = AltarReflection.GetTotalVillagers();
+							bool villagersEnabled = AltarReflection.AreVillagersAllowed();
+							return $"Villagers, {totalVillagers} available, {(villagersEnabled ? "enabled" : "disabled")}";
+						default: return null;
+					}
 
-                case MenuLevel.Currencies:
-                    if (_currencies != null && index >= 0 && index < _currencies.Count)
-                    {
-                        var currency = _currencies[index];
-                        string state = currency.Enabled ? "enabled" : "disabled";
-                        return $"{currency.DisplayName}: {currency.Amount}, {state}";
-                    }
-                    return null;
+				case MenuLevel.Currencies:
+					if (_currencies != null && index >= 0 && index < _currencies.Count) {
+						var currency = _currencies[index];
+						string state = currency.Enabled ? "enabled" : "disabled";
+						return $"{currency.DisplayName}: {currency.Amount}, {state}";
+					}
+					return null;
 
-                case MenuLevel.Races:
-                    if (_races != null && index >= 0 && index < _races.Count)
-                    {
-                        var race = _races[index];
-                        string state = race.Enabled ? "enabled" : "disabled";
-                        return $"{race.DisplayName}: {race.Count}, {state}";
-                    }
-                    return null;
+				case MenuLevel.Races:
+					if (_races != null && index >= 0 && index < _races.Count) {
+						var race = _races[index];
+						string state = race.Enabled ? "enabled" : "disabled";
+						return $"{race.DisplayName}: {race.Count}, {state}";
+					}
+					return null;
 
-                case MenuLevel.Cornerstones:
-                    if (_cornerstones != null && index >= 0 && index < _cornerstones.Count)
-                    {
-                        var cornerstone = _cornerstones[index];
-                        string priceStr = $"{cornerstone.MetaPrice} value";
-                        if (AltarReflection.AreVillagersAllowed() && cornerstone.VillagersPrice > 0)
-                            priceStr += $" + {cornerstone.VillagersPrice} villagers";
-                        string affordStr = cornerstone.CanAfford ? "can afford" : "cannot afford";
-                        string upgradeStr = cornerstone.IsUpgrade ? ", upgrade" : "";
-                        return $"{cornerstone.DisplayName}, {priceStr}, {affordStr}{upgradeStr}";
-                    }
-                    return null;
+				case MenuLevel.Cornerstones:
+					if (_cornerstones != null && index >= 0 && index < _cornerstones.Count) {
+						var cornerstone = _cornerstones[index];
+						string priceStr = $"{cornerstone.MetaPrice} value";
+						if (AltarReflection.AreVillagersAllowed() && cornerstone.VillagersPrice > 0)
+							priceStr += $" + {cornerstone.VillagersPrice} villagers";
+						string affordStr = cornerstone.CanAfford ? "can afford" : "cannot afford";
+						string upgradeStr = cornerstone.IsUpgrade ? ", upgrade" : "";
+						return $"{cornerstone.DisplayName}, {priceStr}, {affordStr}{upgradeStr}";
+					}
+					return null;
 
-                default: return null;
-            }
-        }
+				default: return null;
+			}
+		}
 
-        protected override void RefreshData()
-        {
-            _isActive = AltarReflection.IsAltarActive();
-            if (_isActive)
-            {
-                _currencies = AltarReflection.GetCurrencies();
-                _races = AltarReflection.GetRaces();
-                _cornerstones = AltarReflection.GetCurrentPick();
-            }
-        }
+		protected override void RefreshData() {
+			_isActive = AltarReflection.IsAltarActive();
+			if (_isActive) {
+				_currencies = AltarReflection.GetCurrencies();
+				_races = AltarReflection.GetRaces();
+				_cornerstones = AltarReflection.GetCurrentPick();
+			}
+		}
 
-        protected override EnterAction OnEnter(int index)
-        {
-            switch (_menuLevel)
-            {
-                case MenuLevel.Main:
-                    if ((MainItem)index == MainItem.Skip)
-                        return EnterAction.Action;
-                    return EnterAction.DrillDown;
+		protected override EnterAction OnEnter(int index) {
+			switch (_menuLevel) {
+				case MenuLevel.Main:
+					if ((MainItem)index == MainItem.Skip)
+						return EnterAction.Action;
+					return EnterAction.DrillDown;
 
-                case MenuLevel.Resources:
-                    return EnterAction.DrillDown;
+				case MenuLevel.Resources:
+					return EnterAction.DrillDown;
 
-                case MenuLevel.Currencies:
-                case MenuLevel.Races:
-                case MenuLevel.Cornerstones:
-                    return EnterAction.Action;
+				case MenuLevel.Currencies:
+				case MenuLevel.Races:
+				case MenuLevel.Cornerstones:
+					return EnterAction.Action;
 
-                default:
-                    return EnterAction.None;
-            }
-        }
+				default:
+					return EnterAction.None;
+			}
+		}
 
-        protected override void OnDrillDown(int index)
-        {
-            switch (_menuLevel)
-            {
-                case MenuLevel.Main:
-                    if ((MainItem)index == MainItem.Resources)
-                        _menuLevel = MenuLevel.Resources;
-                    else if ((MainItem)index == MainItem.Cornerstones)
-                        _menuLevel = MenuLevel.Cornerstones;
-                    break;
+		protected override void OnDrillDown(int index) {
+			switch (_menuLevel) {
+				case MenuLevel.Main:
+					if ((MainItem)index == MainItem.Resources)
+						_menuLevel = MenuLevel.Resources;
+					else if ((MainItem)index == MainItem.Cornerstones)
+						_menuLevel = MenuLevel.Cornerstones;
+					break;
 
-                case MenuLevel.Resources:
-                    if ((ResourceItem)index == ResourceItem.Currencies)
-                    {
-                        _menuLevel = MenuLevel.Currencies;
-                        _currencies = AltarReflection.GetCurrencies();
-                    }
-                    else if ((ResourceItem)index == ResourceItem.Villagers)
-                    {
-                        _menuLevel = MenuLevel.Races;
-                        _races = AltarReflection.GetRaces();
-                    }
-                    break;
-            }
-        }
+				case MenuLevel.Resources:
+					if ((ResourceItem)index == ResourceItem.Currencies) {
+						_menuLevel = MenuLevel.Currencies;
+						_currencies = AltarReflection.GetCurrencies();
+					} else if ((ResourceItem)index == ResourceItem.Villagers) {
+						_menuLevel = MenuLevel.Races;
+						_races = AltarReflection.GetRaces();
+					}
+					break;
+			}
+		}
 
-        protected override void OnGoBack()
-        {
-            switch (_menuLevel)
-            {
-                case MenuLevel.Resources:
-                case MenuLevel.Cornerstones:
-                    _menuLevel = MenuLevel.Main;
-                    break;
-                case MenuLevel.Currencies:
-                case MenuLevel.Races:
-                    _menuLevel = MenuLevel.Resources;
-                    break;
-            }
-        }
+		protected override void OnGoBack() {
+			switch (_menuLevel) {
+				case MenuLevel.Resources:
+				case MenuLevel.Cornerstones:
+					_menuLevel = MenuLevel.Main;
+					break;
+				case MenuLevel.Currencies:
+				case MenuLevel.Races:
+					_menuLevel = MenuLevel.Resources;
+					break;
+			}
+		}
 
-        protected override void OnAction(int index)
-        {
-            switch (_menuLevel)
-            {
-                case MenuLevel.Currencies:
-                    ToggleCurrency();
-                    break;
-                case MenuLevel.Races:
-                    ToggleRace();
-                    break;
-                case MenuLevel.Cornerstones:
-                    PurchaseCornerstone();
-                    break;
-                case MenuLevel.Main:
-                    if ((MainItem)index == MainItem.Skip)
-                        ExecuteSkip();
-                    break;
-            }
-        }
+		protected override void OnAction(int index) {
+			switch (_menuLevel) {
+				case MenuLevel.Currencies:
+					ToggleCurrency();
+					break;
+				case MenuLevel.Races:
+					ToggleRace();
+					break;
+				case MenuLevel.Cornerstones:
+					PurchaseCornerstone();
+					break;
+				case MenuLevel.Main:
+					if ((MainItem)index == MainItem.Skip)
+						ExecuteSkip();
+					break;
+			}
+		}
 
-        protected override void OnSpace(int index)
-        {
-            switch (_menuLevel)
-            {
-                case MenuLevel.Currencies:
-                    ToggleCurrency();
-                    break;
-                case MenuLevel.Races:
-                    ToggleRace();
-                    break;
-                case MenuLevel.Resources:
-                    if ((ResourceItem)index == ResourceItem.Villagers)
-                        ToggleVillagersMaster();
-                    break;
-            }
-        }
+		protected override void OnSpace(int index) {
+			switch (_menuLevel) {
+				case MenuLevel.Currencies:
+					ToggleCurrency();
+					break;
+				case MenuLevel.Races:
+					ToggleRace();
+					break;
+				case MenuLevel.Resources:
+					if ((ResourceItem)index == ResourceItem.Villagers)
+						ToggleVillagersMaster();
+					break;
+			}
+		}
 
-        protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
-        {
-            if (!_isActive)
-            {
-                if (keyCode == KeyCode.Escape)
-                    return false; // Pass to game to close popup
-                return true;
-            }
-            return null;
-        }
+		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			if (!_isActive) {
+				if (keyCode == KeyCode.Escape)
+					return false; // Pass to game to close popup
+				return true;
+			}
+			return null;
+		}
 
-        protected override EscapeAction OnEscape()
-        {
-            return Level > 0 ? EscapeAction.GoBack : EscapeAction.PassThrough;
-        }
+		protected override EscapeAction OnEscape() {
+			return Level > 0 ? EscapeAction.GoBack : EscapeAction.PassThrough;
+		}
 
-        protected override string GetOpenAnnouncement()
-        {
-            if (!_isActive)
-            {
-                var nextCharge = AltarReflection.GetNextChargeThreshold();
-                string message = "Altar inactive. Requires Storm season and activation charge.";
-                if (nextCharge.HasValue)
-                    message += $" Next activation at {nextCharge.Value} reputation.";
-                else
-                    message += " No more activations available this run.";
-                return message;
-            }
+		protected override string GetOpenAnnouncement() {
+			if (!_isActive) {
+				var nextCharge = AltarReflection.GetNextChargeThreshold();
+				string message = "Altar inactive. Requires Storm season and activation charge.";
+				if (nextCharge.HasValue)
+					message += $" Next activation at {nextCharge.Value} reputation.";
+				else
+					message += " No more activations available this run.";
+				return message;
+			}
 
-            return "Forsaken Altar. Resources";
-        }
+			return "Forsaken Altar. Resources";
+		}
 
-        protected override void OnClosed()
-        {
-            _currencies?.Clear();
-            _races?.Clear();
-            _cornerstones?.Clear();
-        }
+		protected override void OnClosed() {
+			_currencies?.Clear();
+			_races?.Clear();
+			_cornerstones?.Clear();
+		}
 
-        // ========================================
-        // SEARCH
-        // ========================================
+		// ========================================
+		// SEARCH
+		// ========================================
 
-        protected override int SearchItemCount
-        {
-            get
-            {
-                switch (_menuLevel)
-                {
-                    case MenuLevel.Currencies: return _currencies?.Count ?? 0;
-                    case MenuLevel.Races: return _races?.Count ?? 0;
-                    case MenuLevel.Cornerstones: return _cornerstones?.Count ?? 0;
-                    default: return 0;
-                }
-            }
-        }
+		protected override int SearchItemCount {
+			get {
+				switch (_menuLevel) {
+					case MenuLevel.Currencies: return _currencies?.Count ?? 0;
+					case MenuLevel.Races: return _races?.Count ?? 0;
+					case MenuLevel.Cornerstones: return _cornerstones?.Count ?? 0;
+					default: return 0;
+				}
+			}
+		}
 
-        protected override string GetSearchName(int index)
-        {
-            switch (_menuLevel)
-            {
-                case MenuLevel.Currencies:
-                    if (_currencies != null && index >= 0 && index < _currencies.Count)
-                        return _currencies[index].DisplayName;
-                    break;
-                case MenuLevel.Races:
-                    if (_races != null && index >= 0 && index < _races.Count)
-                        return _races[index].DisplayName;
-                    break;
-                case MenuLevel.Cornerstones:
-                    if (_cornerstones != null && index >= 0 && index < _cornerstones.Count)
-                        return _cornerstones[index].DisplayName;
-                    break;
-            }
-            return null;
-        }
+		protected override string GetSearchName(int index) {
+			switch (_menuLevel) {
+				case MenuLevel.Currencies:
+					if (_currencies != null && index >= 0 && index < _currencies.Count)
+						return _currencies[index].DisplayName;
+					break;
+				case MenuLevel.Races:
+					if (_races != null && index >= 0 && index < _races.Count)
+						return _races[index].DisplayName;
+					break;
+				case MenuLevel.Cornerstones:
+					if (_cornerstones != null && index >= 0 && index < _cornerstones.Count)
+						return _cornerstones[index].DisplayName;
+					break;
+			}
+			return null;
+		}
 
-        // ========================================
-        // TOGGLE ACTIONS
-        // ========================================
+		// ========================================
+		// TOGGLE ACTIONS
+		// ========================================
 
-        private void ToggleCurrency()
-        {
-            if (_currencies == null || CurrentIndex < 0 || CurrentIndex >= _currencies.Count) return;
+		private void ToggleCurrency() {
+			if (_currencies == null || CurrentIndex < 0 || CurrentIndex >= _currencies.Count) return;
 
-            if (AltarReflection.ToggleCurrency(CurrentIndex))
-            {
-                SoundManager.PlayButtonClick();
-                _currencies = AltarReflection.GetCurrencies();
-                AnnounceCurrentItem();
-            }
-            else
-            {
-                Speech.Say("Cannot toggle");
-                SoundManager.PlayFailed();
-            }
-        }
+			if (AltarReflection.ToggleCurrency(CurrentIndex)) {
+				SoundManager.PlayButtonClick();
+				_currencies = AltarReflection.GetCurrencies();
+				AnnounceCurrentItem();
+			} else {
+				Speech.Say("Cannot toggle");
+				SoundManager.PlayFailed();
+			}
+		}
 
-        private void ToggleRace()
-        {
-            if (_races == null || CurrentIndex < 0 || CurrentIndex >= _races.Count) return;
+		private void ToggleRace() {
+			if (_races == null || CurrentIndex < 0 || CurrentIndex >= _races.Count) return;
 
-            if (AltarReflection.ToggleRace(CurrentIndex))
-            {
-                SoundManager.PlayButtonClick();
-                _races = AltarReflection.GetRaces();
-                AnnounceCurrentItem();
-            }
-            else
-            {
-                Speech.Say("Cannot toggle");
-                SoundManager.PlayFailed();
-            }
-        }
+			if (AltarReflection.ToggleRace(CurrentIndex)) {
+				SoundManager.PlayButtonClick();
+				_races = AltarReflection.GetRaces();
+				AnnounceCurrentItem();
+			} else {
+				Speech.Say("Cannot toggle");
+				SoundManager.PlayFailed();
+			}
+		}
 
-        private void ToggleVillagersMaster()
-        {
-            if (AltarReflection.ToggleVillagersAllowed())
-            {
-                SoundManager.PlayButtonClick();
-                AnnounceCurrentItem();
-            }
-            else
-            {
-                Speech.Say("Cannot toggle");
-                SoundManager.PlayFailed();
-            }
-        }
+		private void ToggleVillagersMaster() {
+			if (AltarReflection.ToggleVillagersAllowed()) {
+				SoundManager.PlayButtonClick();
+				AnnounceCurrentItem();
+			} else {
+				Speech.Say("Cannot toggle");
+				SoundManager.PlayFailed();
+			}
+		}
 
-        // ========================================
-        // PURCHASE / SKIP
-        // ========================================
+		// ========================================
+		// PURCHASE / SKIP
+		// ========================================
 
-        private void PurchaseCornerstone()
-        {
-            if (_cornerstones == null || CurrentIndex < 0 || CurrentIndex >= _cornerstones.Count)
-            {
-                Speech.Say("No cornerstone selected");
-                return;
-            }
+		private void PurchaseCornerstone() {
+			if (_cornerstones == null || CurrentIndex < 0 || CurrentIndex >= _cornerstones.Count) {
+				Speech.Say("No cornerstone selected");
+				return;
+			}
 
-            var cornerstone = _cornerstones[CurrentIndex];
+			var cornerstone = _cornerstones[CurrentIndex];
 
-            if (!cornerstone.CanAfford)
-            {
-                Speech.Say("Cannot afford");
-                SoundManager.PlayFailed();
-                return;
-            }
+			if (!cornerstone.CanAfford) {
+				Speech.Say("Cannot afford");
+				SoundManager.PlayFailed();
+				return;
+			}
 
-            if (AltarReflection.PickEffect(cornerstone.Model))
-            {
-                Speech.Say($"Purchased {cornerstone.DisplayName}");
-                SoundManager.PlayButtonClick();
+			if (AltarReflection.PickEffect(cornerstone.Model)) {
+				Speech.Say($"Purchased {cornerstone.DisplayName}");
+				SoundManager.PlayButtonClick();
 
-                if (AltarReflection.HasActivePick())
-                {
-                    RefreshData();
-                    SetLevel(1);
-                    _menuLevel = MenuLevel.Cornerstones;
-                    CurrentIndex = 0;
-                    AnnounceCurrentItem();
-                }
-            }
-            else
-            {
-                Speech.Say("Purchase failed");
-                SoundManager.PlayFailed();
-            }
-        }
+				if (AltarReflection.HasActivePick()) {
+					RefreshData();
+					SetLevel(1);
+					_menuLevel = MenuLevel.Cornerstones;
+					CurrentIndex = 0;
+					AnnounceCurrentItem();
+				}
+			} else {
+				Speech.Say("Purchase failed");
+				SoundManager.PlayFailed();
+			}
+		}
 
-        private void ExecuteSkip()
-        {
-            if (AltarReflection.Skip())
-            {
-                Speech.Say("Skipped");
-                SoundManager.PlayDecline();
+		private void ExecuteSkip() {
+			if (AltarReflection.Skip()) {
+				Speech.Say("Skipped");
+				SoundManager.PlayDecline();
 
-                if (AltarReflection.HasActivePick())
-                {
-                    RefreshData();
-                    SetLevel(0);
-                    _menuLevel = MenuLevel.Main;
-                    CurrentIndex = 0;
-                    AnnounceCurrentItem();
-                }
-            }
-            else
-            {
-                Speech.Say("Skip failed");
-                SoundManager.PlayFailed();
-            }
-        }
-    }
+				if (AltarReflection.HasActivePick()) {
+					RefreshData();
+					SetLevel(0);
+					_menuLevel = MenuLevel.Main;
+					CurrentIndex = 0;
+					AnnounceCurrentItem();
+				}
+			} else {
+				Speech.Say("Skip failed");
+				SoundManager.PlayFailed();
+			}
+		}
+	}
 }

@@ -1,379 +1,326 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ATSAccessibility
-{
-    /// <summary>
-    /// Navigator for Poro buildings (creature care).
-    /// Poros extend Building (not ProductionBuilding) and have no workers.
-    /// Provides Info, Happiness, Needs, and Product sections.
-    /// </summary>
-    public class PoroNavigator : BuildingSectionNavigator
-    {
-        // ========================================
-        // SECTION TYPES
-        // ========================================
+namespace ATSAccessibility {
+	/// <summary>
+	/// Navigator for Poro buildings (creature care).
+	/// Poros extend Building (not ProductionBuilding) and have no workers.
+	/// Provides Info, Happiness, Needs, and Product sections.
+	/// </summary>
+	public class PoroNavigator: BuildingSectionNavigator {
+		// ========================================
+		// SECTION TYPES
+		// ========================================
 
-        private enum SectionType
-        {
-            Info,
-            Happiness,
-            Needs,
-            Product
-        }
+		private enum SectionType {
+			Info,
+			Happiness,
+			Needs,
+			Product
+		}
 
-        // ========================================
-        // CACHED DATA
-        // ========================================
+		// ========================================
+		// CACHED DATA
+		// ========================================
 
-        private string[] _sectionNames;
-        private SectionType[] _sectionTypes;
-        private string _buildingName;
-        private string _buildingDescription;
+		private string[] _sectionNames;
+		private SectionType[] _sectionTypes;
+		private string _buildingName;
+		private string _buildingDescription;
 
-        // Happiness data
-        private float _happiness;
-        private float _productionProgress;
+		// Happiness data
+		private float _happiness;
+		private float _productionProgress;
 
-        // Needs data
-        private List<NeedInfo> _needs = new List<NeedInfo>();
+		// Needs data
+		private List<NeedInfo> _needs = new List<NeedInfo>();
 
-        // Product data
-        private string _productName;
-        private int _productAmount;
-        private int _maxProducts;
-        private bool _canGather;
+		// Product data
+		private string _productName;
+		private int _productAmount;
+		private int _maxProducts;
+		private bool _canGather;
 
-        // ========================================
-        // NEED INFO STRUCT
-        // ========================================
+		// ========================================
+		// NEED INFO STRUCT
+		// ========================================
 
-        private struct NeedInfo
-        {
-            public int NeedIndex;
-            public string NeedName;
-            public float Level;
-            public string CurrentGoodName;
-            public int AvailableGoodsCount;
-            public bool CanFulfill;
-        }
+		private struct NeedInfo {
+			public int NeedIndex;
+			public string NeedName;
+			public float Level;
+			public string CurrentGoodName;
+			public int AvailableGoodsCount;
+			public bool CanFulfill;
+		}
 
-        // ========================================
-        // BASE CLASS IMPLEMENTATION
-        // ========================================
+		// ========================================
+		// BASE CLASS IMPLEMENTATION
+		// ========================================
 
-        protected override string NavigatorName => "PoroNavigator";
+		protected override string NavigatorName => "PoroNavigator";
 
-        protected override string[] GetSections()
-        {
-            return _sectionNames;
-        }
+		protected override string[] GetSections() {
+			return _sectionNames;
+		}
 
-        protected override int GetItemCount(int sectionIndex)
-        {
-            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
-                return 0;
+		protected override int GetItemCount(int sectionIndex) {
+			if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+				return 0;
 
-            switch (_sectionTypes[sectionIndex])
-            {
-                case SectionType.Info:
-                    return 0;
-                case SectionType.Happiness:
-                    return 2;  // Happiness level, Production progress
-                case SectionType.Needs:
-                    return _needs.Count > 0 ? _needs.Count : 1;
-                case SectionType.Product:
-                    return 1;  // Product info (amount ready)
-                default:
-                    return 0;
-            }
-        }
+			switch (_sectionTypes[sectionIndex]) {
+				case SectionType.Info:
+					return 0;
+				case SectionType.Happiness:
+					return 2;  // Happiness level, Production progress
+				case SectionType.Needs:
+					return _needs.Count > 0 ? _needs.Count : 1;
+				case SectionType.Product:
+					return 1;  // Product info (amount ready)
+				default:
+					return 0;
+			}
+		}
 
-        protected override int GetSubItemCount(int sectionIndex, int itemIndex)
-        {
-            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
-                return 0;
+		protected override int GetSubItemCount(int sectionIndex, int itemIndex) {
+			if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+				return 0;
 
-            // Needs have sub-items (Feed, Change good options)
-            if (_sectionTypes[sectionIndex] == SectionType.Needs && itemIndex < _needs.Count)
-            {
-                var need = _needs[itemIndex];
-                int count = 0;
-                if (need.CanFulfill) count++;  // Feed action
-                if (need.AvailableGoodsCount > 1) count += need.AvailableGoodsCount;  // Good options
-                return count;
-            }
+			// Needs have sub-items (Feed, Change good options)
+			if (_sectionTypes[sectionIndex] == SectionType.Needs && itemIndex < _needs.Count) {
+				var need = _needs[itemIndex];
+				int count = 0;
+				if (need.CanFulfill) count++;  // Feed action
+				if (need.AvailableGoodsCount > 1) count += need.AvailableGoodsCount;  // Good options
+				return count;
+			}
 
-            // Product has sub-item (Collect action if products ready)
-            if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather)
-            {
-                return 1;  // Collect action
-            }
+			// Product has sub-item (Collect action if products ready)
+			if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather) {
+				return 1;  // Collect action
+			}
 
-            return 0;
-        }
+			return 0;
+		}
 
-        protected override void AnnounceSection(int sectionIndex)
-        {
-            if (_sectionTypes[sectionIndex] == SectionType.Info)
-            {
-                if (!string.IsNullOrEmpty(_buildingDescription))
-                    Speech.Say($"{_buildingName}: {_buildingDescription}");
-                else
-                    Speech.Say(_buildingName);
-                return;
-            }
+		protected override void AnnounceSection(int sectionIndex) {
+			if (_sectionTypes[sectionIndex] == SectionType.Info) {
+				if (!string.IsNullOrEmpty(_buildingDescription))
+					Speech.Say($"{_buildingName}: {_buildingDescription}");
+				else
+					Speech.Say(_buildingName);
+				return;
+			}
 
-            string sectionName = _sectionNames[sectionIndex];
-            Speech.Say(sectionName);
-        }
+			string sectionName = _sectionNames[sectionIndex];
+			Speech.Say(sectionName);
+		}
 
-        protected override void AnnounceItem(int sectionIndex, int itemIndex)
-        {
-            if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
-                return;
+		protected override void AnnounceItem(int sectionIndex, int itemIndex) {
+			if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+				return;
 
-            switch (_sectionTypes[sectionIndex])
-            {
-                case SectionType.Happiness:
-                    AnnounceHappinessItem(itemIndex);
-                    break;
-                case SectionType.Needs:
-                    AnnounceNeedItem(itemIndex);
-                    break;
-                case SectionType.Product:
-                    AnnounceProductItem(itemIndex);
-                    break;
-            }
-        }
+			switch (_sectionTypes[sectionIndex]) {
+				case SectionType.Happiness:
+					AnnounceHappinessItem(itemIndex);
+					break;
+				case SectionType.Needs:
+					AnnounceNeedItem(itemIndex);
+					break;
+				case SectionType.Product:
+					AnnounceProductItem(itemIndex);
+					break;
+			}
+		}
 
-        protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex)
-        {
-            if (_sectionTypes[sectionIndex] == SectionType.Needs && itemIndex < _needs.Count)
-            {
-                var need = _needs[itemIndex];
-                int subIndex = subItemIndex;
+		protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex) {
+			if (_sectionTypes[sectionIndex] == SectionType.Needs && itemIndex < _needs.Count) {
+				var need = _needs[itemIndex];
+				int subIndex = subItemIndex;
 
-                // First sub-item is Feed action (if available)
-                if (need.CanFulfill)
-                {
-                    if (subIndex == 0)
-                    {
-                        Speech.Say("Feed");
-                        return;
-                    }
-                    subIndex--;
-                }
+				// First sub-item is Feed action (if available)
+				if (need.CanFulfill) {
+					if (subIndex == 0) {
+						Speech.Say("Feed");
+						return;
+					}
+					subIndex--;
+				}
 
-                // Remaining sub-items are good options
-                if (need.AvailableGoodsCount > 1 && subIndex < need.AvailableGoodsCount)
-                {
-                    string goodName = BuildingReflection.GetPoroNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
-                    Speech.Say($"Change to {goodName ?? "Unknown"}");
-                }
-            }
-            else if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather)
-            {
-                Speech.Say($"Collect {_productAmount} {_productName ?? "products"}");
-            }
-        }
+				// Remaining sub-items are good options
+				if (need.AvailableGoodsCount > 1 && subIndex < need.AvailableGoodsCount) {
+					string goodName = BuildingReflection.GetPoroNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
+					Speech.Say($"Change to {goodName ?? "Unknown"}");
+				}
+			} else if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather) {
+				Speech.Say($"Collect {_productAmount} {_productName ?? "products"}");
+			}
+		}
 
-        protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex)
-        {
-            if (_sectionTypes[sectionIndex] == SectionType.Needs && itemIndex < _needs.Count)
-            {
-                var need = _needs[itemIndex];
-                int subIndex = subItemIndex;
+		protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex) {
+			if (_sectionTypes[sectionIndex] == SectionType.Needs && itemIndex < _needs.Count) {
+				var need = _needs[itemIndex];
+				int subIndex = subItemIndex;
 
-                // First sub-item is Feed action (if available)
-                if (need.CanFulfill)
-                {
-                    if (subIndex == 0)
-                    {
-                        if (BuildingReflection.FulfillPoroNeed(_building, need.NeedIndex))
-                        {
-                            Speech.Say("Fed successfully");
-                            RefreshNeedData();
-                            return true;
-                        }
-                        else
-                        {
-                            Speech.Say("Cannot feed");
-                            return false;
-                        }
-                    }
-                    subIndex--;
-                }
+				// First sub-item is Feed action (if available)
+				if (need.CanFulfill) {
+					if (subIndex == 0) {
+						if (BuildingReflection.FulfillPoroNeed(_building, need.NeedIndex)) {
+							Speech.Say("Fed successfully");
+							RefreshNeedData();
+							return true;
+						} else {
+							Speech.Say("Cannot feed");
+							return false;
+						}
+					}
+					subIndex--;
+				}
 
-                // Remaining sub-items are good options
-                if (need.AvailableGoodsCount > 1 && subIndex < need.AvailableGoodsCount)
-                {
-                    if (BuildingReflection.ChangePoroNeedGood(_building, need.NeedIndex, subIndex))
-                    {
-                        string goodName = BuildingReflection.GetPoroNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
-                        Speech.Say($"Changed to {goodName ?? "Unknown"}");
-                        RefreshNeedData();
-                        return true;
-                    }
-                }
-            }
-            else if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather)
-            {
-                if (BuildingReflection.GatherPoroProducts(_building))
-                {
-                    Speech.Say($"Collected {_productAmount} {_productName ?? "products"}");
-                    RefreshProductData();
-                    return true;
-                }
-                else
-                {
-                    Speech.Say("Cannot collect");
-                    return false;
-                }
-            }
-            return false;
-        }
+				// Remaining sub-items are good options
+				if (need.AvailableGoodsCount > 1 && subIndex < need.AvailableGoodsCount) {
+					if (BuildingReflection.ChangePoroNeedGood(_building, need.NeedIndex, subIndex)) {
+						string goodName = BuildingReflection.GetPoroNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
+						Speech.Say($"Changed to {goodName ?? "Unknown"}");
+						RefreshNeedData();
+						return true;
+					}
+				}
+			} else if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather) {
+				if (BuildingReflection.GatherPoroProducts(_building)) {
+					Speech.Say($"Collected {_productAmount} {_productName ?? "products"}");
+					RefreshProductData();
+					return true;
+				} else {
+					Speech.Say("Cannot collect");
+					return false;
+				}
+			}
+			return false;
+		}
 
-        protected override void RefreshData()
-        {
-            _buildingName = BuildingReflection.GetBuildingName(_building) ?? "Poro";
-            _buildingDescription = BuildingReflection.GetBuildingDescription(_building);
+		protected override void RefreshData() {
+			_buildingName = BuildingReflection.GetBuildingName(_building) ?? "Poro";
+			_buildingDescription = BuildingReflection.GetBuildingDescription(_building);
 
-            RefreshHappinessData();
-            RefreshNeedData();
-            RefreshProductData();
-            BuildSections();
+			RefreshHappinessData();
+			RefreshNeedData();
+			RefreshProductData();
+			BuildSections();
 
-            Debug.Log($"[ATSAccessibility] PoroNavigator: Refreshed data - happiness {_happiness:P0}, {_needs.Count} needs");
-        }
+			Debug.Log($"[ATSAccessibility] PoroNavigator: Refreshed data - happiness {_happiness:P0}, {_needs.Count} needs");
+		}
 
-        protected override void ClearData()
-        {
-            _needs.Clear();
-            _sectionNames = null;
-            _sectionTypes = null;
-        }
+		protected override void ClearData() {
+			_needs.Clear();
+			_sectionNames = null;
+			_sectionTypes = null;
+		}
 
-        // ========================================
-        // DATA REFRESH
-        // ========================================
+		// ========================================
+		// DATA REFRESH
+		// ========================================
 
-        private void RefreshHappinessData()
-        {
-            _happiness = BuildingReflection.GetPoroHappiness(_building);
-            _productionProgress = BuildingReflection.GetPoroProductionProgress(_building);
-        }
+		private void RefreshHappinessData() {
+			_happiness = BuildingReflection.GetPoroHappiness(_building);
+			_productionProgress = BuildingReflection.GetPoroProductionProgress(_building);
+		}
 
-        private void RefreshNeedData()
-        {
-            _needs.Clear();
+		private void RefreshNeedData() {
+			_needs.Clear();
 
-            int needCount = BuildingReflection.GetPoroNeedCount(_building);
-            for (int i = 0; i < needCount; i++)
-            {
-                var need = new NeedInfo
-                {
-                    NeedIndex = i,
-                    NeedName = BuildingReflection.GetPoroNeedName(_building, i),
-                    Level = BuildingReflection.GetPoroNeedLevel(_building, i),
-                    CurrentGoodName = BuildingReflection.GetPoroNeedCurrentGoodName(_building, i),
-                    AvailableGoodsCount = BuildingReflection.GetPoroNeedAvailableGoodsCount(_building, i),
-                    CanFulfill = BuildingReflection.CanFulfillPoroNeed(_building, i)
-                };
-                _needs.Add(need);
-            }
-        }
+			int needCount = BuildingReflection.GetPoroNeedCount(_building);
+			for (int i = 0; i < needCount; i++) {
+				var need = new NeedInfo {
+					NeedIndex = i,
+					NeedName = BuildingReflection.GetPoroNeedName(_building, i),
+					Level = BuildingReflection.GetPoroNeedLevel(_building, i),
+					CurrentGoodName = BuildingReflection.GetPoroNeedCurrentGoodName(_building, i),
+					AvailableGoodsCount = BuildingReflection.GetPoroNeedAvailableGoodsCount(_building, i),
+					CanFulfill = BuildingReflection.CanFulfillPoroNeed(_building, i)
+				};
+				_needs.Add(need);
+			}
+		}
 
-        private void RefreshProductData()
-        {
-            _productName = BuildingReflection.GetPoroProductName(_building);
-            _productAmount = BuildingReflection.GetPoroProductAmount(_building);
-            _maxProducts = BuildingReflection.GetPoroMaxProducts(_building);
-            _canGather = BuildingReflection.CanGatherPoroProducts(_building);
-        }
+		private void RefreshProductData() {
+			_productName = BuildingReflection.GetPoroProductName(_building);
+			_productAmount = BuildingReflection.GetPoroProductAmount(_building);
+			_maxProducts = BuildingReflection.GetPoroMaxProducts(_building);
+			_canGather = BuildingReflection.CanGatherPoroProducts(_building);
+		}
 
-        private void BuildSections()
-        {
-            var sections = new List<string>();
-            var types = new List<SectionType>();
+		private void BuildSections() {
+			var sections = new List<string>();
+			var types = new List<SectionType>();
 
-            // Always have Info
-            sections.Add("Info");
-            types.Add(SectionType.Info);
+			// Always have Info
+			sections.Add("Info");
+			types.Add(SectionType.Info);
 
-            // Happiness section
-            sections.Add("Happiness");
-            types.Add(SectionType.Happiness);
+			// Happiness section
+			sections.Add("Happiness");
+			types.Add(SectionType.Happiness);
 
-            // Needs section
-            sections.Add("Needs");
-            types.Add(SectionType.Needs);
+			// Needs section
+			sections.Add("Needs");
+			types.Add(SectionType.Needs);
 
-            // Product section
-            sections.Add("Product");
-            types.Add(SectionType.Product);
+			// Product section
+			sections.Add("Product");
+			types.Add(SectionType.Product);
 
-            _sectionNames = sections.ToArray();
-            _sectionTypes = types.ToArray();
-        }
+			_sectionNames = sections.ToArray();
+			_sectionTypes = types.ToArray();
+		}
 
-        // ========================================
-        // HAPPINESS SECTION
-        // ========================================
+		// ========================================
+		// HAPPINESS SECTION
+		// ========================================
 
-        private void AnnounceHappinessItem(int itemIndex)
-        {
-            if (itemIndex == 0)
-            {
-                Speech.Say($"Happiness: {_happiness:P0}");
-            }
-            else if (itemIndex == 1)
-            {
-                Speech.Say($"Production progress: {_productionProgress:P0}");
-            }
-        }
+		private void AnnounceHappinessItem(int itemIndex) {
+			if (itemIndex == 0) {
+				Speech.Say($"Happiness: {_happiness:P0}");
+			} else if (itemIndex == 1) {
+				Speech.Say($"Production progress: {_productionProgress:P0}");
+			}
+		}
 
-        // ========================================
-        // NEEDS SECTION
-        // ========================================
+		// ========================================
+		// NEEDS SECTION
+		// ========================================
 
-        private void AnnounceNeedItem(int itemIndex)
-        {
-            if (_needs.Count == 0)
-            {
-                Speech.Say("No needs");
-                return;
-            }
+		private void AnnounceNeedItem(int itemIndex) {
+			if (_needs.Count == 0) {
+				Speech.Say("No needs");
+				return;
+			}
 
-            if (itemIndex < _needs.Count)
-            {
-                var need = _needs[itemIndex];
-                string needName = need.NeedName ?? $"Need {need.NeedIndex + 1}";
-                string levelPercent = $"{need.Level:P0}";
-                string currentGood = need.CurrentGoodName ?? "Unknown";
+			if (itemIndex < _needs.Count) {
+				var need = _needs[itemIndex];
+				string needName = need.NeedName ?? $"Need {need.NeedIndex + 1}";
+				string levelPercent = $"{need.Level:P0}";
+				string currentGood = need.CurrentGoodName ?? "Unknown";
 
-                Speech.Say($"{needName}: {levelPercent}, using {currentGood}");
-            }
-        }
+				Speech.Say($"{needName}: {levelPercent}, using {currentGood}");
+			}
+		}
 
-        // ========================================
-        // PRODUCT SECTION
-        // ========================================
+		// ========================================
+		// PRODUCT SECTION
+		// ========================================
 
-        private void AnnounceProductItem(int itemIndex)
-        {
-            if (itemIndex == 0)
-            {
-                string productName = _productName ?? "Product";
-                string announcement = $"{productName}: {_productAmount} of {_maxProducts} ready";
+		private void AnnounceProductItem(int itemIndex) {
+			if (itemIndex == 0) {
+				string productName = _productName ?? "Product";
+				string announcement = $"{productName}: {_productAmount} of {_maxProducts} ready";
 
-                if (_productAmount == 0)
-                {
-                    announcement += " (none ready)";
-                }
+				if (_productAmount == 0) {
+					announcement += " (none ready)";
+				}
 
-                Speech.Say(announcement);
-            }
-        }
-    }
+				Speech.Say(announcement);
+			}
+		}
+	}
 }

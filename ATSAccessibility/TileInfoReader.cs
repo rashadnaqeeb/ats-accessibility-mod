@@ -4,1146 +4,981 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
-namespace ATSAccessibility
-{
-    /// <summary>
-    /// Reads detailed tile information (like tooltips) for the I key feature.
-    /// Provides building, natural resource, and deposit info via reflection.
-    /// Uses cached reflection metadata for performance while fetching fresh values each call.
-    /// </summary>
-    public static class TileInfoReader
-    {
-        // ========================================
-        // REFLECTION CACHE (per-type dictionaries)
-        // ========================================
-
-        // NaturalResource reflection cache (per-type for different resource/model types)
-        private static Dictionary<Type, PropertyInfo> _naturalResourceModelProps = new Dictionary<Type, PropertyInfo>();
-        private static Dictionary<Type, PropertyInfo> _naturalResourceStateProps = new Dictionary<Type, PropertyInfo>();
-        private static Dictionary<Type, FieldInfo> _resourceStateChargesLeftFields = new Dictionary<Type, FieldInfo>();
-        private static Dictionary<Type, FieldInfo> _resourceModelChargesFields = new Dictionary<Type, FieldInfo>();
-        private static Dictionary<Type, PropertyInfo> _resourceModelRefGoodNameProps = new Dictionary<Type, PropertyInfo>();
-
-        // ResourceDeposit reflection cache (per-type)
-        private static Dictionary<Type, PropertyInfo> _depositModelProps = new Dictionary<Type, PropertyInfo>();
-        private static Dictionary<Type, PropertyInfo> _depositStateProps = new Dictionary<Type, PropertyInfo>();
-        private static Dictionary<Type, PropertyInfo> _depositModelDescProps = new Dictionary<Type, PropertyInfo>();
-        private static Dictionary<Type, FieldInfo> _depositStateChargesLeftFields = new Dictionary<Type, FieldInfo>();
-        private static Dictionary<Type, FieldInfo> _depositStateMaxChargesFields = new Dictionary<Type, FieldInfo>();
-
-        // Building reflection cache (per-type)
-        private static Dictionary<Type, PropertyInfo> _buildingModelProps = new Dictionary<Type, PropertyInfo>();
-        private static Dictionary<Type, PropertyInfo> _buildingModelDescProps = new Dictionary<Type, PropertyInfo>();
-
-        // Shared model fields (production, extraProduction)
-        private static FieldInfo _productionField;
-        private static FieldInfo _extraProductionField;
-        private static FieldInfo _goodRefGoodField;
-        private static FieldInfo _goodRefAmountField;
-        private static PropertyInfo _goodRefChanceDisplayNameProp;
-        private static FieldInfo _goodRefChanceField;
-        private static FieldInfo _goodDisplayNameField;
-        private static bool _sharedCached;
-
-        // Service reflection cache
-        private static PropertyInfo _campsMatrixProp;
-        private static PropertyInfo _hutsMatrixProp;
-        private static bool _serviceCached;
-
-        // ========================================
-        // CACHE INITIALIZATION METHODS
-        // ========================================
-
-        private static void EnsureSharedCache(object model)
-        {
-            if (_sharedCached || model == null) return;
-
-            var modelType = model.GetType();
-            _productionField = modelType.GetField("production", BindingFlags.Public | BindingFlags.Instance);
-            _extraProductionField = modelType.GetField("extraProduction", BindingFlags.Public | BindingFlags.Instance);
-
-            // Cache GoodRef fields if we have a production object
-            if (_productionField != null)
-            {
-                var production = _productionField.GetValue(model);
-                if (production != null)
-                {
-                    var prodType = production.GetType();
-                    _goodRefGoodField = prodType.GetField("good", BindingFlags.Public | BindingFlags.Instance);
-                    _goodRefAmountField = prodType.GetField("amount", BindingFlags.Public | BindingFlags.Instance);
-
-                    // Cache Good fields
-                    if (_goodRefGoodField != null)
-                    {
-                        var good = _goodRefGoodField.GetValue(production);
-                        if (good != null)
-                        {
-                            _goodDisplayNameField = good.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
-                        }
-                    }
-                }
-            }
-
-            // Cache GoodRefChance fields if we have extraProduction
-            if (_extraProductionField != null)
-            {
-                var extraProduction = _extraProductionField.GetValue(model) as Array;
-                if (extraProduction != null && extraProduction.Length > 0)
-                {
-                    var firstItem = extraProduction.GetValue(0);
-                    if (firstItem != null)
-                    {
-                        var itemType = firstItem.GetType();
-                        _goodRefChanceDisplayNameProp = itemType.GetProperty("DisplayName");
-                        _goodRefChanceField = itemType.GetField("chance", BindingFlags.Public | BindingFlags.Instance);
-                    }
-                }
-            }
-
-            _sharedCached = true;
-        }
-
-        private static void EnsureServiceCache(object resourcesService, object depositsService)
-        {
-            if (_serviceCached) return;
-
-            if (resourcesService != null && _campsMatrixProp == null)
-            {
-                _campsMatrixProp = resourcesService.GetType().GetProperty("CampsMatrix", BindingFlags.Public | BindingFlags.Instance);
-            }
-
-            if (depositsService != null && _hutsMatrixProp == null)
-            {
-                _hutsMatrixProp = depositsService.GetType().GetProperty("HutsMatrix", BindingFlags.Public | BindingFlags.Instance);
-            }
-
-            _serviceCached = true;
-        }
-
-        // ========================================
-        // SAFE ACCESS HELPERS
-        // ========================================
-
-        private static int GetIntField(object obj, FieldInfo field)
-        {
-            if (obj == null || field == null) return 0;
-            try { return (int)field.GetValue(obj); }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetIntField failed: {ex.Message}"); return 0; }
-        }
-
-        private static string GetStringProperty(object obj, PropertyInfo prop)
-        {
-            if (obj == null || prop == null) return null;
-            try { return prop.GetValue(obj) as string; }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetStringProperty failed: {ex.Message}"); return null; }
-        }
-
-        private static float GetFloatField(object obj, FieldInfo field)
-        {
-            if (obj == null || field == null) return 0f;
-            try { return (float)field.GetValue(obj); }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetFloatField failed: {ex.Message}"); return 0f; }
-        }
-
-        // ========================================
-        // CONSOLIDATED HELPERS
-        // ========================================
-
-        /// <summary>
-        /// Get charges info: "X of Y charges"
-        /// For NaturalResource: chargesLeft from state, max from model
-        /// For Deposit: both from state
-        /// </summary>
-        private static string GetChargesInfo(object state, FieldInfo chargesLeftField, object maxSource, FieldInfo maxChargesField)
-        {
-            int chargesLeft = GetIntField(state, chargesLeftField);
-            int maxCharges = GetIntField(maxSource, maxChargesField);
-
-            return maxCharges > 0 ? $"{chargesLeft} of {maxCharges} charges" : null;
-        }
-
-        /// <summary>
-        /// Get localized text from a LocaText field (fieldName.Text).
-        /// </summary>
-        private static string GetLocalizedText(object obj, string fieldName)
-        {
-            try
-            {
-                var field = obj.GetType().GetField(fieldName, BindingFlags.Public | BindingFlags.Instance);
-                if (field == null) return null;
-
-                var locaText = field.GetValue(obj);
-                return GameReflection.GetLocaText(locaText);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetLocalizedText failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get the Description property from a model object.
-        /// For NaturalResourceModel/ResourceDepositModel, this includes the grade requirement text with sprite tags.
-        /// </summary>
-        private static string GetDescriptionProperty(object model)
-        {
-            if (model == null) return null;
-
-            try
-            {
-                var descProp = model.GetType().GetProperty("Description", BindingFlags.Public | BindingFlags.Instance);
-                return descProp?.GetValue(model) as string;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetDescriptionProperty failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get names from a dictionary of building models.
-        /// Shared logic for CampsMatrix and HutsMatrix lookups.
-        /// </summary>
-        private static string GetSourceBuildingNames(object dictionary, object key, bool useContainsKey)
-        {
-            if (dictionary == null || key == null) return null;
-
-            try
-            {
-                object buildingList;
-
-                if (useContainsKey)
-                {
-                    // For object keys (like depositModel), check ContainsKey first
-                    var containsKeyMethod = dictionary.GetType().GetMethod("ContainsKey");
-                    if (containsKeyMethod == null) return null;
-
-                    bool containsKey = (bool)containsKeyMethod.Invoke(dictionary, new object[] { key });
-                    if (!containsKey) return null;
-                }
-
-                // Get the list using indexer
-                var indexerProp = dictionary.GetType().GetProperty("Item");
-                if (indexerProp == null) return null;
-
-                try
-                {
-                    buildingList = indexerProp.GetValue(dictionary, new object[] { key });
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogWarning($"[ATSAccessibility] GetSourceBuildingNames indexer failed: {ex.Message}");
-                    return null;
-                }
-
-                if (buildingList == null) return null;
-
-                var listEnumerable = buildingList as IEnumerable;
-                if (listEnumerable == null) return null;
-
-                var names = new List<string>();
-                foreach (var building in listEnumerable)
-                {
-                    if (building == null) continue;
-
-                    string name = GetLocalizedText(building, "displayName");
-                    if (!string.IsNullOrEmpty(name))
-                    {
-                        names.Add(name);
-                    }
-                }
-
-                return names.Count > 0 ? string.Join(", ", names) : null;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetSourceBuildingNames failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        // ========================================
-        // PUBLIC API
-        // ========================================
-
-        /// <summary>
-        /// Read and announce detailed info about the object at the current cursor position.
-        /// Called when I key is pressed during map navigation.
-        /// </summary>
-        public static void ReadCurrentTile(int cursorX, int cursorY)
-        {
-            var glade = GameReflection.GetGlade(cursorX, cursorY);
-            if (glade != null && !GetGladeWasDiscovered(glade))
-            {
-                Speech.Say("Unrevealed glade");
-                return;
-            }
-
-            var objectOn = GameReflection.GetObjectOn(cursorX, cursorY);
-
-            if (objectOn == null)
-            {
-                Speech.Say("No object");
-                return;
-            }
-
-            string typeName = objectOn.GetType().Name;
-
-            // GetObjectOn returns Field when there's no actual object
-            if (typeName == "Field")
-            {
-                Speech.Say("No object");
-                return;
-            }
-
-            string info = null;
-
-            // Determine object type and get appropriate info
-            // Check inheritance chain for Building (Storage -> ProductionBuilding -> Building)
-            if (InheritsFrom(objectOn.GetType(), "Building"))
-            {
-                info = GetBuildingInfo(objectOn);
-            }
-            else if (typeName == "NaturalResource")
-            {
-                info = GetNaturalResourceInfo(objectOn);
-            }
-            else if (typeName == "ResourceDeposit")
-            {
-                info = GetResourceDepositInfo(objectOn);
-            }
-            else if (typeName == "Ore")
-            {
-                info = GetOreInfo(objectOn);
-            }
-            else if (typeName == "Spring")
-            {
-                info = GetSpringInfo(objectOn);
-            }
-            else if (typeName == "Lake")
-            {
-                info = GetLakeInfo(objectOn);
-            }
-            else
-            {
-                // Unknown type - try generic name extraction
-                info = GetGenericObjectInfo(objectOn);
-            }
-
-            if (!string.IsNullOrEmpty(info))
-            {
-                Speech.Say(info);
-            }
-            else
-            {
-                Speech.Say("No information available");
-            }
-        }
-
-        // ========================================
-        // OBJECT TYPE HANDLERS
-        // ========================================
-
-        // ========================================
-        // GUIDEPOST DIRECTION HELPERS
-        // ========================================
-
-        /// <summary>
-        /// Convert an angle (in degrees) to a compass direction string.
-        /// Based on the game's rotation system where:
-        /// 0° = West, 90° = North, 180° = East, 270° = South
-        /// </summary>
-        private static string AngleToCompassDirection(float angle)
-        {
-            // Normalize to 0-360
-            angle = ((angle % 360f) + 360f) % 360f;
-
-            // 8-point compass with 45° segments centered on each direction
-            if (angle >= 337.5f || angle < 22.5f) return "West";
-            if (angle >= 22.5f && angle < 67.5f) return "Northwest";
-            if (angle >= 67.5f && angle < 112.5f) return "North";
-            if (angle >= 112.5f && angle < 157.5f) return "Northeast";
-            if (angle >= 157.5f && angle < 202.5f) return "East";
-            if (angle >= 202.5f && angle < 247.5f) return "Southeast";
-            if (angle >= 247.5f && angle < 292.5f) return "South";
-            return "Southwest";
-        }
-
-        /// <summary>
-        /// Get guidepost direction info if the building is a SealGuidepostView.
-        /// Returns null if not a guidepost.
-        /// </summary>
-        private static string GetGuidepostDirection(object building)
-        {
-            try
-            {
-                // First check if we're in a sealed biome
-                if (!GameReflection.IsSealedBiome()) return null;
-
-                // Get the building's view field (Decoration has public "view" field)
-                var viewField = building.GetType().GetField("view", BindingFlags.Public | BindingFlags.Instance);
-                if (viewField == null) return null;
-
-                var view = viewField.GetValue(building);
-                if (view == null) return null;
-
-                // Check if it's a SealGuidepostView
-                if (view.GetType().Name != "SealGuidepostView") return null;
-
-                // Get building's world position from view.Position (inherited from BaseMB)
-                var positionProp = view.GetType().GetProperty("Position", BindingFlags.Public | BindingFlags.Instance);
-                if (positionProp == null) return null;
-
-                var positionObj = positionProp.GetValue(view);
-                if (!(positionObj is Vector3 position)) return null;
-
-                // Get seal target field
-                Vector2Int sealField = GameReflection.GetGuidepostTargetField();
-                if (sealField == default) return null;
-
-                // Get seal size for center calculation
-                Vector2Int sealSize = GameReflection.GetSealSize();
-                if (sealSize == default) return null;
-
-                // Calculate seal center (same as game's GetCenter method)
-                Vector3 targetCenter = new Vector3(
-                    sealField.x + sealSize.x / 2f,
-                    0f,
-                    sealField.y + sealSize.y / 2f);
-
-                // Calculate direction (replicating game logic from SealGuidepostView)
-                Vector3 dir = targetCenter - position;
-                float angle = Mathf.Atan2(dir.z, -dir.x) * Mathf.Rad2Deg + 90f;
-
-                string direction = AngleToCompassDirection(angle);
-                return $"Pointing {direction}";
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetGuidepostDirection failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get info for a building (description only - name already announced).
-        /// </summary>
-        private static string GetBuildingInfo(object building)
-        {
-            try
-            {
-                // Check for guidepost first (returns direction info)
-                string guidepostInfo = GetGuidepostDirection(building);
-                if (!string.IsNullOrEmpty(guidepostInfo))
-                    return guidepostInfo;
-
-                var buildingType = building.GetType();
-
-                // Get or cache BuildingModel property for this type
-                if (!_buildingModelProps.TryGetValue(buildingType, out var buildingModelProp))
-                {
-                    buildingModelProp = buildingType.GetProperty("BuildingModel");
-                    _buildingModelProps[buildingType] = buildingModelProp;
-                }
-                if (buildingModelProp == null) return null;
-
-                var buildingModel = buildingModelProp.GetValue(building);
-                if (buildingModel == null) return null;
-
-                var modelType = buildingModel.GetType();
-
-                // Get or cache Description property for this model type
-                if (!_buildingModelDescProps.TryGetValue(modelType, out var descProp))
-                {
-                    descProp = modelType.GetProperty("Description");
-                    _buildingModelDescProps[modelType] = descProp;
-                }
-
-                var parts = new List<string>();
-
-                // Get Description
-                string desc = GetStringProperty(buildingModel, descProp);
-                if (!string.IsNullOrEmpty(desc))
-                {
-                    parts.Add(desc);
-                }
-
-                return string.Join(", ", parts);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetBuildingInfo failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get info for a natural resource (tree, mushroom, etc).
-        /// Includes: description, charges, products, sources (name excluded - already announced).
-        /// </summary>
-        private static string GetNaturalResourceInfo(object resource)
-        {
-            try
-            {
-                var resourceType = resource.GetType();
-
-                // Get or cache Model property
-                if (!_naturalResourceModelProps.TryGetValue(resourceType, out var modelProp))
-                {
-                    modelProp = resourceType.GetProperty("Model");
-                    _naturalResourceModelProps[resourceType] = modelProp;
-                }
-                if (modelProp == null) return null;
-
-                var model = modelProp.GetValue(resource);
-                if (model == null) return null;
-
-                var modelType = model.GetType();
-
-                // Get or cache State property
-                if (!_naturalResourceStateProps.TryGetValue(resourceType, out var stateProp))
-                {
-                    stateProp = resourceType.GetProperty("State");
-                    _naturalResourceStateProps[resourceType] = stateProp;
-                }
-                var state = stateProp?.GetValue(resource);
-                var stateType = state?.GetType();
-
-                // Get or cache charges fields
-                if (!_resourceModelChargesFields.TryGetValue(modelType, out var modelChargesField))
-                {
-                    modelChargesField = modelType.GetField("charges", BindingFlags.Public | BindingFlags.Instance);
-                    _resourceModelChargesFields[modelType] = modelChargesField;
-                }
-
-                FieldInfo stateChargesLeftField = null;
-                if (stateType != null && !_resourceStateChargesLeftFields.TryGetValue(stateType, out stateChargesLeftField))
-                {
-                    stateChargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
-                    _resourceStateChargesLeftFields[stateType] = stateChargesLeftField;
-                }
-
-                // Get or cache RefGoodName property
-                if (!_resourceModelRefGoodNameProps.TryGetValue(modelType, out var refGoodNameProp))
-                {
-                    refGoodNameProp = modelType.GetProperty("RefGoodName");
-                    _resourceModelRefGoodNameProps[modelType] = refGoodNameProp;
-                }
-
-                var parts = new List<string>();
-
-                // Charges first: chargesLeft from state, max from model
-                string chargesInfo = GetChargesInfo(state, stateChargesLeftField, model, modelChargesField);
-                if (!string.IsNullOrEmpty(chargesInfo))
-                {
-                    parts.Add(chargesInfo);
-                }
-
-                // Description from model.description field (LocaText)
-                string desc = GetLocalizedText(model, "description");
-                if (!string.IsNullOrEmpty(desc))
-                {
-                    parts.Add(desc);
-                }
-
-                // Main product
-                string productInfo = GetMainProductInfo(model);
-                if (!string.IsNullOrEmpty(productInfo))
-                {
-                    parts.Add($"Produces {productInfo}");
-                }
-
-                // Extra products
-                string extraInfo = GetExtraProductsInfo(model);
-                if (!string.IsNullOrEmpty(extraInfo))
-                {
-                    parts.Add($"Extra: {extraInfo}");
-                }
-
-                // Source buildings (camps that can harvest)
-                string sourcesInfo = GetCampsForResource(model, refGoodNameProp);
-                if (!string.IsNullOrEmpty(sourcesInfo))
-                {
-                    parts.Add($"Harvested by: {sourcesInfo}");
-                }
-
-                return string.Join(", ", parts);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetNaturalResourceInfo failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get info for a resource deposit (clay, copper, etc).
-        /// Includes: description, charges, products, sources (name excluded - already announced).
-        /// </summary>
-        private static string GetResourceDepositInfo(object deposit)
-        {
-            try
-            {
-                var depositType = deposit.GetType();
-
-                // Get or cache Model property
-                if (!_depositModelProps.TryGetValue(depositType, out var modelProp))
-                {
-                    modelProp = depositType.GetProperty("Model");
-                    _depositModelProps[depositType] = modelProp;
-                }
-                if (modelProp == null) return null;
-
-                var model = modelProp.GetValue(deposit);
-                if (model == null) return null;
-
-                var modelType = model.GetType();
-
-                // Get or cache State property
-                if (!_depositStateProps.TryGetValue(depositType, out var stateProp))
-                {
-                    stateProp = depositType.GetProperty("State");
-                    _depositStateProps[depositType] = stateProp;
-                }
-                var state = stateProp?.GetValue(deposit);
-                var stateType = state?.GetType();
-
-                // Get or cache Description property
-                if (!_depositModelDescProps.TryGetValue(modelType, out var descProp))
-                {
-                    descProp = modelType.GetProperty("Description");
-                    _depositModelDescProps[modelType] = descProp;
-                }
-
-                // Get or cache charges fields (both from state for deposits)
-                FieldInfo stateChargesLeftField = null;
-                FieldInfo stateMaxChargesField = null;
-                if (stateType != null)
-                {
-                    if (!_depositStateChargesLeftFields.TryGetValue(stateType, out stateChargesLeftField))
-                    {
-                        stateChargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
-                        _depositStateChargesLeftFields[stateType] = stateChargesLeftField;
-                    }
-                    if (!_depositStateMaxChargesFields.TryGetValue(stateType, out stateMaxChargesField))
-                    {
-                        stateMaxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
-                        _depositStateMaxChargesFields[stateType] = stateMaxChargesField;
-                    }
-                }
-
-                var parts = new List<string>();
-
-                // Charges first: both values from state for deposits
-                string chargesInfo = GetChargesInfo(state, stateChargesLeftField, state, stateMaxChargesField);
-                if (!string.IsNullOrEmpty(chargesInfo))
-                {
-                    parts.Add(chargesInfo);
-                }
-
-                // Description
-                string desc = GetStringProperty(model, descProp);
-                if (!string.IsNullOrEmpty(desc))
-                {
-                    parts.Add(desc);
-                }
-
-                // Main product
-                string productInfo = GetMainProductInfo(model);
-                if (!string.IsNullOrEmpty(productInfo))
-                {
-                    parts.Add($"Produces {productInfo}");
-                }
-
-                // Extra products
-                string extraInfo = GetExtraProductsInfo(model);
-                if (!string.IsNullOrEmpty(extraInfo))
-                {
-                    parts.Add($"Extra: {extraInfo}");
-                }
-
-                // Source buildings (gatherer huts that can work this deposit)
-                string sourcesInfo = GetHutsForDeposit(model);
-                if (!string.IsNullOrEmpty(sourcesInfo))
-                {
-                    parts.Add($"Gathered by: {sourcesInfo}");
-                }
-
-                return string.Join(", ", parts);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetResourceDepositInfo failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get info for an ore deposit (copper vein, etc).
-        /// Includes: total charges, description, products.
-        /// </summary>
-        private static string GetOreInfo(object ore)
-        {
-            try
-            {
-                var oreType = ore.GetType();
-
-                // Get Model property
-                var modelProp = oreType.GetProperty("Model");
-                if (modelProp == null) return null;
-
-                var model = modelProp.GetValue(ore);
-                if (model == null) return null;
-
-                // Get State property
-                var stateProp = oreType.GetProperty("State");
-                var state = stateProp?.GetValue(ore);
-
-                var parts = new List<string>();
-
-                // Get total charges from state (mainCharges + extraCharges arrays)
-                if (state != null)
-                {
-                    var stateType = state.GetType();
-                    var mainChargesField = stateType.GetField("mainCharges", BindingFlags.Public | BindingFlags.Instance);
-                    var extraChargesField = stateType.GetField("extraCharges", BindingFlags.Public | BindingFlags.Instance);
-
-                    int totalCharges = 0;
-                    if (mainChargesField != null)
-                    {
-                        var mainCharges = mainChargesField.GetValue(state) as int[];
-                        if (mainCharges != null)
-                        {
-                            foreach (int c in mainCharges) totalCharges += c;
-                        }
-                    }
-                    if (extraChargesField != null)
-                    {
-                        var extraCharges = extraChargesField.GetValue(state) as int[];
-                        if (extraCharges != null)
-                        {
-                            foreach (int c in extraCharges) totalCharges += c;
-                        }
-                    }
-
-                    if (totalCharges > 0)
-                    {
-                        parts.Add($"{totalCharges} charges remaining");
-                    }
-                }
-
-                // Description
-                string desc = GetLocalizedText(model, "description");
-                if (!string.IsNullOrEmpty(desc))
-                {
-                    parts.Add(desc);
-                }
-
-                // Product info from displayProduct
-                var modelType = model.GetType();
-                var displayProductField = modelType.GetField("displayProduct", BindingFlags.Public | BindingFlags.Instance);
-                if (displayProductField != null)
-                {
-                    var displayProduct = displayProductField.GetValue(model);
-                    if (displayProduct != null)
-                    {
-                        var goodField = displayProduct.GetType().GetField("good", BindingFlags.Public | BindingFlags.Instance);
-                        if (goodField != null)
-                        {
-                            var good = goodField.GetValue(displayProduct);
-                            if (good != null)
-                            {
-                                string productName = GetLocalizedText(good, "displayName");
-                                if (!string.IsNullOrEmpty(productName))
-                                {
-                                    parts.Add($"Produces {productName}");
-                                }
-                            }
-                        }
-                    }
-                }
-
-                return parts.Count > 0 ? string.Join(", ", parts) : null;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetOreInfo failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get info for a spring (water source).
-        /// Includes: charges, description.
-        /// </summary>
-        private static string GetSpringInfo(object spring)
-        {
-            try
-            {
-                var springType = spring.GetType();
-
-                // Get Model property
-                var modelProp = springType.GetProperty("Model");
-                if (modelProp == null) return null;
-
-                var model = modelProp.GetValue(spring);
-                if (model == null) return null;
-
-                // Get State property
-                var stateProp = springType.GetProperty("State");
-                var state = stateProp?.GetValue(spring);
-
-                var parts = new List<string>();
-
-                // Get charges from state
-                if (state != null)
-                {
-                    var stateType = state.GetType();
-                    var chargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
-                    var maxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
-
-                    int chargesLeft = GetIntField(state, chargesLeftField);
-                    int maxCharges = GetIntField(state, maxChargesField);
-
-                    if (maxCharges > 0)
-                    {
-                        parts.Add($"{chargesLeft} of {maxCharges} charges");
-                    }
-                }
-
-                // Description
-                string desc = GetLocalizedText(model, "description");
-                if (!string.IsNullOrEmpty(desc))
-                {
-                    parts.Add(desc);
-                }
-
-                return parts.Count > 0 ? string.Join(", ", parts) : null;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetSpringInfo failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get info for a lake (fishing spot).
-        /// Includes: charges, description, products.
-        /// </summary>
-        private static string GetLakeInfo(object lake)
-        {
-            try
-            {
-                var lakeType = lake.GetType();
-
-                // Get Model property
-                var modelProp = lakeType.GetProperty("Model");
-                if (modelProp == null) return null;
-
-                var model = modelProp.GetValue(lake);
-                if (model == null) return null;
-
-                // Get State property
-                var stateProp = lakeType.GetProperty("State");
-                var state = stateProp?.GetValue(lake);
-
-                var parts = new List<string>();
-
-                // Get charges from state
-                if (state != null)
-                {
-                    var stateType = state.GetType();
-                    var chargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
-                    var maxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
-
-                    int chargesLeft = GetIntField(state, chargesLeftField);
-                    int maxCharges = GetIntField(state, maxChargesField);
-
-                    if (maxCharges > 0)
-                    {
-                        parts.Add($"{chargesLeft} of {maxCharges} charges");
-                    }
-
-                    // Get stored fish waiting for pickup
-                    var goodsField = stateType.GetField("goods", BindingFlags.Public | BindingFlags.Instance);
-                    if (goodsField != null)
-                    {
-                        var goods = goodsField.GetValue(state);
-                        if (goods != null)
-                        {
-                            // GoodsContainer has a Sum() method
-                            var sumMethod = goods.GetType().GetMethod("Sum", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
-                            if (sumMethod != null)
-                            {
-                                int storedFish = (int)sumMethod.Invoke(goods, null);
-                                if (storedFish > 0)
-                                {
-                                    parts.Add($"{storedFish} fish waiting for pickup");
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Description - LakeModel has a Description property that includes grade requirement
-                string desc = GetDescriptionProperty(model);
-                if (!string.IsNullOrEmpty(desc))
-                {
-                    parts.Add(desc);
-                }
-
-                // Product info from production field
-                string productInfo = GetMainProductInfo(model);
-                if (!string.IsNullOrEmpty(productInfo))
-                {
-                    parts.Add($"Produces {productInfo}");
-                }
-
-                return parts.Count > 0 ? string.Join(", ", parts) : null;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetLakeInfo failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Generic fallback for unknown object types.
-        /// </summary>
-        private static string GetGenericObjectInfo(object obj)
-        {
-            try
-            {
-                // Try Model.displayName first
-                var modelProp = obj.GetType().GetProperty("Model");
-                if (modelProp != null)
-                {
-                    var model = modelProp.GetValue(obj);
-                    if (model != null)
-                    {
-                        string name = GetLocalizedText(model, "displayName");
-                        if (!string.IsNullOrEmpty(name))
-                        {
-                            return name;
-                        }
-                    }
-                }
-
-                // Fallback to type name
-                return obj.GetType().Name;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetGenericObjectInfo failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        // ========================================
-        // PRODUCT INFO HELPERS
-        // ========================================
-
-        /// <summary>
-        /// Get main product info: "ProductName (amount)"
-        /// Path: Model.production.good.displayName.Text
-        /// </summary>
-        private static string GetMainProductInfo(object model)
-        {
-            try
-            {
-                var productionField = _productionField ?? model.GetType().GetField("production", BindingFlags.Public | BindingFlags.Instance);
-                if (productionField == null) return null;
-
-                var production = productionField.GetValue(model);
-                if (production == null) return null;
-
-                // Get good
-                var goodField = _goodRefGoodField ?? production.GetType().GetField("good", BindingFlags.Public | BindingFlags.Instance);
-                if (goodField == null) return null;
-
-                var good = goodField.GetValue(production);
-                if (good == null) return null;
-
-                // Get displayName
-                var displayNameField = _goodDisplayNameField ?? good.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
-                if (displayNameField == null) return null;
-
-                var displayName = displayNameField.GetValue(good);
-                string productName = GameReflection.GetLocaText(displayName);
-
-                // Get amount
-                var amountField = _goodRefAmountField ?? production.GetType().GetField("amount", BindingFlags.Public | BindingFlags.Instance);
-                int amount = GetIntField(production, amountField);
-
-                if (!string.IsNullOrEmpty(productName))
-                {
-                    return amount > 1 ? $"{amount} {productName}" : productName;
-                }
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetMainProductInfo failed: {ex.Message}"); }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Get extra products info: "Product1 X%, Product2 Y%"
-        /// Path: Model.extraProduction[] array of GoodRefChance
-        /// </summary>
-        private static string GetExtraProductsInfo(object model)
-        {
-            try
-            {
-                var extraProductionField = _extraProductionField ?? model.GetType().GetField("extraProduction", BindingFlags.Public | BindingFlags.Instance);
-                if (extraProductionField == null) return null;
-
-                var extraProduction = extraProductionField.GetValue(model) as Array;
-                if (extraProduction == null || extraProduction.Length == 0) return null;
-
-                var parts = new List<string>();
-
-                foreach (var item in extraProduction)
-                {
-                    if (item == null) continue;
-
-                    // Get DisplayName (using cached property if available)
-                    var displayNameProp = _goodRefChanceDisplayNameProp ?? item.GetType().GetProperty("DisplayName");
-                    string productName = displayNameProp != null ? displayNameProp.GetValue(item) as string : null;
-
-                    // Get chance (using cached field if available)
-                    var chanceField = _goodRefChanceField ?? item.GetType().GetField("chance", BindingFlags.Public | BindingFlags.Instance);
-                    float chance = GetFloatField(item, chanceField);
-
-                    if (!string.IsNullOrEmpty(productName) && chance > 0)
-                    {
-                        int percent = Mathf.RoundToInt(chance * 100f);
-                        parts.Add($"{productName} {percent}%");
-                    }
-                }
-
-                return parts.Count > 0 ? string.Join(", ", parts) : null;
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetExtraProductsInfo failed: {ex.Message}"); }
-
-            return null;
-        }
-
-        // ========================================
-        // SOURCE BUILDING HELPERS
-        // ========================================
-
-        /// <summary>
-        /// Get camps that can harvest a natural resource.
-        /// Path: ResourcesService.CampsMatrix[Model.RefGoodName]
-        /// </summary>
-        private static string GetCampsForResource(object resourceModel, PropertyInfo refGoodNameProp)
-        {
-            try
-            {
-                // Get RefGoodName from model (use passed-in cached property)
-                string refGoodName = GetStringProperty(resourceModel, refGoodNameProp);
-                if (string.IsNullOrEmpty(refGoodName)) return null;
-
-                // Get ResourcesService
-                var resourcesService = GameReflection.GetResourcesService();
-                if (resourcesService == null) return null;
-
-                // Initialize service cache
-                EnsureServiceCache(resourcesService, null);
-
-                // Get CampsMatrix dictionary
-                var campsMatrixProp = _campsMatrixProp ?? resourcesService.GetType().GetProperty("CampsMatrix", BindingFlags.Public | BindingFlags.Instance);
-                if (campsMatrixProp == null) return null;
-
-                var campsMatrix = campsMatrixProp.GetValue(resourcesService);
-
-                // Use consolidated helper (string key doesn't need ContainsKey check)
-                return GetSourceBuildingNames(campsMatrix, refGoodName, false);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetCampsForResource failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get gatherer huts that can work a resource deposit.
-        /// Path: DepositsService.HutsMatrix[Model]
-        /// </summary>
-        private static string GetHutsForDeposit(object depositModel)
-        {
-            try
-            {
-                // Get DepositsService
-                var depositsService = GameReflection.GetDepositsService();
-                if (depositsService == null) return null;
-
-                // Initialize service cache
-                EnsureServiceCache(null, depositsService);
-
-                // Get HutsMatrix dictionary
-                var hutsMatrixProp = _hutsMatrixProp ?? depositsService.GetType().GetProperty("HutsMatrix", BindingFlags.Public | BindingFlags.Instance);
-                if (hutsMatrixProp == null) return null;
-
-                var hutsMatrix = hutsMatrixProp.GetValue(depositsService);
-
-                // Use consolidated helper (object key needs ContainsKey check)
-                return GetSourceBuildingNames(hutsMatrix, depositModel, true);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ATSAccessibility] GetHutsForDeposit failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        // ========================================
-        // UTILITY METHODS
-        // ========================================
-
-        private static FieldInfo _wasDiscoveredField;
-        private static bool _wasDiscoveredCached;
-
-        private static bool GetGladeWasDiscovered(object glade)
-        {
-            if (!_wasDiscoveredCached)
-            {
-                _wasDiscoveredField = glade.GetType().GetField("wasDiscovered",
-                    BindingFlags.Public | BindingFlags.Instance);
-                _wasDiscoveredCached = true;
-            }
-
-            try
-            {
-                if (_wasDiscoveredField != null)
-                    return (bool)_wasDiscoveredField.GetValue(glade);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}");
-            }
-
-            // Default to discovered (don't hide content if we can't determine state)
-            return true;
-        }
-
-        /// <summary>
-        /// Check if a type inherits from a class with the given name anywhere in its hierarchy.
-        /// </summary>
-        private static bool InheritsFrom(Type type, string ancestorName)
-        {
-            Type current = type;
-            while (current != null)
-            {
-                if (current.Name == ancestorName)
-                    return true;
-                current = current.BaseType;
-            }
-            return false;
-        }
-    }
+namespace ATSAccessibility {
+	/// <summary>
+	/// Reads detailed tile information (like tooltips) for the I key feature.
+	/// Provides building, natural resource, and deposit info via reflection.
+	/// Uses cached reflection metadata for performance while fetching fresh values each call.
+	/// </summary>
+	public static class TileInfoReader {
+		// ========================================
+		// REFLECTION CACHE (per-type dictionaries)
+		// ========================================
+
+		// NaturalResource reflection cache (per-type for different resource/model types)
+		private static Dictionary<Type, PropertyInfo> _naturalResourceModelProps = new Dictionary<Type, PropertyInfo>();
+		private static Dictionary<Type, PropertyInfo> _naturalResourceStateProps = new Dictionary<Type, PropertyInfo>();
+		private static Dictionary<Type, FieldInfo> _resourceStateChargesLeftFields = new Dictionary<Type, FieldInfo>();
+		private static Dictionary<Type, FieldInfo> _resourceModelChargesFields = new Dictionary<Type, FieldInfo>();
+		private static Dictionary<Type, PropertyInfo> _resourceModelRefGoodNameProps = new Dictionary<Type, PropertyInfo>();
+
+		// ResourceDeposit reflection cache (per-type)
+		private static Dictionary<Type, PropertyInfo> _depositModelProps = new Dictionary<Type, PropertyInfo>();
+		private static Dictionary<Type, PropertyInfo> _depositStateProps = new Dictionary<Type, PropertyInfo>();
+		private static Dictionary<Type, PropertyInfo> _depositModelDescProps = new Dictionary<Type, PropertyInfo>();
+		private static Dictionary<Type, FieldInfo> _depositStateChargesLeftFields = new Dictionary<Type, FieldInfo>();
+		private static Dictionary<Type, FieldInfo> _depositStateMaxChargesFields = new Dictionary<Type, FieldInfo>();
+
+		// Building reflection cache (per-type)
+		private static Dictionary<Type, PropertyInfo> _buildingModelProps = new Dictionary<Type, PropertyInfo>();
+		private static Dictionary<Type, PropertyInfo> _buildingModelDescProps = new Dictionary<Type, PropertyInfo>();
+
+		// Shared model fields (production, extraProduction)
+		private static FieldInfo _productionField;
+		private static FieldInfo _extraProductionField;
+		private static FieldInfo _goodRefGoodField;
+		private static FieldInfo _goodRefAmountField;
+		private static PropertyInfo _goodRefChanceDisplayNameProp;
+		private static FieldInfo _goodRefChanceField;
+		private static FieldInfo _goodDisplayNameField;
+		private static bool _sharedCached;
+
+		// Service reflection cache
+		private static PropertyInfo _campsMatrixProp;
+		private static PropertyInfo _hutsMatrixProp;
+		private static bool _serviceCached;
+
+		// ========================================
+		// CACHE INITIALIZATION METHODS
+		// ========================================
+
+		private static void EnsureSharedCache(object model) {
+			if (_sharedCached || model == null) return;
+
+			var modelType = model.GetType();
+			_productionField = modelType.GetField("production", BindingFlags.Public | BindingFlags.Instance);
+			_extraProductionField = modelType.GetField("extraProduction", BindingFlags.Public | BindingFlags.Instance);
+
+			// Cache GoodRef fields if we have a production object
+			if (_productionField != null) {
+				var production = _productionField.GetValue(model);
+				if (production != null) {
+					var prodType = production.GetType();
+					_goodRefGoodField = prodType.GetField("good", BindingFlags.Public | BindingFlags.Instance);
+					_goodRefAmountField = prodType.GetField("amount", BindingFlags.Public | BindingFlags.Instance);
+
+					// Cache Good fields
+					if (_goodRefGoodField != null) {
+						var good = _goodRefGoodField.GetValue(production);
+						if (good != null) {
+							_goodDisplayNameField = good.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+						}
+					}
+				}
+			}
+
+			// Cache GoodRefChance fields if we have extraProduction
+			if (_extraProductionField != null) {
+				var extraProduction = _extraProductionField.GetValue(model) as Array;
+				if (extraProduction != null && extraProduction.Length > 0) {
+					var firstItem = extraProduction.GetValue(0);
+					if (firstItem != null) {
+						var itemType = firstItem.GetType();
+						_goodRefChanceDisplayNameProp = itemType.GetProperty("DisplayName");
+						_goodRefChanceField = itemType.GetField("chance", BindingFlags.Public | BindingFlags.Instance);
+					}
+				}
+			}
+
+			_sharedCached = true;
+		}
+
+		private static void EnsureServiceCache(object resourcesService, object depositsService) {
+			if (_serviceCached) return;
+
+			if (resourcesService != null && _campsMatrixProp == null) {
+				_campsMatrixProp = resourcesService.GetType().GetProperty("CampsMatrix", BindingFlags.Public | BindingFlags.Instance);
+			}
+
+			if (depositsService != null && _hutsMatrixProp == null) {
+				_hutsMatrixProp = depositsService.GetType().GetProperty("HutsMatrix", BindingFlags.Public | BindingFlags.Instance);
+			}
+
+			_serviceCached = true;
+		}
+
+		// ========================================
+		// SAFE ACCESS HELPERS
+		// ========================================
+
+		private static int GetIntField(object obj, FieldInfo field) {
+			if (obj == null || field == null) return 0;
+			try { return (int)field.GetValue(obj); } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetIntField failed: {ex.Message}"); return 0; }
+		}
+
+		private static string GetStringProperty(object obj, PropertyInfo prop) {
+			if (obj == null || prop == null) return null;
+			try { return prop.GetValue(obj) as string; } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetStringProperty failed: {ex.Message}"); return null; }
+		}
+
+		private static float GetFloatField(object obj, FieldInfo field) {
+			if (obj == null || field == null) return 0f;
+			try { return (float)field.GetValue(obj); } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetFloatField failed: {ex.Message}"); return 0f; }
+		}
+
+		// ========================================
+		// CONSOLIDATED HELPERS
+		// ========================================
+
+		/// <summary>
+		/// Get charges info: "X of Y charges"
+		/// For NaturalResource: chargesLeft from state, max from model
+		/// For Deposit: both from state
+		/// </summary>
+		private static string GetChargesInfo(object state, FieldInfo chargesLeftField, object maxSource, FieldInfo maxChargesField) {
+			int chargesLeft = GetIntField(state, chargesLeftField);
+			int maxCharges = GetIntField(maxSource, maxChargesField);
+
+			return maxCharges > 0 ? $"{chargesLeft} of {maxCharges} charges" : null;
+		}
+
+		/// <summary>
+		/// Get localized text from a LocaText field (fieldName.Text).
+		/// </summary>
+		private static string GetLocalizedText(object obj, string fieldName) {
+			try {
+				var field = obj.GetType().GetField(fieldName, BindingFlags.Public | BindingFlags.Instance);
+				if (field == null) return null;
+
+				var locaText = field.GetValue(obj);
+				return GameReflection.GetLocaText(locaText);
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetLocalizedText failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the Description property from a model object.
+		/// For NaturalResourceModel/ResourceDepositModel, this includes the grade requirement text with sprite tags.
+		/// </summary>
+		private static string GetDescriptionProperty(object model) {
+			if (model == null) return null;
+
+			try {
+				var descProp = model.GetType().GetProperty("Description", BindingFlags.Public | BindingFlags.Instance);
+				return descProp?.GetValue(model) as string;
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetDescriptionProperty failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get names from a dictionary of building models.
+		/// Shared logic for CampsMatrix and HutsMatrix lookups.
+		/// </summary>
+		private static string GetSourceBuildingNames(object dictionary, object key, bool useContainsKey) {
+			if (dictionary == null || key == null) return null;
+
+			try {
+				object buildingList;
+
+				if (useContainsKey) {
+					// For object keys (like depositModel), check ContainsKey first
+					var containsKeyMethod = dictionary.GetType().GetMethod("ContainsKey");
+					if (containsKeyMethod == null) return null;
+
+					bool containsKey = (bool)containsKeyMethod.Invoke(dictionary, new object[] { key });
+					if (!containsKey) return null;
+				}
+
+				// Get the list using indexer
+				var indexerProp = dictionary.GetType().GetProperty("Item");
+				if (indexerProp == null) return null;
+
+				try {
+					buildingList = indexerProp.GetValue(dictionary, new object[] { key });
+				} catch (Exception ex) {
+					Debug.LogWarning($"[ATSAccessibility] GetSourceBuildingNames indexer failed: {ex.Message}");
+					return null;
+				}
+
+				if (buildingList == null) return null;
+
+				var listEnumerable = buildingList as IEnumerable;
+				if (listEnumerable == null) return null;
+
+				var names = new List<string>();
+				foreach (var building in listEnumerable) {
+					if (building == null) continue;
+
+					string name = GetLocalizedText(building, "displayName");
+					if (!string.IsNullOrEmpty(name)) {
+						names.Add(name);
+					}
+				}
+
+				return names.Count > 0 ? string.Join(", ", names) : null;
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetSourceBuildingNames failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		// ========================================
+		// PUBLIC API
+		// ========================================
+
+		/// <summary>
+		/// Read and announce detailed info about the object at the current cursor position.
+		/// Called when I key is pressed during map navigation.
+		/// </summary>
+		public static void ReadCurrentTile(int cursorX, int cursorY) {
+			var glade = GameReflection.GetGlade(cursorX, cursorY);
+			if (glade != null && !GetGladeWasDiscovered(glade)) {
+				Speech.Say("Unrevealed glade");
+				return;
+			}
+
+			var objectOn = GameReflection.GetObjectOn(cursorX, cursorY);
+
+			if (objectOn == null) {
+				Speech.Say("No object");
+				return;
+			}
+
+			string typeName = objectOn.GetType().Name;
+
+			// GetObjectOn returns Field when there's no actual object
+			if (typeName == "Field") {
+				Speech.Say("No object");
+				return;
+			}
+
+			string info = null;
+
+			// Determine object type and get appropriate info
+			// Check inheritance chain for Building (Storage -> ProductionBuilding -> Building)
+			if (InheritsFrom(objectOn.GetType(), "Building")) {
+				info = GetBuildingInfo(objectOn);
+			} else if (typeName == "NaturalResource") {
+				info = GetNaturalResourceInfo(objectOn);
+			} else if (typeName == "ResourceDeposit") {
+				info = GetResourceDepositInfo(objectOn);
+			} else if (typeName == "Ore") {
+				info = GetOreInfo(objectOn);
+			} else if (typeName == "Spring") {
+				info = GetSpringInfo(objectOn);
+			} else if (typeName == "Lake") {
+				info = GetLakeInfo(objectOn);
+			} else {
+				// Unknown type - try generic name extraction
+				info = GetGenericObjectInfo(objectOn);
+			}
+
+			if (!string.IsNullOrEmpty(info)) {
+				Speech.Say(info);
+			} else {
+				Speech.Say("No information available");
+			}
+		}
+
+		// ========================================
+		// OBJECT TYPE HANDLERS
+		// ========================================
+
+		// ========================================
+		// GUIDEPOST DIRECTION HELPERS
+		// ========================================
+
+		/// <summary>
+		/// Convert an angle (in degrees) to a compass direction string.
+		/// Based on the game's rotation system where:
+		/// 0° = West, 90° = North, 180° = East, 270° = South
+		/// </summary>
+		private static string AngleToCompassDirection(float angle) {
+			// Normalize to 0-360
+			angle = ((angle % 360f) + 360f) % 360f;
+
+			// 8-point compass with 45° segments centered on each direction
+			if (angle >= 337.5f || angle < 22.5f) return "West";
+			if (angle >= 22.5f && angle < 67.5f) return "Northwest";
+			if (angle >= 67.5f && angle < 112.5f) return "North";
+			if (angle >= 112.5f && angle < 157.5f) return "Northeast";
+			if (angle >= 157.5f && angle < 202.5f) return "East";
+			if (angle >= 202.5f && angle < 247.5f) return "Southeast";
+			if (angle >= 247.5f && angle < 292.5f) return "South";
+			return "Southwest";
+		}
+
+		/// <summary>
+		/// Get guidepost direction info if the building is a SealGuidepostView.
+		/// Returns null if not a guidepost.
+		/// </summary>
+		private static string GetGuidepostDirection(object building) {
+			try {
+				// First check if we're in a sealed biome
+				if (!GameReflection.IsSealedBiome()) return null;
+
+				// Get the building's view field (Decoration has public "view" field)
+				var viewField = building.GetType().GetField("view", BindingFlags.Public | BindingFlags.Instance);
+				if (viewField == null) return null;
+
+				var view = viewField.GetValue(building);
+				if (view == null) return null;
+
+				// Check if it's a SealGuidepostView
+				if (view.GetType().Name != "SealGuidepostView") return null;
+
+				// Get building's world position from view.Position (inherited from BaseMB)
+				var positionProp = view.GetType().GetProperty("Position", BindingFlags.Public | BindingFlags.Instance);
+				if (positionProp == null) return null;
+
+				var positionObj = positionProp.GetValue(view);
+				if (!(positionObj is Vector3 position)) return null;
+
+				// Get seal target field
+				Vector2Int sealField = GameReflection.GetGuidepostTargetField();
+				if (sealField == default) return null;
+
+				// Get seal size for center calculation
+				Vector2Int sealSize = GameReflection.GetSealSize();
+				if (sealSize == default) return null;
+
+				// Calculate seal center (same as game's GetCenter method)
+				Vector3 targetCenter = new Vector3(
+					sealField.x + sealSize.x / 2f,
+					0f,
+					sealField.y + sealSize.y / 2f);
+
+				// Calculate direction (replicating game logic from SealGuidepostView)
+				Vector3 dir = targetCenter - position;
+				float angle = Mathf.Atan2(dir.z, -dir.x) * Mathf.Rad2Deg + 90f;
+
+				string direction = AngleToCompassDirection(angle);
+				return $"Pointing {direction}";
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetGuidepostDirection failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get info for a building (description only - name already announced).
+		/// </summary>
+		private static string GetBuildingInfo(object building) {
+			try {
+				// Check for guidepost first (returns direction info)
+				string guidepostInfo = GetGuidepostDirection(building);
+				if (!string.IsNullOrEmpty(guidepostInfo))
+					return guidepostInfo;
+
+				var buildingType = building.GetType();
+
+				// Get or cache BuildingModel property for this type
+				if (!_buildingModelProps.TryGetValue(buildingType, out var buildingModelProp)) {
+					buildingModelProp = buildingType.GetProperty("BuildingModel");
+					_buildingModelProps[buildingType] = buildingModelProp;
+				}
+				if (buildingModelProp == null) return null;
+
+				var buildingModel = buildingModelProp.GetValue(building);
+				if (buildingModel == null) return null;
+
+				var modelType = buildingModel.GetType();
+
+				// Get or cache Description property for this model type
+				if (!_buildingModelDescProps.TryGetValue(modelType, out var descProp)) {
+					descProp = modelType.GetProperty("Description");
+					_buildingModelDescProps[modelType] = descProp;
+				}
+
+				var parts = new List<string>();
+
+				// Get Description
+				string desc = GetStringProperty(buildingModel, descProp);
+				if (!string.IsNullOrEmpty(desc)) {
+					parts.Add(desc);
+				}
+
+				return string.Join(", ", parts);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetBuildingInfo failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get info for a natural resource (tree, mushroom, etc).
+		/// Includes: description, charges, products, sources (name excluded - already announced).
+		/// </summary>
+		private static string GetNaturalResourceInfo(object resource) {
+			try {
+				var resourceType = resource.GetType();
+
+				// Get or cache Model property
+				if (!_naturalResourceModelProps.TryGetValue(resourceType, out var modelProp)) {
+					modelProp = resourceType.GetProperty("Model");
+					_naturalResourceModelProps[resourceType] = modelProp;
+				}
+				if (modelProp == null) return null;
+
+				var model = modelProp.GetValue(resource);
+				if (model == null) return null;
+
+				var modelType = model.GetType();
+
+				// Get or cache State property
+				if (!_naturalResourceStateProps.TryGetValue(resourceType, out var stateProp)) {
+					stateProp = resourceType.GetProperty("State");
+					_naturalResourceStateProps[resourceType] = stateProp;
+				}
+				var state = stateProp?.GetValue(resource);
+				var stateType = state?.GetType();
+
+				// Get or cache charges fields
+				if (!_resourceModelChargesFields.TryGetValue(modelType, out var modelChargesField)) {
+					modelChargesField = modelType.GetField("charges", BindingFlags.Public | BindingFlags.Instance);
+					_resourceModelChargesFields[modelType] = modelChargesField;
+				}
+
+				FieldInfo stateChargesLeftField = null;
+				if (stateType != null && !_resourceStateChargesLeftFields.TryGetValue(stateType, out stateChargesLeftField)) {
+					stateChargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
+					_resourceStateChargesLeftFields[stateType] = stateChargesLeftField;
+				}
+
+				// Get or cache RefGoodName property
+				if (!_resourceModelRefGoodNameProps.TryGetValue(modelType, out var refGoodNameProp)) {
+					refGoodNameProp = modelType.GetProperty("RefGoodName");
+					_resourceModelRefGoodNameProps[modelType] = refGoodNameProp;
+				}
+
+				var parts = new List<string>();
+
+				// Charges first: chargesLeft from state, max from model
+				string chargesInfo = GetChargesInfo(state, stateChargesLeftField, model, modelChargesField);
+				if (!string.IsNullOrEmpty(chargesInfo)) {
+					parts.Add(chargesInfo);
+				}
+
+				// Description from model.description field (LocaText)
+				string desc = GetLocalizedText(model, "description");
+				if (!string.IsNullOrEmpty(desc)) {
+					parts.Add(desc);
+				}
+
+				// Main product
+				string productInfo = GetMainProductInfo(model);
+				if (!string.IsNullOrEmpty(productInfo)) {
+					parts.Add($"Produces {productInfo}");
+				}
+
+				// Extra products
+				string extraInfo = GetExtraProductsInfo(model);
+				if (!string.IsNullOrEmpty(extraInfo)) {
+					parts.Add($"Extra: {extraInfo}");
+				}
+
+				// Source buildings (camps that can harvest)
+				string sourcesInfo = GetCampsForResource(model, refGoodNameProp);
+				if (!string.IsNullOrEmpty(sourcesInfo)) {
+					parts.Add($"Harvested by: {sourcesInfo}");
+				}
+
+				return string.Join(", ", parts);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetNaturalResourceInfo failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get info for a resource deposit (clay, copper, etc).
+		/// Includes: description, charges, products, sources (name excluded - already announced).
+		/// </summary>
+		private static string GetResourceDepositInfo(object deposit) {
+			try {
+				var depositType = deposit.GetType();
+
+				// Get or cache Model property
+				if (!_depositModelProps.TryGetValue(depositType, out var modelProp)) {
+					modelProp = depositType.GetProperty("Model");
+					_depositModelProps[depositType] = modelProp;
+				}
+				if (modelProp == null) return null;
+
+				var model = modelProp.GetValue(deposit);
+				if (model == null) return null;
+
+				var modelType = model.GetType();
+
+				// Get or cache State property
+				if (!_depositStateProps.TryGetValue(depositType, out var stateProp)) {
+					stateProp = depositType.GetProperty("State");
+					_depositStateProps[depositType] = stateProp;
+				}
+				var state = stateProp?.GetValue(deposit);
+				var stateType = state?.GetType();
+
+				// Get or cache Description property
+				if (!_depositModelDescProps.TryGetValue(modelType, out var descProp)) {
+					descProp = modelType.GetProperty("Description");
+					_depositModelDescProps[modelType] = descProp;
+				}
+
+				// Get or cache charges fields (both from state for deposits)
+				FieldInfo stateChargesLeftField = null;
+				FieldInfo stateMaxChargesField = null;
+				if (stateType != null) {
+					if (!_depositStateChargesLeftFields.TryGetValue(stateType, out stateChargesLeftField)) {
+						stateChargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
+						_depositStateChargesLeftFields[stateType] = stateChargesLeftField;
+					}
+					if (!_depositStateMaxChargesFields.TryGetValue(stateType, out stateMaxChargesField)) {
+						stateMaxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
+						_depositStateMaxChargesFields[stateType] = stateMaxChargesField;
+					}
+				}
+
+				var parts = new List<string>();
+
+				// Charges first: both values from state for deposits
+				string chargesInfo = GetChargesInfo(state, stateChargesLeftField, state, stateMaxChargesField);
+				if (!string.IsNullOrEmpty(chargesInfo)) {
+					parts.Add(chargesInfo);
+				}
+
+				// Description
+				string desc = GetStringProperty(model, descProp);
+				if (!string.IsNullOrEmpty(desc)) {
+					parts.Add(desc);
+				}
+
+				// Main product
+				string productInfo = GetMainProductInfo(model);
+				if (!string.IsNullOrEmpty(productInfo)) {
+					parts.Add($"Produces {productInfo}");
+				}
+
+				// Extra products
+				string extraInfo = GetExtraProductsInfo(model);
+				if (!string.IsNullOrEmpty(extraInfo)) {
+					parts.Add($"Extra: {extraInfo}");
+				}
+
+				// Source buildings (gatherer huts that can work this deposit)
+				string sourcesInfo = GetHutsForDeposit(model);
+				if (!string.IsNullOrEmpty(sourcesInfo)) {
+					parts.Add($"Gathered by: {sourcesInfo}");
+				}
+
+				return string.Join(", ", parts);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetResourceDepositInfo failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get info for an ore deposit (copper vein, etc).
+		/// Includes: total charges, description, products.
+		/// </summary>
+		private static string GetOreInfo(object ore) {
+			try {
+				var oreType = ore.GetType();
+
+				// Get Model property
+				var modelProp = oreType.GetProperty("Model");
+				if (modelProp == null) return null;
+
+				var model = modelProp.GetValue(ore);
+				if (model == null) return null;
+
+				// Get State property
+				var stateProp = oreType.GetProperty("State");
+				var state = stateProp?.GetValue(ore);
+
+				var parts = new List<string>();
+
+				// Get total charges from state (mainCharges + extraCharges arrays)
+				if (state != null) {
+					var stateType = state.GetType();
+					var mainChargesField = stateType.GetField("mainCharges", BindingFlags.Public | BindingFlags.Instance);
+					var extraChargesField = stateType.GetField("extraCharges", BindingFlags.Public | BindingFlags.Instance);
+
+					int totalCharges = 0;
+					if (mainChargesField != null) {
+						var mainCharges = mainChargesField.GetValue(state) as int[];
+						if (mainCharges != null) {
+							foreach (int c in mainCharges) totalCharges += c;
+						}
+					}
+					if (extraChargesField != null) {
+						var extraCharges = extraChargesField.GetValue(state) as int[];
+						if (extraCharges != null) {
+							foreach (int c in extraCharges) totalCharges += c;
+						}
+					}
+
+					if (totalCharges > 0) {
+						parts.Add($"{totalCharges} charges remaining");
+					}
+				}
+
+				// Description
+				string desc = GetLocalizedText(model, "description");
+				if (!string.IsNullOrEmpty(desc)) {
+					parts.Add(desc);
+				}
+
+				// Product info from displayProduct
+				var modelType = model.GetType();
+				var displayProductField = modelType.GetField("displayProduct", BindingFlags.Public | BindingFlags.Instance);
+				if (displayProductField != null) {
+					var displayProduct = displayProductField.GetValue(model);
+					if (displayProduct != null) {
+						var goodField = displayProduct.GetType().GetField("good", BindingFlags.Public | BindingFlags.Instance);
+						if (goodField != null) {
+							var good = goodField.GetValue(displayProduct);
+							if (good != null) {
+								string productName = GetLocalizedText(good, "displayName");
+								if (!string.IsNullOrEmpty(productName)) {
+									parts.Add($"Produces {productName}");
+								}
+							}
+						}
+					}
+				}
+
+				return parts.Count > 0 ? string.Join(", ", parts) : null;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetOreInfo failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get info for a spring (water source).
+		/// Includes: charges, description.
+		/// </summary>
+		private static string GetSpringInfo(object spring) {
+			try {
+				var springType = spring.GetType();
+
+				// Get Model property
+				var modelProp = springType.GetProperty("Model");
+				if (modelProp == null) return null;
+
+				var model = modelProp.GetValue(spring);
+				if (model == null) return null;
+
+				// Get State property
+				var stateProp = springType.GetProperty("State");
+				var state = stateProp?.GetValue(spring);
+
+				var parts = new List<string>();
+
+				// Get charges from state
+				if (state != null) {
+					var stateType = state.GetType();
+					var chargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
+					var maxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
+
+					int chargesLeft = GetIntField(state, chargesLeftField);
+					int maxCharges = GetIntField(state, maxChargesField);
+
+					if (maxCharges > 0) {
+						parts.Add($"{chargesLeft} of {maxCharges} charges");
+					}
+				}
+
+				// Description
+				string desc = GetLocalizedText(model, "description");
+				if (!string.IsNullOrEmpty(desc)) {
+					parts.Add(desc);
+				}
+
+				return parts.Count > 0 ? string.Join(", ", parts) : null;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetSpringInfo failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get info for a lake (fishing spot).
+		/// Includes: charges, description, products.
+		/// </summary>
+		private static string GetLakeInfo(object lake) {
+			try {
+				var lakeType = lake.GetType();
+
+				// Get Model property
+				var modelProp = lakeType.GetProperty("Model");
+				if (modelProp == null) return null;
+
+				var model = modelProp.GetValue(lake);
+				if (model == null) return null;
+
+				// Get State property
+				var stateProp = lakeType.GetProperty("State");
+				var state = stateProp?.GetValue(lake);
+
+				var parts = new List<string>();
+
+				// Get charges from state
+				if (state != null) {
+					var stateType = state.GetType();
+					var chargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
+					var maxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
+
+					int chargesLeft = GetIntField(state, chargesLeftField);
+					int maxCharges = GetIntField(state, maxChargesField);
+
+					if (maxCharges > 0) {
+						parts.Add($"{chargesLeft} of {maxCharges} charges");
+					}
+
+					// Get stored fish waiting for pickup
+					var goodsField = stateType.GetField("goods", BindingFlags.Public | BindingFlags.Instance);
+					if (goodsField != null) {
+						var goods = goodsField.GetValue(state);
+						if (goods != null) {
+							// GoodsContainer has a Sum() method
+							var sumMethod = goods.GetType().GetMethod("Sum", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
+							if (sumMethod != null) {
+								int storedFish = (int)sumMethod.Invoke(goods, null);
+								if (storedFish > 0) {
+									parts.Add($"{storedFish} fish waiting for pickup");
+								}
+							}
+						}
+					}
+				}
+
+				// Description - LakeModel has a Description property that includes grade requirement
+				string desc = GetDescriptionProperty(model);
+				if (!string.IsNullOrEmpty(desc)) {
+					parts.Add(desc);
+				}
+
+				// Product info from production field
+				string productInfo = GetMainProductInfo(model);
+				if (!string.IsNullOrEmpty(productInfo)) {
+					parts.Add($"Produces {productInfo}");
+				}
+
+				return parts.Count > 0 ? string.Join(", ", parts) : null;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetLakeInfo failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Generic fallback for unknown object types.
+		/// </summary>
+		private static string GetGenericObjectInfo(object obj) {
+			try {
+				// Try Model.displayName first
+				var modelProp = obj.GetType().GetProperty("Model");
+				if (modelProp != null) {
+					var model = modelProp.GetValue(obj);
+					if (model != null) {
+						string name = GetLocalizedText(model, "displayName");
+						if (!string.IsNullOrEmpty(name)) {
+							return name;
+						}
+					}
+				}
+
+				// Fallback to type name
+				return obj.GetType().Name;
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetGenericObjectInfo failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		// ========================================
+		// PRODUCT INFO HELPERS
+		// ========================================
+
+		/// <summary>
+		/// Get main product info: "ProductName (amount)"
+		/// Path: Model.production.good.displayName.Text
+		/// </summary>
+		private static string GetMainProductInfo(object model) {
+			try {
+				var productionField = _productionField ?? model.GetType().GetField("production", BindingFlags.Public | BindingFlags.Instance);
+				if (productionField == null) return null;
+
+				var production = productionField.GetValue(model);
+				if (production == null) return null;
+
+				// Get good
+				var goodField = _goodRefGoodField ?? production.GetType().GetField("good", BindingFlags.Public | BindingFlags.Instance);
+				if (goodField == null) return null;
+
+				var good = goodField.GetValue(production);
+				if (good == null) return null;
+
+				// Get displayName
+				var displayNameField = _goodDisplayNameField ?? good.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+				if (displayNameField == null) return null;
+
+				var displayName = displayNameField.GetValue(good);
+				string productName = GameReflection.GetLocaText(displayName);
+
+				// Get amount
+				var amountField = _goodRefAmountField ?? production.GetType().GetField("amount", BindingFlags.Public | BindingFlags.Instance);
+				int amount = GetIntField(production, amountField);
+
+				if (!string.IsNullOrEmpty(productName)) {
+					return amount > 1 ? $"{amount} {productName}" : productName;
+				}
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetMainProductInfo failed: {ex.Message}"); }
+
+			return null;
+		}
+
+		/// <summary>
+		/// Get extra products info: "Product1 X%, Product2 Y%"
+		/// Path: Model.extraProduction[] array of GoodRefChance
+		/// </summary>
+		private static string GetExtraProductsInfo(object model) {
+			try {
+				var extraProductionField = _extraProductionField ?? model.GetType().GetField("extraProduction", BindingFlags.Public | BindingFlags.Instance);
+				if (extraProductionField == null) return null;
+
+				var extraProduction = extraProductionField.GetValue(model) as Array;
+				if (extraProduction == null || extraProduction.Length == 0) return null;
+
+				var parts = new List<string>();
+
+				foreach (var item in extraProduction) {
+					if (item == null) continue;
+
+					// Get DisplayName (using cached property if available)
+					var displayNameProp = _goodRefChanceDisplayNameProp ?? item.GetType().GetProperty("DisplayName");
+					string productName = displayNameProp != null ? displayNameProp.GetValue(item) as string : null;
+
+					// Get chance (using cached field if available)
+					var chanceField = _goodRefChanceField ?? item.GetType().GetField("chance", BindingFlags.Public | BindingFlags.Instance);
+					float chance = GetFloatField(item, chanceField);
+
+					if (!string.IsNullOrEmpty(productName) && chance > 0) {
+						int percent = Mathf.RoundToInt(chance * 100f);
+						parts.Add($"{productName} {percent}%");
+					}
+				}
+
+				return parts.Count > 0 ? string.Join(", ", parts) : null;
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetExtraProductsInfo failed: {ex.Message}"); }
+
+			return null;
+		}
+
+		// ========================================
+		// SOURCE BUILDING HELPERS
+		// ========================================
+
+		/// <summary>
+		/// Get camps that can harvest a natural resource.
+		/// Path: ResourcesService.CampsMatrix[Model.RefGoodName]
+		/// </summary>
+		private static string GetCampsForResource(object resourceModel, PropertyInfo refGoodNameProp) {
+			try {
+				// Get RefGoodName from model (use passed-in cached property)
+				string refGoodName = GetStringProperty(resourceModel, refGoodNameProp);
+				if (string.IsNullOrEmpty(refGoodName)) return null;
+
+				// Get ResourcesService
+				var resourcesService = GameReflection.GetResourcesService();
+				if (resourcesService == null) return null;
+
+				// Initialize service cache
+				EnsureServiceCache(resourcesService, null);
+
+				// Get CampsMatrix dictionary
+				var campsMatrixProp = _campsMatrixProp ?? resourcesService.GetType().GetProperty("CampsMatrix", BindingFlags.Public | BindingFlags.Instance);
+				if (campsMatrixProp == null) return null;
+
+				var campsMatrix = campsMatrixProp.GetValue(resourcesService);
+
+				// Use consolidated helper (string key doesn't need ContainsKey check)
+				return GetSourceBuildingNames(campsMatrix, refGoodName, false);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetCampsForResource failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get gatherer huts that can work a resource deposit.
+		/// Path: DepositsService.HutsMatrix[Model]
+		/// </summary>
+		private static string GetHutsForDeposit(object depositModel) {
+			try {
+				// Get DepositsService
+				var depositsService = GameReflection.GetDepositsService();
+				if (depositsService == null) return null;
+
+				// Initialize service cache
+				EnsureServiceCache(null, depositsService);
+
+				// Get HutsMatrix dictionary
+				var hutsMatrixProp = _hutsMatrixProp ?? depositsService.GetType().GetProperty("HutsMatrix", BindingFlags.Public | BindingFlags.Instance);
+				if (hutsMatrixProp == null) return null;
+
+				var hutsMatrix = hutsMatrixProp.GetValue(depositsService);
+
+				// Use consolidated helper (object key needs ContainsKey check)
+				return GetSourceBuildingNames(hutsMatrix, depositModel, true);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetHutsForDeposit failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		// ========================================
+		// UTILITY METHODS
+		// ========================================
+
+		private static FieldInfo _wasDiscoveredField;
+		private static bool _wasDiscoveredCached;
+
+		private static bool GetGladeWasDiscovered(object glade) {
+			if (!_wasDiscoveredCached) {
+				_wasDiscoveredField = glade.GetType().GetField("wasDiscovered",
+					BindingFlags.Public | BindingFlags.Instance);
+				_wasDiscoveredCached = true;
+			}
+
+			try {
+				if (_wasDiscoveredField != null)
+					return (bool)_wasDiscoveredField.GetValue(glade);
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}");
+			}
+
+			// Default to discovered (don't hide content if we can't determine state)
+			return true;
+		}
+
+		/// <summary>
+		/// Check if a type inherits from a class with the given name anywhere in its hierarchy.
+		/// </summary>
+		private static bool InheritsFrom(Type type, string ancestorName) {
+			Type current = type;
+			while (current != null) {
+				if (current.Name == ancestorName)
+					return true;
+				current = current.BaseType;
+			}
+			return false;
+		}
+	}
 }

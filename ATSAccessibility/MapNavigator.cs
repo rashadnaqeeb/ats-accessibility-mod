@@ -4,973 +4,826 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
-namespace ATSAccessibility
-{
-    /// <summary>
-    /// Handles keyboard-based map navigation in settlement view.
-    /// Arrow keys move a virtual cursor on the map grid, announcing tile contents.
-    /// Map size is dynamically determined from the game's MapService.
-    /// </summary>
-    public class MapNavigator
-    {
-        // Virtual cursor position (initialized to center on first use)
-        private int _cursorX = -1;
-        private int _cursorY = -1;
-
-        // Coordinate origin (Ancient Hearth position) for hearth-relative display
-        private int _originX;
-        private int _originY;
-        private bool _originSet = false;
-
-        // Cached reflection info for Field properties (static per CLAUDE.md Pattern #6)
-        private static PropertyInfo _fieldTypeProperty = null;
-        private static PropertyInfo _fieldIsTraversableProperty = null;
-        private static bool _fieldPropertiesCached = false;
-
-        // Cached reflection info for Glade fields (static per CLAUDE.md Pattern #6)
-        private static FieldInfo _gladeWasDiscoveredField = null;
-        private static FieldInfo _gladeDangerLevelField = null;
-        private static bool _gladePropertiesCached = false;
-
-        // Cached reflection info for Villager properties (static per CLAUDE.md Pattern #6)
-        private static PropertyInfo _villagerActorStateProperty = null;
-        private static FieldInfo _actorStatePositionField = null;
-        private static PropertyInfo _villagerRaceProperty = null;
-        private static bool _villagerPropertiesCached = false;
-
-        /// <summary>
-        /// Current cursor X position.
-        /// </summary>
-        public int CursorX => _cursorX;
-
-        /// <summary>
-        /// Current cursor Y position.
-        /// </summary>
-        public int CursorY => _cursorY;
-
-        /// <summary>
-        /// Optional prefix callback for tile announcements.
-        /// Returns a prefix string (e.g. "selected") or null for no prefix.
-        /// </summary>
-        public Func<int, int, string> AnnouncementPrefix { get; set; }
-
-        /// <summary>
-        /// Ensure cursor is initialized (to hearth or map center).
-        /// </summary>
-        private void EnsureCursorInitialized()
-        {
-            if (_cursorX < 0 || _cursorY < 0)
-                ResetCursor();
-        }
-
-        /// <summary>
-        /// Ensure coordinate origin is set to the Ancient Hearth position.
-        /// Called lazily in case the hearth hasn't spawned yet at cursor init time.
-        /// </summary>
-        private void EnsureOriginSet()
-        {
-            if (_originSet) return;
-            var hearthPos = GameReflection.GetMainHearthPosition();
-            if (hearthPos.HasValue)
-            {
-                _originX = hearthPos.Value.x;
-                _originY = hearthPos.Value.y;
-                _originSet = true;
-                // Snap cursor to hearth on first discovery
-                _cursorX = _originX;
-                _cursorY = _originY;
-            }
-        }
-
-        /// <summary>
-        /// Move the cursor by delta and announce the new tile.
-        /// </summary>
-        public void MoveCursor(int dx, int dy)
-        {
-            EnsureCursorInitialized();
-            EnsureOriginSet();
-
-            int newX = _cursorX + dx;
-            int newY = _cursorY + dy;
-
-            // Bounds check using game's MapService
-            if (!GameReflection.MapInBounds(newX, newY))
-            {
-                Speech.Say("edge of map");
-                return;
-            }
-
-            _cursorX = newX;
-            _cursorY = newY;
-
-            // Fetch field once, reuse for announcement and camera
-            var field = GameReflection.GetField(_cursorX, _cursorY);
-
-            AnnounceTile(field);
-            SyncCameraToTile(field);
-        }
-
-        /// <summary>
-        /// Set cursor to specific position (for scanner End key).
-        /// Does not announce - caller handles announcement.
-        /// </summary>
-        public void SetCursorPosition(int x, int y)
-        {
-            // Bounds check using game's MapService
-            if (!GameReflection.MapInBounds(x, y))
-                return;
-
-            _cursorX = x;
-            _cursorY = y;
-
-            var field = GameReflection.GetField(_cursorX, _cursorY);
-            SyncCameraToTile(field);
-        }
-
-        /// <summary>
-        /// Skip tiles in direction until finding a tile with different announcement.
-        /// If edge reached without finding different tile, stay put and announce edge.
-        /// </summary>
-        public void SkipToNextChange(int dx, int dy)
-        {
-            EnsureCursorInitialized();
-            EnsureOriginSet();
-
-            // Get current tile's announcement as baseline (exclude villagers for comparison)
-            var currentField = GameReflection.GetField(_cursorX, _cursorY);
-            string currentAnnouncement = GetTileAnnouncement(_cursorX, _cursorY, currentField, includeVillagers: false);
-
-            int newX = _cursorX;
-            int newY = _cursorY;
-            int tilesSkipped = 0;
-
-            // Step in direction until we find different tile or hit edge
-            while (true)
-            {
-                int nextX = newX + dx;
-                int nextY = newY + dy;
-
-                // Check bounds BEFORE moving using game's MapService
-                if (!GameReflection.MapInBounds(nextX, nextY))
-                {
-                    // Hit edge without finding different tile - stay at current position
-                    Speech.Say("no change till edge");
-                    return;
-                }
-
-                newX = nextX;
-                newY = nextY;
-                tilesSkipped++;
-
-                // Get this tile's announcement (need fresh field for correct terrain/passability)
-                var nextField = GameReflection.GetField(newX, newY);
-                string nextAnnouncement = GetTileAnnouncement(newX, newY, nextField, includeVillagers: false);
-
-                // Exact string comparison
-                if (nextAnnouncement != currentAnnouncement)
-                {
-                    // Found different tile - move there
-                    _cursorX = newX;
-                    _cursorY = newY;
-
-                    string tileWord = tilesSkipped == 1 ? "tile" : "tiles";
-                    string announcement = GetTileAnnouncement(_cursorX, _cursorY, nextField);
-                    string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
-                    if (!string.IsNullOrEmpty(prefix))
-                        announcement = $"{prefix}, {announcement}";
-                    string coords = GetCoordinateSuffix();
-                    if (coords != null)
-                        announcement = $"{announcement}, {coords}";
-                    Speech.Say($"{tilesSkipped} {tileWord}, {announcement}");
-
-                    SyncCameraToTile(nextField);
-                    return;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Announce current coordinates relative to Ancient Hearth (K key).
-        /// </summary>
-        public void AnnounceCurrentPosition()
-        {
-            EnsureCursorInitialized();
-            EnsureOriginSet();
-
-            if (_originSet)
-            {
-                int relX = _cursorX - _originX;
-                int relY = _cursorY - _originY;
-                Speech.Say($"{relX}, {relY}");
-            }
-            else
-            {
-                Speech.Say("Coordinates unavailable");
-            }
-        }
-
-        /// <summary>
-        /// Returns hearth-relative coordinate string for an arbitrary position, or null if origin unknown.
-        /// </summary>
-        public string GetRelativeCoordinates(int x, int y)
-        {
-            EnsureOriginSet();
-            if (!_originSet) return null;
-            return $"{x - _originX}, {y - _originY}";
-        }
-
-        /// <summary>
-        /// Returns hearth-relative coordinate string if the toggle is on, or null.
-        /// </summary>
-        public string GetCoordinateSuffix()
-        {
-            if (Plugin.AnnounceCoordinates?.Value != true || !_originSet)
-                return null;
-            int relX = _cursorX - _originX;
-            int relY = _cursorY - _originY;
-            return $"{relX}, {relY}";
-        }
-
-        /// <summary>
-        /// Clear cursor position so it will be reinitialized on next use.
-        /// Call this when leaving a game session.
-        /// </summary>
-        public void ClearCursor()
-        {
-            _cursorX = -1;
-            _cursorY = -1;
-            _originSet = false;
-        }
-
-        /// <summary>
-        /// Reset cursor to the Ancient Hearth position, or map center as fallback.
-        /// </summary>
-        public void ResetCursor()
-        {
-            var hearthPos = GameReflection.GetMainHearthPosition();
-            if (hearthPos.HasValue)
-            {
-                _cursorX = hearthPos.Value.x;
-                _cursorY = hearthPos.Value.y;
-                EnsureOriginSet();
-            }
-            else
-            {
-                // Fallback to center if hearth not found
-                _cursorX = GameReflection.GetMapWidth() / 2;
-                _cursorY = GameReflection.GetMapHeight() / 2;
-            }
-        }
-
-        /// <summary>
-        /// Announce the current tile contents.
-        /// </summary>
-        private void AnnounceTile(object field)
-        {
-            string announcement = GetTileAnnouncement(_cursorX, _cursorY, field);
-            if (!string.IsNullOrEmpty(announcement))
-            {
-                string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
-                if (!string.IsNullOrEmpty(prefix))
-                    announcement = $"{prefix}, {announcement}";
-                string coords = GetCoordinateSuffix();
-                if (coords != null)
-                    announcement = $"{announcement}, {coords}";
-                Speech.Say(announcement);
-            }
-        }
-
-        /// <summary>
-        /// Build announcement string for a tile.
-        /// </summary>
-        /// <param name="includeVillagers">If false, skip villager check (for skip comparison performance)</param>
-        private string GetTileAnnouncement(int x, int y, object field, bool includeVillagers = true)
-        {
-            // Check for unrevealed glade first
-            var glade = GameReflection.GetGlade(x, y);
-            if (glade != null)
-            {
-                bool wasDiscovered = GetGladeWasDiscovered(glade);
-                if (!wasDiscovered)
-                {
-                    // Unrevealed glade - announce based on what info is available
-                    string dangerLevel = GetGladeDangerLevel(glade);
-                    bool hasDangerousGladeInfo = GameReflection.HasDangerousGladeInfo();
-                    bool hasGladeInfo = GameReflection.HasGladeInfo();
-
-                    string baseName;
-                    if (!hasDangerousGladeInfo)
-                    {
-                        // Cursed Royal Woodlands: ALL glade markers are hidden
-                        baseName = "glade-unknown";
-                    }
-                    else if (hasGladeInfo)
-                    {
-                        // Has glade info perk - show type and contents
-                        baseName = $"glade-{dangerLevel.ToLower()}";
-                        string contents = GameReflection.GetGladeContentsSummary(glade);
-                        if (!string.IsNullOrEmpty(contents))
-                            baseName += $": {contents}";
-                    }
-                    else
-                    {
-                        // Normal biome without glade info perk - show type only
-                        baseName = $"glade-{dangerLevel.ToLower()}";
-                    }
-
-                    // Add location marker if present
-                    string markerType = GameReflection.GetLocationMarkerType(x, y);
-                    if (!string.IsNullOrEmpty(markerType))
-                        baseName = $"{baseName}, {markerType}";
-
-                    // Add highlighted relic info if present (from Short Range Scanner, etc)
-                    string highlightedRelic = GameReflection.GetHighlightedRelicAt(x, y);
-                    if (!string.IsNullOrEmpty(highlightedRelic))
-                    {
-                        string relicDisplayName = GameReflection.GetRelicDisplayName(highlightedRelic);
-                        baseName = $"{baseName}, highlighted: {relicDisplayName}";
-                    }
-
-                    return baseName;
-                }
-            }
-
-            // Revealed tile - check contents
-            var parts = new List<string>();
-
-            // Check for building/resource
-            var objectOn = GameReflection.GetObjectOn(x, y);
-            bool hasRealObject = false;
-
-            if (objectOn != null)
-            {
-                // GetObjectOn returns Field when there's no actual object - skip those
-                string typeName = objectOn.GetType().Name;
-                if (typeName != "Field")
-                {
-                    string objectName = GetObjectName(objectOn);
-                    if (!string.IsNullOrEmpty(objectName))
-                    {
-                        // Check building state if it's a building
-                        if (GameReflection.IsBuilding(objectOn))
-                        {
-                            if (GameReflection.IsBuildingUnfinished(objectOn))
-                            {
-                                objectName += ", under construction";
-                            }
-                            else if (GameReflection.IsRelic(objectOn))
-                            {
-                                objectName += ", ruin";
-                            }
-                        }
-                        else if (typeName == "NaturalResource" && GameReflection.IsNaturalResourceMarked(objectOn))
-                        {
-                            objectName = "Marked " + objectName;
-                        }
-                        parts.Add(objectName);
-                        hasRealObject = true;
-                    }
-                }
-            }
-
-            if (!hasRealObject)
-            {
-                // No object - announce terrain using passed-in field
-                if (field != null)
-                {
-                    string terrain = GetFieldType(field);
-                    if (!string.IsNullOrEmpty(terrain))
-                    {
-                        parts.Add(terrain);
-                    }
-                }
-            }
-
-            // Check passability using same field (no second GetField call)
-            if (field != null)
-            {
-                bool isTraversable = GetFieldIsTraversable(field);
-                if (!isTraversable)
-                {
-                    parts.Add("impassable");
-                }
-            }
-
-            // Check for villagers (optional - excluded during skip comparison for performance)
-            if (includeVillagers)
-            {
-                string villagerInfo = GetVillagersOnTile(x, y);
-                if (!string.IsNullOrEmpty(villagerInfo))
-                {
-                    parts.Add(villagerInfo);
-                }
-            }
-
-            return string.Join(", ", parts);
-        }
-
-        // ========================================
-        // FIELD PROPERTY ACCESS
-        // ========================================
-
-        private void EnsureFieldProperties(object field)
-        {
-            if (_fieldPropertiesCached || field == null) return;
-
-            try
-            {
-                var fieldType = field.GetType();
-                _fieldTypeProperty = fieldType.GetProperty("Type");
-                _fieldIsTraversableProperty = fieldType.GetProperty("IsTraversable");
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureFieldProperties failed: {ex.Message}"); }
-
-            _fieldPropertiesCached = true;
-        }
-
-        private string GetFieldType(object field)
-        {
-            EnsureFieldProperties(field);
-            if (_fieldTypeProperty == null) return "unknown";
-
-            try
-            {
-                var typeValue = _fieldTypeProperty.GetValue(field);
-                if (typeValue == null) return "unknown";
-
-                var typeType = typeValue.GetType();
-                string result = null;
-
-                // Try to get displayName or name from the type object
-                var displayNameProp = typeType.GetProperty("displayName");
-                if (displayNameProp != null)
-                {
-                    var displayName = displayNameProp.GetValue(typeValue);
-                    if (displayName != null) result = displayName.ToString();
-                }
-
-                if (result == null)
-                {
-                    var nameProp = typeType.GetProperty("name");
-                    if (nameProp != null)
-                    {
-                        var name = nameProp.GetValue(typeValue);
-                        if (name != null) result = name.ToString();
-                    }
-                }
-
-                if (result == null) result = typeValue.ToString();
-
-                // Map game names to more descriptive names
-                if (result == "Grass") return "Fertile Soil";
-                if (result == "Sand") return "Soil";
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetFieldType failed: {ex.Message}");
-                return "unknown";
-            }
-        }
-
-        private bool GetFieldIsTraversable(object field)
-        {
-            EnsureFieldProperties(field);
-            if (_fieldIsTraversableProperty == null) return true;
-
-            try
-            {
-                return (bool)_fieldIsTraversableProperty.GetValue(field);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetFieldIsTraversable failed: {ex.Message}");
-                return true;
-            }
-        }
-
-        // ========================================
-        // GLADE PROPERTY ACCESS
-        // ========================================
-
-        private void EnsureGladeProperties(object glade)
-        {
-            if (_gladePropertiesCached || glade == null) return;
-
-            try
-            {
-                var gladeType = glade.GetType();
-                // GladeState uses fields, not properties
-                _gladeWasDiscoveredField = gladeType.GetField("wasDiscovered",
-                    BindingFlags.Public | BindingFlags.Instance);
-                _gladeDangerLevelField = gladeType.GetField("dangerLevel",
-                    BindingFlags.Public | BindingFlags.Instance);
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureGladeProperties failed: {ex.Message}"); }
-
-            _gladePropertiesCached = true;
-        }
-
-        private bool GetGladeWasDiscovered(object glade)
-        {
-            EnsureGladeProperties(glade);
-
-            try
-            {
-                if (_gladeWasDiscoveredField != null)
-                {
-                    return (bool)_gladeWasDiscoveredField.GetValue(glade);
-                }
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}"); }
-
-            // Default to discovered (don't hide content if we can't determine state)
-            return true;
-        }
-
-        private string GetGladeDangerLevel(object glade)
-        {
-            EnsureGladeProperties(glade);
-
-            try
-            {
-                if (_gladeDangerLevelField != null)
-                {
-                    var dangerValue = _gladeDangerLevelField.GetValue(glade);
-                    string dangerStr = dangerValue?.ToString() ?? "unknown";
-
-                    // Map enum values to user-friendly names
-                    switch (dangerStr)
-                    {
-                        case "None":
-                            return "small";
-                        case "Dangerous":
-                            return "dangerous";
-                        case "Forbidden":
-                            return "forbidden";
-                        default:
-                            return dangerStr.ToLower();
-                    }
-                }
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeDangerLevel failed: {ex.Message}"); }
-
-            return "unknown";
-        }
-
-        // ========================================
-        // OBJECT NAME ACCESS (building/resource)
-        // ========================================
-
-        private string GetObjectName(object obj)
-        {
-            if (obj == null) return null;
-
-            try
-            {
-                var objType = obj.GetType();
-
-                // Try Model.displayName first (specific type like "Lush Tree")
-                // Then fall back to Model.label.displayName (generic category like "Woodlands Trees")
-                var modelProperty = objType.GetProperty("Model");
-                if (modelProperty != null)
-                {
-                    var model = modelProperty.GetValue(obj);
-                    if (model != null)
-                    {
-                        var modelType = model.GetType();
-
-                        // Try Model.displayName first
-                        var displayNameField = modelType.GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
-                        if (displayNameField != null)
-                        {
-                            var displayName = displayNameField.GetValue(model);
-                            if (displayName != null)
-                            {
-                                string displayText = displayName.ToString();
-                                if (!string.IsNullOrEmpty(displayText))
-                                {
-                                    return displayText;
-                                }
-                            }
-                        }
-
-                        // Fall back to Model.label.displayName
-                        var labelField = modelType.GetField("label", BindingFlags.Public | BindingFlags.Instance);
-                        if (labelField != null)
-                        {
-                            var label = labelField.GetValue(model);
-                            if (label != null)
-                            {
-                                var labelDisplayNameField = label.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
-                                if (labelDisplayNameField != null)
-                                {
-                                    var labelDisplayName = labelDisplayNameField.GetValue(label);
-                                    if (labelDisplayName != null)
-                                    {
-                                        string labelText = labelDisplayName.ToString();
-                                        if (!string.IsNullOrEmpty(labelText))
-                                        {
-                                            return labelText;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        var nameProp = modelType.GetProperty("name");
-                        if (nameProp != null)
-                        {
-                            var name = nameProp.GetValue(model);
-                            if (name != null)
-                            {
-                                return Speech.CleanResourceName(name.ToString());
-                            }
-                        }
-                    }
-                }
-
-                // Try Name property
-                var nameProperty = objType.GetProperty("Name");
-                if (nameProperty != null)
-                {
-                    var nameValue = nameProperty.GetValue(obj);
-                    if (nameValue != null)
-                    {
-                        return nameValue.ToString();
-                    }
-                }
-
-                // Try DisplayName property
-                var displayNameProperty = objType.GetProperty("DisplayName");
-                if (displayNameProperty != null)
-                {
-                    var nameValue = displayNameProperty.GetValue(obj);
-                    if (nameValue != null)
-                    {
-                        return nameValue.ToString();
-                    }
-                }
-
-                // Fallback to type name
-                return objType.Name;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetObjectName failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        // ========================================
-        // VILLAGER ACCESS
-        // ========================================
-
-        private void EnsureVillagerProperties(object villager)
-        {
-            if (_villagerPropertiesCached || villager == null) return;
-
-            try
-            {
-                var villagerType = villager.GetType();
-                _villagerActorStateProperty = villagerType.GetProperty("ActorState");
-                _villagerRaceProperty = villagerType.GetProperty("Race");
-
-                // Get ActorState type for position field
-                if (_villagerActorStateProperty != null)
-                {
-                    var actorState = _villagerActorStateProperty.GetValue(villager);
-                    if (actorState != null)
-                    {
-                        var actorStateType = actorState.GetType();
-                        _actorStatePositionField = actorStateType.GetField("position",
-                            BindingFlags.Public | BindingFlags.Instance);
-                    }
-                }
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureVillagerProperties failed: {ex.Message}"); }
-
-            _villagerPropertiesCached = true;
-        }
-
-        private string GetVillagersOnTile(int x, int y)
-        {
-            var allVillagers = GameReflection.GetAllVillagers();
-            if (allVillagers == null) return null;
-
-            try
-            {
-                // allVillagers is Dictionary<int, Villager>
-                // We need to iterate and check positions
-                var villagersDict = allVillagers as IDictionary;
-                if (villagersDict == null) return null;
-
-                var raceCounts = new Dictionary<string, int>();
-
-                foreach (DictionaryEntry entry in villagersDict)
-                {
-                    var villager = entry.Value;
-                    if (villager == null) continue;
-
-                    EnsureVillagerProperties(villager);
-
-                    // Get position
-                    Vector3 position = GetVillagerPosition(villager);
-                    int villagerX = Mathf.FloorToInt(position.x);
-                    int villagerZ = Mathf.FloorToInt(position.z);
-
-                    if (villagerX == x && villagerZ == y)
-                    {
-                        // Villager is on this tile
-                        string race = GetVillagerRace(villager);
-                        if (string.IsNullOrEmpty(race)) race = "villager";
-
-                        if (raceCounts.ContainsKey(race))
-                        {
-                            raceCounts[race]++;
-                        }
-                        else
-                        {
-                            raceCounts[race] = 1;
-                        }
-                    }
-                }
-
-                if (raceCounts.Count == 0) return null;
-
-                // Build announcement like "2 beavers, 1 human"
-                var parts = new List<string>();
-                foreach (var kvp in raceCounts)
-                {
-                    string race = kvp.Key.ToLower();
-                    int count = kvp.Value;
-
-                    // Pluralize if count > 1 and doesn't already end in 's'
-                    if (count > 1 && !race.EndsWith("s"))
-                    {
-                        race += "s";
-                    }
-
-                    parts.Add($"{count} {race}");
-                }
-
-                return string.Join(", ", parts);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetVillagersOnTile failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        private Vector3 GetVillagerPosition(object villager)
-        {
-            try
-            {
-                if (_villagerActorStateProperty == null) return Vector3.zero;
-
-                var actorState = _villagerActorStateProperty.GetValue(villager);
-                if (actorState == null || _actorStatePositionField == null) return Vector3.zero;
-
-                return (Vector3)_actorStatePositionField.GetValue(actorState);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetVillagerPosition failed: {ex.Message}");
-                return Vector3.zero;
-            }
-        }
-
-        private string GetVillagerRace(object villager)
-        {
-            try
-            {
-                if (_villagerRaceProperty == null) return null;
-
-                var raceValue = _villagerRaceProperty.GetValue(villager);
-                return raceValue?.ToString();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ATSAccessibility] GetVillagerRace failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        // ========================================
-        // CAMERA SYNC
-        // ========================================
-
-        /// <summary>
-        /// Sync the camera to follow the current cursor position.
-        /// Uses the game's built-in smooth camera movement.
-        /// </summary>
-        private void SyncCameraToTile(object field)
-        {
-            if (field == null) return;
-
-            try
-            {
-                // Get the Field's transform property
-                var transformProperty = field.GetType().GetProperty("transform");
-                if (transformProperty == null) return;
-
-                var fieldTransform = transformProperty.GetValue(field) as Transform;
-                if (fieldTransform != null)
-                {
-                    GameReflection.SetCameraTarget(fieldTransform);
-                }
-            }
-            catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SyncCameraToTile failed: {ex.Message}"); }
-        }
-
-        // ========================================
-        // BUILDING ACTIVATION (Enter key)
-        // ========================================
-
-        /// <summary>
-        /// Activate/open the building panel for the building at current cursor position.
-        /// Returns true if a building was activated, false otherwise.
-        /// </summary>
-        public bool ActivateBuilding()
-        {
-            EnsureCursorInitialized();
-
-            // Get object at cursor position
-            var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
-            if (objectOn == null || objectOn.GetType().Name == "Field")
-            {
-                Speech.Say("No building here");
-                return false;
-            }
-
-            // Check if it's a building
-            if (!GameReflection.IsBuilding(objectOn))
-            {
-                Speech.Say("Not a building");
-                return false;
-            }
-
-            // Announce construction progress instead of opening panel for unfinished buildings
-            if (GameReflection.IsBuildingUnfinished(objectOn))
-            {
-                AnnounceConstruction(objectOn);
-                return true;
-            }
-
-            // Try to pick the building (opens its panel)
-            if (GameReflection.PickBuilding(objectOn))
-            {
-                return true;
-            }
-            else
-            {
-                Speech.Say("Cannot open building");
-                return false;
-            }
-        }
-
-        private void AnnounceConstruction(object building)
-        {
-            float progress = GameReflection.GetBuildingProgress(building);
-            int percent = (int)(progress * 100);
-
-            if (percent > 0)
-            {
-                Speech.Say($"{percent}%");
-                return;
-            }
-
-            // 0% progress - announce remaining materials if any
-            var materials = GameReflection.GetConstructionMaterials(building);
-            if (materials != null && materials.Count > 0)
-            {
-                var parts = new List<string>();
-                foreach (var (name, delivered, required) in materials)
-                {
-                    parts.Add($"{name} {delivered} of {required}");
-                }
-                Speech.Say(string.Join(", ", parts));
-            }
-            else
-            {
-                Speech.Say("0%");
-            }
-        }
-
-        // ========================================
-        // ENTRANCE ANNOUNCEMENT (E key)
-        // ========================================
-
-        public void AnnounceEntrance()
-        {
-            EnsureCursorInitialized();
-            Speech.Say(EntranceInfoHelper.GetEntranceInfo(_cursorX, _cursorY));
-        }
-
-        // ========================================
-        // BUILDING ROTATION (R key)
-        // ========================================
-
-        // Rotation directions: 0=North, 1=West, 2=South, 3=East
-        private static readonly string[] RotationDirections = { "North", "West", "South", "East" };
-
-        /// <summary>
-        /// Rotate the building at current cursor position and announce the new direction.
-        /// </summary>
-        public void RotateBuilding(bool clockwise = true)
-        {
-            EnsureCursorInitialized();
-
-            // Get object at cursor position
-            var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
-            if (objectOn == null || objectOn.GetType().Name == "Field")
-            {
-                Speech.Say("No building here");
-                return;
-            }
-
-            // Check if it's a building
-            if (!GameReflection.IsBuilding(objectOn))
-            {
-                Speech.Say("Not a building");
-                return;
-            }
-
-            // Check if building type supports rotation
-            if (!GameReflection.CanRotateBuilding(objectOn))
-            {
-                Speech.Say("Cannot rotate");
-                return;
-            }
-
-            // Check if building is movable (required for rotation)
-            if (!GameReflection.CanMovePlacedBuilding(objectOn))
-            {
-                Speech.Say("Unmovable");
-                return;
-            }
-
-            // Check if rotation would be blocked by obstacles
-            if (!GameReflection.CanRotatePlacedBuilding(objectOn))
-            {
-                Speech.Say("Rotation blocked");
-                return;
-            }
-
-            // Rotate the building in the specified direction
-            // Rotation values: 0=N, 1=W, 2=S, 3=E — incrementing is counterclockwise
-            int direction = clockwise ? -1 : 1;
-            int newRotation = GameReflection.RotatePlacedBuildingDirection(objectOn, direction);
-            if (newRotation >= 0 && newRotation < RotationDirections.Length)
-            {
-                Speech.Say(RotationDirections[newRotation]);
-            }
-            else
-            {
-                Speech.Say("Rotation failed");
-            }
-        }
-    }
+namespace ATSAccessibility {
+	/// <summary>
+	/// Handles keyboard-based map navigation in settlement view.
+	/// Arrow keys move a virtual cursor on the map grid, announcing tile contents.
+	/// Map size is dynamically determined from the game's MapService.
+	/// </summary>
+	public class MapNavigator {
+		// Virtual cursor position (initialized to center on first use)
+		private int _cursorX = -1;
+		private int _cursorY = -1;
+
+		// Coordinate origin (Ancient Hearth position) for hearth-relative display
+		private int _originX;
+		private int _originY;
+		private bool _originSet = false;
+
+		// Cached reflection info for Field properties (static per CLAUDE.md Pattern #6)
+		private static PropertyInfo _fieldTypeProperty = null;
+		private static PropertyInfo _fieldIsTraversableProperty = null;
+		private static bool _fieldPropertiesCached = false;
+
+		// Cached reflection info for Glade fields (static per CLAUDE.md Pattern #6)
+		private static FieldInfo _gladeWasDiscoveredField = null;
+		private static FieldInfo _gladeDangerLevelField = null;
+		private static bool _gladePropertiesCached = false;
+
+		// Cached reflection info for Villager properties (static per CLAUDE.md Pattern #6)
+		private static PropertyInfo _villagerActorStateProperty = null;
+		private static FieldInfo _actorStatePositionField = null;
+		private static PropertyInfo _villagerRaceProperty = null;
+		private static bool _villagerPropertiesCached = false;
+
+		/// <summary>
+		/// Current cursor X position.
+		/// </summary>
+		public int CursorX => _cursorX;
+
+		/// <summary>
+		/// Current cursor Y position.
+		/// </summary>
+		public int CursorY => _cursorY;
+
+		/// <summary>
+		/// Optional prefix callback for tile announcements.
+		/// Returns a prefix string (e.g. "selected") or null for no prefix.
+		/// </summary>
+		public Func<int, int, string> AnnouncementPrefix { get; set; }
+
+		/// <summary>
+		/// Ensure cursor is initialized (to hearth or map center).
+		/// </summary>
+		private void EnsureCursorInitialized() {
+			if (_cursorX < 0 || _cursorY < 0)
+				ResetCursor();
+		}
+
+		/// <summary>
+		/// Ensure coordinate origin is set to the Ancient Hearth position.
+		/// Called lazily in case the hearth hasn't spawned yet at cursor init time.
+		/// </summary>
+		private void EnsureOriginSet() {
+			if (_originSet) return;
+			var hearthPos = GameReflection.GetMainHearthPosition();
+			if (hearthPos.HasValue) {
+				_originX = hearthPos.Value.x;
+				_originY = hearthPos.Value.y;
+				_originSet = true;
+				// Snap cursor to hearth on first discovery
+				_cursorX = _originX;
+				_cursorY = _originY;
+			}
+		}
+
+		/// <summary>
+		/// Move the cursor by delta and announce the new tile.
+		/// </summary>
+		public void MoveCursor(int dx, int dy) {
+			EnsureCursorInitialized();
+			EnsureOriginSet();
+
+			int newX = _cursorX + dx;
+			int newY = _cursorY + dy;
+
+			// Bounds check using game's MapService
+			if (!GameReflection.MapInBounds(newX, newY)) {
+				Speech.Say("edge of map");
+				return;
+			}
+
+			_cursorX = newX;
+			_cursorY = newY;
+
+			// Fetch field once, reuse for announcement and camera
+			var field = GameReflection.GetField(_cursorX, _cursorY);
+
+			AnnounceTile(field);
+			SyncCameraToTile(field);
+		}
+
+		/// <summary>
+		/// Set cursor to specific position (for scanner End key).
+		/// Does not announce - caller handles announcement.
+		/// </summary>
+		public void SetCursorPosition(int x, int y) {
+			// Bounds check using game's MapService
+			if (!GameReflection.MapInBounds(x, y))
+				return;
+
+			_cursorX = x;
+			_cursorY = y;
+
+			var field = GameReflection.GetField(_cursorX, _cursorY);
+			SyncCameraToTile(field);
+		}
+
+		/// <summary>
+		/// Skip tiles in direction until finding a tile with different announcement.
+		/// If edge reached without finding different tile, stay put and announce edge.
+		/// </summary>
+		public void SkipToNextChange(int dx, int dy) {
+			EnsureCursorInitialized();
+			EnsureOriginSet();
+
+			// Get current tile's announcement as baseline (exclude villagers for comparison)
+			var currentField = GameReflection.GetField(_cursorX, _cursorY);
+			string currentAnnouncement = GetTileAnnouncement(_cursorX, _cursorY, currentField, includeVillagers: false);
+
+			int newX = _cursorX;
+			int newY = _cursorY;
+			int tilesSkipped = 0;
+
+			// Step in direction until we find different tile or hit edge
+			while (true) {
+				int nextX = newX + dx;
+				int nextY = newY + dy;
+
+				// Check bounds BEFORE moving using game's MapService
+				if (!GameReflection.MapInBounds(nextX, nextY)) {
+					// Hit edge without finding different tile - stay at current position
+					Speech.Say("no change till edge");
+					return;
+				}
+
+				newX = nextX;
+				newY = nextY;
+				tilesSkipped++;
+
+				// Get this tile's announcement (need fresh field for correct terrain/passability)
+				var nextField = GameReflection.GetField(newX, newY);
+				string nextAnnouncement = GetTileAnnouncement(newX, newY, nextField, includeVillagers: false);
+
+				// Exact string comparison
+				if (nextAnnouncement != currentAnnouncement) {
+					// Found different tile - move there
+					_cursorX = newX;
+					_cursorY = newY;
+
+					string tileWord = tilesSkipped == 1 ? "tile" : "tiles";
+					string announcement = GetTileAnnouncement(_cursorX, _cursorY, nextField);
+					string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
+					if (!string.IsNullOrEmpty(prefix))
+						announcement = $"{prefix}, {announcement}";
+					string coords = GetCoordinateSuffix();
+					if (coords != null)
+						announcement = $"{announcement}, {coords}";
+					Speech.Say($"{tilesSkipped} {tileWord}, {announcement}");
+
+					SyncCameraToTile(nextField);
+					return;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Announce current coordinates relative to Ancient Hearth (K key).
+		/// </summary>
+		public void AnnounceCurrentPosition() {
+			EnsureCursorInitialized();
+			EnsureOriginSet();
+
+			if (_originSet) {
+				int relX = _cursorX - _originX;
+				int relY = _cursorY - _originY;
+				Speech.Say($"{relX}, {relY}");
+			} else {
+				Speech.Say("Coordinates unavailable");
+			}
+		}
+
+		/// <summary>
+		/// Returns hearth-relative coordinate string for an arbitrary position, or null if origin unknown.
+		/// </summary>
+		public string GetRelativeCoordinates(int x, int y) {
+			EnsureOriginSet();
+			if (!_originSet) return null;
+			return $"{x - _originX}, {y - _originY}";
+		}
+
+		/// <summary>
+		/// Returns hearth-relative coordinate string if the toggle is on, or null.
+		/// </summary>
+		public string GetCoordinateSuffix() {
+			if (Plugin.AnnounceCoordinates?.Value != true || !_originSet)
+				return null;
+			int relX = _cursorX - _originX;
+			int relY = _cursorY - _originY;
+			return $"{relX}, {relY}";
+		}
+
+		/// <summary>
+		/// Clear cursor position so it will be reinitialized on next use.
+		/// Call this when leaving a game session.
+		/// </summary>
+		public void ClearCursor() {
+			_cursorX = -1;
+			_cursorY = -1;
+			_originSet = false;
+		}
+
+		/// <summary>
+		/// Reset cursor to the Ancient Hearth position, or map center as fallback.
+		/// </summary>
+		public void ResetCursor() {
+			var hearthPos = GameReflection.GetMainHearthPosition();
+			if (hearthPos.HasValue) {
+				_cursorX = hearthPos.Value.x;
+				_cursorY = hearthPos.Value.y;
+				EnsureOriginSet();
+			} else {
+				// Fallback to center if hearth not found
+				_cursorX = GameReflection.GetMapWidth() / 2;
+				_cursorY = GameReflection.GetMapHeight() / 2;
+			}
+		}
+
+		/// <summary>
+		/// Announce the current tile contents.
+		/// </summary>
+		private void AnnounceTile(object field) {
+			string announcement = GetTileAnnouncement(_cursorX, _cursorY, field);
+			if (!string.IsNullOrEmpty(announcement)) {
+				string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
+				if (!string.IsNullOrEmpty(prefix))
+					announcement = $"{prefix}, {announcement}";
+				string coords = GetCoordinateSuffix();
+				if (coords != null)
+					announcement = $"{announcement}, {coords}";
+				Speech.Say(announcement);
+			}
+		}
+
+		/// <summary>
+		/// Build announcement string for a tile.
+		/// </summary>
+		/// <param name="includeVillagers">If false, skip villager check (for skip comparison performance)</param>
+		private string GetTileAnnouncement(int x, int y, object field, bool includeVillagers = true) {
+			// Check for unrevealed glade first
+			var glade = GameReflection.GetGlade(x, y);
+			if (glade != null) {
+				bool wasDiscovered = GetGladeWasDiscovered(glade);
+				if (!wasDiscovered) {
+					// Unrevealed glade - announce based on what info is available
+					string dangerLevel = GetGladeDangerLevel(glade);
+					bool hasDangerousGladeInfo = GameReflection.HasDangerousGladeInfo();
+					bool hasGladeInfo = GameReflection.HasGladeInfo();
+
+					string baseName;
+					if (!hasDangerousGladeInfo) {
+						// Cursed Royal Woodlands: ALL glade markers are hidden
+						baseName = "glade-unknown";
+					} else if (hasGladeInfo) {
+						// Has glade info perk - show type and contents
+						baseName = $"glade-{dangerLevel.ToLower()}";
+						string contents = GameReflection.GetGladeContentsSummary(glade);
+						if (!string.IsNullOrEmpty(contents))
+							baseName += $": {contents}";
+					} else {
+						// Normal biome without glade info perk - show type only
+						baseName = $"glade-{dangerLevel.ToLower()}";
+					}
+
+					// Add location marker if present
+					string markerType = GameReflection.GetLocationMarkerType(x, y);
+					if (!string.IsNullOrEmpty(markerType))
+						baseName = $"{baseName}, {markerType}";
+
+					// Add highlighted relic info if present (from Short Range Scanner, etc)
+					string highlightedRelic = GameReflection.GetHighlightedRelicAt(x, y);
+					if (!string.IsNullOrEmpty(highlightedRelic)) {
+						string relicDisplayName = GameReflection.GetRelicDisplayName(highlightedRelic);
+						baseName = $"{baseName}, highlighted: {relicDisplayName}";
+					}
+
+					return baseName;
+				}
+			}
+
+			// Revealed tile - check contents
+			var parts = new List<string>();
+
+			// Check for building/resource
+			var objectOn = GameReflection.GetObjectOn(x, y);
+			bool hasRealObject = false;
+
+			if (objectOn != null) {
+				// GetObjectOn returns Field when there's no actual object - skip those
+				string typeName = objectOn.GetType().Name;
+				if (typeName != "Field") {
+					string objectName = GetObjectName(objectOn);
+					if (!string.IsNullOrEmpty(objectName)) {
+						// Check building state if it's a building
+						if (GameReflection.IsBuilding(objectOn)) {
+							if (GameReflection.IsBuildingUnfinished(objectOn)) {
+								objectName += ", under construction";
+							} else if (GameReflection.IsRelic(objectOn)) {
+								objectName += ", ruin";
+							}
+						} else if (typeName == "NaturalResource" && GameReflection.IsNaturalResourceMarked(objectOn)) {
+							objectName = "Marked " + objectName;
+						}
+						parts.Add(objectName);
+						hasRealObject = true;
+					}
+				}
+			}
+
+			if (!hasRealObject) {
+				// No object - announce terrain using passed-in field
+				if (field != null) {
+					string terrain = GetFieldType(field);
+					if (!string.IsNullOrEmpty(terrain)) {
+						parts.Add(terrain);
+					}
+				}
+			}
+
+			// Check passability using same field (no second GetField call)
+			if (field != null) {
+				bool isTraversable = GetFieldIsTraversable(field);
+				if (!isTraversable) {
+					parts.Add("impassable");
+				}
+			}
+
+			// Check for villagers (optional - excluded during skip comparison for performance)
+			if (includeVillagers) {
+				string villagerInfo = GetVillagersOnTile(x, y);
+				if (!string.IsNullOrEmpty(villagerInfo)) {
+					parts.Add(villagerInfo);
+				}
+			}
+
+			return string.Join(", ", parts);
+		}
+
+		// ========================================
+		// FIELD PROPERTY ACCESS
+		// ========================================
+
+		private void EnsureFieldProperties(object field) {
+			if (_fieldPropertiesCached || field == null) return;
+
+			try {
+				var fieldType = field.GetType();
+				_fieldTypeProperty = fieldType.GetProperty("Type");
+				_fieldIsTraversableProperty = fieldType.GetProperty("IsTraversable");
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureFieldProperties failed: {ex.Message}"); }
+
+			_fieldPropertiesCached = true;
+		}
+
+		private string GetFieldType(object field) {
+			EnsureFieldProperties(field);
+			if (_fieldTypeProperty == null) return "unknown";
+
+			try {
+				var typeValue = _fieldTypeProperty.GetValue(field);
+				if (typeValue == null) return "unknown";
+
+				var typeType = typeValue.GetType();
+				string result = null;
+
+				// Try to get displayName or name from the type object
+				var displayNameProp = typeType.GetProperty("displayName");
+				if (displayNameProp != null) {
+					var displayName = displayNameProp.GetValue(typeValue);
+					if (displayName != null) result = displayName.ToString();
+				}
+
+				if (result == null) {
+					var nameProp = typeType.GetProperty("name");
+					if (nameProp != null) {
+						var name = nameProp.GetValue(typeValue);
+						if (name != null) result = name.ToString();
+					}
+				}
+
+				if (result == null) result = typeValue.ToString();
+
+				// Map game names to more descriptive names
+				if (result == "Grass") return "Fertile Soil";
+				if (result == "Sand") return "Soil";
+
+				return result;
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetFieldType failed: {ex.Message}");
+				return "unknown";
+			}
+		}
+
+		private bool GetFieldIsTraversable(object field) {
+			EnsureFieldProperties(field);
+			if (_fieldIsTraversableProperty == null) return true;
+
+			try {
+				return (bool)_fieldIsTraversableProperty.GetValue(field);
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetFieldIsTraversable failed: {ex.Message}");
+				return true;
+			}
+		}
+
+		// ========================================
+		// GLADE PROPERTY ACCESS
+		// ========================================
+
+		private void EnsureGladeProperties(object glade) {
+			if (_gladePropertiesCached || glade == null) return;
+
+			try {
+				var gladeType = glade.GetType();
+				// GladeState uses fields, not properties
+				_gladeWasDiscoveredField = gladeType.GetField("wasDiscovered",
+					BindingFlags.Public | BindingFlags.Instance);
+				_gladeDangerLevelField = gladeType.GetField("dangerLevel",
+					BindingFlags.Public | BindingFlags.Instance);
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureGladeProperties failed: {ex.Message}"); }
+
+			_gladePropertiesCached = true;
+		}
+
+		private bool GetGladeWasDiscovered(object glade) {
+			EnsureGladeProperties(glade);
+
+			try {
+				if (_gladeWasDiscoveredField != null) {
+					return (bool)_gladeWasDiscoveredField.GetValue(glade);
+				}
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}"); }
+
+			// Default to discovered (don't hide content if we can't determine state)
+			return true;
+		}
+
+		private string GetGladeDangerLevel(object glade) {
+			EnsureGladeProperties(glade);
+
+			try {
+				if (_gladeDangerLevelField != null) {
+					var dangerValue = _gladeDangerLevelField.GetValue(glade);
+					string dangerStr = dangerValue?.ToString() ?? "unknown";
+
+					// Map enum values to user-friendly names
+					switch (dangerStr) {
+						case "None":
+							return "small";
+						case "Dangerous":
+							return "dangerous";
+						case "Forbidden":
+							return "forbidden";
+						default:
+							return dangerStr.ToLower();
+					}
+				}
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeDangerLevel failed: {ex.Message}"); }
+
+			return "unknown";
+		}
+
+		// ========================================
+		// OBJECT NAME ACCESS (building/resource)
+		// ========================================
+
+		private string GetObjectName(object obj) {
+			if (obj == null) return null;
+
+			try {
+				var objType = obj.GetType();
+
+				// Try Model.displayName first (specific type like "Lush Tree")
+				// Then fall back to Model.label.displayName (generic category like "Woodlands Trees")
+				var modelProperty = objType.GetProperty("Model");
+				if (modelProperty != null) {
+					var model = modelProperty.GetValue(obj);
+					if (model != null) {
+						var modelType = model.GetType();
+
+						// Try Model.displayName first
+						var displayNameField = modelType.GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+						if (displayNameField != null) {
+							var displayName = displayNameField.GetValue(model);
+							if (displayName != null) {
+								string displayText = displayName.ToString();
+								if (!string.IsNullOrEmpty(displayText)) {
+									return displayText;
+								}
+							}
+						}
+
+						// Fall back to Model.label.displayName
+						var labelField = modelType.GetField("label", BindingFlags.Public | BindingFlags.Instance);
+						if (labelField != null) {
+							var label = labelField.GetValue(model);
+							if (label != null) {
+								var labelDisplayNameField = label.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+								if (labelDisplayNameField != null) {
+									var labelDisplayName = labelDisplayNameField.GetValue(label);
+									if (labelDisplayName != null) {
+										string labelText = labelDisplayName.ToString();
+										if (!string.IsNullOrEmpty(labelText)) {
+											return labelText;
+										}
+									}
+								}
+							}
+						}
+
+						var nameProp = modelType.GetProperty("name");
+						if (nameProp != null) {
+							var name = nameProp.GetValue(model);
+							if (name != null) {
+								return Speech.CleanResourceName(name.ToString());
+							}
+						}
+					}
+				}
+
+				// Try Name property
+				var nameProperty = objType.GetProperty("Name");
+				if (nameProperty != null) {
+					var nameValue = nameProperty.GetValue(obj);
+					if (nameValue != null) {
+						return nameValue.ToString();
+					}
+				}
+
+				// Try DisplayName property
+				var displayNameProperty = objType.GetProperty("DisplayName");
+				if (displayNameProperty != null) {
+					var nameValue = displayNameProperty.GetValue(obj);
+					if (nameValue != null) {
+						return nameValue.ToString();
+					}
+				}
+
+				// Fallback to type name
+				return objType.Name;
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetObjectName failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		// ========================================
+		// VILLAGER ACCESS
+		// ========================================
+
+		private void EnsureVillagerProperties(object villager) {
+			if (_villagerPropertiesCached || villager == null) return;
+
+			try {
+				var villagerType = villager.GetType();
+				_villagerActorStateProperty = villagerType.GetProperty("ActorState");
+				_villagerRaceProperty = villagerType.GetProperty("Race");
+
+				// Get ActorState type for position field
+				if (_villagerActorStateProperty != null) {
+					var actorState = _villagerActorStateProperty.GetValue(villager);
+					if (actorState != null) {
+						var actorStateType = actorState.GetType();
+						_actorStatePositionField = actorStateType.GetField("position",
+							BindingFlags.Public | BindingFlags.Instance);
+					}
+				}
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureVillagerProperties failed: {ex.Message}"); }
+
+			_villagerPropertiesCached = true;
+		}
+
+		private string GetVillagersOnTile(int x, int y) {
+			var allVillagers = GameReflection.GetAllVillagers();
+			if (allVillagers == null) return null;
+
+			try {
+				// allVillagers is Dictionary<int, Villager>
+				// We need to iterate and check positions
+				var villagersDict = allVillagers as IDictionary;
+				if (villagersDict == null) return null;
+
+				var raceCounts = new Dictionary<string, int>();
+
+				foreach (DictionaryEntry entry in villagersDict) {
+					var villager = entry.Value;
+					if (villager == null) continue;
+
+					EnsureVillagerProperties(villager);
+
+					// Get position
+					Vector3 position = GetVillagerPosition(villager);
+					int villagerX = Mathf.FloorToInt(position.x);
+					int villagerZ = Mathf.FloorToInt(position.z);
+
+					if (villagerX == x && villagerZ == y) {
+						// Villager is on this tile
+						string race = GetVillagerRace(villager);
+						if (string.IsNullOrEmpty(race)) race = "villager";
+
+						if (raceCounts.ContainsKey(race)) {
+							raceCounts[race]++;
+						} else {
+							raceCounts[race] = 1;
+						}
+					}
+				}
+
+				if (raceCounts.Count == 0) return null;
+
+				// Build announcement like "2 beavers, 1 human"
+				var parts = new List<string>();
+				foreach (var kvp in raceCounts) {
+					string race = kvp.Key.ToLower();
+					int count = kvp.Value;
+
+					// Pluralize if count > 1 and doesn't already end in 's'
+					if (count > 1 && !race.EndsWith("s")) {
+						race += "s";
+					}
+
+					parts.Add($"{count} {race}");
+				}
+
+				return string.Join(", ", parts);
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetVillagersOnTile failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		private Vector3 GetVillagerPosition(object villager) {
+			try {
+				if (_villagerActorStateProperty == null) return Vector3.zero;
+
+				var actorState = _villagerActorStateProperty.GetValue(villager);
+				if (actorState == null || _actorStatePositionField == null) return Vector3.zero;
+
+				return (Vector3)_actorStatePositionField.GetValue(actorState);
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetVillagerPosition failed: {ex.Message}");
+				return Vector3.zero;
+			}
+		}
+
+		private string GetVillagerRace(object villager) {
+			try {
+				if (_villagerRaceProperty == null) return null;
+
+				var raceValue = _villagerRaceProperty.GetValue(villager);
+				return raceValue?.ToString();
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetVillagerRace failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		// ========================================
+		// CAMERA SYNC
+		// ========================================
+
+		/// <summary>
+		/// Sync the camera to follow the current cursor position.
+		/// Uses the game's built-in smooth camera movement.
+		/// </summary>
+		private void SyncCameraToTile(object field) {
+			if (field == null) return;
+
+			try {
+				// Get the Field's transform property
+				var transformProperty = field.GetType().GetProperty("transform");
+				if (transformProperty == null) return;
+
+				var fieldTransform = transformProperty.GetValue(field) as Transform;
+				if (fieldTransform != null) {
+					GameReflection.SetCameraTarget(fieldTransform);
+				}
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SyncCameraToTile failed: {ex.Message}"); }
+		}
+
+		// ========================================
+		// BUILDING ACTIVATION (Enter key)
+		// ========================================
+
+		/// <summary>
+		/// Activate/open the building panel for the building at current cursor position.
+		/// Returns true if a building was activated, false otherwise.
+		/// </summary>
+		public bool ActivateBuilding() {
+			EnsureCursorInitialized();
+
+			// Get object at cursor position
+			var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
+			if (objectOn == null || objectOn.GetType().Name == "Field") {
+				Speech.Say("No building here");
+				return false;
+			}
+
+			// Check if it's a building
+			if (!GameReflection.IsBuilding(objectOn)) {
+				Speech.Say("Not a building");
+				return false;
+			}
+
+			// Announce construction progress instead of opening panel for unfinished buildings
+			if (GameReflection.IsBuildingUnfinished(objectOn)) {
+				AnnounceConstruction(objectOn);
+				return true;
+			}
+
+			// Try to pick the building (opens its panel)
+			if (GameReflection.PickBuilding(objectOn)) {
+				return true;
+			} else {
+				Speech.Say("Cannot open building");
+				return false;
+			}
+		}
+
+		private void AnnounceConstruction(object building) {
+			float progress = GameReflection.GetBuildingProgress(building);
+			int percent = (int)(progress * 100);
+
+			if (percent > 0) {
+				Speech.Say($"{percent}%");
+				return;
+			}
+
+			// 0% progress - announce remaining materials if any
+			var materials = GameReflection.GetConstructionMaterials(building);
+			if (materials != null && materials.Count > 0) {
+				var parts = new List<string>();
+				foreach (var (name, delivered, required) in materials) {
+					parts.Add($"{name} {delivered} of {required}");
+				}
+				Speech.Say(string.Join(", ", parts));
+			} else {
+				Speech.Say("0%");
+			}
+		}
+
+		// ========================================
+		// ENTRANCE ANNOUNCEMENT (E key)
+		// ========================================
+
+		public void AnnounceEntrance() {
+			EnsureCursorInitialized();
+			Speech.Say(EntranceInfoHelper.GetEntranceInfo(_cursorX, _cursorY));
+		}
+
+		// ========================================
+		// BUILDING ROTATION (R key)
+		// ========================================
+
+		// Rotation directions: 0=North, 1=West, 2=South, 3=East
+		private static readonly string[] RotationDirections = { "North", "West", "South", "East" };
+
+		/// <summary>
+		/// Rotate the building at current cursor position and announce the new direction.
+		/// </summary>
+		public void RotateBuilding(bool clockwise = true) {
+			EnsureCursorInitialized();
+
+			// Get object at cursor position
+			var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
+			if (objectOn == null || objectOn.GetType().Name == "Field") {
+				Speech.Say("No building here");
+				return;
+			}
+
+			// Check if it's a building
+			if (!GameReflection.IsBuilding(objectOn)) {
+				Speech.Say("Not a building");
+				return;
+			}
+
+			// Check if building type supports rotation
+			if (!GameReflection.CanRotateBuilding(objectOn)) {
+				Speech.Say("Cannot rotate");
+				return;
+			}
+
+			// Check if building is movable (required for rotation)
+			if (!GameReflection.CanMovePlacedBuilding(objectOn)) {
+				Speech.Say("Unmovable");
+				return;
+			}
+
+			// Check if rotation would be blocked by obstacles
+			if (!GameReflection.CanRotatePlacedBuilding(objectOn)) {
+				Speech.Say("Rotation blocked");
+				return;
+			}
+
+			// Rotate the building in the specified direction
+			// Rotation values: 0=N, 1=W, 2=S, 3=E — incrementing is counterclockwise
+			int direction = clockwise ? -1 : 1;
+			int newRotation = GameReflection.RotatePlacedBuildingDirection(objectOn, direction);
+			if (newRotation >= 0 && newRotation < RotationDirections.Length) {
+				Speech.Say(RotationDirections[newRotation]);
+			} else {
+				Speech.Say("Rotation failed");
+			}
+		}
+	}
 }
