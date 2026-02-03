@@ -78,6 +78,11 @@ namespace ATSAccessibility
         /// </summary>
         public void ProcessKeyEvent(KeyCode keyCode, KeyModifiers modifiers = default)
         {
+            // Ignore modifier-only key presses — they carry no action on their own
+            // and would cause handlers to react to bare Alt/Ctrl/Shift key-down events
+            if (IsModifierKey(keyCode))
+                return;
+
             foreach (var handler in _handlers)
             {
                 if (handler.IsActive && handler.ProcessKey(keyCode, modifiers))
@@ -87,6 +92,24 @@ namespace ATSAccessibility
             }
 
             // Key was not handled by any handler - let it pass through to the game
+        }
+
+        private static bool IsModifierKey(KeyCode keyCode)
+        {
+            switch (keyCode)
+            {
+                case KeyCode.LeftAlt:
+                case KeyCode.RightAlt:
+                case KeyCode.LeftControl:
+                case KeyCode.RightControl:
+                case KeyCode.LeftShift:
+                case KeyCode.RightShift:
+                case KeyCode.LeftCommand:
+                case KeyCode.RightCommand:
+                    return true;
+                default:
+                    return false;
+            }
         }
     }
 }

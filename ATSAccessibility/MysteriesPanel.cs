@@ -215,8 +215,8 @@ namespace ATSAccessibility
             if (keyCode == KeyCode.LeftArrow && Level == 0)
                 return false; // Pass to InfoPanelMenu to close child panel
 
-            // Cross-category item navigation at Level 1
-            if (Level == 1 && (keyCode == KeyCode.UpArrow || keyCode == KeyCode.DownArrow))
+            // Cross-category item navigation at Level 1 (yield to search when active)
+            if (Level == 1 && !_search.IsSearchActive && (keyCode == KeyCode.UpArrow || keyCode == KeyCode.DownArrow))
             {
                 NavigateItemAcrossCategories(keyCode == KeyCode.DownArrow ? 1 : -1);
                 return true;
