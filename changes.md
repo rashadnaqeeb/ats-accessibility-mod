@@ -2,6 +2,7 @@
 
 ## New features
 
+- Plain S/V/O keys restored in settlement map viewer for quick stats, species resolve, and tracked orders
 - Type-ahead search: repeat-letter cycling, filtered results, rollback on failed characters
 - Shift+N to jump to latest event location; Enter in notification history to jump to event location
 - Comma/Period to cycle worker buildings with category filter

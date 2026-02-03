@@ -182,12 +182,14 @@ namespace ATSAccessibility {
 						_infoPanelMenu?.OpenStatsPanel();
 						return true;
 					}
+					StatsReader.AnnounceQuickSummary();
 					return true;
 				case KeyCode.V:
 					if (modifiers.Shift) {
 						_infoPanelMenu?.OpenVillagersPanel();
 						return true;
 					}
+					StatsReader.AnnounceNextSpeciesResolve();
 					return true;
 				case KeyCode.T:
 					StatsReader.AnnounceTimeSummary();
@@ -285,6 +287,7 @@ namespace ATSAccessibility {
 						GameReflection.OpenOrdersPopup();
 						return true;
 					}
+					SettlementInfoHandler.AnnounceTrackedOrders();
 					return true;
 
 				// Rainpunk info/control
