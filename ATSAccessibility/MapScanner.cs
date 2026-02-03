@@ -526,6 +526,9 @@ namespace ATSAccessibility {
 				var gladesList = allGlades as IEnumerable;
 				if (gladesList == null) return new List<ItemGroup>();
 
+				// Collect unrevealed glades for seal candidate check
+				var unrevealedGlades = new List<(object glade, Vector2Int firstField)>();
+
 				foreach (var glade in gladesList) {
 					if (glade == null) continue;
 
@@ -554,6 +557,8 @@ namespace ATSAccessibility {
 					Vector2Int position = GetGladePosition(glade);
 					if (position.x < 0 || position.y < 0) continue;
 
+					unrevealedGlades.Add((glade, position));
+
 					int distance = CalculateDistance(position, cursorX, cursorY);
 
 					if (!groups.TryGetValue(groupName, out var group)) {
@@ -566,11 +571,110 @@ namespace ATSAccessibility {
 
 				// Add location marker groups (grass/spring markers)
 				ScanLocationMarkers(groups, cursorX, cursorY);
+
+				// Add seal candidate glades (triangulated from discovered guiding stones)
+				ScanSealCandidateGlades(unrevealedGlades, groups, cursorX, cursorY);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] ScanGlades failed: {ex.Message}");
 			}
 
 			return FinalizeGroups(groups);
+		}
+
+		/// <summary>
+		/// Find unrevealed glades that are seal candidates based on discovered guiding stone bearings.
+		/// Each stone gives a ray toward the seal. A glade is a candidate if every ray passes
+		/// within (gladeRadius + tolerance) of the glade center. With more stones discovered,
+		/// fewer candidates survive, mirroring the sighted triangulation experience.
+		/// </summary>
+		private void ScanSealCandidateGlades(
+			List<(object glade, Vector2Int firstField)> unrevealedGlades,
+			Dictionary<string, ItemGroup> groups,
+			int cursorX, int cursorY) {
+
+			if (!GameReflection.IsSealedBiome()) return;
+
+			// Get seal target for bearing calculation
+			Vector2Int sealField = GameReflection.GetGuidepostTargetField();
+			if (sealField == default) return;
+
+			Vector2Int sealSize = GameReflection.GetSealSize();
+			if (sealSize == default) return;
+
+			float sealCenterX = sealField.x + sealSize.x / 2f;
+			float sealCenterY = sealField.y + sealSize.y / 2f;
+
+			// Find all discovered guiding stones and compute their bearing rays
+			var rays = new List<(float ox, float oy, float dx, float dy)>();
+
+			foreach (var building in GameReflection.GetAllBuildingObjects()) {
+				var viewField = building.GetType().GetField("view",
+					BindingFlags.Public | BindingFlags.Instance);
+				if (viewField == null) continue;
+
+				var view = viewField.GetValue(building);
+				if (view == null || view.GetType().Name != "SealGuidepostView") continue;
+
+				Vector2Int stonePos = GetBuildingPosition(building);
+				if (stonePos.x < 0 || stonePos.y < 0) continue;
+
+				// Ray direction from stone toward seal center
+				float dx = sealCenterX - stonePos.x;
+				float dy = sealCenterY - stonePos.y;
+				float len = Mathf.Sqrt(dx * dx + dy * dy);
+				if (len < 0.1f) continue;
+
+				rays.Add((stonePos.x, stonePos.y, dx / len, dy / len));
+			}
+
+			if (rays.Count == 0) return;
+
+			// Test each unrevealed glade against all bearing rays
+			var candidateGroup = new ItemGroup("Seal candidate");
+
+			foreach (var (glade, firstField) in unrevealedGlades) {
+				// Compute glade center from all field tiles
+				var fields = _gladeFieldsField?.GetValue(glade) as IList;
+				if (fields == null || fields.Count == 0) continue;
+
+				float sumX = 0, sumY = 0;
+				foreach (var f in fields) {
+					var tile = (Vector2Int)f;
+					sumX += tile.x;
+					sumY += tile.y;
+				}
+				float gladeCenterX = sumX / fields.Count;
+				float gladeCenterY = sumY / fields.Count;
+
+				// Approximate glade radius from tile count (assume roughly circular)
+				float gladeRadius = Mathf.Sqrt(fields.Count / Mathf.PI);
+				float threshold = gladeRadius + 5f;
+
+				// Candidate only if ALL rays pass within threshold of glade center
+				bool isCandidate = true;
+				foreach (var ray in rays) {
+					float pgX = gladeCenterX - ray.ox;
+					float pgY = gladeCenterY - ray.oy;
+
+					// Must be in forward direction (glade ahead of stone, not behind)
+					float forward = pgX * ray.dx + pgY * ray.dy;
+					if (forward <= 0) { isCandidate = false; break; }
+
+					// Perpendicular distance from glade center to ray
+					float perp = Mathf.Abs(pgX * ray.dy - pgY * ray.dx);
+					if (perp > threshold) { isCandidate = false; break; }
+				}
+
+				if (isCandidate) {
+					int distance = CalculateDistance(firstField, cursorX, cursorY);
+					candidateGroup.Items.Add(new ScannedItem(firstField, distance));
+				}
+			}
+
+			if (candidateGroup.Items.Count > 0) {
+				candidateGroup.Items.Sort(CompareItemsByDistance);
+				groups["Seal candidate"] = candidateGroup;
+			}
 		}
 
 		/// <summary>

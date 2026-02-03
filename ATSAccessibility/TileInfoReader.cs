@@ -294,22 +294,21 @@ namespace ATSAccessibility {
 
 		/// <summary>
 		/// Convert an angle (in degrees) to a compass direction string.
-		/// Based on the game's rotation system where:
-		/// 0° = West, 90° = North, 180° = East, 270° = South
+		/// Standard compass bearing: 0° = North, 90° = East, 180° = South, 270° = West.
 		/// </summary>
 		private static string AngleToCompassDirection(float angle) {
 			// Normalize to 0-360
 			angle = ((angle % 360f) + 360f) % 360f;
 
 			// 8-point compass with 45° segments centered on each direction
-			if (angle >= 337.5f || angle < 22.5f) return "West";
-			if (angle >= 22.5f && angle < 67.5f) return "Northwest";
-			if (angle >= 67.5f && angle < 112.5f) return "North";
-			if (angle >= 112.5f && angle < 157.5f) return "Northeast";
-			if (angle >= 157.5f && angle < 202.5f) return "East";
-			if (angle >= 202.5f && angle < 247.5f) return "Southeast";
-			if (angle >= 247.5f && angle < 292.5f) return "South";
-			return "Southwest";
+			if (angle >= 337.5f || angle < 22.5f) return "North";
+			if (angle >= 22.5f && angle < 67.5f) return "Northeast";
+			if (angle >= 67.5f && angle < 112.5f) return "East";
+			if (angle >= 112.5f && angle < 157.5f) return "Southeast";
+			if (angle >= 157.5f && angle < 202.5f) return "South";
+			if (angle >= 202.5f && angle < 247.5f) return "Southwest";
+			if (angle >= 247.5f && angle < 292.5f) return "West";
+			return "Northwest";
 		}
 
 		/// <summary>
@@ -352,12 +351,15 @@ namespace ATSAccessibility {
 					0f,
 					sealField.y + sealSize.y / 2f);
 
-				// Calculate direction (replicating game logic from SealGuidepostView)
+				// Calculate compass bearing from guidepost to seal
+				// dir.x = east/west on grid, dir.z = north/south on grid
 				Vector3 dir = targetCenter - position;
-				float angle = Mathf.Atan2(dir.z, -dir.x) * Mathf.Rad2Deg + 90f;
+				float angle = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+				// Normalize to 0-360 and round to whole degree
+				int degrees = Mathf.RoundToInt(((angle % 360f) + 360f) % 360f);
+				if (degrees == 360) degrees = 0;
 
-				string direction = AngleToCompassDirection(angle);
-				return $"Pointing {direction}";
+				return $"Pointing {degrees} degrees";
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetGuidepostDirection failed: {ex.Message}");
 				return null;
@@ -369,10 +371,12 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static string GetBuildingInfo(object building) {
 			try {
-				// Check for guidepost first (returns direction info)
+				var parts = new List<string>();
+
+				// Check for guidepost direction info
 				string guidepostInfo = GetGuidepostDirection(building);
 				if (!string.IsNullOrEmpty(guidepostInfo))
-					return guidepostInfo;
+					parts.Add(guidepostInfo);
 
 				var buildingType = building.GetType();
 
@@ -393,8 +397,6 @@ namespace ATSAccessibility {
 					descProp = modelType.GetProperty("Description");
 					_buildingModelDescProps[modelType] = descProp;
 				}
-
-				var parts = new List<string>();
 
 				// Get Description
 				string desc = GetStringProperty(buildingModel, descProp);

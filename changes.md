@@ -14,8 +14,12 @@
 - D key for range info in move mode
 - Royal Resupply overlay for world map cycle effects pick popup
 
+- Seal candidate glades shown in scanner via triangulation from discovered guiding stones
+- Guiding stone I key now announces exact degree bearing followed by description
+
 ## Bug fixes
 
+- Fix guiding stone direction calculation (was reporting wrong compass direction)
 - Type-ahead search no longer clears on modifier keys or arrow navigation
 - Favouring now stops old race before starting new one
 - WorkersPanel profession display fixed
