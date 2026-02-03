@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Virtual speech-only panel for selecting buildings to place.
     /// Two-panel system: left panel has categories, right panel has buildings in category.
     /// </summary>
-    public class BuildingMenuPanel : IKeyHandler
+    public class BuildingMenuPanel : IKeyHandler, ISearchable
     {
         /// <summary>
         /// Represents a building category (e.g., Housing, Food Production).
@@ -124,45 +124,8 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0 && idx < _allBuildings.Count)
-                            {
-                                var match = _allBuildings[idx];
-                                _currentCategoryIndex = match.categoryIndex;
-                                _currentBuildingIndex = match.buildingIndex;
-                                _focusOnBuildings = true;
-                            }
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -213,30 +176,12 @@ namespace ATSAccessibility
                     ReturnToCategories();
                     return true;
 
-                case KeyCode.Backspace:
-                    HandleBackspace();
-                    return true;
-
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;  // Block the Cancel action
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     SoundManager.PlayButtonClick();
                     Close();
                     return true;
 
                 default:
-                    // Handle A-Z keys for type-ahead search
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     return true;  // Consume all other keys while panel is open
             }
         }
@@ -544,55 +489,40 @@ namespace ATSAccessibility
             Debug.Log($"[ATSAccessibility] Building: {building.Name}{status}, {sizeText}");
         }
 
-        /// <summary>
-        /// Handle a search key (A-Z) for type-ahead navigation.
-        /// </summary>
-        private void HandleSearchKey(char c)
-        {
-            if (_allBuildings.Count == 0) return;
+        // ========================================
+        // ISEARCHABLE
+        // ========================================
 
-            _search.AddChar(c);
-            _search.Search(_allBuildings.Count, i => _allBuildings[i].name, i => {
-                int saveCat = _currentCategoryIndex;
-                int saveBld = _currentBuildingIndex;
-                bool saveFocus = _focusOnBuildings;
-                _currentCategoryIndex = _allBuildings[i].categoryIndex;
-                _currentBuildingIndex = _allBuildings[i].buildingIndex;
-                _focusOnBuildings = true;
-                AnnounceCurrentBuilding();
-                _currentCategoryIndex = saveCat;
-                _currentBuildingIndex = saveBld;
-                _focusOnBuildings = saveFocus;
-            });
+        int ISearchable.SearchItemCount => _allBuildings.Count;
+
+        int ISearchable.SearchCurrentIndex
+        {
+            get
+            {
+                // Find flat index for current category+building position
+                for (int i = 0; i < _allBuildings.Count; i++)
+                {
+                    if (_allBuildings[i].categoryIndex == _currentCategoryIndex &&
+                        _allBuildings[i].buildingIndex == _currentBuildingIndex)
+                        return i;
+                }
+                return 0;
+            }
         }
 
-        /// <summary>
-        /// Handle backspace key to remove last character from search buffer.
-        /// </summary>
-        private void HandleBackspace()
+        string ISearchable.GetSearchLabel(int index)
         {
-            if (!_search.RemoveChar())
-                return;
+            if (index < 0 || index >= _allBuildings.Count) return null;
+            return _allBuildings[index].name;
+        }
 
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(_allBuildings.Count, i => _allBuildings[i].name, i => {
-                int saveCat = _currentCategoryIndex;
-                int saveBld = _currentBuildingIndex;
-                bool saveFocus = _focusOnBuildings;
-                _currentCategoryIndex = _allBuildings[i].categoryIndex;
-                _currentBuildingIndex = _allBuildings[i].buildingIndex;
-                _focusOnBuildings = true;
-                AnnounceCurrentBuilding();
-                _currentCategoryIndex = saveCat;
-                _currentBuildingIndex = saveBld;
-                _focusOnBuildings = saveFocus;
-            });
+        void ISearchable.SearchMoveTo(int index)
+        {
+            if (index < 0 || index >= _allBuildings.Count) return;
+            _currentCategoryIndex = _allBuildings[index].categoryIndex;
+            _currentBuildingIndex = _allBuildings[index].buildingIndex;
+            _focusOnBuildings = true;
+            AnnounceCurrentBuilding();
         }
     }
 }

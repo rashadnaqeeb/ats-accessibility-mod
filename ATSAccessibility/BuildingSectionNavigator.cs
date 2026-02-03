@@ -13,7 +13,7 @@ namespace ATSAccessibility
     /// - Level 2: Sub-items (recipe settings, worker details) - optional
     /// - Level 3: Sub-sub-items (ingredient options) - optional
     /// </summary>
-    public abstract class BuildingSectionNavigator : IBuildingNavigator
+    public abstract class BuildingSectionNavigator : IBuildingNavigator, ISearchable
     {
         // ========================================
         // NAVIGATION STATE
@@ -71,39 +71,17 @@ namespace ATSAccessibility
         {
             if (_building == null) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            // Search-active routing: intercept navigation keys for filtered results
-            if (_search.IsSearchActive)
+            // Alt+Space for pause toggle (check before search consumes keys)
+            if (modifiers.Alt && keyCode == KeyCode.Space)
             {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        // Apply selection, clear search, then fall through to normal Enter
-                        ApplySearchSelection();
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    // A-Z, Backspace, and other keys fall through to main switch
-                }
+                GameReflection.TogglePause();
+                Speech.Say(GameReflection.IsPaused() ? "Paused" : "Unpaused");
+                return true;
             }
+
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -141,29 +119,10 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Space:
-                    if (modifiers.Alt)
-                    {
-                        GameReflection.TogglePause();
-                        Speech.Say(GameReflection.IsPaused() ? "Paused" : "Unpaused");
-                    }
-                    else
-                    {
-                        PerformAction();
-                    }
-                    return true;
-
-                case KeyCode.Backspace:
-                    HandleBackspace();
+                    PerformAction();
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     if (_navigationLevel > 0)
                     {
                         // At item/sub-item level: go back one level, block game from closing panel
@@ -189,13 +148,6 @@ namespace ATSAccessibility
                     return true;
 
                 default:
-                    // Handle A-Z keys for type-ahead search (at all navigation levels)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     return true;  // Consume other keys while panel is open
             }
         }
@@ -736,92 +688,84 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // TYPE-AHEAD SEARCH (ISearchable)
         // ========================================
 
-        private void ApplySearchSelection()
+        public int SearchItemCount
         {
-            int idx = _search.SelectedOriginalIndex;
-            if (idx < 0) return;
+            get
+            {
+                switch (_navigationLevel)
+                {
+                    case 0:
+                        var sections = GetSections();
+                        return sections != null ? sections.Length : 0;
+                    case 1:
+                        return GetItemCount(_currentSectionIndex);
+                    case 2:
+                        return GetSubItemCount(_currentSectionIndex, _currentItemIndex);
+                    case 3:
+                        return GetSubSubItemCount(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex);
+                    default:
+                        return 0;
+                }
+            }
+        }
 
+        public int SearchCurrentIndex
+        {
+            get
+            {
+                switch (_navigationLevel)
+                {
+                    case 0: return _currentSectionIndex;
+                    case 1: return _currentItemIndex;
+                    case 2: return _currentSubItemIndex;
+                    case 3: return _currentSubSubItemIndex;
+                    default: return 0;
+                }
+            }
+        }
+
+        public string GetSearchLabel(int index)
+        {
+            switch (_navigationLevel)
+            {
+                case 0: return GetSectionName(index);
+                case 1: return GetItemName(_currentSectionIndex, index);
+                case 2: return GetSubItemName(_currentSectionIndex, _currentItemIndex, index);
+                case 3: return GetSubSubItemName(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex, index);
+                default: return null;
+            }
+        }
+
+        public void SearchMoveTo(int index)
+        {
             switch (_navigationLevel)
             {
                 case 0:
-                    _currentSectionIndex = idx;
+                    _currentSectionIndex = index;
                     _currentItemIndex = 0;
                     _currentSubItemIndex = 0;
                     _currentSubSubItemIndex = 0;
+                    AnnounceSection(index);
                     break;
                 case 1:
-                    _currentItemIndex = idx;
+                    _currentItemIndex = index;
                     _currentSubItemIndex = 0;
                     _currentSubSubItemIndex = 0;
+                    AnnounceItem(_currentSectionIndex, index);
                     break;
                 case 2:
-                    _currentSubItemIndex = idx;
+                    _currentSubItemIndex = index;
                     _currentSubSubItemIndex = 0;
+                    AnnounceSubItem(_currentSectionIndex, _currentItemIndex, index);
                     break;
                 case 3:
-                    _currentSubSubItemIndex = idx;
+                    _currentSubSubItemIndex = index;
+                    AnnounceSubSubItem(_currentSectionIndex, _currentItemIndex, _currentSubItemIndex, index);
                     break;
             }
-        }
-
-        /// <summary>
-        /// Handle a search key (A-Z) for type-ahead navigation.
-        /// Searches within the current navigation level.
-        /// </summary>
-        private void HandleSearchKey(char c)
-        {
-            _search.AddChar(c);
-            PerformSearchAtCurrentLevel();
-        }
-
-        private void PerformSearchAtCurrentLevel()
-        {
-            switch (_navigationLevel)
-            {
-                case 0:
-                    var sections = GetSections();
-                    int sectionCount = sections != null ? sections.Length : 0;
-                    _search.Search(sectionCount, i => GetSectionName(i), i => AnnounceSection(i));
-                    break;
-                case 1:
-                    int secIdx1 = _currentSectionIndex;
-                    _search.Search(GetItemCount(secIdx1), i => GetItemName(secIdx1, i), i => AnnounceItem(secIdx1, i));
-                    break;
-                case 2:
-                    int secIdx2 = _currentSectionIndex;
-                    int itemIdx2 = _currentItemIndex;
-                    _search.Search(GetSubItemCount(secIdx2, itemIdx2),
-                        i => GetSubItemName(secIdx2, itemIdx2, i), i => AnnounceSubItem(secIdx2, itemIdx2, i));
-                    break;
-                case 3:
-                    int secIdx3 = _currentSectionIndex;
-                    int itemIdx3 = _currentItemIndex;
-                    int subIdx3 = _currentSubItemIndex;
-                    _search.Search(GetSubSubItemCount(secIdx3, itemIdx3, subIdx3),
-                        i => GetSubSubItemName(secIdx3, itemIdx3, subIdx3, i), i => AnnounceSubSubItem(secIdx3, itemIdx3, subIdx3, i));
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Handle backspace key to remove last character from search buffer.
-        /// Works at all navigation levels.
-        /// </summary>
-        private void HandleBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            PerformSearchAtCurrentLevel();
         }
 
         // ========================================

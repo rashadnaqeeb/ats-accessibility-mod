@@ -13,7 +13,7 @@ namespace ATSAccessibility
     /// - Level 2 (Details): Resolve, Needs, Favoring - Up/Down to navigate, Left to return
     /// - Level 3 (Sub-details): Resolve breakdown - Right to expand
     /// </summary>
-    public class VillagersPanel
+    public class VillagersPanel : ISearchable
     {
         // ========================================
         // DETAIL ITEM TYPES
@@ -117,47 +117,8 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0)
-                            {
-                                if (_focusOnSubDetails)
-                                    _currentSubDetailIndex = idx;
-                                else if (_focusOnDetails)
-                                    _currentDetailIndex = idx;
-                                else
-                                    _currentCategoryIndex = idx;
-                            }
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_search.HandleKey(keyCode, default(KeyboardManager.KeyModifiers), this))
+                return true;
 
             switch (keyCode)
             {
@@ -189,28 +150,11 @@ namespace ATSAccessibility
                 case KeyCode.LeftArrow:
                     return NavigateLeft();
 
-                case KeyCode.Backspace:
-                    HandleBackspace();
-                    return true;
-
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     // Pass to parent to handle panel closing
                     return false;
 
                 default:
-                    // Handle A-Z keys for type-ahead search
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                    }
                     return true;  // Consume all keys while panel is open
             }
         }
@@ -342,7 +286,6 @@ namespace ATSAccessibility
             if (_focusOnSubDetails)
             {
                 _focusOnSubDetails = false;
-                _search.Clear();
                 AnnounceDetail();
                 return true;
             }
@@ -350,7 +293,6 @@ namespace ATSAccessibility
             if (_focusOnDetails)
             {
                 _focusOnDetails = false;
-                _search.Clear();
                 AnnounceCategory();
                 return true;
             }
@@ -450,93 +392,79 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        /// <summary>
-        /// Handle a search key (A-Z) for type-ahead navigation within current level.
-        /// </summary>
-        private void HandleSearchKey(char c)
+        public int SearchItemCount
         {
-            _search.AddChar(c);
+            get
+            {
+                if (_focusOnSubDetails)
+                {
+                    if (_currentCategoryIndex >= _categories.Count) return 0;
+                    var category = _categories[_currentCategoryIndex];
+                    if (_currentDetailIndex >= category.Details.Count) return 0;
+                    return category.Details[_currentDetailIndex].SubDetails.Count;
+                }
 
+                if (_focusOnDetails)
+                {
+                    if (_currentCategoryIndex >= _categories.Count) return 0;
+                    return _categories[_currentCategoryIndex].Details.Count;
+                }
+
+                return _categories.Count;
+            }
+        }
+
+        public int SearchCurrentIndex
+        {
+            get
+            {
+                if (_focusOnSubDetails) return _currentSubDetailIndex;
+                if (_focusOnDetails) return _currentDetailIndex;
+                return _currentCategoryIndex;
+            }
+        }
+
+        public string GetSearchLabel(int index)
+        {
             if (_focusOnSubDetails)
             {
-                SearchSubDetails();
+                if (_currentCategoryIndex >= _categories.Count) return null;
+                var category = _categories[_currentCategoryIndex];
+                if (_currentDetailIndex >= category.Details.Count) return null;
+                var detail = category.Details[_currentDetailIndex];
+                return index < detail.SubDetails.Count ? detail.SubDetails[index] : null;
             }
-            else if (_focusOnDetails)
+
+            if (_focusOnDetails)
             {
-                SearchDetails();
+                if (_currentCategoryIndex >= _categories.Count) return null;
+                var category = _categories[_currentCategoryIndex];
+                return index < category.Details.Count ? category.Details[index].Label : null;
             }
-            else
-            {
-                SearchCategories();
-            }
+
+            return index < _categories.Count ? _categories[index].DisplayName : null;
         }
 
-        /// <summary>
-        /// Handle backspace key to remove last character from search buffer.
-        /// </summary>
-        private void HandleBackspace()
+        public void SearchMoveTo(int index)
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            // Re-search with shortened buffer
             if (_focusOnSubDetails)
             {
-                SearchSubDetails();
-            }
-            else if (_focusOnDetails)
-            {
-                SearchDetails();
-            }
-            else
-            {
-                SearchCategories();
-            }
-        }
-
-        private void SearchCategories()
-        {
-            _search.Search(_categories.Count, i => _categories[i].DisplayName, i => {
-                int save = _currentCategoryIndex;
-                _currentCategoryIndex = i;
-                AnnounceCategory();
-                _currentCategoryIndex = save;
-            });
-        }
-
-        private void SearchDetails()
-        {
-            if (_currentCategoryIndex >= _categories.Count) return;
-            var category = _categories[_currentCategoryIndex];
-            _search.Search(category.Details.Count, i => category.Details[i].Label, i => {
-                int save = _currentDetailIndex;
-                _currentDetailIndex = i;
-                AnnounceDetail();
-                _currentDetailIndex = save;
-            });
-        }
-
-        private void SearchSubDetails()
-        {
-            if (_currentCategoryIndex >= _categories.Count) return;
-            var category = _categories[_currentCategoryIndex];
-            if (_currentDetailIndex >= category.Details.Count) return;
-            var detail = category.Details[_currentDetailIndex];
-            _search.Search(detail.SubDetails.Count, i => detail.SubDetails[i], i => {
-                int save = _currentSubDetailIndex;
-                _currentSubDetailIndex = i;
+                _currentSubDetailIndex = index;
                 AnnounceSubDetail();
-                _currentSubDetailIndex = save;
-            });
+            }
+            else if (_focusOnDetails)
+            {
+                _currentDetailIndex = index;
+                AnnounceDetail();
+            }
+            else
+            {
+                _currentCategoryIndex = index;
+                AnnounceCategory();
+            }
         }
 
         // ========================================

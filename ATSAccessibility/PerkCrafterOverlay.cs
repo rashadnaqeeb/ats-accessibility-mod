@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the PerkCrafterPopup (Cornerstone Forge).
     /// Provides two-level menu navigation: main menu and submenus for hook/effect selection.
     /// </summary>
-    public class PerkCrafterOverlay : IKeyHandler
+    public class PerkCrafterOverlay : IKeyHandler, ISearchable
     {
         // Navigation levels
         private const int LEVEL_MAIN = 0;
@@ -64,7 +64,9 @@ namespace ATSAccessibility
                 return ProcessNameEditKey(keyCode, modifiers);
             }
 
-            _search.ClearOnLevelChangeKey(keyCode);
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             if (_navigationLevel == LEVEL_SUBMENU)
             {
@@ -195,13 +197,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Pass to game to close popup
                     return false;
 
@@ -462,38 +457,6 @@ namespace ATSAccessibility
 
         private bool ProcessSubmenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _submenuIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -534,32 +497,12 @@ namespace ATSAccessibility
 
                 case KeyCode.LeftArrow:
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        if (keyCode == KeyCode.Escape)
-                            InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     ReturnToMainMenu();
                     if (keyCode == KeyCode.Escape)
                         InputBlocker.BlockCancelOnce = true;
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleSubmenuBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSubmenuSearch(c);
-                        return true;
-                    }
                     // Consume all other keys
                     return true;
             }
@@ -685,61 +628,40 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // SUBMENU SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSubmenuSearch(char c)
-        {
-            _search.AddChar(c);
-            _search.Search(GetSubmenuItemCount(), GetSubmenuItemName, i => {
-                int save = _submenuIndex;
-                _submenuIndex = i;
-                AnnounceSubmenuItem();
-                _submenuIndex = save;
-            });
-        }
+        public int SearchItemCount => _navigationLevel == LEVEL_SUBMENU ? GetSubmenuItemCount() : 0;
+        public int SearchCurrentIndex => _submenuIndex;
 
-        private void HandleSubmenuBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(GetSubmenuItemCount(), GetSubmenuItemName, i => {
-                int save = _submenuIndex;
-                _submenuIndex = i;
-                AnnounceSubmenuItem();
-                _submenuIndex = save;
-            });
-        }
-
-        private string GetSubmenuItemName(int index)
+        public string GetSearchLabel(int index)
         {
             switch (_activeSubmenu)
             {
                 case MenuItem.Hook:
-                    if (_hookOptions != null && index < _hookOptions.Count)
+                    if (_hookOptions != null && index >= 0 && index < _hookOptions.Count)
                         return _hookOptions[index].Description;
                     break;
 
                 case MenuItem.Positive:
-                    if (_positiveOptions != null && index < _positiveOptions.Count)
+                    if (_positiveOptions != null && index >= 0 && index < _positiveOptions.Count)
                         return _positiveOptions[index].Description;
                     break;
 
                 case MenuItem.Negative:
                     if (index == 0) return "None";
                     int negIdx = index - 1;
-                    if (_negativeOptions != null && negIdx < _negativeOptions.Count)
+                    if (_negativeOptions != null && negIdx >= 0 && negIdx < _negativeOptions.Count)
                         return _negativeOptions[negIdx].Description;
                     break;
             }
             return null;
+        }
+
+        public void SearchMoveTo(int index)
+        {
+            _submenuIndex = index;
+            AnnounceSubmenuItem();
         }
 
         // ========================================

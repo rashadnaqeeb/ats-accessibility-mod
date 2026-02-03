@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the capital (Smoldering City) screen.
     /// Flat list navigation: Buy Upgrades, Deeds, Game History, Home (if unlocked).
     /// </summary>
-    public class CapitalOverlay : IKeyHandler
+    public class CapitalOverlay : IKeyHandler, ISearchable
     {
         private bool _isOpen;
         private bool _suspended;
@@ -31,40 +31,9 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        // Apply selection, clear search, then fall through to normal Enter
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -94,18 +63,7 @@ namespace ATSAccessibility
                     Close();
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -215,37 +173,22 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(char c)
+        public int SearchItemCount => _items.Count;
+        public int SearchCurrentIndex => _currentIndex;
+
+        public string GetSearchLabel(int index)
         {
-            _search.AddChar(c);
-            _search.Search(_items.Count, i => _items[i].name, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem();
-                _currentIndex = save;
-            });
+            if (index < 0 || index >= _items.Count) return null;
+            return _items[index].name;
         }
 
-        private void HandleBackspace()
+        public void SearchMoveTo(int index)
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(_items.Count, i => _items[i].name, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem();
-                _currentIndex = save;
-            });
+            _currentIndex = index;
+            AnnounceCurrentItem();
         }
 
         private void AnnounceCurrentItem()

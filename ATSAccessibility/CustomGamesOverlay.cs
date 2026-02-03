@@ -9,7 +9,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the Custom Games (Training Expeditions) popup.
     /// Provides hierarchical navigation through configuration panels.
     /// </summary>
-    public class CustomGamesOverlay : IKeyHandler
+    public class CustomGamesOverlay : IKeyHandler, ISearchable
     {
         private enum MenuLevel
         {
@@ -190,39 +190,9 @@ namespace ATSAccessibility
         {
             var currentSection = _sections[_topMenuIndex];
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _sectionItemIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -296,21 +266,7 @@ namespace ATSAccessibility
                     }
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                    {
-                        HandleBackspace();
-                        return true;
-                    }
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while in section
                     return true;
             }
@@ -1196,63 +1152,38 @@ namespace ATSAccessibility
                 var targetType = (CustomGamesReflection.ModifierType)_modifierCategoryIndex;
                 _filteredModifiers.AddRange(_modifiers.Where(m => m.Type == targetType));
             }
-
-            // Apply search filter if active
-            if (_search.HasBuffer)
-            {
-                string filter = _search.Buffer.ToLowerInvariant();
-                _filteredModifiers = _filteredModifiers
-                    .Where(m => m.DisplayName.ToLowerInvariant().Contains(filter))
-                    .ToList();
-            }
         }
 
         // ========================================
-        // Type-ahead Search
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(char c)
+        public int SearchItemCount
         {
-            var section = _sections[_topMenuIndex];
-
-            // Only search in Modifiers section
-            if (section != SectionType.Modifiers) return;
-
-            _search.AddChar(c);
-            FilterModifiers();
-            _sectionItemIndex = 0;
-            _search.Search(_filteredModifiers.Count, i => _filteredModifiers[i].DisplayName, i => {
-                int save = _sectionItemIndex;
-                _sectionItemIndex = i;
-                AnnounceSectionItem();
-                _sectionItemIndex = save;
-            });
+            get
+            {
+                // Only support search when inside a section, and only for Modifiers
+                if (_menuLevel != MenuLevel.InSection) return 0;
+                var section = _sections[_topMenuIndex];
+                if (section == SectionType.Modifiers) return _filteredModifiers.Count;
+                return 0;
+            }
         }
 
-        private void HandleBackspace()
+        public int SearchCurrentIndex => _sectionItemIndex;
+
+        public string GetSearchLabel(int index)
         {
             var section = _sections[_topMenuIndex];
-            if (section != SectionType.Modifiers) return;
+            if (section == SectionType.Modifiers)
+                return index >= 0 && index < _filteredModifiers.Count ? _filteredModifiers[index].DisplayName : null;
+            return null;
+        }
 
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                FilterModifiers();
-                _sectionItemIndex = 0;
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            FilterModifiers();
-            _sectionItemIndex = 0;
-            _search.Search(_filteredModifiers.Count, i => _filteredModifiers[i].DisplayName, i => {
-                int save = _sectionItemIndex;
-                _sectionItemIndex = i;
-                AnnounceSectionItem();
-                _sectionItemIndex = save;
-            });
+        public void SearchMoveTo(int index)
+        {
+            _sectionItemIndex = index;
+            AnnounceSectionItem();
         }
 
         // ========================================

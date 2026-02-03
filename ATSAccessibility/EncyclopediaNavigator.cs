@@ -9,7 +9,7 @@ namespace ATSAccessibility
     /// Provides keyboard navigation for the game's WikiPopup (encyclopedia).
     /// Supports 3-panel navigation: Categories, Articles, and Content.
     /// </summary>
-    public class EncyclopediaNavigator : IKeyHandler
+    public class EncyclopediaNavigator : IKeyHandler, ISearchable
     {
         public enum WikiPanel { Categories = 0, Articles = 1, Content = 2 }
 
@@ -47,45 +47,8 @@ namespace ATSAccessibility
         {
             if (!IsActive) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0)
-                            {
-                                if (_currentPanel == WikiPanel.Categories)
-                                    _categoryIndex = idx;
-                                else if (_currentPanel == WikiPanel.Articles)
-                                    _articleIndex = idx;
-                            }
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -112,27 +75,10 @@ namespace ATSAccessibility
                 case KeyCode.Space:
                     ActivateCurrentElement();
                     return true;
-                case KeyCode.Backspace:
-                    HandleBackspace();
-                    return true;
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     // Pass to game to close encyclopedia
                     return false;
                 default:
-                    // Check for alphabetic keys (A-Z) for type-ahead search
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while encyclopedia is open
                     return true;
             }
@@ -190,9 +136,6 @@ namespace ATSAccessibility
 
             if (newPanel != (int)_currentPanel)
             {
-                // Clear search buffer when leaving Articles panel
-                _search.Clear();
-
                 _currentPanel = (WikiPanel)newPanel;
 
                 // When entering Articles panel, rebuild from current category
@@ -1150,95 +1093,64 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISEARCHABLE
         // ========================================
 
-        /// <summary>
-        /// Handle an alphabetic key press for type-ahead search.
-        /// Active in Categories and Articles panels.
-        /// </summary>
-        private void HandleSearchKey(char c)
+        int ISearchable.SearchItemCount
         {
-            if (_currentPanel == WikiPanel.Categories)
+            get
             {
-                if (_categoryButtons.Count == 0) return;
-
-                _search.AddChar(c);
-                _search.Search(_categoryButtons.Count, i =>
+                switch (_currentPanel)
                 {
-                    var comp = _categoryButtons[i] as Component;
-                    return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
-                }, i => {
-                    int save = _categoryIndex;
-                    _categoryIndex = i;
-                    AnnounceCategoryElement();
-                    _categoryIndex = save;
-                });
-                return;
+                    case WikiPanel.Categories: return _categoryButtons.Count;
+                    case WikiPanel.Articles: return _articleSlots.Count;
+                    default: return 0;  // Content panel: search disabled
+                }
             }
-
-            if (_currentPanel != WikiPanel.Articles)
-                return;
-
-            if (_articleSlots.Count == 0)
-                return;
-
-            _search.AddChar(c);
-            _search.Search(_articleSlots.Count, i =>
-            {
-                var comp = _articleSlots[i] as Component;
-                return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
-            }, i => {
-                int save = _articleIndex;
-                _articleIndex = i;
-                AnnounceArticleElement();
-                _articleIndex = save;
-            });
         }
 
-        /// <summary>
-        /// Handle backspace key - remove last character from search buffer.
-        /// </summary>
-        private void HandleBackspace()
+        int ISearchable.SearchCurrentIndex
         {
-            if (_currentPanel != WikiPanel.Categories && _currentPanel != WikiPanel.Articles)
-                return;
-
-            if (!_search.RemoveChar())
-                return;
-
-            if (!_search.HasBuffer)
+            get
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            if (_currentPanel == WikiPanel.Categories)
-            {
-                _search.Search(_categoryButtons.Count, i =>
+                switch (_currentPanel)
                 {
-                    var comp = _categoryButtons[i] as Component;
-                    return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
-                }, i => {
-                    int save = _categoryIndex;
-                    _categoryIndex = i;
+                    case WikiPanel.Categories: return _categoryIndex;
+                    case WikiPanel.Articles: return _articleIndex;
+                    default: return 0;
+                }
+            }
+        }
+
+        string ISearchable.GetSearchLabel(int index)
+        {
+            switch (_currentPanel)
+            {
+                case WikiPanel.Categories:
+                    if (index < 0 || index >= _categoryButtons.Count) return null;
+                    var catComp = _categoryButtons[index] as Component;
+                    return catComp != null ? UIElementFinder.GetTextFromTransform(catComp.transform) : null;
+                case WikiPanel.Articles:
+                    if (index < 0 || index >= _articleSlots.Count) return null;
+                    var artComp = _articleSlots[index] as Component;
+                    return artComp != null ? UIElementFinder.GetTextFromTransform(artComp.transform) : null;
+                default:
+                    return null;
+            }
+        }
+
+        void ISearchable.SearchMoveTo(int index)
+        {
+            switch (_currentPanel)
+            {
+                case WikiPanel.Categories:
+                    _categoryIndex = index;
                     AnnounceCategoryElement();
-                    _categoryIndex = save;
-                });
-            }
-            else
-            {
-                _search.Search(_articleSlots.Count, i =>
-                {
-                    var comp = _articleSlots[i] as Component;
-                    return comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : null;
-                }, i => {
-                    int save = _articleIndex;
-                    _articleIndex = i;
+                    break;
+                case WikiPanel.Articles:
+                    _articleIndex = index;
                     AnnounceArticleElement();
-                    _articleIndex = save;
-                });
+                    break;
             }
         }
 

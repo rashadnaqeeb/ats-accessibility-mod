@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the CapitalUpgradePopup (Buy Upgrades screen).
     /// Three-level navigation: structures -> upgrades -> rewards.
     /// </summary>
-    public class CapitalUpgradeOverlay : IKeyHandler
+    public class CapitalUpgradeOverlay : IKeyHandler, ISearchable
     {
         private static readonly Regex NumberPattern = new Regex(@"([+-]\d+)(%?)", RegexOptions.Compiled);
 
@@ -40,40 +40,9 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        // Apply selection, clear search, then fall through to normal Enter
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) SetCurrentIndex(idx);
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (_level)
             {
@@ -173,17 +142,7 @@ namespace ATSAccessibility
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        HandleSearchKey(keyCode);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -234,17 +193,7 @@ namespace ATSAccessibility
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        HandleSearchKey(keyCode);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -286,17 +235,7 @@ namespace ATSAccessibility
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        HandleSearchKey(keyCode);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -527,75 +466,67 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // Type-Ahead Search
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(KeyCode keyCode)
+        public int SearchItemCount
         {
-            char c = (char)('a' + (keyCode - KeyCode.A));
-            _search.AddChar(c);
-            SearchCurrentLevel();
-        }
-
-        private void HandleBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
+            get
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
+                switch (_level)
+                {
+                    case Level.Structures: return _structures.Count;
+                    case Level.Upgrades: return _upgrades.Count;
+                    case Level.Rewards: return _rewards.Count;
+                    default: return 0;
+                }
             }
-
-            SearchCurrentLevel();
         }
 
-        private void SearchCurrentLevel()
+        public int SearchCurrentIndex
+        {
+            get
+            {
+                switch (_level)
+                {
+                    case Level.Structures: return _currentStructureIndex;
+                    case Level.Upgrades: return _currentUpgradeIndex;
+                    case Level.Rewards: return _currentRewardIndex;
+                    default: return 0;
+                }
+            }
+        }
+
+        public string GetSearchLabel(int index)
         {
             switch (_level)
             {
                 case Level.Structures:
-                    _search.Search(_structures.Count, i => _structures[i].Name, i => {
-                        int save = _currentStructureIndex;
-                        _currentStructureIndex = i;
-                        AnnounceStructure();
-                        _currentStructureIndex = save;
-                    });
-                    break;
-
+                    return (index >= 0 && index < _structures.Count) ? _structures[index].Name : null;
                 case Level.Upgrades:
-                    _search.Search(_upgrades.Count, i => _upgrades[i].Name, i => {
-                        int save = _currentUpgradeIndex;
-                        _currentUpgradeIndex = i;
-                        AnnounceUpgrade();
-                        _currentUpgradeIndex = save;
-                    });
-                    break;
-
+                    return (index >= 0 && index < _upgrades.Count) ? _upgrades[index].Name : null;
                 case Level.Rewards:
-                    _search.Search(_rewards.Count, i => _rewards[i].Name, i => {
-                        int save = _currentRewardIndex;
-                        _currentRewardIndex = i;
-                        AnnounceReward();
-                        _currentRewardIndex = save;
-                    });
-                    break;
+                    return (index >= 0 && index < _rewards.Count) ? _rewards[index].Name : null;
+                default:
+                    return null;
             }
         }
 
-        private void SetCurrentIndex(int index)
+        public void SearchMoveTo(int index)
         {
             switch (_level)
             {
                 case Level.Structures:
                     _currentStructureIndex = index;
+                    AnnounceStructure();
                     break;
                 case Level.Upgrades:
                     _currentUpgradeIndex = index;
+                    AnnounceUpgrade();
                     break;
                 case Level.Rewards:
                     _currentRewardIndex = index;
+                    AnnounceReward();
                     break;
             }
         }

@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the GoalsPopup (Deeds menu).
     /// Two-level navigation: categories -> goals.
     /// </summary>
-    public class DeedsOverlay : IKeyHandler
+    public class DeedsOverlay : IKeyHandler, ISearchable
     {
         // Goal entry within a category
         private class GoalEntry
@@ -77,7 +77,9 @@ namespace ATSAccessibility
                 return false;
             }
 
-            _search.ClearOnLevelChangeKey(keyCode);
+            // Centralized search handling
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             if (_focusOnItems)
                 return ProcessItemKey(keyCode);
@@ -91,45 +93,6 @@ namespace ATSAccessibility
 
         private bool ProcessCategoryKey(KeyCode keyCode)
         {
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0)
-                            {
-                                // Resolve flat index to (categoryIndex, itemIndex)
-                                ResolveFlatGoalIndex(idx, out int catIdx, out int itemIdx);
-                                _currentCategoryIndex = catIdx;
-                                _currentItemIndex = itemIdx;
-                                _focusOnItems = true;
-                            }
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -166,19 +129,7 @@ namespace ATSAccessibility
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleCategoryBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z) across all goals
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleCategorySearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -190,38 +141,6 @@ namespace ATSAccessibility
 
         private bool ProcessItemKey(KeyCode keyCode)
         {
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentItemIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -264,29 +183,10 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -589,94 +489,64 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(char c)
+        public int SearchItemCount
         {
-            var goals = GetCurrentGoals();
-            if (goals == null) return;
-
-            _search.AddChar(c);
-            _search.Search(goals.Count, i => goals[i].Name, i => {
-                int save = _currentItemIndex;
-                _currentItemIndex = i;
-                AnnounceItem();
-                _currentItemIndex = save;
-            });
-        }
-
-        private void HandleBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
+            get
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
+                if (_focusOnItems)
+                {
+                    var goals = GetCurrentGoals();
+                    return goals?.Count ?? 0;
+                }
+                else
+                {
+                    // Category level: flat cross-category search across all goals
+                    return GetFlatGoalCount();
+                }
             }
-
-            var goals = GetCurrentGoals();
-            if (goals == null) return;
-            _search.Search(goals.Count, i => goals[i].Name, i => {
-                int save = _currentItemIndex;
-                _currentItemIndex = i;
-                AnnounceItem();
-                _currentItemIndex = save;
-            });
         }
 
-        // ========================================
-        // CATEGORY-LEVEL TYPE-AHEAD (searches all goals across categories)
-        // Exception: normally type-ahead doesn't search into subcategories.
-        // This is one of three places where it does (also: resource overlay, build menu).
-        // ========================================
-
-        private void HandleCategorySearchKey(char c)
+        public int SearchCurrentIndex
         {
-            _search.AddChar(c);
-            int flatCount = GetFlatGoalCount();
-            _search.Search(flatCount, i => GetFlatGoalName(i), i => {
-                ResolveFlatGoalIndex(i, out int catIdx, out int itemIdx);
-                int saveCat = _currentCategoryIndex;
-                int saveItem = _currentItemIndex;
-                bool saveFocus = _focusOnItems;
+            get
+            {
+                return _focusOnItems ? _currentItemIndex : _currentCategoryIndex;
+            }
+        }
+
+        public string GetSearchLabel(int index)
+        {
+            if (_focusOnItems)
+            {
+                var goals = GetCurrentGoals();
+                return (goals != null && index >= 0 && index < goals.Count) ? goals[index].Name : null;
+            }
+            else
+            {
+                // Category level: flat cross-category search
+                return GetFlatGoalName(index);
+            }
+        }
+
+        public void SearchMoveTo(int index)
+        {
+            if (_focusOnItems)
+            {
+                _currentItemIndex = index;
+                AnnounceItem();
+            }
+            else
+            {
+                // Category level: resolve flat index to (category, item) and enter items
+                ResolveFlatGoalIndex(index, out int catIdx, out int itemIdx);
                 _currentCategoryIndex = catIdx;
                 _currentItemIndex = itemIdx;
                 _focusOnItems = true;
                 AnnounceItem();
-                _currentCategoryIndex = saveCat;
-                _currentItemIndex = saveItem;
-                _focusOnItems = saveFocus;
-            });
-        }
-
-        private void HandleCategoryBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
             }
-
-            int flatCount = GetFlatGoalCount();
-            _search.Search(flatCount, i => GetFlatGoalName(i), i => {
-                ResolveFlatGoalIndex(i, out int catIdx, out int itemIdx);
-                int saveCat = _currentCategoryIndex;
-                int saveItem = _currentItemIndex;
-                bool saveFocus = _focusOnItems;
-                _currentCategoryIndex = catIdx;
-                _currentItemIndex = itemIdx;
-                _focusOnItems = true;
-                AnnounceItem();
-                _currentCategoryIndex = saveCat;
-                _currentItemIndex = saveItem;
-                _focusOnItems = saveFocus;
-            });
         }
 
         /// <summary>

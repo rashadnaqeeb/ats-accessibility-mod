@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Stores recent announcements and provides a panel to review them.
     /// Opened with Alt+N during settlement gameplay.
     /// </summary>
-    public class AnnouncementHistoryPanel : IKeyHandler
+    public class AnnouncementHistoryPanel : IKeyHandler, ISearchable
     {
         private const int MAX_HISTORY = 10;
 
@@ -81,40 +81,9 @@ namespace ATSAccessibility
         /// </summary>
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        // Apply selection, clear search, then fall through to normal Enter
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             // Panel is open - handle navigation
             switch (keyCode)
@@ -145,10 +114,6 @@ namespace ATSAccessibility
                     GoToEventLocation();
                     return true;
 
-                case KeyCode.Backspace:
-                    HandleBackspace();
-                    return true;
-
                 case KeyCode.Escape:
                     Close();
                     return true;
@@ -158,13 +123,6 @@ namespace ATSAccessibility
                     return true;
 
                 default:
-                    // Handle A-Z keys for type-ahead search
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume other keys while panel is open
                     return true;
             }
@@ -288,51 +246,25 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        /// <summary>
-        /// Handle a search key (A-Z) for type-ahead navigation.
-        /// </summary>
-        private void HandleSearchKey(char c)
+        public int SearchItemCount { get { lock (_lock) { return _history.Count; } } }
+
+        public int SearchCurrentIndex => _currentIndex;
+
+        public string GetSearchLabel(int index)
         {
             lock (_lock)
             {
-                if (_history.Count == 0) return;
-
-                _search.AddChar(c);
-                _search.Search(_history.Count, i => _history[i].Message, i => {
-                    int save = _currentIndex;
-                    _currentIndex = i;
-                    AnnounceCurrentItem(includeHeader: false);
-                    _currentIndex = save;
-                });
+                return index >= 0 && index < _history.Count ? _history[index].Message : null;
             }
         }
 
-        /// <summary>
-        /// Handle backspace key to remove last character from search buffer.
-        /// </summary>
-        private void HandleBackspace()
+        public void SearchMoveTo(int index)
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            lock (_lock)
-            {
-                _search.Search(_history.Count, i => _history[i].Message, i => {
-                    int save = _currentIndex;
-                    _currentIndex = i;
-                    AnnounceCurrentItem(includeHeader: false);
-                    _currentIndex = save;
-                });
-            }
+            _currentIndex = index;
+            AnnounceCurrentItem(includeHeader: false);
         }
     }
 }

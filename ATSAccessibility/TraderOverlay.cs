@@ -10,7 +10,7 @@ namespace ATSAccessibility
     /// - Mode 1 (No Trader): Flat list with next trader info and force arrival
     /// - Mode 2 (Trader Present): Main menu with goods trading, perks, and assault
     /// </summary>
-    public class TraderOverlay : IKeyHandler
+    public class TraderOverlay : IKeyHandler, ISearchable
     {
         // ========================================
         // NAVIGATION STATE
@@ -82,13 +82,22 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            // Confirmation mode (trade or assault)
+            // Confirmation mode (trade or assault) - no search
             if (_inConfirmation)
             {
                 return ProcessConfirmationKey(keyCode);
             }
+
+            // Modifier shortcuts must come before HandleKey
+            if (_level == Level.GoodsTrade && modifiers.Alt)
+            {
+                if (keyCode == KeyCode.B) { AnnounceBalance(); return true; }
+                if (keyCode == KeyCode.A) { TryAcceptTrade(); return true; }
+            }
+
+            // Centralized search handling
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             // Mode-specific handling
             if (_mode == Mode.NoTrader)
@@ -299,38 +308,6 @@ namespace ATSAccessibility
 
         private bool ProcessNoTraderKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -363,31 +340,10 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     // Pass to game to close panel
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearch(c, _noTraderItems, item => item.SearchName, i => {
-                            if (i >= 0 && i < _noTraderItems.Count)
-                                Speech.Say(_noTraderItems[i].Label);
-                        });
-                        return true;
-                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -601,38 +557,6 @@ namespace ATSAccessibility
 
         private bool ProcessMainMenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -665,31 +589,10 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     // Pass to game to close panel
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearch(c, _mainMenuItems, item => item.SearchName, i => {
-                            if (i >= 0 && i < _mainMenuItems.Count)
-                                Speech.Say(_mainMenuItems[i].Label);
-                        });
-                        return true;
-                    }
                     return true;
             }
         }
@@ -780,40 +683,6 @@ namespace ATSAccessibility
 
         private bool ProcessGoodsTradeKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            var currentList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.LeftArrow:
@@ -877,30 +746,7 @@ namespace ATSAccessibility
                     AdjustQuantity(modifiers.Shift ? -10 : -1);
                     return true;
 
-                case KeyCode.B:
-                    if (modifiers.Alt)
-                    {
-                        AnnounceBalance();
-                        return true;
-                    }
-                    break;
-
-                case KeyCode.A:
-                    if (modifiers.Alt)
-                    {
-                        TryAcceptTrade();
-                        return true;
-                    }
-                    break;
-
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Go back to main menu
                     _level = Level.MainMenu;
                     _currentIndex = 1; // Goods Trade item
@@ -908,21 +754,9 @@ namespace ATSAccessibility
                     InputBlocker.BlockCancelOnce = true;
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
+                default:
                     return true;
             }
-
-            // Type-ahead search (A-Z) - only if not Alt modifier
-            if (!modifiers.Alt && keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-            {
-                char c = (char)('a' + (keyCode - KeyCode.A));
-                HandleGoodsSearch(c);
-                return true;
-            }
-
-            return true;
         }
 
         private void NavigateGoods(int direction)
@@ -1052,18 +886,6 @@ namespace ATSAccessibility
             Speech.Say($"Selling: {sellText}. Buying: {buyText}. Balance: {balance:F2}. Enter to confirm, Escape to cancel");
         }
 
-        private void HandleGoodsSearch(char c)
-        {
-            var currentList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
-            if (currentList.Count == 0) return;
-
-            _search.AddChar(c);
-            _search.Search(currentList.Count, i => currentList[i].DisplayName, i => {
-                if (i >= 0 && i < currentList.Count)
-                    Speech.Say(BuildGoodLabel(currentList[i]));
-            });
-        }
-
         // ========================================
         // PERKS LEVEL
         // ========================================
@@ -1109,38 +931,6 @@ namespace ATSAccessibility
 
         private bool ProcessPerksKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -1173,13 +963,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Go back to main menu
                     _level = Level.MainMenu;
                     _currentIndex = 2; // Perks item
@@ -1188,19 +971,7 @@ namespace ATSAccessibility
                     InputBlocker.BlockCancelOnce = true;
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandlePerksSearch(c);
-                        return true;
-                    }
                     return true;
             }
         }
@@ -1251,17 +1022,6 @@ namespace ATSAccessibility
                 Speech.Say("Purchase failed");
                 SoundManager.PlayFailed();
             }
-        }
-
-        private void HandlePerksSearch(char c)
-        {
-            if (_perks.Count == 0) return;
-
-            _search.AddChar(c);
-            _search.Search(_perks.Count, i => _perks[i].DisplayName, i => {
-                if (i >= 0 && i < _perks.Count)
-                    Speech.Say(BuildPerkLabel(_perks[i]));
-            });
         }
 
         // ========================================
@@ -1405,25 +1165,77 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // SEARCH HELPERS
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearch<T>(char c, List<T> items, Func<T, string> nameSelector, Action<int> announceResult = null)
+        public int SearchItemCount
         {
-            if (items.Count == 0) return;
+            get
+            {
+                if (_mode == Mode.NoTrader)
+                    return _noTraderItems.Count;
 
-            _search.AddChar(c);
-            _search.Search(items.Count, i => nameSelector(items[i]), announceResult);
+                switch (_level)
+                {
+                    case Level.MainMenu:
+                        return _mainMenuItems.Count;
+                    case Level.GoodsTrade:
+                        return (_currentTab == Tab.Sell ? _sellGoods : _buyGoods).Count;
+                    case Level.Perks:
+                        return _perks.Count;
+                    default:
+                        return 0; // search disabled for confirm levels
+                }
+            }
         }
 
-        private void HandleBackspace()
-        {
-            if (!_search.RemoveChar()) return;
+        public int SearchCurrentIndex => _currentIndex;
 
-            if (!_search.HasBuffer)
+        public string GetSearchLabel(int index)
+        {
+            if (_mode == Mode.NoTrader)
+                return (index >= 0 && index < _noTraderItems.Count) ? _noTraderItems[index].SearchName : null;
+
+            switch (_level)
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
+                case Level.MainMenu:
+                    return (index >= 0 && index < _mainMenuItems.Count) ? _mainMenuItems[index].SearchName : null;
+                case Level.GoodsTrade:
+                    var goodsList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
+                    return (index >= 0 && index < goodsList.Count) ? goodsList[index].DisplayName : null;
+                case Level.Perks:
+                    return (index >= 0 && index < _perks.Count) ? _perks[index].DisplayName : null;
+                default:
+                    return null;
+            }
+        }
+
+        public void SearchMoveTo(int index)
+        {
+            _currentIndex = index;
+
+            if (_mode == Mode.NoTrader)
+            {
+                if (index >= 0 && index < _noTraderItems.Count)
+                    Speech.Say(_noTraderItems[index].Label);
+                return;
+            }
+
+            switch (_level)
+            {
+                case Level.MainMenu:
+                    if (index >= 0 && index < _mainMenuItems.Count)
+                        Speech.Say(_mainMenuItems[index].Label);
+                    break;
+                case Level.GoodsTrade:
+                    var goodsList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
+                    if (index >= 0 && index < goodsList.Count)
+                        Speech.Say(BuildGoodLabel(goodsList[index]));
+                    break;
+                case Level.Perks:
+                    if (index >= 0 && index < _perks.Count)
+                        Speech.Say(BuildPerkLabel(_perks[index]));
+                    break;
             }
         }
     }

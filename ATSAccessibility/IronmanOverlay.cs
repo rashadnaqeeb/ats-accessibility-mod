@@ -8,7 +8,7 @@ namespace ATSAccessibility
     /// Three-level navigation: sections -> items -> rewards.
     /// Sections: Pick Options (3 choices), Core Upgrades, and Unlocked.
     /// </summary>
-    public class IronmanOverlay : IKeyHandler
+    public class IronmanOverlay : IKeyHandler, ISearchable
     {
         private enum Level { Sections, Items, Rewards }
         private enum SectionType { PickOptions, CoreUpgrades, Unlocked }
@@ -42,40 +42,9 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        // Apply selection, clear search, then fall through to normal Enter
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) SetCurrentIndex(idx);
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (_level)
             {
@@ -219,17 +188,7 @@ namespace ATSAccessibility
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        HandleSearchKey(keyCode);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -288,22 +247,11 @@ namespace ATSAccessibility
                     // Go back to sections, don't close popup
                     _level = Level.Sections;
                     _currentItems.Clear();
-                    _search.Clear();
                     AnnounceSection();
                     InputBlocker.BlockCancelOnce = true;
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        HandleSearchKey(keyCode);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -345,22 +293,11 @@ namespace ATSAccessibility
                 case KeyCode.Escape:
                     _level = Level.Items;
                     _rewards.Clear();
-                    _search.Clear();
                     AnnounceItem();
                     InputBlocker.BlockCancelOnce = true;
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        HandleSearchKey(keyCode);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -637,61 +574,61 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // Type-Ahead Search
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(KeyCode keyCode)
+        public int SearchItemCount
         {
-            char c = (char)('a' + (keyCode - KeyCode.A));
-            _search.AddChar(c);
-            SearchCurrentLevel();
-        }
-
-        private void HandleBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
+            get
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
+                switch (_level)
+                {
+                    case Level.Sections: return _sectionNames?.Length ?? 0;
+                    case Level.Items: return _currentItems.Count;
+                    case Level.Rewards: return _rewards.Count;
+                    default: return 0;
+                }
             }
-
-            SearchCurrentLevel();
         }
 
-        private void SearchCurrentLevel()
+        public int SearchCurrentIndex
+        {
+            get
+            {
+                switch (_level)
+                {
+                    case Level.Sections: return _currentSectionIndex;
+                    case Level.Items: return _currentItemIndex;
+                    case Level.Rewards: return _currentRewardIndex;
+                    default: return 0;
+                }
+            }
+        }
+
+        public string GetSearchLabel(int index)
         {
             switch (_level)
             {
                 case Level.Sections:
-                    _search.Search(_sectionNames.Length, i => _sectionNames[i], i => {
-                        int save = _currentSectionIndex;
-                        _currentSectionIndex = i;
-                        AnnounceSection();
-                        _currentSectionIndex = save;
-                    });
+                    if (_sectionNames != null && index >= 0 && index < _sectionNames.Length)
+                        return _sectionNames[index];
                     break;
-
                 case Level.Items:
-                    _search.Search(_currentItems.Count, i => _currentItems[i].Name, i => {
-                        int save = _currentItemIndex;
-                        _currentItemIndex = i;
-                        AnnounceItem();
-                        _currentItemIndex = save;
-                    });
+                    if (index >= 0 && index < _currentItems.Count)
+                        return _currentItems[index].Name;
                     break;
-
                 case Level.Rewards:
-                    _search.Search(_rewards.Count, i => _rewards[i].Name, i => {
-                        int save = _currentRewardIndex;
-                        _currentRewardIndex = i;
-                        AnnounceReward();
-                        _currentRewardIndex = save;
-                    });
+                    if (index >= 0 && index < _rewards.Count)
+                        return _rewards[index].Name;
                     break;
             }
+            return null;
+        }
+
+        public void SearchMoveTo(int index)
+        {
+            SetCurrentIndex(index);
+            AnnounceCurrentLevel();
         }
 
         private void SetCurrentIndex(int index)

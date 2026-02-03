@@ -9,7 +9,7 @@ namespace ATSAccessibility
     /// Provides flat list navigation with informational items, submenus for
     /// difficulty selection and modifiers, and embark button.
     /// </summary>
-    public class DailyExpeditionOverlay : IKeyHandler
+    public class DailyExpeditionOverlay : IKeyHandler, ISearchable
     {
         private enum ItemType
         {
@@ -44,12 +44,18 @@ namespace ATSAccessibility
         private SubmenuMode _submenuMode = SubmenuMode.None;
         private int _submenuIndex;
         private readonly TypeAheadSearch _submenuSearch = new TypeAheadSearch();
+        private readonly SubmenuSearchable _submenuSearchable;
 
         // Difficulty data
         private List<object> _difficulties = new List<object>();
 
         // Modifiers data (name, description)
         private List<(string name, string description)> _modifiers = new List<(string, string)>();
+
+        public DailyExpeditionOverlay()
+        {
+            _submenuSearchable = new SubmenuSearchable(this);
+        }
 
         // ========================================
         // IKeyHandler Implementation
@@ -67,39 +73,8 @@ namespace ATSAccessibility
                 return ProcessSubmenuKey(keyCode, modifiers);
             }
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -146,18 +121,7 @@ namespace ATSAccessibility
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -165,39 +129,8 @@ namespace ATSAccessibility
 
         private bool ProcessSubmenuKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            _submenuSearch.ClearOnLevelChangeKey(keyCode);
-
-            if (_submenuSearch.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _submenuSearch.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _submenuSearch.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _submenuSearch.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _submenuSearch.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _submenuSearch.SelectedOriginalIndex;
-                            if (idx >= 0) _submenuIndex = idx;
-                        }
-                        _submenuSearch.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _submenuSearch.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_submenuSearch.HandleKey(keyCode, modifiers, _submenuSearchable))
+                return true;
 
             switch (keyCode)
             {
@@ -257,18 +190,7 @@ namespace ATSAccessibility
                     CloseSubmenu(announce: true);
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_submenuSearch.HasBuffer)
-                        HandleSubmenuBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSubmenuSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while submenu is open
                     return true;
             }
@@ -416,59 +338,42 @@ namespace ATSAccessibility
             Debug.Log("[ATSAccessibility] Submenu closed");
         }
 
-        private void HandleSubmenuSearchKey(char c)
-        {
-            _submenuSearch.AddChar(c);
+        // ========================================
+        // Submenu ISearchable Adapter
+        // ========================================
 
-            int count = GetSubmenuCount();
-            _submenuSearch.Search(count, i =>
+        private class SubmenuSearchable : ISearchable
+        {
+            private readonly DailyExpeditionOverlay _owner;
+
+            public SubmenuSearchable(DailyExpeditionOverlay owner) { _owner = owner; }
+
+            public int SearchItemCount => _owner.GetSubmenuCount();
+
+            public int SearchCurrentIndex => _owner._submenuIndex;
+
+            public string GetSearchLabel(int index)
             {
-                switch (_submenuMode)
+                switch (_owner._submenuMode)
                 {
                     case SubmenuMode.Difficulty:
-                        return i < _difficulties.Count ? DailyExpeditionReflection.GetDifficultyDisplayName(_difficulties[i]) : null;
+                        return index < _owner._difficulties.Count
+                            ? DailyExpeditionReflection.GetDifficultyDisplayName(_owner._difficulties[index])
+                            : null;
                     case SubmenuMode.Modifiers:
-                        return i < _modifiers.Count ? _modifiers[i].name : null;
+                        return index < _owner._modifiers.Count
+                            ? _owner._modifiers[index].name
+                            : null;
                     default:
                         return null;
                 }
-            }, i => {
-                int save = _submenuIndex;
-                _submenuIndex = i;
-                AnnounceSubmenuItem();
-                _submenuIndex = save;
-            });
-        }
-
-        private void HandleSubmenuBackspace()
-        {
-            if (!_submenuSearch.RemoveChar()) return;
-
-            if (!_submenuSearch.HasBuffer)
-            {
-                _submenuSearch.Clear();
-                Speech.Say("Search cleared");
-                return;
             }
 
-            int count = GetSubmenuCount();
-            _submenuSearch.Search(count, i =>
+            public void SearchMoveTo(int index)
             {
-                switch (_submenuMode)
-                {
-                    case SubmenuMode.Difficulty:
-                        return i < _difficulties.Count ? DailyExpeditionReflection.GetDifficultyDisplayName(_difficulties[i]) : null;
-                    case SubmenuMode.Modifiers:
-                        return i < _modifiers.Count ? _modifiers[i].name : null;
-                    default:
-                        return null;
-                }
-            }, i => {
-                int save = _submenuIndex;
-                _submenuIndex = i;
-                AnnounceSubmenuItem();
-                _submenuIndex = save;
-            });
+                _owner._submenuIndex = index;
+                _owner.AnnounceSubmenuItem();
+            }
         }
 
         // ========================================
@@ -613,37 +518,22 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // Type-ahead Search (main list)
+        // ISearchable Implementation (main list)
         // ========================================
 
-        private void HandleSearchKey(char c)
+        public int SearchItemCount => _items.Count;
+
+        public int SearchCurrentIndex => _currentIndex;
+
+        public string GetSearchLabel(int index)
         {
-            _search.AddChar(c);
-            _search.Search(_items.Count, i => _items[i].text, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem();
-                _currentIndex = save;
-            });
+            return index >= 0 && index < _items.Count ? _items[index].text : null;
         }
 
-        private void HandleBackspace()
+        public void SearchMoveTo(int index)
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(_items.Count, i => _items[i].text, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem();
-                _currentIndex = save;
-            });
+            _currentIndex = index;
+            AnnounceCurrentItem();
         }
 
         // ========================================

@@ -209,9 +209,9 @@ namespace ATSAccessibility
         /// Process key events for the effects panel.
         /// Returns true if the key was handled.
         /// </summary>
-        public bool ProcessPanelKeyEvent(KeyCode keyCode)
+        public bool ProcessPanelKeyEvent(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers = default)
         {
-            return _effectsPanel.ProcessKeyEvent(keyCode);
+            return _effectsPanel.ProcessKeyEvent(keyCode, modifiers);
         }
 
         /// <summary>

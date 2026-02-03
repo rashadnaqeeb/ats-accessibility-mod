@@ -260,58 +260,47 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // CROSS-CATEGORY SEARCH (OVERRIDE BASE)
+        // ISearchable OVERRIDES (cross-category search)
         // ========================================
 
         /// <summary>
-        /// Override ProcessKeyEvent to handle cross-category search.
-        /// Resource panel searches ALL resources across all categories.
+        /// Search all resources across all categories.
+        /// </summary>
+        public override int SearchItemCount => _allResources.Count;
+
+        public override string GetSearchLabel(int index)
+        {
+            if (index >= 0 && index < _allResources.Count)
+                return _allResources[index].name;
+            return null;
+        }
+
+        public override void SearchMoveTo(int index)
+        {
+            if (index >= 0 && index < _allResources.Count)
+            {
+                var match = _allResources[index];
+                _currentCategoryIndex = match.categoryIndex;
+                _currentItemIndex = match.itemIndex;
+                _focusOnItems = true;
+                AnnounceItem();
+            }
+        }
+
+        // ========================================
+        // CROSS-CATEGORY KEY HANDLING (OVERRIDE BASE)
+        // ========================================
+
+        /// <summary>
+        /// Override ProcessKeyEvent for cross-category item navigation on Up/Down.
         /// </summary>
         public new bool ProcessKeyEvent(KeyCode keyCode)
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            // When search is active, route navigation keys to search results
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0)
-                            {
-                                var match = _allResources[idx];
-                                _currentCategoryIndex = match.categoryIndex;
-                                _currentItemIndex = match.itemIndex;
-                                _focusOnItems = true;
-                            }
-                        }
-                        _search.Clear();
-                        AnnounceItem();
-                        return true;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, default(KeyboardManager.KeyModifiers), this))
+                return true;
 
             switch (keyCode)
             {
@@ -352,84 +341,19 @@ namespace ATSAccessibility
                 case KeyCode.LeftArrow:
                     if (_focusOnItems)
                     {
-                        _focusOnItems = false;
-                        _search.Clear();
-                        AnnounceCategory();
+                        ReturnToCategories();
                         return true;
                     }
                     // Pass to parent (InfoPanelMenu) to close this panel
                     return false;
 
-                case KeyCode.Backspace:
-                    HandleBackspace();
-                    return true;
-
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     // Pass to parent to handle panel closing
                     return false;
 
                 default:
-                    // Handle A-Z keys for cross-category type-ahead search
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleCrossSearchKey(c);
-                    }
                     return true;  // Consume all keys while panel is open
             }
-        }
-
-        /// <summary>
-        /// Handle a search key (A-Z) for cross-category type-ahead navigation.
-        /// Searches all resources across all categories.
-        /// </summary>
-        private void HandleCrossSearchKey(char c)
-        {
-            if (_allResources.Count == 0) return;
-
-            _search.AddChar(c);
-            _search.Search(_allResources.Count, i => _allResources[i].name, AnnounceCrossSearchResult);
-        }
-
-        /// <summary>
-        /// Announce a cross-category search result by temporarily navigating to its location.
-        /// </summary>
-        private void AnnounceCrossSearchResult(int flatIndex)
-        {
-            if (flatIndex < 0 || flatIndex >= _allResources.Count) return;
-
-            var match = _allResources[flatIndex];
-            int saveCat = _currentCategoryIndex;
-            int saveItem = _currentItemIndex;
-            _currentCategoryIndex = match.categoryIndex;
-            _currentItemIndex = match.itemIndex;
-            AnnounceItem();
-            _currentCategoryIndex = saveCat;
-            _currentItemIndex = saveItem;
-        }
-
-        /// <summary>
-        /// Handle backspace key for cross-category search.
-        /// </summary>
-        private void HandleBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(_allResources.Count, i => _allResources[i].name, AnnounceCrossSearchResult);
         }
     }
 }

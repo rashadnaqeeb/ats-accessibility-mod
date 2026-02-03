@@ -9,7 +9,7 @@ namespace ATSAccessibility
     /// Two-level navigation: main level (save slots) and submenu (actions per slot).
     /// Supports text input for rename and confirmation for destructive actions.
     /// </summary>
-    public class ProfilesOverlay : IKeyHandler
+    public class ProfilesOverlay : IKeyHandler, ISearchable
     {
         // ========================================
         // ENUMS
@@ -108,7 +108,7 @@ namespace ATSAccessibility
             }
 
             // Main level
-            return ProcessMainKey(keyCode);
+            return ProcessMainKey(keyCode, modifiers);
         }
 
         // ========================================
@@ -262,41 +262,10 @@ namespace ATSAccessibility
         // MAIN LEVEL NAVIGATION
         // ========================================
 
-        private bool ProcessMainKey(KeyCode keyCode)
+        private bool ProcessMainKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -338,18 +307,7 @@ namespace ATSAccessibility
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while active
                     return true;
             }
@@ -503,8 +461,6 @@ namespace ATSAccessibility
 
         private bool ProcessSubmenuKey(KeyCode keyCode)
         {
-            _search.ClearOnLevelChangeKey(keyCode);
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -861,37 +817,25 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // SEARCH (main level only)
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(char c)
+        int ISearchable.SearchItemCount =>
+            !_inSubmenu ? _items.Count : 0;
+
+        int ISearchable.SearchCurrentIndex =>
+            !_inSubmenu ? _currentIndex : 0;
+
+        string ISearchable.GetSearchLabel(int index)
         {
-            _search.AddChar(c);
-            _search.Search(_items.Count, i => _items[i].DisplayName, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem();
-                _currentIndex = save;
-            });
+            if (index < 0 || index >= _items.Count) return null;
+            return _items[index].DisplayName;
         }
 
-        private void HandleBackspace()
+        void ISearchable.SearchMoveTo(int index)
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(_items.Count, i => _items[i].DisplayName, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem();
-                _currentIndex = save;
-            });
+            _currentIndex = index;
+            AnnounceCurrentItem();
         }
     }
 }

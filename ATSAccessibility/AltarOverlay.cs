@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the Forsaken Altar panel.
     /// Provides multi-level navigation: Main Menu → Resources/Cornerstones → Currencies/Races.
     /// </summary>
-    public class AltarOverlay : IKeyHandler
+    public class AltarOverlay : IKeyHandler, ISearchable
     {
         // ========================================
         // MENU LEVELS
@@ -73,40 +73,9 @@ namespace ATSAccessibility
                 return true;
             }
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        // Apply selection, clear search, then fall through to normal Enter
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) SetCurrentIndex(idx);
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -149,19 +118,7 @@ namespace ATSAccessibility
                     // At main level - pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -652,69 +609,62 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(char c)
+        public int SearchItemCount
         {
-            // Only search in list levels
-            if (_level != MenuLevel.Currencies && _level != MenuLevel.Races && _level != MenuLevel.Cornerstones)
+            get
             {
-                return;
+                // Only search in list levels
+                switch (_level)
+                {
+                    case MenuLevel.Currencies: return _currencies?.Count ?? 0;
+                    case MenuLevel.Races: return _races?.Count ?? 0;
+                    case MenuLevel.Cornerstones: return _cornerstones?.Count ?? 0;
+                    default: return 0;
+                }
             }
-
-            _search.AddChar(c);
-            SearchCurrentLevel();
         }
 
-        private void HandleBackspace()
+        public int SearchCurrentIndex
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
+            get
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
+                switch (_level)
+                {
+                    case MenuLevel.Currencies: return _currencyIndex;
+                    case MenuLevel.Races: return _raceIndex;
+                    case MenuLevel.Cornerstones: return _cornerstoneIndex;
+                    default: return 0;
+                }
             }
-
-            SearchCurrentLevel();
         }
 
-        private void SearchCurrentLevel()
+        public string GetSearchLabel(int index)
         {
             switch (_level)
             {
                 case MenuLevel.Currencies:
-                    if (_currencies != null)
-                        _search.Search(_currencies.Count, i => _currencies[i].DisplayName, i => {
-                            int save = _currencyIndex;
-                            _currencyIndex = i;
-                            AnnounceCurrency();
-                            _currencyIndex = save;
-                        });
+                    if (_currencies != null && index >= 0 && index < _currencies.Count)
+                        return _currencies[index].DisplayName;
                     break;
-
                 case MenuLevel.Races:
-                    if (_races != null)
-                        _search.Search(_races.Count, i => _races[i].DisplayName, i => {
-                            int save = _raceIndex;
-                            _raceIndex = i;
-                            AnnounceRace();
-                            _raceIndex = save;
-                        });
+                    if (_races != null && index >= 0 && index < _races.Count)
+                        return _races[index].DisplayName;
                     break;
-
                 case MenuLevel.Cornerstones:
-                    if (_cornerstones != null)
-                        _search.Search(_cornerstones.Count, i => _cornerstones[i].DisplayName, i => {
-                            int save = _cornerstoneIndex;
-                            _cornerstoneIndex = i;
-                            AnnounceCornerstone();
-                            _cornerstoneIndex = save;
-                        });
+                    if (_cornerstones != null && index >= 0 && index < _cornerstones.Count)
+                        return _cornerstones[index].DisplayName;
                     break;
             }
+            return null;
+        }
+
+        public void SearchMoveTo(int index)
+        {
+            SetCurrentIndex(index);
+            AnnounceCurrent();
         }
 
         private void SetCurrentIndex(int index)

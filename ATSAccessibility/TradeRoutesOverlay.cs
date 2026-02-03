@@ -11,7 +11,7 @@ namespace ATSAccessibility
     /// - ActiveRoutes: Navigate and collect completed routes
     /// - TownOffers: Navigate offers, adjust amount, accept
     /// </summary>
-    public class TradeRoutesOverlay : IKeyHandler
+    public class TradeRoutesOverlay : IKeyHandler, ISearchable
     {
         // ========================================
         // NAVIGATION STATE
@@ -54,39 +54,8 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to level dispatch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (_level)
             {
@@ -295,29 +264,10 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleMainMenuSearch(c);
-                        return true;
-                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -451,17 +401,6 @@ namespace ATSAccessibility
             Speech.Say(item.Label);
         }
 
-        private void HandleMainMenuSearch(char c)
-        {
-            _search.AddChar(c);
-            _search.Search(_mainMenuItems.Count, i => _mainMenuItems[i].SearchName, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                Speech.Say(_mainMenuItems[_currentIndex].Label);
-                _currentIndex = save;
-            });
-        }
-
         // ========================================
         // ACTIVE ROUTES LEVEL
         // ========================================
@@ -522,13 +461,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Return to main menu
                     ReturnToMainMenu();
                     return true;
@@ -707,30 +639,11 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Return to main menu
                     ReturnToMainMenu();
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleOfferSearch(c);
-                        return true;
-                    }
                     // Consume all other keys
                     return true;
             }
@@ -949,18 +862,6 @@ namespace ATSAccessibility
             }
         }
 
-        private void HandleOfferSearch(char c)
-        {
-            _search.AddChar(c);
-            // Search across all town offer items: index 0 is Extend Offers (null name), then offers
-            _search.Search(GetTownOffersItemCount(), i => i == 0 ? null : _offers[i - 1].GoodName, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceTownOffersItem();
-                _currentIndex = save;
-            });
-        }
-
         // ========================================
         // NAVIGATION HELPERS
         // ========================================
@@ -981,35 +882,54 @@ namespace ATSAccessibility
             Speech.Say($"Main menu. {_mainMenuItems[0].Label}");
         }
 
-        private void HandleBackspace()
+        // ========================================
+        // ISearchable Implementation
+        // ========================================
+
+        int ISearchable.SearchItemCount
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
+            get
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
+                switch (_level)
+                {
+                    case Level.MainMenu: return _mainMenuItems.Count;
+                    case Level.TownOffers: return GetTownOffersItemCount();
+                    default: return 0;
+                }
             }
+        }
 
-            // Re-search at the appropriate level
-            if (_level == Level.MainMenu)
+        int ISearchable.SearchCurrentIndex => _currentIndex;
+
+        string ISearchable.GetSearchLabel(int index)
+        {
+            switch (_level)
             {
-                _search.Search(_mainMenuItems.Count, i => _mainMenuItems[i].SearchName, i => {
-                    int save = _currentIndex;
-                    _currentIndex = i;
-                    Speech.Say(_mainMenuItems[_currentIndex].Label);
-                    _currentIndex = save;
-                });
+                case Level.MainMenu:
+                    if (index < 0 || index >= _mainMenuItems.Count) return null;
+                    return _mainMenuItems[index].SearchName;
+                case Level.TownOffers:
+                    if (index == 0) return null;  // Extend Offers item - skip in search
+                    int offerIndex = index - 1;
+                    if (offerIndex < 0 || offerIndex >= _offers.Count) return null;
+                    return _offers[offerIndex].GoodName;
+                default:
+                    return null;
             }
-            else if (_level == Level.TownOffers)
+        }
+
+        void ISearchable.SearchMoveTo(int index)
+        {
+            _currentIndex = index;
+            switch (_level)
             {
-                _search.Search(GetTownOffersItemCount(), i => i == 0 ? null : _offers[i - 1].GoodName, i => {
-                    int save = _currentIndex;
-                    _currentIndex = i;
+                case Level.MainMenu:
+                    if (index >= 0 && index < _mainMenuItems.Count)
+                        Speech.Say(_mainMenuItems[index].Label);
+                    break;
+                case Level.TownOffers:
                     AnnounceTownOffersItem();
-                    _currentIndex = save;
-                });
+                    break;
             }
         }
     }

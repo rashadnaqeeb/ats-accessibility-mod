@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the ReputationRewardsPopup (mid-game blueprint reward selection).
     /// Provides flat list navigation through building choices plus extend and reroll options.
     /// </summary>
-    public class ReputationRewardOverlay : IKeyHandler
+    public class ReputationRewardOverlay : IKeyHandler, ISearchable
     {
         // Navigation item types
         private enum ItemType { Building, Extend, Reroll }
@@ -42,39 +42,9 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -101,29 +71,10 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Pass to game to close popup (OnPopupHidden will close our overlay)
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -415,37 +366,23 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(char c)
+        public int SearchItemCount => _items.Count;
+        public int SearchCurrentIndex => _currentIndex;
+
+        public string GetSearchLabel(int index)
         {
-            _search.AddChar(c);
-            _search.Search(_items.Count, i => _items[i].Type == ItemType.Building ? _items[i].SearchName : null, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem();
-                _currentIndex = save;
-            });
+            if (index < 0 || index >= _items.Count) return null;
+            // Only building items are searchable
+            return _items[index].Type == ItemType.Building ? _items[index].SearchName : null;
         }
 
-        private void HandleBackspace()
+        public void SearchMoveTo(int index)
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(_items.Count, i => _items[i].Type == ItemType.Building ? _items[i].SearchName : null, i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem();
-                _currentIndex = save;
-            });
+            _currentIndex = index;
+            AnnounceCurrentItem();
         }
     }
 }

@@ -9,7 +9,7 @@ namespace ATSAccessibility
     /// Provides keyboard navigation of recipes organized by produced good,
     /// with controls for global production limits and recipe toggling.
     /// </summary>
-    public class RecipesOverlay : IKeyHandler
+    public class RecipesOverlay : IKeyHandler, ISearchable
     {
         // Navigation levels
         private const int LEVEL_GOODS = 0;
@@ -42,39 +42,15 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
+            // Modifier shortcuts BEFORE search handling
+            if (modifiers.Control && keyCode == KeyCode.T)
             {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _goodIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
+                ToggleShowAll();
+                return true;
             }
+
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -143,12 +119,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        ClearSearch();
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     if (_navigationLevel == LEVEL_RECIPES)
                     {
                         NavigateBack();
@@ -182,28 +152,7 @@ namespace ATSAccessibility
                     }
                     return true;
 
-                case KeyCode.T:
-                    if (modifiers.Control)
-                        ToggleShowAll();
-                    else if (_navigationLevel == LEVEL_GOODS)
-                        HandleSearchKey('t');
-                    return true;
-
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                    {
-                        HandleBackspace();
-                    }
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z) only at goods level
-                    if (_navigationLevel == LEVEL_GOODS && keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -446,46 +395,25 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(char c)
-        {
-            if (_goods == null || _goods.Count == 0) return;
+        int ISearchable.SearchItemCount =>
+            _navigationLevel == LEVEL_GOODS ? (_goods?.Count ?? 0) : 0;
 
-            _search.AddChar(c);
-            _search.Search(_goods.Count, i => _goods[i].DisplayName, i => {
-                int save = _goodIndex;
-                _goodIndex = i;
-                AnnounceGood();
-                _goodIndex = save;
-            });
+        int ISearchable.SearchCurrentIndex =>
+            _navigationLevel == LEVEL_GOODS ? _goodIndex : 0;
+
+        string ISearchable.GetSearchLabel(int index)
+        {
+            if (_goods == null || index < 0 || index >= _goods.Count) return null;
+            return _goods[index].DisplayName;
         }
 
-        private void HandleBackspace()
+        void ISearchable.SearchMoveTo(int index)
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-            }
-            else
-            {
-                _search.Search(_goods.Count, i => _goods[i].DisplayName, i => {
-                    int save = _goodIndex;
-                    _goodIndex = i;
-                    AnnounceGood();
-                    _goodIndex = save;
-                });
-            }
-        }
-
-        private void ClearSearch()
-        {
-            _search.Clear();
-            Speech.Say("Search cleared");
+            _goodIndex = index;
+            AnnounceGood();
         }
 
         // ========================================

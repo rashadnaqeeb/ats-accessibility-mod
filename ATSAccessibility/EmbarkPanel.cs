@@ -10,7 +10,7 @@ namespace ATSAccessibility
     /// Top-level menu with sections: Mission Info, Caravans, Spend Embark Points, Difficulty, Embark.
     /// Each section uses two-panel navigation (categories/details) like StatsPanel.
     /// </summary>
-    public class EmbarkPanel : IKeyHandler
+    public class EmbarkPanel : IKeyHandler, ISearchable
     {
         /// <summary>
         /// Top-level menu sections.
@@ -140,46 +140,8 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        // Apply selection, clear search, then fall through to normal Enter
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0)
-                            {
-                                if (_currentSection == EmbarkSection.SpendPoints || _focusOnDetails)
-                                    _currentDetailIndex = idx;
-                                else
-                                    _currentCategoryIndex = idx;
-                            }
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -212,22 +174,10 @@ namespace ATSAccessibility
                     Activate();
                     return true;
 
-                case KeyCode.Backspace:
-                    HandleBackspace();
-                    return true;
-
                 case KeyCode.Escape:
                     return HandleEscape();  // Returns false at top menu to let game handle it
 
                 default:
-                    // Handle A-Z keys for type-ahead search (not at top menu)
-                    if (_currentSection != EmbarkSection.TopMenu &&
-                        keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while panel is open
                     return true;
             }
@@ -363,7 +313,6 @@ namespace ATSAccessibility
                 if (_currentCategoryIndex == 0)
                 {
                     _currentSection = EmbarkSection.TopMenu;
-                    _search.Clear();
                     AnnounceTopMenu();
                 }
                 else
@@ -375,14 +324,12 @@ namespace ATSAccessibility
             {
                 // Return to categories
                 _focusOnDetails = false;
-                _search.Clear();
                 AnnounceCurrentCategory();
             }
             else
             {
                 // At category level, return to top menu
                 _currentSection = EmbarkSection.TopMenu;
-                _search.Clear();
                 AnnounceTopMenu();
             }
         }
@@ -1258,70 +1205,77 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        /// <summary>
-        /// Handle a search key (A-Z) for type-ahead navigation.
-        /// </summary>
-        private void HandleSearchKey(char c)
+        public int SearchItemCount
         {
-            _search.AddChar(c);
-            SearchCurrentContext();
-        }
-
-        /// <summary>
-        /// Handle backspace key to remove last character from search buffer.
-        /// </summary>
-        private void HandleBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
+            get
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
+                if (_currentSection == EmbarkSection.TopMenu)
+                    return 0;  // No search at top menu level
 
-            SearchCurrentContext();
+                if (_currentSection == EmbarkSection.SpendPoints)
+                {
+                    if (_categories.Count == 0) return 0;
+                    return _categories[_currentCategoryIndex].Details.Count;
+                }
+
+                if (_focusOnDetails)
+                {
+                    if (_categories.Count == 0) return 0;
+                    return _categories[_currentCategoryIndex].Details.Count;
+                }
+
+                return _categories.Count;
+            }
         }
 
-        private void SearchCurrentContext()
+        public int SearchCurrentIndex
+        {
+            get
+            {
+                if (_currentSection == EmbarkSection.SpendPoints || _focusOnDetails)
+                    return _currentDetailIndex;
+                return _currentCategoryIndex;
+            }
+        }
+
+        public string GetSearchLabel(int index)
         {
             if (_currentSection == EmbarkSection.SpendPoints)
             {
-                // Search within current spend points panel's items
-                if (_categories.Count == 0) return;
+                if (_categories.Count == 0) return null;
                 var category = _categories[_currentCategoryIndex];
-                _search.Search(category.Details.Count, i => category.Details[i], i => {
-                    int save = _currentDetailIndex;
-                    _currentDetailIndex = i;
-                    AnnounceSpendPointsItem();
-                    _currentDetailIndex = save;
-                });
+                return index < category.Details.Count ? category.Details[index] : null;
+            }
+
+            if (_focusOnDetails)
+            {
+                if (_categories.Count == 0) return null;
+                var category = _categories[_currentCategoryIndex];
+                return index < category.Details.Count ? category.Details[index] : null;
+            }
+
+            return index < _categories.Count ? _categories[index].Name : null;
+        }
+
+        public void SearchMoveTo(int index)
+        {
+            if (_currentSection == EmbarkSection.SpendPoints)
+            {
+                _currentDetailIndex = index;
+                AnnounceSpendPointsItem();
             }
             else if (_focusOnDetails)
             {
-                // Search within current category's details
-                if (_categories.Count == 0) return;
-                var category = _categories[_currentCategoryIndex];
-                _search.Search(category.Details.Count, i => category.Details[i], i => {
-                    int save = _currentDetailIndex;
-                    _currentDetailIndex = i;
-                    AnnounceCurrentDetail();
-                    _currentDetailIndex = save;
-                });
+                _currentDetailIndex = index;
+                AnnounceCurrentDetail();
             }
             else
             {
-                // Search within categories
-                _search.Search(_categories.Count, i => _categories[i].Name, i => {
-                    int save = _currentCategoryIndex;
-                    _currentCategoryIndex = i;
-                    AnnounceCurrentCategory();
-                    _currentCategoryIndex = save;
-                });
+                _currentCategoryIndex = index;
+                AnnounceCurrentCategory();
             }
         }
     }

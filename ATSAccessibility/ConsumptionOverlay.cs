@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Accessible overlay for the ConsumptionPopup (consumption control).
     /// Three-level navigation: categories → items → races.
     /// </summary>
-    public class ConsumptionOverlay : IKeyHandler
+    public class ConsumptionOverlay : IKeyHandler, ISearchable
     {
         // Navigation levels
         private const int LEVEL_CATEGORIES = 0;
@@ -56,6 +56,10 @@ namespace ATSAccessibility
         public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers)
         {
             if (!_isOpen) return false;
+
+            // Centralized search handling
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (_level)
             {
@@ -124,40 +128,6 @@ namespace ATSAccessibility
 
         private bool ProcessCategoryKey(KeyCode keyCode)
         {
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _categoryIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -185,29 +155,10 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     // Pass to game to close popup
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleCategoryBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleCategorySearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -302,40 +253,6 @@ namespace ATSAccessibility
 
         private bool ProcessItemKey(KeyCode keyCode)
         {
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _itemIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -360,7 +277,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.LeftArrow:
-                    _search.Clear();
                     CollapseToCategories();
                     return true;
 
@@ -369,30 +285,10 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
-                    _search.Clear();
                     CollapseToCategories();
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleItemBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleItemSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -493,40 +389,6 @@ namespace ATSAccessibility
 
         private bool ProcessRaceKey(KeyCode keyCode)
         {
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _raceIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
-
             switch (keyCode)
             {
                 case KeyCode.UpArrow:
@@ -546,7 +408,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.LeftArrow:
-                    _search.Clear();
                     CollapseToItems();
                     return true;
 
@@ -555,30 +416,10 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        Speech.Say("Search cleared");
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
-                    _search.Clear();
                     CollapseToItems();
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleRaceBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleRaceSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -714,93 +555,73 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH - CATEGORIES
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleCategorySearchKey(char c)
+        public int SearchItemCount
         {
-            _search.AddChar(c);
-            _search.Search(_categories.Count, i => _categories[i].Name, i => {
-                int save = _categoryIndex;
-                _categoryIndex = i;
-                Speech.Say(GetCategoryAnnouncement(i));
-                _categoryIndex = save;
-            });
-        }
-
-        private void HandleCategoryBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
+            get
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
+                switch (_level)
+                {
+                    case LEVEL_CATEGORIES:
+                        return _categories.Count;
+                    case LEVEL_ITEMS:
+                        return _itemNames.Count;
+                    case LEVEL_RACES:
+                        return _raceNames.Count;
+                    default:
+                        return 0;
+                }
             }
-
-            _search.Search(_categories.Count, i => _categories[i].Name, i => {
-                int save = _categoryIndex;
-                _categoryIndex = i;
-                Speech.Say(GetCategoryAnnouncement(i));
-                _categoryIndex = save;
-            });
         }
 
-        // ========================================
-        // TYPE-AHEAD SEARCH - ITEMS
-        // ========================================
-
-        private void HandleItemSearchKey(char c)
+        public int SearchCurrentIndex
         {
-            _search.AddChar(c);
-            _search.Search(_itemNames.Count, i => _itemNames[i], i => {
-                Speech.Say(GetItemAnnouncement(i));
-            });
-        }
-
-        private void HandleItemBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
+            get
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
+                switch (_level)
+                {
+                    case LEVEL_CATEGORIES: return _categoryIndex;
+                    case LEVEL_ITEMS: return _itemIndex;
+                    case LEVEL_RACES: return _raceIndex;
+                    default: return 0;
+                }
             }
-
-            _search.Search(_itemNames.Count, i => _itemNames[i], i => {
-                Speech.Say(GetItemAnnouncement(i));
-            });
         }
 
-        // ========================================
-        // TYPE-AHEAD SEARCH - RACES
-        // ========================================
-
-        private void HandleRaceSearchKey(char c)
+        public string GetSearchLabel(int index)
         {
-            _search.AddChar(c);
-            _search.Search(_raceNames.Count, i => _raceNames[i], i => {
-                Speech.Say(GetRaceAnnouncement(i));
-            });
-        }
-
-        private void HandleRaceBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
+            switch (_level)
             {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
+                case LEVEL_CATEGORIES:
+                    return (index >= 0 && index < _categories.Count) ? _categories[index].Name : null;
+                case LEVEL_ITEMS:
+                    return (index >= 0 && index < _itemNames.Count) ? _itemNames[index] : null;
+                case LEVEL_RACES:
+                    return (index >= 0 && index < _raceNames.Count) ? _raceNames[index] : null;
+                default:
+                    return null;
             }
+        }
 
-            _search.Search(_raceNames.Count, i => _raceNames[i], i => {
-                Speech.Say(GetRaceAnnouncement(i));
-            });
+        public void SearchMoveTo(int index)
+        {
+            switch (_level)
+            {
+                case LEVEL_CATEGORIES:
+                    _categoryIndex = index;
+                    Speech.Say(GetCategoryAnnouncement(index));
+                    break;
+                case LEVEL_ITEMS:
+                    _itemIndex = index;
+                    Speech.Say(GetItemAnnouncement(index));
+                    break;
+                case LEVEL_RACES:
+                    _raceIndex = index;
+                    Speech.Say(GetRaceAnnouncement(index));
+                    break;
+            }
         }
     }
 }

@@ -9,7 +9,7 @@ namespace ATSAccessibility
     /// Provides flat list navigation through header, dialogue text, and choices/continue.
     /// Queues rapid events to prevent missing dialogue.
     /// </summary>
-    public class DialogueOverlay : IKeyHandler
+    public class DialogueOverlay : IKeyHandler, ISearchable
     {
         // Item types in the flat list
         private enum ItemType { Header, Dialogue, Continue, Choice }
@@ -62,41 +62,9 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            // Clear search on level change keys
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        // Apply selection, clear search, then fall through to normal Enter
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -121,46 +89,33 @@ namespace ATSAccessibility
                     ActivateCurrent();
                     return true;
 
-                case KeyCode.Backspace:
-                    if (_search.RemoveChar())
-                    {
-                        if (_search.HasBuffer)
-                            _search.Search(_items.Count, i => _items[i].Type == ItemType.Choice ? _items[i].Text : null, i => {
-                                int save = _currentIndex;
-                                _currentIndex = i;
-                                AnnounceCurrentItem();
-                                _currentIndex = save;
-                            });
-                        else
-                        {
-                            _search.Clear();
-                            Speech.Say("Search cleared");
-                        }
-                    }
-                    return true;
-
                 case KeyCode.Escape:
                     // Pass to game to close popup
                     return false;
 
                 default:
-                    // Type-ahead search for choices (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        _search.AddChar(c);
-                        _search.Search(_items.Count, i => _items[i].Type == ItemType.Choice ? _items[i].Text : null, i => {
-                            int save = _currentIndex;
-                            _currentIndex = i;
-                            AnnounceCurrentItem();
-                            _currentIndex = save;
-                        });
-                        return true;
-                    }
-
                     // Consume all other keys while overlay is active
                     return true;
             }
+        }
+
+        // ========================================
+        // ISearchable Implementation
+        // ========================================
+
+        public int SearchItemCount => _items.Count;
+        public int SearchCurrentIndex => _currentIndex;
+
+        public string GetSearchLabel(int index)
+        {
+            if (index < 0 || index >= _items.Count) return null;
+            return _items[index].Type == ItemType.Choice ? _items[index].Text : null;
+        }
+
+        public void SearchMoveTo(int index)
+        {
+            _currentIndex = index;
+            AnnounceCurrentItem();
         }
 
         // ========================================

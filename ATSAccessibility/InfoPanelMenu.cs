@@ -6,7 +6,7 @@ namespace ATSAccessibility
     /// Unified menu for accessing information panels (Stats, Resources, Mysteries, Villagers, Announcements).
     /// Opened with F1 from the settlement map.
     /// </summary>
-    public class InfoPanelMenu : IKeyHandler
+    public class InfoPanelMenu : IKeyHandler, ISearchable
     {
         private enum MenuPanel
         {
@@ -152,8 +152,6 @@ namespace ATSAccessibility
                 return true;
             }
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
             // If a child panel is open, handle navigation
             if (_activeChildPanel.HasValue)
             {
@@ -194,38 +192,8 @@ namespace ATSAccessibility
                 }
             }
 
-            // Search-active routing for root menu
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentIndex = idx;
-                        }
-                        _search.Clear();
-                        break;
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             // Menu navigation (no child panel open)
             switch (keyCode)
@@ -252,29 +220,12 @@ namespace ATSAccessibility
                     OpenSelectedPanel();
                     return true;
 
-                case KeyCode.Backspace:
-                    HandleBackspace();
-                    return true;
-
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     SoundManager.PlayButtonClick();
                     Close();
                     return true;
 
                 default:
-                    // Handle A-Z keys for type-ahead search
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                    }
                     return true; // Consume all keys while menu is open
             }
         }
@@ -389,37 +340,23 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISEARCHABLE
         // ========================================
 
-        private void HandleSearchKey(char c)
+        int ISearchable.SearchItemCount => _menuLabels.Length;
+
+        int ISearchable.SearchCurrentIndex => _currentIndex;
+
+        string ISearchable.GetSearchLabel(int index)
         {
-            _search.AddChar(c);
-            _search.Search(_menuLabels.Length, i => _menuLabels[i], i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem(includePrefix: false);
-                _currentIndex = save;
-            });
+            if (index < 0 || index >= _menuLabels.Length) return null;
+            return _menuLabels[index];
         }
 
-        private void HandleBackspace()
+        void ISearchable.SearchMoveTo(int index)
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(_menuLabels.Length, i => _menuLabels[i], i => {
-                int save = _currentIndex;
-                _currentIndex = i;
-                AnnounceCurrentItem(includePrefix: false);
-                _currentIndex = save;
-            });
+            _currentIndex = index;
+            AnnounceCurrentItem(includePrefix: false);
         }
     }
 }

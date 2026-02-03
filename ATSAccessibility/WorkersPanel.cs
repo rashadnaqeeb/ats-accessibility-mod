@@ -167,40 +167,9 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            // When search is active, route navigation keys to search results
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentItemIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to base for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, default(KeyboardManager.KeyModifiers), this))
+                return true;
 
             // Only intercept Up/Down when browsing items — flow across category boundaries
             if (_focusOnItems && (keyCode == KeyCode.UpArrow || keyCode == KeyCode.DownArrow))
@@ -210,7 +179,7 @@ namespace ATSAccessibility
                 return true;
             }
 
-            // Everything else: category nav, search, Home/End, Left, Escape, Backspace
+            // Everything else: category nav, Home/End, Left, Escape
             return base.ProcessKeyEvent(keyCode);
         }
 

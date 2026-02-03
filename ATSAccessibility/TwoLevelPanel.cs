@@ -7,7 +7,7 @@ namespace ATSAccessibility
     /// Provides consistent keyboard handling: Up/Down navigate, Enter/Right enter items,
     /// Left returns to categories, Escape closes.
     /// </summary>
-    public abstract class TwoLevelPanel
+    public abstract class TwoLevelPanel : ISearchable
     {
         // ========================================
         // SHARED STATE
@@ -84,39 +84,9 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            // Search-active routing: intercept navigation keys for filtered results
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        // Apply selection, clear search, then fall through to normal Enter
-                        ApplySearchSelection();
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    // A-Z, Backspace, and other keys fall through to main switch
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, default(KeyboardManager.KeyModifiers), this))
+                return true;
 
             switch (keyCode)
             {
@@ -163,36 +133,11 @@ namespace ATSAccessibility
                     // Pass to parent (InfoPanelMenu) to close this panel
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_focusOnItems)
-                        HandleItemBackspace();
-                    else
-                        HandleCategoryBackspace();
-                    return true;
-
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     // Pass to parent to handle panel closing
                     return false;
 
                 default:
-                    // Handle A-Z keys for type-ahead search
-                    // Always consume A-Z keys to prevent bubbling to other handlers
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        if (_focusOnItems)
-                            HandleItemSearchKey(c);
-                        else
-                            HandleCategorySearchKey(c);
-                        return true;
-                    }
                     return true;  // Consume all other keys while panel is open
             }
         }
@@ -322,6 +267,13 @@ namespace ATSAccessibility
                 return;
             }
 
+            if (_focusOnItems)
+            {
+                // Already at items level - just re-announce current item
+                AnnounceItem();
+                return;
+            }
+
             _focusOnItems = true;
             _currentItemIndex = 0;
             AnnounceItem();
@@ -341,7 +293,7 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // TYPE-AHEAD SEARCH (ISearchable)
         // ========================================
 
         /// <summary>
@@ -362,77 +314,30 @@ namespace ATSAccessibility
             return null;  // Default: search not supported
         }
 
-        private void ApplySearchSelection()
-        {
-            int idx = _search.SelectedOriginalIndex;
-            if (idx < 0) return;
+        // ISearchable implementation (virtual for subclass override)
 
+        public virtual int SearchItemCount => _focusOnItems ? CurrentItemCount : CategoryCount;
+
+        public virtual int SearchCurrentIndex => _focusOnItems ? _currentItemIndex : _currentCategoryIndex;
+
+        public virtual string GetSearchLabel(int index)
+        {
+            return _focusOnItems ? GetCurrentItemName(index) : GetCategoryName(index);
+        }
+
+        public virtual void SearchMoveTo(int index)
+        {
             if (_focusOnItems)
             {
-                _currentItemIndex = idx;
+                _currentItemIndex = index;
+                AnnounceItem();
             }
             else
             {
-                _currentCategoryIndex = idx;
+                _currentCategoryIndex = index;
                 _currentItemIndex = 0;
+                AnnounceCategory();
             }
-        }
-
-        private void AnnounceCategoryAtIndex(int index)
-        {
-            int save = _currentCategoryIndex;
-            _currentCategoryIndex = index;
-            _currentItemIndex = 0;
-            AnnounceCategory();
-            _currentCategoryIndex = save;
-        }
-
-        private void AnnounceItemAtIndex(int index)
-        {
-            int save = _currentItemIndex;
-            _currentItemIndex = index;
-            AnnounceItem();
-            _currentItemIndex = save;
-        }
-
-        private void HandleCategorySearchKey(char c)
-        {
-            _search.AddChar(c);
-            _search.Search(CategoryCount, i => GetCategoryName(i), AnnounceCategoryAtIndex);
-        }
-
-        private void HandleItemSearchKey(char c)
-        {
-            _search.AddChar(c);
-            _search.Search(CurrentItemCount, i => GetCurrentItemName(i), AnnounceItemAtIndex);
-        }
-
-        private void HandleCategoryBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(CategoryCount, i => GetCategoryName(i), AnnounceCategoryAtIndex);
-        }
-
-        private void HandleItemBackspace()
-        {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(CurrentItemCount, i => GetCurrentItemName(i), AnnounceItemAtIndex);
         }
     }
 }

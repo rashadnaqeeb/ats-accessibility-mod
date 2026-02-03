@@ -5,9 +5,40 @@ using UnityEngine;
 namespace ATSAccessibility
 {
     /// <summary>
+    /// Interface for handlers that support type-ahead search via TypeAheadSearch.HandleKey.
+    /// Handlers implement this to describe their searchable list at the current navigation level.
+    /// </summary>
+    public interface ISearchable
+    {
+        /// <summary>
+        /// Number of searchable items at the current navigation level.
+        /// Return 0 to disable search (A-Z keys pass through to handler).
+        /// </summary>
+        int SearchItemCount { get; }
+
+        /// <summary>
+        /// Current cursor position (reserved for future use).
+        /// </summary>
+        int SearchCurrentIndex { get; }
+
+        /// <summary>
+        /// Searchable label for the item at the given index.
+        /// Return null to skip an item in search results.
+        /// </summary>
+        string GetSearchLabel(int index);
+
+        /// <summary>
+        /// Move cursor to index and announce. Called during search navigation
+        /// and when search results are found. The move is permanent.
+        /// </summary>
+        void SearchMoveTo(int index);
+    }
+
+    /// <summary>
     /// Reusable type-ahead search helper for keyboard navigation.
     /// Builds a filtered results list (word-start matching) that can be navigated with Up/Down.
-    /// Caller updates its position only on Enter (selection).
+    /// Use HandleKey() with an ISearchable for centralized search behavior,
+    /// or the lower-level API (AddChar/Search/NavigateResults) for custom handling.
     /// </summary>
     public class TypeAheadSearch
     {
@@ -20,8 +51,22 @@ namespace ATSAccessibility
         private List<string> _resultNames = new List<string>();
         private int _resultCursor;
 
+        // Working lists for search (swapped into result lists on match, avoids allocation)
+        private List<int> _workIndices = new List<int>();
+        private List<string> _workNames = new List<string>();
+
         // Optional callback for full announcements (called with original index)
         private Action<int> _announceResult;
+
+        // Cached delegates for RunSearch (avoids allocation per call)
+        private readonly Func<int, string> _getLabelCached;
+        private readonly Action<int> _moveToIndexCached;
+
+        public TypeAheadSearch()
+        {
+            _getLabelCached = i => _searchable.GetSearchLabel(i);
+            _moveToIndexCached = i => _searchable.SearchMoveTo(i);
+        }
 
         /// <summary>
         /// Time in seconds before the search buffer resets on new input.
@@ -97,19 +142,105 @@ namespace ATSAccessibility
             _announceResult = null;
         }
 
+        // ========================================
+        // HANDLEKEY - CENTRALIZED SEARCH BEHAVIOR
+        // ========================================
+
+        // Stored reference to the current searchable context, set each HandleKey call
+        private ISearchable _searchable;
+
         /// <summary>
-        /// Silently clear the search buffer if a level-change key is pressed (Left/Right only).
-        /// Up/Down are NOT included because they navigate search results when active.
+        /// Handle all search-related keyboard behavior.
+        /// Call this from ProcessKey after any modifier-key shortcuts (Ctrl+T, Alt+I, etc.).
+        /// Returns true if the key was consumed by search.
         /// </summary>
-        public void ClearOnLevelChangeKey(KeyCode keyCode)
+        public bool HandleKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers, ISearchable searchable)
         {
-            switch (keyCode)
+            _searchable = searchable;
+
+            if (_isSearchActive)
             {
-                case KeyCode.LeftArrow:
-                case KeyCode.RightArrow:
-                    Clear();
-                    break;
+                switch (keyCode)
+                {
+                    case KeyCode.UpArrow:
+                        NavigateResults(-1);
+                        return true;
+                    case KeyCode.DownArrow:
+                        NavigateResults(1);
+                        return true;
+                    case KeyCode.Home:
+                        JumpToFirstResult();
+                        return true;
+                    case KeyCode.End:
+                        JumpToLastResult();
+                        return true;
+                    case KeyCode.Escape:
+                        Clear();
+                        InputBlocker.BlockCancelOnce = true;
+                        Speech.Say("Search cleared");
+                        return true;
+                    case KeyCode.Backspace:
+                        if (!RemoveChar())
+                            return true;
+                        if (!HasBuffer)
+                        {
+                            Clear();
+                            Speech.Say("Search cleared");
+                            return true;
+                        }
+                        RunSearch();
+                        return true;
+                    default:
+                        // A-Z without Ctrl/Alt: add to search buffer
+                        if (!modifiers.Control && !modifiers.Alt &&
+                            keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+                        {
+                            char c = (char)('a' + (keyCode - KeyCode.A));
+                            AddChar(c);
+                            RunSearch();
+                            return true;
+                        }
+                        // Non-search key: cursor is already at search result from SearchMoveTo.
+                        // Just clear search and let handler process the key normally.
+                        Clear();
+                        return false;
+                }
             }
+
+            // Search inactive: start search on A-Z (no Ctrl/Alt)
+            if (!modifiers.Control && !modifiers.Alt &&
+                keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+            {
+                if (searchable.SearchItemCount == 0)
+                    return false;
+
+                char c = (char)('a' + (keyCode - KeyCode.A));
+                AddChar(c);
+                RunSearch();
+                return true;
+            }
+
+            // Search inactive but has leftover buffer: handle Backspace
+            if (keyCode == KeyCode.Backspace && HasBuffer)
+            {
+                if (!RemoveChar()) return true;
+                if (!HasBuffer)
+                {
+                    Clear();
+                    Speech.Say("Search cleared");
+                    return true;
+                }
+                RunSearch();
+                return true;
+            }
+
+            return false;
+        }
+
+        private void RunSearch()
+        {
+            if (_searchable == null) return;
+            Search(_searchable.SearchItemCount, _getLabelCached, _moveToIndexCached);
         }
 
         /// <summary>
@@ -145,9 +276,9 @@ namespace ATSAccessibility
                 return;
             }
 
-            // Search into temp lists so we can roll back on no match
-            var newIndices = new List<int>();
-            var newNames = new List<string>();
+            // Search into working lists so we can roll back on no match
+            _workIndices.Clear();
+            _workNames.Clear();
             string lowerBuffer = _buffer.ToLowerInvariant();
 
             for (int i = 0; i < itemCount; i++)
@@ -155,12 +286,12 @@ namespace ATSAccessibility
                 string name = nameByIndex(i);
                 if (!string.IsNullOrEmpty(name) && StartsAnyWord(name.ToLowerInvariant(), lowerBuffer))
                 {
-                    newIndices.Add(i);
-                    newNames.Add(name);
+                    _workIndices.Add(i);
+                    _workNames.Add(name);
                 }
             }
 
-            if (newIndices.Count == 0)
+            if (_workIndices.Count == 0)
             {
                 // No match — roll back the failed character, keep previous results
                 Speech.Say($"No match for {_buffer}");
@@ -171,8 +302,13 @@ namespace ATSAccessibility
             }
             else
             {
-                _resultIndices = newIndices;
-                _resultNames = newNames;
+                // Swap working lists into result lists (no allocation)
+                var tempIndices = _resultIndices;
+                var tempNames = _resultNames;
+                _resultIndices = _workIndices;
+                _resultNames = _workNames;
+                _workIndices = tempIndices;
+                _workNames = tempNames;
                 _resultCursor = 0;
                 _isSearchActive = true;
                 AnnounceCurrentResult();
@@ -235,13 +371,14 @@ namespace ATSAccessibility
 
         private static bool StartsAnyWord(string lowerName, string lowerPrefix)
         {
-            if (lowerName.StartsWith(lowerPrefix))
+            if (lowerPrefix.Length <= lowerName.Length &&
+                string.Compare(lowerName, 0, lowerPrefix, 0, lowerPrefix.Length, StringComparison.Ordinal) == 0)
                 return true;
 
             for (int i = 1; i < lowerName.Length; i++)
             {
                 if (lowerName[i - 1] == ' ' && lowerName.Length - i >= lowerPrefix.Length &&
-                    lowerName.Substring(i).StartsWith(lowerPrefix))
+                    string.Compare(lowerName, i, lowerPrefix, 0, lowerPrefix.Length, StringComparison.Ordinal) == 0)
                 {
                     return true;
                 }

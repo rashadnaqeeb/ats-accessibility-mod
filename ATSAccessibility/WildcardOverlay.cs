@@ -9,7 +9,7 @@ namespace ATSAccessibility
     /// Provides two-level category/building navigation with type-ahead search,
     /// Space to toggle selection, and Enter to confirm picks.
     /// </summary>
-    public class WildcardOverlay : IKeyHandler
+    public class WildcardOverlay : IKeyHandler, ISearchable
     {
         // Navigation levels
         private const int LEVEL_CATEGORIES = 0;
@@ -64,45 +64,9 @@ namespace ATSAccessibility
         {
             if (!_isOpen) return false;
 
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0)
-                            {
-                                var match = _allBuildings[idx];
-                                _categoryIndex = match.catIdx;
-                                _buildingIndex = match.bldIdx;
-                                _navigationLevel = LEVEL_BUILDINGS;
-                            }
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            // Search handles A-Z, Backspace, and all active-search navigation
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -184,12 +148,6 @@ namespace ATSAccessibility
                     return true;
 
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        ClearSearch();
-                        InputBlocker.BlockCancelOnce = true;
-                        return true;
-                    }
                     if (_navigationLevel == LEVEL_BUILDINGS)
                     {
                         ReturnToCategories();
@@ -199,19 +157,7 @@ namespace ATSAccessibility
                     // Pass to game to close popup (OnPopupHidden will close our overlay)
                     return false;
 
-                case KeyCode.Backspace:
-                    if (_search.HasBuffer)
-                        HandleBackspace();
-                    return true;
-
                 default:
-                    // Type-ahead search (A-Z)
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        HandleSearchKey(c);
-                        return true;
-                    }
                     // Consume all other keys while overlay is active
                     return true;
             }
@@ -462,57 +408,26 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISearchable Implementation
         // ========================================
 
-        private void HandleSearchKey(char c)
-        {
-            if (_allBuildings.Count == 0) return;
+        public int SearchItemCount => _allBuildings.Count;
+        public int SearchCurrentIndex => _navigationLevel == LEVEL_BUILDINGS ? _buildingIndex : _categoryIndex;
 
-            _search.AddChar(c);
-            _search.Search(_allBuildings.Count, i => _allBuildings[i].name, i => {
-                int saveCat = _categoryIndex;
-                int saveBld = _buildingIndex;
-                int saveLevel = _navigationLevel;
-                _categoryIndex = _allBuildings[i].catIdx;
-                _buildingIndex = _allBuildings[i].bldIdx;
-                _navigationLevel = LEVEL_BUILDINGS;
-                AnnounceBuilding();
-                _categoryIndex = saveCat;
-                _buildingIndex = saveBld;
-                _navigationLevel = saveLevel;
-            });
+        public string GetSearchLabel(int index)
+        {
+            if (index < 0 || index >= _allBuildings.Count) return null;
+            return _allBuildings[index].name;
         }
 
-        private void HandleBackspace()
+        public void SearchMoveTo(int index)
         {
-            if (!_search.RemoveChar()) return;
-
-            if (!_search.HasBuffer)
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-                return;
-            }
-
-            _search.Search(_allBuildings.Count, i => _allBuildings[i].name, i => {
-                int saveCat = _categoryIndex;
-                int saveBld = _buildingIndex;
-                int saveLevel = _navigationLevel;
-                _categoryIndex = _allBuildings[i].catIdx;
-                _buildingIndex = _allBuildings[i].bldIdx;
-                _navigationLevel = LEVEL_BUILDINGS;
-                AnnounceBuilding();
-                _categoryIndex = saveCat;
-                _buildingIndex = saveBld;
-                _navigationLevel = saveLevel;
-            });
-        }
-
-        private void ClearSearch()
-        {
-            _search.Clear();
-            Speech.Say("Search cleared");
+            if (index < 0 || index >= _allBuildings.Count) return;
+            var match = _allBuildings[index];
+            _categoryIndex = match.catIdx;
+            _buildingIndex = match.bldIdx;
+            _navigationLevel = LEVEL_BUILDINGS;
+            AnnounceBuilding();
         }
 
         // ========================================

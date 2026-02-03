@@ -39,7 +39,7 @@ namespace ATSAccessibility
             if (!IsActive || _worldMapNavigator == null) return false;
 
             // Check if effects panel is open first - it handles its own keys
-            if (_worldMapNavigator.ProcessPanelKeyEvent(keyCode))
+            if (_worldMapNavigator.ProcessPanelKeyEvent(keyCode, modifiers))
                 return true;
 
             switch (keyCode)

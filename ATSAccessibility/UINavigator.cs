@@ -13,7 +13,7 @@ namespace ATSAccessibility
     /// Handles UI navigation within popups/menus.
     /// Uses panel-based hierarchy: Left/Right switches panels, Up/Down cycles elements.
     /// </summary>
-    public class UINavigator : IKeyHandler
+    public class UINavigator : IKeyHandler, ISearchable
     {
         // MonoBehaviour reference for starting coroutines
         private MonoBehaviour _coroutineRunner;
@@ -111,40 +111,8 @@ namespace ATSAccessibility
                 return ProcessDropdownKey(keyCode);
             }
 
-            // Clear search buffer on level change keys
-            _search.ClearOnLevelChangeKey(keyCode);
-
-            if (_search.IsSearchActive)
-            {
-                switch (keyCode)
-                {
-                    case KeyCode.UpArrow:
-                        _search.NavigateResults(-1);
-                        return true;
-                    case KeyCode.DownArrow:
-                        _search.NavigateResults(1);
-                        return true;
-                    case KeyCode.Home:
-                        _search.JumpToFirstResult();
-                        return true;
-                    case KeyCode.End:
-                        _search.JumpToLastResult();
-                        return true;
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        {
-                            int idx = _search.SelectedOriginalIndex;
-                            if (idx >= 0) _currentElementIndex = idx;
-                        }
-                        _search.Clear();
-                        break;  // Fall through to main switch for normal Enter handling
-                    case KeyCode.Escape:
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                }
-            }
+            if (_search.HandleKey(keyCode, modifiers, this))
+                return true;
 
             switch (keyCode)
             {
@@ -182,25 +150,10 @@ namespace ATSAccessibility
                 case KeyCode.Space:
                     ActivateCurrentElement();
                     return true;
-                case KeyCode.Backspace:
-                    return HandleBackspace();
                 case KeyCode.Escape:
-                    if (_search.HasBuffer)
-                    {
-                        _search.Clear();
-                        InputBlocker.BlockCancelOnce = true;
-                        Speech.Say("Search cleared");
-                        return true;
-                    }
                     // Pass to game to close popup
                     return false;
                 default:
-                    // Handle A-Z keys for type-ahead search
-                    if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-                    {
-                        char c = (char)('a' + (keyCode - KeyCode.A));
-                        return HandleSearchKey(c);
-                    }
                     // Consume all other keys while popup/menu is active
                     return true;
             }
@@ -698,52 +651,23 @@ namespace ATSAccessibility
         }
 
         // ========================================
-        // TYPE-AHEAD SEARCH
+        // ISEARCHABLE
         // ========================================
 
-        /// <summary>
-        /// Handle a character key for type-ahead search.
-        /// </summary>
-        private bool HandleSearchKey(char c)
+        int ISearchable.SearchItemCount => _elements.Count;
+
+        int ISearchable.SearchCurrentIndex => _currentElementIndex;
+
+        string ISearchable.GetSearchLabel(int index)
         {
-            if (_elements.Count == 0) return false;
-
-            _search.AddChar(c);
-            _search.Search(_elements.Count, i => UIElementFinder.GetElementText(_elements[i]), i => {
-                int save = _currentElementIndex;
-                _currentElementIndex = i;
-                AnnounceCurrentElement();
-                _currentElementIndex = save;
-            });
-
-            return true;
+            if (index < 0 || index >= _elements.Count) return null;
+            return UIElementFinder.GetElementText(_elements[index]);
         }
 
-        /// <summary>
-        /// Handle backspace to remove last character from search buffer.
-        /// </summary>
-        private bool HandleBackspace()
+        void ISearchable.SearchMoveTo(int index)
         {
-            if (!_search.HasBuffer) return true;  // Consume even with empty buffer
-
-            _search.RemoveChar();
-
-            if (_search.HasBuffer)
-            {
-                _search.Search(_elements.Count, i => UIElementFinder.GetElementText(_elements[i]), i => {
-                    int save = _currentElementIndex;
-                    _currentElementIndex = i;
-                    AnnounceCurrentElement();
-                    _currentElementIndex = save;
-                });
-            }
-            else
-            {
-                _search.Clear();
-                Speech.Say("Search cleared");
-            }
-
-            return true;
+            _currentElementIndex = index;
+            AnnounceCurrentElement();
         }
 
         // ========================================
