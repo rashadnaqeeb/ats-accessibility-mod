@@ -13,6 +13,10 @@ powershell -ExecutionPolicy Bypass -File "C:\Users\rasha\Documents\ATS-Accessibi
 
 For release packaging, see `RELEASE-INSTRUCTIONS.md`.
 
+## Changelog
+
+After each commit, append a one-line summary to the appropriate section in `changes.md` (New features / Bug fixes / Internal). Keep entries concise and user-facing where possible. On release, the file is cleared and restarted with a fresh `# Changes since vX.Y.Z` heading.
+
 ## Key Locations
 
 - **Source**: `ATSAccessibility/`

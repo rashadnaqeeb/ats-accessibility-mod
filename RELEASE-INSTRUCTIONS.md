@@ -43,6 +43,20 @@ release-package/
    cd "C:/Users/rasha/Documents/ATS-Accessibility-Mod/release-package" && powershell -Command "Compress-Archive -Path * -DestinationPath '../ATSAccessibility-vX.X.X-with-BepInEx.zip' -Force"
    ```
 
+5. **Tag and publish the release**:
+   ```bash
+   git tag vX.X.X
+   git push origin vX.X.X
+   gh release create vX.X.X ../ATSAccessibility-vX.X.X-with-BepInEx.zip --title "vX.X.X" --notes-file ../changes.md
+   ```
+   Creating the tag locally before pushing ensures it exists in both the local repo and on GitHub. Do not use `gh release create` with `--target` alone, as that only creates the tag on the remote.
+
+6. **Reset changes.md** for the next cycle:
+   Replace the contents of `changes.md` with:
+   ```
+   # Changes since vX.X.X
+   ```
+
 ## Source Locations
 
 | File | Source |
