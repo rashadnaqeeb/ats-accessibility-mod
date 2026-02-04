@@ -93,6 +93,14 @@ namespace ATSAccessibility {
 
 		protected override string NavigatorName => "RelicNavigator";
 
+		protected override string GetOpenAnnouncement() {
+			string header = _buildingName ?? "Relic";
+			header += $". Threat level: {_threatLevel}";
+			if (!string.IsNullOrEmpty(_buildingDescription))
+				header += ". " + _buildingDescription;
+			return header;
+		}
+
 		public RelicNavigator() {
 			_workersSection.GetWorkerIdsFunc = BuildingReflection.GetRelicWorkerIds;
 		}
@@ -153,16 +161,6 @@ namespace ATSAccessibility {
 			if (_sectionTypes == null || sectionIndex < 0 || sectionIndex >= _sectionTypes.Length) return;
 
 			var sectionType = _sectionTypes[sectionIndex];
-
-			if (sectionType == SectionType.Info) {
-				// Info section: announce building name, threat level, and description
-				string header = _buildingName;
-				header += $". Threat level: {_threatLevel}";
-				if (!string.IsNullOrEmpty(_buildingDescription))
-					header += ". " + _buildingDescription;
-				Speech.Say(header);
-				return;
-			}
 
 			if (sectionType == SectionType.Status) {
 				RefreshLiveData();
@@ -398,10 +396,6 @@ namespace ATSAccessibility {
 		private void BuildSections() {
 			var sectionNames = new List<string>();
 			var sectionTypes = new List<SectionType>();
-
-			// Info section at top of all phases (name and description, no items)
-			sectionNames.Add("Info");
-			sectionTypes.Add(SectionType.Info);
 
 			if (_investigationFinished) {
 				// Phase C: Info, Status, Storage

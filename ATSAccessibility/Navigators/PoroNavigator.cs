@@ -60,6 +60,12 @@ namespace ATSAccessibility {
 
 		protected override string NavigatorName => "PoroNavigator";
 
+		protected override string GetOpenAnnouncement() {
+			if (!string.IsNullOrEmpty(_buildingDescription))
+				return $"{_buildingName}: {_buildingDescription}";
+			return _buildingName ?? "Poro";
+		}
+
 		protected override string[] GetSections() {
 			return _sectionNames;
 		}
@@ -104,14 +110,6 @@ namespace ATSAccessibility {
 		}
 
 		protected override void AnnounceSection(int sectionIndex) {
-			if (_sectionTypes[sectionIndex] == SectionType.Info) {
-				if (!string.IsNullOrEmpty(_buildingDescription))
-					Speech.Say($"{_buildingName}: {_buildingDescription}");
-				else
-					Speech.Say(_buildingName);
-				return;
-			}
-
 			string sectionName = _sectionNames[sectionIndex];
 			Speech.Say(sectionName);
 		}
@@ -253,10 +251,6 @@ namespace ATSAccessibility {
 		private void BuildSections() {
 			var sections = new List<string>();
 			var types = new List<SectionType>();
-
-			// Always have Info
-			sections.Add("Info");
-			types.Add(SectionType.Info);
 
 			// Happiness section
 			sections.Add("Happiness");

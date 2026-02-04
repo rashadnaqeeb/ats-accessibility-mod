@@ -36,6 +36,7 @@
 - WorkersPanel profession display fixed
 - I key tile info blocked on unrevealed glades
 - Fix cross-category navigation getting stuck on empty categories in modifiers and resources panels
+- Fix relic and poro panels announcing "Info" on open that doesn't appear during navigation
 
 ## Internal / refactoring
 
