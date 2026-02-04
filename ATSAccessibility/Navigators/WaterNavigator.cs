@@ -139,35 +139,30 @@ namespace ATSAccessibility {
 			return false;
 		}
 
-		protected override bool PerformSectionAction(int sectionIndex) {
-			if (_sectionTypes[sectionIndex] == SectionType.Status) {
-				if (!_canSleep) {
-					Speech.Say("Cannot pause this building");
-					return false;
-				}
-
-				bool wasSleeping = _isSleeping;
-				if (BuildingReflection.ToggleBuildingSleep(_building)) {
-					_isSleeping = !wasSleeping;
-					if (!wasSleeping) {
-						// Workers were unassigned when pausing
-						_workersSection.RefreshWorkerIds();
-					}
-
-					if (_isSleeping) {
-						SoundManager.PlayBuildingSleep();
-						Speech.Say("Paused");
-					} else {
-						SoundManager.PlayBuildingWakeUp();
-						Speech.Say("Active");
-					}
-					return true;
-				} else {
-					SoundManager.PlayFailed();
-					Speech.Say("Cannot change building state");
-					return false;
-				}
+		protected override bool ToggleBuildingSleep() {
+			if (!_canSleep) {
+				Speech.Say("Cannot pause this building");
+				return false;
 			}
+
+			bool wasSleeping = _isSleeping;
+			if (BuildingReflection.ToggleBuildingSleep(_building)) {
+				_isSleeping = !wasSleeping;
+				if (!wasSleeping) {
+					_workersSection.RefreshWorkerIds();
+				}
+				Speech.Say(_isSleeping ? "Paused" : "Active");
+				return true;
+			} else {
+				SoundManager.PlayFailed();
+				Speech.Say("Cannot change building state");
+				return false;
+			}
+		}
+
+		protected override bool PerformSectionAction(int sectionIndex) {
+			if (_sectionTypes[sectionIndex] == SectionType.Status)
+				return ToggleBuildingSleep();
 
 			return false;
 		}

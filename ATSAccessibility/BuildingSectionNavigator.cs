@@ -168,6 +168,9 @@ namespace ATSAccessibility {
 
 		protected override void OnSpace(int index) {
 			switch (Level) {
+				case 0:
+					ToggleBuildingSleep();
+					break;
 				case 1:
 					PerformItemAction(_indices[0], index);
 					break;
@@ -256,6 +259,7 @@ namespace ATSAccessibility {
 		protected virtual void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex) { }
 		protected virtual void AnnounceSubSubItem(int sectionIndex, int itemIndex, int subItemIndex, int subSubItemIndex) { }
 
+		protected virtual bool ToggleBuildingSleep() => false;
 		protected virtual bool PerformSectionAction(int sectionIndex) => false;
 		protected virtual bool PerformItemAction(int sectionIndex, int itemIndex) => false;
 		protected virtual bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex) => false;

@@ -177,7 +177,7 @@ foreach (var key in keys) {
 
 ## Conventions
 
-- **Formatting**: All source files use tabs, K&R braces (opening brace on same line), and no space before `:` in inheritance (e.g., `class Foo: IBar`). See `.editorconfig`. When using the Edit tool, match the file's actual tab characters — the Read tool's display can be misleading.
+- **Formatting**: All source files use tabs, K&R braces (opening brace on same line), and no space before `:` in inheritance (e.g., `class Foo: IBar`). See `.editorconfig`. Always use tab characters in Edit tool `old_string`/`new_string` — the Read tool displays them as spaces but the file contains real tabs. If an Edit fails due to whitespace mismatch, run `dotnet format` and retry rather than using shell commands to inspect whitespace.
 - **Logging**: Prefix all with `[ATSAccessibility]`
 - **Regex**: Use `new Regex(pattern, RegexOptions.Compiled)` as static fields
 - **Navigation**: Use `NavigationUtils.WrapIndex()` for circular index wrapping
