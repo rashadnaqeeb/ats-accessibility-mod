@@ -268,7 +268,7 @@ namespace ATSAccessibility {
 			if (!string.IsNullOrEmpty(objectives))
 				parts.Add(objectives);
 			if (!string.IsNullOrEmpty(description))
-				parts.Add(description);
+				parts.Add(description.TrimEnd('.'));
 			parts.Add(status);
 			Speech.Say(string.Join(". ", parts));
 		}

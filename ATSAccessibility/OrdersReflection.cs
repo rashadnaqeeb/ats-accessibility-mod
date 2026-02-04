@@ -556,50 +556,63 @@ namespace ATSAccessibility {
 
 					string formatted = null;
 
+					bool isNumericProgress = !string.IsNullOrEmpty(progressAmount)
+						&& progressAmount.Length > 0 && char.IsDigit(progressAmount[0]);
+
 					if (!string.IsNullOrEmpty(progressAmount) && !displayName.Contains(progressAmount)) {
-						// Amount not in DisplayName - use localization-aware placement
-						string typeName = logic.GetType().Name;
-						bool skipDescription = typeName.Contains("Building") || typeName == "GoodLogic";
+						// If DisplayName already contains totalAmount (e.g. GoodLogic's
+						// "Deliver 50 Pack of Luxury Goods"), replace it with progress
+						// to get "Deliver 36/50 Pack of Luxury Goods"
+						if (!string.IsNullOrEmpty(totalAmount) && displayName.Contains(totalAmount)) {
+							formatted = TrimObjectiveText(ReplaceAmount(displayName, totalAmount, progressAmount));
+						} else {
+							// Amount not in DisplayName - use localization-aware placement
+							string typeName = logic.GetType().Name;
+							bool skipDescription = typeName.Contains("Building");
 
-						if (!skipDescription && !string.IsNullOrEmpty(totalAmount)) {
-							// Try Description with total amount swapped for progress
-							string desc = _olDescriptionProperty?.GetValue(logic) as string;
-							string strippedDesc = !string.IsNullOrEmpty(desc) ? StripRichText(desc).Trim() : null;
+							if (!skipDescription && !string.IsNullOrEmpty(totalAmount)) {
+								// Try Description with total amount swapped for progress
+								string desc = _olDescriptionProperty?.GetValue(logic) as string;
+								string strippedDesc = !string.IsNullOrEmpty(desc) ? StripRichText(desc).Trim() : null;
 
-							if (!string.IsNullOrEmpty(strippedDesc) && strippedDesc.Contains(totalAmount)) {
-								// Replace total with progress in localized Description
-								// e.g. "Earn 3 Reputation Points from Orders" -> "Earn 2/3 Reputation Points from Orders"
-								int pos = strippedDesc.IndexOf(totalAmount, StringComparison.Ordinal);
-								strippedDesc = strippedDesc.Substring(0, pos) + progressAmount
-									+ strippedDesc.Substring(pos + totalAmount.Length);
+								if (!string.IsNullOrEmpty(strippedDesc) && strippedDesc.Contains(totalAmount)) {
+									strippedDesc = ReplaceAmount(strippedDesc, totalAmount, progressAmount);
 
-								// Truncate multi-sentence descriptions
-								int sentenceEnd = strippedDesc.IndexOf(". ", StringComparison.Ordinal);
-								if (sentenceEnd >= 0)
-									strippedDesc = strippedDesc.Substring(0, sentenceEnd);
-								formatted = TrimObjectiveText(strippedDesc);
-							}
-						}
-
-						if (formatted == null) {
-							// Fallback: type-specific formatting with progress amount
-							int spaceIdx = displayName.IndexOf(' ');
-							if (typeName.Contains("Building")) {
-								int amount = 0;
-								if (!string.IsNullOrEmpty(totalAmount))
-									int.TryParse(totalAmount, out amount);
-								string name = amount > 1 ? Pluralize(displayName) : displayName;
-								formatted = TrimObjectiveText($"Build {progressAmount} {name}");
-							} else if (spaceIdx > 0) {
-								formatted = TrimObjectiveText($"{displayName.Substring(0, spaceIdx)} {progressAmount} {displayName.Substring(spaceIdx + 1)}");
-							} else {
-								formatted = TrimObjectiveText($"{progressAmount} {displayName}");
+									// Truncate multi-sentence descriptions
+									if (strippedDesc != null) {
+										int sentenceEnd = strippedDesc.IndexOf(". ", StringComparison.Ordinal);
+										if (sentenceEnd >= 0)
+											strippedDesc = strippedDesc.Substring(0, sentenceEnd);
+										formatted = TrimObjectiveText(strippedDesc);
+									}
+								}
 							}
 
-							// Append source for reputation objectives when not already in text
-							string source = GetReputationSourceText(logic);
-							if (source != null)
-								formatted += " from " + source;
+							if (formatted == null) {
+								// Fallback: type-specific formatting
+								if (isNumericProgress) {
+									int spaceIdx = displayName.IndexOf(' ');
+									if (typeName.Contains("Building")) {
+										int amount = 0;
+										if (!string.IsNullOrEmpty(totalAmount))
+											int.TryParse(totalAmount, out amount);
+										string name = amount > 1 ? Pluralize(displayName) : displayName;
+										formatted = TrimObjectiveText($"Build {progressAmount} {name}");
+									} else if (spaceIdx > 0) {
+										formatted = TrimObjectiveText($"{displayName.Substring(0, spaceIdx)} {progressAmount} {displayName.Substring(spaceIdx + 1)}");
+									} else {
+										formatted = TrimObjectiveText($"{progressAmount} {displayName}");
+									}
+								} else {
+									// Status word (e.g. "Done"): just use the display name
+									formatted = TrimObjectiveText(displayName);
+								}
+
+								// Append source for reputation objectives when not already in text
+								string source = GetReputationSourceText(logic);
+								if (source != null)
+									formatted += " from " + source;
+							}
 						}
 					} else if (!string.IsNullOrEmpty(progressAmount)) {
 						// Amount already in DisplayName
@@ -611,6 +624,10 @@ namespace ATSAccessibility {
 						formatted = !string.IsNullOrEmpty(rawText) ? TrimObjectiveText(StripRichText(rawText)) : null;
 					}
 
+					// Prefix completed objectives with checkmark
+					if (!isNumericProgress && !string.IsNullOrEmpty(progressAmount) && formatted != null)
+						formatted = "✓ " + formatted;
+
 					if (!string.IsNullOrEmpty(formatted))
 						result.Add(formatted);
 				}
@@ -619,6 +636,29 @@ namespace ATSAccessibility {
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// Replace totalAmount with progressAmount in text. When progressAmount is numeric
+		/// (e.g. "2/3"), substitutes inline. When it's a status word (e.g. "Done"),
+		/// removes the amount and appends the status at the end.
+		/// </summary>
+		private static string ReplaceAmount(string text, string totalAmount, string progressAmount) {
+			int pos = text.IndexOf(totalAmount, StringComparison.Ordinal);
+			if (pos < 0) return null;
+
+			if (progressAmount.Length > 0 && char.IsDigit(progressAmount[0])) {
+				// Numeric: substitute in place
+				return text.Substring(0, pos) + progressAmount
+					+ text.Substring(pos + totalAmount.Length);
+			}
+
+			// Non-numeric (e.g. "Done"): just remove the amount from the text.
+			// Caller prefixes with checkmark for completed objectives.
+			int endPos = pos + totalAmount.Length;
+			if (endPos < text.Length && text[endPos] == ' ')
+				endPos++;
+			return text.Substring(0, pos) + text.Substring(endPos);
 		}
 
 		/// <summary>
