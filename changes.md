@@ -19,6 +19,7 @@
 
 ## Bug fixes
 
+- Seal and order objectives now show reputation source (e.g. "from Orders") and use localization-aware number placement
 - Fix guiding stone direction calculation (was reporting wrong compass direction)
 - Type-ahead search no longer clears on modifier keys or arrow navigation
 - Favouring now stops old race before starting new one

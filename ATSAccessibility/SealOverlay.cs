@@ -7,7 +7,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the Seal building panel in Sealed Forest biome.
 	/// Two-level navigation: sections -> offerings detail.
 	/// Level 0 = 5 sections (Effects, Progress, Dialogue, Offerings, Reward).
-	/// Level 1 = offerings list (Enter/Space delivers, T toggles tracking).
+	/// Level 1 = offerings list (Enter/Space delivers).
 	/// </summary>
 	public class SealOverlay: MenuBase, IKeyHandler {
 		// ========================================
@@ -109,10 +109,6 @@ namespace ATSAccessibility {
 		}
 
 		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
-			if (keyCode == KeyCode.T && Level == 1) {
-				ToggleTracking();
-				return true;
-			}
 			return null;
 		}
 
@@ -186,7 +182,7 @@ namespace ATSAccessibility {
 					AnnounceDialogue();
 					break;
 				case Section.Offerings:
-					Speech.Say($"Offerings, {_offerings?.Length ?? 0} alternatives");
+					Speech.Say($"Offerings, {_offerings?.Length ?? 0} options");
 					break;
 				case Section.Reward:
 					AnnounceReward();
@@ -263,18 +259,18 @@ namespace ATSAccessibility {
 				: null;
 
 			string name = SealReflection.GetOfferingDisplayName(offering) ?? "Unknown offering";
+			string description = SealReflection.GetOfferingDescription(offering);
 			string objectives = GetObjectivesText(offering, order);
 			bool canDeliver = CanDeliverOffering(order, offering);
 			string status = canDeliver ? "Deliverable" : "In progress";
 
-			// Check tracking
-			bool tracked = SealReflection.IsOfferingTracked(order);
-			string trackingStr = tracked ? ", Tracked" : "";
-
+			var parts = new System.Collections.Generic.List<string> { name };
 			if (!string.IsNullOrEmpty(objectives))
-				Speech.Say($"{name}. {objectives}. {status}{trackingStr}");
-			else
-				Speech.Say($"{name}. {status}{trackingStr}");
+				parts.Add(objectives);
+			if (!string.IsNullOrEmpty(description))
+				parts.Add(description);
+			parts.Add(status);
+			Speech.Say(string.Join(". ", parts));
 		}
 
 		private void AnnounceReward() {
@@ -343,26 +339,6 @@ namespace ATSAccessibility {
 			} else {
 				Speech.Say("Delivery failed");
 				SoundManager.PlayFailed();
-			}
-		}
-
-		private void ToggleTracking() {
-			if (_offeringOrders == null || CurrentIndex < 0 || CurrentIndex >= _offeringOrders.Length) {
-				Speech.Say("Cannot toggle tracking");
-				return;
-			}
-
-			var order = _offeringOrders.GetValue(CurrentIndex);
-			if (order == null) {
-				Speech.Say("Cannot toggle tracking");
-				return;
-			}
-
-			bool wasTracked = SealReflection.IsOfferingTracked(order);
-			if (SealReflection.ToggleOfferingTracking(order)) {
-				Speech.Say(wasTracked ? "Untracked" : "Tracked");
-			} else {
-				Speech.Say("Failed to toggle tracking");
 			}
 		}
 

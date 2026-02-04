@@ -124,10 +124,16 @@ namespace ATSAccessibility {
 		private static PropertyInfo _olDisplayNameProperty = null;
 		private static PropertyInfo _olDescriptionProperty = null;
 		private static MethodInfo _olGetAmountTextMethod = null;  // GetAmountText() no args
+		private static MethodInfo _olGetAmountTextStateMethod = null;  // GetAmountText(ObjectiveState)
 		private static MethodInfo _olIsCompletedMethod = null;
 		private static PropertyInfo _olHasStoredAmountProperty = null;
 		private static PropertyInfo _olGetStoredAmountProperty = null;
 		private static MethodInfo _olGetWarningTextMethod = null;
+
+		// ReputationGainedFromSourceLogic (for appending source to objective text)
+		private static Type _repSourceLogicType = null;
+		private static FieldInfo _repSourceField = null;
+		private static MethodInfo _repGetSourceTextMethod = null;
 
 		// EffectModel properties
 		private static PropertyInfo _emDisplayNameProperty = null;
@@ -295,11 +301,11 @@ namespace ATSAccessibility {
 		private static void CacheOrderLogicTypes(Assembly assembly) {
 			var type = assembly.GetType("Eremite.Model.Orders.OrderLogic");
 			if (type != null) {
-				// GetObjectiveText(ObjectiveState)
 				var objStateType = assembly.GetType("Eremite.Model.Orders.ObjectiveState");
 				if (objStateType != null) {
 					_olGetObjectiveTextMethod = type.GetMethod("GetObjectiveText", new[] { objStateType });
 					_olIsCompletedMethod = type.GetMethod("IsCompleted", new[] { objStateType });
+					_olGetAmountTextStateMethod = type.GetMethod("GetAmountText", new[] { objStateType });
 				}
 
 				_olDisplayNameProperty = type.GetProperty("DisplayName", GameReflection.PublicInstance);
@@ -310,6 +316,13 @@ namespace ATSAccessibility {
 
 				// GetAmountText() - no parameters
 				_olGetAmountTextMethod = type.GetMethod("GetAmountText", Type.EmptyTypes);
+			}
+
+			// ReputationGainedFromSourceLogic - source field for "from Orders/Resolve/Relics"
+			_repSourceLogicType = assembly.GetType("Eremite.Model.Orders.ReputationGainedFromSourceLogic");
+			if (_repSourceLogicType != null) {
+				_repSourceField = _repSourceLogicType.GetField("source", GameReflection.PublicInstance);
+				_repGetSourceTextMethod = _repSourceLogicType.GetMethod("GetSourceText", GameReflection.NonPublicInstance);
 			}
 		}
 
@@ -490,7 +503,8 @@ namespace ATSAccessibility {
 
 		/// <summary>
 		/// Get objective texts for an active order (has ObjectiveState).
-		/// Returns stripped rich text like "3/10 Planks".
+		/// Uses the same localization-aware number placement as GetPickObjectiveTexts,
+		/// but with progress amounts (e.g. "2/3") instead of totals.
 		/// </summary>
 		public static List<string> GetObjectiveTexts(object orderModel, object orderState) {
 			EnsureCached();
@@ -510,23 +524,131 @@ namespace ATSAccessibility {
 				for (int i = 0; i < logics.Length; i++) {
 					var logic = logics.GetValue(i);
 					if (logic == null) continue;
+					if (objectives == null || i >= objectives.Length) continue;
 
-					string text = null;
-					if (_olGetObjectiveTextMethod != null && objectives != null && i < objectives.Length) {
-						var objState = objectives.GetValue(i);
+					var objState = objectives.GetValue(i);
+					string displayName = _olDisplayNameProperty?.GetValue(logic) as string;
+
+					// Get progress amount (e.g. "2/3") and total amount (e.g. "3")
+					string progressAmount = null;
+					if (_olGetAmountTextStateMethod != null) {
 						_args1[0] = objState;
-						text = _olGetObjectiveTextMethod.Invoke(logic, _args1) as string;
+						var raw = _olGetAmountTextStateMethod.Invoke(logic, _args1) as string;
+						if (!string.IsNullOrEmpty(raw))
+							progressAmount = StripRichText(raw);
 					}
 
-					if (!string.IsNullOrEmpty(text)) {
-						result.Add(TrimObjectiveText(StripRichText(text)));
+					string totalAmount = null;
+					if (_olGetAmountTextMethod != null) {
+						var raw = _olGetAmountTextMethod.Invoke(logic, null) as string;
+						if (!string.IsNullOrEmpty(raw))
+							totalAmount = StripRichText(raw);
 					}
+
+					// If DisplayName unavailable, fall back to raw GetObjectiveText
+					if (string.IsNullOrEmpty(displayName)) {
+						_args1[0] = objState;
+						string rawText = _olGetObjectiveTextMethod?.Invoke(logic, _args1) as string;
+						if (!string.IsNullOrEmpty(rawText))
+							result.Add(TrimObjectiveText(StripRichText(rawText)));
+						continue;
+					}
+
+					string formatted = null;
+
+					if (!string.IsNullOrEmpty(progressAmount) && !displayName.Contains(progressAmount)) {
+						// Amount not in DisplayName - use localization-aware placement
+						string typeName = logic.GetType().Name;
+						bool skipDescription = typeName.Contains("Building") || typeName == "GoodLogic";
+
+						if (!skipDescription && !string.IsNullOrEmpty(totalAmount)) {
+							// Try Description with total amount swapped for progress
+							string desc = _olDescriptionProperty?.GetValue(logic) as string;
+							string strippedDesc = !string.IsNullOrEmpty(desc) ? StripRichText(desc).Trim() : null;
+
+							if (!string.IsNullOrEmpty(strippedDesc) && strippedDesc.Contains(totalAmount)) {
+								// Replace total with progress in localized Description
+								// e.g. "Earn 3 Reputation Points from Orders" -> "Earn 2/3 Reputation Points from Orders"
+								int pos = strippedDesc.IndexOf(totalAmount, StringComparison.Ordinal);
+								strippedDesc = strippedDesc.Substring(0, pos) + progressAmount
+									+ strippedDesc.Substring(pos + totalAmount.Length);
+
+								// Truncate multi-sentence descriptions
+								int sentenceEnd = strippedDesc.IndexOf(". ", StringComparison.Ordinal);
+								if (sentenceEnd >= 0)
+									strippedDesc = strippedDesc.Substring(0, sentenceEnd);
+								formatted = TrimObjectiveText(strippedDesc);
+							}
+						}
+
+						if (formatted == null) {
+							// Fallback: type-specific formatting with progress amount
+							int spaceIdx = displayName.IndexOf(' ');
+							if (typeName.Contains("Building")) {
+								int amount = 0;
+								if (!string.IsNullOrEmpty(totalAmount))
+									int.TryParse(totalAmount, out amount);
+								string name = amount > 1 ? Pluralize(displayName) : displayName;
+								formatted = TrimObjectiveText($"Build {progressAmount} {name}");
+							} else if (spaceIdx > 0) {
+								formatted = TrimObjectiveText($"{displayName.Substring(0, spaceIdx)} {progressAmount} {displayName.Substring(spaceIdx + 1)}");
+							} else {
+								formatted = TrimObjectiveText($"{progressAmount} {displayName}");
+							}
+
+							// Append source for reputation objectives when not already in text
+							string source = GetReputationSourceText(logic);
+							if (source != null)
+								formatted += " from " + source;
+						}
+					} else if (!string.IsNullOrEmpty(progressAmount)) {
+						// Amount already in DisplayName
+						formatted = TrimObjectiveText(displayName);
+					} else {
+						// No amount text - fall back to raw GetObjectiveText
+						_args1[0] = objState;
+						string rawText = _olGetObjectiveTextMethod?.Invoke(logic, _args1) as string;
+						formatted = !string.IsNullOrEmpty(rawText) ? TrimObjectiveText(StripRichText(rawText)) : null;
+					}
+
+					if (!string.IsNullOrEmpty(formatted))
+						result.Add(formatted);
 				}
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetObjectiveTexts failed: {ex.Message}");
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// Get the localized source text for a ReputationGainedFromSourceLogic
+		/// (e.g. "Orders", "Resolve", "Relics"). Returns null for other logic types.
+		/// </summary>
+		private static string GetReputationSourceText(object logic) {
+			if (logic == null || _repSourceLogicType == null || !_repSourceLogicType.IsInstanceOfType(logic))
+				return null;
+
+			try {
+				// Try the game's localized GetSourceText() first
+				if (_repGetSourceTextMethod != null) {
+					var text = _repGetSourceTextMethod.Invoke(logic, null) as string;
+					if (!string.IsNullOrEmpty(text))
+						return StripRichText(text).Trim();
+				}
+
+				// Fallback: read the source enum field directly
+				if (_repSourceField != null) {
+					int source = (int)_repSourceField.GetValue(logic);
+					switch (source) {
+						case 1: return "Orders";
+						case 2: return "Resolve";
+						case 3: return "Relics";
+					}
+				}
+			} catch { }
+
+			return null;
 		}
 
 		/// <summary>
