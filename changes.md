@@ -56,3 +56,4 @@
 - Dead code and redundant log removed from ResupplyOverlay
 - .editorconfig added; dotnet format applied to all source files
 - PowerShell build and deploy script added
+- Extract PopupRouter from AccessibilityCore, replacing ~600 lines of mirrored if/else popup routing

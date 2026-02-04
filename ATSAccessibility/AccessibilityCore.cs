@@ -101,105 +101,20 @@ namespace ATSAccessibility {
 		// Confirmation dialog for destructive actions
 		private ConfirmationDialog _confirmationDialog;
 
-		// Recipes popup overlay for recipe management
-		private RecipesOverlay _recipesOverlay;
-
-		// Wildcard popup overlay for blueprint selection
-		private WildcardOverlay _wildcardOverlay;
-
-		// Reputation reward popup overlay for blueprint rewards
-		private ReputationRewardOverlay _reputationRewardOverlay;
-
-		// Cornerstone popup overlays for perk selection
-		private CornerstoneOverlay _cornerstoneOverlay;
-		private CornerstoneLimitOverlay _cornerstoneLimitOverlay;
-
-		// Newcomers popup overlay for group selection
-		private NewcomersOverlay _newcomersOverlay;
-
-		// Orders popup overlays for order navigation and pick selection
-		private OrdersOverlay _ordersOverlay;
-		private OrderPickOverlay _orderPickOverlay;
-
-		// Consumption control popup overlay
-		private ConsumptionOverlay _consumptionOverlay;
-
-		// Deeds popup overlay for goals navigation
-		private DeedsOverlay _deedsOverlay;
-
-		// Rewards pack popup overlay (port expedition rewards)
-		private RewardsPackOverlay _rewardsPackOverlay;
-
-		// Royal Resupply popup overlay (cycle effects pick on world map)
-		private ResupplyOverlay _resupplyOverlay;
-
-		// Trader panel overlay for trading with merchants
-		private TraderOverlay _traderOverlay;
-
-		// Assault result popup overlay (after assaulting a trader)
-		private AssaultResultOverlay _assaultResultOverlay;
-
-		// Dialogue overlay for NPC dialogue navigation
-		private DialogueOverlay _dialogueOverlay;
-
-		// Trade routes popup overlay for trade town navigation
-		private TradeRoutesOverlay _tradeRoutesOverlay;
-
-		// Cycle end popup overlay for Blightstorm cycle completion
-		private CycleEndOverlay _cycleEndOverlay;
-
-		// Payments popup overlay for pending payments/obligations
-		private PaymentsOverlay _paymentsOverlay;
-
-		// Meta rewards popup overlay for end-of-game rewards and level-up
-		private MetaRewardsOverlay _metaRewardsOverlay;
-
-		// Game result popup overlay for victory/defeat screen
-		private GameResultOverlay _gameResultOverlay;
-
-		// Black Market popup overlay for trading offers
-		private BlackMarketOverlay _blackMarketOverlay;
-
-		// Altar (Forsaken Altar) popup overlay for cornerstone upgrades
-		private AltarOverlay _altarOverlay;
-
-		// Perk Crafter (Cornerstone Forge) popup overlay for cornerstone crafting
-		private PerkCrafterOverlay _perkCrafterOverlay;
-
-		// Games History popup overlay for past settlements
-		private GamesHistoryOverlay _gamesHistoryOverlay;
-
-		// Profiles popup overlay for save selection
-		private ProfilesOverlay _profilesOverlay;
-
-		// Daily Expedition popup overlay for daily challenge
-		private DailyExpeditionOverlay _dailyExpeditionOverlay;
-
-		// Custom Games popup overlay for Training Expeditions
-		private CustomGamesOverlay _customGamesOverlay;
+		// Popup routing for all overlay popups
+		private PopupRouter _popupRouter;
 
 		// Tutorial tooltip handler for tutorial text navigation
 		private TutorialTooltipHandler _tutorialTooltipHandler;
 
-		// Capital screen overlay for Smoldering City
+		// Capital screen overlay for Smoldering City (referenced by capital event callbacks)
 		private CapitalOverlay _capitalOverlay;
-		private CapitalUpgradeOverlay _capitalUpgradeOverlay;
-		private IronmanOverlay _ironmanOverlay;
 		private IDisposable _capitalEnabledSubscription;
 		private IDisposable _capitalClosedSubscription;
 		private bool _subscribedToCapital = false;
 
-		// World tutorials overlay for tutorial selection on world map
+		// World tutorials overlay for tutorial selection on world map (not popup-routed)
 		private WorldTutorialsOverlay _worldTutorialsOverlay;
-
-		// Seal overlay for Sealed Forest biome seal building
-		private SealOverlay _sealOverlay;
-
-		// World event overlay for world map event decisions
-		private WorldEventOverlay _worldEventOverlay;
-
-		// Trends overlay for storage operations
-		private TrendsOverlay _trendsOverlay;
 
 		// Deferred menu rebuild (wait for user input after popup closes)
 		private bool _menuPendingSetup = false;
@@ -287,105 +202,118 @@ namespace ATSAccessibility {
 			// Initialize confirmation dialog for destructive actions
 			_confirmationDialog = new ConfirmationDialog();
 
-			// Initialize recipes overlay for Recipes popup
-			_recipesOverlay = new RecipesOverlay();
-
-			// Initialize wildcard overlay for blueprint selection popup
-			_wildcardOverlay = new WildcardOverlay();
-
-			// Initialize reputation reward overlay for blueprint rewards popup
-			_reputationRewardOverlay = new ReputationRewardOverlay();
-
-			// Initialize cornerstone overlays for perk selection popups
-			_cornerstoneOverlay = new CornerstoneOverlay();
-			_cornerstoneLimitOverlay = new CornerstoneLimitOverlay();
-
-			// Initialize newcomers overlay for group selection popup
-			_newcomersOverlay = new NewcomersOverlay();
-
-			// Initialize orders overlays for order navigation and pick selection
-			_ordersOverlay = new OrdersOverlay();
-			_orderPickOverlay = new OrderPickOverlay();
+			// Initialize overlays as local variables (popup-routed via PopupRouter)
+			var recipesOverlay = new RecipesOverlay();
+			var wildcardOverlay = new WildcardOverlay();
+			var reputationRewardOverlay = new ReputationRewardOverlay();
+			var cornerstoneOverlay = new CornerstoneOverlay();
+			var cornerstoneLimitOverlay = new CornerstoneLimitOverlay();
+			var newcomersOverlay = new NewcomersOverlay();
+			var ordersOverlay = new OrdersOverlay();
+			var orderPickOverlay = new OrderPickOverlay();
+			var consumptionOverlay = new ConsumptionOverlay();
+			var deedsOverlay = new DeedsOverlay();
+			var rewardsPackOverlay = new RewardsPackOverlay();
+			var resupplyOverlay = new ResupplyOverlay();
+			var traderOverlay = new TraderOverlay();
+			var assaultResultOverlay = new AssaultResultOverlay();
+			var dialogueOverlay = new DialogueOverlay();
+			var sealOverlay = new SealOverlay();
+			var worldEventOverlay = new WorldEventOverlay();
+			var trendsOverlay = new TrendsOverlay();
+			var tradeRoutesOverlay = new TradeRoutesOverlay();
+			var cycleEndOverlay = new CycleEndOverlay();
+			var paymentsOverlay = new PaymentsOverlay();
+			var metaRewardsOverlay = new MetaRewardsOverlay(this);
+			var gameResultOverlay = new GameResultOverlay();
+			var blackMarketOverlay = new BlackMarketOverlay();
+			var altarOverlay = new AltarOverlay();
+			var perkCrafterOverlay = new PerkCrafterOverlay();
+			var gamesHistoryOverlay = new GamesHistoryOverlay();
+			var profilesOverlay = new ProfilesOverlay();
+			var dailyExpeditionOverlay = new DailyExpeditionOverlay();
+			var customGamesOverlay = new CustomGamesOverlay();
+			_capitalOverlay = new CapitalOverlay();
+			var capitalUpgradeOverlay = new CapitalUpgradeOverlay();
+			var ironmanOverlay = new IronmanOverlay();
 
 			// Wire up event announcer to refresh orders overlay when new orders arrive
-			_eventAnnouncer.OnNewOrderAvailable = () => _ordersOverlay?.RefreshOnNewOrder();
-
-			// Initialize consumption control overlay
-			_consumptionOverlay = new ConsumptionOverlay();
-
-			// Initialize deeds overlay for goals popup
-			_deedsOverlay = new DeedsOverlay();
-
-			// Initialize rewards pack overlay (port expedition rewards)
-			_rewardsPackOverlay = new RewardsPackOverlay();
-
-			// Initialize resupply overlay (Royal Resupply on world map)
-			_resupplyOverlay = new ResupplyOverlay();
-
-			// Initialize trader overlay
-			_traderOverlay = new TraderOverlay();
-
-			// Initialize assault result overlay
-			_assaultResultOverlay = new AssaultResultOverlay();
-
-			// Initialize dialogue overlay for NPC dialogue navigation
-			_dialogueOverlay = new DialogueOverlay();
-
-			// Initialize seal overlay for Sealed Forest biome
-			_sealOverlay = new SealOverlay();
-
-			// Initialize world event overlay for world map events
-			_worldEventOverlay = new WorldEventOverlay();
-
-			// Initialize trends overlay for storage operations
-			_trendsOverlay = new TrendsOverlay();
-
-			// Initialize trade routes overlay for trade town navigation
-			_tradeRoutesOverlay = new TradeRoutesOverlay();
-
-			// Initialize cycle end overlay for Blightstorm cycle completion
-			_cycleEndOverlay = new CycleEndOverlay();
-
-			// Initialize payments overlay for pending payments/obligations
-			_paymentsOverlay = new PaymentsOverlay();
-
-			// Initialize meta rewards overlay for end-of-game rewards and level-up
-			_metaRewardsOverlay = new MetaRewardsOverlay(this);
-
-			// Initialize game result overlay for victory/defeat screen
-			_gameResultOverlay = new GameResultOverlay();
-
-			// Initialize black market overlay for trading offers
-			_blackMarketOverlay = new BlackMarketOverlay();
-
-			// Initialize altar overlay for Forsaken Altar
-			_altarOverlay = new AltarOverlay();
-
-			// Initialize perk crafter overlay for Cornerstone Forge
-			_perkCrafterOverlay = new PerkCrafterOverlay();
-
-			// Initialize games history overlay
-			_gamesHistoryOverlay = new GamesHistoryOverlay();
-
-			// Initialize profiles overlay
-			_profilesOverlay = new ProfilesOverlay();
-
-			// Initialize daily expedition overlay
-			_dailyExpeditionOverlay = new DailyExpeditionOverlay();
-
-			// Initialize custom games overlay (Training Expeditions)
-			_customGamesOverlay = new CustomGamesOverlay();
-
-			// Initialize capital screen overlay
-			_capitalOverlay = new CapitalOverlay();
-			_capitalUpgradeOverlay = new CapitalUpgradeOverlay();
-			_ironmanOverlay = new IronmanOverlay();
+			_eventAnnouncer.OnNewOrderAvailable = () => ordersOverlay.RefreshOnNewOrder();
 
 			// Initialize tutorial tooltip handler (needs UINavigator to check for blocking popups)
 			_tutorialTooltipHandler = new TutorialTooltipHandler(_uiNavigator);
 
 			// Initialize world tutorials overlay for world map tutorial selection
 			_worldTutorialsOverlay = new WorldTutorialsOverlay();
+
+			// Initialize popup router (deeds overlay needed for fallback logic)
+			_popupRouter = new PopupRouter(deedsOverlay, _uiNavigator, _keyboardManager);
+
+			// Register popup routing (order preserved from original if/else chain)
+			_popupRouter.Register(GameReflection.IsWikiPopup,
+				p => _encyclopediaNavigator.OnWikiPopupShown(p),
+				_ => _encyclopediaNavigator.OnWikiPopupHidden(),
+				() => _encyclopediaNavigator.OnWikiPopupHidden(),
+				KeyboardManager.NavigationContext.Encyclopedia);
+			_popupRouter.Register(RecipesReflection.IsRecipesPopup, _ => recipesOverlay.Open(), recipesOverlay);
+			_popupRouter.Register(WildcardReflection.IsWildcardPopup, p => wildcardOverlay.Open(p), wildcardOverlay);
+			_popupRouter.Register(ReputationRewardReflection.IsReputationRewardsPopup, p => reputationRewardOverlay.Open(p), reputationRewardOverlay);
+			_popupRouter.Register(CornerstoneReflection.IsRewardPickPopup, p => cornerstoneOverlay.Open(p), cornerstoneOverlay);
+			_popupRouter.Register(CornerstoneReflection.IsCornerstonesLimitPickPopup,
+				p => cornerstoneLimitOverlay.Open(p),
+				_ => { cornerstoneLimitOverlay.Close(); cornerstoneOverlay.RefreshAfterLimit(); },
+				() => cornerstoneLimitOverlay.Close());
+			_popupRouter.Register(NewcomersReflection.IsNewcomersPopup, p => newcomersOverlay.Open(p), newcomersOverlay);
+			_popupRouter.Register(OrdersReflection.IsOrdersPopup, p => ordersOverlay.Open(p), ordersOverlay);
+			_popupRouter.Register(OrdersReflection.IsOrderPickPopup,
+				p => orderPickOverlay.Open(p),
+				_ => { orderPickOverlay.Close(); ordersOverlay.RefreshAfterPick(); },
+				() => orderPickOverlay.Close());
+			_popupRouter.Register(IronmanReflection.IsIronmanUpgradePopup, _ => ironmanOverlay.Open(), ironmanOverlay);
+			_popupRouter.Register(CapitalUpgradeReflection.IsCapitalUpgradePopup, _ => capitalUpgradeOverlay.Open(), capitalUpgradeOverlay);
+			_popupRouter.Register(ConsumptionReflection.IsConsumptionPopup, _ => consumptionOverlay.Open(), consumptionOverlay);
+			_popupRouter.Register(DeedsReflection.IsGoalsPopup, _ => deedsOverlay.Open(), deedsOverlay);
+			_popupRouter.Register(RewardsPackOverlay.IsRewardsPackPopup, p => rewardsPackOverlay.Open(p), rewardsPackOverlay);
+			_popupRouter.Register(ResupplyOverlay.IsCycleEffectsPickPopup, p => resupplyOverlay.Open(p), resupplyOverlay);
+			_popupRouter.Register(AssaultResultOverlay.IsAssaultResultPopup, p => assaultResultOverlay.Open(p), assaultResultOverlay);
+			_popupRouter.Register(TradeReflection.IsTraderPanel,
+				p => { TradeReflection.SetCurrentPanel(p); traderOverlay.Open(); },
+				_ => { TradeReflection.ClearCurrentPanel(); traderOverlay.Close(); },
+				() => traderOverlay.Close());
+			_popupRouter.Register(NarrationReflection.IsHomePopup, p => dialogueOverlay.Open(p), dialogueOverlay);
+			_popupRouter.Register(TradeRoutesReflection.IsTradeRoutesPopup, p => tradeRoutesOverlay.Open(p), tradeRoutesOverlay);
+			_popupRouter.Register(SealReflection.IsSealPanel, _ => sealOverlay.Open(), sealOverlay);
+			_popupRouter.Register(WorldEventReflection.IsWorldEventPopup, p => worldEventOverlay.Open(p), worldEventOverlay);
+			_popupRouter.Register(TrendsReflection.IsTrendsPopup, p => trendsOverlay.Open(p), trendsOverlay);
+			_popupRouter.Register(CycleEndOverlay.IsWorldCycleEndPopup, p => cycleEndOverlay.Open(p), cycleEndOverlay);
+			_popupRouter.Register(PaymentsReflection.IsPaymentsPopup, p => paymentsOverlay.Open(p), paymentsOverlay);
+			_popupRouter.Register(IsMetaRewardsOrLevelUpPopup,
+				p => {
+					if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP) {
+						_tutorialWasActiveBeforePopup = TutorialReflection.IsTooltipVisible();
+						if (_tutorialWasActiveBeforePopup)
+							TutorialReflection.GetTutorialTooltip();
+					}
+					metaRewardsOverlay.OnPopupShown(p);
+				},
+				p => {
+					metaRewardsOverlay.OnPopupHidden(p);
+					if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP && _tutorialWasActiveBeforePopup) {
+						_tutorialWasActiveBeforePopup = false;
+						_waitingForTutorialTooltip = true;
+					}
+				},
+				() => metaRewardsOverlay.Reset());
+			_popupRouter.Register(GameResultReflection.IsGameResultPopup,
+				p => { ordersOverlay.Close(); gameResultOverlay.Open(p); },
+				gameResultOverlay);
+			_popupRouter.Register(BlackMarketReflection.IsBlackMarketPopup, p => blackMarketOverlay.Open(p), blackMarketOverlay);
+			_popupRouter.Register(AltarReflection.IsAltarPanel, _ => altarOverlay.Open(), altarOverlay);
+			_popupRouter.Register(PerkCrafterReflection.IsPerkCrafterPopup, _ => perkCrafterOverlay.Open(), perkCrafterOverlay);
+			_popupRouter.Register(GamesHistoryReflection.IsGamesHistoryPopup, _ => gamesHistoryOverlay.Open(), gamesHistoryOverlay);
+			_popupRouter.Register(DailyExpeditionReflection.IsDailyChallengePopup, p => dailyExpeditionOverlay.Open(p), dailyExpeditionOverlay);
+			_popupRouter.Register(ProfilesReflection.IsProfilesPopup, _ => profilesOverlay.Open(), profilesOverlay);
+			_popupRouter.Register(CustomGamesReflection.IsCustomGamePopup, p => customGamesOverlay.Open(p), customGamesOverlay);
 
 			// Create context handlers for settlement and world map
 			var settlementHandler = new SettlementKeyHandler(
@@ -396,8 +324,8 @@ namespace ATSAccessibility {
 			// Register key handlers in priority order (highest priority first)
 			_keyboardManager.RegisterHandler(_tutorialTooltipHandler);  // Tutorial tooltip (blocks input during tutorial)
 			_keyboardManager.RegisterHandler(_confirmationDialog);  // Confirmation dialog (blocks all input when active)
-			_keyboardManager.RegisterHandler(_metaRewardsOverlay);  // Meta rewards/level-up popup (above game result so player can close it first)
-			_keyboardManager.RegisterHandler(_gameResultOverlay);  // Game result (victory/defeat) - high priority terminal state
+			_keyboardManager.RegisterHandler(metaRewardsOverlay);  // Meta rewards/level-up popup (above game result so player can close it first)
+			_keyboardManager.RegisterHandler(gameResultOverlay);  // Game result (victory/defeat) - high priority terminal state
 			_keyboardManager.RegisterHandler(new SettlementInfoHandler()); // Alt+S/V/O settlement info (above all menus/overlays)
 			_keyboardManager.RegisterHandler(_infoPanelMenu);       // F1 menu and child panels
 			_keyboardManager.RegisterHandler(_menuHub);             // F2 quick access menu
@@ -409,38 +337,38 @@ namespace ATSAccessibility {
 			_keyboardManager.RegisterHandler(_moveModeController);  // Building relocation (selective passthrough)
 			_keyboardManager.RegisterHandler(harvestMarkHandler);    // Tree mark/unmark selection
 			_keyboardManager.RegisterHandler(_encyclopediaNavigator); // Wiki popup
-			_keyboardManager.RegisterHandler(_recipesOverlay);      // Recipes popup overlay
-			_keyboardManager.RegisterHandler(_wildcardOverlay);    // Wildcard popup overlay
-			_keyboardManager.RegisterHandler(_cornerstoneLimitOverlay);   // Cornerstone limit popup overlay
-			_keyboardManager.RegisterHandler(_cornerstoneOverlay);       // Cornerstone pick popup overlay
-			_keyboardManager.RegisterHandler(_newcomersOverlay);         // Newcomers group selection overlay
-			_keyboardManager.RegisterHandler(_orderPickOverlay);         // Order pick popup overlay (higher priority - child popup)
-			_keyboardManager.RegisterHandler(_ordersOverlay);            // Orders popup overlay
-			_keyboardManager.RegisterHandler(_consumptionOverlay);       // Consumption control popup overlay
-			_keyboardManager.RegisterHandler(_deedsOverlay);             // Deeds (goals) popup overlay
-			_keyboardManager.RegisterHandler(_reputationRewardOverlay);  // Reputation reward popup overlay
-			_keyboardManager.RegisterHandler(_rewardsPackOverlay);  // Rewards pack popup overlay (port rewards)
-			_keyboardManager.RegisterHandler(_resupplyOverlay);    // Royal Resupply popup overlay (world map)
-			_keyboardManager.RegisterHandler(_assaultResultOverlay); // Assault result popup overlay (before trader so it gets priority)
-			_keyboardManager.RegisterHandler(_traderOverlay);        // Trader panel overlay
-			_keyboardManager.RegisterHandler(_dialogueOverlay);      // NPC dialogue overlay
-			_keyboardManager.RegisterHandler(_sealOverlay);         // Seal building overlay (Sealed Forest)
-			_keyboardManager.RegisterHandler(_worldEventOverlay);  // World event popup overlay (world map)
-			_keyboardManager.RegisterHandler(_trendsOverlay);     // Trends popup overlay (storage operations)
-			_keyboardManager.RegisterHandler(_tradeRoutesOverlay); // Trade routes popup overlay
-			_keyboardManager.RegisterHandler(_cycleEndOverlay);   // Cycle end popup overlay (world map)
-			_keyboardManager.RegisterHandler(_paymentsOverlay);   // Payments popup overlay
-			_keyboardManager.RegisterHandler(_blackMarketOverlay); // Black Market popup overlay
-			_keyboardManager.RegisterHandler(_altarOverlay);        // Altar (Forsaken Altar) popup overlay
-			_keyboardManager.RegisterHandler(_perkCrafterOverlay);  // Perk Crafter (Cornerstone Forge) popup overlay
-			_keyboardManager.RegisterHandler(_gamesHistoryOverlay); // Games History popup overlay
-			_keyboardManager.RegisterHandler(_dailyExpeditionOverlay); // Daily Expedition popup overlay
-			_keyboardManager.RegisterHandler(_customGamesOverlay);   // Custom Games (Training Expeditions) popup overlay
-			_keyboardManager.RegisterHandler(_profilesOverlay);     // Profiles (save selection) popup overlay
+			_keyboardManager.RegisterHandler(recipesOverlay);      // Recipes popup overlay
+			_keyboardManager.RegisterHandler(wildcardOverlay);    // Wildcard popup overlay
+			_keyboardManager.RegisterHandler(cornerstoneLimitOverlay);   // Cornerstone limit popup overlay
+			_keyboardManager.RegisterHandler(cornerstoneOverlay);       // Cornerstone pick popup overlay
+			_keyboardManager.RegisterHandler(newcomersOverlay);         // Newcomers group selection overlay
+			_keyboardManager.RegisterHandler(orderPickOverlay);         // Order pick popup overlay (higher priority - child popup)
+			_keyboardManager.RegisterHandler(ordersOverlay);            // Orders popup overlay
+			_keyboardManager.RegisterHandler(consumptionOverlay);       // Consumption control popup overlay
+			_keyboardManager.RegisterHandler(deedsOverlay);             // Deeds (goals) popup overlay
+			_keyboardManager.RegisterHandler(reputationRewardOverlay);  // Reputation reward popup overlay
+			_keyboardManager.RegisterHandler(rewardsPackOverlay);  // Rewards pack popup overlay (port rewards)
+			_keyboardManager.RegisterHandler(resupplyOverlay);    // Royal Resupply popup overlay (world map)
+			_keyboardManager.RegisterHandler(assaultResultOverlay); // Assault result popup overlay (before trader so it gets priority)
+			_keyboardManager.RegisterHandler(traderOverlay);        // Trader panel overlay
+			_keyboardManager.RegisterHandler(dialogueOverlay);      // NPC dialogue overlay
+			_keyboardManager.RegisterHandler(sealOverlay);         // Seal building overlay (Sealed Forest)
+			_keyboardManager.RegisterHandler(worldEventOverlay);  // World event popup overlay (world map)
+			_keyboardManager.RegisterHandler(trendsOverlay);     // Trends popup overlay (storage operations)
+			_keyboardManager.RegisterHandler(tradeRoutesOverlay); // Trade routes popup overlay
+			_keyboardManager.RegisterHandler(cycleEndOverlay);   // Cycle end popup overlay (world map)
+			_keyboardManager.RegisterHandler(paymentsOverlay);   // Payments popup overlay
+			_keyboardManager.RegisterHandler(blackMarketOverlay); // Black Market popup overlay
+			_keyboardManager.RegisterHandler(altarOverlay);        // Altar (Forsaken Altar) popup overlay
+			_keyboardManager.RegisterHandler(perkCrafterOverlay);  // Perk Crafter (Cornerstone Forge) popup overlay
+			_keyboardManager.RegisterHandler(gamesHistoryOverlay); // Games History popup overlay
+			_keyboardManager.RegisterHandler(dailyExpeditionOverlay); // Daily Expedition popup overlay
+			_keyboardManager.RegisterHandler(customGamesOverlay);   // Custom Games (Training Expeditions) popup overlay
+			_keyboardManager.RegisterHandler(profilesOverlay);     // Profiles (save selection) popup overlay
 			_keyboardManager.RegisterHandler(_uiNavigator);         // Generic popup/menu navigation
 			_keyboardManager.RegisterHandler(_embarkPanel);         // Pre-expedition setup
-			_keyboardManager.RegisterHandler(_ironmanOverlay);       // Ironman upgrade popup overlay
-			_keyboardManager.RegisterHandler(_capitalUpgradeOverlay); // Capital upgrade popup overlay
+			_keyboardManager.RegisterHandler(ironmanOverlay);       // Ironman upgrade popup overlay
+			_keyboardManager.RegisterHandler(capitalUpgradeOverlay); // Capital upgrade popup overlay
 			_keyboardManager.RegisterHandler(_capitalOverlay);     // Capital screen overlay
 			_keyboardManager.RegisterHandler(settlementHandler);    // Settlement map navigation (fallback)
 			_keyboardManager.RegisterHandler(_worldTutorialsOverlay); // World tutorials HUD (world map)
@@ -914,40 +842,9 @@ namespace ATSAccessibility {
 		/// Each overlay's Close() guards with if (!_isOpen) return, so this is safe to call at any time.
 		/// </summary>
 		private void CloseAllOverlays() {
-			_recipesOverlay?.Close();
-			_wildcardOverlay?.Close();
-			_reputationRewardOverlay?.Close();
-			_cornerstoneOverlay?.Close();
-			_cornerstoneLimitOverlay?.Close();
-			_newcomersOverlay?.Close();
-			_ordersOverlay?.Close();
-			_orderPickOverlay?.Close();
-			_consumptionOverlay?.Close();
-			_deedsOverlay?.Close();
-			_rewardsPackOverlay?.Close();
-			_resupplyOverlay?.Close();
-			_traderOverlay?.Close();
-			_assaultResultOverlay?.Close();
-			_dialogueOverlay?.Close();
-			_tradeRoutesOverlay?.Close();
-			_cycleEndOverlay?.Close();
-			_paymentsOverlay?.Close();
-			_metaRewardsOverlay?.Reset();
-			_gameResultOverlay?.Close();
-			_blackMarketOverlay?.Close();
-			_altarOverlay?.Close();
-			_perkCrafterOverlay?.Close();
-			_gamesHistoryOverlay?.Close();
-			_profilesOverlay?.Close();
-			_dailyExpeditionOverlay?.Close();
-			_customGamesOverlay?.Close();
+			_popupRouter?.CloseAll();
 			_capitalOverlay?.Close();
-			_capitalUpgradeOverlay?.Close();
-			_ironmanOverlay?.Close();
 			_worldTutorialsOverlay?.Close();
-			_sealOverlay?.Close();
-			_worldEventOverlay?.Close();
-			_trendsOverlay?.Close();
 		}
 
 		/// <summary>
@@ -975,527 +872,15 @@ namespace ATSAccessibility {
 		private void OnPopupShown(object popup) {
 			string popupTypeName = popup?.GetType()?.Name ?? "null";
 			Debug.Log($"[ATSAccessibility] Popup shown event received: {popupTypeName}");
-
-			// Check wiki popup FIRST - it has its own navigator
-			if (GameReflection.IsWikiPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Wiki popup detected, using Encyclopedia navigator");
-				_encyclopediaNavigator?.OnWikiPopupShown(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Encyclopedia);
-				return;
-			}
-
-			// Check recipes popup - it has its own overlay
-			if (RecipesReflection.IsRecipesPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Recipes popup detected, using Recipes overlay");
-				_recipesOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check wildcard popup - it has its own overlay
-			if (WildcardReflection.IsWildcardPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Wildcard popup detected, using Wildcard overlay");
-				_wildcardOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check reputation reward popup - it has its own overlay
-			if (ReputationRewardReflection.IsReputationRewardsPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Reputation rewards popup detected, using ReputationReward overlay");
-				_reputationRewardOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			if (CornerstoneReflection.IsRewardPickPopup(popup)) {
-				_cornerstoneOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-			if (CornerstoneReflection.IsCornerstonesLimitPickPopup(popup)) {
-				_cornerstoneLimitOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check newcomers popup - it has its own overlay
-			if (NewcomersReflection.IsNewcomersPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Newcomers popup detected, using Newcomers overlay");
-				_newcomersOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check orders popup - it has its own overlay
-			if (OrdersReflection.IsOrdersPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Orders popup detected, using Orders overlay");
-				_ordersOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check order pick popup - it has its own overlay
-			if (OrdersReflection.IsOrderPickPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Order pick popup detected, using OrderPick overlay");
-				_orderPickOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check Ironman upgrade popup - it has its own overlay (must check before regular capital)
-			if (IronmanReflection.IsIronmanUpgradePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Ironman upgrade popup detected, using Ironman overlay");
-				_ironmanOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check capital upgrade popup - it has its own overlay
-			if (CapitalUpgradeReflection.IsCapitalUpgradePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Capital upgrade popup detected, using CapitalUpgrade overlay");
-				_capitalUpgradeOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check consumption popup - it has its own overlay
-			if (ConsumptionReflection.IsConsumptionPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Consumption popup detected, using Consumption overlay");
-				_consumptionOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check goals popup - it has its own overlay
-			if (DeedsReflection.IsGoalsPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Goals popup detected, using Deeds overlay");
-				_deedsOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check rewards pack popup (port expedition rewards)
-			if (RewardsPackOverlay.IsRewardsPackPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Rewards pack popup detected, using RewardsPack overlay");
-				_rewardsPackOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check cycle effects pick popup (Royal Resupply on world map)
-			if (ResupplyOverlay.IsCycleEffectsPickPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Cycle effects pick popup detected, using Resupply overlay");
-				_resupplyOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check assault result popup (after assaulting a trader)
-			if (AssaultResultOverlay.IsAssaultResultPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Assault result popup detected, using AssaultResult overlay");
-				_assaultResultOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check trader panel - it has its own overlay
-			if (TradeReflection.IsTraderPanel(popup)) {
-				Debug.Log("[ATSAccessibility] Trader panel detected, using Trader overlay");
-				TradeReflection.SetCurrentPanel(popup);
-				_traderOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check home popup (NPC dialogue) - it has its own overlay
-			if (NarrationReflection.IsHomePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Home popup detected, using Dialogue overlay");
-				_dialogueOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check trade routes popup - it has its own overlay
-			if (TradeRoutesReflection.IsTradeRoutesPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Trade routes popup detected, using TradeRoutes overlay");
-				_tradeRoutesOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check seal panel (Sealed Forest biome) - it has its own overlay
-			if (SealReflection.IsSealPanel(popup)) {
-				Debug.Log("[ATSAccessibility] Seal panel detected, using Seal overlay");
-				_sealOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check world event popup (world map) - it has its own overlay
-			if (WorldEventReflection.IsWorldEventPopup(popup)) {
-				Debug.Log("[ATSAccessibility] World event popup detected, using WorldEvent overlay");
-				_worldEventOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check trends popup - it has its own overlay
-			if (TrendsReflection.IsTrendsPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Trends popup detected, using Trends overlay");
-				_trendsOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check cycle end popup (world map) - it has its own overlay
-			if (CycleEndOverlay.IsWorldCycleEndPopup(popup)) {
-				Debug.Log("[ATSAccessibility] World cycle end popup detected, using CycleEnd overlay");
-				_cycleEndOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check payments popup - it has its own overlay
-			if (PaymentsReflection.IsPaymentsPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Payments popup detected, using Payments overlay");
-				_paymentsOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check meta rewards/level-up popup - it has its own overlay
-			// Must be checked BEFORE game result popup since both may be open simultaneously
-			if (IsMetaRewardsOrLevelUpPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Meta rewards/level-up popup detected, using MetaRewards overlay");
-
-				// If on world map, cache the tutorial tooltip NOW (before animation finishes)
-				// Only track for polling if tutorial tooltip was actually visible
-				if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP) {
-					_tutorialWasActiveBeforePopup = TutorialReflection.IsTooltipVisible();
-					if (_tutorialWasActiveBeforePopup) {
-						// Force cache the tooltip while it's still accessible
-						TutorialReflection.GetTutorialTooltip();
-					}
-				}
-
-				_metaRewardsOverlay?.OnPopupShown(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check game result popup (victory/defeat) - it has its own overlay
-			if (GameResultReflection.IsGameResultPopup(popup)) {
-				// Close any active overlays that might block the game result screen
-				_ordersOverlay?.Close();
-
-				_gameResultOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check black market popup - it has its own overlay
-			if (BlackMarketReflection.IsBlackMarketPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Black Market popup detected, using BlackMarket overlay");
-				_blackMarketOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check altar panel - it has its own overlay
-			if (AltarReflection.IsAltarPanel(popup)) {
-				Debug.Log("[ATSAccessibility] Altar panel detected, using Altar overlay");
-				_altarOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check perk crafter popup (Cornerstone Forge) - it has its own overlay
-			if (PerkCrafterReflection.IsPerkCrafterPopup(popup)) {
-				Debug.Log("[ATSAccessibility] PerkCrafter popup detected, using PerkCrafter overlay");
-				_perkCrafterOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check games history popup - it has its own overlay
-			if (GamesHistoryReflection.IsGamesHistoryPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Games History popup detected, using GamesHistory overlay");
-				_gamesHistoryOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check daily challenge popup - it has its own overlay
-			if (DailyExpeditionReflection.IsDailyChallengePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Daily Challenge popup detected, using DailyExpedition overlay");
-				_dailyExpeditionOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check profiles popup (save selection) - it has its own overlay
-			if (ProfilesReflection.IsProfilesPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Profiles popup detected, using Profiles overlay");
-				_profilesOverlay?.Open();
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// Check custom games popup (Training Expeditions) - it has its own overlay
-			if (CustomGamesReflection.IsCustomGamePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Custom Games popup detected, using CustomGames overlay");
-				_customGamesOverlay?.Open(popup);
-				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
-				return;
-			}
-
-			// If deeds overlay just claimed a reward, capture the popup as a child
-			if (_deedsOverlay != null && _deedsOverlay.ShouldCaptureNextPopup) {
-				Debug.Log("[ATSAccessibility] Capturing reward popup as deeds child");
-				_deedsOverlay.SetChildPopup(popup);
-				return;
-			}
-
-			// If deeds overlay is active and a different popup opens on top, suspend it
-			if (_deedsOverlay != null && _deedsOverlay.IsActive) {
-				_deedsOverlay.Suspend();
-			}
-
-			// Standard popup handling
-			_uiNavigator?.OnPopupShown(popup);
-			_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Popup);
+			_popupRouter.HandlePopupShown(popup);
 		}
 
 		/// <summary>
 		/// Called when a popup is hidden.
 		/// </summary>
 		private void OnPopupHidden(object popup) {
-
-			// Check wiki popup first
-			if (GameReflection.IsWikiPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Wiki popup closed");
-				_encyclopediaNavigator?.OnWikiPopupHidden();
-				// Fall through to handle context change
-			}
-			// Check recipes popup
-			else if (RecipesReflection.IsRecipesPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Recipes popup closed");
-				_recipesOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check wildcard popup
-			else if (WildcardReflection.IsWildcardPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Wildcard popup closed");
-				_wildcardOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check reputation reward popup
-			else if (ReputationRewardReflection.IsReputationRewardsPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Reputation rewards popup closed");
-				_reputationRewardOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check cornerstone pick popup
-			else if (CornerstoneReflection.IsRewardPickPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Cornerstone pick popup closed");
-				_cornerstoneOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check cornerstone limit popup
-			else if (CornerstoneReflection.IsCornerstonesLimitPickPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Cornerstone limit popup closed");
-				_cornerstoneLimitOverlay?.Close();
-				// Refresh main overlay in case a new pick loaded after limit removal
-				_cornerstoneOverlay?.RefreshAfterLimit();
-				// Fall through to handle context change
-			}
-			// Check newcomers popup
-			else if (NewcomersReflection.IsNewcomersPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Newcomers popup closed");
-				_newcomersOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check orders popup
-			else if (OrdersReflection.IsOrdersPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Orders popup closed");
-				_ordersOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check order pick popup
-			else if (OrdersReflection.IsOrderPickPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Order pick popup closed");
-				_orderPickOverlay?.Close();
-				// Refresh orders overlay since picked order is now active
-				_ordersOverlay?.RefreshAfterPick();
-				// Fall through to handle context change
-			}
-			// Check Ironman upgrade popup
-			else if (IronmanReflection.IsIronmanUpgradePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Ironman upgrade popup closed");
-				_ironmanOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check capital upgrade popup
-			else if (CapitalUpgradeReflection.IsCapitalUpgradePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Capital upgrade popup closed");
-				_capitalUpgradeOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check consumption popup
-			else if (ConsumptionReflection.IsConsumptionPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Consumption popup closed");
-				_consumptionOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check goals popup
-			else if (DeedsReflection.IsGoalsPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Goals popup closed");
-				_deedsOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check rewards pack popup
-			else if (RewardsPackOverlay.IsRewardsPackPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Rewards pack popup closed");
-				_rewardsPackOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check cycle effects pick popup (Royal Resupply)
-			else if (ResupplyOverlay.IsCycleEffectsPickPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Cycle effects pick popup closed");
-				_resupplyOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check assault result popup
-			else if (AssaultResultOverlay.IsAssaultResultPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Assault result popup closed");
-				_assaultResultOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check trader panel
-			else if (TradeReflection.IsTraderPanel(popup)) {
-				Debug.Log("[ATSAccessibility] Trader panel closed");
-				TradeReflection.ClearCurrentPanel();
-				_traderOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check home popup (NPC dialogue)
-			else if (NarrationReflection.IsHomePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Home popup closed");
-				_dialogueOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check trade routes popup
-			else if (TradeRoutesReflection.IsTradeRoutesPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Trade routes popup closed");
-				_tradeRoutesOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check seal panel (Sealed Forest biome)
-			else if (SealReflection.IsSealPanel(popup)) {
-				Debug.Log("[ATSAccessibility] Seal panel closed");
-				_sealOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check world event popup (world map)
-			else if (WorldEventReflection.IsWorldEventPopup(popup)) {
-				Debug.Log("[ATSAccessibility] World event popup closed");
-				_worldEventOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check trends popup
-			else if (TrendsReflection.IsTrendsPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Trends popup closed");
-				_trendsOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check cycle end popup (world map)
-			else if (CycleEndOverlay.IsWorldCycleEndPopup(popup)) {
-				Debug.Log("[ATSAccessibility] World cycle end popup closed");
-				_cycleEndOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check payments popup
-			else if (PaymentsReflection.IsPaymentsPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Payments popup closed");
-				_paymentsOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check game result popup (victory/defeat)
-			else if (GameResultReflection.IsGameResultPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Game result popup closed");
-				_gameResultOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check black market popup
-			else if (BlackMarketReflection.IsBlackMarketPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Black Market popup closed");
-				_blackMarketOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check altar panel
-			else if (AltarReflection.IsAltarPanel(popup)) {
-				Debug.Log("[ATSAccessibility] Altar panel closed");
-				_altarOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check perk crafter popup
-			else if (PerkCrafterReflection.IsPerkCrafterPopup(popup)) {
-				Debug.Log("[ATSAccessibility] PerkCrafter popup closed");
-				_perkCrafterOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check games history popup
-			else if (GamesHistoryReflection.IsGamesHistoryPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Games History popup closed");
-				_gamesHistoryOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check daily challenge popup
-			else if (DailyExpeditionReflection.IsDailyChallengePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Daily Challenge popup closed");
-				_dailyExpeditionOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check profiles popup (save selection)
-			else if (ProfilesReflection.IsProfilesPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Profiles popup closed");
-				_profilesOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check custom games popup (Training Expeditions)
-			else if (CustomGamesReflection.IsCustomGamePopup(popup)) {
-				Debug.Log("[ATSAccessibility] Custom Games popup closed");
-				_customGamesOverlay?.Close();
-				// Fall through to handle context change
-			}
-			// Check MetaRewardsPopup/MetaLevelUpPopup - close overlay and handle tutorial polling
-			else if (IsMetaRewardsOrLevelUpPopup(popup)) {
-				Debug.Log("[ATSAccessibility] Meta rewards/level-up popup closed");
-				_metaRewardsOverlay?.OnPopupHidden(popup);
-
-				// If on world map and tutorial was active before popup, set flag to poll for tutorial tooltip
-				if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP && _tutorialWasActiveBeforePopup) {
-					_tutorialWasActiveBeforePopup = false;
-					_waitingForTutorialTooltip = true;
-				}
-				// Fall through to handle context change
-			} else {
-				// If deeds overlay has a child popup that was closed, clear it
-				if (_deedsOverlay != null && _deedsOverlay.IsActive && _deedsOverlay.HasChildPopup) {
-					_deedsOverlay.ClearChildPopup();
-					return;
-				}
-
-				// If deeds overlay is suspended (non-claim popup closed), resume it
-				if (_deedsOverlay != null && _deedsOverlay.IsSuspended) {
-					Debug.Log("[ATSAccessibility] Resuming Deeds overlay after child popup closed");
-					_deedsOverlay.Resume();
-					return;
-				}
-
-				_uiNavigator?.OnPopupHidden(popup);
-			}
+			bool shouldRestoreContext = _popupRouter.HandlePopupHidden(popup);
+			if (!shouldRestoreContext) return;
 
 			// Only handle context change if no more popups active
 			if (_uiNavigator != null && !_uiNavigator.HasActivePopup) {
