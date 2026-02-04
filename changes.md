@@ -17,6 +17,7 @@
 
 - Seal candidate glades shown in scanner via triangulation from discovered guiding stones
 - Guiding stone I key now announces exact degree bearing followed by description
+- Numbered bookmarks (Ctrl+0-9 set, Shift+0-9 jump, Alt+0-9 direction); Alt+B for B-bookmark direction; blight info moved to Alt+D
 
 ## Bug fixes
 

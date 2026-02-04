@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,6 +22,10 @@ namespace ATSAccessibility {
 		private bool _hasBookmark;
 		private int _bookmarkX;
 		private int _bookmarkY;
+
+		private readonly bool[] _numberedBookmarkSet = new bool[10];
+		private readonly int[] _numberedBookmarkX = new int[10];
+		private readonly int[] _numberedBookmarkY = new int[10];
 
 		// Worker building cycling
 		private int _workerBuildingIndex = -1;
@@ -155,25 +160,52 @@ namespace ATSAccessibility {
 					GameReflection.TogglePause();
 					Speech.Say(GameReflection.IsPaused() ? "Paused" : "Unpaused");
 					return true;
-				case KeyCode.Alpha1:
+				// Keypad keys: speed control only, no modifier checks
 				case KeyCode.Keypad1:
 					GameReflection.SetSpeed(1);
 					Speech.Say("1x");
 					return true;
-				case KeyCode.Alpha2:
 				case KeyCode.Keypad2:
 					GameReflection.SetSpeed(2);
 					Speech.Say("1.5x");
 					return true;
-				case KeyCode.Alpha3:
 				case KeyCode.Keypad3:
 					GameReflection.SetSpeed(3);
 					Speech.Say("2x");
 					return true;
-				case KeyCode.Alpha4:
 				case KeyCode.Keypad4:
 					GameReflection.SetSpeed(4);
 					Speech.Say("3x");
+					return true;
+
+				// Alpha number keys: bookmarks with modifiers, speed 1-4 unmodified
+				case KeyCode.Alpha0:
+				case KeyCode.Alpha1:
+				case KeyCode.Alpha2:
+				case KeyCode.Alpha3:
+				case KeyCode.Alpha4:
+				case KeyCode.Alpha5:
+				case KeyCode.Alpha6:
+				case KeyCode.Alpha7:
+				case KeyCode.Alpha8:
+				case KeyCode.Alpha9:
+					int slot = keyCode - KeyCode.Alpha0;
+					if (modifiers.Control) {
+						SetNumberedBookmark(slot);
+					} else if (modifiers.Shift) {
+						JumpToNumberedBookmark(slot);
+					} else if (modifiers.Alt) {
+						if (_numberedBookmarkSet[slot])
+							AnnounceDirectionTo(_numberedBookmarkX[slot], _numberedBookmarkY[slot]);
+						else
+							Speech.Say($"No bookmark {slot}");
+					} else if (slot >= 1 && slot <= 4) {
+						// Unmodified 1-4: speed control
+						GameReflection.SetSpeed(slot);
+						string[] speedLabels = { "", "1x", "1.5x", "2x", "3x" };
+						Speech.Say(speedLabels[slot]);
+					}
+					// Unmodified 0, 5-9: consumed silently
 					return true;
 
 				// Stats hotkeys (Alt+S/V/O handled by SettlementInfoHandler)
@@ -225,14 +257,7 @@ namespace ATSAccessibility {
 					}
 					return true;
 				case KeyCode.End:
-					if (modifiers.Alt) {
-						if (!_hasBookmark)
-							Speech.Say("No bookmark");
-						else
-							_mapScanner?.AnnounceDistanceFrom(_bookmarkX, _bookmarkY, "of bookmark");
-					} else {
-						_mapScanner?.AnnounceDistance();
-					}
+					_mapScanner?.AnnounceDistance();
 					return true;
 
 				// Tile info
@@ -249,19 +274,24 @@ namespace ATSAccessibility {
 					_mapNavigator.RotateBuilding(clockwise: !modifiers.Shift);
 					return true;
 
-				// Building range/orientation info
+				// Building range/orientation info, blight info
 				case KeyCode.D:
-					var buildingAtCursor = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
-					if (buildingAtCursor != null) {
-						string rangeInfo = RangeInfoHelper.GetBuildingRangeInfo(buildingAtCursor);
-						Speech.Say(rangeInfo);
+					if (modifiers.Alt) {
+						string blightInfo = BlightInfoHelper.GetBlightInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
+						Speech.Say(blightInfo);
 					} else {
-						string resourceRangeInfo = RangeInfoHelper.GetResourceRangeInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
-						Speech.Say(resourceRangeInfo);
+						var buildingAtCursor = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+						if (buildingAtCursor != null) {
+							string rangeInfo = RangeInfoHelper.GetBuildingRangeInfo(buildingAtCursor);
+							Speech.Say(rangeInfo);
+						} else {
+							string resourceRangeInfo = RangeInfoHelper.GetResourceRangeInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
+							Speech.Say(resourceRangeInfo);
+						}
 					}
 					return true;
 
-				// Bookmark / blight info
+				// Bookmark / direction
 				case KeyCode.B:
 					if (modifiers.Shift) {
 						_bookmarkX = _mapNavigator.CursorX;
@@ -269,8 +299,10 @@ namespace ATSAccessibility {
 						_hasBookmark = true;
 						Speech.Say("Bookmark set");
 					} else if (modifiers.Alt) {
-						string blightInfo = BlightInfoHelper.GetBlightInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
-						Speech.Say(blightInfo);
+						if (!_hasBookmark)
+							Speech.Say("No bookmark");
+						else
+							AnnounceDirectionTo(_bookmarkX, _bookmarkY);
 					} else {
 						if (!_hasBookmark) {
 							Speech.Say("No bookmark");
@@ -441,6 +473,35 @@ namespace ATSAccessibility {
 				default:
 					// Consume all keys - mod has full keyboard control in settlement
 					return true;
+			}
+		}
+
+		private void SetNumberedBookmark(int slot) {
+			_numberedBookmarkSet[slot] = true;
+			_numberedBookmarkX[slot] = _mapNavigator.CursorX;
+			_numberedBookmarkY[slot] = _mapNavigator.CursorY;
+			Speech.Say($"Bookmark {slot} set");
+		}
+
+		private void JumpToNumberedBookmark(int slot) {
+			if (!_numberedBookmarkSet[slot]) {
+				Speech.Say($"No bookmark {slot}");
+				return;
+			}
+			_mapNavigator.SetCursorPosition(_numberedBookmarkX[slot], _numberedBookmarkY[slot]);
+			_mapNavigator.MoveCursor(0, 0);
+		}
+
+		private void AnnounceDirectionTo(int targetX, int targetY) {
+			int dx = targetX - _mapNavigator.CursorX;
+			int dy = targetY - _mapNavigator.CursorY;
+			int distance = Math.Max(Math.Abs(dx), Math.Abs(dy));
+
+			if (distance == 0) {
+				Speech.Say("here");
+			} else {
+				string direction = NavigationUtils.GetDirection(dx, dy);
+				Speech.Say($"{distance} tiles {direction}");
 			}
 		}
 
