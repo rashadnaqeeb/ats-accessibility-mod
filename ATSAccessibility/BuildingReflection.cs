@@ -3093,7 +3093,9 @@ namespace ATSAccessibility {
 									string desc = null;
 									try {
 										desc = getDescMethod?.Invoke(buildingPerk, new object[] { null }) as string;
-									} catch { }
+									} catch (Exception ex) {
+										Debug.LogWarning($"[ATSAccessibility] GetRaceCharacteristicLabel failed: {ex.Message}");
+									}
 									if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key")) {
 										return $"{perkDisplayName}, {desc}";
 									}

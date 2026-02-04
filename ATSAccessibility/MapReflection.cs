@@ -173,7 +173,7 @@ namespace ATSAccessibility {
 		public static Vector2Int GetGladeFirstField(object glade) {
 			var fields = GetGladeFields(glade);
 			if (fields != null && fields.Count > 0) {
-				try { return (Vector2Int)fields[0]; } catch { }
+				try { return (Vector2Int)fields[0]; } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeFirstField failed: {ex.Message}"); }
 			}
 			return new Vector2Int(-1, -1);
 		}
@@ -410,7 +410,9 @@ namespace ATSAccessibility {
 				if (fieldProp != null) {
 					return (Vector2Int)fieldProp.GetValue(building);
 				}
-			} catch { }
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetBuildingPosition failed: {ex.Message}");
+			}
 
 			return new Vector2Int(-1, -1);
 		}

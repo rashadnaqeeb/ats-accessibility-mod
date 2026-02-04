@@ -146,7 +146,9 @@ namespace ATSAccessibility {
 				var fields = EventReflection.GladeFieldsField.GetValue(gladeState) as List<Vector2Int>;
 				if (fields != null && fields.Count > 0)
 					return fields[0];
-			} catch { }
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetGladeLocation failed: {ex.Message}");
+			}
 
 			return null;
 		}
@@ -170,7 +172,8 @@ namespace ATSAccessibility {
 
 				var building = GameReflection.GetBuildingById(lastWorkId);
 				return GetBuildingLocation(building);
-			} catch {
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetVillagerLocation failed: {ex.Message}");
 				return null;
 			}
 		}
@@ -230,7 +233,9 @@ namespace ATSAccessibility {
 					}
 					type = type.BaseType;
 				}
-			} catch { }
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] TryGetAlertBuildingLocation failed: {ex.Message}");
+			}
 
 			return null;
 		}
