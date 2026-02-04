@@ -8,7 +8,7 @@ namespace ATSAccessibility {
 	/// Two-level navigation: Level 0 = save slots, Level 1 = submenu (actions per slot).
 	/// Supports text input for rename and confirmation for destructive actions.
 	/// </summary>
-	public class ProfilesOverlay: MenuBase, IKeyHandler {
+	public class ProfilesOverlay: MenuBase {
 		// ========================================
 		// ENUMS
 		// ========================================
@@ -62,15 +62,6 @@ namespace ATSAccessibility {
 			public string IronmanStatus;
 			public int SlotNumber;
 		}
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

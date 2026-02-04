@@ -8,7 +8,7 @@ namespace ATSAccessibility {
 	/// Sections: Pick Options (3 choices), Core Upgrades, and Unlocked.
 	/// Pattern B at Level 1: Enter/Space=buy (Action), Right=view rewards (CanDrillDown).
 	/// </summary>
-	public class IronmanOverlay: MenuBase, IKeyHandler {
+	public class IronmanOverlay: MenuBase {
 		private enum SectionType { PickOptions, CoreUpgrades, Unlocked }
 
 		// Section data
@@ -18,15 +18,6 @@ namespace ATSAccessibility {
 		// Item data
 		private List<IronmanReflection.UpgradeInfo> _currentItems = new List<IronmanReflection.UpgradeInfo>();
 		private List<IronmanReflection.RewardInfo> _rewards = new List<IronmanReflection.RewardInfo>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen && !IsSuspended;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

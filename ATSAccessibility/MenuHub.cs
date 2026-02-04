@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Opened with F2 from the settlement map.
 	/// Isolated in a single file for easy removal if needed.
 	/// </summary>
-	public class MenuHub: MenuBase, IKeyHandler {
+	public class MenuHub: MenuBase {
 		private static readonly string[] _menuLabels = {
 			"Recipes",
 			"Orders",
@@ -19,15 +19,6 @@ namespace ATSAccessibility {
 
 		// Flag to suppress "Closed" speech when closing to open a popup
 		private bool _closingForPopup;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

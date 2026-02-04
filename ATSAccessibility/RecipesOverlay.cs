@@ -10,19 +10,10 @@ namespace ATSAccessibility {
 	///
 	/// Level 0 = goods, Level 1 = recipes for the selected good.
 	/// </summary>
-	public class RecipesOverlay: MenuBase, IKeyHandler {
+	public class RecipesOverlay: MenuBase {
 		// Data
 		private List<RecipesReflection.GoodInfo> _goods;
 		private bool _showAllGoods;  // false = unlocked buildings only, true = include locked buildings
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

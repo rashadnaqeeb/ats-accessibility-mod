@@ -1,12 +1,11 @@
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace ATSAccessibility {
 	/// <summary>
 	/// Accessible overlay for the Games History popup.
 	/// Three-level navigation: Main Menu -> Submenu -> Settlement Details (flat list).
 	/// </summary>
-	public class GamesHistoryOverlay: MenuBase, IKeyHandler {
+	public class GamesHistoryOverlay: MenuBase {
 		private enum MainMenuItem { CycleStats, Upgrades, History }
 
 		// Main menu items
@@ -19,15 +18,6 @@ namespace ATSAccessibility {
 
 		// Current settlement detail items (flat list)
 		private List<string> _settlementDetailItems;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

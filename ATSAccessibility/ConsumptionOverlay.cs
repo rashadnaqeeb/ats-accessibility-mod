@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace ATSAccessibility {
 	/// <summary>
@@ -8,7 +7,7 @@ namespace ATSAccessibility {
 	/// Pattern B: Right drills down, Enter does nothing at any level.
 	/// Space toggles at all levels.
 	/// </summary>
-	public class ConsumptionOverlay: MenuBase, IKeyHandler {
+	public class ConsumptionOverlay: MenuBase {
 		// Category data
 		private class CategoryData {
 			public object Category;     // NeedCategoryModel object (null for raw food/race)
@@ -34,15 +33,6 @@ namespace ATSAccessibility {
 
 		// Track whether current category is raw food (for level 1 behavior)
 		private bool _currentCategoryIsRawFood;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

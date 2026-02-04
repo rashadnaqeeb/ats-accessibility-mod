@@ -7,7 +7,7 @@ namespace ATSAccessibility {
 	/// Level 0: Main menu (active routes summary, towns, toggles).
 	/// Level 1: Active Routes or Town Offers (determined by _branch).
 	/// </summary>
-	public class TradeRoutesOverlay: MenuBase, IKeyHandler {
+	public class TradeRoutesOverlay: MenuBase {
 		private enum Branch { MainMenu, ActiveRoutes, TownOffers }
 		private enum MainMenuItemType { ActiveRoutes, Town, AutoCollect, OnlyAvailable }
 
@@ -25,15 +25,6 @@ namespace ATSAccessibility {
 		private List<TradeRoutesReflection.RouteInfo> _routes = new List<TradeRoutesReflection.RouteInfo>();
 		private List<TradeRoutesReflection.TownInfo> _towns = new List<TradeRoutesReflection.TownInfo>();
 		private List<TradeRoutesReflection.OfferInfo> _offers = new List<TradeRoutesReflection.OfferInfo>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

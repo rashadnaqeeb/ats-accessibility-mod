@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the ReputationRewardsPopup (mid-game blueprint reward selection).
 	/// Provides flat list navigation through building choices plus extend and reroll options.
 	/// </summary>
-	public class ReputationRewardOverlay: MenuBase, IKeyHandler {
+	public class ReputationRewardOverlay: MenuBase {
 		// Navigation item types
 		private enum ItemType { Building, Extend, Reroll }
 
@@ -28,15 +28,6 @@ namespace ATSAccessibility {
 		public static void ResetSuppression() {
 			SuppressBlueprintAnnouncement = false;
 		}
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

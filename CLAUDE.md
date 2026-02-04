@@ -81,7 +81,7 @@ public class MyHandler: IKeyHandler {
 
 ### 2. MenuBase Pattern
 
-Base class for all keyboard-navigable menus and overlays. See `MenuBase.cs` for the full API (well-documented with doc comments).
+Base class for all keyboard-navigable menus and overlays. Implements `IKeyHandler` with a default `IsActive => IsOpen && !IsSuspended` — subclasses don't need to implement `IKeyHandler` separately. Override `IsActive` only for custom activation logic (e.g., `GameResultOverlay`). See `MenuBase.cs` for the full API (well-documented with doc comments).
 
 - **Abstract members**: `OverlayName`, `EmptyMessage`, `GetItemCount()`, `GetLabel(int)`, `RefreshData()`, `OnEnter(int)` → `EnterAction`
 - **Key virtuals**: `OnAction`, `OnSpace`, `OnAdjust`, `OnDrillDown`, `OnGoBack`, `OnEscape`, `HandleSpecialKey`, `AnnounceCurrentItem`

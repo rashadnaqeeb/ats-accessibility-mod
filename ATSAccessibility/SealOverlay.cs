@@ -9,7 +9,7 @@ namespace ATSAccessibility {
 	/// Level 0 = 5 sections (Effects, Progress, Dialogue, Offerings, Reward).
 	/// Level 1 = offerings list (Enter/Space delivers).
 	/// </summary>
-	public class SealOverlay: MenuBase, IKeyHandler {
+	public class SealOverlay: MenuBase {
 		// ========================================
 		// TYPES
 		// ========================================
@@ -34,15 +34,6 @@ namespace ATSAccessibility {
 		private static PropertyInfo _effectDisplayNameProperty = null;
 		private static PropertyInfo _effectDescriptionProperty = null;
 		private static bool _effectPropsCached = false;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

@@ -7,7 +7,7 @@ namespace ATSAccessibility {
 	/// Overlay for CycleEffectsPickPopup (Royal Resupply on World Map after winning
 	/// a settlement near negative modifiers). Player picks 1 of 3 rewards.
 	/// </summary>
-	public class ResupplyOverlay: MenuBase, IKeyHandler {
+	public class ResupplyOverlay: MenuBase {
 		// Data
 		private object _popup;
 		private List<string> _items = new List<string>();
@@ -20,15 +20,6 @@ namespace ATSAccessibility {
 		private static PropertyInfo _modelDisplayNameProperty;
 		private static PropertyInfo _modelDescriptionProperty;
 		private static MethodInfo _slotOnClickMethod;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

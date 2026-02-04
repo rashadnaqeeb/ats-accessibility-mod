@@ -5,7 +5,7 @@ namespace ATSAccessibility {
 	/// Unified menu for accessing information panels (Stats, Resources, Mysteries, Villagers, Announcements).
 	/// Opened with F1 from the settlement map.
 	/// </summary>
-	public class InfoPanelMenu: MenuBase, IKeyHandler {
+	public class InfoPanelMenu: MenuBase {
 		private enum MenuPanel {
 			Resources,
 			Villagers,
@@ -33,15 +33,6 @@ namespace ATSAccessibility {
 		/// Whether a child panel (Stats, Resources, or Mysteries) is currently open.
 		/// </summary>
 		public bool IsInChildPanel => _activeChildPanel.HasValue;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		public InfoPanelMenu(StatsPanel statsPanel, SettlementResourcePanel resourcePanel, MysteriesPanel mysteriesPanel, VillagersPanel villagersPanel, WorkersPanel workersPanel, AnnouncementsSettingsPanel announcementsPanel) {
 			_statsPanel = statsPanel;

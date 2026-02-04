@@ -10,7 +10,7 @@ namespace ATSAccessibility {
 	/// Navigation levels use a flat index array (_indices[level]).
 	/// Level 0 is always the root. Subclasses define what each level means.
 	/// </summary>
-	public abstract class MenuBase: ISearchable {
+	public abstract class MenuBase: ISearchable, IKeyHandler {
 		// ========================================
 		// ENUMS
 		// ========================================
@@ -68,6 +68,7 @@ namespace ATSAccessibility {
 
 		public bool IsOpen => _isOpen;
 		public bool IsSuspended => _suspended;
+		public virtual bool IsActive => IsOpen && !IsSuspended;
 		protected int ItemCount => GetItemCount();
 
 		// ========================================

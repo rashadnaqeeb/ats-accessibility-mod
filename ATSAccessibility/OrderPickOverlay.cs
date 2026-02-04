@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the OrderPickPopup (order pick option selection).
 	/// Provides flat list navigation through pick options with objectives and rewards.
 	/// </summary>
-	public class OrderPickOverlay: MenuBase, IKeyHandler {
+	public class OrderPickOverlay: MenuBase {
 		private class PickItem {
 			public object PickState;    // OrderPickState
 			public object OrderModel;   // OrderModel resolved from pick.model
@@ -18,15 +18,6 @@ namespace ATSAccessibility {
 		private object _popup;         // The OrderPickPopup instance
 		private object _orderState;    // The order being picked
 		private List<PickItem> _items = new List<PickItem>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

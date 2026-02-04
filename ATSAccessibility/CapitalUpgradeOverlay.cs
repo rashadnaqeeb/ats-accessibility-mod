@@ -8,22 +8,13 @@ namespace ATSAccessibility {
 	/// Three-level navigation: structures -> upgrades -> rewards.
 	/// Pattern B at Level 1: Enter=buy (Action), Right=view rewards (CanDrillDown).
 	/// </summary>
-	public class CapitalUpgradeOverlay: MenuBase, IKeyHandler {
+	public class CapitalUpgradeOverlay: MenuBase {
 		private static readonly Regex NumberPattern = new Regex(@"([+-]\d+)(%?)", RegexOptions.Compiled);
 
 		// Data
 		private List<CapitalUpgradeReflection.StructureInfo> _structures = new List<CapitalUpgradeReflection.StructureInfo>();
 		private List<CapitalUpgradeReflection.UpgradeInfo> _upgrades = new List<CapitalUpgradeReflection.UpgradeInfo>();
 		private List<CapitalUpgradeReflection.RewardInfo> _rewards = new List<CapitalUpgradeReflection.RewardInfo>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen && !IsSuspended;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

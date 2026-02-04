@@ -10,7 +10,7 @@ namespace ATSAccessibility {
 	///
 	/// Level 0 = categories, Level 1 = buildings within the selected category.
 	/// </summary>
-	public class WildcardOverlay: MenuBase, IKeyHandler {
+	public class WildcardOverlay: MenuBase {
 		/// <summary>
 		/// Represents a building category with its buildings.
 		/// </summary>
@@ -38,15 +38,6 @@ namespace ATSAccessibility {
 		// Picks
 		private int _picksRequired;
 		private HashSet<object> _selectedModels = new HashSet<object>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

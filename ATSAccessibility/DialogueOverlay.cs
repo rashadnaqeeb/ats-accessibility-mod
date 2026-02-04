@@ -8,7 +8,7 @@ namespace ATSAccessibility {
 	/// Provides flat list navigation through header, dialogue text, and choices/continue.
 	/// Queues rapid events to prevent missing dialogue.
 	/// </summary>
-	public class DialogueOverlay: MenuBase, IKeyHandler {
+	public class DialogueOverlay: MenuBase {
 		private enum ItemType { Header, Dialogue, Continue, Choice }
 
 		private class ListItem {
@@ -36,15 +36,6 @@ namespace ATSAccessibility {
 		// Event subscriptions
 		private IDisposable _dialogueSub;
 		private IDisposable _branchSub;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

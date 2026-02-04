@@ -9,7 +9,7 @@ namespace ATSAccessibility {
 	/// - Mode 1 (No Trader): Flat list with next trader info and force arrival
 	/// - Mode 2 (Trader Present): Main menu with goods trading, perks, and assault
 	/// </summary>
-	public class TraderOverlay: MenuBase, IKeyHandler {
+	public class TraderOverlay: MenuBase {
 		// ========================================
 		// NAVIGATION STATE
 		// ========================================
@@ -58,15 +58,6 @@ namespace ATSAccessibility {
 		private List<TradeGoodItem> _sellGoods = new List<TradeGoodItem>();
 		private List<TradeGoodItem> _buyGoods = new List<TradeGoodItem>();
 		private List<PerkItem> _perks = new List<PerkItem>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

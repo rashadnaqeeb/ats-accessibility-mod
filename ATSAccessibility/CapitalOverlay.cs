@@ -7,17 +7,8 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the capital (Smoldering City) screen.
 	/// Flat list navigation: Buy Upgrades, Deeds, Game History, Home (if unlocked).
 	/// </summary>
-	public class CapitalOverlay: MenuBase, IKeyHandler {
+	public class CapitalOverlay: MenuBase {
 		private List<(string name, Action action)> _items = new List<(string, Action)>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen && !IsSuspended;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

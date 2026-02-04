@@ -1,6 +1,5 @@
 using System;
 using System.Reflection;
-using UnityEngine;
 
 namespace ATSAccessibility {
 	/// <summary>
@@ -39,7 +38,7 @@ namespace ATSAccessibility {
 		private static MethodInfo _modelGetExecutionBlockReasonMethod;    // GetExecutionBlockReason(int)
 		private static MethodInfo _modelExecuteDecisionMethod;            // ExecuteDecision(WorldEventState, int)
 
-	
+
 		// ========================================
 		// TYPE DETECTION
 		// ========================================

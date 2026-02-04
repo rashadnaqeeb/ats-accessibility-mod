@@ -11,7 +11,7 @@ namespace ATSAccessibility {
 	/// Up/Down navigates operations for the current good. MenuBase Level 0
 	/// tracks the operation index; _goodIndex is a separate axis.
 	/// </summary>
-	public class TrendsOverlay: MenuBase, IKeyHandler {
+	public class TrendsOverlay: MenuBase {
 		// Time frame options (in ticks)
 		private const int TICKS_10_SECONDS = 1;
 		private const int TICKS_1_MINUTE = 6;
@@ -27,15 +27,6 @@ namespace ATSAccessibility {
 
 		// Operations for current good (navigated via MenuBase Level 0)
 		private List<TrendsReflection.AggregatedOperation> _operations = new List<TrendsReflection.AggregatedOperation>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

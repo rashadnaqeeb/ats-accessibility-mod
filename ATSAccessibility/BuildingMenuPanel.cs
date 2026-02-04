@@ -8,7 +8,7 @@ namespace ATSAccessibility {
 	/// Two-panel system: left panel has categories, right panel has buildings in category.
 	/// Extends MenuBase for level-based navigation with cross-category building navigation.
 	/// </summary>
-	public class BuildingMenuPanel: MenuBase, IKeyHandler {
+	public class BuildingMenuPanel: MenuBase {
 		/// <summary>
 		/// Represents a building category (e.g., Housing, Food Production).
 		/// </summary>
@@ -39,17 +39,6 @@ namespace ATSAccessibility {
 
 		// When closing for build placement, suppress "Building menu closed" speech
 		private bool _closingForBuild;
-
-		// ========================================
-		// IKEYHANDLER
-		// ========================================
-
-		/// <summary>
-		/// Whether this handler is currently active (IKeyHandler).
-		/// </summary>
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) => ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// PUBLIC API

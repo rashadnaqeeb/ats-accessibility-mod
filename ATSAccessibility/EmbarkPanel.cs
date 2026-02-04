@@ -12,7 +12,7 @@ namespace ATSAccessibility {
 	/// Level 0: top menu (MenuBase standard nav).
 	/// Level 1: section content (all keys handled via HandleSpecialKey).
 	/// </summary>
-	public class EmbarkPanel: MenuBase, IKeyHandler {
+	public class EmbarkPanel: MenuBase {
 		/// <summary>
 		/// Top-level menu sections.
 		/// </summary>
@@ -56,14 +56,6 @@ namespace ATSAccessibility {
 		private int _sectionCategoryIndex = 0;
 		private int _sectionDetailIndex = 0;
 		private bool _sectionFocusOnDetails = false;
-
-		// ========================================
-		// IKeyHandler
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) => ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE ABSTRACTS

@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the OrdersPopup (order list navigation).
 	/// Provides flat list navigation through all orders with front-loaded announcements.
 	/// </summary>
-	public class OrdersOverlay: MenuBase, IKeyHandler {
+	public class OrdersOverlay: MenuBase {
 		// Order status for sorting and announcement
 		private enum OrderStatus { ToPick, Completable, Active, Locked, Completed, Failed }
 
@@ -20,15 +20,6 @@ namespace ATSAccessibility {
 
 		// Data
 		private List<OrderItem> _items = new List<OrderItem>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

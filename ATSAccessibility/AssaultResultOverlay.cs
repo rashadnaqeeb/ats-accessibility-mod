@@ -7,7 +7,7 @@ namespace ATSAccessibility {
 	/// Overlay for TraderAssaultResultPopup (shown after assaulting a trader).
 	/// Provides flat list navigation through stolen goods, perks, consequences, and villagers lost.
 	/// </summary>
-	public class AssaultResultOverlay: MenuBase, IKeyHandler {
+	public class AssaultResultOverlay: MenuBase {
 		// Data
 		private object _popup;
 		private List<string> _items = new List<string>();
@@ -19,15 +19,6 @@ namespace ATSAccessibility {
 		private static FieldInfo _gainedGoodsSlotsField;
 		private static FieldInfo _gainedRewardsSlotsField;
 		private static FieldInfo _effectsRewardSlotsField;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

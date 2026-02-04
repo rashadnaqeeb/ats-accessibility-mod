@@ -8,7 +8,7 @@ namespace ATSAccessibility {
 	/// Available rewards open the game's popup when selected.
 	/// Unavailable rewards show when they will next be available.
 	/// </summary>
-	public class RewardsPanel: MenuBase, IKeyHandler {
+	public class RewardsPanel: MenuBase {
 		private enum RewardType {
 			Blueprints,
 			Cornerstones,
@@ -23,15 +23,6 @@ namespace ATSAccessibility {
 
 		private List<RewardItem> _items = new List<RewardItem>();
 		private bool _closingForPopup;
-
-		// ========================================
-		// IKEYHANDLER
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// PUBLIC API

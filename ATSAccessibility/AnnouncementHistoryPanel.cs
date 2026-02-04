@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Stores recent announcements and provides a panel to review them.
 	/// Opened with Alt+N during settlement gameplay.
 	/// </summary>
-	public class AnnouncementHistoryPanel: MenuBase, IKeyHandler {
+	public class AnnouncementHistoryPanel: MenuBase {
 		private const int MAX_HISTORY = 10;
 
 		private struct HistoryEntry {
@@ -24,15 +24,6 @@ namespace ATSAccessibility {
 		public AnnouncementHistoryPanel(MapNavigator mapNavigator) {
 			_mapNavigator = mapNavigator;
 		}
-
-		// ========================================
-		// IKEYHANDLER
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// STATIC API

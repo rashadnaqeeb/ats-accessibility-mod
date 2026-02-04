@@ -7,7 +7,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the Custom Games (Training Expeditions) popup.
 	/// Two-level navigation: Level 0 = top menu (13 sections), Level 1 = section items.
 	/// </summary>
-	public class CustomGamesOverlay: MenuBase, IKeyHandler {
+	public class CustomGamesOverlay: MenuBase {
 		private enum SectionType {
 			Difficulty,
 			Seed,
@@ -63,15 +63,6 @@ namespace ATSAccessibility {
 		// Seed text editing state
 		private bool _isEditingSeed = false;
 		private TMPro.TMP_InputField _seedInputField = null;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

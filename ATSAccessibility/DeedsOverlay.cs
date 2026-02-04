@@ -8,7 +8,7 @@ namespace ATSAccessibility {
 	/// Two-level navigation: categories -> goals.
 	/// Level 0 = categories, Level 1 = goals within current category.
 	/// </summary>
-	public class DeedsOverlay: MenuBase, IKeyHandler {
+	public class DeedsOverlay: MenuBase {
 		// Goal entry within a category
 		private class GoalEntry {
 			public string Name;
@@ -30,15 +30,6 @@ namespace ATSAccessibility {
 
 		// Data
 		private List<CategoryEntry> _categories = new List<CategoryEntry>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen && !IsSuspended;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		/// <summary>
 		/// Whether the next popup should be captured as a child (reward display after claim).

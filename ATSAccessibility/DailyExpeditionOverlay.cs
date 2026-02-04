@@ -11,7 +11,7 @@ namespace ATSAccessibility {
 	/// modifiers) are handled entirely via _submenuMode and HandleSpecialKey,
 	/// which intercepts ALL keys when a submenu is active.
 	/// </summary>
-	public class DailyExpeditionOverlay: MenuBase, IKeyHandler {
+	public class DailyExpeditionOverlay: MenuBase {
 		private enum ItemType {
 			Biome,
 			TimeLeft,
@@ -51,15 +51,6 @@ namespace ATSAccessibility {
 		public DailyExpeditionOverlay() {
 			_submenuSearchable = new SubmenuSearchable(this);
 		}
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MenuBase Overrides

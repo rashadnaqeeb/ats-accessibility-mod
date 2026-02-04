@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for WorldEventPopup (decision screen for world events on the world map).
 	/// Provides flat list navigation: header (event name + description), then decision options.
 	/// </summary>
-	public class WorldEventOverlay: MenuBase, IKeyHandler {
+	public class WorldEventOverlay: MenuBase {
 		// Item types in the flat list
 		private enum ItemType { Header, Option }
 
@@ -22,15 +22,6 @@ namespace ATSAccessibility {
 		// Cached instance data (extracted from popup on open)
 		private object _model;
 		private object _state;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

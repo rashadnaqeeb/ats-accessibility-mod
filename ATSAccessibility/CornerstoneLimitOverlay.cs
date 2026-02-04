@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the CornerstonesLimitPickPopup (choose-one-to-remove sub-popup).
 	/// Provides flat list navigation through active cornerstones with selection and confirm/cancel.
 	/// </summary>
-	public class CornerstoneLimitOverlay: MenuBase, IKeyHandler {
+	public class CornerstoneLimitOverlay: MenuBase {
 		private class NavItem {
 			public object Model;       // EffectModel
 			public string Label;       // "Name, Rarity"
@@ -17,15 +17,6 @@ namespace ATSAccessibility {
 		private object _popup;
 		private int _selectedIndex = -1;  // Which cornerstone is marked for removal
 		private List<NavItem> _items = new List<NavItem>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

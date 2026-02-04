@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the Forsaken Altar panel.
 	/// Provides multi-level navigation: Main Menu -> Resources/Cornerstones -> Currencies/Races.
 	/// </summary>
-	public class AltarOverlay: MenuBase, IKeyHandler {
+	public class AltarOverlay: MenuBase {
 		// ========================================
 		// MENU LEVELS
 		// ========================================
@@ -33,15 +33,6 @@ namespace ATSAccessibility {
 		private List<AltarReflection.CurrencyInfo> _currencies;
 		private List<AltarReflection.RaceInfo> _races;
 		private List<AltarReflection.EffectInfo> _cornerstones;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

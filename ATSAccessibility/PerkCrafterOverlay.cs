@@ -9,7 +9,7 @@ namespace ATSAccessibility {
 	/// Level 1: Submenu for hook/positive/negative selection.
 	/// Level 2: Name editing (handled entirely in HandleSpecialKey).
 	/// </summary>
-	public class PerkCrafterOverlay: MenuBase, IKeyHandler {
+	public class PerkCrafterOverlay: MenuBase {
 		private enum MenuItem {
 			Dialogue = 0,
 			Shards = 1,
@@ -30,15 +30,6 @@ namespace ATSAccessibility {
 
 		private StringBuilder _nameBuffer;
 		private bool _nameEditing;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

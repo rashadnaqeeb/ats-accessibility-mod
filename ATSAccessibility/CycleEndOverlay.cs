@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -9,19 +8,10 @@ namespace ATSAccessibility {
 	/// Provides navigation through XP summary and unlocked capital upgrades.
 	/// Single-level flat list of strings.
 	/// </summary>
-	public class CycleEndOverlay: MenuBase, IKeyHandler {
+	public class CycleEndOverlay: MenuBase {
 		// Data
 		private object _popup;
 		private List<string> _items = new List<string>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

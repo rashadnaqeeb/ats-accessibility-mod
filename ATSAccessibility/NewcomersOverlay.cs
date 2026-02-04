@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the NewcomersPopup (newcomers arrival group selection).
 	/// Provides flat list navigation: dialogue, group 1, group 2.
 	/// </summary>
-	public class NewcomersOverlay: MenuBase, IKeyHandler {
+	public class NewcomersOverlay: MenuBase {
 		// Navigation item types
 		private enum ItemType { Dialogue, Group }
 
@@ -19,15 +19,6 @@ namespace ATSAccessibility {
 		// Data
 		private object _popup;
 		private List<NavItem> _items = new List<NavItem>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

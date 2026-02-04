@@ -7,7 +7,7 @@ namespace ATSAccessibility {
 	/// Overlay for RewardsPackPopup (shown after port expedition rewards are granted).
 	/// Provides flat list navigation through goods and effects received.
 	/// </summary>
-	public class RewardsPackOverlay: MenuBase, IKeyHandler {
+	public class RewardsPackOverlay: MenuBase {
 		// Data
 		private object _popup;
 		private List<string> _items = new List<string>();
@@ -18,15 +18,6 @@ namespace ATSAccessibility {
 		private static FieldInfo _effectsSlotsField;
 		private static FieldInfo _headerField;
 		private static FieldInfo _descField;
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

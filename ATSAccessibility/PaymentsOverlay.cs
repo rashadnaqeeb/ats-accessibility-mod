@@ -6,7 +6,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the PaymentsPopup (pending payments/obligations).
 	/// Flat list navigation with static header text.
 	/// </summary>
-	public class PaymentsOverlay: MenuBase, IKeyHandler {
+	public class PaymentsOverlay: MenuBase {
 		private enum ItemType { Header, Payment }
 
 		private class NavItem {
@@ -24,15 +24,6 @@ namespace ATSAccessibility {
 			"\"May the sun shine on you, Viceroy! I was sent here to help you keep track of all " +
 			"those annoying payments and obligations. Another pair of eyes on your Exploration Tax " +
 			"forms might come in handy.\"";
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

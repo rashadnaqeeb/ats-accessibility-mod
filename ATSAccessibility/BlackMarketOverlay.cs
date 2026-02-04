@@ -7,7 +7,7 @@ namespace ATSAccessibility {
 	/// Level 0 = main list (header + reroll + offers).
 	/// Level 1 = sub-menu (buy now / buy on credit).
 	/// </summary>
-	public class BlackMarketOverlay: MenuBase, IKeyHandler {
+	public class BlackMarketOverlay: MenuBase {
 		private enum ItemType { Header, Reroll, Offer }
 
 		private class NavItem {
@@ -22,15 +22,6 @@ namespace ATSAccessibility {
 
 		// Data
 		private List<NavItem> _items = new List<NavItem>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES

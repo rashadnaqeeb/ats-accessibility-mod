@@ -8,7 +8,7 @@ namespace ATSAccessibility {
 	/// Accessible overlay for the GameResultPopup (victory/defeat screen).
 	/// Level 0 = top-level items, Level 1 = sub-items within Section items.
 	/// </summary>
-	public class GameResultOverlay: MenuBase, IKeyHandler {
+	public class GameResultOverlay: MenuBase {
 		private enum ItemType { ReadOnly, Section, Button }
 
 		private class TopLevelItem {
@@ -22,14 +22,7 @@ namespace ATSAccessibility {
 		private object _popup;
 		private List<TopLevelItem> _items = new List<TopLevelItem>();
 
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen && IsPopupVisible();
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
+		public override bool IsActive => IsOpen && IsPopupVisible();
 
 		private bool IsPopupVisible() {
 			if (_popup == null) return false;

@@ -7,18 +7,9 @@ namespace ATSAccessibility {
 	/// Provides keyboard navigation for the 4 tutorial missions on the world map.
 	/// Opened via F1 key from WorldMapKeyHandler.
 	/// </summary>
-	public class WorldTutorialsOverlay: MenuBase, IKeyHandler {
+	public class WorldTutorialsOverlay: MenuBase {
 		// Data
 		private List<TutorialReflection.TutorialInfo> _tutorials = new List<TutorialReflection.TutorialInfo>();
-
-		// ========================================
-		// IKeyHandler Implementation
-		// ========================================
-
-		public bool IsActive => IsOpen;
-
-		bool IKeyHandler.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) =>
-			ProcessKey(keyCode, modifiers);
 
 		// ========================================
 		// MENUBASE OVERRIDES
