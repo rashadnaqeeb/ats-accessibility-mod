@@ -15,7 +15,7 @@ namespace ATSAccessibility {
 		/// <returns>Wrapped index within [0, count)</returns>
 		public static int WrapIndex(int current, int direction, int count) {
 			if (count <= 0) return 0;
-			return (current + direction % count + count) % count;
+			return ((current + direction) % count + count) % count;
 		}
 
 		/// <summary>

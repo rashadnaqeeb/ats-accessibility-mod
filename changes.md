@@ -42,6 +42,7 @@
 - Fix relic and poro panels announcing "Info" on open that doesn't appear during navigation
 - Fix building pause/unpause sound playing twice (game already plays it internally)
 - Space key now toggles building pause/active from any section in building panels
+- Fix operator precedence bug in WrapIndex causing incorrect index wrapping
 
 ## Internal / refactoring
 
