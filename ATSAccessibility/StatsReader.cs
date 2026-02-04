@@ -29,7 +29,7 @@ namespace ATSAccessibility {
 		/// Get reputation summary as (current, target).
 		/// </summary>
 		public static (float current, int target) GetReputationSummary() {
-			StatsReflection.EnsureReputationTypes();
+			StatsReflection.EnsureCached();
 
 			var repService = GameReflection.GetReputationService();
 			if (repService == null) return (0, 0);
@@ -57,7 +57,7 @@ namespace ATSAccessibility {
 		/// Get impatience (reputation penalty) summary as (current, max).
 		/// </summary>
 		public static (float current, int max) GetImpatienceSummary() {
-			StatsReflection.EnsureReputationTypes();
+			StatsReflection.EnsureCached();
 
 			var repService = GameReflection.GetReputationService();
 			if (repService == null) return (0, 0);
@@ -93,7 +93,7 @@ namespace ATSAccessibility {
 		/// Get hostility points, level, and points to next level.
 		/// </summary>
 		public static (int points, int level, int pointsToNext) GetHostilitySummary() {
-			StatsReflection.EnsureHostilityTypes();
+			StatsReflection.EnsureCached();
 
 			var hostService = GameReflection.GetHostilityService();
 			if (hostService == null) return (0, 0, 0);
@@ -133,7 +133,7 @@ namespace ATSAccessibility {
 		/// Get resolve for a specific race as (currentResolve, thresholdForReputation, settlingPoint).
 		/// </summary>
 		public static (float resolve, int threshold, int settling) GetResolveSummary(string race) {
-			StatsReflection.EnsureResolveTypes();
+			StatsReflection.EnsureCached();
 
 			var resService = GameReflection.GetResolveService();
 			if (resService == null) return (0, 0, 0);
@@ -154,7 +154,7 @@ namespace ATSAccessibility {
 		/// Get list of present races (those with at least one villager).
 		/// </summary>
 		public static List<string> GetPresentRaces() {
-			StatsReflection.EnsureVillagersTypes();
+			StatsReflection.EnsureCached();
 
 			var result = new List<string>();
 			var villService = GameReflection.GetVillagersService();
@@ -193,7 +193,7 @@ namespace ATSAccessibility {
 		/// Get villager count for a specific race.
 		/// </summary>
 		public static int GetRaceCount(string race) {
-			StatsReflection.EnsureVillagersTypes();
+			StatsReflection.EnsureCached();
 
 			var villService = GameReflection.GetVillagersService();
 			if (villService == null) return 0;
@@ -257,8 +257,7 @@ namespace ATSAccessibility {
 		/// Returns list of strings like "+2 from Orders".
 		/// </summary>
 		public static List<string> GetReputationBreakdown() {
-			StatsReflection.EnsureReputationTypes();
-			StatsReflection.EnsureEnumTypes();
+			StatsReflection.EnsureCached();
 
 			var result = new List<string>();
 			var repService = GameReflection.GetReputationService();
@@ -288,7 +287,7 @@ namespace ATSAccessibility {
 		/// Get impatience breakdown showing rate and grace period.
 		/// </summary>
 		public static List<string> GetImpatienceBreakdown() {
-			StatsReflection.EnsureReputationTypes();
+			StatsReflection.EnsureCached();
 
 			var result = new List<string>();
 			var repService = GameReflection.GetReputationService();
@@ -345,18 +344,13 @@ namespace ATSAccessibility {
 		/// Returns list of strings describing hostility sources.
 		/// </summary>
 		public static List<string> GetHostilityBreakdown() {
-			StatsReflection.EnsureHostilityTypes();
+			StatsReflection.EnsureCached();
 
 			var result = new List<string>();
 			var hostService = GameReflection.GetHostilityService();
 			if (hostService == null) return result;
 
 			try {
-				// Cache HostilitySource type outside loop
-				if (StatsReflection.HostilitySourceType == null) {
-					StatsReflection.HostilitySourceType = hostService.GetType().Assembly.GetType("Eremite.Model.State.HostilitySource");
-				}
-
 				if (StatsReflection.HostilitySourceType == null) return result;
 
 				// HostilitySource enum values and their meanings
@@ -400,7 +394,7 @@ namespace ATSAccessibility {
 		/// Get resolve breakdown for a race (all effects affecting resolve).
 		/// </summary>
 		public static List<string> GetResolveBreakdown(string race) {
-			StatsReflection.EnsureResolveTypes();
+			StatsReflection.EnsureCached();
 
 			var result = new List<string>();
 			var resService = GameReflection.GetResolveService();
