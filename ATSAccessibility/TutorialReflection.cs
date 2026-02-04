@@ -56,10 +56,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("TutorialReflection", assembly => {
 				// TutorialTooltip type
 				_tutorialTooltipType = assembly.GetType("Eremite.Tutorial.Views.TutorialTooltip");
 				if (_tutorialTooltipType != null) {
@@ -97,9 +94,7 @@ namespace ATSAccessibility {
 						_getTutorialTooltipMethod = _tooltipsServiceGetMethod.MakeGenericMethod(_tutorialTooltipType);
 					}
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] TutorialReflection caching failed: {ex.Message}");
-			}
+			});
 		}
 
 		// ========================================
@@ -111,16 +106,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetTooltipsService() {
 			EnsureCached();
-
 			var appServices = GameReflection.GetAppServices();
-			if (appServices == null || _tooltipsServiceProperty == null)
-				return null;
-
-			try {
-				return _tooltipsServiceProperty.GetValue(appServices);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetProp(_tooltipsServiceProperty, appServices);
 		}
 
 		/// <summary>
@@ -194,16 +181,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool HasMoreText() {
 			EnsureCached();
-
 			var tooltip = GetTutorialTooltip();
-			if (tooltip == null || _hasMoreTextField == null) return false;
-
-			try {
-				var hasMore = _hasMoreTextField.GetValue(tooltip);
-				return hasMore is bool more && more;
-			} catch {
-				return false;
-			}
+			if (tooltip == null) return false;
+			return ReflectionHelper.GetBool(_hasMoreTextField, tooltip);
 		}
 
 		// ========================================
@@ -375,10 +355,7 @@ namespace ATSAccessibility {
 			if (_worldTutorialsCached) return;
 			_worldTutorialsCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("TutorialReflection.WorldTutorials", assembly => {
 				// WorldTutorialsHUD type
 				_worldTutorialsHUDType = assembly.GetType("Eremite.WorldMap.UI.WorldTutorialsHUD");
 				if (_worldTutorialsHUDType != null) {
@@ -439,9 +416,7 @@ namespace ATSAccessibility {
 					_startTutorialMethod = worldTutorialServiceType.GetMethod("StartTutorial",
 						new Type[] { tutorialGameConfigType ?? typeof(object) });
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] TutorialReflection: WorldTutorials caching failed: {ex.Message}");
-			}
+			});
 		}
 
 		/// <summary>
@@ -463,16 +438,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsWorldTutorialsHUDVisible() {
 			EnsureWorldTutorialsCached();
-
 			var hud = GetWorldTutorialsHUD();
-			if (hud == null || _wthIsShownProperty == null) return false;
-
-			try {
-				var isShown = _wthIsShownProperty.GetValue(hud);
-				return isShown is bool shown && shown;
-			} catch {
-				return false;
-			}
+			if (hud == null) return false;
+			return ReflectionHelper.GetPropBool(_wthIsShownProperty, hud);
 		}
 
 		/// <summary>
@@ -576,14 +544,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetTutorialDisplayName(object config) {
 			EnsureWorldTutorialsCached();
-			if (config == null || _tgcDisplayNameField == null) return null;
-
-			try {
-				var displayName = _tgcDisplayNameField.GetValue(config);
-				return GameReflection.GetLocaText(displayName);
-			} catch {
-				return null;
-			}
+			if (config == null) return null;
+			return ReflectionHelper.GetLocaString(_tgcDisplayNameField, config);
 		}
 
 		/// <summary>
@@ -642,14 +604,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetTutorialLockedReason(object config) {
 			EnsureWorldTutorialsCached();
-			if (config == null || _tgcLockedTooltipField == null) return null;
-
-			try {
-				var lockedTooltip = _tgcLockedTooltipField.GetValue(config);
-				return GameReflection.GetLocaText(lockedTooltip);
-			} catch {
-				return null;
-			}
+			if (config == null) return null;
+			return ReflectionHelper.GetLocaString(_tgcLockedTooltipField, config);
 		}
 
 		/// <summary>

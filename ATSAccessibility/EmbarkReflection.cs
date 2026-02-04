@@ -130,23 +130,15 @@ namespace ATSAccessibility {
 			if (_typesCached) return;
 			GameReflection.EnsureMetaControllerTypesInternal(); // Ensures MetaController types are cached
 
-			var gameAssembly = GameReflection.GameAssembly;
-			if (gameAssembly == null) {
-				_typesCached = true;
-				return;
-			}
-
-			try {
-				CacheMetaStateServiceTypes(gameAssembly);
-				CacheEmbarkBonusesTypes(gameAssembly);
-				CacheCaravanTypes(gameAssembly);
-				CacheConditionPickTypes(gameAssembly);
-				CacheWorldBlackboardTypes(gameAssembly);
-				CacheDifficultyTypes(gameAssembly);
-				CacheSettingsTypes(gameAssembly);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] EmbarkReflection type caching failed: {ex.Message}");
-			}
+			ReflectionHelper.InitCache("EmbarkReflection", assembly => {
+				CacheMetaStateServiceTypes(assembly);
+				CacheEmbarkBonusesTypes(assembly);
+				CacheCaravanTypes(assembly);
+				CacheConditionPickTypes(assembly);
+				CacheWorldBlackboardTypes(assembly);
+				CacheDifficultyTypes(assembly);
+				CacheSettingsTypes(assembly);
+			});
 
 			_typesCached = true;
 		}
@@ -414,17 +406,13 @@ namespace ATSAccessibility {
 		public static object GetMetaStateService() {
 			EnsureTypes();
 
-			try {
-				var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
-				if (metaController == null) return null;
+			var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
+			if (metaController == null) return null;
 
-				var metaServices = GameReflection.McMetaServicesProperty?.GetValue(metaController);
-				if (metaServices == null) return null;
+			var metaServices = ReflectionHelper.GetProp(GameReflection.McMetaServicesProperty, metaController);
+			if (metaServices == null) return null;
 
-				return _msMetaStateServiceProperty?.GetValue(metaServices);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetProp(_msMetaStateServiceProperty, metaServices);
 		}
 
 		/// <summary>
@@ -441,18 +429,14 @@ namespace ATSAccessibility {
 		private static object GetWorldEmbarkService() {
 			EnsureTypes();
 
-			try {
-				var wc = WorldMapReflection.GetWorldController();
-				if (wc == null) return null;
+			var wc = WorldMapReflection.GetWorldController();
+			if (wc == null) return null;
 
-				var worldServices = wc.GetType().GetProperty("WorldServices",
-					BindingFlags.Public | BindingFlags.Instance)?.GetValue(wc);
-				if (worldServices == null) return null;
+			var worldServices = wc.GetType().GetProperty("WorldServices",
+				BindingFlags.Public | BindingFlags.Instance)?.GetValue(wc);
+			if (worldServices == null) return null;
 
-				return _wsWorldEmbarkServiceProperty?.GetValue(worldServices);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetProp(_wsWorldEmbarkServiceProperty, worldServices);
 		}
 
 		// ========================================
@@ -464,9 +448,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetEmbarkBonuses() {
 			var metaStateService = GetMetaStateService();
-			if (metaStateService == null) return null;
-
-			return _mssEmbarkBonusesProperty?.GetValue(metaStateService);
+			return ReflectionHelper.GetProp(_mssEmbarkBonusesProperty, metaStateService);
 		}
 
 		/// <summary>
@@ -476,14 +458,8 @@ namespace ATSAccessibility {
 		public static List<object> GetCaravans() {
 			EnsureTypes();
 			var embarkBonuses = GetEmbarkBonuses();
-			if (embarkBonuses == null || _ebsCaravansField == null) return new List<object>();
-
-			try {
-				var list = _ebsCaravansField.GetValue(embarkBonuses) as IList;
-				return list?.Cast<object>().ToList() ?? new List<object>();
-			} catch {
-				return new List<object>();
-			}
+			var list = ReflectionHelper.GetList(_ebsCaravansField, embarkBonuses);
+			return list?.Cast<object>().ToList() ?? new List<object>();
 		}
 
 		/// <summary>
@@ -492,14 +468,8 @@ namespace ATSAccessibility {
 		public static List<object> GetEffectsAvailable() {
 			EnsureTypes();
 			var embarkBonuses = GetEmbarkBonuses();
-			if (embarkBonuses == null || _ebsEffectsOptionsField == null) return new List<object>();
-
-			try {
-				var list = _ebsEffectsOptionsField.GetValue(embarkBonuses) as IList;
-				return list?.Cast<object>().ToList() ?? new List<object>();
-			} catch {
-				return new List<object>();
-			}
+			var list = ReflectionHelper.GetList(_ebsEffectsOptionsField, embarkBonuses);
+			return list?.Cast<object>().ToList() ?? new List<object>();
 		}
 
 		/// <summary>
@@ -508,14 +478,8 @@ namespace ATSAccessibility {
 		public static List<object> GetEffectsPicked() {
 			EnsureTypes();
 			var embarkBonuses = GetEmbarkBonuses();
-			if (embarkBonuses == null || _ebsRewardsPickedField == null) return new List<object>();
-
-			try {
-				var list = _ebsRewardsPickedField.GetValue(embarkBonuses) as IList;
-				return list?.Cast<object>().ToList() ?? new List<object>();
-			} catch {
-				return new List<object>();
-			}
+			var list = ReflectionHelper.GetList(_ebsRewardsPickedField, embarkBonuses);
+			return list?.Cast<object>().ToList() ?? new List<object>();
 		}
 
 		/// <summary>
@@ -524,14 +488,8 @@ namespace ATSAccessibility {
 		public static List<object> GetGoodsAvailable() {
 			EnsureTypes();
 			var embarkBonuses = GetEmbarkBonuses();
-			if (embarkBonuses == null || _ebsGoodsOptionsField == null) return new List<object>();
-
-			try {
-				var list = _ebsGoodsOptionsField.GetValue(embarkBonuses) as IList;
-				return list?.Cast<object>().ToList() ?? new List<object>();
-			} catch {
-				return new List<object>();
-			}
+			var list = ReflectionHelper.GetList(_ebsGoodsOptionsField, embarkBonuses);
+			return list?.Cast<object>().ToList() ?? new List<object>();
 		}
 
 		/// <summary>
@@ -540,14 +498,8 @@ namespace ATSAccessibility {
 		public static List<object> GetGoodsPicked() {
 			EnsureTypes();
 			var embarkBonuses = GetEmbarkBonuses();
-			if (embarkBonuses == null || _ebsGoodsPickedField == null) return new List<object>();
-
-			try {
-				var list = _ebsGoodsPickedField.GetValue(embarkBonuses) as IList;
-				return list?.Cast<object>().ToList() ?? new List<object>();
-			} catch {
-				return new List<object>();
-			}
+			var list = ReflectionHelper.GetList(_ebsGoodsPickedField, embarkBonuses);
+			return list?.Cast<object>().ToList() ?? new List<object>();
 		}
 
 		// ========================================
@@ -558,41 +510,23 @@ namespace ATSAccessibility {
 		/// Get the number of revealed races in a caravan.
 		/// </summary>
 		public static int GetCaravanRevealedCount(object caravan) {
-			if (caravan == null || _ecsRevealedRacesField == null) return 0;
-
-			try {
-				return (int)(_ecsRevealedRacesField.GetValue(caravan) ?? 0);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_ecsRevealedRacesField, caravan);
 		}
 
 		/// <summary>
 		/// Get the race names in a caravan (unique species).
 		/// </summary>
 		public static List<string> GetCaravanRaces(object caravan) {
-			if (caravan == null || _ecsRacesField == null) return new List<string>();
-
-			try {
-				var list = _ecsRacesField.GetValue(caravan) as IList;
-				return list?.Cast<object>().Select(r => r?.ToString() ?? "Unknown").ToList() ?? new List<string>();
-			} catch {
-				return new List<string>();
-			}
+			var list = ReflectionHelper.GetList(_ecsRacesField, caravan);
+			return list?.Cast<object>().Select(r => r?.ToString() ?? "Unknown").ToList() ?? new List<string>();
 		}
 
 		/// <summary>
 		/// Get the villager list (one entry per villager, race name).
 		/// </summary>
 		public static List<string> GetCaravanVillagers(object caravan) {
-			if (caravan == null || _ecsVillagersField == null) return new List<string>();
-
-			try {
-				var list = _ecsVillagersField.GetValue(caravan) as IList;
-				return list?.Cast<object>().Select(v => v?.ToString() ?? "Unknown").ToList() ?? new List<string>();
-			} catch {
-				return new List<string>();
-			}
+			var list = ReflectionHelper.GetList(_ecsVillagersField, caravan);
+			return list?.Cast<object>().Select(v => v?.ToString() ?? "Unknown").ToList() ?? new List<string>();
 		}
 
 		/// <summary>
@@ -600,58 +534,40 @@ namespace ATSAccessibility {
 		/// Returns list of (name, amount) tuples.
 		/// </summary>
 		public static List<(string name, int amount)> GetCaravanGoods(object caravan) {
-			if (caravan == null || _ecsEmbarkGoodsField == null) return new List<(string, int)>();
+			var list = ReflectionHelper.GetList(_ecsEmbarkGoodsField, caravan);
+			if (list == null) return new List<(string, int)>();
 
-			try {
-				var list = _ecsEmbarkGoodsField.GetValue(caravan) as IList;
-				if (list == null) return new List<(string, int)>();
-
-				var result = new List<(string, int)>();
-				foreach (var good in list) {
-					var name = _goodNameField?.GetValue(good)?.ToString() ?? "Unknown";
-					var amount = (int)(_goodAmountField?.GetValue(good) ?? 0);
-					result.Add((name, amount));
-				}
-				return result;
-			} catch {
-				return new List<(string, int)>();
+			var result = new List<(string, int)>();
+			foreach (var good in list) {
+				var name = ReflectionHelper.GetString(_goodNameField, good) ?? "Unknown";
+				var amount = ReflectionHelper.GetInt(_goodAmountField, good);
+				result.Add((name, amount));
 			}
+			return result;
 		}
 
 		/// <summary>
 		/// Get bonus embark goods from a caravan.
 		/// </summary>
 		public static List<(string name, int amount)> GetCaravanBonusGoods(object caravan) {
-			if (caravan == null || _ecsBonusEmbarkGoodsField == null) return new List<(string, int)>();
+			var list = ReflectionHelper.GetList(_ecsBonusEmbarkGoodsField, caravan);
+			if (list == null) return new List<(string, int)>();
 
-			try {
-				var list = _ecsBonusEmbarkGoodsField.GetValue(caravan) as IList;
-				if (list == null) return new List<(string, int)>();
-
-				var result = new List<(string, int)>();
-				foreach (var good in list) {
-					var name = _goodNameField?.GetValue(good)?.ToString() ?? "Unknown";
-					var amount = (int)(_goodAmountField?.GetValue(good) ?? 0);
-					result.Add((name, amount));
-				}
-				return result;
-			} catch {
-				return new List<(string, int)>();
+			var result = new List<(string, int)>();
+			foreach (var good in list) {
+				var name = ReflectionHelper.GetString(_goodNameField, good) ?? "Unknown";
+				var amount = ReflectionHelper.GetInt(_goodAmountField, good);
+				result.Add((name, amount));
 			}
+			return result;
 		}
 
 		/// <summary>
 		/// Get embark effects from a caravan.
 		/// </summary>
 		public static List<string> GetCaravanEffects(object caravan) {
-			if (caravan == null || _ecsEmbarkEffectsField == null) return new List<string>();
-
-			try {
-				var list = _ecsEmbarkEffectsField.GetValue(caravan) as IList;
-				return list?.Cast<object>().Select(e => e?.ToString() ?? "Unknown").ToList() ?? new List<string>();
-			} catch {
-				return new List<string>();
-			}
+			var list = ReflectionHelper.GetList(_ecsEmbarkEffectsField, caravan);
+			return list?.Cast<object>().Select(e => e?.ToString() ?? "Unknown").ToList() ?? new List<string>();
 		}
 
 		/// <summary>
@@ -688,16 +604,13 @@ namespace ATSAccessibility {
 		/// Get the gameplayRaces setting (max species per settlement, typically 3).
 		/// </summary>
 		private static int GetGameplayRaces() {
-			try {
-				var settings = GameReflection.GetSettings();
-				if (settings == null) return 3; // Default fallback
+			var settings = GameReflection.GetSettings();
+			if (settings == null) return 3; // Default fallback
 
-				var field = settings.GetType().GetField("gameplayRaces",
-					BindingFlags.Public | BindingFlags.Instance);
-				return field != null ? (int)field.GetValue(settings) : 3;
-			} catch {
-				return 3; // Default fallback
-			}
+			var field = settings.GetType().GetField("gameplayRaces",
+				BindingFlags.Public | BindingFlags.Instance);
+			int value = ReflectionHelper.GetInt(field, settings);
+			return value > 0 ? value : 3; // Default fallback
 		}
 
 		/// <summary>
@@ -730,21 +643,17 @@ namespace ATSAccessibility {
 		public static string GetRaceDisplayName(string raceName) {
 			if (string.IsNullOrEmpty(raceName)) return "Unknown";
 
-			try {
-				var settings = GameReflection.GetSettings();
-				if (settings == null || _settingsGetRaceMethod == null) return raceName;
+			var settings = GameReflection.GetSettings();
+			if (settings == null) return raceName;
 
-				var raceModel = _settingsGetRaceMethod.Invoke(settings, new object[] { raceName });
-				if (raceModel == null) return raceName;
+			var raceModel = ReflectionHelper.Invoke(_settingsGetRaceMethod, settings, raceName);
+			if (raceModel == null) return raceName;
 
-				// Get displayName from RaceModel
-				var displayNameProp = raceModel.GetType().GetProperty("displayName",
-					BindingFlags.Public | BindingFlags.Instance);
-				var locaText = displayNameProp?.GetValue(raceModel);
-				return GameReflection.GetLocaText(locaText) ?? raceName;
-			} catch {
-				return raceName;
-			}
+			// Get displayName from RaceModel
+			var displayNameProp = raceModel.GetType().GetProperty("displayName",
+				BindingFlags.Public | BindingFlags.Instance);
+			var locaText = displayNameProp?.GetValue(raceModel);
+			return GameReflection.GetLocaText(locaText) ?? raceName;
 		}
 
 		// ========================================
@@ -755,55 +664,35 @@ namespace ATSAccessibility {
 		/// Get the name from a ConditionPickState.
 		/// </summary>
 		public static string GetConditionPickName(object conditionPick) {
-			if (conditionPick == null || _cpsNameField == null) return "Unknown";
-			return _cpsNameField.GetValue(conditionPick)?.ToString() ?? "Unknown";
+			return ReflectionHelper.GetString(_cpsNameField, conditionPick) ?? "Unknown";
 		}
 
 		/// <summary>
 		/// Get the cost from a ConditionPickState.
 		/// </summary>
 		public static int GetConditionPickCost(object conditionPick) {
-			if (conditionPick == null || _cpsCostField == null) return 0;
-
-			try {
-				return (int)(_cpsCostField.GetValue(conditionPick) ?? 0);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_cpsCostField, conditionPick);
 		}
 
 		/// <summary>
 		/// Get the name from a GoodPickState.
 		/// </summary>
 		public static string GetGoodPickName(object goodPick) {
-			if (goodPick == null || _gpsNameField == null) return "Unknown";
-			return _gpsNameField.GetValue(goodPick)?.ToString() ?? "Unknown";
+			return ReflectionHelper.GetString(_gpsNameField, goodPick) ?? "Unknown";
 		}
 
 		/// <summary>
 		/// Get the amount from a GoodPickState.
 		/// </summary>
 		public static int GetGoodPickAmount(object goodPick) {
-			if (goodPick == null || _gpsAmountField == null) return 0;
-
-			try {
-				return (int)(_gpsAmountField.GetValue(goodPick) ?? 0);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_gpsAmountField, goodPick);
 		}
 
 		/// <summary>
 		/// Get the cost from a GoodPickState.
 		/// </summary>
 		public static int GetGoodPickCost(object goodPick) {
-			if (goodPick == null || _gpsCostField == null) return 0;
-
-			try {
-				return (int)(_gpsCostField.GetValue(goodPick) ?? 0);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_gpsCostField, goodPick);
 		}
 
 		/// <summary>
@@ -812,20 +701,16 @@ namespace ATSAccessibility {
 		public static string GetEffectDisplayName(string effectName) {
 			if (string.IsNullOrEmpty(effectName)) return "Unknown";
 
-			try {
-				var settings = GameReflection.GetSettings();
-				if (settings == null || _settingsGetEffectMethod == null) return effectName;
+			var settings = GameReflection.GetSettings();
+			if (settings == null) return effectName;
 
-				var effectModel = _settingsGetEffectMethod.Invoke(settings, new object[] { effectName });
-				if (effectModel == null) return effectName;
+			var effectModel = ReflectionHelper.Invoke(_settingsGetEffectMethod, settings, effectName);
+			if (effectModel == null) return effectName;
 
-				// Use DisplayName property (capital D) which is the public accessor
-				var displayNameProp = effectModel.GetType().GetProperty("DisplayName",
-					BindingFlags.Public | BindingFlags.Instance);
-				return displayNameProp?.GetValue(effectModel)?.ToString() ?? effectName;
-			} catch {
-				return effectName;
-			}
+			// Use DisplayName property (capital D) which is the public accessor
+			var displayNameProp = effectModel.GetType().GetProperty("DisplayName",
+				BindingFlags.Public | BindingFlags.Instance);
+			return displayNameProp?.GetValue(effectModel)?.ToString() ?? effectName;
 		}
 
 		/// <summary>
@@ -834,20 +719,16 @@ namespace ATSAccessibility {
 		public static string GetGoodDisplayName(string goodName) {
 			if (string.IsNullOrEmpty(goodName)) return "Unknown";
 
-			try {
-				var settings = GameReflection.GetSettings();
-				if (settings == null || _settingsGetGoodMethod == null) return goodName;
+			var settings = GameReflection.GetSettings();
+			if (settings == null) return goodName;
 
-				var goodModel = _settingsGetGoodMethod.Invoke(settings, new object[] { goodName });
-				if (goodModel == null) return goodName;
+			var goodModel = ReflectionHelper.Invoke(_settingsGetGoodMethod, settings, goodName);
+			if (goodModel == null) return goodName;
 
-				var displayNameProp = goodModel.GetType().GetProperty("displayName",
-					BindingFlags.Public | BindingFlags.Instance);
-				var locaText = displayNameProp?.GetValue(goodModel);
-				return GameReflection.GetLocaText(locaText) ?? goodName;
-			} catch {
-				return goodName;
-			}
+			var displayNameProp = goodModel.GetType().GetProperty("displayName",
+				BindingFlags.Public | BindingFlags.Instance);
+			var locaText = displayNameProp?.GetValue(goodModel);
+			return GameReflection.GetLocaText(locaText) ?? goodName;
 		}
 
 		// ========================================
@@ -860,28 +741,24 @@ namespace ATSAccessibility {
 		public static object GetPickedCaravan() {
 			EnsureTypes();
 
-			try {
-				var wbb = WorldMapReflection.GetWorldBlackboardService();
-				if (wbb == null || _wbbPickedCaravanProperty == null) return null;
+			var wbb = WorldMapReflection.GetWorldBlackboardService();
+			if (wbb == null) return null;
 
-				var reactiveProp = _wbbPickedCaravanProperty.GetValue(wbb);
-				if (reactiveProp == null) return null;
+			var reactiveProp = ReflectionHelper.GetProp(_wbbPickedCaravanProperty, wbb);
+			if (reactiveProp == null) return null;
 
-				// Get Value from ReactiveProperty<EmbarkCaravanState>
-				var valueProp = reactiveProp.GetType().GetProperty("Value",
-					BindingFlags.Public | BindingFlags.Instance);
-				var caravan = valueProp?.GetValue(reactiveProp);
+			// Get Value from ReactiveProperty<EmbarkCaravanState>
+			var valueProp = reactiveProp.GetType().GetProperty("Value",
+				BindingFlags.Public | BindingFlags.Instance);
+			var caravan = valueProp?.GetValue(reactiveProp);
 
-				// Log for debugging
-				if (caravan != null) {
-					var villagers = GetCaravanVillagers(caravan);
-					Debug.Log($"[ATSAccessibility] GetPickedCaravan: Retrieved caravan with {villagers.Count} villagers: {string.Join(", ", villagers)}");
-				}
-
-				return caravan;
-			} catch {
-				return null;
+			// Log for debugging
+			if (caravan != null) {
+				var villagers = GetCaravanVillagers(caravan);
+				Debug.Log($"[ATSAccessibility] GetPickedCaravan: Retrieved caravan with {villagers.Count} villagers: {string.Join(", ", villagers)}");
 			}
+
+			return caravan;
 		}
 
 		/// <summary>
@@ -953,7 +830,7 @@ namespace ATSAccessibility {
 				}
 
 				// Get slots list
-				var slots = _cppSlotsField.GetValue(panel) as IList;
+				var slots = ReflectionHelper.GetList(_cppSlotsField, panel);
 				if (slots == null || slotIndex >= slots.Count) {
 					Debug.Log($"[ATSAccessibility] SetPickedCaravanViaUI: Invalid slot index {slotIndex}, slots count: {slots?.Count}");
 					return false;
@@ -966,7 +843,7 @@ namespace ATSAccessibility {
 				}
 
 				// Call Pick(CaravanPickSlot slot) on the panel
-				_cppPickMethod.Invoke(panel, new object[] { targetSlot });
+				ReflectionHelper.InvokeVoid(_cppPickMethod, panel, targetSlot);
 				Debug.Log($"[ATSAccessibility] SetPickedCaravanViaUI: Called Pick on slot {slotIndex}");
 				return true;
 			} catch (Exception ex) {
@@ -980,9 +857,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static void SetPickedCaravanDirect(object caravanState) {
 			var wbb = WorldMapReflection.GetWorldBlackboardService();
-			if (wbb == null || _wbbPickedCaravanProperty == null) return;
+			if (wbb == null) return;
 
-			var reactiveProp = _wbbPickedCaravanProperty.GetValue(wbb);
+			var reactiveProp = ReflectionHelper.GetProp(_wbbPickedCaravanProperty, wbb);
 			if (reactiveProp == null) return;
 
 			var valueProp = reactiveProp.GetType().GetProperty("Value",
@@ -1023,16 +900,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetBasePreparationPoints() {
 			EnsureTypes();
-
-			try {
-				var metaPerksService = GetMetaPerksService();
-				if (metaPerksService == null || _mpsGetBasePreparationPointsMethod == null) return 0;
-
-				var result = _mpsGetBasePreparationPointsMethod.Invoke(metaPerksService, null);
-				return result != null ? (int)result : 0;
-			} catch {
-				return 0;
-			}
+			var metaPerksService = GetMetaPerksService();
+			return ReflectionHelper.InvokeInt(_mpsGetBasePreparationPointsMethod, metaPerksService);
 		}
 
 		/// <summary>
@@ -1040,16 +909,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetBonusPreparationPoints() {
 			EnsureTypes();
-
-			try {
-				var worldEmbarkService = GetWorldEmbarkService();
-				if (worldEmbarkService == null || _wesGetBonusPreparationPointsMethod == null) return 0;
-
-				var result = _wesGetBonusPreparationPointsMethod.Invoke(worldEmbarkService, null);
-				return result != null ? (int)result : 0;
-			} catch {
-				return 0;
-			}
+			var worldEmbarkService = GetWorldEmbarkService();
+			return ReflectionHelper.InvokeInt(_wesGetBonusPreparationPointsMethod, worldEmbarkService);
 		}
 
 		/// <summary>
@@ -1104,8 +965,8 @@ namespace ATSAccessibility {
 			if (embarkBonuses == null) return (false, false);
 
 			try {
-				var availableList = _ebsEffectsOptionsField?.GetValue(embarkBonuses) as IList;
-				var pickedList = _ebsRewardsPickedField?.GetValue(embarkBonuses) as IList;
+				var availableList = ReflectionHelper.GetList(_ebsEffectsOptionsField, embarkBonuses);
+				var pickedList = ReflectionHelper.GetList(_ebsRewardsPickedField, embarkBonuses);
 				if (availableList == null || pickedList == null) return (false, false);
 
 				// Check if it's in available list (add)
@@ -1143,8 +1004,8 @@ namespace ATSAccessibility {
 			if (embarkBonuses == null) return (false, false);
 
 			try {
-				var availableList = _ebsGoodsOptionsField?.GetValue(embarkBonuses) as IList;
-				var pickedList = _ebsGoodsPickedField?.GetValue(embarkBonuses) as IList;
+				var availableList = ReflectionHelper.GetList(_ebsGoodsOptionsField, embarkBonuses);
+				var pickedList = ReflectionHelper.GetList(_ebsGoodsPickedField, embarkBonuses);
 				if (availableList == null || pickedList == null) return (false, false);
 
 				// Check if it's in available list (add)
@@ -1253,20 +1114,10 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static List<object> GetAllDifficulties() {
 			EnsureTypes();
-
-			try {
-				var settings = GameReflection.GetSettings();
-				if (settings == null || _settingsDifficultiesField == null)
-					return new List<object>();
-
-				var array = _settingsDifficultiesField.GetValue(settings) as Array;
-				if (array == null) return new List<object>();
-
-				return array.Cast<object>().ToList();
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetAllDifficulties failed: {ex.Message}");
-				return new List<object>();
-			}
+			var settings = GameReflection.GetSettings();
+			var array = ReflectionHelper.GetField(_settingsDifficultiesField, settings) as Array;
+			if (array == null) return new List<object>();
+			return array.Cast<object>().ToList();
 		}
 
 		/// <summary>
@@ -1274,17 +1125,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetMaxUnlockedDifficulty() {
 			EnsureTypes();
-
-			try {
-				var metaConditionsService = GetMetaConditionsService();
-				if (metaConditionsService == null || _mcsGetMaxUnlockedDifficultyMethod == null)
-					return null;
-
-				return _mcsGetMaxUnlockedDifficultyMethod.Invoke(metaConditionsService, null);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetMaxUnlockedDifficulty failed: {ex.Message}");
-				return null;
-			}
+			var metaConditionsService = GetMetaConditionsService();
+			return ReflectionHelper.Invoke(_mcsGetMaxUnlockedDifficultyMethod, metaConditionsService);
 		}
 
 		/// <summary>
@@ -1292,17 +1134,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetMinDifficultyFor(Vector3Int fieldPos) {
 			EnsureTypes();
-
-			try {
-				var worldMapService = GetWorldMapService();
-				if (worldMapService == null || _wmsGetMinDifficultyForMethod == null)
-					return null;
-
-				return _wmsGetMinDifficultyForMethod.Invoke(worldMapService, new object[] { fieldPos });
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetMinDifficultyFor failed: {ex.Message}");
-				return null;
-			}
+			var worldMapService = GetWorldMapService();
+			return ReflectionHelper.Invoke(_wmsGetMinDifficultyForMethod, worldMapService, fieldPos);
 		}
 
 		/// <summary>
@@ -1328,7 +1161,7 @@ namespace ATSAccessibility {
 				// Check if canBePicked
 				var canBePickedField = diff.GetType().GetField("canBePicked",
 					BindingFlags.Public | BindingFlags.Instance);
-				bool canBePicked = canBePickedField != null && (bool)canBePickedField.GetValue(diff);
+				bool canBePicked = ReflectionHelper.GetBool(canBePickedField, diff);
 
 				if (!canBePicked) continue;
 
@@ -1349,17 +1182,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetCurrentDifficulty() {
 			EnsureTypes();
-
-			try {
-				var picker = FindEmbarkDifficultyPicker();
-				if (picker == null || _edpGetPickedDifficultyMethod == null)
-					return null;
-
-				return _edpGetPickedDifficultyMethod.Invoke(picker, null);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetCurrentDifficulty failed: {ex.Message}");
-				return null;
-			}
+			var picker = FindEmbarkDifficultyPicker();
+			return ReflectionHelper.Invoke(_edpGetPickedDifficultyMethod, picker);
 		}
 
 		/// <summary>
@@ -1367,35 +1191,22 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool SetDifficulty(object difficultyModel) {
 			EnsureTypes();
-
-			try {
-				var picker = FindEmbarkDifficultyPicker();
-				if (picker == null || _edpSetDifficultyMethod == null) {
-					Debug.LogWarning("[ATSAccessibility] SetDifficulty: Picker not found");
-					return false;
-				}
-
-				_edpSetDifficultyMethod.Invoke(picker, new object[] { difficultyModel });
-				Debug.Log($"[ATSAccessibility] Difficulty set successfully");
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SetDifficulty failed: {ex.Message}");
+			var picker = FindEmbarkDifficultyPicker();
+			if (picker == null || _edpSetDifficultyMethod == null) {
+				Debug.LogWarning("[ATSAccessibility] SetDifficulty: Picker not found");
 				return false;
 			}
+
+			bool success = ReflectionHelper.InvokeVoid(_edpSetDifficultyMethod, picker, difficultyModel);
+			if (success) Debug.Log($"[ATSAccessibility] Difficulty set successfully");
+			return success;
 		}
 
 		/// <summary>
 		/// Get the display name from a DifficultyModel.
 		/// </summary>
 		public static string GetDifficultyDisplayName(object difficulty) {
-			if (difficulty == null || _dmGetDisplayNameMethod == null)
-				return "Unknown";
-
-			try {
-				return _dmGetDisplayNameMethod.Invoke(difficulty, null)?.ToString() ?? "Unknown";
-			} catch {
-				return "Unknown";
-			}
+			return ReflectionHelper.InvokeString(_dmGetDisplayNameMethod, difficulty) ?? "Unknown";
 		}
 
 		/// <summary>
@@ -1403,16 +1214,10 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetDifficultyIndex(object difficulty) {
 			if (difficulty == null) return -1;
-
-			try {
-				var indexField = difficulty.GetType().GetField("index",
-					BindingFlags.Public | BindingFlags.Instance);
-				if (indexField != null)
-					return (int)indexField.GetValue(difficulty);
-				return -1;
-			} catch {
-				return -1;
-			}
+			var indexField = difficulty.GetType().GetField("index",
+				BindingFlags.Public | BindingFlags.Instance);
+			if (indexField == null) return -1;
+			return ReflectionHelper.GetInt(indexField, difficulty);
 		}
 
 		/// <summary>
@@ -1451,46 +1256,36 @@ namespace ATSAccessibility {
 							if (modifier == null) continue;
 
 							// Check if isShown
-							bool isShown = true;
-							if (_ammIsShownField != null) {
-								isShown = (bool)_ammIsShownField.GetValue(modifier);
-							}
+							bool isShown = _ammIsShownField == null || ReflectionHelper.GetBool(_ammIsShownField, modifier);
 							if (!isShown) continue;
 
 							// Try to get effect's DisplayName and Description for full details
 							string modifierText = null;
 
-							if (_ammEffectField != null) {
-								var effect = _ammEffectField.GetValue(modifier);
-								if (effect != null) {
-									// Get DisplayName property
-									var displayNameProp = effect.GetType().GetProperty("DisplayName",
-										BindingFlags.Public | BindingFlags.Instance);
-									string displayName = displayNameProp?.GetValue(effect)?.ToString();
+							var effect = ReflectionHelper.GetField(_ammEffectField, modifier);
+							if (effect != null) {
+								// Get DisplayName property
+								var displayNameProp = effect.GetType().GetProperty("DisplayName",
+									BindingFlags.Public | BindingFlags.Instance);
+								string displayName = displayNameProp?.GetValue(effect)?.ToString();
 
-									// Get Description property
-									var descProp = effect.GetType().GetProperty("Description",
-										BindingFlags.Public | BindingFlags.Instance);
-									string description = descProp?.GetValue(effect)?.ToString();
+								// Get Description property
+								var descProp = effect.GetType().GetProperty("Description",
+									BindingFlags.Public | BindingFlags.Instance);
+								string description = descProp?.GetValue(effect)?.ToString();
 
-									if (!string.IsNullOrEmpty(displayName)) {
-										if (!string.IsNullOrEmpty(description)) {
-											modifierText = $"{displayName}: {description}";
-										} else {
-											modifierText = displayName;
-										}
+								if (!string.IsNullOrEmpty(displayName)) {
+									if (!string.IsNullOrEmpty(description)) {
+										modifierText = $"{displayName}: {description}";
+									} else {
+										modifierText = displayName;
 									}
 								}
 							}
 
 							// Fall back to shortDesc if effect info not available
-							if (string.IsNullOrEmpty(modifierText) && _ammShortDescField != null) {
-								var locaText = _ammShortDescField.GetValue(modifier);
-								if (locaText != null) {
-									var textProp = locaText.GetType().GetProperty("Text",
-										BindingFlags.Public | BindingFlags.Instance);
-									modifierText = textProp?.GetValue(locaText)?.ToString();
-								}
+							if (string.IsNullOrEmpty(modifierText)) {
+								modifierText = ReflectionHelper.GetLocaString(_ammShortDescField, modifier);
 							}
 
 							if (!string.IsNullOrEmpty(modifierText)) {
@@ -1510,28 +1305,14 @@ namespace ATSAccessibility {
 		/// Get the preparation points penalty for a difficulty.
 		/// </summary>
 		public static int GetDifficultyPreparationPenalty(object difficulty) {
-			if (difficulty == null || _dmPreparationPointsPenaltyField == null)
-				return 0;
-
-			try {
-				return (int)_dmPreparationPointsPenaltyField.GetValue(difficulty);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_dmPreparationPointsPenaltyField, difficulty);
 		}
 
 		/// <summary>
 		/// Get the rewards multiplier for a difficulty.
 		/// </summary>
 		public static float GetDifficultyRewardsMultiplier(object difficulty) {
-			if (difficulty == null || _dmRewardsMultiplierField == null)
-				return 0f;
-
-			try {
-				return (float)_dmRewardsMultiplierField.GetValue(difficulty);
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.GetFloat(_dmRewardsMultiplierField, difficulty);
 		}
 
 		/// <summary>
@@ -1554,14 +1335,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetDifficultySealFragments(object difficulty) {
 			if (difficulty == null) return 0;
-
-			try {
-				var field = difficulty.GetType().GetField("sealFramentsForWin",
-					BindingFlags.Public | BindingFlags.Instance);
-				return field != null ? (int)field.GetValue(difficulty) : 0;
-			} catch {
-				return 0;
-			}
+			var field = difficulty.GetType().GetField("sealFramentsForWin",
+				BindingFlags.Public | BindingFlags.Instance);
+			return ReflectionHelper.GetInt(field, difficulty);
 		}
 
 		/// <summary>
@@ -1569,18 +1345,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static (int positive, int negative) GetDifficultySeasonalEffects(object difficulty) {
 			if (difficulty == null) return (0, 0);
-
-			try {
-				int positive = _dmPositiveEffectsField != null
-					? (int)_dmPositiveEffectsField.GetValue(difficulty)
-					: 0;
-				int negative = _dmNegativeEffectsField != null
-					? (int)_dmNegativeEffectsField.GetValue(difficulty)
-					: 0;
-				return (positive, negative);
-			} catch {
-				return (0, 0);
-			}
+			int positive = ReflectionHelper.GetInt(_dmPositiveEffectsField, difficulty);
+			int negative = ReflectionHelper.GetInt(_dmNegativeEffectsField, difficulty);
+			return (positive, negative);
 		}
 
 		/// <summary>
@@ -1588,18 +1355,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static (int min, int max) GetDifficultyEffectCostRange(object difficulty) {
 			if (difficulty == null) return (0, 0);
-
-			try {
-				int min = _dmMinEffectCostField != null
-					? (int)_dmMinEffectCostField.GetValue(difficulty)
-					: 0;
-				int max = _dmMaxEffectCostField != null
-					? (int)_dmMaxEffectCostField.GetValue(difficulty)
-					: 0;
-				return (min, max);
-			} catch {
-				return (0, 0);
-			}
+			int min = ReflectionHelper.GetInt(_dmMinEffectCostField, difficulty);
+			int max = ReflectionHelper.GetInt(_dmMaxEffectCostField, difficulty);
+			return (min, max);
 		}
 
 		/// <summary>
@@ -1660,15 +1418,14 @@ namespace ATSAccessibility {
 
 				if (costField == null || labelField == null) return;
 
-				int cost = (int)costField.GetValue(effect);
-				var label = labelField.GetValue(effect);
+				int cost = ReflectionHelper.GetInt(costField, effect);
+				var label = ReflectionHelper.GetField(labelField, effect);
 
 				if (label != null && !map.ContainsKey(cost)) {
 					// Get displayName.Text from LabelModel
 					var displayNameField = label.GetType().GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
-					var displayName = displayNameField?.GetValue(label);
-					var text = GameReflection.GetLocaText(displayName);
+					var text = ReflectionHelper.GetLocaString(displayNameField, label);
 
 					if (!string.IsNullOrEmpty(text)) {
 						map[cost] = text;
@@ -1695,9 +1452,8 @@ namespace ATSAccessibility {
 
 				var getFieldMethod = wms.GetType().GetMethod("GetField",
 					new Type[] { typeof(Vector3Int) });
-				if (getFieldMethod == null) return null;
 
-				var field = getFieldMethod.Invoke(wms, new object[] { fieldPos });
+				var field = ReflectionHelper.Invoke(getFieldMethod, wms, fieldPos);
 				if (field == null) return null;
 
 				var biomeProperty = field.GetType().GetProperty("Biome",
@@ -1750,7 +1506,7 @@ namespace ATSAccessibility {
 				var metaController = GameReflection.MetaControllerInstanceProperty?.GetValue(null);
 				if (metaController == null) return new List<string>();
 
-				var metaServices = GameReflection.McMetaServicesProperty?.GetValue(metaController);
+				var metaServices = ReflectionHelper.GetProp(GameReflection.McMetaServicesProperty, metaController);
 				if (metaServices == null) return new List<string>();
 
 				// Get MetaEconomyService
@@ -1764,7 +1520,7 @@ namespace ATSAccessibility {
 					new Type[] { typeof(Vector3Int), difficulty.GetType() });
 				if (getCurrencies == null) return new List<string>();
 
-				var currencies = getCurrencies.Invoke(metaEconomyService, new object[] { fieldPos, difficulty }) as System.Collections.IList;
+				var currencies = ReflectionHelper.Invoke(getCurrencies, metaEconomyService, fieldPos, difficulty) as IList;
 				if (currencies == null || currencies.Count == 0) return new List<string>();
 
 				var settings = GameReflection.GetSettings();
@@ -1782,12 +1538,12 @@ namespace ATSAccessibility {
 					var amountField = currency.GetType().GetField("amount",
 						BindingFlags.Public | BindingFlags.Instance);
 
-					var name = nameField?.GetValue(currency) as string;
-					var amount = (int)(amountField?.GetValue(currency) ?? 0);
+					var name = ReflectionHelper.GetString(nameField, currency);
+					var amount = ReflectionHelper.GetInt(amountField, currency);
 
 					if (!string.IsNullOrEmpty(name) && amount > 0) {
 						// Get display name from MetaCurrencyModel
-						var model = getMetaCurrency.Invoke(settings, new object[] { name });
+						var model = ReflectionHelper.Invoke(getMetaCurrency, settings, name);
 						if (model != null) {
 							var displayNameProp = model.GetType().GetProperty("DisplayName",
 								BindingFlags.Public | BindingFlags.Instance);
@@ -1815,18 +1571,11 @@ namespace ATSAccessibility {
 		public static IDisposable SubscribeToFieldPreviewShown(Action<object> callback) {
 			EnsureTypes();
 
-			try {
-				var wbb = WorldMapReflection.GetWorldBlackboardService();
-				if (wbb == null || _wbbOnFieldPreviewShownProperty == null) return null;
+			var wbb = WorldMapReflection.GetWorldBlackboardService();
+			var observable = ReflectionHelper.GetProp(_wbbOnFieldPreviewShownProperty, wbb);
+			if (observable == null) return null;
 
-				var observable = _wbbOnFieldPreviewShownProperty.GetValue(wbb);
-				if (observable == null) return null;
-
-				return GameReflection.SubscribeToObservable(observable, callback);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SubscribeToFieldPreviewShown failed: {ex.Message}");
-				return null;
-			}
+			return GameReflection.SubscribeToObservable(observable, callback);
 		}
 
 		/// <summary>
@@ -1836,18 +1585,11 @@ namespace ATSAccessibility {
 		public static IDisposable SubscribeToFieldPreviewClosed(Action<object> callback) {
 			EnsureTypes();
 
-			try {
-				var wbb = WorldMapReflection.GetWorldBlackboardService();
-				if (wbb == null || _wbbOnFieldPreviewClosedProperty == null) return null;
+			var wbb = WorldMapReflection.GetWorldBlackboardService();
+			var observable = ReflectionHelper.GetProp(_wbbOnFieldPreviewClosedProperty, wbb);
+			if (observable == null) return null;
 
-				var observable = _wbbOnFieldPreviewClosedProperty.GetValue(wbb);
-				if (observable == null) return null;
-
-				return GameReflection.SubscribeToObservable(observable, callback);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SubscribeToFieldPreviewClosed failed: {ex.Message}");
-				return null;
-			}
+			return GameReflection.SubscribeToObservable(observable, callback);
 		}
 
 		// ========================================
@@ -1892,7 +1634,7 @@ namespace ATSAccessibility {
 					BindingFlags.NonPublic | BindingFlags.Instance);
 
 				if (tryToConfirmMethod != null) {
-					tryToConfirmMethod.Invoke(pickScreen, null);
+					ReflectionHelper.InvokeVoid(tryToConfirmMethod, pickScreen);
 					Debug.Log("[ATSAccessibility] TriggerEmbark: TryToConfirm invoked successfully");
 					return true;
 				}
@@ -1900,15 +1642,14 @@ namespace ATSAccessibility {
 				// Fallback: try to find and click the confirm button directly
 				var confirmButtonField = pickScreenType.GetField("confirmButton",
 					BindingFlags.NonPublic | BindingFlags.Instance);
-				var confirmButton = confirmButtonField?.GetValue(pickScreen);
+				var confirmButton = ReflectionHelper.GetField(confirmButtonField, pickScreen);
 
 				if (confirmButton != null) {
 					// ButtonAdv has OnClick observable, but we can also try onClick.Invoke()
 					var onClickMethod = confirmButton.GetType().GetMethod("OnPointerClick",
 						BindingFlags.Public | BindingFlags.Instance);
 
-					if (onClickMethod != null) {
-						onClickMethod.Invoke(confirmButton, new object[] { null });
+					if (ReflectionHelper.InvokeVoid(onClickMethod, confirmButton, (object)null)) {
 						Debug.Log("[ATSAccessibility] TriggerEmbark: Button click invoked");
 						return true;
 					}

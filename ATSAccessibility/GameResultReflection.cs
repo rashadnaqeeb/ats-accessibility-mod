@@ -117,11 +117,10 @@ namespace ATSAccessibility {
 				var stateService = GetStateService();
 				if (stateService == null) return false;
 
-				var gameObjectives = _stateServiceGameObjectivesProperty?.GetValue(stateService);
+				var gameObjectives = ReflectionHelper.GetProp(_stateServiceGameObjectivesProperty, stateService);
 				if (gameObjectives == null) return false;
 
-				var hasWonObj = _gameObjectivesHasWonField?.GetValue(gameObjectives);
-				return hasWonObj is bool b && b;
+				return ReflectionHelper.GetBool(_gameObjectivesHasWonField, gameObjectives);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GameResultReflection.HasWon failed: {ex.Message}");
 				return false;
@@ -137,11 +136,10 @@ namespace ATSAccessibility {
 				var stateService = GetStateService();
 				if (stateService == null) return false;
 
-				var gameObjectives = _stateServiceGameObjectivesProperty?.GetValue(stateService);
+				var gameObjectives = ReflectionHelper.GetProp(_stateServiceGameObjectivesProperty, stateService);
 				if (gameObjectives == null) return false;
 
-				var hasLostObj = _gameObjectivesHasLostField?.GetValue(gameObjectives);
-				return hasLostObj is bool b && b;
+				return ReflectionHelper.GetBool(_gameObjectivesHasLostField, gameObjectives);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GameResultReflection.HasLost failed: {ex.Message}");
 				return false;
@@ -155,10 +153,9 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			try {
 				var gameSealService = GetGameSealService();
-				if (gameSealService == null || _isSealedBiomeMethod == null) return false;
+				if (gameSealService == null) return false;
 
-				var result = _isSealedBiomeMethod.Invoke(gameSealService, null);
-				return result is bool b && b;
+				return ReflectionHelper.InvokeBool(_isSealedBiomeMethod, gameSealService);
 			} catch {
 				return false;
 			}
@@ -172,10 +169,9 @@ namespace ATSAccessibility {
 			try {
 				var tutorialService = GetTutorialService();
 				var biome = GetBiome();
-				if (tutorialService == null || biome == null || _isAnyTutorialMethod == null) return false;
+				if (tutorialService == null || biome == null) return false;
 
-				var result = _isAnyTutorialMethod.Invoke(tutorialService, new[] { biome });
-				return result is bool b && b;
+				return ReflectionHelper.InvokeBool(_isAnyTutorialMethod, tutorialService, biome);
 			} catch {
 				return false;
 			}
@@ -226,7 +222,7 @@ namespace ATSAccessibility {
 				_tmpTextProperty = tmpText.GetType().GetProperty("text", GameReflection.PublicInstance);
 			}
 
-			return _tmpTextProperty?.GetValue(tmpText) as string;
+			return ReflectionHelper.GetPropString(_tmpTextProperty, tmpText);
 		}
 
 		// ========================================
@@ -242,11 +238,10 @@ namespace ATSAccessibility {
 				var metaStateService = GetMetaStateService();
 				if (metaStateService == null) return 0;
 
-				var economy = _mssEconomyProperty?.GetValue(metaStateService);
-				if (economy == null || _economyCurrentCycleExpField == null) return 0;
+				var economy = ReflectionHelper.GetProp(_mssEconomyProperty, metaStateService);
+				if (economy == null) return 0;
 
-				var expObj = _economyCurrentCycleExpField.GetValue(economy);
-				return expObj is int i ? i : 0;
+				return ReflectionHelper.GetInt(_economyCurrentCycleExpField, economy);
 			} catch {
 				return 0;
 			}
@@ -261,21 +256,12 @@ namespace ATSAccessibility {
 				var metaStateService = GetMetaStateService();
 				if (metaStateService == null) return (0, 0, 0);
 
-				var level = _mssLevelProperty?.GetValue(metaStateService);
+				var level = ReflectionHelper.GetProp(_mssLevelProperty, metaStateService);
 				if (level == null) return (0, 0, 0);
 
-				int currentLevel = 0;
-				int currentExp = 0;
-				int targetExp = 0;
-
-				var levelObj = _levelLevelField?.GetValue(level);
-				if (levelObj is int l) currentLevel = l;
-
-				var expObj = _levelExpField?.GetValue(level);
-				if (expObj is int e) currentExp = e;
-
-				var targetObj = _levelTargetExpField?.GetValue(level);
-				if (targetObj is int t) targetExp = t;
+				int currentLevel = ReflectionHelper.GetInt(_levelLevelField, level);
+				int currentExp = ReflectionHelper.GetInt(_levelExpField, level);
+				int targetExp = ReflectionHelper.GetInt(_levelTargetExpField, level);
 
 				return (currentLevel, currentExp, targetExp);
 			} catch {
@@ -292,10 +278,10 @@ namespace ATSAccessibility {
 
 			try {
 				var gameGoalsService = GetGameGoalsService();
-				if (gameGoalsService == null || _getUnshownCompletedGoalsMethod == null) return result;
+				if (gameGoalsService == null) return result;
 
 				// Call GetUnshownCompletedGoals - returns List<string> of goal IDs
-				var goalIds = _getUnshownCompletedGoalsMethod.Invoke(gameGoalsService, null) as IList;
+				var goalIds = ReflectionHelper.Invoke(_getUnshownCompletedGoalsMethod, gameGoalsService) as IList;
 				if (goalIds == null) return result;
 
 				var settings = GameReflection.GetSettings();
@@ -304,12 +290,11 @@ namespace ATSAccessibility {
 				foreach (var goalId in goalIds) {
 					if (goalId == null) continue;
 
-					var goal = _settingsGetGoalMethod.Invoke(settings, new[] { goalId });
+					var goal = ReflectionHelper.Invoke(_settingsGetGoalMethod, settings, goalId);
 					if (goal == null) continue;
 
 					// Get display name
-					var displayNameLoca = _goalDisplayNameField?.GetValue(goal);
-					var displayName = GameReflection.GetLocaText(displayNameLoca);
+					var displayName = ReflectionHelper.GetLocaString(_goalDisplayNameField, goal);
 					if (!string.IsNullOrEmpty(displayName)) {
 						result.Add(displayName);
 					}
@@ -333,18 +318,17 @@ namespace ATSAccessibility {
 				if (stateService == null) return result;
 
 				// Get Conditions.rewards
-				var conditions = _stateConditionsProperty?.GetValue(stateService);
-				if (conditions == null || _conditionsRewardsField == null) return result;
+				var conditions = ReflectionHelper.GetProp(_stateConditionsProperty, stateService);
+				if (conditions == null) return result;
 
-				var rewards = _conditionsRewardsField.GetValue(conditions) as IList;
+				var rewards = ReflectionHelper.GetList(_conditionsRewardsField, conditions);
 				if (rewards == null) return result;
 
 				foreach (var reward in rewards) {
 					if (reward == null) continue;
 
-					string name = _metaCurrencyNameField?.GetValue(reward) as string;
-					var amountObj = _metaCurrencyAmountField?.GetValue(reward);
-					int amount = amountObj is int a ? a : 0;
+					string name = ReflectionHelper.GetString(_metaCurrencyNameField, reward);
+					int amount = ReflectionHelper.GetInt(_metaCurrencyAmountField, reward);
 
 					if (!string.IsNullOrEmpty(name) && amount > 0) {
 						// Get display name from settings
@@ -408,8 +392,7 @@ namespace ATSAccessibility {
 					if (string.IsNullOrEmpty(goodName)) continue;
 
 					// Get amount from storage
-					var amountObj = getAmountMethod.Invoke(storageService, new object[] { goodName });
-					int amount = amountObj is int a ? a : 0;
+					int amount = ReflectionHelper.InvokeInt(getAmountMethod, storageService, goodName);
 
 					if (amount > 0) {
 						// Get display name for the meta currency
@@ -441,11 +424,10 @@ namespace ATSAccessibility {
 				var biomeService = GetBiomeService();
 				if (biomeService == null) return 0;
 
-				var difficulty = _biomeServiceDifficultyProperty?.GetValue(biomeService);
-				if (difficulty == null || _difficultySealFragmentsField == null) return 0;
+				var difficulty = ReflectionHelper.GetProp(_biomeServiceDifficultyProperty, biomeService);
+				if (difficulty == null) return 0;
 
-				var fragmentsObj = _difficultySealFragmentsField.GetValue(difficulty);
-				return fragmentsObj is int i ? i : 0;
+				return ReflectionHelper.GetInt(_difficultySealFragmentsField, difficulty);
 			} catch {
 				return 0;
 			}
@@ -454,10 +436,9 @@ namespace ATSAccessibility {
 		private static bool IsCustomGame() {
 			try {
 				var conditionsService = GetConditionsService();
-				if (conditionsService == null || _isCustomGameMethod == null) return false;
+				if (conditionsService == null) return false;
 
-				var result = _isCustomGameMethod.Invoke(conditionsService, null);
-				return result is bool b && b;
+				return ReflectionHelper.InvokeBool(_isCustomGameMethod, conditionsService);
 			} catch {
 				return false;
 			}
@@ -466,10 +447,9 @@ namespace ATSAccessibility {
 		private static bool IsChallenge() {
 			try {
 				var conditionsService = GetConditionsService();
-				if (conditionsService == null || _isChallangeMethod == null) return false;
+				if (conditionsService == null) return false;
 
-				var result = _isChallangeMethod.Invoke(conditionsService, null);
-				return result is bool b && b;
+				return ReflectionHelper.InvokeBool(_isChallangeMethod, conditionsService);
 			} catch {
 				return false;
 			}
@@ -503,18 +483,15 @@ namespace ATSAccessibility {
 
 				// Create ScoreCalculator instance and call GetScore()
 				var calculator = Activator.CreateInstance(_scoreCalculatorType);
-				var scoreList = _getScoreMethod.Invoke(calculator, null) as IList;
+				var scoreList = ReflectionHelper.Invoke(_getScoreMethod, calculator) as IList;
 				if (scoreList == null) return result;
 
 				foreach (var scoreData in scoreList) {
 					if (scoreData == null) continue;
 
-					string label = _scoreDataLabelField?.GetValue(scoreData) as string;
-					var pointsObj = _scoreDataPointsField?.GetValue(scoreData);
-					var amountObj = _scoreDataAmountField?.GetValue(scoreData);
-
-					int points = pointsObj is int p ? p : 0;
-					int amount = amountObj is int a ? a : 0;
+					string label = ReflectionHelper.GetString(_scoreDataLabelField, scoreData);
+					int points = ReflectionHelper.GetInt(_scoreDataPointsField, scoreData);
+					int amount = ReflectionHelper.GetInt(_scoreDataAmountField, scoreData);
 
 					if (!string.IsNullOrEmpty(label)) {
 						result.Add(new ScoreEntry { Label = label, Points = points, Amount = amount });
@@ -570,33 +547,27 @@ namespace ATSAccessibility {
 				var goalState = goalStates[0];
 				if (goalState == null) return null;
 
-				string modelName = _goalStateModelField?.GetValue(goalState) as string;
-				var completedObj = _goalStateCompletedField?.GetValue(goalState);
-				bool completed = completedObj is bool b && b;
+				string modelName = ReflectionHelper.GetString(_goalStateModelField, goalState);
+				bool completed = ReflectionHelper.GetBool(_goalStateCompletedField, goalState);
 
 				if (string.IsNullOrEmpty(modelName)) return null;
 
 				var settings = GameReflection.GetSettings();
 				if (settings == null || _settingsGetGoalMethod == null) return null;
 
-				var goalModel = _settingsGetGoalMethod.Invoke(settings, new object[] { modelName });
+				var goalModel = ReflectionHelper.Invoke(_settingsGetGoalMethod, settings, modelName);
 				if (goalModel == null) return null;
 
 				// Get display name
-				var displayNameLoca = _goalDisplayNameField?.GetValue(goalModel);
-				string name = GameReflection.GetLocaText(displayNameLoca) ?? modelName;
+				string name = ReflectionHelper.GetLocaString(_goalDisplayNameField, goalModel) ?? modelName;
 
 				// Get description
-				string description = null;
-				if (_goalDescriptionField != null) {
-					var descLoca = _goalDescriptionField.GetValue(goalModel);
-					description = GameReflection.GetLocaText(descLoca);
-				}
+				string description = ReflectionHelper.GetLocaString(_goalDescriptionField, goalModel);
 
 				// Get objectives breakdown
 				var objectives = new List<(string key, string value)>();
 				if (_goalGetObjectivesBreakdownMethod != null) {
-					var breakdownObj = _goalGetObjectivesBreakdownMethod.Invoke(goalModel, null);
+					var breakdownObj = ReflectionHelper.Invoke(_goalGetObjectivesBreakdownMethod, goalModel);
 					if (breakdownObj is IDictionary dict) {
 						foreach (DictionaryEntry entry in dict) {
 							string key = entry.Key?.ToString();
@@ -623,12 +594,12 @@ namespace ATSAccessibility {
 		private static IList GetActiveCycleGoals() {
 			try {
 				var worldStateService = GetWorldStateService();
-				if (worldStateService == null || _wsssCycleProperty == null) return null;
+				if (worldStateService == null) return null;
 
-				var cycle = _wsssCycleProperty.GetValue(worldStateService);
-				if (cycle == null || _cycleActiveCycleGoalsField == null) return null;
+				var cycle = ReflectionHelper.GetProp(_wsssCycleProperty, worldStateService);
+				if (cycle == null) return null;
 
-				return _cycleActiveCycleGoalsField.GetValue(cycle) as IList;
+				return ReflectionHelper.GetList(_cycleActiveCycleGoalsField, cycle);
 			} catch {
 				return null;
 			}
@@ -680,7 +651,8 @@ namespace ATSAccessibility {
 				if (onClick == null) return false;
 
 				var invokeMethod = onClick.GetType().GetMethod("Invoke", Type.EmptyTypes);
-				invokeMethod?.Invoke(onClick, null);
+				if (invokeMethod == null) return false;
+				invokeMethod.Invoke(onClick, null);
 
 				return true;
 			} catch (Exception ex) {
@@ -706,7 +678,8 @@ namespace ATSAccessibility {
 				if (onClick == null) return false;
 
 				var invokeMethod = onClick.GetType().GetMethod("Invoke", Type.EmptyTypes);
-				invokeMethod?.Invoke(onClick, null);
+				if (invokeMethod == null) return false;
+				invokeMethod.Invoke(onClick, null);
 
 				return true;
 			} catch (Exception ex) {
@@ -828,10 +801,7 @@ namespace ATSAccessibility {
 		private static void EnsureTypes() {
 			if (_typesCached) return;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) return;
-
-			try {
+			ReflectionHelper.InitCache("GameResultReflection", assembly => {
 				// GameResultPopup
 				_gameResultPopupType = assembly.GetType("Eremite.View.HUD.Result.GameResultPopup");
 				if (_gameResultPopupType != null) {
@@ -971,11 +941,7 @@ namespace ATSAccessibility {
 					_isCustomGameMethod = conditionsServiceType.GetMethod("IsCustomGame", GameReflection.PublicInstance);
 					_isChallangeMethod = conditionsServiceType.GetMethod("IsChallange", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] GameResultReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GameResultReflection: Type caching failed: {ex.Message}");
-			}
+			});
 
 			_typesCached = true;
 		}

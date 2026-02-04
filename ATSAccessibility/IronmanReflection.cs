@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using UnityEngine;
 
 namespace ATSAccessibility {
 	/// <summary>
@@ -77,19 +76,14 @@ namespace ATSAccessibility {
 
 		private static void EnsureTypes() {
 			if (_typesCached) return;
+			_typesCached = true;
 
-			var gameAssembly = GameReflection.GameAssembly;
-			if (gameAssembly == null) {
-				_typesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("IronmanReflection", assembly => {
 				// Cache IronmanUpgradePopup type for popup detection
-				_ironmanUpgradePopupType = gameAssembly.GetType("Eremite.WorldMap.UI.IronmanUpgradePopup");
+				_ironmanUpgradePopupType = assembly.GetType("Eremite.WorldMap.UI.IronmanUpgradePopup");
 
 				// Cache IMetaServices properties (IronmanService and MetaStateService)
-				var metaServicesType = gameAssembly.GetType("Eremite.Services.IMetaServices");
+				var metaServicesType = assembly.GetType("Eremite.Services.IMetaServices");
 				if (metaServicesType != null) {
 					_msIronmanServiceProperty = metaServicesType.GetProperty("IronmanService",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -98,7 +92,7 @@ namespace ATSAccessibility {
 				}
 
 				// Cache IIronmanService methods
-				var ironmanServiceType = gameAssembly.GetType("Eremite.Services.IIronmanService");
+				var ironmanServiceType = assembly.GetType("Eremite.Services.IIronmanService");
 				if (ironmanServiceType != null) {
 					_getCompletedPicksMethod = ironmanServiceType.GetMethod("GetCompletedPicks",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -109,9 +103,9 @@ namespace ATSAccessibility {
 				}
 
 				// Some methods are on the concrete IronmanService class
-				var ironmanServiceImplType = gameAssembly.GetType("Eremite.Services.IronmanService");
+				var ironmanServiceImplType = assembly.GetType("Eremite.Services.IronmanService");
 				if (ironmanServiceImplType != null) {
-					var upgradeModelType = gameAssembly.GetType("Eremite.WorldMap.CapitalUpgradeModel");
+					var upgradeModelType = assembly.GetType("Eremite.WorldMap.CapitalUpgradeModel");
 					if (upgradeModelType != null) {
 						_canAffordMethod = ironmanServiceImplType.GetMethod("CanAfford",
 							BindingFlags.Public | BindingFlags.Instance, null, new[] { upgradeModelType }, null);
@@ -125,7 +119,7 @@ namespace ATSAccessibility {
 				}
 
 				// Cache Settings.ironmanConfig field
-				var settingsType = gameAssembly.GetType("Eremite.Model.Settings");
+				var settingsType = assembly.GetType("Eremite.Model.Settings");
 				if (settingsType != null) {
 					_settingsIronmanConfigField = settingsType.GetField("ironmanConfig",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -136,7 +130,7 @@ namespace ATSAccessibility {
 				}
 
 				// Cache IronmanConfig fields
-				var ironmanConfigType = gameAssembly.GetType("Eremite.Model.Configs.IronmanConfig");
+				var ironmanConfigType = assembly.GetType("Eremite.Model.Configs.IronmanConfig");
 				if (ironmanConfigType != null) {
 					_configCoreUpgradesField = ironmanConfigType.GetField("coreUpgrades",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -145,21 +139,21 @@ namespace ATSAccessibility {
 				}
 
 				// Cache IronmanPickState.options field
-				var pickStateType = gameAssembly.GetType("Eremite.Model.State.IronmanPickState");
+				var pickStateType = assembly.GetType("Eremite.Model.State.IronmanPickState");
 				if (pickStateType != null) {
 					_pickStateOptionsField = pickStateType.GetField("options",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache IronmanPickOption.model field
-				var pickOptionType = gameAssembly.GetType("Eremite.Model.State.IronmanPickOption");
+				var pickOptionType = assembly.GetType("Eremite.Model.State.IronmanPickOption");
 				if (pickOptionType != null) {
 					_optionModelField = pickOptionType.GetField("model",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache CapitalUpgradeModel fields
-				var capitalUpgradeModelType = gameAssembly.GetType("Eremite.WorldMap.CapitalUpgradeModel");
+				var capitalUpgradeModelType = assembly.GetType("Eremite.WorldMap.CapitalUpgradeModel");
 				if (capitalUpgradeModelType != null) {
 					_ironmanDisplayNameField = capitalUpgradeModelType.GetField("ironmanDisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -170,7 +164,7 @@ namespace ATSAccessibility {
 				}
 
 				// Cache MetaCurrencyRef fields
-				var currencyRefType = gameAssembly.GetType("Eremite.Model.MetaCurrencyRef");
+				var currencyRefType = assembly.GetType("Eremite.Model.MetaCurrencyRef");
 				if (currencyRefType != null) {
 					_currencyRefCurrencyField = currencyRefType.GetField("currency",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -179,14 +173,14 @@ namespace ATSAccessibility {
 				}
 
 				// Cache MetaCurrencyModel.DisplayName
-				var currencyModelType = gameAssembly.GetType("Eremite.Model.MetaCurrencyModel");
+				var currencyModelType = assembly.GetType("Eremite.Model.MetaCurrencyModel");
 				if (currencyModelType != null) {
 					_currencyModelDisplayNameProperty = currencyModelType.GetProperty("DisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache MetaRewardModel properties
-				var rewardModelType = gameAssembly.GetType("Eremite.Model.Meta.MetaRewardModel");
+				var rewardModelType = assembly.GetType("Eremite.Model.Meta.MetaRewardModel");
 				if (rewardModelType != null) {
 					_rewardDisplayNameProperty = rewardModelType.GetProperty("DisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -195,24 +189,18 @@ namespace ATSAccessibility {
 				}
 
 				// Cache MetaStateService.Capital.unlockedUpgrades access
-				var metaStateServiceType = gameAssembly.GetType("Eremite.Services.IMetaStateService");
+				var metaStateServiceType = assembly.GetType("Eremite.Services.IMetaStateService");
 				if (metaStateServiceType != null) {
 					_metaStateCapitalProperty = metaStateServiceType.GetProperty("Capital",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
-				var capitalStateType = gameAssembly.GetType("Eremite.Model.State.CapitalState");
+				var capitalStateType = assembly.GetType("Eremite.Model.State.CapitalState");
 				if (capitalStateType != null) {
 					_capitalUnlockedUpgradesField = capitalStateType.GetField("unlockedUpgrades",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
-
-				Debug.Log("[ATSAccessibility] Cached IronmanReflection types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] IronmanReflection type caching failed: {ex.Message}");
-			}
-
-			_typesCached = true;
+			});
 		}
 
 		/// <summary>
@@ -239,13 +227,7 @@ namespace ATSAccessibility {
 		public static int GetCompletedPicks() {
 			EnsureTypes();
 			var service = GetIronmanService();
-			if (service == null || _getCompletedPicksMethod == null) return 0;
-
-			try {
-				return (int)_getCompletedPicksMethod.Invoke(service, null);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.InvokeInt(_getCompletedPicksMethod, service);
 		}
 
 		/// <summary>
@@ -254,17 +236,11 @@ namespace ATSAccessibility {
 		public static int GetMaxPicks() {
 			EnsureTypes();
 			var settings = GameReflection.GetSettings();
-			if (settings == null || _settingsIronmanConfigField == null) return 0;
+			var config = ReflectionHelper.GetField(_settingsIronmanConfigField, settings);
+			if (config == null) return 0;
 
-			try {
-				var config = _settingsIronmanConfigField.GetValue(settings);
-				if (config == null || _configPicksField == null) return 0;
-
-				var picks = _configPicksField.GetValue(config) as Array;
-				return picks?.Length ?? 0;
-			} catch {
-				return 0;
-			}
+			var picks = ReflectionHelper.GetField(_configPicksField, config) as Array;
+			return picks?.Length ?? 0;
 		}
 
 		/// <summary>
@@ -274,12 +250,7 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var service = GetIronmanService();
 			if (service == null || _hasReachedMaxPicksMethod == null) return true;
-
-			try {
-				return (bool)_hasReachedMaxPicksMethod.Invoke(service, null);
-			} catch {
-				return true;
-			}
+			return ReflectionHelper.InvokeBool(_hasReachedMaxPicksMethod, service);
 		}
 
 		/// <summary>
@@ -293,31 +264,25 @@ namespace ATSAccessibility {
 			if (HasReachedMaxPicks()) return result;
 
 			var service = GetIronmanService();
-			if (service == null || _getCurrentPickMethod == null) return result;
+			var pickState = ReflectionHelper.Invoke(_getCurrentPickMethod, service);
+			if (pickState == null) return result;
 
-			try {
-				var pickState = _getCurrentPickMethod.Invoke(service, null);
-				if (pickState == null || _pickStateOptionsField == null) return result;
+			var options = ReflectionHelper.GetList(_pickStateOptionsField, pickState);
+			if (options == null) return result;
 
-				var options = _pickStateOptionsField.GetValue(pickState) as IList;
-				if (options == null) return result;
+			var settings = GameReflection.GetSettings();
+			if (settings == null || _getCapitalUpgradeMethod == null) return result;
 
-				var settings = GameReflection.GetSettings();
-				if (settings == null || _getCapitalUpgradeMethod == null) return result;
+			foreach (var option in options) {
+				if (option == null) continue;
 
-				foreach (var option in options) {
-					if (option == null || _optionModelField == null) continue;
+				string modelName = ReflectionHelper.GetString(_optionModelField, option);
+				if (string.IsNullOrEmpty(modelName)) continue;
 
-					string modelName = _optionModelField.GetValue(option) as string;
-					if (string.IsNullOrEmpty(modelName)) continue;
+				var upgradeModel = ReflectionHelper.Invoke(_getCapitalUpgradeMethod, settings, modelName);
+				if (upgradeModel == null) continue;
 
-					var upgradeModel = _getCapitalUpgradeMethod.Invoke(settings, new object[] { modelName });
-					if (upgradeModel == null) continue;
-
-					result.Add(CreateUpgradeInfo(upgradeModel, service, false));
-				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetCurrentPickOptions failed: {ex.Message}");
+				result.Add(CreateUpgradeInfo(upgradeModel, service, false));
 			}
 
 			return result;
@@ -331,24 +296,18 @@ namespace ATSAccessibility {
 			var result = new List<UpgradeInfo>();
 
 			var settings = GameReflection.GetSettings();
-			if (settings == null || _settingsIronmanConfigField == null) return result;
+			var config = ReflectionHelper.GetField(_settingsIronmanConfigField, settings);
+			if (config == null) return result;
 
 			var service = GetIronmanService();
 			if (service == null) return result;
 
-			try {
-				var config = _settingsIronmanConfigField.GetValue(settings);
-				if (config == null || _configCoreUpgradesField == null) return result;
+			var coreUpgrades = ReflectionHelper.GetField(_configCoreUpgradesField, config) as Array;
+			if (coreUpgrades == null) return result;
 
-				var coreUpgrades = _configCoreUpgradesField.GetValue(config) as Array;
-				if (coreUpgrades == null) return result;
-
-				foreach (var upgradeModel in coreUpgrades) {
-					if (upgradeModel == null) continue;
-					result.Add(CreateUpgradeInfo(upgradeModel, service, true));
-				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetCoreUpgrades failed: {ex.Message}");
+			foreach (var upgradeModel in coreUpgrades) {
+				if (upgradeModel == null) continue;
+				result.Add(CreateUpgradeInfo(upgradeModel, service, true));
 			}
 
 			return result;
@@ -362,43 +321,32 @@ namespace ATSAccessibility {
 			var result = new List<UpgradeInfo>();
 
 			var ms = GameReflection.GetMetaServices();
-			if (ms == null || _msMetaStateServiceProperty == null) return result;
-
 			var service = GetIronmanService();
 
-			try {
-				var metaStateService = _msMetaStateServiceProperty.GetValue(ms);
-				if (metaStateService == null || _metaStateCapitalProperty == null) return result;
+			var metaStateService = ReflectionHelper.GetProp(_msMetaStateServiceProperty, ms);
+			if (metaStateService == null) return result;
 
-				var capitalState = _metaStateCapitalProperty.GetValue(metaStateService);
-				if (capitalState == null || _capitalUnlockedUpgradesField == null) return result;
+			var capitalState = ReflectionHelper.GetProp(_metaStateCapitalProperty, metaStateService);
+			if (capitalState == null) return result;
 
-				var unlockedUpgrades = _capitalUnlockedUpgradesField.GetValue(capitalState);
-				if (unlockedUpgrades == null) return result;
+			var unlockedUpgrades = ReflectionHelper.GetField(_capitalUnlockedUpgradesField, capitalState);
+			// unlockedUpgrades is a HashSet<string> of upgrade names
+			var enumerable = unlockedUpgrades as IEnumerable;
+			if (enumerable == null) return result;
 
-				// unlockedUpgrades is a HashSet<string> of upgrade names
-				var enumerable = unlockedUpgrades as IEnumerable;
-				if (enumerable == null) return result;
+			var settings = GameReflection.GetSettings();
+			if (settings == null || _getCapitalUpgradeMethod == null) return result;
 
-				var settings = GameReflection.GetSettings();
-				if (settings == null || _getCapitalUpgradeMethod == null) return result;
+			foreach (var upgradeName in enumerable) {
+				string name = upgradeName as string;
+				if (string.IsNullOrEmpty(name)) continue;
 
-				foreach (var upgradeName in enumerable) {
-					string name = upgradeName as string;
-					if (string.IsNullOrEmpty(name)) continue;
+				var upgradeModel = ReflectionHelper.Invoke(_getCapitalUpgradeMethod, settings, name);
+				if (upgradeModel == null) continue;
 
-					var upgradeModel = _getCapitalUpgradeMethod.Invoke(settings, new object[] { name });
-					if (upgradeModel == null) continue;
+				bool isCore = ReflectionHelper.InvokeBool(_isCoreMethod, service, upgradeModel);
 
-					bool isCore = false;
-					if (service != null && _isCoreMethod != null) {
-						try { isCore = (bool)_isCoreMethod.Invoke(service, new[] { upgradeModel }); } catch { }
-					}
-
-					result.Add(CreateUpgradeInfo(upgradeModel, service, isCore));
-				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetUnlockedUpgrades failed: {ex.Message}");
+				result.Add(CreateUpgradeInfo(upgradeModel, service, isCore));
 			}
 
 			return result;
@@ -427,51 +375,33 @@ namespace ATSAccessibility {
 		/// Get the ironman display name for an upgrade.
 		/// </summary>
 		public static string GetIronmanDisplayName(object upgradeModel) {
-			if (upgradeModel == null || _ironmanDisplayNameField == null) return "";
-
-			try {
-				var displayName = _ironmanDisplayNameField.GetValue(upgradeModel);
-				return GameReflection.GetLocaText(displayName) ?? "";
-			} catch {
-				return "";
-			}
+			return ReflectionHelper.GetLocaString(_ironmanDisplayNameField, upgradeModel) ?? "";
 		}
 
 		/// <summary>
 		/// Get formatted price text for ironman upgrade.
 		/// </summary>
 		public static string GetIronmanPriceText(object upgradeModel) {
-			if (upgradeModel == null || _ironmanPriceField == null) return "";
+			var priceArray = ReflectionHelper.GetField(_ironmanPriceField, upgradeModel) as Array;
+			if (priceArray == null || priceArray.Length == 0) return "";
 
-			try {
-				var priceArray = _ironmanPriceField.GetValue(upgradeModel) as Array;
-				if (priceArray == null || priceArray.Length == 0) return "";
+			var parts = new List<string>();
 
-				var parts = new List<string>();
+			foreach (var currencyRef in priceArray) {
+				if (currencyRef == null) continue;
 
-				foreach (var currencyRef in priceArray) {
-					if (currencyRef == null) continue;
+				int amount = ReflectionHelper.GetInt(_currencyRefAmountField, currencyRef);
+				var currencyModel = ReflectionHelper.GetField(_currencyRefCurrencyField, currencyRef);
+				if (currencyModel == null) continue;
 
-					var amount = _currencyRefAmountField?.GetValue(currencyRef);
-					var currencyModel = _currencyRefCurrencyField?.GetValue(currencyRef);
+				string displayName = ReflectionHelper.GetPropString(_currencyModelDisplayNameProperty, currencyModel) ?? "";
 
-					if (amount == null || currencyModel == null) continue;
-
-					string displayName = "";
-					if (_currencyModelDisplayNameProperty != null) {
-						displayName = _currencyModelDisplayNameProperty.GetValue(currencyModel) as string ?? "";
-					}
-
-					if (!string.IsNullOrEmpty(displayName)) {
-						parts.Add($"{(int)amount} {displayName}");
-					}
+				if (!string.IsNullOrEmpty(displayName)) {
+					parts.Add($"{amount} {displayName}");
 				}
-
-				return string.Join(", ", parts.ToArray());
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetIronmanPriceText failed: {ex.Message}");
-				return "";
 			}
+
+			return string.Join(", ", parts.ToArray());
 		}
 
 		/// <summary>
@@ -480,13 +410,7 @@ namespace ATSAccessibility {
 		public static bool CanAfford(object upgradeModel, object service = null) {
 			EnsureTypes();
 			service = service ?? GetIronmanService();
-			if (service == null || upgradeModel == null || _canAffordMethod == null) return false;
-
-			try {
-				return (bool)_canAffordMethod.Invoke(service, new[] { upgradeModel });
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_canAffordMethod, service, upgradeModel);
 		}
 
 		/// <summary>
@@ -495,13 +419,7 @@ namespace ATSAccessibility {
 		public static bool IsUnlocked(object upgradeModel, object service = null) {
 			EnsureTypes();
 			service = service ?? GetIronmanService();
-			if (service == null || upgradeModel == null || _isUnlockedMethod == null) return false;
-
-			try {
-				return (bool)_isUnlockedMethod.Invoke(service, new[] { upgradeModel });
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_isUnlockedMethod, service, upgradeModel);
 		}
 
 		/// <summary>
@@ -511,15 +429,7 @@ namespace ATSAccessibility {
 		public static bool Pick(object upgradeModel) {
 			EnsureTypes();
 			var service = GetIronmanService();
-			if (service == null || upgradeModel == null || _pickMethod == null) return false;
-
-			try {
-				_pickMethod.Invoke(service, new[] { upgradeModel });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] Pick failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_pickMethod, service, upgradeModel);
 		}
 
 		/// <summary>
@@ -529,32 +439,18 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<RewardInfo>();
 
-			if (upgradeModel == null || _upgradeRewardsField == null) return result;
+			var rewards = ReflectionHelper.GetField(_upgradeRewardsField, upgradeModel) as Array;
+			if (rewards == null) return result;
 
-			try {
-				var rewards = _upgradeRewardsField.GetValue(upgradeModel) as Array;
-				if (rewards == null) return result;
+			foreach (var reward in rewards) {
+				if (reward == null) continue;
 
-				foreach (var reward in rewards) {
-					if (reward == null) continue;
+				string name = ReflectionHelper.GetPropString(_rewardDisplayNameProperty, reward) ?? "";
+				string description = ReflectionHelper.GetPropString(_rewardDescriptionProperty, reward) ?? "";
 
-					string name = "";
-					string description = "";
-
-					if (_rewardDisplayNameProperty != null) {
-						try { name = _rewardDisplayNameProperty.GetValue(reward) as string ?? ""; } catch { }
-					}
-
-					if (_rewardDescriptionProperty != null) {
-						try { description = _rewardDescriptionProperty.GetValue(reward) as string ?? ""; } catch { }
-					}
-
-					if (!string.IsNullOrEmpty(name)) {
-						result.Add(new RewardInfo { Name = name, Description = description });
-					}
+				if (!string.IsNullOrEmpty(name)) {
+					result.Add(new RewardInfo { Name = name, Description = description });
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetRewards failed: {ex.Message}");
 			}
 
 			return result;

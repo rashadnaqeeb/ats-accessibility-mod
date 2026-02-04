@@ -171,23 +171,13 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] TradeRoutesReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("TradeRoutesReflection", assembly => {
 				CacheServiceTypes(assembly);
 				CacheStateTypes(assembly);
 				CacheTradeRoutesServiceMethods(assembly);
 				CacheGoodTypes(assembly);
 				CacheSettingsTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] TradeRoutesReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] TradeRoutesReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CacheServiceTypes(Assembly assembly) {
@@ -356,15 +346,11 @@ namespace ATSAccessibility {
 		}
 
 		private static object GetTradeState() {
-			var stateService = GetStateService();
-			if (stateService == null || _stateTradeProperty == null) return null;
-			try { return _stateTradeProperty.GetValue(stateService); } catch { return null; }
+			return ReflectionHelper.GetProp(_stateTradeProperty, GetStateService());
 		}
 
 		private static object GetPrefsState() {
-			var stateService = GetStateService();
-			if (stateService == null || _statePrefsProperty == null) return null;
-			try { return _statePrefsProperty.GetValue(stateService); } catch { return null; }
+			return ReflectionHelper.GetProp(_statePrefsProperty, GetStateService());
 		}
 
 		// ========================================
@@ -387,18 +373,14 @@ namespace ATSAccessibility {
 		/// Check if auto-collect is enabled.
 		/// </summary>
 		public static bool IsAutoCollectEnabled() {
-			var prefs = GetPrefsState();
-			if (prefs == null || _prefsAutoCollectField == null) return false;
-			try { return (bool)_prefsAutoCollectField.GetValue(prefs); } catch { return false; }
+			return ReflectionHelper.GetBool(_prefsAutoCollectField, GetPrefsState());
 		}
 
 		/// <summary>
 		/// Set auto-collect enabled state.
 		/// </summary>
 		public static void SetAutoCollect(bool enabled) {
-			var prefs = GetPrefsState();
-			if (prefs == null || _prefsAutoCollectField == null) return;
-			try { _prefsAutoCollectField.SetValue(prefs, enabled); } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SetAutoCollect failed: {ex.Message}"); }
+			ReflectionHelper.SetField(_prefsAutoCollectField, GetPrefsState(), enabled);
 		}
 
 		/// <summary>
@@ -422,18 +404,14 @@ namespace ATSAccessibility {
 		/// Check if "only available" filter is enabled.
 		/// </summary>
 		public static bool IsOnlyAvailableEnabled() {
-			var prefs = GetPrefsState();
-			if (prefs == null || _prefsOnlyAvailableField == null) return false;
-			try { return (bool)_prefsOnlyAvailableField.GetValue(prefs); } catch { return false; }
+			return ReflectionHelper.GetBool(_prefsOnlyAvailableField, GetPrefsState());
 		}
 
 		/// <summary>
 		/// Set "only available" filter enabled state.
 		/// </summary>
 		public static void SetOnlyAvailable(bool enabled) {
-			var prefs = GetPrefsState();
-			if (prefs == null || _prefsOnlyAvailableField == null) return;
-			try { _prefsOnlyAvailableField.SetValue(prefs, enabled); } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SetOnlyAvailable failed: {ex.Message}"); }
+			ReflectionHelper.SetField(_prefsOnlyAvailableField, GetPrefsState(), enabled);
 		}
 
 		// ========================================
@@ -446,16 +424,14 @@ namespace ATSAccessibility {
 		public static bool HasReachedLimit() {
 			var service = GetTradeRoutesService();
 			if (service == null || _hasReachedLimitMethod == null) return true;
-			try { return (bool)_hasReachedLimitMethod.Invoke(service, null); } catch { return true; }
+			return ReflectionHelper.InvokeBool(_hasReachedLimitMethod, service);
 		}
 
 		/// <summary>
 		/// Get the maximum number of active routes.
 		/// </summary>
 		public static int GetMaxRoutes() {
-			var effectsService = GetEffectsService();
-			if (effectsService == null || _getTradeRoutesAmountMethod == null) return 0;
-			try { return (int)_getTradeRoutesAmountMethod.Invoke(effectsService, null); } catch { return 0; }
+			return ReflectionHelper.InvokeInt(_getTradeRoutesAmountMethod, GetEffectsService());
 		}
 
 		// ========================================
@@ -473,7 +449,7 @@ namespace ATSAccessibility {
 			if (tradeState == null || _tradeTradeTownsField == null) return result;
 
 			try {
-				var towns = _tradeTradeTownsField.GetValue(tradeState) as IList;
+				var towns = ReflectionHelper.GetList(_tradeTradeTownsField, tradeState);
 				if (towns == null) return result;
 
 				var service = GetTradeRoutesService();
@@ -482,23 +458,23 @@ namespace ATSAccessibility {
 					if (town == null) continue;
 
 					// Handle hasStaticName - if true, townName is a localization key
-					string townName = GetString(_townNameField, town);
-					bool hasStaticName = GetBool(_townHasStaticNameField, town);
+					string townName = ReflectionHelper.GetString(_townNameField, town) ?? "";
+					bool hasStaticName = ReflectionHelper.GetBool(_townHasStaticNameField, town);
 					if (hasStaticName && !string.IsNullOrEmpty(townName)) {
 						townName = GetLocalizedText(townName) ?? townName;
 					}
 
 					var info = new TownInfo {
 						State = town,
-						Id = GetInt(_townIdField, town),
+						Id = ReflectionHelper.GetInt(_townIdField, town),
 						Name = townName,
-						Biome = GetBiomeDisplayName(GetString(_townBiomeField, town)),
-						Faction = GetFactionDisplayName(GetString(_townFactionField, town)),
-						Distance = GetInt(_townDistanceField, town),
-						StandingLevel = GetInt(_townStandingLevelField, town),
-						IsMaxStanding = GetBool(_townIsMaxStandingField, town),
-						CurrentStandingValue = GetInt(_townCurrentStandingField, town),
-						ValueForLevelUp = GetInt(_townValueForLevelUpField, town),
+						Biome = GetBiomeDisplayName(ReflectionHelper.GetString(_townBiomeField, town) ?? ""),
+						Faction = GetFactionDisplayName(ReflectionHelper.GetString(_townFactionField, town)),
+						Distance = ReflectionHelper.GetInt(_townDistanceField, town),
+						StandingLevel = ReflectionHelper.GetInt(_townStandingLevelField, town),
+						IsMaxStanding = ReflectionHelper.GetBool(_townIsMaxStandingField, town),
+						CurrentStandingValue = ReflectionHelper.GetInt(_townCurrentStandingField, town),
+						ValueForLevelUp = ReflectionHelper.GetInt(_townValueForLevelUpField, town),
 						OfferCount = GetOfferCount(town),
 						StandingLabel = GetStandingLabel(service, town),
 						CanExtend = CanExtendOffer(service, town),
@@ -516,35 +492,26 @@ namespace ATSAccessibility {
 		}
 
 		private static int GetOfferCount(object town) {
-			if (town == null || _townOffersField == null) return 0;
-			try {
-				var offers = _townOffersField.GetValue(town) as IList;
-				return offers?.Count ?? 0;
-			} catch { return 0; }
+			var offers = ReflectionHelper.GetList(_townOffersField, town);
+			return offers?.Count ?? 0;
 		}
 
 		private static string GetStandingLabel(object service, object town) {
-			if (service == null || town == null || _getStandingLabelForMethod == null) return "Unknown";
-			try { return _getStandingLabelForMethod.Invoke(service, new[] { town }) as string ?? "Unknown"; } catch { return "Unknown"; }
+			return ReflectionHelper.InvokeString(_getStandingLabelForMethod, service, town) ?? "Unknown";
 		}
 
 		private static bool CanExtendOffer(object service, object town) {
-			if (service == null || town == null || _canExtendOfferMethod == null) return false;
-			try { return (bool)_canExtendOfferMethod.Invoke(service, new[] { town }); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_canExtendOfferMethod, service, town);
 		}
 
 		private static bool HasReachedMaxOffers(object service, object town) {
-			if (service == null || town == null || _reachedMaxOffersMethod == null) return false;
-			try { return (bool)_reachedMaxOffersMethod.Invoke(service, new[] { town }); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_reachedMaxOffersMethod, service, town);
 		}
 
 		private static string GetExtendCost(object service, object town) {
-			if (service == null || town == null || _getOfferExtendingPriceMethod == null) return "";
-			try {
-				var good = _getOfferExtendingPriceMethod.Invoke(service, new[] { town });
-				if (good == null) return "";
-				return FormatGood(good);
-			} catch { return ""; }
+			var good = ReflectionHelper.Invoke(_getOfferExtendingPriceMethod, service, town);
+			if (good == null) return "";
+			return FormatGood(good);
 		}
 
 		// ========================================
@@ -561,7 +528,7 @@ namespace ATSAccessibility {
 			if (townState == null || _townOffersField == null) return result;
 
 			try {
-				var offers = _townOffersField.GetValue(townState) as IList;
+				var offers = ReflectionHelper.GetList(_townOffersField, townState);
 				if (offers == null) return result;
 
 				var service = GetTradeRoutesService();
@@ -586,26 +553,26 @@ namespace ATSAccessibility {
 
 		private static OfferInfo BuildOfferInfo(object service, object offer) {
 			// Handle hasStaticName for offer town name
-			string offerTownName = GetString(_offerTownNameField, offer);
-			bool hasStaticName = GetBool(_offerHasStaticNameField, offer);
+			string offerTownName = ReflectionHelper.GetString(_offerTownNameField, offer) ?? "";
+			bool hasStaticName = ReflectionHelper.GetBool(_offerHasStaticNameField, offer);
 			if (hasStaticName && !string.IsNullOrEmpty(offerTownName)) {
 				offerTownName = GetLocalizedText(offerTownName) ?? offerTownName;
 			}
 
 			var info = new OfferInfo {
 				State = offer,
-				TownId = GetInt(_offerTownIdField, offer),
+				TownId = ReflectionHelper.GetInt(_offerTownIdField, offer),
 				TownName = offerTownName,
-				Multiplier = GetInt(_offerAmountField, offer),
+				Multiplier = ReflectionHelper.GetInt(_offerAmountField, offer),
 				MaxMultiplier = GetMaxOfferAmount(),
-				Accepted = GetBool(_offerAcceptedField, offer)
+				Accepted = ReflectionHelper.GetBool(_offerAcceptedField, offer)
 			};
 
 			// Base good (per unit)
-			var baseGood = _offerGoodField?.GetValue(offer);
+			var baseGood = ReflectionHelper.GetField(_offerGoodField, offer);
 			if (baseGood != null) {
-				info.GoodName = GetGoodDisplayName(GetString(_goodNameField, baseGood));
-				info.GoodAmount = GetInt(_goodAmountField, baseGood);
+				info.GoodName = GetGoodDisplayName(ReflectionHelper.GetString(_goodNameField, baseGood) ?? "");
+				info.GoodAmount = ReflectionHelper.GetInt(_goodAmountField, baseGood);
 			}
 
 			// Full calculations from service
@@ -620,7 +587,7 @@ namespace ATSAccessibility {
 				// Fallback: Get fuel from config if service call returned empty
 				if (string.IsNullOrEmpty(info.FuelName) || info.FuelName == "Unknown") {
 					info.FuelName = GetFuelGoodName();
-					int baseFuel = GetInt(_offerFuelField, offer);
+					int baseFuel = ReflectionHelper.GetInt(_offerFuelField, offer);
 					info.FuelAmount = baseFuel * info.Multiplier;
 				}
 
@@ -646,19 +613,14 @@ namespace ATSAccessibility {
 		/// Extract the name from a boxed Good struct.
 		/// </summary>
 		private static string ExtractGoodName(object goodObj) {
-			if (goodObj == null || _goodNameField == null) return "";
-			try { return _goodNameField.GetValue(goodObj) as string ?? ""; } catch { return ""; }
+			return ReflectionHelper.GetString(_goodNameField, goodObj) ?? "";
 		}
 
 		/// <summary>
 		/// Extract the amount from a boxed Good struct.
 		/// </summary>
 		private static int ExtractGoodAmount(object goodObj) {
-			if (goodObj == null || _goodAmountField == null) return 0;
-			try {
-				var val = _goodAmountField.GetValue(goodObj);
-				return val is int i ? i : 0;
-			} catch { return 0; }
+			return ReflectionHelper.GetInt(_goodAmountField, goodObj);
 		}
 
 		/// <summary>
@@ -669,25 +631,18 @@ namespace ATSAccessibility {
 			var settings = GameReflection.GetSettings();
 			if (settings == null || _tradeRoutesConfigField == null) return "Provisions";
 
-			try {
-				var config = _tradeRoutesConfigField.GetValue(settings);
-				if (config == null || _configFuelField == null) return "Provisions";
+			var config = ReflectionHelper.GetField(_tradeRoutesConfigField, settings);
+			if (config == null) return "Provisions";
 
-				var fuelGoodModel = _configFuelField.GetValue(config);
-				if (fuelGoodModel == null) return "Provisions";
+			var fuelGoodModel = ReflectionHelper.GetField(_configFuelField, config);
+			if (fuelGoodModel == null) return "Provisions";
 
-				// Get the Name property from the GoodModel
-				var nameProperty = fuelGoodModel.GetType().GetProperty("Name", GameReflection.PublicInstance);
-				if (nameProperty != null) {
-					var name = nameProperty.GetValue(fuelGoodModel) as string;
-					return GetGoodDisplayName(name ?? "Provisions");
-				}
+			// Get the Name property from the GoodModel
+			var nameProperty = fuelGoodModel.GetType().GetProperty("Name", GameReflection.PublicInstance);
+			if (nameProperty == null) return "Provisions";
 
-				return "Provisions";
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetFuelGoodName failed: {ex.Message}");
-				return "Provisions";
-			}
+			var name = ReflectionHelper.GetPropString(nameProperty, fuelGoodModel);
+			return GetGoodDisplayName(name ?? "Provisions");
 		}
 
 		private static string GetBlockedReason(object service, object offer, bool accepted) {
@@ -699,38 +654,31 @@ namespace ATSAccessibility {
 		}
 
 		private static bool CanAccept(object service, object offer) {
-			if (service == null || offer == null || _canAcceptMethod == null) return false;
-			try { return (bool)_canAcceptMethod.Invoke(service, new[] { offer }); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_canAcceptMethod, service, offer);
 		}
 
 		private static bool CanAcceptAnyAmount(object service, object offer) {
-			if (service == null || offer == null || _canAcceptAnyAmountMethod == null) return false;
-			try { return (bool)_canAcceptAnyAmountMethod.Invoke(service, new[] { offer }); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_canAcceptAnyAmountMethod, service, offer);
 		}
 
 		private static bool HaveEnoughGoods(object service, object offer) {
-			if (service == null || offer == null || _haveEnoughGoodsForMethod == null) return false;
-			try { return (bool)_haveEnoughGoodsForMethod.Invoke(service, new[] { offer }); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_haveEnoughGoodsForMethod, service, offer);
 		}
 
 		private static bool HaveEnoughFuel(object service, object offer) {
-			if (service == null || offer == null || _haveEnoughFuelForMethod == null) return false;
-			try { return (bool)_haveEnoughFuelForMethod.Invoke(service, new[] { offer }); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_haveEnoughFuelForMethod, service, offer);
 		}
 
 		private static object GetFullFuel(object service, object offer) {
-			if (service == null || offer == null || _getFullFuelMethod == null) return null;
-			try { return _getFullFuelMethod.Invoke(service, new[] { offer }); } catch { return null; }
+			return ReflectionHelper.Invoke(_getFullFuelMethod, service, offer);
 		}
 
 		private static object GetFullPrice(object service, object offer) {
-			if (service == null || offer == null || _getFullPriceMethod == null) return null;
-			try { return _getFullPriceMethod.Invoke(service, new[] { offer }); } catch { return null; }
+			return ReflectionHelper.Invoke(_getFullPriceMethod, service, offer);
 		}
 
 		private static float GetFullTravelTime(object service, object offer) {
-			if (service == null || offer == null || _getFullTravelTimeMethod == null) return 0f;
-			try { return (float)_getFullTravelTimeMethod.Invoke(service, new[] { offer }); } catch { return 0f; }
+			return ReflectionHelper.InvokeFloat(_getFullTravelTimeMethod, service, offer);
 		}
 
 		// ========================================
@@ -748,7 +696,7 @@ namespace ATSAccessibility {
 			if (tradeState == null || _tradeRoutesField == null) return result;
 
 			try {
-				var routes = _tradeRoutesField.GetValue(tradeState) as IList;
+				var routes = ReflectionHelper.GetList(_tradeRoutesField, tradeState);
 				if (routes == null) return result;
 
 				var service = GetTradeRoutesService();
@@ -757,35 +705,35 @@ namespace ATSAccessibility {
 					if (route == null) continue;
 
 					// Handle hasStaticName for route town name
-					string routeTownName = GetString(_routeTownNameField, route);
-					bool hasStaticName = GetBool(_routeHasStaticNameField, route);
+					string routeTownName = ReflectionHelper.GetString(_routeTownNameField, route) ?? "";
+					bool hasStaticName = ReflectionHelper.GetBool(_routeHasStaticNameField, route);
 					if (hasStaticName && !string.IsNullOrEmpty(routeTownName)) {
 						routeTownName = GetLocalizedText(routeTownName) ?? routeTownName;
 					}
 
 					var info = new RouteInfo {
 						State = route,
-						TownId = GetInt(_routeTownIdField, route),
+						TownId = ReflectionHelper.GetInt(_routeTownIdField, route),
 						TownName = routeTownName,
-						Progress = GetFloat(_routeProgressField, route)
+						Progress = ReflectionHelper.GetFloat(_routeProgressField, route)
 					};
 
 					// Good
-					var good = _routeGoodField?.GetValue(route);
+					var good = ReflectionHelper.GetField(_routeGoodField, route);
 					if (good != null) {
-						info.GoodName = GetGoodDisplayName(GetString(_goodNameField, good));
-						info.GoodAmount = GetInt(_goodAmountField, good);
+						info.GoodName = GetGoodDisplayName(ReflectionHelper.GetString(_goodNameField, good) ?? "");
+						info.GoodAmount = ReflectionHelper.GetInt(_goodAmountField, good);
 					}
 
 					// Price (reward)
-					var price = _routePriceField?.GetValue(route);
+					var price = ReflectionHelper.GetField(_routePriceField, route);
 					if (price != null) {
-						info.PriceName = GetGoodDisplayName(GetString(_goodNameField, price));
-						info.PriceAmount = GetInt(_goodAmountField, price);
+						info.PriceName = GetGoodDisplayName(ReflectionHelper.GetString(_goodNameField, price) ?? "");
+						info.PriceAmount = ReflectionHelper.GetInt(_goodAmountField, price);
 					}
 
 					// Calculate time remaining
-					float travelTime = GetFloat(_routeTravelTimeField, route);
+					float travelTime = ReflectionHelper.GetFloat(_routeTravelTimeField, route);
 					float progress = info.Progress;
 					if (progress < 1f && travelTime > 0) {
 						info.TimeRemaining = travelTime * (1f - progress);
@@ -804,8 +752,7 @@ namespace ATSAccessibility {
 		}
 
 		private static bool CanCollect(object service, object route) {
-			if (service == null || route == null || _canCollectMethod == null) return false;
-			try { return (bool)_canCollectMethod.Invoke(service, new[] { route }); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_canCollectMethod, service, route);
 		}
 
 		// ========================================
@@ -816,66 +763,30 @@ namespace ATSAccessibility {
 		/// Collect a completed route.
 		/// </summary>
 		public static bool Collect(object routeState) {
-			var service = GetTradeRoutesService();
-			if (service == null || routeState == null || _collectMethod == null) return false;
-
-			try {
-				_collectMethod.Invoke(service, new[] { routeState });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] Collect failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_collectMethod, GetTradeRoutesService(), routeState);
 		}
 
 		/// <summary>
 		/// Accept a trade offer.
 		/// </summary>
 		public static bool AcceptOffer(object offerState) {
-			var service = GetTradeRoutesService();
-			if (service == null || offerState == null || _acceptOfferMethod == null) return false;
-
-			try {
-				_acceptOfferMethod.Invoke(service, new[] { offerState });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] AcceptOffer failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_acceptOfferMethod, GetTradeRoutesService(), offerState);
 		}
 
 		/// <summary>
 		/// Extend offers for a town (adds one more offer slot).
 		/// </summary>
 		public static bool ExtendOffer(object townState) {
-			var service = GetTradeRoutesService();
-			if (service == null || townState == null || _extendOfferMethod == null) return false;
-
-			try {
-				_extendOfferMethod.Invoke(service, new[] { townState });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ExtendOffer failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_extendOfferMethod, GetTradeRoutesService(), townState);
 		}
 
 		/// <summary>
 		/// Set the offer amount (multiplier 1-5).
 		/// </summary>
 		public static bool SetOfferAmount(object offerState, int amount) {
-			if (offerState == null || _offerAmountField == null) return false;
-
 			int maxAmount = GetMaxOfferAmount();
 			amount = Mathf.Clamp(amount, 1, maxAmount);
-
-			try {
-				_offerAmountField.SetValue(offerState, amount);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SetOfferAmount failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.SetField(_offerAmountField, offerState, amount);
 		}
 
 		/// <summary>
@@ -883,7 +794,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetOfferAmount(object offerState) {
 			if (offerState == null || _offerAmountField == null) return 1;
-			try { return (int)_offerAmountField.GetValue(offerState); } catch { return 1; }
+			return ReflectionHelper.GetInt(_offerAmountField, offerState);
 		}
 
 		// ========================================
@@ -895,41 +806,30 @@ namespace ATSAccessibility {
 			var settings = GameReflection.GetSettings();
 			if (settings == null || _tradeRoutesConfigField == null) return 5;
 
-			try {
-				var config = _tradeRoutesConfigField.GetValue(settings);
-				if (config == null || _configMaxOfferAmountField == null) return 5;
-				return (int)_configMaxOfferAmountField.GetValue(config);
-			} catch { return 5; }
+			var config = ReflectionHelper.GetField(_tradeRoutesConfigField, settings);
+			if (config == null || _configMaxOfferAmountField == null) return 5;
+			var val = ReflectionHelper.GetInt(_configMaxOfferAmountField, config);
+			return val > 0 ? val : 5;
 		}
 
 		private static string GetGoodDisplayName(string goodName) {
 			if (string.IsNullOrEmpty(goodName)) return "Unknown";
 
 			var settings = GameReflection.GetSettings();
-			if (settings == null || _getGoodMethod == null) return goodName;
+			var goodModel = ReflectionHelper.Invoke(_getGoodMethod, settings, goodName);
+			if (goodModel == null) return goodName;
 
-			try {
-				var goodModel = _getGoodMethod.Invoke(settings, new object[] { goodName });
-				if (goodModel == null) return goodName;
-
-				var locaText = _goodDisplayNameField?.GetValue(goodModel);
-				return GameReflection.GetLocaText(locaText) ?? goodName;
-			} catch { return goodName; }
+			return ReflectionHelper.GetLocaString(_goodDisplayNameField, goodModel) ?? goodName;
 		}
 
 		private static string GetBiomeDisplayName(string biomeName) {
 			if (string.IsNullOrEmpty(biomeName)) return "Unknown";
 
 			var settings = GameReflection.GetSettings();
-			if (settings == null || _settingsGetBiomeMethod == null) return biomeName;
+			var biomeModel = ReflectionHelper.Invoke(_settingsGetBiomeMethod, settings, biomeName);
+			if (biomeModel == null) return biomeName;
 
-			try {
-				var biomeModel = _settingsGetBiomeMethod.Invoke(settings, new object[] { biomeName });
-				if (biomeModel == null || _biomeDisplayNameField == null) return biomeName;
-
-				var locaText = _biomeDisplayNameField.GetValue(biomeModel);
-				return GameReflection.GetLocaText(locaText) ?? biomeName;
-			} catch { return biomeName; }
+			return ReflectionHelper.GetLocaString(_biomeDisplayNameField, biomeModel) ?? biomeName;
 		}
 
 		private static string GetFactionDisplayName(string factionName) {
@@ -937,15 +837,10 @@ namespace ATSAccessibility {
 			if (string.IsNullOrEmpty(factionName)) return null;
 
 			var settings = GameReflection.GetSettings();
-			if (settings == null || _settingsGetFactionMethod == null) return null;
+			var factionModel = ReflectionHelper.Invoke(_settingsGetFactionMethod, settings, factionName);
+			if (factionModel == null) return null;
 
-			try {
-				var factionModel = _settingsGetFactionMethod.Invoke(settings, new object[] { factionName });
-				if (factionModel == null || _factionDisplayNameField == null) return null;
-
-				var locaText = _factionDisplayNameField.GetValue(factionModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch { return null; }
+			return ReflectionHelper.GetLocaString(_factionDisplayNameField, factionModel);
 		}
 
 		/// <summary>
@@ -984,46 +879,10 @@ namespace ATSAccessibility {
 
 		private static string FormatGood(object good) {
 			if (good == null) return "";
-			var name = GetGoodDisplayName(GetString(_goodNameField, good));
-			var amount = GetInt(_goodAmountField, good);
+			var name = GetGoodDisplayName(ReflectionHelper.GetString(_goodNameField, good) ?? "");
+			var amount = ReflectionHelper.GetInt(_goodAmountField, good);
 			return $"{amount} {name}";
 		}
-
-		private static string GetString(FieldInfo field, object obj) {
-			if (field == null || obj == null) return "";
-			try { return field.GetValue(obj) as string ?? ""; } catch { return ""; }
-		}
-
-		private static int GetInt(FieldInfo field, object obj) {
-			if (field == null || obj == null) return 0;
-			try { return (int)field.GetValue(obj); } catch { return 0; }
-		}
-
-		private static float GetFloat(FieldInfo field, object obj) {
-			if (field == null || obj == null) return 0f;
-			try { return (float)field.GetValue(obj); } catch { return 0f; }
-		}
-
-		private static bool GetBool(FieldInfo field, object obj) {
-			if (field == null || obj == null) return false;
-			try { return (bool)field.GetValue(obj); } catch { return false; }
-		}
-
-		// ========================================
-		// TIME FORMATTING
-		// ========================================
-
-		/// <summary>
-		/// Format time in seconds to a readable string (e.g., "1:30").
-		/// </summary>
-		public static string FormatTime(float seconds) {
-			if (seconds <= 0) return "0:00";
-			int totalSeconds = Mathf.RoundToInt(seconds);
-			int minutes = totalSeconds / 60;
-			int secs = totalSeconds % 60;
-			return $"{minutes}:{secs:D2}";
-		}
-
 
 		public static int LogCacheStatus() {
 			return ReflectionValidator.TriggerAndValidate(typeof(TradeRoutesReflection), "TradeRoutesReflection");

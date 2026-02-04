@@ -158,11 +158,6 @@ namespace ATSAccessibility {
 		// Subject<T>.OnNext method (for firing events)
 		private static MethodInfo _subjectOnNextMethod = null;
 
-		// Pre-allocated args arrays
-		private static readonly object[] _args1 = new object[1];
-		private static readonly object[] _args2 = new object[2];
-		private static readonly object[] _args3 = new object[3];
-
 		// ========================================
 		// INITIALIZATION
 		// ========================================
@@ -171,13 +166,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] OrdersReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("OrdersReflection", assembly => {
 				CachePopupTypes(assembly);
 				CacheServiceTypes(assembly);
 				CacheOrderStateTypes(assembly);
@@ -187,11 +176,7 @@ namespace ATSAccessibility {
 				CacheEffectModelTypes(assembly);
 				CacheSettingsTypes(assembly);
 				CacheBlackboardTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] OrdersReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] OrdersReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CachePopupTypes(Assembly assembly) {
@@ -384,8 +369,7 @@ namespace ATSAccessibility {
 		public static IList GetOrders() {
 			EnsureCached();
 			var service = GetOrdersService();
-			if (service == null || _osOrdersProperty == null) return null;
-			try { return _osOrdersProperty.GetValue(service) as IList; } catch { return null; }
+			return ReflectionHelper.GetList(_osOrdersProperty, service);
 		}
 
 		/// <summary>
@@ -395,16 +379,13 @@ namespace ATSAccessibility {
 			EnsureCached();
 			if (orderState == null || _osModelField == null) return null;
 
-			try {
-				var modelName = _osModelField.GetValue(orderState) as string;
-				if (string.IsNullOrEmpty(modelName)) return null;
+			var modelName = ReflectionHelper.GetString(_osModelField, orderState);
+			if (string.IsNullOrEmpty(modelName)) return null;
 
-				var settings = GameReflection.GetSettings();
-				if (settings == null || _settingsGetOrderMethod == null) return null;
+			var settings = GameReflection.GetSettings();
+			if (settings == null || _settingsGetOrderMethod == null) return null;
 
-				_args1[0] = modelName;
-				return _settingsGetOrderMethod.Invoke(settings, _args1);
-			} catch { return null; }
+			return ReflectionHelper.Invoke(_settingsGetOrderMethod, settings, modelName);
 		}
 
 		/// <summary>
@@ -412,78 +393,41 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetOrderDisplayName(object orderModel) {
 			if (orderModel == null || _omDisplayNameField == null) return null;
-			try {
-				var locaText = _omDisplayNameField.GetValue(orderModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch { return null; }
+			return ReflectionHelper.GetLocaString(_omDisplayNameField, orderModel);
 		}
 
 		// ========================================
 		// ORDER STATE QUERIES
 		// ========================================
 
-		public static bool IsStarted(object orderState) {
-			if (orderState == null || _osStartedField == null) return false;
-			try { return (bool)_osStartedField.GetValue(orderState); } catch { return false; }
-		}
+		public static bool IsStarted(object orderState) => ReflectionHelper.GetBool(_osStartedField, orderState);
 
-		public static bool IsPicked(object orderState) {
-			if (orderState == null || _osPickedField == null) return false;
-			try { return (bool)_osPickedField.GetValue(orderState); } catch { return false; }
-		}
+		public static bool IsPicked(object orderState) => ReflectionHelper.GetBool(_osPickedField, orderState);
 
-		public static bool IsCompleted(object orderState) {
-			if (orderState == null || _osCompletedField == null) return false;
-			try { return (bool)_osCompletedField.GetValue(orderState); } catch { return false; }
-		}
+		public static bool IsCompleted(object orderState) => ReflectionHelper.GetBool(_osCompletedField, orderState);
 
-		public static bool IsFailed(object orderState) {
-			if (orderState == null || _osIsFailedField == null) return false;
-			try { return (bool)_osIsFailedField.GetValue(orderState); } catch { return false; }
-		}
+		public static bool IsFailed(object orderState) => ReflectionHelper.GetBool(_osIsFailedField, orderState);
 
-		public static bool IsTracked(object orderState) {
-			if (orderState == null || _osTrackedField == null) return false;
-			try { return (bool)_osTrackedField.GetValue(orderState); } catch { return false; }
-		}
+		public static bool IsTracked(object orderState) => ReflectionHelper.GetBool(_osTrackedField, orderState);
 
-		public static float GetTimeLeft(object orderState) {
-			if (orderState == null || _osTimeLeftField == null) return 0f;
-			try { return (float)_osTimeLeftField.GetValue(orderState); } catch { return 0f; }
-		}
+		public static float GetTimeLeft(object orderState) => ReflectionHelper.GetFloat(_osTimeLeftField, orderState);
 
-		public static float GetStartTime(object orderState) {
-			if (orderState == null || _osStartTimeField == null) return 0f;
-			try { return (float)_osStartTimeField.GetValue(orderState); } catch { return 0f; }
-		}
+		public static float GetStartTime(object orderState) => ReflectionHelper.GetFloat(_osStartTimeField, orderState);
 
-		public static bool CanBeFailed(object orderModel) {
-			if (orderModel == null || _omCanBeFailedField == null) return false;
-			try { return (bool)_omCanBeFailedField.GetValue(orderModel); } catch { return false; }
-		}
+		public static bool CanBeFailed(object orderModel) => ReflectionHelper.GetBool(_omCanBeFailedField, orderModel);
 
-		public static bool IsShouldBeFailable(object orderState) {
-			if (orderState == null || _osShouldBeFailableField == null) return false;
-			try { return (bool)_osShouldBeFailableField.GetValue(orderState); } catch { return false; }
-		}
+		public static bool IsShouldBeFailable(object orderState) => ReflectionHelper.GetBool(_osShouldBeFailableField, orderState);
 
-		public static float GetTimeToFail(object orderModel) {
-			if (orderModel == null || _omTimeToFailField == null) return 0f;
-			try { return (float)_omTimeToFailField.GetValue(orderModel); } catch { return 0f; }
-		}
+		public static float GetTimeToFail(object orderModel) => ReflectionHelper.GetFloat(_omTimeToFailField, orderModel);
 
 		public static bool HasUnlockAfter(object orderModel) {
-			if (orderModel == null || _omUnlockAfterField == null) return false;
-			try { return _omUnlockAfterField.GetValue(orderModel) != null; } catch { return false; }
+			return ReflectionHelper.GetField(_omUnlockAfterField, orderModel) != null;
 		}
 
 		public static string GetUnlockAfterName(object orderModel) {
-			if (orderModel == null || _omUnlockAfterField == null) return null;
-			try {
-				var unlockAfter = _omUnlockAfterField.GetValue(orderModel);
-				if (unlockAfter == null) return null;
-				return GetOrderDisplayName(unlockAfter);
-			} catch { return null; }
+			var unlockAfter = ReflectionHelper.GetField(_omUnlockAfterField, orderModel);
+			if (unlockAfter == null) return null;
+			return GetOrderDisplayName(unlockAfter);
 		}
 
 		// ========================================
@@ -493,8 +437,7 @@ namespace ATSAccessibility {
 		public static float GetGameTime() {
 			EnsureCached();
 			var service = GetGameTimeService();
-			if (service == null || _gtsTimeProperty == null) return 0f;
-			try { return (float)_gtsTimeProperty.GetValue(service); } catch { return 0f; }
+			return ReflectionHelper.GetPropFloat(_gtsTimeProperty, service);
 		}
 
 		// ========================================
@@ -514,12 +457,11 @@ namespace ATSAccessibility {
 			try {
 				// Get logics via GetLogics(OrderState)
 				if (_omGetLogicsMethod == null) return result;
-				_args1[0] = orderState;
-				var logics = _omGetLogicsMethod.Invoke(orderModel, _args1) as Array;
+				var logics = ReflectionHelper.Invoke(_omGetLogicsMethod, orderModel, orderState) as Array;
 				if (logics == null) return result;
 
 				// Get objectives array from state
-				var objectives = _osObjectivesField?.GetValue(orderState) as Array;
+				var objectives = ReflectionHelper.GetField(_osObjectivesField, orderState) as Array;
 
 				for (int i = 0; i < logics.Length; i++) {
 					var logic = logics.GetValue(i);
@@ -527,28 +469,26 @@ namespace ATSAccessibility {
 					if (objectives == null || i >= objectives.Length) continue;
 
 					var objState = objectives.GetValue(i);
-					string displayName = _olDisplayNameProperty?.GetValue(logic) as string;
+					string displayName = ReflectionHelper.GetPropString(_olDisplayNameProperty, logic);
 
 					// Get progress amount (e.g. "2/3") and total amount (e.g. "3")
 					string progressAmount = null;
 					if (_olGetAmountTextStateMethod != null) {
-						_args1[0] = objState;
-						var raw = _olGetAmountTextStateMethod.Invoke(logic, _args1) as string;
+						var raw = ReflectionHelper.InvokeString(_olGetAmountTextStateMethod, logic, objState);
 						if (!string.IsNullOrEmpty(raw))
 							progressAmount = StripRichText(raw);
 					}
 
 					string totalAmount = null;
 					if (_olGetAmountTextMethod != null) {
-						var raw = _olGetAmountTextMethod.Invoke(logic, null) as string;
+						var raw = ReflectionHelper.InvokeString(_olGetAmountTextMethod, logic);
 						if (!string.IsNullOrEmpty(raw))
 							totalAmount = StripRichText(raw);
 					}
 
 					// If DisplayName unavailable, fall back to raw GetObjectiveText
 					if (string.IsNullOrEmpty(displayName)) {
-						_args1[0] = objState;
-						string rawText = _olGetObjectiveTextMethod?.Invoke(logic, _args1) as string;
+						string rawText = ReflectionHelper.InvokeString(_olGetObjectiveTextMethod, logic, objState);
 						if (!string.IsNullOrEmpty(rawText))
 							result.Add(TrimObjectiveText(StripRichText(rawText)));
 						continue;
@@ -572,7 +512,7 @@ namespace ATSAccessibility {
 
 							if (!skipDescription && !string.IsNullOrEmpty(totalAmount)) {
 								// Try Description with total amount swapped for progress
-								string desc = _olDescriptionProperty?.GetValue(logic) as string;
+								string desc = ReflectionHelper.GetPropString(_olDescriptionProperty, logic);
 								string strippedDesc = !string.IsNullOrEmpty(desc) ? StripRichText(desc).Trim() : null;
 
 								if (!string.IsNullOrEmpty(strippedDesc) && strippedDesc.Contains(totalAmount)) {
@@ -619,8 +559,7 @@ namespace ATSAccessibility {
 						formatted = TrimObjectiveText(displayName);
 					} else {
 						// No amount text - fall back to raw GetObjectiveText
-						_args1[0] = objState;
-						string rawText = _olGetObjectiveTextMethod?.Invoke(logic, _args1) as string;
+						string rawText = ReflectionHelper.InvokeString(_olGetObjectiveTextMethod, logic, objState);
 						formatted = !string.IsNullOrEmpty(rawText) ? TrimObjectiveText(StripRichText(rawText)) : null;
 					}
 
@@ -669,24 +608,18 @@ namespace ATSAccessibility {
 			if (logic == null || _repSourceLogicType == null || !_repSourceLogicType.IsInstanceOfType(logic))
 				return null;
 
-			try {
-				// Try the game's localized GetSourceText() first
-				if (_repGetSourceTextMethod != null) {
-					var text = _repGetSourceTextMethod.Invoke(logic, null) as string;
-					if (!string.IsNullOrEmpty(text))
-						return StripRichText(text).Trim();
-				}
+			// Try the game's localized GetSourceText() first
+			var text = ReflectionHelper.InvokeString(_repGetSourceTextMethod, logic);
+			if (!string.IsNullOrEmpty(text))
+				return StripRichText(text).Trim();
 
-				// Fallback: read the source enum field directly
-				if (_repSourceField != null) {
-					int source = (int)_repSourceField.GetValue(logic);
-					switch (source) {
-						case 1: return "Orders";
-						case 2: return "Resolve";
-						case 3: return "Relics";
-					}
-				}
-			} catch { }
+			// Fallback: read the source enum field directly
+			int source = ReflectionHelper.GetEnum(_repSourceField, logic);
+			switch (source) {
+				case 1: return "Orders";
+				case 2: return "Resolve";
+				case 3: return "Relics";
+			}
 
 			return null;
 		}
@@ -704,26 +637,22 @@ namespace ATSAccessibility {
 				Array logics = null;
 
 				// Try GetLogics(int setIndex)
-				if (_omGetLogicsIntMethod != null) {
-					_args1[0] = setIndex;
-					logics = _omGetLogicsIntMethod.Invoke(orderModel, _args1) as Array;
-				}
+				if (_omGetLogicsIntMethod != null)
+					logics = ReflectionHelper.Invoke(_omGetLogicsIntMethod, orderModel, setIndex) as Array;
 
 				if (logics == null) return result;
 
 				foreach (var logic in logics) {
 					if (logic == null) continue;
 
-					string displayName = _olDisplayNameProperty?.GetValue(logic) as string;
+					string displayName = ReflectionHelper.GetPropString(_olDisplayNameProperty, logic);
 					if (string.IsNullOrEmpty(displayName)) continue;
 
 					// Some logics embed the amount in DisplayName (e.g. "Deliver 10 Amber"),
 					// others keep it separate (e.g. "Produce Pipes" + amount "6").
 					// For the latter, use the Description property which formats correctly
 					// (e.g. "Produce 6 Pipes").
-					string amountText = null;
-					if (_olGetAmountTextMethod != null)
-						amountText = _olGetAmountTextMethod.Invoke(logic, null) as string;
+					string amountText = ReflectionHelper.InvokeString(_olGetAmountTextMethod, logic);
 
 					if (!string.IsNullOrEmpty(amountText)) {
 						string stripped = StripRichText(amountText);
@@ -735,7 +664,7 @@ namespace ATSAccessibility {
 							if (!skipDescription) {
 								// Try Description which may have proper localized placement
 								// (e.g. "Earn 3 Reputation Points from Orders")
-								string desc = _olDescriptionProperty?.GetValue(logic) as string;
+								string desc = ReflectionHelper.GetPropString(_olDescriptionProperty, logic);
 								string strippedDesc = !string.IsNullOrEmpty(desc) ? StripRichText(desc).Trim() : null;
 
 								if (!string.IsNullOrEmpty(strippedDesc) && strippedDesc.Contains(stripped)) {
@@ -796,20 +725,18 @@ namespace ATSAccessibility {
 
 			try {
 				Array logics = null;
-				if (_omGetLogicsIntMethod != null) {
-					_args1[0] = setIndex;
-					logics = _omGetLogicsIntMethod.Invoke(orderModel, _args1) as Array;
-				}
+				if (_omGetLogicsIntMethod != null)
+					logics = ReflectionHelper.Invoke(_omGetLogicsIntMethod, orderModel, setIndex) as Array;
 				if (logics == null) return result;
 
 				foreach (var logic in logics) {
 					if (logic == null) continue;
 
-					bool hasStored = (bool)_olHasStoredAmountProperty.GetValue(logic);
+					bool hasStored = ReflectionHelper.GetPropBool(_olHasStoredAmountProperty, logic);
 					if (!hasStored) continue;
 
-					int stored = (int)_olGetStoredAmountProperty.GetValue(logic);
-					string displayName = _olDisplayNameProperty?.GetValue(logic) as string;
+					int stored = ReflectionHelper.GetPropInt(_olGetStoredAmountProperty, logic);
+					string displayName = ReflectionHelper.GetPropString(_olDisplayNameProperty, logic);
 					if (string.IsNullOrEmpty(displayName)) continue;
 
 					result.Add($"{displayName}: {stored}");
@@ -832,16 +759,14 @@ namespace ATSAccessibility {
 
 			try {
 				Array logics = null;
-				if (_omGetLogicsIntMethod != null) {
-					_args1[0] = setIndex;
-					logics = _omGetLogicsIntMethod.Invoke(orderModel, _args1) as Array;
-				}
+				if (_omGetLogicsIntMethod != null)
+					logics = ReflectionHelper.Invoke(_omGetLogicsIntMethod, orderModel, setIndex) as Array;
 				if (logics == null) return result;
 
 				foreach (var logic in logics) {
 					if (logic == null) continue;
 
-					string warning = _olGetWarningTextMethod.Invoke(logic, null) as string;
+					string warning = ReflectionHelper.InvokeString(_olGetWarningTextMethod, logic);
 					if (string.IsNullOrEmpty(warning)) continue;
 
 					string stripped = StripRichText(warning).Trim();
@@ -872,8 +797,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static List<string> GetPickRewardTexts(object pickState) {
 			EnsureCached();
-			if (pickState == null || _opsRewardsField == null) return new List<string>();
-			var rewards = _opsRewardsField.GetValue(pickState) as IList;
+			var rewards = ReflectionHelper.GetList(_opsRewardsField, pickState);
 			return ResolveEffectNames(rewards);
 		}
 
@@ -882,26 +806,16 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetReputationRewardText(object orderModel) {
 			EnsureCached();
-			if (orderModel == null || _omReputationRewardField == null) return null;
+			var effectModel = ReflectionHelper.GetField(_omReputationRewardField, orderModel);
+			if (effectModel == null) return null;
 
-			try {
-				var effectModel = _omReputationRewardField.GetValue(orderModel);
-				if (effectModel == null) return null;
-
-				string amountText = null;
-				if (_emGetAmountTextMethod != null)
-					amountText = _emGetAmountTextMethod.Invoke(effectModel, null) as string;
-
-				if (!string.IsNullOrEmpty(amountText))
-					return $"{StripRichText(amountText)} Reputation";
-				return "1 Reputation";
-			} catch { return null; }
+			string amountText = ReflectionHelper.InvokeString(_emGetAmountTextMethod, effectModel);
+			if (!string.IsNullOrEmpty(amountText))
+				return $"{StripRichText(amountText)} Reputation";
+			return "1 Reputation";
 		}
 
-		private static IList GetRewardsList(object orderState) {
-			if (orderState == null || _osRewardsField == null) return null;
-			try { return _osRewardsField.GetValue(orderState) as IList; } catch { return null; }
-		}
+		private static IList GetRewardsList(object orderState) => ReflectionHelper.GetList(_osRewardsField, orderState);
 
 		private static List<string> ResolveEffectNames(IList effectNames) {
 			var result = new List<string>();
@@ -914,18 +828,15 @@ namespace ATSAccessibility {
 				var name = nameObj as string;
 				if (string.IsNullOrEmpty(name)) continue;
 
-				try {
-					_args1[0] = name;
-					var effectModel = _settingsGetEffectMethod.Invoke(settings, _args1);
-					if (effectModel == null) continue;
+				var effectModel = ReflectionHelper.Invoke(_settingsGetEffectMethod, settings, name);
+				if (effectModel == null) continue;
 
-					// Building blueprints have verbose descriptions listing productions;
-					// use DisplayName (just the building name) for those.
-					bool isBlueprint = name.Contains("Blueprint");
-					string text = GetEffectDisplayText(effectModel, isBlueprint);
-					if (!string.IsNullOrEmpty(text))
-						result.Add(isBlueprint ? $"Blueprint: {text}" : text);
-				} catch { }
+				// Building blueprints have verbose descriptions listing productions;
+				// use DisplayName (just the building name) for those.
+				bool isBlueprint = name.Contains("Blueprint");
+				string text = GetEffectDisplayText(effectModel, isBlueprint);
+				if (!string.IsNullOrEmpty(text))
+					result.Add(isBlueprint ? $"Blueprint: {text}" : text);
 			}
 
 			return result;
@@ -934,33 +845,28 @@ namespace ATSAccessibility {
 		private static string GetEffectDisplayText(object effectModel, bool useDisplayName = false) {
 			if (effectModel == null) return null;
 
-			try {
-				string displayName = _emDisplayNameProperty?.GetValue(effectModel) as string;
+			string displayName = ReflectionHelper.GetPropString(_emDisplayNameProperty, effectModel);
 
-				if (useDisplayName)
-					return displayName;
-
-				// Prefer Description (tooltip text) - gives actual mechanical meaning
-				string description = _emDescriptionProperty?.GetValue(effectModel) as string;
-				if (!string.IsNullOrEmpty(description)) {
-					string stripped = StripRichText(description).Trim();
-					if (!string.IsNullOrEmpty(stripped)) {
-						// Simplify verbose production bonus descriptions
-						stripped = ProductionBonusRegex.Replace(stripped, "$1 bonus to $2 production");
-						return TrimObjectiveText(stripped);
-					}
-				}
-
-				// Fallback to DisplayName + amount
-				string amountText = null;
-				if (_emGetAmountTextMethod != null) {
-					amountText = _emGetAmountTextMethod.Invoke(effectModel, null) as string;
-				}
-
-				if (!string.IsNullOrEmpty(amountText))
-					return StripRichText($"{amountText} {displayName}");
+			if (useDisplayName)
 				return displayName;
-			} catch { return null; }
+
+			// Prefer Description (tooltip text) - gives actual mechanical meaning
+			string description = ReflectionHelper.GetPropString(_emDescriptionProperty, effectModel);
+			if (!string.IsNullOrEmpty(description)) {
+				string stripped = StripRichText(description).Trim();
+				if (!string.IsNullOrEmpty(stripped)) {
+					// Simplify verbose production bonus descriptions
+					stripped = ProductionBonusRegex.Replace(stripped, "$1 bonus to $2 production");
+					return TrimObjectiveText(stripped);
+				}
+			}
+
+			// Fallback to DisplayName + amount
+			string amountText = ReflectionHelper.InvokeString(_emGetAmountTextMethod, effectModel);
+
+			if (!string.IsNullOrEmpty(amountText))
+				return StripRichText($"{amountText} {displayName}");
+			return displayName;
 		}
 
 		// ========================================
@@ -973,13 +879,8 @@ namespace ATSAccessibility {
 		public static bool CanComplete(object orderState, object orderModel) {
 			EnsureCached();
 			var service = GetOrdersService();
-			if (service == null || _osCanCompleteMethod == null) return false;
-
-			try {
-				_args2[0] = orderState;
-				_args2[1] = orderModel;
-				return (bool)_osCanCompleteMethod.Invoke(service, _args2);
-			} catch { return false; }
+			if (service == null) return false;
+			return ReflectionHelper.InvokeBool(_osCanCompleteMethod, service, orderState, orderModel);
 		}
 
 		/// <summary>
@@ -988,18 +889,8 @@ namespace ATSAccessibility {
 		public static bool CompleteOrder(object orderState, object orderModel) {
 			EnsureCached();
 			var service = GetOrdersService();
-			if (service == null || _osCompleteOrderMethod == null) return false;
-
-			try {
-				_args3[0] = orderState;
-				_args3[1] = orderModel;
-				_args3[2] = false;  // force = false
-				_osCompleteOrderMethod.Invoke(service, _args3);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] CompleteOrder failed: {ex.Message}");
-				return false;
-			}
+			if (service == null) return false;
+			return ReflectionHelper.InvokeVoid(_osCompleteOrderMethod, service, orderState, orderModel, false);
 		}
 
 		/// <summary>
@@ -1008,17 +899,8 @@ namespace ATSAccessibility {
 		public static bool PickOrder(object orderState, object pickState) {
 			EnsureCached();
 			var service = GetOrdersService();
-			if (service == null || _osOrderPickedMethod == null) return false;
-
-			try {
-				_args2[0] = orderState;
-				_args2[1] = pickState;
-				_osOrderPickedMethod.Invoke(service, _args2);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] PickOrder failed: {ex.Message}");
-				return false;
-			}
+			if (service == null) return false;
+			return ReflectionHelper.InvokeVoid(_osOrderPickedMethod, service, orderState, pickState);
 		}
 
 		/// <summary>
@@ -1027,18 +909,9 @@ namespace ATSAccessibility {
 		public static bool ToggleTracking(object orderState) {
 			EnsureCached();
 			var service = GetOrdersService();
-			if (service == null || _osSwitchOrderTrackingMethod == null) return false;
-
-			try {
-				bool currentlyTracked = IsTracked(orderState);
-				_args2[0] = orderState;
-				_args2[1] = !currentlyTracked;
-				_osSwitchOrderTrackingMethod.Invoke(service, _args2);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] ToggleTracking failed: {ex.Message}");
-				return false;
-			}
+			if (service == null) return false;
+			bool currentlyTracked = IsTracked(orderState);
+			return ReflectionHelper.InvokeVoid(_osSwitchOrderTrackingMethod, service, orderState, !currentlyTracked);
 		}
 
 		/// <summary>
@@ -1048,26 +921,17 @@ namespace ATSAccessibility {
 			EnsureCached();
 			if (orderState == null || _gbbOrderPickPopupRequestedProperty == null) return false;
 
-			try {
-				var blackboard = GameReflection.GetGameBlackboardService();
-				if (blackboard == null) return false;
+			var blackboard = GameReflection.GetGameBlackboardService();
+			if (blackboard == null) return false;
 
-				var subject = _gbbOrderPickPopupRequestedProperty.GetValue(blackboard);
-				if (subject == null) return false;
+			var subject = ReflectionHelper.GetProp(_gbbOrderPickPopupRequestedProperty, blackboard);
+			if (subject == null) return false;
 
-				// Get OnNext method from the subject
-				if (_subjectOnNextMethod == null) {
-					_subjectOnNextMethod = subject.GetType().GetMethod("OnNext", GameReflection.PublicInstance);
-				}
-				if (_subjectOnNextMethod == null) return false;
+			// Get OnNext method from the subject
+			if (_subjectOnNextMethod == null)
+				_subjectOnNextMethod = subject.GetType().GetMethod("OnNext", GameReflection.PublicInstance);
 
-				_args1[0] = orderState;
-				_subjectOnNextMethod.Invoke(subject, _args1);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] FireOrderPickPopupRequested failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_subjectOnNextMethod, subject, orderState);
 		}
 
 		/// <summary>
@@ -1075,8 +939,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetPopupOrder(object popup) {
 			EnsureCached();
-			if (popup == null || _oppOrderField == null) return null;
-			try { return _oppOrderField.GetValue(popup); } catch { return null; }
+			return ReflectionHelper.GetField(_oppOrderField, popup);
 		}
 
 		/// <summary>
@@ -1084,15 +947,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool HidePopup(object popup) {
 			EnsureCached();
-			if (popup == null || _popupHideMethod == null) return false;
-
-			try {
-				_popupHideMethod.Invoke(popup, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] HidePopup failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_popupHideMethod, popup);
 		}
 
 		// ========================================
@@ -1105,32 +960,19 @@ namespace ATSAccessibility {
 		public static IList GetPicksFor(object orderState) {
 			EnsureCached();
 			var service = GetOrdersService();
-			if (service == null || _osGetPicksForMethod == null) return null;
-
-			try {
-				_args1[0] = orderState;
-				return _osGetPicksForMethod.Invoke(service, _args1) as IList;
-			} catch { return null; }
+			if (service == null) return null;
+			return ReflectionHelper.Invoke(_osGetPicksForMethod, service, orderState) as IList;
 		}
 
 		// ========================================
 		// PICK STATE ACCESS
 		// ========================================
 
-		public static string GetPickModel(object pickState) {
-			if (pickState == null || _opsModelField == null) return null;
-			try { return _opsModelField.GetValue(pickState) as string; } catch { return null; }
-		}
+		public static string GetPickModel(object pickState) => ReflectionHelper.GetString(_opsModelField, pickState);
 
-		public static int GetPickSetIndex(object pickState) {
-			if (pickState == null || _opsSetIndexField == null) return 0;
-			try { return (int)_opsSetIndexField.GetValue(pickState); } catch { return 0; }
-		}
+		public static int GetPickSetIndex(object pickState) => ReflectionHelper.GetInt(_opsSetIndexField, pickState);
 
-		public static bool IsPickFailed(object pickState) {
-			if (pickState == null || _opsFailedField == null) return false;
-			try { return (bool)_opsFailedField.GetValue(pickState); } catch { return false; }
-		}
+		public static bool IsPickFailed(object pickState) => ReflectionHelper.GetBool(_opsFailedField, pickState);
 
 		/// <summary>
 		/// Get the OrderModel for a pick state (resolves pick.model via Settings).
@@ -1143,26 +985,7 @@ namespace ATSAccessibility {
 			var settings = GameReflection.GetSettings();
 			if (settings == null || _settingsGetOrderMethod == null) return null;
 
-			try {
-				_args1[0] = modelName;
-				return _settingsGetOrderMethod.Invoke(settings, _args1);
-			} catch { return null; }
-		}
-
-		// ========================================
-		// FORMATTING
-		// ========================================
-
-		/// <summary>
-		/// Format seconds into mm:ss or hh:mm:ss string.
-		/// </summary>
-		public static string FormatTime(float seconds) {
-			if (seconds <= 0) return "0:00";
-
-			var ts = TimeSpan.FromSeconds(seconds);
-			if (ts.TotalHours >= 1)
-				return ts.ToString(@"h\:mm\:ss");
-			return ts.ToString(@"m\:ss");
+			return ReflectionHelper.Invoke(_settingsGetOrderMethod, settings, modelName);
 		}
 
 		public static int LogCacheStatus() {

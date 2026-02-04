@@ -40,16 +40,11 @@ namespace ATSAccessibility {
 
 		private static void EnsureTypes() {
 			if (_typesCached) return;
+			_typesCached = true;
 
-			var gameAssembly = GameReflection.GameAssembly;
-			if (gameAssembly == null) {
-				_typesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("CapitalReflection", assembly => {
 				// Cache WorldBlackboardService observable/subject properties
-				var wbbType = gameAssembly.GetType("Eremite.Services.World.IWorldBlackboardService");
+				var wbbType = assembly.GetType("Eremite.Services.World.IWorldBlackboardService");
 				if (wbbType != null) {
 					_wbbOnCapitalEnabledProperty = wbbType.GetProperty("OnCapitalEnabled",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -64,14 +59,14 @@ namespace ATSAccessibility {
 				}
 
 				// Cache BlackboardService property from IServices (AppServices type)
-				var servicesType = gameAssembly.GetType("Eremite.Services.IServices");
+				var servicesType = assembly.GetType("Eremite.Services.IServices");
 				if (servicesType != null) {
 					_appBlackboardServiceProperty = servicesType.GetProperty("BlackboardService",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache MetaPerksService and MetaStateService properties
-				var metaServicesType = gameAssembly.GetType("Eremite.Services.IMetaServices");
+				var metaServicesType = assembly.GetType("Eremite.Services.IMetaServices");
 				if (metaServicesType != null) {
 					_msMetaPerksServiceProperty = metaServicesType.GetProperty("MetaPerksService",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -80,20 +75,20 @@ namespace ATSAccessibility {
 				}
 
 				// Cache IMetaStateService.Narration property
-				var metaStateServiceType = gameAssembly.GetType("Eremite.Services.IMetaStateService");
+				var metaStateServiceType = assembly.GetType("Eremite.Services.IMetaStateService");
 				if (metaStateServiceType != null) {
 					_mssNarrationProperty = metaStateServiceType.GetProperty("Narration",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache NarrationState.handType field
-				var narrationStateType = gameAssembly.GetType("Eremite.Model.State.NarrationState");
+				var narrationStateType = assembly.GetType("Eremite.Model.State.NarrationState");
 				if (narrationStateType != null) {
 					_narrationHandTypeField = narrationStateType.GetField("handType",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
-				var metaPerksServiceType = gameAssembly.GetType("Eremite.Services.IMetaPerksService");
+				var metaPerksServiceType = assembly.GetType("Eremite.Services.IMetaPerksService");
 				if (metaPerksServiceType != null) {
 					// Game has typo: "IsHomeEnbabled" (not "IsHomeEnabled")
 					_mpsIsHomeEnabledMethod = metaPerksServiceType.GetMethod("IsHomeEnbabled",
@@ -105,13 +100,7 @@ namespace ATSAccessibility {
 					_mpsAreGoalsEnabledMethod = metaPerksServiceType.GetMethod("AreGoalsEnabled",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
-
-				Debug.Log("[ATSAccessibility] Cached CapitalReflection types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CapitalReflection type caching failed: {ex.Message}");
-			}
-
-			_typesCached = true;
+			});
 		}
 
 		/// <summary>
@@ -196,26 +185,17 @@ namespace ATSAccessibility {
 		public static bool IsGenderPicked() {
 			EnsureTypes();
 
-			try {
-				var metaServices = GameReflection.GetMetaServices();
-				if (metaServices == null || _msMetaStateServiceProperty == null) return true; // Assume picked if can't check
+			var metaServices = GameReflection.GetMetaServices();
+			if (metaServices == null || _msMetaStateServiceProperty == null) return true; // Assume picked if can't check
 
-				var metaStateService = _msMetaStateServiceProperty.GetValue(metaServices);
-				if (metaStateService == null || _mssNarrationProperty == null) return true;
+			var metaStateService = ReflectionHelper.GetProp(_msMetaStateServiceProperty, metaServices);
+			if (metaStateService == null || _mssNarrationProperty == null) return true;
 
-				var narrationState = _mssNarrationProperty.GetValue(metaStateService);
-				if (narrationState == null || _narrationHandTypeField == null) return true;
+			var narrationState = ReflectionHelper.GetProp(_mssNarrationProperty, metaStateService);
+			if (narrationState == null || _narrationHandTypeField == null) return true;
 
-				var handType = _narrationHandTypeField.GetValue(narrationState);
-				if (handType is int ht) {
-					return ht >= 0;
-				}
-
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] IsGenderPicked failed: {ex.Message}");
-				return true; // Assume picked on error
-			}
+			var ht = ReflectionHelper.GetInt(_narrationHandTypeField, narrationState);
+			return ht >= 0;
 		}
 
 		/// <summary>
@@ -315,17 +295,10 @@ namespace ATSAccessibility {
 		public static bool IsDailyExpeditionUnlocked() {
 			EnsureTypes();
 
-			if (_mpsIsDailyChallengeEnabledMethod == null) return false;
+			var metaPerksService = GetMetaPerksService();
+			if (metaPerksService == null) return false;
 
-			try {
-				var metaPerksService = GetMetaPerksService();
-				if (metaPerksService == null) return false;
-
-				var result = _mpsIsDailyChallengeEnabledMethod.Invoke(metaPerksService, null);
-				return result != null && (bool)result;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_mpsIsDailyChallengeEnabledMethod, metaPerksService);
 		}
 
 		/// <summary>
@@ -334,17 +307,10 @@ namespace ATSAccessibility {
 		public static bool IsTrainingExpeditionUnlocked() {
 			EnsureTypes();
 
-			if (_mpsIsCustomGameEnabledMethod == null) return false;
+			var metaPerksService = GetMetaPerksService();
+			if (metaPerksService == null) return false;
 
-			try {
-				var metaPerksService = GetMetaPerksService();
-				if (metaPerksService == null) return false;
-
-				var result = _mpsIsCustomGameEnabledMethod.Invoke(metaPerksService, null);
-				return result != null && (bool)result;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_mpsIsCustomGameEnabledMethod, metaPerksService);
 		}
 
 		/// <summary>
@@ -353,17 +319,10 @@ namespace ATSAccessibility {
 		public static bool IsHomeUnlocked() {
 			EnsureTypes();
 
-			if (_mpsIsHomeEnabledMethod == null) return false;
+			var metaPerksService = GetMetaPerksService();
+			if (metaPerksService == null) return false;
 
-			try {
-				var metaPerksService = GetMetaPerksService();
-				if (metaPerksService == null) return false;
-
-				var result = _mpsIsHomeEnabledMethod.Invoke(metaPerksService, null);
-				return result != null && (bool)result;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_mpsIsHomeEnabledMethod, metaPerksService);
 		}
 
 		/// <summary>
@@ -372,17 +331,10 @@ namespace ATSAccessibility {
 		public static bool IsDeedsUnlocked() {
 			EnsureTypes();
 
-			if (_mpsAreGoalsEnabledMethod == null) return false;
+			var metaPerksService = GetMetaPerksService();
+			if (metaPerksService == null) return false;
 
-			try {
-				var metaPerksService = GetMetaPerksService();
-				if (metaPerksService == null) return false;
-
-				var result = _mpsAreGoalsEnabledMethod.Invoke(metaPerksService, null);
-				return result != null && (bool)result;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_mpsAreGoalsEnabledMethod, metaPerksService);
 		}
 
 		/// <summary>
@@ -390,13 +342,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetBlackboardService() {
 			var appServices = GameReflection.GetAppServices();
-			if (appServices == null || _appBlackboardServiceProperty == null) return null;
+			if (appServices == null) return null;
 
-			try {
-				return _appBlackboardServiceProperty.GetValue(appServices);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetProp(_appBlackboardServiceProperty, appServices);
 		}
 
 		/// <summary>

@@ -76,22 +76,12 @@ namespace ATSAccessibility {
 			if (_typesCached) return;
 			_typesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] WildcardReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("WildcardReflection", assembly => {
 				CacheServiceProperties(assembly);
 				CacheWildcardDataTypes(assembly);
 				CachePopupTypes(assembly);
 				CacheMetaTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] WildcardReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WildcardReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CacheServiceProperties(Assembly assembly) {
@@ -264,15 +254,8 @@ namespace ATSAccessibility {
 		public static int GetPicksRequired() {
 			EnsureTypesCached();
 			var effectsService = GetEffectsService();
-			if (effectsService == null || _esGetWildcardPicksLeftMethod == null) return 0;
-
-			try {
-				var result = _esGetWildcardPicksLeftMethod.Invoke(effectsService, null);
-				return result is int picks ? picks : 0;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WildcardReflection: GetPicksRequired failed: {ex.Message}");
-				return 0;
-			}
+			if (effectsService == null) return 0;
+			return ReflectionHelper.InvokeInt(_esGetWildcardPicksLeftMethod, effectsService);
 		}
 
 		/// <summary>
@@ -280,16 +263,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsMetaUnlocked(object buildingModel) {
 			if (buildingModel == null) return false;
-
 			var metaConditionsService = GetMetaConditionsService();
-			if (metaConditionsService == null || _mcsIsUnlockedMethod == null) return false;
-
-			try {
-				var result = _mcsIsUnlockedMethod.Invoke(metaConditionsService, new[] { buildingModel });
-				return result is bool unlocked && unlocked;
-			} catch {
-				return false;
-			}
+			if (metaConditionsService == null) return false;
+			return ReflectionHelper.InvokeBool(_mcsIsUnlockedMethod, metaConditionsService, buildingModel);
 		}
 
 		// ========================================
@@ -338,15 +314,8 @@ namespace ATSAccessibility {
 		public static int GetCurrentPickCount(object popup) {
 			if (popup == null) return 0;
 			EnsureTypesCached();
-
-			if (_wpPicksField == null) return 0;
-
-			try {
-				var picks = _wpPicksField.GetValue(popup) as IList;
-				return picks?.Count ?? 0;
-			} catch {
-				return 0;
-			}
+			var picks = ReflectionHelper.GetList(_wpPicksField, popup);
+			return picks?.Count ?? 0;
 		}
 
 		/// <summary>
@@ -382,20 +351,11 @@ namespace ATSAccessibility {
 			if (popup == null) return false;
 			EnsureTypesCached();
 
-			if (_wpConfirmMethod == null) return false;
+			int currentCount = GetCurrentPickCount(popup);
+			int required = GetPicksRequired();
+			if (currentCount != required) return false;
 
-			try {
-				int currentCount = GetCurrentPickCount(popup);
-				int required = GetPicksRequired();
-
-				if (currentCount != required) return false;
-
-				_wpConfirmMethod.Invoke(popup, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WildcardReflection: Confirm failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_wpConfirmMethod, popup);
 		}
 
 		public static int LogCacheStatus() {

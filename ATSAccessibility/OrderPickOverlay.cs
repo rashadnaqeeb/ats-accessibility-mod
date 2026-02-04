@@ -197,7 +197,7 @@ namespace ATSAccessibility {
 			var parts = new List<string>();
 			if (timed) {
 				float timeToFail = OrdersReflection.GetTimeToFail(orderModel);
-				parts.Add($"{name}, timed {OrdersReflection.FormatTime(timeToFail)}");
+				parts.Add($"{name}, timed {FormattingUtils.FormatTime(timeToFail)}");
 			} else {
 				parts.Add(name);
 			}

@@ -79,26 +79,21 @@ namespace ATSAccessibility {
 
 		private static void EnsureTypes() {
 			if (_typesCached) return;
+			_typesCached = true;
 
-			var gameAssembly = GameReflection.GameAssembly;
-			if (gameAssembly == null) {
-				_typesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("CapitalUpgradeReflection", assembly => {
 				// Cache CapitalUpgradePopup type for popup detection
-				_capitalUpgradePopupType = gameAssembly.GetType("Eremite.WorldMap.UI.CapitalUpgradePopup");
+				_capitalUpgradePopupType = assembly.GetType("Eremite.WorldMap.UI.CapitalUpgradePopup");
 
 				// Cache Settings.capitalStructures field
-				var settingsType = gameAssembly.GetType("Eremite.Model.Settings");
+				var settingsType = assembly.GetType("Eremite.Model.Settings");
 				if (settingsType != null) {
 					_settingsCapitalStructuresField = settingsType.GetField("capitalStructures",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache CapitalStructureModel fields
-				var structureModelType = gameAssembly.GetType("Eremite.WorldMap.CapitalStructureModel");
+				var structureModelType = assembly.GetType("Eremite.WorldMap.CapitalStructureModel");
 				if (structureModelType != null) {
 					_structureDisplayNameField = structureModelType.GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -107,7 +102,7 @@ namespace ATSAccessibility {
 				}
 
 				// Cache CapitalUpgradeModel fields
-				var upgradeModelType = gameAssembly.GetType("Eremite.WorldMap.CapitalUpgradeModel");
+				var upgradeModelType = assembly.GetType("Eremite.WorldMap.CapitalUpgradeModel");
 				if (upgradeModelType != null) {
 					_upgradeDisplayNameField = upgradeModelType.GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -120,7 +115,7 @@ namespace ATSAccessibility {
 				}
 
 				// Cache MetaCurrencyRef fields
-				var currencyRefType = gameAssembly.GetType("Eremite.Model.MetaCurrencyRef");
+				var currencyRefType = assembly.GetType("Eremite.Model.MetaCurrencyRef");
 				if (currencyRefType != null) {
 					_currencyRefCurrencyField = currencyRefType.GetField("currency",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -129,14 +124,14 @@ namespace ATSAccessibility {
 				}
 
 				// Cache MetaCurrencyModel.DisplayName
-				var currencyModelType = gameAssembly.GetType("Eremite.Model.MetaCurrencyModel");
+				var currencyModelType = assembly.GetType("Eremite.Model.MetaCurrencyModel");
 				if (currencyModelType != null) {
 					_currencyModelDisplayNameProperty = currencyModelType.GetProperty("DisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache MetaRewardModel properties
-				var rewardModelType = gameAssembly.GetType("Eremite.Model.Meta.MetaRewardModel");
+				var rewardModelType = assembly.GetType("Eremite.Model.Meta.MetaRewardModel");
 				if (rewardModelType != null) {
 					_rewardDisplayNameProperty = rewardModelType.GetProperty("DisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -145,14 +140,14 @@ namespace ATSAccessibility {
 				}
 
 				// Cache IWorldServices.CapitalService property
-				var worldServicesType = gameAssembly.GetType("Eremite.Services.World.IWorldServices");
+				var worldServicesType = assembly.GetType("Eremite.Services.World.IWorldServices");
 				if (worldServicesType != null) {
 					_wsCapitalServiceProperty = worldServicesType.GetProperty("CapitalService",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache ICapitalService methods
-				var capitalServiceType = gameAssembly.GetType("Eremite.Services.World.ICapitalService");
+				var capitalServiceType = assembly.GetType("Eremite.Services.World.ICapitalService");
 				if (capitalServiceType != null && structureModelType != null && upgradeModelType != null) {
 					_csIsUnlockedMethod = capitalServiceType.GetMethod("IsUnlocked",
 						new Type[] { upgradeModelType });
@@ -165,18 +160,12 @@ namespace ATSAccessibility {
 				}
 
 				// Cache WorldBlackboardService.CapitalUpgradeRequested
-				var wbbType = gameAssembly.GetType("Eremite.Services.World.IWorldBlackboardService");
+				var wbbType = assembly.GetType("Eremite.Services.World.IWorldBlackboardService");
 				if (wbbType != null) {
 					_wbbCapitalUpgradeRequestedProperty = wbbType.GetProperty("CapitalUpgradeRequested",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
-
-				Debug.Log("[ATSAccessibility] Cached CapitalUpgradeReflection types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CapitalUpgradeReflection type caching failed: {ex.Message}");
-			}
-
-			_typesCached = true;
+			});
 		}
 
 		/// <summary>
@@ -194,13 +183,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetCapitalService() {
 			var ws = WorldMapReflection.GetWorldServices();
-			if (ws == null || _wsCapitalServiceProperty == null) return null;
-
-			try {
-				return _wsCapitalServiceProperty.GetValue(ws);
-			} catch {
-				return null;
-			}
+			if (ws == null) return null;
+			return ReflectionHelper.GetProp(_wsCapitalServiceProperty, ws);
 		}
 
 		/// <summary>
@@ -222,21 +206,17 @@ namespace ATSAccessibility {
 				foreach (var structure in structures) {
 					if (structure == null) continue;
 
-					var displayName = _structureDisplayNameField?.GetValue(structure);
-					string name = GameReflection.GetLocaText(displayName) ?? "";
+					string name = ReflectionHelper.GetLocaString(_structureDisplayNameField, structure) ?? "";
 
 					var upgrades = _structureUpgradesField?.GetValue(structure) as Array;
 					int totalUpgrades = upgrades?.Length ?? 0;
 
 					int unlockedCount = 0;
-					if (capitalService != null && upgrades != null && _csIsUnlockedMethod != null) {
+					if (capitalService != null && upgrades != null) {
 						foreach (var upgrade in upgrades) {
 							if (upgrade == null) continue;
-							try {
-								var unlocked = _csIsUnlockedMethod.Invoke(capitalService, new[] { upgrade });
-								if (unlocked != null && (bool)unlocked)
-									unlockedCount++;
-							} catch { }
+							if (ReflectionHelper.InvokeBool(_csIsUnlockedMethod, capitalService, upgrade))
+								unlockedCount++;
 						}
 					}
 
@@ -272,11 +252,9 @@ namespace ATSAccessibility {
 				foreach (var upgrade in upgrades) {
 					if (upgrade == null) continue;
 
-					var displayName = _upgradeDisplayNameField?.GetValue(upgrade);
-					string name = GameReflection.GetLocaText(displayName) ?? "";
+					string name = ReflectionHelper.GetLocaString(_upgradeDisplayNameField, upgrade) ?? "";
 
-					var requiredLevelObj = _upgradeRequiredLevelField?.GetValue(upgrade);
-					int requiredLevel = requiredLevelObj != null ? (int)requiredLevelObj : 0;
+					int requiredLevel = ReflectionHelper.GetInt(_upgradeRequiredLevelField, upgrade);
 
 					string priceText = GetPriceText(upgrade);
 					UpgradeStatus status = DetermineStatus(structure, upgrade, capitalService);
@@ -313,16 +291,8 @@ namespace ATSAccessibility {
 				foreach (var reward in rewards) {
 					if (reward == null) continue;
 
-					string name = "";
-					string description = "";
-
-					if (_rewardDisplayNameProperty != null) {
-						try { name = _rewardDisplayNameProperty.GetValue(reward) as string ?? ""; } catch { }
-					}
-
-					if (_rewardDescriptionProperty != null) {
-						try { description = _rewardDescriptionProperty.GetValue(reward) as string ?? ""; } catch { }
-					}
+					string name = ReflectionHelper.GetPropString(_rewardDisplayNameProperty, reward) ?? "";
+					string description = ReflectionHelper.GetPropString(_rewardDescriptionProperty, reward) ?? "";
 
 					if (!string.IsNullOrEmpty(name)) {
 						result.Add(new RewardInfo { Name = name, Description = description });
@@ -349,15 +319,14 @@ namespace ATSAccessibility {
 				var wbb = WorldMapReflection.GetWorldBlackboardService();
 				if (wbb == null) return false;
 
-				var subject = _wbbCapitalUpgradeRequestedProperty.GetValue(wbb);
+				var subject = ReflectionHelper.GetProp(_wbbCapitalUpgradeRequestedProperty, wbb);
 				if (subject == null) return false;
 
 				var onNextMethod = subject.GetType().GetMethod("OnNext",
 					new Type[] { upgrade.GetType() });
 				if (onNextMethod == null) return false;
 
-				onNextMethod.Invoke(subject, new[] { upgrade });
-				return true;
+				return ReflectionHelper.InvokeVoid(onNextMethod, subject, upgrade);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] BuyUpgrade failed: {ex.Message}");
 				return false;
@@ -372,31 +341,21 @@ namespace ATSAccessibility {
 
 			try {
 				// Check if already unlocked
-				if (_csIsUnlockedMethod != null) {
-					var unlocked = _csIsUnlockedMethod.Invoke(capitalService, new[] { upgrade });
-					if (unlocked != null && (bool)unlocked)
-						return UpgradeStatus.Unlocked;
-				}
+				if (ReflectionHelper.InvokeBool(_csIsUnlockedMethod, capitalService, upgrade))
+					return UpgradeStatus.Unlocked;
 
 				// Check if can be bought (reached + affordable)
-				if (_csCanBeBoughtMethod != null) {
-					var canBuy = _csCanBeBoughtMethod.Invoke(capitalService, new[] { structure, upgrade });
-					if (canBuy != null && (bool)canBuy)
-						return UpgradeStatus.Buyable;
-				}
+				if (ReflectionHelper.InvokeBool(_csCanBeBoughtMethod, capitalService, structure, upgrade))
+					return UpgradeStatus.Buyable;
 
 				// Check if reached (prerequisites met, level completed) but can't afford
-				if (_csIsReachedMethod != null) {
-					var reached = _csIsReachedMethod.Invoke(capitalService, new[] { structure, upgrade });
-					if (reached != null && (bool)reached) {
-						// Reached but can't buy means too expensive
-						return UpgradeStatus.TooExpensive;
-					}
+				if (ReflectionHelper.InvokeBool(_csIsReachedMethod, capitalService, structure, upgrade)) {
+					// Reached but can't buy means too expensive
+					return UpgradeStatus.TooExpensive;
 				}
 
 				// Not reached - check if it's a level requirement or prerequisite issue
-				var requiredLevelObj = _upgradeRequiredLevelField?.GetValue(upgrade);
-				int requiredLevel = requiredLevelObj != null ? (int)requiredLevelObj : 0;
+				int requiredLevel = ReflectionHelper.GetInt(_upgradeRequiredLevelField, upgrade);
 
 				// If required level > 0 and not reached, check if the level itself is the blocker
 				// CapitalService.IsReached checks both AllPreviousBought and IsLevelCompleted
@@ -417,14 +376,7 @@ namespace ATSAccessibility {
 		/// Uses CapitalService.CanUnlockUpgradesFromLevel.
 		/// </summary>
 		private static bool IsLevelCompleted(object capitalService, int level) {
-			if (_csCanUnlockUpgradesFromLevelMethod == null) return false;
-
-			try {
-				var result = _csCanUnlockUpgradesFromLevelMethod.Invoke(capitalService, new object[] { level });
-				return result != null && (bool)result;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_csCanUnlockUpgradesFromLevelMethod, capitalService, level);
 		}
 
 		/// <summary>
@@ -442,18 +394,14 @@ namespace ATSAccessibility {
 				foreach (var currencyRef in priceArray) {
 					if (currencyRef == null) continue;
 
-					var amount = _currencyRefAmountField?.GetValue(currencyRef);
-					var currencyModel = _currencyRefCurrencyField?.GetValue(currencyRef);
+					var currencyModel = ReflectionHelper.GetField(_currencyRefCurrencyField, currencyRef);
+					if (currencyModel == null) continue;
 
-					if (amount == null || currencyModel == null) continue;
-
-					string displayName = "";
-					if (_currencyModelDisplayNameProperty != null) {
-						displayName = _currencyModelDisplayNameProperty.GetValue(currencyModel) as string ?? "";
-					}
+					int amount = ReflectionHelper.GetInt(_currencyRefAmountField, currencyRef);
+					string displayName = ReflectionHelper.GetPropString(_currencyModelDisplayNameProperty, currencyModel) ?? "";
 
 					if (!string.IsNullOrEmpty(displayName)) {
-						parts.Add($"{(int)amount} {displayName}");
+						parts.Add($"{amount} {displayName}");
 					}
 				}
 

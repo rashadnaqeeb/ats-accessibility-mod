@@ -39,10 +39,7 @@ namespace ATSAccessibility {
 		private static MethodInfo _modelGetExecutionBlockReasonMethod;    // GetExecutionBlockReason(int)
 		private static MethodInfo _modelExecuteDecisionMethod;            // ExecuteDecision(WorldEventState, int)
 
-		// Pre-allocated args arrays to avoid GC pressure
-		private static readonly object[] _args1 = new object[1];
-		private static readonly object[] _args2 = new object[2];
-
+	
 		// ========================================
 		// TYPE DETECTION
 		// ========================================
@@ -67,14 +64,7 @@ namespace ATSAccessibility {
 		public static object GetWorldEvent(object popup) {
 			if (popup == null) return null;
 			EnsureCached();
-			if (_popupWorldEventField == null) return null;
-
-			try {
-				return _popupWorldEventField.GetValue(popup);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] WorldEventReflection: GetWorldEvent failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_popupWorldEventField, popup);
 		}
 
 		/// <summary>
@@ -83,14 +73,7 @@ namespace ATSAccessibility {
 		public static object GetModel(object worldEvent) {
 			if (worldEvent == null) return null;
 			EnsureCached();
-			if (_worldEventModelField == null) return null;
-
-			try {
-				return _worldEventModelField.GetValue(worldEvent);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] WorldEventReflection: GetModel failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_worldEventModelField, worldEvent);
 		}
 
 		/// <summary>
@@ -99,14 +82,7 @@ namespace ATSAccessibility {
 		public static object GetState(object worldEvent) {
 			if (worldEvent == null) return null;
 			EnsureCached();
-			if (_worldEventStateField == null) return null;
-
-			try {
-				return _worldEventStateField.GetValue(worldEvent);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] WorldEventReflection: GetState failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_worldEventStateField, worldEvent);
 		}
 
 		// ========================================
@@ -119,15 +95,7 @@ namespace ATSAccessibility {
 		public static string GetEventName(object model) {
 			if (model == null) return null;
 			EnsureCached();
-			if (_modelDisplayNameField == null) return null;
-
-			try {
-				var locaText = _modelDisplayNameField.GetValue(model);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] WorldEventReflection: GetEventName failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_modelDisplayNameField, model);
 		}
 
 		/// <summary>
@@ -136,15 +104,7 @@ namespace ATSAccessibility {
 		public static string GetEventDescription(object model) {
 			if (model == null) return null;
 			EnsureCached();
-			if (_modelDescriptionField == null) return null;
-
-			try {
-				var locaText = _modelDescriptionField.GetValue(model);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] WorldEventReflection: GetEventDescription failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_modelDescriptionField, model);
 		}
 
 		/// <summary>
@@ -153,15 +113,8 @@ namespace ATSAccessibility {
 		public static int GetOptionCount(object model) {
 			if (model == null) return 0;
 			EnsureCached();
-			if (_modelOptionsField == null) return 0;
-
-			try {
-				var options = _modelOptionsField.GetValue(model) as Array;
-				return options?.Length ?? 0;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] WorldEventReflection: GetOptionCount failed: {ex.Message}");
-				return 0;
-			}
+			var options = ReflectionHelper.GetField(_modelOptionsField, model) as Array;
+			return options?.Length ?? 0;
 		}
 
 		/// <summary>
@@ -170,16 +123,8 @@ namespace ATSAccessibility {
 		public static string GetOptionDescription(object model, int index) {
 			if (model == null) return null;
 			EnsureCached();
-			if (_modelGetDescriptionForOptionMethod == null) return null;
 			if (index < 0 || index >= GetOptionCount(model)) return null;
-
-			try {
-				_args1[0] = index;
-				return _modelGetDescriptionForOptionMethod.Invoke(model, _args1) as string;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] WorldEventReflection: GetOptionDescription failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.InvokeString(_modelGetDescriptionForOptionMethod, model, index);
 		}
 
 		/// <summary>
@@ -188,17 +133,8 @@ namespace ATSAccessibility {
 		public static bool CanExecuteOption(object model, int index) {
 			if (model == null) return false;
 			EnsureCached();
-			if (_modelCanExecuteMethod == null) return false;
 			if (index < 0 || index >= GetOptionCount(model)) return false;
-
-			try {
-				_args1[0] = index;
-				var result = _modelCanExecuteMethod.Invoke(model, _args1);
-				return result is bool b && b;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] WorldEventReflection: CanExecuteOption failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_modelCanExecuteMethod, model, index);
 		}
 
 		/// <summary>
@@ -207,16 +143,8 @@ namespace ATSAccessibility {
 		public static string GetExecutionBlockReason(object model, int index) {
 			if (model == null) return null;
 			EnsureCached();
-			if (_modelGetExecutionBlockReasonMethod == null) return null;
 			if (index < 0 || index >= GetOptionCount(model)) return null;
-
-			try {
-				_args1[0] = index;
-				return _modelGetExecutionBlockReasonMethod.Invoke(model, _args1) as string;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] WorldEventReflection: GetExecutionBlockReason failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.InvokeString(_modelGetExecutionBlockReasonMethod, model, index);
 		}
 
 		/// <summary>
@@ -226,20 +154,10 @@ namespace ATSAccessibility {
 		public static bool ExecuteDecision(object model, object state, int index) {
 			if (model == null || state == null) return false;
 			EnsureCached();
-			if (_modelExecuteDecisionMethod == null) return false;
 			if (index < 0 || index >= GetOptionCount(model)) return false;
-
-			try {
-				// ExecuteDecision returns UniTask<bool>, just invoke it (fire and forget)
-				// The game handles the async flow and will close the popup on success
-				_args2[0] = state;
-				_args2[1] = index;
-				_modelExecuteDecisionMethod.Invoke(model, _args2);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WorldEventReflection: ExecuteDecision failed: {ex.Message}");
-				return false;
-			}
+			// ExecuteDecision returns UniTask<bool>, just invoke it (fire and forget)
+			// The game handles the async flow and will close the popup on success
+			return ReflectionHelper.InvokeVoid(_modelExecuteDecisionMethod, model, state, index);
 		}
 
 		// ========================================
@@ -248,20 +166,14 @@ namespace ATSAccessibility {
 
 		private static void EnsureCached() {
 			if (_cached) return;
+			_cached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_cached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("WorldEventReflection", assembly => {
 				// Cache WorldEventPopup type
 				_worldEventPopupType = assembly.GetType("Eremite.WorldMap.UI.WorldEvents.WorldEventPopup");
 				if (_worldEventPopupType != null) {
 					_popupWorldEventField = _worldEventPopupType.GetField("worldEvent",
 						GameReflection.NonPublicInstance);
-					Debug.Log("[ATSAccessibility] WorldEventReflection: Cached WorldEventPopup type");
 				}
 
 				// Cache WorldEvent type
@@ -300,16 +212,8 @@ namespace ATSAccessibility {
 							GameReflection.PublicInstance,
 							null, new[] { stateType, typeof(int) }, null);
 					}
-
-					Debug.Log("[ATSAccessibility] WorldEventReflection: Cached WorldEventModel methods");
 				}
-
-				Debug.Log("[ATSAccessibility] WorldEventReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WorldEventReflection: Type caching failed: {ex.Message}");
-			}
-
-			_cached = true;
+			});
 		}
 
 		public static int LogCacheStatus() {

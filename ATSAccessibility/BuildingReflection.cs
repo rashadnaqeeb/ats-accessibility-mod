@@ -600,37 +600,22 @@ namespace ATSAccessibility {
 
 		private static void EnsurePanelTypes() {
 			if (_panelTypesCached) return;
+			_panelTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_panelTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Panel", assembly => {
 				_buildingPanelType = assembly.GetType("Eremite.Buildings.UI.BuildingPanel");
 				if (_buildingPanelType != null) {
 					_currentBuildingField = _buildingPanelType.GetField("currentBuilding",
 						BindingFlags.Public | BindingFlags.Static);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached BuildingPanel.currentBuilding");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection panel types failed: {ex.Message}");
-			}
-
-			_panelTypesCached = true;
+			});
 		}
 
 		private static void EnsureBuildingTypes() {
 			if (_buildingTypesCached) return;
+			_buildingTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_buildingTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Building", assembly => {
 				var buildingType = assembly.GetType("Eremite.Buildings.Building");
 				if (buildingType != null) {
 					_buildingModelProperty = buildingType.GetProperty("BuildingModel", GameReflection.PublicInstance);
@@ -638,149 +623,88 @@ namespace ATSAccessibility {
 					_buildingIdProperty = buildingType.GetProperty("Id", GameReflection.PublicInstance);
 					_buildingDisplayNameProperty = buildingType.GetProperty("DisplayName", GameReflection.PublicInstance);
 					_buildingIsFinishedMethod = buildingType.GetMethod("IsFinished", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached Building properties");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection building types failed: {ex.Message}");
-			}
-
-			_buildingTypesCached = true;
+			});
 		}
 
 		private static void EnsureModelTypes() {
 			if (_modelTypesCached) return;
+			_modelTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_modelTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Model", assembly => {
 				var modelType = assembly.GetType("Eremite.Buildings.BuildingModel");
 				if (modelType != null) {
 					_modelDescriptionProperty = modelType.GetProperty("Description", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached BuildingModel properties");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection model types failed: {ex.Message}");
-			}
-
-			_modelTypesCached = true;
+			});
 		}
 
 		private static void EnsureStateTypes() {
 			if (_stateTypesCached) return;
+			_stateTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_stateTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.State", assembly => {
 				var stateType = assembly.GetType("Eremite.Buildings.BuildingState");
 				if (stateType != null) {
 					_stateFinishedField = stateType.GetField("finished", GameReflection.PublicInstance);
 					_stateIsSleepingField = stateType.GetField("isSleeping", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached BuildingState fields");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection state types failed: {ex.Message}");
-			}
-
-			_stateTypesCached = true;
+			});
 		}
 
 		private static void EnsureProductionTypes() {
 			if (_productionTypesCached) return;
+			_productionTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_productionTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Production", assembly => {
 				_productionBuildingType = assembly.GetType("Eremite.Buildings.ProductionBuilding");
 				if (_productionBuildingType != null) {
 					_workersProperty = _productionBuildingType.GetProperty("Workers", GameReflection.PublicInstance);
 					_productionStorageProperty = _productionBuildingType.GetProperty("ProductionStorage", GameReflection.PublicInstance);
 					_productionBuildingStateProperty = _productionBuildingType.GetProperty("ProductionBuildingState", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached ProductionBuilding properties");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection production types failed: {ex.Message}");
-			}
-
-			_productionTypesCached = true;
+			});
 		}
 
 		private static void EnsureWorkshopTypes() {
 			if (_workshopTypesCached) return;
+			_workshopTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_workshopTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Workshop", assembly => {
 				_workshopInterfaceType = assembly.GetType("Eremite.Buildings.IWorkshop");
 				if (_workshopInterfaceType != null) {
 					_workshopRecipesProperty = _workshopInterfaceType.GetProperty("Recipes", GameReflection.PublicInstance);
 					_workshopIngredientsStorageProperty = _workshopInterfaceType.GetProperty("IngredientsStorage", GameReflection.PublicInstance);
 					_switchProductionOfMethod = _workshopInterfaceType.GetMethod("SwitchProductionOf", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached IWorkshop interface");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection workshop types failed: {ex.Message}");
-			}
-
-			_workshopTypesCached = true;
+			});
 		}
 
 		private static void EnsureCampTypes() {
 			if (_campTypesCached) return;
+			_campTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_campTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Camp", assembly => {
 				_campType = assembly.GetType("Eremite.Buildings.Camp");
 				if (_campType != null) {
 					_campStateField = _campType.GetField("state", GameReflection.PublicInstance);
 					_campSwitchProductionOfMethod = _campType.GetMethod("SwitchProductionOf", GameReflection.PublicInstance);
 					_campSetModeMethod = _campType.GetMethod("SetMode", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached Camp type");
 				}
 
 				var campStateType = assembly.GetType("Eremite.Buildings.CampState");
 				if (campStateType != null) {
 					_campStateRecipesField = campStateType.GetField("recipes", GameReflection.PublicInstance);
 					_campStateModeField = campStateType.GetField("mode", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached CampState fields");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection camp types failed: {ex.Message}");
-			}
-
-			_campTypesCached = true;
+			});
 		}
 
 		private static void EnsureFarmTypes() {
 			if (_farmTypesCached) return;
+			_farmTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_farmTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Farm", assembly => {
 				_farmType = assembly.GetType("Eremite.Buildings.Farm");
 				if (_farmType != null) {
 					_farmStateField = _farmType.GetField("state", GameReflection.PublicInstance);
@@ -788,36 +712,24 @@ namespace ATSAccessibility {
 					_farmCountPlowedFieldsMethod = _farmType.GetMethod("CountPlownFieldsInRange", GameReflection.PublicInstance);  // Note: typo in game code
 					_farmCountAllFieldsMethod = _farmType.GetMethod("CountAllReaveleadFieldsInRange", GameReflection.PublicInstance);  // Note: typo in game code
 					_farmSwitchProductionOfMethod = _farmType.GetMethod("SwitchProductionOf", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached Farm type");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection farm types failed: {ex.Message}");
-			}
-
-			_farmTypesCached = true;
+			});
 		}
 
 		private static void EnsureFarmfieldTypes() {
 			if (_farmfieldTypesCached) return;
+			_farmfieldTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_farmfieldTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Farmfield", assembly => {
 				_farmfieldType = assembly.GetType("Eremite.Buildings.Farmfield");
 				if (_farmfieldType != null) {
 					_farmfieldStateField = _farmfieldType.GetField("state", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached Farmfield type");
 				}
 
 				_farmfieldStateType = assembly.GetType("Eremite.Buildings.FarmfieldState");
 				if (_farmfieldStateType != null) {
 					_farmfieldStatePlowedField = _farmfieldStateType.GetField("isPlowed", GameReflection.PublicInstance);
 					_farmfieldStatePlantField = _farmfieldStateType.GetField("plant", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached FarmfieldState fields");
 				}
 
 				_farmfieldPlantStateType = assembly.GetType("Eremite.Buildings.FarmfieldPlantState");
@@ -825,32 +737,21 @@ namespace ATSAccessibility {
 					_farmfieldPlantRecipeField = _farmfieldPlantStateType.GetField("recipe", GameReflection.PublicInstance);
 					_farmfieldPlantGoodField = _farmfieldPlantStateType.GetField("good", GameReflection.PublicInstance);
 					_farmfieldPlantMultiplierField = _farmfieldPlantStateType.GetField("multiplier", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached FarmfieldPlantState fields");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection farmfield types failed: {ex.Message}");
-			}
-
-			_farmfieldTypesCached = true;
+			});
 		}
 
 		private static void EnsureFishingHutTypes() {
 			if (_fishingHutTypesCached) return;
+			_fishingHutTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_fishingHutTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.FishingHut", assembly => {
 				_fishingHutType = assembly.GetType("Eremite.Buildings.FishingHut");
 				if (_fishingHutType != null) {
 					_fishingHutStateField = _fishingHutType.GetField("state", GameReflection.PublicInstance);
 					_fishingHutModelField = _fishingHutType.GetField("model", GameReflection.PublicInstance);
 					_fishingHutChangeModeMethod = _fishingHutType.GetMethod("ChangeMode", GameReflection.PublicInstance);
 					_fishingHutSwitchProductionOfMethod = _fishingHutType.GetMethod("SwitchProductionOf", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached FishingHut type");
 				}
 
 				var fishingHutStateType = assembly.GetType("Eremite.Buildings.FishingHutState");
@@ -858,38 +759,26 @@ namespace ATSAccessibility {
 					_fishingHutStateBaitModeField = fishingHutStateType.GetField("baitMode", GameReflection.PublicInstance);
 					_fishingHutStateBaitChargesField = fishingHutStateType.GetField("baitChargesLeft", GameReflection.PublicInstance);
 					_fishingHutStateRecipesField = fishingHutStateType.GetField("recipes", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached FishingHutState fields");
 				}
 
 				var fishingHutModelType = assembly.GetType("Eremite.Buildings.FishingHutModel");
 				if (fishingHutModelType != null) {
 					_fishingHutModelBaitIngredientField = fishingHutModelType.GetField("baitIngredient", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached FishingHutModel fields");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection fishing hut types failed: {ex.Message}");
-			}
-
-			_fishingHutTypesCached = true;
+			});
 		}
 
 		private static void EnsureRecipeTypes() {
 			if (_recipeTypesCached) return;
+			_recipeTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_recipeTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Recipe", assembly => {
 				// RecipeState fields
 				var recipeStateType = assembly.GetType("Eremite.Buildings.RecipeState");
 				if (recipeStateType != null) {
 					_recipeActiveField = recipeStateType.GetField("active", GameReflection.PublicInstance);
 					_recipeModelField = recipeStateType.GetField("model", GameReflection.PublicInstance);
 					_recipePrioField = recipeStateType.GetField("prio", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached RecipeState fields");
 				}
 
 				// WorkshopRecipeState fields
@@ -899,25 +788,15 @@ namespace ATSAccessibility {
 					_isLimitLocalField = workshopRecipeStateType.GetField("isLimitLocal", GameReflection.PublicInstance);
 					_recipeProductNameField = workshopRecipeStateType.GetField("productName", GameReflection.PublicInstance);
 					_recipeIngredientsField = workshopRecipeStateType.GetField("ingredients", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached WorkshopRecipeState fields");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection recipe types failed: {ex.Message}");
-			}
-
-			_recipeTypesCached = true;
+			});
 		}
 
 		private static void EnsureRecipeModelTypes() {
 			if (_recipeModelTypesCached) return;
+			_recipeModelTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_recipeModelTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.RecipeModel", assembly => {
 				// Settings.GetRecipe method
 				var settingsType = assembly.GetType("Eremite.Model.Settings");
 				if (settingsType != null) {
@@ -955,78 +834,46 @@ namespace ATSAccessibility {
 				if (goodModelType != null) {
 					_goodModelDisplayNameProperty = goodModelType.GetProperty("displayName", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached RecipeModel types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection recipe model types failed: {ex.Message}");
-			}
-
-			_recipeModelTypesCached = true;
+			});
 		}
 
 		private static void EnsureIngredientTypes() {
 			if (_ingredientTypesCached) return;
+			_ingredientTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_ingredientTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Ingredient", assembly => {
 				var ingredientStateType = assembly.GetType("Eremite.Buildings.IngredientState");
 				if (ingredientStateType != null) {
 					_ingredientGoodField = ingredientStateType.GetField("good", GameReflection.PublicInstance);
 					_ingredientAllowedField = ingredientStateType.GetField("allowed", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached IngredientState fields");
 				}
 
 				// Good struct has amount field
 				var goodType = assembly.GetType("Eremite.Model.Good");
 				if (goodType != null) {
 					_goodAmountField = goodType.GetField("amount", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached Good.amount field");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection ingredient types failed: {ex.Message}");
-			}
-
-			_ingredientTypesCached = true;
+			});
 		}
 
 		private static void EnsureEventTypes() {
 			if (_eventTypesCached) return;
+			_eventTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_eventTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Event", assembly => {
 				var blackboardType = assembly.GetType("Eremite.Services.IGameBlackboardService");
 				if (blackboardType != null) {
 					_onBuildingPanelShownProperty = blackboardType.GetProperty("OnBuildingPanelShown", GameReflection.PublicInstance);
 					_onBuildingPanelClosedProperty = blackboardType.GetProperty("OnBuildingPanelClosed", GameReflection.PublicInstance);
-					Debug.Log("[ATSAccessibility] BuildingReflection: Cached building panel event properties");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection event types failed: {ex.Message}");
-			}
-
-			_eventTypesCached = true;
+			});
 		}
 
 		private static void EnsureActorTypes() {
 			if (_actorTypesCached) return;
+			_actorTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_actorTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Actor", assembly => {
 				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
 				if (gameServicesType != null) {
 					_actorsServiceProperty = gameServicesType.GetProperty("ActorsService", GameReflection.PublicInstance);
@@ -1036,25 +883,14 @@ namespace ATSAccessibility {
 				if (actorsServiceType != null) {
 					_getActorMethod = actorsServiceType.GetMethod("GetActor", new[] { typeof(int) });
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached ActorsService types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection actor types failed: {ex.Message}");
-			}
-
-			_actorTypesCached = true;
+			});
 		}
 
 		private static void EnsureActorProperties() {
 			if (_actorPropertiesCached) return;
+			_actorPropertiesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_actorPropertiesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.ActorProps", assembly => {
 				var actorType = assembly.GetType("Eremite.Characters.Actor");
 				if (actorType != null) {
 					// Actor.ActorState property (returns VillagerState for villagers)
@@ -1069,25 +905,14 @@ namespace ATSAccessibility {
 					_villagerStateNameField = villagerStateType.GetField("name", GameReflection.PublicInstance);
 					_villagerStateRaceField = villagerStateType.GetField("race", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Actor properties");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection actor properties failed: {ex.Message}");
-			}
-
-			_actorPropertiesCached = true;
+			});
 		}
 
 		private static void EnsureVillagersServiceTypes() {
 			if (_villagersServiceTypesCached) return;
+			_villagersServiceTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_villagersServiceTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.VillagersService", assembly => {
 				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
 				if (gameServicesType != null) {
 					_villagersServiceProperty = gameServicesType.GetProperty("VillagersService", GameReflection.PublicInstance);
@@ -1110,25 +935,14 @@ namespace ATSAccessibility {
 							new[] { villagerType, typeof(string), productionBuildingType, typeof(int), typeof(bool) });
 					}
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached VillagersService types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection villagers service types failed: {ex.Message}");
-			}
-
-			_villagersServiceTypesCached = true;
+			});
 		}
 
 		private static void EnsureRaceBonusTypes() {
 			if (_raceBonusTypesCached) return;
+			_raceBonusTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_raceBonusTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.RaceBonus", assembly => {
 				// IRacesService.Races property
 				var racesServiceType = assembly.GetType("Eremite.Services.IRacesService");
 				if (racesServiceType != null) {
@@ -1185,49 +999,27 @@ namespace ATSAccessibility {
 				if (locaTextType != null) {
 					_locaTextTextProperty = locaTextType.GetProperty("Text", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached RaceBonus types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection race bonus types failed: {ex.Message}");
-			}
-
-			_raceBonusTypesCached = true;
+			});
 		}
 
 		private static void EnsureProfessionTypes() {
 			if (_professionTypesCached) return;
+			_professionTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_professionTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Profession", assembly => {
 				var productionBuildingType = assembly.GetType("Eremite.Buildings.ProductionBuilding");
 				if (productionBuildingType != null) {
 					_professionProperty = productionBuildingType.GetProperty("Profession", GameReflection.PublicInstance);
 					_workplacesProperty = productionBuildingType.GetProperty("Workplaces", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Profession types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection profession types failed: {ex.Message}");
-			}
-
-			_professionTypesCached = true;
+			});
 		}
 
 		private static void EnsureStorageTypes() {
 			if (_storageTypesCached) return;
+			_storageTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_storageTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Storage", assembly => {
 				var buildingStorageType = assembly.GetType("Eremite.Buildings.BuildingStorage");
 				if (buildingStorageType != null) {
 					_storageGoodsProperty = buildingStorageType.GetProperty("Goods", GameReflection.PublicInstance);
@@ -1244,7 +1036,6 @@ namespace ATSAccessibility {
 				var baseGoodsCollectionType = assembly.GetType("Eremite.GoodsCollection");
 				if (baseGoodsCollectionType != null) {
 					_goodsCollectionGoodsField = baseGoodsCollectionType.GetField("goods", GameReflection.PublicInstance);
-					Debug.Log($"[ATSAccessibility] BuildingReflection: Found GoodsCollection.goods field: {_goodsCollectionGoodsField != null}");
 				}
 
 				var deliveryStateType = assembly.GetType("Eremite.Buildings.GoodDeliveryState");
@@ -1252,25 +1043,14 @@ namespace ATSAccessibility {
 					_deliveryStateForcedField = deliveryStateType.GetField("deliveryForced", GameReflection.PublicInstance);
 					_deliveryStateConstantForcedField = deliveryStateType.GetField("constantDeliveryForced", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Storage types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection storage types failed: {ex.Message}");
-			}
-
-			_storageTypesCached = true;
+			});
 		}
 
 		private static void EnsureIngredientsStorageTypes() {
 			if (_ingredientsStorageTypesCached) return;
+			_ingredientsStorageTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_ingredientsStorageTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.IngredientsStorage", assembly => {
 				var ingredientsStorageType = assembly.GetType("Eremite.Buildings.BuildingIngredientsStorage");
 				if (ingredientsStorageType != null) {
 					_ingredientsStorageGoodsField = ingredientsStorageType.GetField("goods", GameReflection.PublicInstance);
@@ -1280,25 +1060,14 @@ namespace ATSAccessibility {
 				if (goodsCollectionType != null) {
 					_goodsCollectionGoodsField = goodsCollectionType.GetField("goods", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached IngredientsStorage types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection ingredients storage types failed: {ex.Message}");
-			}
-
-			_ingredientsStorageTypesCached = true;
+			});
 		}
 
 		private static void EnsureHearthTypes() {
 			if (_hearthTypesCached) return;
+			_hearthTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_hearthTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Hearth", assembly => {
 				_hearthType = assembly.GetType("Eremite.Buildings.Hearth");
 				if (_hearthType != null) {
 					_hearthStateField = _hearthType.GetField("state", GameReflection.PublicInstance);
@@ -1321,28 +1090,17 @@ namespace ATSAccessibility {
 					_hearthModelMaxBurningTimeField = hearthModelType.GetField("maxBurningTime", GameReflection.PublicInstance);
 					_hearthModelMinTimeToShowNoFuelField = hearthModelType.GetField("minTimeToShowNoFuel", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Hearth types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection hearth types failed: {ex.Message}");
-			}
-
-			_hearthTypesCached = true;
+			});
 		}
 
 		private static void EnsureHearthSacrificeTypes() {
 			if (_hearthSacrificeTypesCached) return;
+			_hearthSacrificeTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_hearthSacrificeTypesCached = true;
-				return;
-			}
+			// Ensure base hearth types are cached first
+			EnsureHearthTypes();
 
-			try {
-				// Ensure base hearth types are cached first
-				EnsureHearthTypes();
-
+			ReflectionHelper.InitCache("BuildingReflection.HearthSacrifice", assembly => {
 				// HearthState.sacrificeRecipes field
 				var hearthStateType = assembly.GetType("Eremite.Buildings.HearthState");
 				if (hearthStateType != null) {
@@ -1391,25 +1149,14 @@ namespace ATSAccessibility {
 				if (effectsServiceType != null) {
 					_effectsServiceGetHearthSacrificeRateMethod = effectsServiceType.GetMethod("GetHearthSacraficeRate", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached HearthSacrifice types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection hearth sacrifice types failed: {ex.Message}");
-			}
-
-			_hearthSacrificeTypesCached = true;
+			});
 		}
 
 		private static void EnsureHearthFuelTypes() {
 			if (_hearthFuelTypesCached) return;
+			_hearthFuelTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_hearthFuelTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.HearthFuel", assembly => {
 				// Get GoodsService and HearthService properties from IGameServices
 				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
 				if (gameServicesType != null) {
@@ -1436,33 +1183,23 @@ namespace ATSAccessibility {
 					_goodModelDisplayNameField = goodModelType.GetField("displayName", GameReflection.PublicInstance);
 					_goodModelNameProperty = goodModelType.GetProperty("Name", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached HearthFuel types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection hearth fuel types failed: {ex.Message}");
-			}
-
-			_hearthFuelTypesCached = true;
+			});
 		}
 
 		private static void EnsureHearthServicesTypes() {
 			if (_hearthServicesTypesCached) return;
+			_hearthServicesTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_hearthServicesTypesCached = true;
-				return;
-			}
+			// Hearth methods
+			EnsureHearthTypes();
 
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.HearthServices", assembly => {
 				// IMetaPerksService.AreHearthServicesUnlocked()
 				var metaPerksServiceType = assembly.GetType("Eremite.Services.IMetaPerksService");
 				if (metaPerksServiceType != null) {
 					_metaPerksAreHearthServicesUnlockedMethod = metaPerksServiceType.GetMethod("AreHearthServicesUnlocked", GameReflection.PublicInstance);
 				}
 
-				// Hearth methods
-				EnsureHearthTypes();
 				if (_hearthType != null) {
 					_hearthAreHearthServicesEnabledMethod = _hearthType.GetMethod("AreHearthServicesEnabled", GameReflection.PublicInstance);
 					_hearthUnlockExtraRecipesMethod = _hearthType.GetMethod("UnlockExtraRecipes", GameReflection.PublicInstance);
@@ -1503,25 +1240,19 @@ namespace ATSAccessibility {
 				if (needModelType != null) {
 					_needModelDisplayNameProperty = needModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached HearthServices types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection hearth services types failed: {ex.Message}");
-			}
-
-			_hearthServicesTypesCached = true;
+			});
 		}
 
 		private static void EnsureHubTierTypes() {
 			if (_hubTierTypesCached) return;
+			_hubTierTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_hubTierTypesCached = true;
-				return;
-			}
+			EnsureHearthTypes();
+			EnsureHouseTypes();
+			EnsureInstitutionTypes();
+			EnsureDecorationType();
 
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.HubTier", assembly => {
 				// HubTier type and fields
 				_hubTierType = assembly.GetType("Eremite.Buildings.HubTier");
 				if (_hubTierType != null) {
@@ -1562,7 +1293,6 @@ namespace ATSAccessibility {
 				}
 
 				// Hearth.IsInRange(IMapObject) method - specify parameter type to avoid ambiguous match
-				EnsureHearthTypes();
 				if (_hearthType != null) {
 					var mapObjectType = assembly.GetType("Eremite.IMapObject");
 					if (mapObjectType != null) {
@@ -1571,9 +1301,6 @@ namespace ATSAccessibility {
 				}
 
 				// Ensure other types are cached (for counting population, institutions, decorations)
-				EnsureHouseTypes();
-				EnsureInstitutionTypes();
-				EnsureDecorationType();
 
 				// BuildingsService properties
 				var buildingsServiceType = assembly.GetType("Eremite.Services.IBuildingsService");
@@ -1591,24 +1318,14 @@ namespace ATSAccessibility {
 					_decorModelDecorationScoreField = decorModelType.GetField("decorationScore", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached HubTier types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection hub tier types failed: {ex.Message}");
-			}
-
-			_hubTierTypesCached = true;
+			});
 		}
 
 		private static void EnsureHouseTypes() {
 			if (_houseTypesCached) return;
+			_houseTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_houseTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.House", assembly => {
 				_houseType = assembly.GetType("Eremite.Buildings.House");
 				if (_houseType != null) {
 					_houseStateField = _houseType.GetField("state", GameReflection.PublicInstance);
@@ -1623,24 +1340,14 @@ namespace ATSAccessibility {
 					_houseStateResidentsField = houseStateType.GetField("residents", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached House types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection house types failed: {ex.Message}");
-			}
-
-			_houseTypesCached = true;
+			});
 		}
 
 		private static void EnsureRelicTypes() {
 			if (_relicTypesCached) return;
+			_relicTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_relicTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Relic", assembly => {
 				_relicType = assembly.GetType("Eremite.Buildings.Relic");
 				if (_relicType != null) {
 					_relicStateField = _relicType.GetField("state", GameReflection.PublicInstance);
@@ -1769,24 +1476,14 @@ namespace ATSAccessibility {
 					_lockedGoodsFullSumMethod = lockedGoodsType.GetMethod("FullSum", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Relic types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection relic types failed: {ex.Message}");
-			}
-
-			_relicTypesCached = true;
+			});
 		}
 
 		private static void EnsurePortTypes() {
 			if (_portTypesCached) return;
+			_portTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_portTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Port", assembly => {
 				_portType = assembly.GetType("Eremite.Buildings.Port");
 				if (_portType != null) {
 					_portStateField = _portType.GetField("state", GameReflection.PublicInstance);
@@ -1870,62 +1567,32 @@ namespace ATSAccessibility {
 						_goodsSetGoodsField = goodsSetType.GetField("goods", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Port types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection port types failed: {ex.Message}");
-			}
-
-			_portTypesCached = true;
+			});
 		}
 
 		private static void EnsureDecorationType() {
 			if (_decorationTypesCached) return;
-
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_decorationTypesCached = true;
-				return;
-			}
-
-			try {
-				_decorationType = assembly.GetType("Eremite.Buildings.Decoration");
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Decoration type");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection decoration type failed: {ex.Message}");
-			}
-
 			_decorationTypesCached = true;
+
+			ReflectionHelper.InitCache("BuildingReflection.Decoration", assembly => {
+				_decorationType = assembly.GetType("Eremite.Buildings.Decoration");
+			});
 		}
 
 		private static void EnsureStorageType2() {
 			if (_storageTypesCached2) return;
-
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_storageTypesCached2 = true;
-				return;
-			}
-
-			try {
-				_storageType = assembly.GetType("Eremite.Buildings.Storage");
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Storage building type");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection storage type failed: {ex.Message}");
-			}
-
 			_storageTypesCached2 = true;
+
+			ReflectionHelper.InitCache("BuildingReflection.Storage2", assembly => {
+				_storageType = assembly.GetType("Eremite.Buildings.Storage");
+			});
 		}
 
 		private static void EnsureInstitutionTypes() {
 			if (_institutionTypesCached) return;
+			_institutionTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_institutionTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Institution", assembly => {
 				_institutionType = assembly.GetType("Eremite.Buildings.Institution");
 				if (_institutionType != null) {
 					_institutionStateField = _institutionType.GetField("state", GameReflection.PublicInstance);
@@ -1963,24 +1630,14 @@ namespace ATSAccessibility {
 					_institutionRecipeModelIsGoodConsumedField = institutionRecipeModelType.GetField("isGoodConsumed", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Institution types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection institution types failed: {ex.Message}");
-			}
-
-			_institutionTypesCached = true;
+			});
 		}
 
 		private static void EnsureShrineTypes() {
 			if (_shrineTypesCached) return;
+			_shrineTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_shrineTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Shrine", assembly => {
 				_shrineType = assembly.GetType("Eremite.Buildings.Shrine");
 				if (_shrineType != null) {
 					_shrineStateField = _shrineType.GetField("state", GameReflection.PublicInstance);
@@ -2010,24 +1667,14 @@ namespace ATSAccessibility {
 					_shrineEffectsModelEffectsField = shrineEffectsModelType.GetField("effects", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Shrine types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection shrine types failed: {ex.Message}");
-			}
-
-			_shrineTypesCached = true;
+			});
 		}
 
 		private static void EnsurePoroTypes() {
 			if (_poroTypesCached) return;
+			_poroTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_poroTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Poro", assembly => {
 				_poroType = assembly.GetType("Eremite.Buildings.Poro");
 				if (_poroType != null) {
 					_poroStateField = _poroType.GetField("state", GameReflection.PublicInstance);
@@ -2067,24 +1714,14 @@ namespace ATSAccessibility {
 					_poroNeedModelGoodsField = poroNeedModelType.GetField("goods", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Poro types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection poro types failed: {ex.Message}");
-			}
-
-			_poroTypesCached = true;
+			});
 		}
 
 		private static void EnsureRainCatcherTypes() {
 			if (_rainCatcherTypesCached) return;
+			_rainCatcherTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_rainCatcherTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.RainCatcher", assembly => {
 				_rainCatcherType = assembly.GetType("Eremite.Buildings.RainCatcher");
 				if (_rainCatcherType != null) {
 					_rainCatcherStateField = _rainCatcherType.GetField("state", GameReflection.PublicInstance);
@@ -2092,24 +1729,14 @@ namespace ATSAccessibility {
 					_rainCatcherGetCurrentWaterTypeMethod = _rainCatcherType.GetMethod("GetCurrentWaterType", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached RainCatcher types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection raincatcher types failed: {ex.Message}");
-			}
-
-			_rainCatcherTypesCached = true;
+			});
 		}
 
 		private static void EnsureExtractorTypes() {
 			if (_extractorTypesCached) return;
+			_extractorTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_extractorTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Extractor", assembly => {
 				_extractorType = assembly.GetType("Eremite.Buildings.Extractor");
 				if (_extractorType != null) {
 					_extractorStateField = _extractorType.GetField("state", GameReflection.PublicInstance);
@@ -2123,72 +1750,42 @@ namespace ATSAccessibility {
 					_extractorModelProducedAmountField = extractorModelType.GetField("producedAmount", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Extractor types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection extractor types failed: {ex.Message}");
-			}
-
-			_extractorTypesCached = true;
+			});
 		}
 
 		private static void EnsureHydrantTypes() {
 			if (_hydrantTypesCached) return;
+			_hydrantTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_hydrantTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Hydrant", assembly => {
 				_hydrantType = assembly.GetType("Eremite.Buildings.Hydrant");
 				if (_hydrantType != null) {
 					_hydrantStateField = _hydrantType.GetField("state", GameReflection.PublicInstance);
 					_hydrantModelField = _hydrantType.GetField("model", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Hydrant types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection hydrant types failed: {ex.Message}");
-			}
-
-			_hydrantTypesCached = true;
+			});
 		}
 
 		private static void EnsureWaterModelTypes() {
 			if (_waterModelTypesCached) return;
+			_waterModelTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_waterModelTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.WaterModel", assembly => {
 				var waterModelType = assembly.GetType("Eremite.Model.WaterModel");
 				if (waterModelType != null) {
 					_waterModelDisplayNameField = waterModelType.GetField("displayName", GameReflection.PublicInstance);
 					_waterModelGoodField = waterModelType.GetField("good", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached WaterModel types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection watermodel types failed: {ex.Message}");
-			}
-
-			_waterModelTypesCached = true;
+			});
 		}
 
 		private static void EnsureCycleAbilityTypes() {
 			if (_cycleAbilityTypesCached) return;
+			_cycleAbilityTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_cycleAbilityTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.CycleAbility", assembly => {
 				// ConditionsState.cycleAbilities field
 				var conditionsStateType = assembly.GetType("Eremite.Model.State.ConditionsState");
 				if (conditionsStateType != null) {
@@ -2203,24 +1800,14 @@ namespace ATSAccessibility {
 					_cycleAbilityChargesField = cycleAbilityStateType.GetField("charges", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached CycleAbility types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection cycle ability types failed: {ex.Message}");
-			}
-
-			_cycleAbilityTypesCached = true;
+			});
 		}
 
 		private static void EnsureGameModelServiceTypes() {
 			if (_gameModelServiceTypesCached) return;
+			_gameModelServiceTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_gameModelServiceTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.GameModelService", assembly => {
 				// IGameServices.GameModelService
 				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
 				if (gameServicesType != null) {
@@ -2246,24 +1833,14 @@ namespace ATSAccessibility {
 					}
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached GameModelService types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection game model service types failed: {ex.Message}");
-			}
-
-			_gameModelServiceTypesCached = true;
+			});
 		}
 
 		private static void EnsureBlightServiceTypes() {
 			if (_blightServiceTypesCached) return;
+			_blightServiceTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_blightServiceTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.BlightService", assembly => {
 				// IGameServices.BlightService
 				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
 				if (gameServicesType != null) {
@@ -2276,24 +1853,14 @@ namespace ATSAccessibility {
 					_blightCountFreeCystsMethod = blightServiceType.GetMethod("CountGlobalFreeCysts", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached BlightService types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection blight service types failed: {ex.Message}");
-			}
-
-			_blightServiceTypesCached = true;
+			});
 		}
 
 		private static void EnsureBlightConfigTypes() {
 			if (_blightConfigTypesCached) return;
+			_blightConfigTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_blightConfigTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.BlightConfig", assembly => {
 				// Settings.blightConfig
 				var settingsType = assembly.GetType("Eremite.Model.Settings");
 				if (settingsType != null) {
@@ -2313,24 +1880,14 @@ namespace ATSAccessibility {
 					_goodRefDisplayNameProperty = goodRefType.GetProperty("DisplayName", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached BlightConfig types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection blight config types failed: {ex.Message}");
-			}
-
-			_blightConfigTypesCached = true;
+			});
 		}
 
 		private static void EnsureStorageService2Types() {
 			if (_storageService2TypesCached) return;
+			_storageService2TypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_storageService2TypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.StorageService2", assembly => {
 				// IGameServices.StorageService
 				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
 				if (gameServicesType != null) {
@@ -2349,24 +1906,14 @@ namespace ATSAccessibility {
 					_mainStorageGetAmountMethod = storageType.GetMethod("GetAmount", GameReflection.PublicInstance, null, new[] { typeof(string) }, null);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached StorageService2 types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection storage service2 types failed: {ex.Message}");
-			}
-
-			_storageService2TypesCached = true;
+			});
 		}
 
 		private static void EnsureRainpunkServiceTypes() {
 			if (_rainpunkServiceTypesCached) return;
+			_rainpunkServiceTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_rainpunkServiceTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.RainpunkService", assembly => {
 				// IGameServices.RainpunkService
 				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
 				if (gameServicesType != null) {
@@ -2388,24 +1935,14 @@ namespace ATSAccessibility {
 					_rainpunkIsWaterSpawningBlightMethod = rainpunkServiceType.GetMethod("IsWaterSpawningBlight", GameReflection.PublicInstance, null, new[] { workshopType }, null);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached RainpunkService types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection rainpunk service types failed: {ex.Message}");
-			}
-
-			_rainpunkServiceTypesCached = true;
+			});
 		}
 
 		private static void EnsureRainpunkEngineTypes() {
 			if (_rainpunkEngineTypesCached) return;
+			_rainpunkEngineTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_rainpunkEngineTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.RainpunkEngine", assembly => {
 				// Workshop and WorkshopState types
 				_workshopType = assembly.GetType("Eremite.Buildings.Workshop");
 				_workshopStateType = assembly.GetType("Eremite.Buildings.WorkshopState");
@@ -2469,24 +2006,14 @@ namespace ATSAccessibility {
 					_buildingPerkDisplayNameProp = buildingPerkModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached RainpunkEngine types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection rainpunk engine types failed: {ex.Message}");
-			}
-
-			_rainpunkEngineTypesCached = true;
+			});
 		}
 
 		private static void EnsureUpgradeTypes() {
 			if (_upgradeTypesCached) return;
+			_upgradeTypesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_upgradeTypesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("BuildingReflection.Upgrade", assembly => {
 				// UpgradableBuilding type and properties
 				_upgradableBuildingType = assembly.GetType("Eremite.Buildings.UpgradableBuilding");
 				if (_upgradableBuildingType != null) {
@@ -2529,12 +2056,7 @@ namespace ATSAccessibility {
 					_buildingPerkGetDescMethod = buildingPerkModelType.GetMethod("GetDescription", GameReflection.PublicInstance);
 				}
 
-				Debug.Log("[ATSAccessibility] BuildingReflection: Cached Upgrade types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuildingReflection upgrade types failed: {ex.Message}");
-			}
-
-			_upgradeTypesCached = true;
+			});
 		}
 
 		// ========================================
@@ -2577,7 +2099,7 @@ namespace ATSAccessibility {
 			EnsureBuildingTypes();
 
 			try {
-				return _buildingDisplayNameProperty?.GetValue(building) as string;
+				return ReflectionHelper.GetPropString(_buildingDisplayNameProperty, building);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GetBuildingName failed: {ex.Message}");
 				return null;
@@ -2594,10 +2116,10 @@ namespace ATSAccessibility {
 			EnsureModelTypes();
 
 			try {
-				var model = _buildingModelProperty?.GetValue(building);
+				var model = ReflectionHelper.GetProp(_buildingModelProperty, building);
 				if (model == null) return null;
 
-				return _modelDescriptionProperty?.GetValue(model) as string;
+				return ReflectionHelper.GetPropString(_modelDescriptionProperty, model);
 			} catch {
 				return null;
 			}
@@ -2641,10 +2163,10 @@ namespace ATSAccessibility {
 			EnsureStateTypes();
 
 			try {
-				var state = _buildingStateProperty?.GetValue(building);
+				var state = ReflectionHelper.GetProp(_buildingStateProperty, building);
 				if (state == null) return false;
 
-				return (bool?)_stateFinishedField?.GetValue(state) ?? false;
+				return ReflectionHelper.GetBool(_stateFinishedField, state);
 			} catch {
 				return false;
 			}
@@ -2660,10 +2182,10 @@ namespace ATSAccessibility {
 			EnsureStateTypes();
 
 			try {
-				var state = _buildingStateProperty?.GetValue(building);
+				var state = ReflectionHelper.GetProp(_buildingStateProperty, building);
 				if (state == null) return false;
 
-				return (bool?)_stateIsSleepingField?.GetValue(state) ?? false;
+				return ReflectionHelper.GetBool(_stateIsSleepingField, state);
 			} catch {
 				return false;
 			}
@@ -2781,11 +2303,10 @@ namespace ATSAccessibility {
 			EnsureCampTypes();
 
 			try {
-				var state = _campStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_campStateField, building);
 				if (state == null) return 0;
 
-				var mode = _campStateModeField?.GetValue(state);
-				return mode != null ? (int)mode : 0;
+				return ReflectionHelper.GetEnum(_campStateModeField, state);
 			} catch {
 				return 0;
 			}
@@ -2853,8 +2374,7 @@ namespace ATSAccessibility {
 			EnsureFarmTypes();
 
 			try {
-				var result = _farmCountSownFieldsMethod?.Invoke(building, null);
-				return (int?)result ?? 0;
+				return ReflectionHelper.InvokeInt(_farmCountSownFieldsMethod, building);
 			} catch {
 				return 0;
 			}
@@ -2869,8 +2389,7 @@ namespace ATSAccessibility {
 			EnsureFarmTypes();
 
 			try {
-				var result = _farmCountPlowedFieldsMethod?.Invoke(building, null);
-				return (int?)result ?? 0;
+				return ReflectionHelper.InvokeInt(_farmCountPlowedFieldsMethod, building);
 			} catch {
 				return 0;
 			}
@@ -2885,8 +2404,7 @@ namespace ATSAccessibility {
 			EnsureFarmTypes();
 
 			try {
-				var result = _farmCountAllFieldsMethod?.Invoke(building, null);
-				return (int?)result ?? 0;
+				return ReflectionHelper.InvokeInt(_farmCountAllFieldsMethod, building);
 			} catch {
 				return 0;
 			}
@@ -2969,10 +2487,10 @@ namespace ATSAccessibility {
 			EnsureFarmfieldTypes();
 
 			try {
-				var state = _farmfieldStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_farmfieldStateField, building);
 				if (state == null) return false;
 
-				return (bool?)_farmfieldStatePlowedField?.GetValue(state) ?? false;
+				return ReflectionHelper.GetBool(_farmfieldStatePlowedField, state);
 			} catch {
 				return false;
 			}
@@ -2987,10 +2505,10 @@ namespace ATSAccessibility {
 			EnsureFarmfieldTypes();
 
 			try {
-				var state = _farmfieldStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_farmfieldStateField, building);
 				if (state == null) return false;
 
-				var plant = _farmfieldStatePlantField?.GetValue(state);
+				var plant = ReflectionHelper.GetField(_farmfieldStatePlantField, state);
 				return plant != null;
 			} catch {
 				return false;
@@ -3007,14 +2525,14 @@ namespace ATSAccessibility {
 			EnsureFarmfieldTypes();
 
 			try {
-				var state = _farmfieldStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_farmfieldStateField, building);
 				if (state == null) return null;
 
-				var plant = _farmfieldStatePlantField?.GetValue(state);
+				var plant = ReflectionHelper.GetField(_farmfieldStatePlantField, state);
 				if (plant == null) return null;
 
 				// Get the recipe name from plant state
-				var recipeName = _farmfieldPlantRecipeField?.GetValue(plant) as string;
+				var recipeName = ReflectionHelper.GetString(_farmfieldPlantRecipeField, plant);
 				if (string.IsNullOrEmpty(recipeName)) return null;
 
 				// Look up the FarmRecipeModel via Settings.GetFarmRecipe(recipeName)
@@ -3067,14 +2585,14 @@ namespace ATSAccessibility {
 			EnsureFarmfieldTypes();
 
 			try {
-				var state = _farmfieldStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_farmfieldStateField, building);
 				if (state == null) return null;
 
-				var plant = _farmfieldStatePlantField?.GetValue(state);
+				var plant = ReflectionHelper.GetField(_farmfieldStatePlantField, state);
 				if (plant == null) return null;
 
 				// Get the good struct and multiplier
-				var goodObj = _farmfieldPlantGoodField?.GetValue(plant);
+				var goodObj = ReflectionHelper.GetField(_farmfieldPlantGoodField, plant);
 				if (goodObj == null) return null;
 
 				int multiplier = (int?)_farmfieldPlantMultiplierField?.GetValue(plant) ?? 1;
@@ -3126,11 +2644,10 @@ namespace ATSAccessibility {
 			EnsureFishingHutTypes();
 
 			try {
-				var state = _fishingHutStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_fishingHutStateField, building);
 				if (state == null) return 0;
 
-				var mode = _fishingHutStateBaitModeField?.GetValue(state);
-				return mode != null ? (int)mode : 0;
+				return ReflectionHelper.GetEnum(_fishingHutStateBaitModeField, state);
 			} catch {
 				return 0;
 			}
@@ -3183,10 +2700,10 @@ namespace ATSAccessibility {
 			EnsureFishingHutTypes();
 
 			try {
-				var state = _fishingHutStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_fishingHutStateField, building);
 				if (state == null) return 0;
 
-				var charges = _fishingHutStateBaitChargesField?.GetValue(state);
+				var charges = ReflectionHelper.GetField(_fishingHutStateBaitChargesField, state);
 				return (int?)charges ?? 0;
 			} catch {
 				return 0;
@@ -3202,10 +2719,10 @@ namespace ATSAccessibility {
 			EnsureFishingHutTypes();
 
 			try {
-				var model = _fishingHutModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_fishingHutModelField, building);
 				if (model == null) return null;
 
-				var baitIngredient = _fishingHutModelBaitIngredientField?.GetValue(model);
+				var baitIngredient = ReflectionHelper.GetField(_fishingHutModelBaitIngredientField, model);
 				if (baitIngredient == null) return null;
 
 				// baitIngredient is a GoodModel, get its Name property
@@ -3226,10 +2743,10 @@ namespace ATSAccessibility {
 			EnsureFishingHutTypes();
 
 			try {
-				var state = _fishingHutStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_fishingHutStateField, building);
 				if (state == null) return result;
 
-				var recipes = _fishingHutStateRecipesField?.GetValue(state) as System.Collections.IList;
+				var recipes = ReflectionHelper.GetList(_fishingHutStateRecipesField, state);
 				if (recipes == null) return result;
 
 				foreach (var recipe in recipes) {
@@ -3252,7 +2769,7 @@ namespace ATSAccessibility {
 			EnsureFishingHutTypes();
 
 			try {
-				_fishingHutSwitchProductionOfMethod?.Invoke(building, new object[] { recipeState });
+				ReflectionHelper.InvokeVoid(_fishingHutSwitchProductionOfMethod, building, recipeState);
 				return true;
 			} catch {
 				return false;
@@ -3309,10 +2826,10 @@ namespace ATSAccessibility {
 				var gameServices = GameReflection.GetGameServices();
 				if (gameServices == null) return null;
 
-				var actorsService = _actorsServiceProperty?.GetValue(gameServices);
+				var actorsService = ReflectionHelper.GetProp(_actorsServiceProperty, gameServices);
 				if (actorsService == null) return null;
 
-				return _getActorMethod?.Invoke(actorsService, new object[] { actorId });
+				return ReflectionHelper.Invoke(_getActorMethod, actorsService, actorId);
 			} catch {
 				return null;
 			}
@@ -3329,11 +2846,11 @@ namespace ATSAccessibility {
 
 			try {
 				// Get the ActorState (which is actually VillagerState for villagers)
-				var actorState = _actorStateProperty?.GetValue(actor);
+				var actorState = ReflectionHelper.GetProp(_actorStateProperty, actor);
 				if (actorState == null) return null;
 
 				// Get the name field from the state
-				return _villagerStateNameField?.GetValue(actorState) as string;
+				return ReflectionHelper.GetString(_villagerStateNameField, actorState);
 			} catch {
 				return null;
 			}
@@ -3351,11 +2868,11 @@ namespace ATSAccessibility {
 
 			try {
 				// Get the ActorState (which is actually VillagerState for villagers)
-				var actorState = _actorStateProperty?.GetValue(actor);
+				var actorState = ReflectionHelper.GetProp(_actorStateProperty, actor);
 				if (actorState == null) return null;
 
 				// Get the race field from the state
-				return _villagerStateRaceField?.GetValue(actorState) as string;
+				return ReflectionHelper.GetString(_villagerStateRaceField, actorState);
 			} catch {
 				return null;
 			}
@@ -3370,7 +2887,7 @@ namespace ATSAccessibility {
 			EnsureActorProperties();
 
 			try {
-				return _getTaskDescriptionMethod?.Invoke(actor, null) as string;
+				return ReflectionHelper.InvokeString(_getTaskDescriptionMethod, actor);
 			} catch {
 				return null;
 			}
@@ -3427,21 +2944,19 @@ namespace ATSAccessibility {
 				if (villagersService == null) return result;
 
 				// Get the Races dictionary: Dictionary<string, List<Villager>>
-				var racesDict = _villagersServiceRacesProperty?.GetValue(villagersService);
+				var racesDict = ReflectionHelper.GetProp(_villagersServiceRacesProperty, villagersService);
 				if (racesDict == null) return result;
 
 				// Iterate through races
-				var keys = racesDict.GetType().GetProperty("Keys")?.GetValue(racesDict) as System.Collections.IEnumerable;
+				var keys = ReflectionHelper.IterateKeys(racesDict);
 				if (keys == null) return result;
-
-				var indexer = racesDict.GetType().GetProperty("Item");
 
 				foreach (var raceKey in keys) {
 					string raceName = raceKey as string;
 					if (string.IsNullOrEmpty(raceName)) continue;
 
 					// Check if race has any villagers (is actually present in settlement)
-					var villagerList = indexer?.GetValue(racesDict, new object[] { raceKey });
+					var villagerList = ReflectionHelper.DictGet(racesDict, raceKey);
 					if (villagerList != null) {
 						var countProp = villagerList.GetType().GetProperty("Count");
 						int population = (int)(countProp?.GetValue(villagerList) ?? 0);
@@ -3472,7 +2987,7 @@ namespace ATSAccessibility {
 				var villagersService = GetVillagersService();
 				if (villagersService == null) return 0;
 
-				var result = _getDefaultProfessionAmountMethod?.Invoke(villagersService, new object[] { raceName });
+				var result = ReflectionHelper.Invoke(_getDefaultProfessionAmountMethod, villagersService, raceName);
 				return (int?)result ?? 0;
 			} catch {
 				return 0;
@@ -3516,7 +3031,7 @@ namespace ATSAccessibility {
 				if (raceModel == null) return null;
 
 				// Get the building model
-				var buildingModel = _buildingModelProperty?.GetValue(building);
+				var buildingModel = ReflectionHelper.GetProp(_buildingModelProperty, building);
 				if (buildingModel == null) return null;
 
 				// Get building's tags array
@@ -3535,15 +3050,15 @@ namespace ATSAccessibility {
 					foreach (var characteristic in characteristics) {
 						if (characteristic == null) continue;
 
-						var characteristicTag = _raceCharacteristicTagField?.GetValue(characteristic);
+						var characteristicTag = ReflectionHelper.GetField(_raceCharacteristicTagField, characteristic);
 						if (characteristicTag == null) continue;
 
 						// Compare the tags (they should be the same object reference)
 						if (characteristicTag == buildingTag) {
 							// Found a match! Try to get the tag's display name first
-							var displayNameLoca = _buildingTagDisplayNameField?.GetValue(buildingTag);
+							var displayNameLoca = ReflectionHelper.GetField(_buildingTagDisplayNameField, buildingTag);
 							if (displayNameLoca != null) {
-								string displayName = _locaTextTextProperty?.GetValue(displayNameLoca) as string;
+								string displayName = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca);
 								// Check for valid display name (missing localization keys show as ">Missing key<")
 								if (!string.IsNullOrEmpty(displayName) && !displayName.Contains("Missing key")) {
 									return displayName;
@@ -3551,11 +3066,11 @@ namespace ATSAccessibility {
 							}
 
 							// Try effect's displayName (VillagerPerkModel)
-							var effect = _raceCharacteristicEffectField?.GetValue(characteristic);
+							var effect = ReflectionHelper.GetField(_raceCharacteristicEffectField, characteristic);
 							if (effect != null) {
-								var effectDisplayNameLoca = _villagerPerkDisplayNameField?.GetValue(effect);
+								var effectDisplayNameLoca = ReflectionHelper.GetField(_villagerPerkDisplayNameField, effect);
 								if (effectDisplayNameLoca != null) {
-									string effectDisplayName = _locaTextTextProperty?.GetValue(effectDisplayNameLoca) as string;
+									string effectDisplayName = ReflectionHelper.GetPropString(_locaTextTextProperty, effectDisplayNameLoca);
 									if (!string.IsNullOrEmpty(effectDisplayName) && !effectDisplayName.Contains("Missing key")) {
 										// Get description too for VillagerPerkModel
 										var descProp = effect.GetType().GetProperty("Description", GameReflection.PublicInstance);
@@ -3569,9 +3084,9 @@ namespace ATSAccessibility {
 							}
 
 							// Try buildingPerk's DisplayName (BuildingPerkModel)
-							var buildingPerk = _raceCharacteristicBuildingPerkField?.GetValue(characteristic);
+							var buildingPerk = ReflectionHelper.GetField(_raceCharacteristicBuildingPerkField, characteristic);
 							if (buildingPerk != null) {
-								string perkDisplayName = _buildingPerkDisplayNameProperty?.GetValue(buildingPerk) as string;
+								string perkDisplayName = ReflectionHelper.GetPropString(_buildingPerkDisplayNameProperty, buildingPerk);
 								if (!string.IsNullOrEmpty(perkDisplayName) && !perkDisplayName.Contains("Missing key")) {
 									// Get description too - BuildingPerkModel.GetDescription(Building) but we can pass null
 									var getDescMethod = buildingPerk.GetType().GetMethod("GetDescription", new[] { typeof(object).Assembly.GetType("Eremite.Buildings.Building") ?? typeof(object) });
@@ -3587,9 +3102,9 @@ namespace ATSAccessibility {
 							}
 
 							// Try globalEffect's DisplayName (EffectModel)
-							var globalEffect = _raceCharacteristicGlobalEffectField?.GetValue(characteristic);
+							var globalEffect = ReflectionHelper.GetField(_raceCharacteristicGlobalEffectField, characteristic);
 							if (globalEffect != null) {
-								string globalDisplayName = _effectModelDisplayNameProperty?.GetValue(globalEffect) as string;
+								string globalDisplayName = ReflectionHelper.GetPropString(_effectModelDisplayNameProperty, globalEffect);
 								if (!string.IsNullOrEmpty(globalDisplayName) && !globalDisplayName.Contains("Missing key")) {
 									// Get description too for EffectModel
 									var descProp = globalEffect.GetType().GetProperty("Description", GameReflection.PublicInstance);
@@ -3626,14 +3141,14 @@ namespace ATSAccessibility {
 				if (villagersService == null) return false;
 
 				// Get a free villager of this race
-				var villager = _getDefaultProfessionVillagerMethod?.Invoke(villagersService, new object[] { raceName, building });
+				var villager = ReflectionHelper.Invoke(_getDefaultProfessionVillagerMethod, villagersService, raceName, building);
 				if (villager == null) {
 					Debug.Log($"[ATSAccessibility] AssignWorkerToSlot: No free villager of race {raceName}");
 					return false;
 				}
 
 				// Get the building's profession
-				string profession = _professionProperty?.GetValue(building) as string;
+				string profession = ReflectionHelper.GetPropString(_professionProperty, building);
 				if (string.IsNullOrEmpty(profession)) {
 					Debug.LogError("[ATSAccessibility] AssignWorkerToSlot: Could not get building profession");
 					return false;
@@ -3672,14 +3187,14 @@ namespace ATSAccessibility {
 				if (villagersService == null) return false;
 
 				// Get the villager
-				var villager = _getVillagerMethod?.Invoke(villagersService, new object[] { workerId });
+				var villager = ReflectionHelper.Invoke(_getVillagerMethod, villagersService, workerId);
 				if (villager == null) {
 					Debug.LogError("[ATSAccessibility] UnassignWorkerFromSlot: Could not get villager");
 					return false;
 				}
 
 				// Release from profession
-				_releaseFromProfessionMethod?.Invoke(villagersService, new object[] { villager, true });
+				ReflectionHelper.InvokeVoid(_releaseFromProfessionMethod, villagersService, villager, true);
 				Debug.Log($"[ATSAccessibility] UnassignWorkerFromSlot: Unassigned worker from slot {slotIndex}");
 				return true;
 			} catch (Exception ex) {
@@ -3716,7 +3231,7 @@ namespace ATSAccessibility {
 				EnsureWorkshopTypes();
 
 				try {
-					var recipes = _workshopRecipesProperty?.GetValue(building);
+					var recipes = ReflectionHelper.GetProp(_workshopRecipesProperty, building);
 					if (recipes != null) {
 						var enumerable = recipes as System.Collections.IEnumerable;
 						if (enumerable != null) {
@@ -3739,9 +3254,9 @@ namespace ATSAccessibility {
 				EnsureCampTypes();
 
 				try {
-					var campState = _campStateField?.GetValue(building);
+					var campState = ReflectionHelper.GetField(_campStateField, building);
 					if (campState != null) {
-						var recipes = _campStateRecipesField?.GetValue(campState);
+						var recipes = ReflectionHelper.GetField(_campStateRecipesField, campState);
 						if (recipes != null) {
 							var enumerable = recipes as System.Collections.IEnumerable;
 							if (enumerable != null) {
@@ -3765,7 +3280,7 @@ namespace ATSAccessibility {
 				EnsureFarmTypes();
 
 				try {
-					var farmState = _farmStateField?.GetValue(building);
+					var farmState = ReflectionHelper.GetField(_farmStateField, building);
 					if (farmState != null) {
 						// Farm uses state.recipes (List<RecipeState>)
 						var recipesField = farmState.GetType().GetField("recipes", GameReflection.PublicInstance);
@@ -3804,7 +3319,7 @@ namespace ATSAccessibility {
 				EnsureWorkshopTypes();
 
 				try {
-					_switchProductionOfMethod?.Invoke(building, new object[] { recipeState });
+					ReflectionHelper.InvokeVoid(_switchProductionOfMethod, building, recipeState);
 					return true;
 				} catch (Exception ex) {
 					Debug.LogError($"[ATSAccessibility] ToggleRecipe (IWorkshop) failed: {ex.Message}");
@@ -3817,7 +3332,7 @@ namespace ATSAccessibility {
 				EnsureCampTypes();
 
 				try {
-					_campSwitchProductionOfMethod?.Invoke(building, new object[] { recipeState });
+					ReflectionHelper.InvokeVoid(_campSwitchProductionOfMethod, building, recipeState);
 					return true;
 				} catch (Exception ex) {
 					Debug.LogError($"[ATSAccessibility] ToggleRecipe (Camp) failed: {ex.Message}");
@@ -3830,7 +3345,7 @@ namespace ATSAccessibility {
 				EnsureFarmTypes();
 
 				try {
-					_farmSwitchProductionOfMethod?.Invoke(building, new object[] { recipeState });
+					ReflectionHelper.InvokeVoid(_farmSwitchProductionOfMethod, building, recipeState);
 					return true;
 				} catch (Exception ex) {
 					Debug.LogError($"[ATSAccessibility] ToggleRecipe (Farm) failed: {ex.Message}");
@@ -3850,7 +3365,7 @@ namespace ATSAccessibility {
 			EnsureRecipeTypes();
 
 			try {
-				return (bool?)_recipeActiveField?.GetValue(recipeState) ?? false;
+				return ReflectionHelper.GetBool(_recipeActiveField, recipeState);
 			} catch {
 				return false;
 			}
@@ -3895,7 +3410,7 @@ namespace ATSAccessibility {
 			EnsureRecipeTypes();
 
 			try {
-				return _recipeModelField?.GetValue(recipeState) as string;
+				return ReflectionHelper.GetString(_recipeModelField, recipeState);
 			} catch {
 				return null;
 			}
@@ -3910,7 +3425,7 @@ namespace ATSAccessibility {
 			EnsureRecipeTypes();
 
 			try {
-				return _recipeProductNameField?.GetValue(recipeState) as string;
+				return ReflectionHelper.GetString(_recipeProductNameField, recipeState);
 			} catch {
 				return null;
 			}
@@ -3926,13 +3441,13 @@ namespace ATSAccessibility {
 			EnsureRecipeModelTypes();
 
 			try {
-				string modelName = _recipeModelField?.GetValue(recipeState) as string;
+				string modelName = ReflectionHelper.GetString(_recipeModelField, recipeState);
 				if (string.IsNullOrEmpty(modelName)) return null;
 
 				var settings = GameReflection.GetSettings();
 				if (settings == null) return null;
 
-				return _settingsGetRecipeMethod?.Invoke(settings, new object[] { modelName });
+				return ReflectionHelper.Invoke(_settingsGetRecipeMethod, settings, modelName);
 			} catch {
 				return null;
 			}
@@ -3948,10 +3463,10 @@ namespace ATSAccessibility {
 			EnsureRecipeModelTypes();
 
 			try {
-				var grade = _recipeModelGradeField?.GetValue(model);
+				var grade = ReflectionHelper.GetField(_recipeModelGradeField, model);
 				if (grade == null) return 0;
 
-				return (int?)_gradeModelLevelField?.GetValue(grade) ?? 0;
+				return ReflectionHelper.GetInt(_gradeModelLevelField, grade);
 			} catch {
 				return 0;
 			}
@@ -3983,7 +3498,7 @@ namespace ATSAccessibility {
 			EnsureRecipeModelTypes();
 
 			try {
-				var producedGood = _recipeModelProducedGoodField?.GetValue(model);
+				var producedGood = ReflectionHelper.GetField(_recipeModelProducedGoodField, model);
 				if (producedGood == null) return 1;
 
 				return (int?)_goodRefAmountField?.GetValue(producedGood) ?? 1;
@@ -4002,13 +3517,13 @@ namespace ATSAccessibility {
 			EnsureRecipeModelTypes();
 
 			try {
-				var producedGood = _recipeModelProducedGoodField?.GetValue(model);
+				var producedGood = ReflectionHelper.GetField(_recipeModelProducedGoodField, model);
 				if (producedGood == null) return null;
 
-				var goodModel = _goodRefGoodField?.GetValue(producedGood);
+				var goodModel = ReflectionHelper.GetField(_goodRefGoodField, producedGood);
 				if (goodModel == null) return null;
 
-				var displayNameObj = _goodModelDisplayNameProperty?.GetValue(goodModel);
+				var displayNameObj = ReflectionHelper.GetProp(_goodModelDisplayNameProperty, goodModel);
 				return GameReflection.GetLocaText(displayNameObj);
 			} catch {
 				return null;
@@ -4251,7 +3766,7 @@ namespace ATSAccessibility {
 			EnsureIngredientTypes();
 
 			try {
-				var good = _ingredientGoodField?.GetValue(ingredientState);
+				var good = ReflectionHelper.GetField(_ingredientGoodField, ingredientState);
 				if (good == null) return null;
 
 				// Good is a struct with a 'name' field
@@ -4271,7 +3786,7 @@ namespace ATSAccessibility {
 			EnsureIngredientTypes();
 
 			try {
-				var good = _ingredientGoodField?.GetValue(ingredientState);
+				var good = ReflectionHelper.GetField(_ingredientGoodField, ingredientState);
 				if (good == null) return 1;
 
 				return (int?)_goodAmountField?.GetValue(good) ?? 1;
@@ -4289,7 +3804,7 @@ namespace ATSAccessibility {
 			EnsureIngredientTypes();
 
 			try {
-				return (bool?)_ingredientAllowedField?.GetValue(ingredientState) ?? false;
+				return ReflectionHelper.GetBool(_ingredientAllowedField, ingredientState);
 			} catch {
 				return false;
 			}
@@ -4304,7 +3819,7 @@ namespace ATSAccessibility {
 			EnsureIngredientTypes();
 
 			try {
-				bool current = (bool?)_ingredientAllowedField?.GetValue(ingredientState) ?? false;
+				bool current = ReflectionHelper.GetBool(_ingredientAllowedField, ingredientState);
 				_ingredientAllowedField?.SetValue(ingredientState, !current);
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] ToggleIngredientAllowed failed: {ex.Message}"); }
 		}
@@ -4351,7 +3866,7 @@ namespace ATSAccessibility {
 			EnsureProductionTypes();
 
 			try {
-				var storage = _productionStorageProperty?.GetValue(building);
+				var storage = ReflectionHelper.GetProp(_productionStorageProperty, building);
 				return storage != null;
 			} catch {
 				return false;
@@ -4371,28 +3886,25 @@ namespace ATSAccessibility {
 			EnsureStorageTypes();
 
 			try {
-				var storage = _productionStorageProperty?.GetValue(building);
+				var storage = ReflectionHelper.GetProp(_productionStorageProperty, building);
 				if (storage == null) return result;
 
-				var goodsCollection = _storageGoodsProperty?.GetValue(storage);
+				var goodsCollection = ReflectionHelper.GetProp(_storageGoodsProperty, storage);
 				if (goodsCollection == null) return result;
 
 				// Get the goods dictionary (Dictionary<string, int>)
-				var goodsDict = _goodsCollectionGoodsField?.GetValue(goodsCollection);
+				var goodsDict = ReflectionHelper.GetField(_goodsCollectionGoodsField, goodsCollection);
 				if (goodsDict == null) return result;
 
 				// Iterate through the dictionary
-				var keysProperty = goodsDict.GetType().GetProperty("Keys");
-				var keys = keysProperty?.GetValue(goodsDict) as System.Collections.IEnumerable;
+				var keys = ReflectionHelper.IterateKeys(goodsDict);
 				if (keys == null) return result;
-
-				var indexer = goodsDict.GetType().GetProperty("Item");
 
 				foreach (var key in keys) {
 					string goodName = key as string;
 					if (string.IsNullOrEmpty(goodName)) continue;
 
-					int amount = (int?)indexer?.GetValue(goodsDict, new[] { key }) ?? 0;
+					int amount = ReflectionHelper.DictGet(goodsDict, key) is int i ? i : 0;
 					if (amount > 0) {
 						result.Add((goodName, amount));
 					}
@@ -4421,7 +3933,7 @@ namespace ATSAccessibility {
 				var goodModel = getGoodMethod?.Invoke(settings, new object[] { goodName });
 				if (goodModel == null) return goodName;
 
-				var displayNameObj = _goodModelDisplayNameProperty?.GetValue(goodModel);
+				var displayNameObj = ReflectionHelper.GetProp(_goodModelDisplayNameProperty, goodModel);
 				return GameReflection.GetLocaText(displayNameObj) ?? goodName;
 			} catch {
 				return goodName;
@@ -4443,7 +3955,7 @@ namespace ATSAccessibility {
 				return false;
 
 			try {
-				var storage = _workshopIngredientsStorageProperty?.GetValue(building);
+				var storage = ReflectionHelper.GetProp(_workshopIngredientsStorageProperty, building);
 				return storage != null;
 			} catch {
 				return false;
@@ -4466,28 +3978,25 @@ namespace ATSAccessibility {
 				return result;
 
 			try {
-				var storage = _workshopIngredientsStorageProperty?.GetValue(building);
+				var storage = ReflectionHelper.GetProp(_workshopIngredientsStorageProperty, building);
 				if (storage == null) return result;
 
-				var goodsCollection = _ingredientsStorageGoodsField?.GetValue(storage);
+				var goodsCollection = ReflectionHelper.GetField(_ingredientsStorageGoodsField, storage);
 				if (goodsCollection == null) return result;
 
 				// Get the goods dictionary (Dictionary<string, int>)
-				var goodsDict = _goodsCollectionGoodsField?.GetValue(goodsCollection);
+				var goodsDict = ReflectionHelper.GetField(_goodsCollectionGoodsField, goodsCollection);
 				if (goodsDict == null) return result;
 
 				// Iterate through the dictionary
-				var keysProperty = goodsDict.GetType().GetProperty("Keys");
-				var keys = keysProperty?.GetValue(goodsDict) as System.Collections.IEnumerable;
+				var keys = ReflectionHelper.IterateKeys(goodsDict);
 				if (keys == null) return result;
-
-				var indexer = goodsDict.GetType().GetProperty("Item");
 
 				foreach (var key in keys) {
 					string goodName = key as string;
 					if (string.IsNullOrEmpty(goodName)) continue;
 
-					int amount = (int?)indexer?.GetValue(goodsDict, new[] { key }) ?? 0;
+					int amount = ReflectionHelper.DictGet(goodsDict, key) is int i ? i : 0;
 					if (amount > 0) {
 						result.Add((goodName, amount));
 					}
@@ -4511,17 +4020,17 @@ namespace ATSAccessibility {
 			EnsureStorageTypes();
 
 			try {
-				var storage = _productionStorageProperty?.GetValue(building);
+				var storage = ReflectionHelper.GetProp(_productionStorageProperty, building);
 				if (storage == null) return (false, false);
 
-				var goodsCollection = _storageGoodsProperty?.GetValue(storage);
+				var goodsCollection = ReflectionHelper.GetProp(_storageGoodsProperty, storage);
 				if (goodsCollection == null) return (false, false);
 
-				var deliveryState = _storageGetDeliveryStateMethod?.Invoke(goodsCollection, new object[] { goodName });
+				var deliveryState = ReflectionHelper.Invoke(_storageGetDeliveryStateMethod, goodsCollection, goodName);
 				if (deliveryState == null) return (false, false);
 
-				bool isForced = (bool?)_deliveryStateForcedField?.GetValue(deliveryState) ?? false;
-				bool isConstantForced = (bool?)_deliveryStateConstantForcedField?.GetValue(deliveryState) ?? false;
+				bool isForced = ReflectionHelper.GetBool(_deliveryStateForcedField, deliveryState);
+				bool isConstantForced = ReflectionHelper.GetBool(_deliveryStateConstantForcedField, deliveryState);
 
 				return (isForced, isConstantForced);
 			} catch (Exception ex) {
@@ -4542,16 +4051,16 @@ namespace ATSAccessibility {
 			EnsureStorageTypes();
 
 			try {
-				var storage = _productionStorageProperty?.GetValue(building);
+				var storage = ReflectionHelper.GetProp(_productionStorageProperty, building);
 				if (storage == null) return false;
 
-				var goodsCollection = _storageGoodsProperty?.GetValue(storage);
+				var goodsCollection = ReflectionHelper.GetProp(_storageGoodsProperty, storage);
 				if (goodsCollection == null) return false;
 
-				var deliveryState = _storageGetDeliveryStateMethod?.Invoke(goodsCollection, new object[] { goodName });
+				var deliveryState = ReflectionHelper.Invoke(_storageGetDeliveryStateMethod, goodsCollection, goodName);
 				if (deliveryState == null) return false;
 
-				_storageSwitchForceDeliveryMethod?.Invoke(storage, new object[] { goodName, deliveryState });
+				ReflectionHelper.InvokeVoid(_storageSwitchForceDeliveryMethod, storage, goodName, deliveryState);
 
 				Debug.Log($"[ATSAccessibility] Toggled force delivery for {goodName}");
 				return true;
@@ -4573,16 +4082,16 @@ namespace ATSAccessibility {
 			EnsureStorageTypes();
 
 			try {
-				var storage = _productionStorageProperty?.GetValue(building);
+				var storage = ReflectionHelper.GetProp(_productionStorageProperty, building);
 				if (storage == null) return false;
 
-				var goodsCollection = _storageGoodsProperty?.GetValue(storage);
+				var goodsCollection = ReflectionHelper.GetProp(_storageGoodsProperty, storage);
 				if (goodsCollection == null) return false;
 
-				var deliveryState = _storageGetDeliveryStateMethod?.Invoke(goodsCollection, new object[] { goodName });
+				var deliveryState = ReflectionHelper.Invoke(_storageGetDeliveryStateMethod, goodsCollection, goodName);
 				if (deliveryState == null) return false;
 
-				_storageSwitchConstantForceDeliveryMethod?.Invoke(storage, new object[] { goodName, deliveryState });
+				ReflectionHelper.InvokeVoid(_storageSwitchConstantForceDeliveryMethod, storage, goodName, deliveryState);
 
 				Debug.Log($"[ATSAccessibility] Toggled constant delivery for {goodName}");
 				return true;
@@ -4607,10 +4116,10 @@ namespace ATSAccessibility {
 
 			try {
 				// Get ingredients storage
-				var ingredientsStorage = _workshopIngredientsStorageProperty?.GetValue(building);
+				var ingredientsStorage = ReflectionHelper.GetProp(_workshopIngredientsStorageProperty, building);
 				if (ingredientsStorage == null) return false;
 
-				var goodsCollection = _ingredientsStorageGoodsField?.GetValue(ingredientsStorage);
+				var goodsCollection = ReflectionHelper.GetField(_ingredientsStorageGoodsField, ingredientsStorage);
 				if (goodsCollection == null) return false;
 
 				// Create Good struct
@@ -4680,8 +4189,8 @@ namespace ATSAccessibility {
 			EnsureHearthTypes();
 
 			try {
-				var state = _hearthStateField?.GetValue(building);
-				var model = _hearthModelField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_hearthStateField, building);
+				var model = ReflectionHelper.GetField(_hearthModelField, building);
 				if (state == null || model == null) return 0f;
 
 				float burningTimeLeft = (float?)_hearthStateBurningTimeLeftField?.GetValue(state) ?? 0f;
@@ -4702,7 +4211,7 @@ namespace ATSAccessibility {
 			EnsureHearthTypes();
 
 			try {
-				var state = _hearthStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_hearthStateField, building);
 				if (state == null) return 0f;
 
 				return (float?)_hearthStateBurningTimeLeftField?.GetValue(state) ?? 0f;
@@ -4720,8 +4229,8 @@ namespace ATSAccessibility {
 			EnsureHearthTypes();
 
 			try {
-				var state = _hearthStateField?.GetValue(building);
-				var model = _hearthModelField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_hearthStateField, building);
+				var model = ReflectionHelper.GetField(_hearthModelField, building);
 				if (state == null || model == null) return false;
 
 				float burningTimeLeft = (float?)_hearthStateBurningTimeLeftField?.GetValue(state) ?? 0f;
@@ -4749,7 +4258,7 @@ namespace ATSAccessibility {
 			EnsureHearthTypes();
 
 			try {
-				var state = _hearthStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_hearthStateField, building);
 				if (state == null) return -1;
 
 				return (int?)_hearthStateHubIndexField?.GetValue(state) ?? -1;
@@ -4767,8 +4276,7 @@ namespace ATSAccessibility {
 			EnsureHearthTypes();
 
 			try {
-				var result = _hearthGetCorruptionRateMethod?.Invoke(building, null);
-				return (float?)result ?? 0f;
+				return ReflectionHelper.InvokeFloat(_hearthGetCorruptionRateMethod, building);
 			} catch {
 				return 0f;
 			}
@@ -4783,8 +4291,7 @@ namespace ATSAccessibility {
 			EnsureHearthTypes();
 
 			try {
-				var result = _hearthGetRangeMethod?.Invoke(building, null);
-				return (float?)result ?? 0f;
+				return ReflectionHelper.InvokeFloat(_hearthGetRangeMethod, building);
 			} catch {
 				return 0f;
 			}
@@ -4799,7 +4306,7 @@ namespace ATSAccessibility {
 			EnsureHearthTypes();
 
 			try {
-				var result = _hearthIsMainHearthMethod?.Invoke(building, null);
+				var result = ReflectionHelper.Invoke(_hearthIsMainHearthMethod, building);
 				return (bool?)result ?? false;
 			} catch {
 				return false;
@@ -4815,7 +4322,7 @@ namespace ATSAccessibility {
 			EnsureHearthTypes();
 
 			try {
-				var state = _hearthStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_hearthStateField, building);
 				if (state == null) return new int[0];
 
 				return _hearthStateWorkersField?.GetValue(state) as int[] ?? new int[0];
@@ -4863,7 +4370,7 @@ namespace ATSAccessibility {
 				var metaPerksService = _mbMetaPerksServiceProperty?.GetValue(null);
 				if (metaPerksService == null) return 1;
 
-				var result = _metaPerksServiceGetUnlockedHubsMethod?.Invoke(metaPerksService, null);
+				var result = ReflectionHelper.Invoke(_metaPerksServiceGetUnlockedHubsMethod, metaPerksService);
 				return (int?)result ?? 1;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GetUnlockedHubTierCount failed: {ex.Message}");
@@ -4896,7 +4403,7 @@ namespace ATSAccessibility {
 				int currentInst = CountInstitutionsForHearth(building);
 
 				foreach (var tier in tiers) {
-					int tierIndex = (int?)_hubTierIndexField?.GetValue(tier) ?? 0;
+					int tierIndex = ReflectionHelper.GetInt(_hubTierIndexField, tier);
 
 					// Skip tiers not unlocked in meta progression
 					if (tierIndex >= unlockedCount)
@@ -4910,20 +4417,20 @@ namespace ATSAccessibility {
 					info.isAchieved = currentHubIndex >= info.index;
 
 					// Display name
-					var displayNameLoca = _hubTierDisplayNameField?.GetValue(tier);
+					var displayNameLoca = ReflectionHelper.GetField(_hubTierDisplayNameField, tier);
 					info.displayName = GameReflection.GetLocaText(displayNameLoca) ?? $"Upgrade {info.index + 1}";
 
 					// Effect description
-					var effect = _hubTierEffectField?.GetValue(tier);
+					var effect = ReflectionHelper.GetField(_hubTierEffectField, tier);
 					if (effect != null) {
 						EnsureHearthSacrificeTypes(); // For _effectModelDescProp
 						info.effectDescription = _effectModelDescProp?.GetValue(effect) as string ?? "";
 					}
 
 					// Requirements
-					info.minPopulation = (int?)_hubTierMinPopulationField?.GetValue(tier) ?? 0;
+					info.minPopulation = ReflectionHelper.GetInt(_hubTierMinPopulationField, tier);
 					info.currentPopulation = currentPop;
-					info.minInstitutions = (int?)_hubTierMinInstitutionsField?.GetValue(tier) ?? 0;
+					info.minInstitutions = ReflectionHelper.GetInt(_hubTierMinInstitutionsField, tier);
 					info.currentInstitutions = currentInst;
 
 					// Decoration requirements
@@ -4932,11 +4439,11 @@ namespace ATSAccessibility {
 						foreach (var decorReq in decorReqs) {
 							var reqInfo = new DecorationRequirementInfo();
 
-							var decorTier = _decorReqTierField?.GetValue(decorReq);
+							var decorTier = ReflectionHelper.GetField(_decorReqTierField, decorReq);
 							// Get tier name and append "decorations" for clarity
 							string tierName = GetDecorationTierName(decorTier);
 							reqInfo.tierName = tierName + " decorations";
-							reqInfo.required = (int?)_decorReqAmountField?.GetValue(decorReq) ?? 0;
+							reqInfo.required = ReflectionHelper.GetInt(_decorReqAmountField, decorReq);
 							reqInfo.current = CountDecorationsForHearth(building, decorTier);
 
 							info.decorationRequirements.Add(reqInfo);
@@ -4985,17 +4492,17 @@ namespace ATSAccessibility {
 
 				foreach (var house in houses) {
 					// Check if finished using cached method
-					bool isFinished = (bool?)_buildingIsFinishedMethod?.Invoke(house, null) ?? false;
+					bool isFinished = ReflectionHelper.InvokeBool(_buildingIsFinishedMethod, house);
 					if (!isFinished) continue;
 
 					// Check if in range
-					bool inRange = (bool?)_hearthIsInRangeMethod?.Invoke(hearth, new[] { house }) ?? false;
+					bool inRange = ReflectionHelper.InvokeBool(_hearthIsInRangeMethod, hearth, house);
 					if (!inRange) continue;
 
 					// Count residents
-					var state = _houseStateField?.GetValue(house);
+					var state = ReflectionHelper.GetField(_houseStateField, house);
 					if (state != null) {
-						var residents = _houseStateResidentsField?.GetValue(state) as System.Collections.IList;
+						var residents = ReflectionHelper.GetList(_houseStateResidentsField, state);
 						count += residents?.Count ?? 0;
 					}
 				}
@@ -5022,10 +4529,10 @@ namespace ATSAccessibility {
 
 				foreach (var inst in institutions) {
 					// Check if finished using cached method
-					bool isFinished = (bool?)_buildingIsFinishedMethod?.Invoke(inst, null) ?? false;
+					bool isFinished = ReflectionHelper.InvokeBool(_buildingIsFinishedMethod, inst);
 					if (!isFinished) continue;
 
-					bool inRange = (bool?)_hearthIsInRangeMethod?.Invoke(hearth, new[] { inst }) ?? false;
+					bool inRange = ReflectionHelper.InvokeBool(_hearthIsInRangeMethod, hearth, inst);
 					if (inRange) count++;
 				}
 
@@ -5051,26 +4558,26 @@ namespace ATSAccessibility {
 
 				foreach (var decor in decorations) {
 					// Check if finished using cached method
-					bool isFinished = (bool?)_buildingIsFinishedMethod?.Invoke(decor, null) ?? false;
+					bool isFinished = ReflectionHelper.InvokeBool(_buildingIsFinishedMethod, decor);
 					if (!isFinished) continue;
 
 					// Check if decoration has a tier
 					var model = decor.GetType().GetField("model", GameReflection.PublicInstance)?.GetValue(decor);
 					if (model == null) continue;
 
-					bool hasTier = (bool?)_decorModelHasDecorationTierField?.GetValue(model) ?? false;
+					bool hasTier = ReflectionHelper.GetBool(_decorModelHasDecorationTierField, model);
 					if (!hasTier) continue;
 
 					// Check if same tier
-					var tier = _decorModelTierField?.GetValue(model);
+					var tier = ReflectionHelper.GetField(_decorModelTierField, model);
 					if (tier != decorTier) continue;
 
 					// Check if in range
-					bool inRange = (bool?)_hearthIsInRangeMethod?.Invoke(hearth, new[] { decor }) ?? false;
+					bool inRange = ReflectionHelper.InvokeBool(_hearthIsInRangeMethod, hearth, decor);
 					if (!inRange) continue;
 
 					// Add score
-					int decorScore = (int?)_decorModelDecorationScoreField?.GetValue(model) ?? 0;
+					int decorScore = ReflectionHelper.GetInt(_decorModelDecorationScoreField, model);
 					score += decorScore;
 				}
 
@@ -5111,10 +4618,10 @@ namespace ATSAccessibility {
 			EnsureHearthSacrificeTypes();
 
 			try {
-				var state = _hearthStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_hearthStateField, building);
 				if (state == null) return result;
 
-				var recipes = _hearthStateSacrificeRecipesField?.GetValue(state) as System.Collections.IList;
+				var recipes = ReflectionHelper.GetList(_hearthStateSacrificeRecipesField, state);
 				if (recipes == null) return result;
 
 				foreach (var recipe in recipes) {
@@ -5142,29 +4649,29 @@ namespace ATSAccessibility {
 
 			try {
 				// Get model name from state
-				string modelName = _hssModelField?.GetValue(recipeState) as string;
+				string modelName = ReflectionHelper.GetString(_hssModelField, recipeState);
 				if (string.IsNullOrEmpty(modelName)) return info;
 
 				// Get the recipe model from Settings
 				var settings = GameReflection.GetSettings();
 				if (settings == null) return info;
 
-				var recipeModel = _settingsGetHearthSacrificeRecipeMethod?.Invoke(settings, new object[] { modelName });
+				var recipeModel = ReflectionHelper.Invoke(_settingsGetHearthSacrificeRecipeMethod, settings, modelName);
 				if (recipeModel == null) return info;
 
 				// Get display name
-				var displayNameLoca = _hsrmDisplayNameField?.GetValue(recipeModel);
+				var displayNameLoca = ReflectionHelper.GetField(_hsrmDisplayNameField, recipeModel);
 				if (displayNameLoca != null) {
-					info.recipeName = _locaTextTextProperty?.GetValue(displayNameLoca) as string ?? modelName;
+					info.recipeName = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca) ?? modelName;
 				} else {
 					info.recipeName = modelName;
 				}
 
 				// Get good info
-				var goodPerMin = _hsrmGoodPerMinField?.GetValue(recipeModel);
+				var goodPerMin = ReflectionHelper.GetField(_hsrmGoodPerMinField, recipeModel);
 				if (goodPerMin != null) {
-					int baseAmount = (int?)_goodRefAmountField?.GetValue(goodPerMin) ?? 0;
-					info.goodName = _goodRefDisplayNameProperty?.GetValue(goodPerMin) as string ?? "Unknown";
+					int baseAmount = ReflectionHelper.GetInt(_goodRefAmountField, goodPerMin);
+					info.goodName = ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, goodPerMin) ?? "Unknown";
 
 					// Calculate actual consumption rate (affected by perks)
 					// Formula: baseAmount / sacrificeRate
@@ -5180,24 +4687,24 @@ namespace ATSAccessibility {
 				info.maxLevel = (int?)_hsrmMaxLevelField?.GetValue(recipeModel) ?? 4;
 
 				// Get effect info
-				var effect = _hsrmEffectField?.GetValue(recipeModel);
+				var effect = ReflectionHelper.GetField(_hsrmEffectField, recipeModel);
 				if (effect != null) {
-					info.effectName = _effectModelDisplayNameProperty?.GetValue(effect) as string ?? "";
+					info.effectName = ReflectionHelper.GetPropString(_effectModelDisplayNameProperty, effect) ?? "";
 					info.effectDescription = _effectModelDescProp?.GetValue(effect) as string ?? "";
 				}
 
 				// Get current state from hearth methods
-				info.active = (bool?)_hssActiveField?.GetValue(recipeState) ?? false;
-				info.level = (int?)_hearthGetEffectLevelMethod?.Invoke(hearth, new object[] { recipeState }) ?? 0;
+				info.active = ReflectionHelper.GetBool(_hssActiveField, recipeState);
+				info.level = ReflectionHelper.InvokeInt(_hearthGetEffectLevelMethod, hearth, recipeState);
 
 				// Get max level from hearth (may differ due to effects)
-				var maxLevelResult = _hearthGetMaxLevelForMethod?.Invoke(hearth, new object[] { recipeState });
+				var maxLevelResult = ReflectionHelper.Invoke(_hearthGetMaxLevelForMethod, hearth, recipeState);
 				if (maxLevelResult is int maxLevel) {
 					info.maxLevel = maxLevel;
 				}
 
 				// Check if can afford
-				var canAffordResult = _hearthHaveGoodsForMethod?.Invoke(hearth, new object[] { recipeState });
+				var canAffordResult = ReflectionHelper.Invoke(_hearthHaveGoodsForMethod, hearth, recipeState);
 				info.canAfford = (bool?)canAffordResult ?? false;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GetSacrificeRecipeInfo failed: {ex.Message}");
@@ -5236,7 +4743,7 @@ namespace ATSAccessibility {
 				var effectsService = GameReflection.GetEffectsService();
 				if (effectsService == null) return 1f;
 
-				var result = _effectsServiceGetHearthSacrificeRateMethod?.Invoke(effectsService, null);
+				var result = ReflectionHelper.Invoke(_effectsServiceGetHearthSacrificeRateMethod, effectsService);
 				if (result is float rate) {
 					return rate;
 				}
@@ -5274,11 +4781,11 @@ namespace ATSAccessibility {
 				if (gameServices == null) return result;
 
 				// Get GoodsService
-				var goodsService = _gsGoodsServiceProperty?.GetValue(gameServices);
+				var goodsService = ReflectionHelper.GetProp(_gsGoodsServiceProperty, gameServices);
 				if (goodsService == null) return result;
 
 				// Get HearthService
-				var hearthService = _gsHearthServiceProperty?.GetValue(gameServices);
+				var hearthService = ReflectionHelper.GetProp(_gsHearthServiceProperty, gameServices);
 				if (hearthService == null) return result;
 
 				// Get Fuels array
@@ -5291,19 +4798,18 @@ namespace ATSAccessibility {
 					var info = new FuelInfo();
 
 					// Get name
-					info.name = _goodModelNameProperty?.GetValue(fuel) as string ?? "";
+					info.name = ReflectionHelper.GetPropString(_goodModelNameProperty, fuel) ?? "";
 
 					// Get display name
-					var displayNameLoca = _goodModelDisplayNameField?.GetValue(fuel);
+					var displayNameLoca = ReflectionHelper.GetField(_goodModelDisplayNameField, fuel);
 					if (displayNameLoca != null) {
-						info.displayName = _locaTextTextProperty?.GetValue(displayNameLoca) as string ?? info.name;
+						info.displayName = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca) ?? info.name;
 					} else {
 						info.displayName = info.name;
 					}
 
 					// Check if enabled
-					var canBeBurned = _hearthServiceCanBeBurnedMethod?.Invoke(hearthService, new object[] { info.name });
-					info.isEnabled = canBeBurned is bool b && b;
+					info.isEnabled = ReflectionHelper.InvokeBool(_hearthServiceCanBeBurnedMethod, hearthService, info.name);
 
 					result.Add(info);
 				}
@@ -5326,7 +4832,7 @@ namespace ATSAccessibility {
 				var gameServices = GameReflection.GetGameServices();
 				if (gameServices == null) return false;
 
-				var hearthService = _gsHearthServiceProperty?.GetValue(gameServices);
+				var hearthService = ReflectionHelper.GetProp(_gsHearthServiceProperty, gameServices);
 				if (hearthService == null) return false;
 
 				_hearthServiceSetCanBeBurnedMethod.Invoke(hearthService, new object[] { fuelName, enabled });
@@ -5365,7 +4871,7 @@ namespace ATSAccessibility {
 				var metaPerksService = _mbMetaPerksServiceProperty?.GetValue(null);
 				if (metaPerksService == null) return false;
 
-				var result = _metaPerksAreHearthServicesUnlockedMethod?.Invoke(metaPerksService, null);
+				var result = ReflectionHelper.Invoke(_metaPerksAreHearthServicesUnlockedMethod, metaPerksService);
 				return (bool?)result ?? false;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] AreHearthServicesMetaUnlocked failed: {ex.Message}");
@@ -5382,7 +4888,7 @@ namespace ATSAccessibility {
 			EnsureHearthServicesTypes();
 
 			try {
-				var result = _hearthAreHearthServicesEnabledMethod?.Invoke(building, null);
+				var result = ReflectionHelper.Invoke(_hearthAreHearthServicesEnabledMethod, building);
 				return (bool?)result ?? false;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] AreHearthServicesEnabled failed: {ex.Message}");
@@ -5401,16 +4907,16 @@ namespace ATSAccessibility {
 			EnsureBlightConfigTypes();  // For GoodRef fields
 
 			try {
-				var model = _hearthModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_hearthModelField, building);
 				if (model == null) return null;
 
-				var unlockPrice = _hearthModelExtraRecipesUnlockPriceField?.GetValue(model);
+				var unlockPrice = ReflectionHelper.GetField(_hearthModelExtraRecipesUnlockPriceField, model);
 				if (unlockPrice == null) return null;
 
 				// Get good name and amount from GoodRef
-				string goodName = _goodRefNameProperty?.GetValue(unlockPrice) as string;
-				string displayName = _goodRefDisplayNameProperty?.GetValue(unlockPrice) as string;
-				int amount = (int?)_goodRefAmountField?.GetValue(unlockPrice) ?? 0;
+				string goodName = ReflectionHelper.GetPropString(_goodRefNameProperty, unlockPrice);
+				string displayName = ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, unlockPrice);
+				int amount = ReflectionHelper.GetInt(_goodRefAmountField, unlockPrice);
 
 				if (string.IsNullOrEmpty(goodName)) return null;
 				if (string.IsNullOrEmpty(displayName)) displayName = goodName;
@@ -5503,7 +5009,7 @@ namespace ATSAccessibility {
 			EnsureRaceBonusTypes();  // For LocaText.Text
 
 			try {
-				var model = _hearthModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_hearthModelField, building);
 				if (model == null) return result;
 
 				var extraRecipes = _hearthModelExtraRecipesField?.GetValue(model) as Array;
@@ -5515,31 +5021,31 @@ namespace ATSAccessibility {
 					var info = new HearthServiceInfo();
 
 					// Get served need name
-					var servedNeed = _hnrmServedNeedField?.GetValue(recipe);
+					var servedNeed = ReflectionHelper.GetField(_hnrmServedNeedField, recipe);
 					if (servedNeed != null) {
-						info.NeedName = _needModelDisplayNameProperty?.GetValue(servedNeed) as string ?? "Unknown";
+						info.NeedName = ReflectionHelper.GetPropString(_needModelDisplayNameProperty, servedNeed) ?? "Unknown";
 					} else {
 						info.NeedName = "Unknown";
 					}
 
 					// Get required good info
-					info.IsGoodConsumed = (bool?)_hnrmIsGoodConsumedField?.GetValue(recipe) ?? false;
+					info.IsGoodConsumed = ReflectionHelper.GetBool(_hnrmIsGoodConsumedField, recipe);
 					if (info.IsGoodConsumed) {
-						var requiredGood = _hnrmRequiredGoodField?.GetValue(recipe);
+						var requiredGood = ReflectionHelper.GetField(_hnrmRequiredGoodField, recipe);
 						if (requiredGood != null) {
-							info.GoodName = _goodRefNameProperty?.GetValue(requiredGood) as string ?? "";
-							info.GoodDisplayName = _goodRefDisplayNameProperty?.GetValue(requiredGood) as string ?? info.GoodName;
-							info.GoodAmount = (int?)_goodRefAmountField?.GetValue(requiredGood) ?? 0;
+							info.GoodName = ReflectionHelper.GetPropString(_goodRefNameProperty, requiredGood) ?? "";
+							info.GoodDisplayName = ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, requiredGood) ?? info.GoodName;
+							info.GoodAmount = ReflectionHelper.GetInt(_goodRefAmountField, requiredGood);
 						}
 					}
 
 					// Get grade info
-					var grade = _hnrmGradeField?.GetValue(recipe);
+					var grade = ReflectionHelper.GetField(_hnrmGradeField, recipe);
 					if (grade != null) {
-						info.Grade = (int?)_rgmLevelField?.GetValue(grade) ?? 0;
-						var descLoca = _rgmDescriptionField?.GetValue(grade);
+						info.Grade = ReflectionHelper.GetInt(_rgmLevelField, grade);
+						var descLoca = ReflectionHelper.GetField(_rgmDescriptionField, grade);
 						if (descLoca != null) {
-							info.GradeDescription = _locaTextTextProperty?.GetValue(descLoca) as string ?? "";
+							info.GradeDescription = ReflectionHelper.GetPropString(_locaTextTextProperty, descLoca) ?? "";
 						}
 					}
 
@@ -5580,10 +5086,10 @@ namespace ATSAccessibility {
 			EnsureHouseTypes();
 
 			try {
-				var state = _houseStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_houseStateField, building);
 				if (state == null) return result;
 
-				var residents = _houseStateResidentsField?.GetValue(state) as System.Collections.IList;
+				var residents = ReflectionHelper.GetList(_houseStateResidentsField, state);
 				if (residents == null) return result;
 
 				foreach (var id in residents) {
@@ -5605,8 +5111,7 @@ namespace ATSAccessibility {
 			EnsureHouseTypes();
 
 			try {
-				var result = _houseGetHousingPlacesMethod?.Invoke(building, null);
-				return (int?)result ?? 0;
+				return ReflectionHelper.InvokeInt(_houseGetHousingPlacesMethod, building);
 			} catch {
 				return 0;
 			}
@@ -5621,8 +5126,7 @@ namespace ATSAccessibility {
 			EnsureHouseTypes();
 
 			try {
-				var result = _houseGetMaxHousingPlacesMethod?.Invoke(building, null);
-				return (int?)result ?? 0;
+				return ReflectionHelper.InvokeInt(_houseGetMaxHousingPlacesMethod, building);
 			} catch {
 				return 0;
 			}
@@ -5637,7 +5141,7 @@ namespace ATSAccessibility {
 			EnsureHouseTypes();
 
 			try {
-				var result = _houseIsFullMethod?.Invoke(building, null);
+				var result = ReflectionHelper.Invoke(_houseIsFullMethod, building);
 				return (bool?)result ?? false;
 			} catch {
 				return false;
@@ -5674,10 +5178,10 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return null;
 
-				var dangerLevel = _relicModelDangerLevelField?.GetValue(model);
+				var dangerLevel = ReflectionHelper.GetField(_relicModelDangerLevelField, model);
 				if (dangerLevel == null) return null;
 
 				// DangerLevel is an enum: None=0, Negative=1, Dangerous=2, Forbidden=3
@@ -5693,10 +5197,10 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return false;
 
-				return (bool?)_relicStateInvestigationStartedField?.GetValue(state) ?? false;
+				return ReflectionHelper.GetBool(_relicStateInvestigationStartedField, state);
 			} catch {
 				return false;
 			}
@@ -5711,10 +5215,10 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return false;
 
-				return (bool?)_relicStateInvestigationFinishedField?.GetValue(state) ?? false;
+				return ReflectionHelper.GetBool(_relicStateInvestigationFinishedField, state);
 			} catch {
 				return false;
 			}
@@ -5729,7 +5233,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return 0f;
 
 				return (float?)_relicStateWorkProgressField?.GetValue(state) ?? 0f;
@@ -5747,8 +5251,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var result = _relicGetExpectedWorkingTimeLeftMethod?.Invoke(building, null);
-				return (float?)result ?? 0f;
+				return ReflectionHelper.InvokeFloat(_relicGetExpectedWorkingTimeLeftMethod, building);
 			} catch {
 				return 0f;
 			}
@@ -5763,7 +5266,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return new int[0];
 
 				return _relicStateWorkersField?.GetValue(state) as int[] ?? new int[0];
@@ -5795,9 +5298,9 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return false;
-				return (bool?)_relicModelHasDecisionProperty?.GetValue(model) ?? false;
+				return ReflectionHelper.GetPropBool(_relicModelHasDecisionProperty, model);
 			} catch {
 				return false;
 			}
@@ -5811,7 +5314,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var difficulty = _relicDifficultyProperty?.GetValue(building);
+				var difficulty = ReflectionHelper.GetProp(_relicDifficultyProperty, building);
 				if (difficulty == null) return 0;
 
 				var decisions = _relicDifficultyDecisionsField?.GetValue(difficulty) as Array;
@@ -5829,7 +5332,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return -1;
 				return (int?)_relicStateDecisionIndexField?.GetValue(state) ?? -1;
 			} catch {
@@ -5845,7 +5348,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null || _relicStateDecisionIndexField == null) return false;
 				_relicStateDecisionIndexField.SetValue(state, index);
 				return true;
@@ -5863,7 +5366,7 @@ namespace ATSAccessibility {
 			EnsureRaceBonusTypes();  // For _locaTextTextProperty
 
 			try {
-				var difficulty = _relicDifficultyProperty?.GetValue(building);
+				var difficulty = ReflectionHelper.GetProp(_relicDifficultyProperty, building);
 				if (difficulty == null) return null;
 
 				var decisions = _relicDifficultyDecisionsField?.GetValue(difficulty) as Array;
@@ -5873,21 +5376,21 @@ namespace ATSAccessibility {
 				if (decision == null) return null;
 
 				// Get label text
-				var label = _relicDecisionLabelField?.GetValue(decision);
+				var label = ReflectionHelper.GetField(_relicDecisionLabelField, decision);
 				string labelText = null;
 				if (label != null) {
-					var displayNameLoca = _labelModelDisplayNameField?.GetValue(label);
+					var displayNameLoca = ReflectionHelper.GetField(_labelModelDisplayNameField, label);
 					if (displayNameLoca != null)
-						labelText = _locaTextTextProperty?.GetValue(displayNameLoca) as string;
+						labelText = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca);
 				}
 
 				// Get decision tag text
-				var decisionTag = _relicDecisionDecisionTagField?.GetValue(decision);
+				var decisionTag = ReflectionHelper.GetField(_relicDecisionDecisionTagField, decision);
 				string tagText = null;
 				if (decisionTag != null) {
-					var tagDisplayNameLoca = _decisionTagDisplayNameField?.GetValue(decisionTag);
+					var tagDisplayNameLoca = ReflectionHelper.GetField(_decisionTagDisplayNameField, decisionTag);
 					if (tagDisplayNameLoca != null)
-						tagText = _locaTextTextProperty?.GetValue(tagDisplayNameLoca) as string;
+						tagText = ReflectionHelper.GetPropString(_locaTextTextProperty, tagDisplayNameLoca);
 				}
 
 				if (!string.IsNullOrEmpty(tagText) && !string.IsNullOrEmpty(labelText))
@@ -5906,7 +5409,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var difficulty = _relicDifficultyProperty?.GetValue(building);
+				var difficulty = ReflectionHelper.GetProp(_relicDifficultyProperty, building);
 				if (difficulty == null) return 0f;
 
 				var decisions = _relicDifficultyDecisionsField?.GetValue(difficulty) as Array;
@@ -5932,7 +5435,7 @@ namespace ATSAccessibility {
 				var decision = GetRelicDecisionObject(building, decisionIndex);
 				if (decision == null) return 0;
 
-				var reqGoods = _relicDecisionReqGoodsField?.GetValue(decision);
+				var reqGoods = ReflectionHelper.GetField(_relicDecisionReqGoodsField, decision);
 				if (reqGoods == null) return 0;
 
 				var sets = _goodsSetTableSetsField?.GetValue(reqGoods) as Array;
@@ -5972,7 +5475,7 @@ namespace ATSAccessibility {
 				var goodRef = GetRelicGoodRefObject(building, decisionIndex, setIndex, goodIndex);
 				if (goodRef == null) return null;
 
-				return _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
+				return ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, goodRef);
 			} catch {
 				return null;
 			}
@@ -5990,7 +5493,7 @@ namespace ATSAccessibility {
 				var goodRef = GetRelicGoodRefObject(building, decisionIndex, setIndex, goodIndex);
 				if (goodRef == null) return null;
 
-				return _goodRefNameProperty?.GetValue(goodRef) as string;
+				return ReflectionHelper.GetPropString(_goodRefNameProperty, goodRef);
 			} catch {
 				return null;
 			}
@@ -6008,7 +5511,7 @@ namespace ATSAccessibility {
 				var goodRef = GetRelicGoodRefObject(building, decisionIndex, setIndex, goodIndex);
 				if (goodRef == null) return 0;
 
-				return (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
+				return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
 			} catch {
 				return 0;
 			}
@@ -6022,10 +5525,10 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return 0;
 
-				var pickedGoods = _relicStatePickedGoodsField?.GetValue(state);
+				var pickedGoods = ReflectionHelper.GetField(_relicStatePickedGoodsField, state);
 				if (pickedGoods == null) return 0;
 
 				// pickedGoods is int[][]
@@ -6049,7 +5552,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return false;
 
 				var pickedGoods = _relicStatePickedGoodsField?.GetValue(state) as int[][];
@@ -6074,7 +5577,7 @@ namespace ATSAccessibility {
 
 			try {
 				// Use Relic.GetWorkingEffects() which already handles difficulty/decision
-				var effects = _relicGetWorkingEffectsMethod?.Invoke(building, null) as Array;
+				var effects = ReflectionHelper.Invoke(_relicGetWorkingEffectsMethod, building) as Array;
 				if (effects == null || effects.Length == 0) return new RelicEffectInfo[0];
 
 				return ExtractEffectInfos(effects);
@@ -6091,7 +5594,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return new RelicEffectInfo[0];
 
 				var effects = _relicModelActiveEffectsField?.GetValue(model) as Array;
@@ -6111,9 +5614,9 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return false;
-				return (bool?)_relicModelAreEffectsPermanentField?.GetValue(model) ?? false;
+				return ReflectionHelper.GetBool(_relicModelAreEffectsPermanentField, model);
 			} catch {
 				return false;
 			}
@@ -6127,9 +5630,9 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return false;
-				return (bool?)_relicModelHasDynamicRewardsField?.GetValue(model) ?? false;
+				return ReflectionHelper.GetBool(_relicModelHasDynamicRewardsField, model);
 			} catch {
 				return false;
 			}
@@ -6145,12 +5648,12 @@ namespace ATSAccessibility {
 			EnsureRaceBonusTypes();  // For _effectModelDisplayNameProperty
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return new RelicRewardInfo[0];
 
 				// Check if using dynamic rewards
-				var model = _relicModelField?.GetValue(building);
-				bool hasDynamic = (bool?)_relicModelHasDynamicRewardsField?.GetValue(model) ?? false;
+				var model = ReflectionHelper.GetField(_relicModelField, building);
+				bool hasDynamic = ReflectionHelper.GetBool(_relicModelHasDynamicRewardsField, model);
 
 				if (hasDynamic) {
 					// Dynamic rewards: read from state.rewardsTiers[currentDynamicReward]
@@ -6187,7 +5690,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return false;
 
 				var decisionsRewards = _relicModelDecisionsRewardsField?.GetValue(model) as Array;
@@ -6205,10 +5708,10 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return 0;
 
-				var relicGoods = _relicStateRelicGoodsField?.GetValue(state);
+				var relicGoods = ReflectionHelper.GetField(_relicStateRelicGoodsField, state);
 				if (relicGoods == null) return 0;
 
 				if (_goodsCollectionGetAmountMethod == null) return 0;
@@ -6244,7 +5747,7 @@ namespace ATSAccessibility {
 
 			try {
 				// Already started?
-				bool started = (bool?)_relicStateInvestigationStartedField?.GetValue(_relicStateField?.GetValue(building)) ?? false;
+				bool started = ReflectionHelper.GetBool(_relicStateInvestigationStartedField, ReflectionHelper.GetField(_relicStateField, building));
 				if (started) { blockingReason = "Already started"; return false; }
 
 				// Decision required?
@@ -6258,8 +5761,8 @@ namespace ATSAccessibility {
 				}
 
 				// Force requirements check (for instant-goods relics without workplaces)
-				var model = _relicModelField?.GetValue(building);
-				bool forceReqs = (bool?)_relicModelForceRequirementsField?.GetValue(model) ?? false;
+				var model = ReflectionHelper.GetField(_relicModelField, building);
+				bool forceReqs = ReflectionHelper.GetBool(_relicModelForceRequirementsField, model);
 				bool hasWorkplace = RelicHasAnyWorkplace(building);
 
 				if (forceReqs && !hasWorkplace) {
@@ -6281,9 +5784,9 @@ namespace ATSAccessibility {
 				}
 
 				// Order check
-				bool hasOrder = (bool?)_relicHasOrderMethod?.Invoke(building, null) ?? false;
+				bool hasOrder = ReflectionHelper.InvokeBool(_relicHasOrderMethod, building);
 				if (hasOrder) {
-					bool orderCompleted = (bool?)_relicIsOrderCompletedMethod?.Invoke(building, null) ?? false;
+					bool orderCompleted = ReflectionHelper.InvokeBool(_relicIsOrderCompletedMethod, building);
 					if (!orderCompleted) {
 						blockingReason = "Complete the order first";
 						return false;
@@ -6353,10 +5856,10 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return null;
 
-				var soundRef = _investigationStartSoundField?.GetValue(model);
+				var soundRef = ReflectionHelper.GetField(_investigationStartSoundField, model);
 				if (soundRef == null) return null;
 
 				if (_soundRefGetNextMethod == null) return null;
@@ -6374,7 +5877,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var effects = _relicGetWorkingEffectsMethod?.Invoke(building, null) as System.Array;
+				var effects = ReflectionHelper.Invoke(_relicGetWorkingEffectsMethod, building) as System.Array;
 				return effects != null && effects.Length > 0;
 			} catch {
 				return false;
@@ -6389,9 +5892,9 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return false;
-				return (bool?)_relicModelHasDynamicEffectsField?.GetValue(model) ?? false;
+				return ReflectionHelper.GetBool(_relicModelHasDynamicEffectsField, model);
 			} catch {
 				return false;
 			}
@@ -6405,9 +5908,9 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return 0;
-				return (int?)_relicStateCurrentDynamicEffectField?.GetValue(state) ?? 0;
+				return ReflectionHelper.GetInt(_relicStateCurrentDynamicEffectField, state);
 			} catch {
 				return 0;
 			}
@@ -6421,7 +5924,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return 0;
 				var tiers = _relicModelEffectsTiersField?.GetValue(model) as System.Array;
 				return tiers?.Length ?? 0;
@@ -6462,7 +5965,7 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return 0f;
 
 				float nextChange = (float?)_relicStateNextDynamicEffectChangeField?.GetValue(state) ?? 0f;
@@ -6485,16 +5988,16 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return new RelicEffectInfo[0];
 
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return new RelicEffectInfo[0];
 
 				var effectsTiers = _relicModelEffectsTiersField?.GetValue(model) as System.Array;
 				if (effectsTiers == null || effectsTiers.Length == 0) return new RelicEffectInfo[0];
 
-				int currentTier = (int?)_relicStateCurrentDynamicEffectField?.GetValue(state) ?? 0;
+				int currentTier = ReflectionHelper.GetInt(_relicStateCurrentDynamicEffectField, state);
 				int nextTier = currentTier + 1;
 				if (nextTier >= effectsTiers.Length) return new RelicEffectInfo[0];
 
@@ -6530,16 +6033,16 @@ namespace ATSAccessibility {
 				}
 
 				// Fallback: access effectsTiers[currentDynamicEffect].effect directly
-				var model = _relicModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_relicModelField, building);
 				if (model == null) return new RelicEffectInfo[0];
 
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return new RelicEffectInfo[0];
 
 				var effectsTiers = _relicModelEffectsTiersField?.GetValue(model) as System.Array;
 				if (effectsTiers == null || effectsTiers.Length == 0) return new RelicEffectInfo[0];
 
-				int currentTier = (int?)_relicStateCurrentDynamicEffectField?.GetValue(state) ?? 0;
+				int currentTier = ReflectionHelper.GetInt(_relicStateCurrentDynamicEffectField, state);
 				if (currentTier < 0 || currentTier >= effectsTiers.Length) return new RelicEffectInfo[0];
 
 				var tierStep = effectsTiers.GetValue(currentTier);
@@ -6589,19 +6092,18 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return result;
 
-				var rewards = _relicStateRewardsField?.GetValue(state);
+				var rewards = ReflectionHelper.GetField(_relicStateRewardsField, state);
 				if (rewards == null) return result;
 
 				// Get the goods dictionary keys
-				var goodsDict = _goodsCollectionGoodsField?.GetValue(rewards);
+				var goodsDict = ReflectionHelper.GetField(_goodsCollectionGoodsField, rewards);
 				if (goodsDict == null) return result;
 
 				// Iterate via reflection (Dictionary<string, int>)
-				var keysProperty = goodsDict.GetType().GetProperty("Keys");
-				var keys = keysProperty?.GetValue(goodsDict) as System.Collections.IEnumerable;
+				var keys = ReflectionHelper.IterateKeys(goodsDict);
 				if (keys == null) return result;
 
 				foreach (var key in keys) {
@@ -6634,10 +6136,10 @@ namespace ATSAccessibility {
 			EnsureRelicTypes();
 
 			try {
-				var state = _relicStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_relicStateField, building);
 				if (state == null) return 0;
 
-				var rewards = _relicStateRewardsField?.GetValue(state);
+				var rewards = ReflectionHelper.GetField(_relicStateRewardsField, state);
 				if (rewards == null) return 0;
 
 				if (_lockedGoodsFullSumMethod != null)
@@ -6654,7 +6156,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private static object GetRelicDecisionObject(object building, int decisionIndex) {
-			var difficulty = _relicDifficultyProperty?.GetValue(building);
+			var difficulty = ReflectionHelper.GetProp(_relicDifficultyProperty, building);
 			if (difficulty == null) return null;
 
 			var decisions = _relicDifficultyDecisionsField?.GetValue(difficulty) as Array;
@@ -6667,7 +6169,7 @@ namespace ATSAccessibility {
 			var decision = GetRelicDecisionObject(building, decisionIndex);
 			if (decision == null) return null;
 
-			var reqGoods = _relicDecisionReqGoodsField?.GetValue(decision);
+			var reqGoods = ReflectionHelper.GetField(_relicDecisionReqGoodsField, decision);
 			if (reqGoods == null) return null;
 
 			var sets = _goodsSetTableSetsField?.GetValue(reqGoods) as Array;
@@ -6695,8 +6197,8 @@ namespace ATSAccessibility {
 				if (effect == null) continue;
 
 				result[i] = new RelicEffectInfo {
-					Name = _effectModelDisplayNameProperty?.GetValue(effect) as string ?? "Unknown",
-					Description = _effectModelDescriptionProperty?.GetValue(effect) as string ?? "",
+					Name = ReflectionHelper.GetPropString(_effectModelDisplayNameProperty, effect) ?? "Unknown",
+					Description = ReflectionHelper.GetPropString(_effectModelDescriptionProperty, effect) ?? "",
 					IsPositive = (bool?)_effectModelIsPositiveProperty?.GetValue(effect) ?? true
 				};
 			}
@@ -6711,8 +6213,8 @@ namespace ATSAccessibility {
 				var effectModel = GetEffectModel(effectNames[i]);
 				if (effectModel != null) {
 					result[i] = new RelicRewardInfo {
-						Name = _effectModelDisplayNameProperty?.GetValue(effectModel) as string ?? effectNames[i],
-						Description = _effectModelDescriptionProperty?.GetValue(effectModel) as string ?? ""
+						Name = ReflectionHelper.GetPropString(_effectModelDisplayNameProperty, effectModel) ?? effectNames[i],
+						Description = ReflectionHelper.GetPropString(_effectModelDescriptionProperty, effectModel) ?? ""
 					};
 				} else {
 					result[i] = new RelicRewardInfo { Name = effectNames[i], Description = "" };
@@ -6728,10 +6230,10 @@ namespace ATSAccessibility {
 				var storageService = GetStorageServiceInternal();
 				if (storageService == null) return 0;
 
-				var mainStorage = _storageServiceMainProperty?.GetValue(storageService);
+				var mainStorage = ReflectionHelper.GetProp(_storageServiceMainProperty, storageService);
 				if (mainStorage == null) return 0;
 
-				var result = _mainStorageGetAmountMethod?.Invoke(mainStorage, new object[] { goodName });
+				var result = ReflectionHelper.Invoke(_mainStorageGetAmountMethod, mainStorage, goodName);
 				return (int?)result ?? 0;
 			} catch {
 				return 0;
@@ -6762,7 +6264,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return 0;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return 0;
 
 				return (int?)_portStateExpeditionLevelField?.GetValue(state) ?? 1;
@@ -6778,7 +6280,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return false;
 
 			try {
-				var result = _portWasExpeditionStartedMethod?.Invoke(building, null);
+				var result = ReflectionHelper.Invoke(_portWasExpeditionStartedMethod, building);
 				return (bool?)result ?? false;
 			} catch {
 				return false;
@@ -6792,7 +6294,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return false;
 
 			try {
-				var result = _portAreRewardsWaitingMethod?.Invoke(building, null);
+				var result = ReflectionHelper.Invoke(_portAreRewardsWaitingMethod, building);
 				return (bool?)result ?? false;
 			} catch {
 				return false;
@@ -6806,8 +6308,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return 0f;
 
 			try {
-				var result = _portCalculateProgressMethod?.Invoke(building, null);
-				return (float?)result ?? 0f;
+				return ReflectionHelper.InvokeFloat(_portCalculateProgressMethod, building);
 			} catch {
 				return 0f;
 			}
@@ -6820,8 +6321,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return 0f;
 
 			try {
-				var result = _portCalculateTimeLeftMethod?.Invoke(building, null);
-				return (float?)result ?? 0f;
+				return ReflectionHelper.InvokeFloat(_portCalculateTimeLeftMethod, building);
 			} catch {
 				return 0f;
 			}
@@ -6834,10 +6334,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return null;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return null;
 
-				return _portStateBlueprintRewardField?.GetValue(state) as string;
+				return ReflectionHelper.GetString(_portStateBlueprintRewardField, state);
 			} catch {
 				return null;
 			}
@@ -6850,10 +6350,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return null;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return null;
 
-				return _portStatePerkRewardField?.GetValue(state) as string;
+				return ReflectionHelper.GetString(_portStatePerkRewardField, state);
 			} catch {
 				return null;
 			}
@@ -6866,7 +6366,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return false;
 
 			try {
-				var result = _portWasDecisionMadeMethod?.Invoke(building, null);
+				var result = ReflectionHelper.Invoke(_portWasDecisionMadeMethod, building);
 				return (bool?)result ?? false;
 			} catch {
 				return false;
@@ -6880,7 +6380,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return false;
 
 			try {
-				var result = _portAllGoodsDeliveredMethod?.Invoke(building, null);
+				var result = ReflectionHelper.Invoke(_portAllGoodsDeliveredMethod, building);
 				return (bool?)result ?? false;
 			} catch {
 				return false;
@@ -6894,7 +6394,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return false;
 
 			try {
-				var result = _portIsBlockedByUnpickedCategoryMethod?.Invoke(building, null);
+				var result = ReflectionHelper.Invoke(_portIsBlockedByUnpickedCategoryMethod, building);
 				return (bool?)result ?? false;
 			} catch {
 				return false;
@@ -6968,7 +6468,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return 1;
 
 			try {
-				var expedModel = _portGetCurrentExpeditionModelMethod?.Invoke(building, null);
+				var expedModel = ReflectionHelper.Invoke(_portGetCurrentExpeditionModelMethod, building);
 				if (expedModel == null) return 1;
 
 				return (int?)_portExpedModelMaxLevelField?.GetValue(expedModel) ?? 1;
@@ -6984,8 +6484,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return 0f;
 
 			try {
-				var result = _portCalculateDurationMethod?.Invoke(building, null);
-				return (float?)result ?? 0f;
+				return ReflectionHelper.InvokeFloat(_portCalculateDurationMethod, building);
 			} catch {
 				return 0f;
 			}
@@ -6998,7 +6497,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return 0;
 
 			try {
-				var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+				var expedition = ReflectionHelper.Invoke(_portGetCurrentExpeditionMethod, building);
 				if (expedition == null) return 0;
 
 				var goodsSets = _portExpedStriderGoodsField?.GetValue(expedition) as Array;
@@ -7032,7 +6531,7 @@ namespace ATSAccessibility {
 			if (goodRef == null) return null;
 
 			try {
-				return _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
+				return ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, goodRef);
 			} catch {
 				return null;
 			}
@@ -7047,7 +6546,7 @@ namespace ATSAccessibility {
 			if (goodRef == null) return null;
 
 			try {
-				return _goodRefNameProperty?.GetValue(goodRef) as string;
+				return ReflectionHelper.GetPropString(_goodRefNameProperty, goodRef);
 			} catch {
 				return null;
 			}
@@ -7062,7 +6561,7 @@ namespace ATSAccessibility {
 			if (goodRef == null) return 0;
 
 			try {
-				return (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
+				return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
 			} catch {
 				return 0;
 			}
@@ -7075,10 +6574,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return 0;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return 0;
 
-				var pickedGoods = _portStateStriderPickedGoodsField?.GetValue(state);
+				var pickedGoods = ReflectionHelper.GetField(_portStateStriderPickedGoodsField, state);
 				if (pickedGoods == null) return 0;
 
 				var list = pickedGoods as System.Collections.IList;
@@ -7097,10 +6596,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return false;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return false;
 
-				var pickedGoods = _portStateStriderPickedGoodsField?.GetValue(state);
+				var pickedGoods = ReflectionHelper.GetField(_portStateStriderPickedGoodsField, state);
 				if (pickedGoods == null) return false;
 
 				var list = pickedGoods as System.Collections.IList;
@@ -7120,7 +6619,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return 0;
 
 			try {
-				var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+				var expedition = ReflectionHelper.Invoke(_portGetCurrentExpeditionMethod, building);
 				if (expedition == null) return 0;
 
 				var goodsSets = _portExpedCrewGoodsField?.GetValue(expedition) as Array;
@@ -7154,7 +6653,7 @@ namespace ATSAccessibility {
 			if (goodRef == null) return null;
 
 			try {
-				return _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
+				return ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, goodRef);
 			} catch {
 				return null;
 			}
@@ -7169,7 +6668,7 @@ namespace ATSAccessibility {
 			if (goodRef == null) return null;
 
 			try {
-				return _goodRefNameProperty?.GetValue(goodRef) as string;
+				return ReflectionHelper.GetPropString(_goodRefNameProperty, goodRef);
 			} catch {
 				return null;
 			}
@@ -7184,7 +6683,7 @@ namespace ATSAccessibility {
 			if (goodRef == null) return 0;
 
 			try {
-				return (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
+				return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
 			} catch {
 				return 0;
 			}
@@ -7197,10 +6696,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return 0;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return 0;
 
-				var pickedGoods = _portStateCrewPickedGoodsField?.GetValue(state);
+				var pickedGoods = ReflectionHelper.GetField(_portStateCrewPickedGoodsField, state);
 				if (pickedGoods == null) return 0;
 
 				var list = pickedGoods as System.Collections.IList;
@@ -7219,10 +6718,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return false;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return false;
 
-				var pickedGoods = _portStateCrewPickedGoodsField?.GetValue(state);
+				var pickedGoods = ReflectionHelper.GetField(_portStateCrewPickedGoodsField, state);
 				if (pickedGoods == null) return false;
 
 				var list = pickedGoods as System.Collections.IList;
@@ -7242,13 +6741,13 @@ namespace ATSAccessibility {
 			if (!IsPort(building) || string.IsNullOrEmpty(goodName)) return 0;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return 0;
 
-				var expedGoods = _portStateExpeditionGoodsField?.GetValue(state);
+				var expedGoods = ReflectionHelper.GetField(_portStateExpeditionGoodsField, state);
 				if (expedGoods == null) return 0;
 
-				var result = _limitedGoodsGetFullAmountMethod?.Invoke(expedGoods, new object[] { goodName });
+				var result = ReflectionHelper.Invoke(_limitedGoodsGetFullAmountMethod, expedGoods, goodName);
 				return (int?)result ?? 0;
 			} catch {
 				return 0;
@@ -7263,10 +6762,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return new List<string>();
 
 			try {
-				var expedModel = _portGetCurrentExpeditionModelMethod?.Invoke(building, null);
+				var expedModel = ReflectionHelper.Invoke(_portGetCurrentExpeditionModelMethod, building);
 				if (expedModel == null) return new List<string>();
 
-				var blueprints = _portExpedModelBlueprintsField?.GetValue(expedModel);
+				var blueprints = ReflectionHelper.GetField(_portExpedModelBlueprintsField, expedModel);
 				if (blueprints == null) return new List<string>();
 
 				var buildingsArray = _buildingsDropTableBuildingsField?.GetValue(blueprints) as Array;
@@ -7279,10 +6778,10 @@ namespace ATSAccessibility {
 					var entity = buildingsArray.GetValue(i);
 					if (entity == null) continue;
 
-					var buildingModel = _buildingTableEntityBuildingField?.GetValue(entity);
+					var buildingModel = ReflectionHelper.GetField(_buildingTableEntityBuildingField, entity);
 					if (buildingModel == null) continue;
 
-					var category = _buildingModelCategoryField?.GetValue(buildingModel);
+					var category = ReflectionHelper.GetField(_buildingModelCategoryField, buildingModel);
 					if (category == null) continue;
 
 					var displayNameField = category.GetType().GetField("displayName", GameReflection.PublicInstance);
@@ -7306,10 +6805,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return new List<string>();
 
 			try {
-				var expedModel = _portGetCurrentExpeditionModelMethod?.Invoke(building, null);
+				var expedModel = ReflectionHelper.Invoke(_portGetCurrentExpeditionModelMethod, building);
 				if (expedModel == null) return new List<string>();
 
-				var blueprints = _portExpedModelBlueprintsField?.GetValue(expedModel);
+				var blueprints = ReflectionHelper.GetField(_portExpedModelBlueprintsField, expedModel);
 				if (blueprints == null) return new List<string>();
 
 				var buildingsArray = _buildingsDropTableBuildingsField?.GetValue(blueprints) as Array;
@@ -7322,10 +6821,10 @@ namespace ATSAccessibility {
 					var entity = buildingsArray.GetValue(i);
 					if (entity == null) continue;
 
-					var buildingModel = _buildingTableEntityBuildingField?.GetValue(entity);
+					var buildingModel = ReflectionHelper.GetField(_buildingTableEntityBuildingField, entity);
 					if (buildingModel == null) continue;
 
-					var category = _buildingModelCategoryField?.GetValue(buildingModel);
+					var category = ReflectionHelper.GetField(_buildingModelCategoryField, buildingModel);
 					if (category == null) continue;
 
 					// SO.Name property gives internal name
@@ -7349,10 +6848,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return null;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return null;
 
-				return _portStatePickedCategoryField?.GetValue(state) as string;
+				return ReflectionHelper.GetString(_portStatePickedCategoryField, state);
 			} catch {
 				return null;
 			}
@@ -7365,7 +6864,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return false;
 
 			try {
-				var state = _portStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return false;
 
 				_portStatePickedCategoryField?.SetValue(state, categoryName);
@@ -7382,10 +6881,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return false;
 
 			try {
-				var expedModel = _portGetCurrentExpeditionModelMethod?.Invoke(building, null);
+				var expedModel = ReflectionHelper.Invoke(_portGetCurrentExpeditionModelMethod, building);
 				if (expedModel == null) return false;
 
-				var blueprints = _portExpedModelBlueprintsField?.GetValue(expedModel);
+				var blueprints = ReflectionHelper.GetField(_portExpedModelBlueprintsField, expedModel);
 				return blueprints != null;
 			} catch {
 				return false;
@@ -7400,10 +6899,10 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return new List<(string, int)>();
 
 			try {
-				var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+				var expedition = ReflectionHelper.Invoke(_portGetCurrentExpeditionMethod, building);
 				if (expedition == null) return new List<(string, int)>();
 
-				var chances = _portExpedChancesField?.GetValue(expedition);
+				var chances = ReflectionHelper.GetField(_portExpedChancesField, expedition);
 				if (chances == null) return new List<(string, int)>();
 
 				var result = new List<(string, int)>();
@@ -7414,8 +6913,8 @@ namespace ATSAccessibility {
 					var chance = list[i];
 					if (chance == null) continue;
 
-					var rarityObj = _portRewardChanceRarityField?.GetValue(chance);
-					int chanceValue = (int?)_portRewardChanceChanceField?.GetValue(chance) ?? 0;
+					var rarityObj = ReflectionHelper.GetField(_portRewardChanceRarityField, chance);
+					int chanceValue = ReflectionHelper.GetInt(_portRewardChanceChanceField, chance);
 
 					string rarityName = rarityObj?.ToString() ?? "Unknown";
 					if (chanceValue > 0) {
@@ -7435,7 +6934,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return null;
 
 			try {
-				var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+				var expedition = ReflectionHelper.Invoke(_portGetCurrentExpeditionMethod, building);
 				if (expedition == null) return null;
 
 				var goodsSets = _portExpedStriderGoodsField?.GetValue(expedition) as Array;
@@ -7465,7 +6964,7 @@ namespace ATSAccessibility {
 			if (!IsPort(building)) return null;
 
 			try {
-				var expedition = _portGetCurrentExpeditionMethod?.Invoke(building, null);
+				var expedition = ReflectionHelper.Invoke(_portGetCurrentExpeditionMethod, building);
 				if (expedition == null) return null;
 
 				var goodsSets = _portExpedCrewGoodsField?.GetValue(expedition) as Array;
@@ -7653,7 +7152,7 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var model = _institutionModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (model == null) return 0;
 
 				var recipes = _institutionModelRecipesField?.GetValue(model) as Array;
@@ -7672,14 +7171,14 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var model = _institutionModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (model == null) return null;
 
 				var recipes = _institutionModelRecipesField?.GetValue(model) as Array;
 				if (recipes == null || recipeIndex >= recipes.Length) return null;
 
 				var recipeModel = recipes.GetValue(recipeIndex);
-				var servedNeed = _institutionRecipeModelServedNeedField?.GetValue(recipeModel);
+				var servedNeed = ReflectionHelper.GetField(_institutionRecipeModelServedNeedField, recipeModel);
 				if (servedNeed == null) return null;
 
 				// NeedModel.DisplayName is a computed property that returns effect.displayName.Text
@@ -7698,14 +7197,14 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var model = _institutionModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (model == null) return false;
 
 				var recipes = _institutionModelRecipesField?.GetValue(model) as Array;
 				if (recipes == null || recipeIndex >= recipes.Length) return false;
 
 				var recipeModel = recipes.GetValue(recipeIndex);
-				return (bool?)_institutionRecipeModelIsGoodConsumedField?.GetValue(recipeModel) ?? false;
+				return ReflectionHelper.GetBool(_institutionRecipeModelIsGoodConsumedField, recipeModel);
 			} catch {
 				return false;
 			}
@@ -7720,12 +7219,12 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var state = _institutionStateField?.GetValue(building);
-				var model = _institutionModelField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_institutionStateField, building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (state == null || model == null) return null;
 
 				// InstitutionState.recipes is List<InstitutionRecipeState>, model.recipes is InstitutionRecipeModel[]
-				var stateRecipes = _institutionStateRecipesField?.GetValue(state) as System.Collections.IList;
+				var stateRecipes = ReflectionHelper.GetList(_institutionStateRecipesField, state);
 				var modelRecipes = _institutionModelRecipesField?.GetValue(model) as Array;
 				if (stateRecipes == null || modelRecipes == null) return null;
 				if (recipeIndex >= stateRecipes.Count || recipeIndex >= modelRecipes.Length) return null;
@@ -7733,8 +7232,8 @@ namespace ATSAccessibility {
 				var recipeState = stateRecipes[recipeIndex];
 				var recipeModel = modelRecipes.GetValue(recipeIndex);
 
-				int pickedGood = (int?)_institutionRecipeStatePickedGoodField?.GetValue(recipeState) ?? 0;
-				var requiredGoods = _institutionRecipeModelRequiredGoodsField?.GetValue(recipeModel);
+				int pickedGood = ReflectionHelper.GetInt(_institutionRecipeStatePickedGoodField, recipeState);
+				var requiredGoods = ReflectionHelper.GetField(_institutionRecipeModelRequiredGoodsField, recipeModel);
 				if (requiredGoods == null) return null;
 
 				// GoodsSet has a 'goods' field that is GoodRef[]
@@ -7757,14 +7256,14 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var model = _institutionModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (model == null) return 0;
 
 				var modelRecipes = _institutionModelRecipesField?.GetValue(model) as Array;
 				if (modelRecipes == null || recipeIndex >= modelRecipes.Length) return 0;
 
 				var recipeModel = modelRecipes.GetValue(recipeIndex);
-				var requiredGoods = _institutionRecipeModelRequiredGoodsField?.GetValue(recipeModel);
+				var requiredGoods = ReflectionHelper.GetField(_institutionRecipeModelRequiredGoodsField, recipeModel);
 				if (requiredGoods == null) return 0;
 
 				var goodsArray = requiredGoods.GetType().GetField("goods", GameReflection.PublicInstance)?.GetValue(requiredGoods) as Array;
@@ -7783,14 +7282,14 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var model = _institutionModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (model == null) return null;
 
 				var modelRecipes = _institutionModelRecipesField?.GetValue(model) as Array;
 				if (modelRecipes == null || recipeIndex >= modelRecipes.Length) return null;
 
 				var recipeModel = modelRecipes.GetValue(recipeIndex);
-				var requiredGoods = _institutionRecipeModelRequiredGoodsField?.GetValue(recipeModel);
+				var requiredGoods = ReflectionHelper.GetField(_institutionRecipeModelRequiredGoodsField, recipeModel);
 				if (requiredGoods == null) return null;
 
 				var goodsArray = requiredGoods.GetType().GetField("goods", GameReflection.PublicInstance)?.GetValue(requiredGoods) as Array;
@@ -7812,14 +7311,14 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var state = _institutionStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_institutionStateField, building);
 				if (state == null) return false;
 
-				var stateRecipes = _institutionStateRecipesField?.GetValue(state) as System.Collections.IList;
+				var stateRecipes = ReflectionHelper.GetList(_institutionStateRecipesField, state);
 				if (stateRecipes == null || recipeIndex >= stateRecipes.Count) return false;
 
 				var recipeState = stateRecipes[recipeIndex];
-				_institutionChangeIngredientMethod?.Invoke(building, new object[] { recipeState, goodIndex });
+				ReflectionHelper.InvokeVoid(_institutionChangeIngredientMethod, building, recipeState, goodIndex);
 				return true;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] ChangeInstitutionIngredient failed: {ex.Message}");
@@ -7836,7 +7335,7 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var storage = _institutionStorageField?.GetValue(building);
+				var storage = ReflectionHelper.GetField(_institutionStorageField, building);
 				if (storage == null) return new Dictionary<string, int>();
 
 				return GetBuildingStorageGoodsInternal(storage);
@@ -7854,7 +7353,7 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var model = _institutionModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (model == null) return 0;
 
 				var effects = _institutionModelActiveEffectsField?.GetValue(model) as Array;
@@ -7873,14 +7372,14 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var model = _institutionModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (model == null) return null;
 
 				var effects = _institutionModelActiveEffectsField?.GetValue(model) as Array;
 				if (effects == null || effectIndex >= effects.Length) return null;
 
 				var effectModel = effects.GetValue(effectIndex);
-				var effect = _institutionEffectModelEffectField?.GetValue(effectModel);
+				var effect = ReflectionHelper.GetField(_institutionEffectModelEffectField, effectModel);
 				if (effect == null) return null;
 
 				var displayNameProp = effect.GetType().GetProperty("DisplayName", GameReflection.PublicInstance);
@@ -7899,14 +7398,14 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var model = _institutionModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (model == null) return 0;
 
 				var effects = _institutionModelActiveEffectsField?.GetValue(model) as Array;
 				if (effects == null || effectIndex >= effects.Length) return 0;
 
 				var effectModel = effects.GetValue(effectIndex);
-				return (int?)_institutionEffectModelMinWorkersField?.GetValue(effectModel) ?? 0;
+				return ReflectionHelper.GetInt(_institutionEffectModelMinWorkersField, effectModel);
 			} catch {
 				return 0;
 			}
@@ -7921,14 +7420,14 @@ namespace ATSAccessibility {
 			EnsureInstitutionTypes();
 
 			try {
-				var model = _institutionModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_institutionModelField, building);
 				if (model == null) return null;
 
 				var effects = _institutionModelActiveEffectsField?.GetValue(model) as Array;
 				if (effects == null || effectIndex >= effects.Length) return null;
 
 				var effectModel = effects.GetValue(effectIndex);
-				var effect = _institutionEffectModelEffectField?.GetValue(effectModel);
+				var effect = ReflectionHelper.GetField(_institutionEffectModelEffectField, effectModel);
 				if (effect == null) return null;
 
 				var descProp = effect.GetType().GetProperty("Description", GameReflection.PublicInstance);
@@ -7981,7 +7480,7 @@ namespace ATSAccessibility {
 			EnsureShrineTypes();
 
 			try {
-				var model = _shrineModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_shrineModelField, building);
 				if (model == null) return 0;
 
 				var effects = _shrineModelEffectsField?.GetValue(model) as Array;
@@ -8000,14 +7499,14 @@ namespace ATSAccessibility {
 			EnsureShrineTypes();
 
 			try {
-				var model = _shrineModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_shrineModelField, building);
 				if (model == null) return null;
 
 				var effects = _shrineModelEffectsField?.GetValue(model) as Array;
 				if (effects == null || tierIndex >= effects.Length) return null;
 
 				var effectModel = effects.GetValue(tierIndex);
-				var label = _shrineEffectsModelLabelField?.GetValue(effectModel);
+				var label = ReflectionHelper.GetField(_shrineEffectsModelLabelField, effectModel);
 				return GameReflection.GetLocaText(label);
 			} catch {
 				return null;
@@ -8023,14 +7522,14 @@ namespace ATSAccessibility {
 			EnsureShrineTypes();
 
 			try {
-				var state = _shrineStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_shrineStateField, building);
 				if (state == null) return 0;
 
 				var effects = _shrineStateEffectsField?.GetValue(state) as Array;
 				if (effects == null || tierIndex >= effects.Length) return 0;
 
 				var effectState = effects.GetValue(tierIndex);
-				return (int?)_shrineEffectsStateChargesLeftField?.GetValue(effectState) ?? 0;
+				return ReflectionHelper.GetInt(_shrineEffectsStateChargesLeftField, effectState);
 			} catch {
 				return 0;
 			}
@@ -8045,14 +7544,14 @@ namespace ATSAccessibility {
 			EnsureShrineTypes();
 
 			try {
-				var model = _shrineModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_shrineModelField, building);
 				if (model == null) return 0;
 
 				var effects = _shrineModelEffectsField?.GetValue(model) as Array;
 				if (effects == null || tierIndex >= effects.Length) return 0;
 
 				var effectModel = effects.GetValue(tierIndex);
-				return (int?)_shrineEffectsModelChargesField?.GetValue(effectModel) ?? 0;
+				return ReflectionHelper.GetInt(_shrineEffectsModelChargesField, effectModel);
 			} catch {
 				return 0;
 			}
@@ -8067,7 +7566,7 @@ namespace ATSAccessibility {
 			EnsureShrineTypes();
 
 			try {
-				var model = _shrineModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_shrineModelField, building);
 				if (model == null) return 0;
 
 				var effectTiers = _shrineModelEffectsField?.GetValue(model) as Array;
@@ -8091,7 +7590,7 @@ namespace ATSAccessibility {
 			EnsureShrineTypes();
 
 			try {
-				var model = _shrineModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_shrineModelField, building);
 				if (model == null) return false;
 
 				var effectTiers = _shrineModelEffectsField?.GetValue(model) as Array;
@@ -8120,7 +7619,7 @@ namespace ATSAccessibility {
 			EnsureShrineTypes();
 
 			try {
-				var model = _shrineModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_shrineModelField, building);
 				if (model == null) return null;
 
 				var effectTiers = _shrineModelEffectsField?.GetValue(model) as Array;
@@ -8212,8 +7711,8 @@ namespace ATSAccessibility {
 					return false;
 				}
 
-				var state = _shrineStateField?.GetValue(building);
-				var model = _shrineModelField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_shrineStateField, building);
+				var model = ReflectionHelper.GetField(_shrineModelField, building);
 				if (state == null || model == null) {
 					Debug.Log($"[ATSAccessibility] UseShrineEffect: state={state != null}, model={model != null}");
 					return false;
@@ -8274,7 +7773,7 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var state = _poroStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_poroStateField, building);
 				if (state == null) return 0f;
 
 				return (float?)_poroStateHappinessField?.GetValue(state) ?? 0f;
@@ -8292,7 +7791,7 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var state = _poroStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_poroStateField, building);
 				if (state == null) return 0f;
 
 				return (float?)_poroStateProductionProgressField?.GetValue(state) ?? 0f;
@@ -8310,7 +7809,7 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var model = _poroModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_poroModelField, building);
 				if (model == null) return 0;
 
 				var needs = _poroModelNeedsField?.GetValue(model) as Array;
@@ -8329,14 +7828,14 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var model = _poroModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_poroModelField, building);
 				if (model == null) return null;
 
 				var needs = _poroModelNeedsField?.GetValue(model) as Array;
 				if (needs == null || needIndex >= needs.Length) return null;
 
 				var needModel = needs.GetValue(needIndex);
-				var displayName = _poroNeedModelDisplayNameField?.GetValue(needModel);
+				var displayName = ReflectionHelper.GetField(_poroNeedModelDisplayNameField, needModel);
 				return GameReflection.GetLocaText(displayName);
 			} catch {
 				return null;
@@ -8352,7 +7851,7 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var state = _poroStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_poroStateField, building);
 				if (state == null) return 0f;
 
 				var needs = _poroStateNeedsField?.GetValue(state) as Array;
@@ -8374,8 +7873,8 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var state = _poroStateField?.GetValue(building);
-				var model = _poroModelField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_poroStateField, building);
+				var model = ReflectionHelper.GetField(_poroModelField, building);
 				if (state == null || model == null) return null;
 
 				var stateNeeds = _poroStateNeedsField?.GetValue(state) as Array;
@@ -8387,7 +7886,7 @@ namespace ATSAccessibility {
 				var needModel = modelNeeds.GetValue(needIndex);
 
 				// Call Poro.GetCurrentGoodFor(state, model) to get the Good
-				var good = _poroGetCurrentGoodForMethod?.Invoke(building, new object[] { needState, needModel });
+				var good = ReflectionHelper.Invoke(_poroGetCurrentGoodForMethod, building, needState, needModel);
 				if (good == null) return null;
 
 				// Good has a 'name' field that is the good ID
@@ -8409,14 +7908,14 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var model = _poroModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_poroModelField, building);
 				if (model == null) return 0;
 
 				var needs = _poroModelNeedsField?.GetValue(model) as Array;
 				if (needs == null || needIndex >= needs.Length) return 0;
 
 				var needModel = needs.GetValue(needIndex);
-				var goodsSet = _poroNeedModelGoodsField?.GetValue(needModel);
+				var goodsSet = ReflectionHelper.GetField(_poroNeedModelGoodsField, needModel);
 				if (goodsSet == null) return 0;
 
 				var goodsArray = goodsSet.GetType().GetField("goods", GameReflection.PublicInstance)?.GetValue(goodsSet) as Array;
@@ -8435,14 +7934,14 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var model = _poroModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_poroModelField, building);
 				if (model == null) return null;
 
 				var needs = _poroModelNeedsField?.GetValue(model) as Array;
 				if (needs == null || needIndex >= needs.Length) return null;
 
 				var needModel = needs.GetValue(needIndex);
-				var goodsSet = _poroNeedModelGoodsField?.GetValue(needModel);
+				var goodsSet = ReflectionHelper.GetField(_poroNeedModelGoodsField, needModel);
 				if (goodsSet == null) return null;
 
 				var goodsArray = goodsSet.GetType().GetField("goods", GameReflection.PublicInstance)?.GetValue(goodsSet) as Array;
@@ -8464,8 +7963,8 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var state = _poroStateField?.GetValue(building);
-				var model = _poroModelField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_poroStateField, building);
+				var model = ReflectionHelper.GetField(_poroModelField, building);
 				if (state == null || model == null) return false;
 
 				var stateNeeds = _poroStateNeedsField?.GetValue(state) as Array;
@@ -8476,7 +7975,7 @@ namespace ATSAccessibility {
 				var needState = stateNeeds.GetValue(needIndex);
 				var needModel = modelNeeds.GetValue(needIndex);
 
-				var result = _poroCanFulfillMethod?.Invoke(building, new object[] { needState, needModel });
+				var result = ReflectionHelper.Invoke(_poroCanFulfillMethod, building, needState, needModel);
 				return (bool?)result ?? false;
 			} catch {
 				return false;
@@ -8495,8 +7994,8 @@ namespace ATSAccessibility {
 				if (!CanFulfillPoroNeed(building, needIndex))
 					return false;
 
-				var state = _poroStateField?.GetValue(building);
-				var model = _poroModelField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_poroStateField, building);
+				var model = ReflectionHelper.GetField(_poroModelField, building);
 				if (state == null || model == null) return false;
 
 				var stateNeeds = _poroStateNeedsField?.GetValue(state) as Array;
@@ -8507,7 +8006,7 @@ namespace ATSAccessibility {
 				var needState = stateNeeds.GetValue(needIndex);
 				var needModel = modelNeeds.GetValue(needIndex);
 
-				_poroFulfillMethod?.Invoke(building, new object[] { needState, needModel });
+				ReflectionHelper.InvokeVoid(_poroFulfillMethod, building, needState, needModel);
 				return true;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] FulfillPoroNeed failed: {ex.Message}");
@@ -8524,14 +8023,14 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var state = _poroStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_poroStateField, building);
 				if (state == null) return false;
 
 				var stateNeeds = _poroStateNeedsField?.GetValue(state) as Array;
 				if (stateNeeds == null || needIndex >= stateNeeds.Length) return false;
 
 				var needState = stateNeeds.GetValue(needIndex);
-				_poroGoodChangedMethod?.Invoke(building, new object[] { needState, goodIndex });
+				ReflectionHelper.InvokeVoid(_poroGoodChangedMethod, building, needState, goodIndex);
 				return true;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] ChangePoroNeedGood failed: {ex.Message}");
@@ -8548,10 +8047,10 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var model = _poroModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_poroModelField, building);
 				if (model == null) return null;
 
-				var productRef = _poroModelProductField?.GetValue(model);
+				var productRef = ReflectionHelper.GetField(_poroModelProductField, model);
 				return GetGoodRefDisplayName(productRef);
 			} catch {
 				return null;
@@ -8567,10 +8066,10 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var state = _poroStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_poroStateField, building);
 				if (state == null) return 0;
 
-				var product = _poroStateProductField?.GetValue(state);
+				var product = ReflectionHelper.GetField(_poroStateProductField, state);
 				if (product == null) return 0;
 
 				return (int?)product.GetType().GetField("amount", GameReflection.PublicInstance)?.GetValue(product) ?? 0;
@@ -8588,10 +8087,10 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var model = _poroModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_poroModelField, building);
 				if (model == null) return 0;
 
-				return (int?)_poroModelMaxProductsField?.GetValue(model) ?? 0;
+				return ReflectionHelper.GetInt(_poroModelMaxProductsField, model);
 			} catch {
 				return 0;
 			}
@@ -8606,7 +8105,7 @@ namespace ATSAccessibility {
 			EnsurePoroTypes();
 
 			try {
-				var result = _poroCanGatherProductsMethod?.Invoke(building, null);
+				var result = ReflectionHelper.Invoke(_poroCanGatherProductsMethod, building);
 				return (bool?)result ?? false;
 			} catch {
 				return false;
@@ -8625,7 +8124,7 @@ namespace ATSAccessibility {
 				if (!CanGatherPoroProducts(building))
 					return false;
 
-				_poroGatherProductsMethod?.Invoke(building, null);
+				ReflectionHelper.InvokeVoid(_poroGatherProductsMethod, building);
 				return true;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GatherPoroProducts failed: {ex.Message}");
@@ -8660,10 +8159,10 @@ namespace ATSAccessibility {
 			EnsureWaterModelTypes();
 
 			try {
-				var waterModel = _rainCatcherGetCurrentWaterTypeMethod?.Invoke(building, null);
+				var waterModel = ReflectionHelper.Invoke(_rainCatcherGetCurrentWaterTypeMethod, building);
 				if (waterModel == null) return null;
 
-				return GameReflection.GetLocaText(_waterModelDisplayNameField?.GetValue(waterModel));
+				return ReflectionHelper.GetLocaString(_waterModelDisplayNameField, waterModel);
 			} catch {
 				return null;
 			}
@@ -8696,10 +8195,10 @@ namespace ATSAccessibility {
 			EnsureWaterModelTypes();
 
 			try {
-				var waterModel = _extractorGetWaterTypeMethod?.Invoke(building, null);
+				var waterModel = ReflectionHelper.Invoke(_extractorGetWaterTypeMethod, building);
 				if (waterModel == null) return null;
 
-				return GameReflection.GetLocaText(_waterModelDisplayNameField?.GetValue(waterModel));
+				return ReflectionHelper.GetLocaString(_waterModelDisplayNameField, waterModel);
 			} catch {
 				return null;
 			}
@@ -8714,7 +8213,7 @@ namespace ATSAccessibility {
 			EnsureExtractorTypes();
 
 			try {
-				var model = _extractorModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_extractorModelField, building);
 				if (model == null) return 0f;
 
 				return (float?)_extractorModelProductionTimeField?.GetValue(model) ?? 0f;
@@ -8732,10 +8231,10 @@ namespace ATSAccessibility {
 			EnsureExtractorTypes();
 
 			try {
-				var model = _extractorModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_extractorModelField, building);
 				if (model == null) return 0;
 
-				return (int?)_extractorModelProducedAmountField?.GetValue(model) ?? 0;
+				return ReflectionHelper.GetInt(_extractorModelProducedAmountField, model);
 			} catch {
 				return 0;
 			}
@@ -8771,7 +8270,7 @@ namespace ATSAccessibility {
 			if (conditionsState == null) return null;
 
 			try {
-				return _condCycleAbilitiesField?.GetValue(conditionsState) as System.Collections.IList;
+				return ReflectionHelper.GetList(_condCycleAbilitiesField, conditionsState);
 			} catch {
 				return null;
 			}
@@ -8800,7 +8299,7 @@ namespace ATSAccessibility {
 				if (ability == null) return null;
 
 				// Get the gameEffect string
-				string gameEffect = _cycleAbilityGameEffectField?.GetValue(ability) as string;
+				string gameEffect = ReflectionHelper.GetString(_cycleAbilityGameEffectField, ability);
 				if (string.IsNullOrEmpty(gameEffect)) return null;
 
 				// Get the effect model
@@ -8808,7 +8307,7 @@ namespace ATSAccessibility {
 				if (effectModel == null) return gameEffect;  // Fallback to ID
 
 				// Get display name from effect model
-				var displayName = _effectModelDisplayNameField?.GetValue(effectModel);
+				var displayName = ReflectionHelper.GetField(_effectModelDisplayNameField, effectModel);
 				return GameReflection.GetLocaText(displayName) ?? gameEffect;
 			} catch {
 				return null;
@@ -8828,7 +8327,7 @@ namespace ATSAccessibility {
 				var ability = abilities[index];
 				if (ability == null) return 0;
 
-				return (int?)_cycleAbilityChargesField?.GetValue(ability) ?? 0;
+				return ReflectionHelper.GetInt(_cycleAbilityChargesField, ability);
 			} catch {
 				return 0;
 			}
@@ -8851,18 +8350,18 @@ namespace ATSAccessibility {
 				if (ability == null) return false;
 
 				// Check charges
-				int charges = (int?)_cycleAbilityChargesField?.GetValue(ability) ?? 0;
+				int charges = ReflectionHelper.GetInt(_cycleAbilityChargesField, ability);
 				if (charges <= 0) return false;
 
 				// Get the effect model
-				string gameEffect = _cycleAbilityGameEffectField?.GetValue(ability) as string;
+				string gameEffect = ReflectionHelper.GetString(_cycleAbilityGameEffectField, ability);
 				if (string.IsNullOrEmpty(gameEffect)) return false;
 
 				var effectModel = GetEffectModel(gameEffect);
 				if (effectModel == null) return false;
 
 				// Check if effect can be drawn
-				bool canBeDrawn = (bool?)_effectModelCanBeDrawnMethod?.Invoke(effectModel, null) ?? false;
+				bool canBeDrawn = ReflectionHelper.InvokeBool(_effectModelCanBeDrawnMethod, effectModel);
 				if (!canBeDrawn) return false;
 
 				// Decrement charges
@@ -8912,7 +8411,7 @@ namespace ATSAccessibility {
 				var gameModelService = _gsGameModelServiceProperty.GetValue(gameServices);
 				if (gameModelService == null) return null;
 
-				return _gmsGetEffectMethod?.Invoke(gameModelService, new object[] { effectName });
+				return ReflectionHelper.Invoke(_gmsGetEffectMethod, gameModelService, effectName);
 			} catch {
 				return null;
 			}
@@ -8935,7 +8434,7 @@ namespace ATSAccessibility {
 				var blightService = _gsBlightServiceProperty.GetValue(gameServices);
 				if (blightService == null) return 0;
 
-				return (int?)_blightCountFreeCystsMethod?.Invoke(blightService, null) ?? 0;
+				return ReflectionHelper.InvokeInt(_blightCountFreeCystsMethod, blightService);
 			} catch {
 				return 0;
 			}
@@ -8955,10 +8454,10 @@ namespace ATSAccessibility {
 			if (storageService == null) return 0;
 
 			try {
-				var mainStorage = _storageServiceMainProperty?.GetValue(storageService);
+				var mainStorage = ReflectionHelper.GetProp(_storageServiceMainProperty, storageService);
 				if (mainStorage == null) return 0;
 
-				return (int?)_mainStorageGetAmountMethod?.Invoke(mainStorage, new object[] { fuelName }) ?? 0;
+				return ReflectionHelper.InvokeInt(_mainStorageGetAmountMethod, mainStorage, fuelName);
 			} catch {
 				return 0;
 			}
@@ -8977,10 +8476,10 @@ namespace ATSAccessibility {
 				var blightConfig = _settingsBlightConfigField.GetValue(settings);
 				if (blightConfig == null) return null;
 
-				var blightPostFuel = _blightConfigBlightPostFuelField?.GetValue(blightConfig);
+				var blightPostFuel = ReflectionHelper.GetField(_blightConfigBlightPostFuelField, blightConfig);
 				if (blightPostFuel == null) return null;
 
-				return _goodRefDisplayNameProperty?.GetValue(blightPostFuel) as string;
+				return ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, blightPostFuel);
 			} catch {
 				return null;
 			}
@@ -8999,10 +8498,10 @@ namespace ATSAccessibility {
 				var blightConfig = _settingsBlightConfigField.GetValue(settings);
 				if (blightConfig == null) return null;
 
-				var blightPostFuel = _blightConfigBlightPostFuelField?.GetValue(blightConfig);
+				var blightPostFuel = ReflectionHelper.GetField(_blightConfigBlightPostFuelField, blightConfig);
 				if (blightPostFuel == null) return null;
 
-				return _goodRefNameProperty?.GetValue(blightPostFuel) as string;
+				return ReflectionHelper.GetPropString(_goodRefNameProperty, blightPostFuel);
 			} catch {
 				return null;
 			}
@@ -9044,7 +8543,7 @@ namespace ATSAccessibility {
 				var rainpunkService = _gsRainpunkServiceProperty.GetValue(gameServices);
 				if (rainpunkService == null) return 0;
 
-				return (int?)_rainpunkCountWaterLeftMethod?.Invoke(rainpunkService, new object[] { waterModel }) ?? 0;
+				return ReflectionHelper.InvokeInt(_rainpunkCountWaterLeftMethod, rainpunkService, waterModel);
 			} catch {
 				return 0;
 			}
@@ -9066,7 +8565,7 @@ namespace ATSAccessibility {
 				var rainpunkService = _gsRainpunkServiceProperty.GetValue(gameServices);
 				if (rainpunkService == null) return 0;
 
-				return (int?)_rainpunkCountTanksCapacityMethod?.Invoke(rainpunkService, new object[] { waterModel }) ?? 0;
+				return ReflectionHelper.InvokeInt(_rainpunkCountTanksCapacityMethod, rainpunkService, waterModel);
 			} catch {
 				return 0;
 			}
@@ -9081,10 +8580,10 @@ namespace ATSAccessibility {
 			try {
 				if (IsRainCatcher(building)) {
 					EnsureRainCatcherTypes();
-					return _rainCatcherGetCurrentWaterTypeMethod?.Invoke(building, null);
+					return ReflectionHelper.Invoke(_rainCatcherGetCurrentWaterTypeMethod, building);
 				} else if (IsExtractor(building)) {
 					EnsureExtractorTypes();
-					return _extractorGetWaterTypeMethod?.Invoke(building, null);
+					return ReflectionHelper.Invoke(_extractorGetWaterTypeMethod, building);
 				}
 			} catch {
 				// Fall through
@@ -9136,23 +8635,23 @@ namespace ATSAccessibility {
 
 			try {
 				// Get waterUsed from workshop state
-				var state = _workshopStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_workshopStateField, building);
 				if (state == null) return -1;
 
-				int waterUsed = (int?)_wsWaterUsedField?.GetValue(state) ?? 0;
+				int waterUsed = ReflectionHelper.GetInt(_wsWaterUsedField, state);
 
 				// Get waterPerCyst from RainpunkService
 				var gameServices = GameReflection.GetGameServices();
 				if (gameServices == null) return -1;
 
-				var rainpunkService = _gsRainpunkServiceProperty?.GetValue(gameServices);
+				var rainpunkService = ReflectionHelper.GetProp(_gsRainpunkServiceProperty, gameServices);
 				if (rainpunkService == null) return -1;
 
 				// Check if blight is spawning from this building
-				bool isSpawning = (bool?)_rainpunkIsWaterSpawningBlightMethod?.Invoke(rainpunkService, new object[] { building }) ?? false;
+				bool isSpawning = ReflectionHelper.InvokeBool(_rainpunkIsWaterSpawningBlightMethod, rainpunkService, building);
 				if (!isSpawning) return -1;
 
-				int waterPerCyst = (int?)_rainpunkGetWaterPerCystsMethod?.Invoke(rainpunkService, new object[] { building }) ?? 0;
+				int waterPerCyst = ReflectionHelper.InvokeInt(_rainpunkGetWaterPerCystsMethod, rainpunkService, building);
 				if (waterPerCyst <= 0) return 0;
 
 				return (int)((float)waterUsed / waterPerCyst * 100);
@@ -9255,10 +8754,10 @@ namespace ATSAccessibility {
 			EnsureRainpunkEngineTypes();
 
 			try {
-				var model = _workshopModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_workshopModelField, building);
 				if (model == null) return false;
 
-				var rainpunkModel = _wmRainpunkField?.GetValue(model);
+				var rainpunkModel = ReflectionHelper.GetField(_wmRainpunkField, model);
 				return rainpunkModel != null;
 			} catch {
 				return false;
@@ -9273,10 +8772,10 @@ namespace ATSAccessibility {
 			EnsureRainpunkEngineTypes();
 
 			try {
-				var state = _workshopStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_workshopStateField, building);
 				if (state == null) return false;
 
-				return (bool?)_wsRainpunkUnlockedField?.GetValue(state) ?? false;
+				return ReflectionHelper.GetBool(_wsRainpunkUnlockedField, state);
 			} catch {
 				return false;
 			}
@@ -9290,7 +8789,7 @@ namespace ATSAccessibility {
 			EnsureRainpunkEngineTypes();
 
 			try {
-				var state = _workshopStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_workshopStateField, building);
 				if (state == null) return 0;
 
 				var engines = _wsEnginesField?.GetValue(state) as Array;
@@ -9308,7 +8807,7 @@ namespace ATSAccessibility {
 			if (engineState == null) return 0;
 
 			try {
-				return (int?)_engineStateLevelField?.GetValue(engineState) ?? 0;
+				return ReflectionHelper.GetInt(_engineStateLevelField, engineState);
 			} catch {
 				return 0;
 			}
@@ -9322,7 +8821,7 @@ namespace ATSAccessibility {
 			if (engineState == null) return 0;
 
 			try {
-				return (int?)_engineStateRequestedLevelField?.GetValue(engineState) ?? 0;
+				return ReflectionHelper.GetInt(_engineStateRequestedLevelField, engineState);
 			} catch {
 				return 0;
 			}
@@ -9336,7 +8835,7 @@ namespace ATSAccessibility {
 			if (engineModel == null) return 0;
 
 			try {
-				return (int?)_engineModelMaxLevelField?.GetValue(engineModel) ?? 0;
+				return ReflectionHelper.GetInt(_engineModelMaxLevelField, engineModel);
 			} catch {
 				return 0;
 			}
@@ -9367,7 +8866,7 @@ namespace ATSAccessibility {
 				if (levelEntry == null) return null;
 
 				// Get the perk from the level
-				var perk = _engineLevelPerkField?.GetValue(levelEntry);
+				var perk = ReflectionHelper.GetField(_engineLevelPerkField, levelEntry);
 				if (perk == null) return null;
 
 				// Get the perk's display name
@@ -9424,7 +8923,7 @@ namespace ATSAccessibility {
 			EnsureRainpunkEngineTypes();
 
 			try {
-				var state = _workshopStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_workshopStateField, building);
 				if (state == null) return false;
 
 				var engines = _wsEnginesField?.GetValue(state) as Array;
@@ -9433,7 +8932,7 @@ namespace ATSAccessibility {
 				for (int i = 0; i < engines.Length; i++) {
 					var engineState = engines.GetValue(i);
 					if (engineState != null) {
-						int requestedLevel = (int?)_engineStateRequestedLevelField?.GetValue(engineState) ?? 0;
+						int requestedLevel = ReflectionHelper.GetInt(_engineStateRequestedLevelField, engineState);
 						if (requestedLevel > 0)
 							return true;
 					}
@@ -9452,7 +8951,7 @@ namespace ATSAccessibility {
 			EnsureRainpunkEngineTypes();
 
 			try {
-				var state = _workshopStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_workshopStateField, building);
 				if (state == null) return false;
 
 				var engines = _wsEnginesField?.GetValue(state) as Array;
@@ -9479,7 +8978,7 @@ namespace ATSAccessibility {
 			EnsureRainpunkEngineTypes();
 
 			try {
-				var state = _workshopStateField?.GetValue(building);
+				var state = ReflectionHelper.GetField(_workshopStateField, building);
 				if (state == null) return null;
 
 				var engines = _wsEnginesField?.GetValue(state) as Array;
@@ -9499,10 +8998,10 @@ namespace ATSAccessibility {
 			EnsureRainpunkEngineTypes();
 
 			try {
-				var model = _workshopModelField?.GetValue(building);
+				var model = ReflectionHelper.GetField(_workshopModelField, building);
 				if (model == null) return null;
 
-				var rainpunkModel = _wmRainpunkField?.GetValue(model);
+				var rainpunkModel = ReflectionHelper.GetField(_wmRainpunkField, model);
 				if (rainpunkModel == null) return null;
 
 				var engineModels = _brpEnginesField?.GetValue(rainpunkModel) as Array;
@@ -9545,7 +9044,7 @@ namespace ATSAccessibility {
 				if (soundRef == null) return;
 
 				// Call GetNext() on the SoundRef to get the SoundModel
-				var soundModel = _soundRefGetNextMethod?.Invoke(soundRef, null);
+				var soundModel = ReflectionHelper.Invoke(_soundRefGetNextMethod, soundRef);
 				if (soundModel == null) return;
 
 				// Get MainController and play the sound
@@ -9641,13 +9140,13 @@ namespace ATSAccessibility {
 				if (gameServices == null) return 0;
 
 				EnsureStorageService2Types();
-				var storageService = _gsStorageService2Property?.GetValue(gameServices);
+				var storageService = ReflectionHelper.GetProp(_gsStorageService2Property, gameServices);
 				if (storageService == null) return 0;
 
-				var mainStorage = _storageServiceMainProperty?.GetValue(storageService);
+				var mainStorage = ReflectionHelper.GetProp(_storageServiceMainProperty, storageService);
 				if (mainStorage == null) return 0;
 
-				return (int?)_mainStorageGetAmountMethod?.Invoke(mainStorage, new object[] { goodName }) ?? 0;
+				return ReflectionHelper.InvokeInt(_mainStorageGetAmountMethod, mainStorage, goodName);
 			} catch {
 				return 0;
 			}
@@ -9692,26 +9191,23 @@ namespace ATSAccessibility {
 			try {
 				// BuildingStorage.Goods property
 				EnsureStorageTypes();
-				var goodsCollection = _storageGoodsProperty?.GetValue(storage);
+				var goodsCollection = ReflectionHelper.GetProp(_storageGoodsProperty, storage);
 				if (goodsCollection == null) return result;
 
 				// BuildingGoodsCollection.goods property - use reflection to iterate
 				// (direct cast to Dictionary<string, int> fails at runtime)
-				var goodsDict = _goodsCollectionGoodsField?.GetValue(goodsCollection);
+				var goodsDict = ReflectionHelper.GetField(_goodsCollectionGoodsField, goodsCollection);
 				if (goodsDict == null) return result;
 
 				// Iterate through the dictionary using reflection
-				var keysProperty = goodsDict.GetType().GetProperty("Keys");
-				var keys = keysProperty?.GetValue(goodsDict) as System.Collections.IEnumerable;
+				var keys = ReflectionHelper.IterateKeys(goodsDict);
 				if (keys == null) return result;
-
-				var indexer = goodsDict.GetType().GetProperty("Item");
 
 				foreach (var key in keys) {
 					string goodName = key as string;
 					if (string.IsNullOrEmpty(goodName)) continue;
 
-					int amount = (int?)indexer?.GetValue(goodsDict, new[] { key }) ?? 0;
+					int amount = ReflectionHelper.DictGet(goodsDict, key) is int i ? i : 0;
 					if (amount > 0) {
 						result[goodName] = amount;
 					}
@@ -9738,11 +9234,9 @@ namespace ATSAccessibility {
 
 		private static void EnsureDestructionTypes() {
 			if (_destructionTypesCached) return;
+			_destructionTypesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("BuildingReflection.Destruction", assembly => {
 				var buildingType = assembly.GetType("Eremite.Buildings.Building");
 				if (buildingType != null) {
 					_canBeDestroyedMethod = buildingType.GetMethod("CanBeDestroyed", GameReflection.PublicInstance);
@@ -9772,11 +9266,7 @@ namespace ATSAccessibility {
 				if (effectsServiceType != null) {
 					_getBuildingRefundRateMethod = effectsServiceType.GetMethod("GetBuildingRefundRate", GameReflection.PublicInstance);
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] Failed to cache destruction types: {ex.Message}");
-			}
-
-			_destructionTypesCached = true;
+			});
 		}
 
 		/// <summary>
@@ -9788,7 +9278,7 @@ namespace ATSAccessibility {
 			EnsureDestructionTypes();
 
 			try {
-				return (bool?)_canBeDestroyedMethod?.Invoke(building, null) ?? false;
+				return ReflectionHelper.InvokeBool(_canBeDestroyedMethod, building);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] CanBeDestroyed failed: {ex.Message}");
 				return false;
@@ -9806,7 +9296,7 @@ namespace ATSAccessibility {
 
 			try {
 				// Remove(true) = refund materials
-				_removeMethod?.Invoke(building, new object[] { true });
+				ReflectionHelper.InvokeVoid(_removeMethod, building, true);
 				return true;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] DestroyBuilding failed: {ex.Message}");
@@ -9827,19 +9317,19 @@ namespace ATSAccessibility {
 
 			try {
 				// Get BuildingState
-				var state = _buildingStateProperty?.GetValue(building);
+				var state = ReflectionHelper.GetProp(_buildingStateProperty, building);
 				if (state == null) return result;
 
 				// Get BuildingModel for baseRefundRate
-				var model = _buildingModelProperty?.GetValue(building);
+				var model = ReflectionHelper.GetProp(_buildingModelProperty, building);
 				if (model == null) return result;
 
 				// Get deliveredGoods from state
-				var deliveredGoods = _deliveredGoodsField?.GetValue(state);
+				var deliveredGoods = ReflectionHelper.GetField(_deliveredGoodsField, state);
 				if (deliveredGoods == null) return result;
 
 				// Get the goods dictionary from deliveredGoods
-				var goodsDict = _deliveredGoodsGoodsField?.GetValue(deliveredGoods);
+				var goodsDict = ReflectionHelper.GetField(_deliveredGoodsGoodsField, deliveredGoods);
 				if (goodsDict == null) return result;
 
 				// Get baseRefundRate from model
@@ -9853,17 +9343,14 @@ namespace ATSAccessibility {
 				}
 
 				// Iterate through the goods dictionary using reflection
-				var keysProperty = goodsDict.GetType().GetProperty("Keys");
-				var keys = keysProperty?.GetValue(goodsDict) as System.Collections.IEnumerable;
+				var keys = ReflectionHelper.IterateKeys(goodsDict);
 				if (keys == null) return result;
-
-				var indexer = goodsDict.GetType().GetProperty("Item");
 
 				foreach (var key in keys) {
 					string goodName = key as string;
 					if (string.IsNullOrEmpty(goodName)) continue;
 
-					int baseAmount = (int?)indexer?.GetValue(goodsDict, new[] { key }) ?? 0;
+					int baseAmount = ReflectionHelper.DictGet(goodsDict, key) is int i ? i : 0;
 					if (baseAmount <= 0) continue;
 
 					// Calculate refunded amount (floor of baseAmount * refundRate)
@@ -9932,7 +9419,7 @@ namespace ATSAccessibility {
 					return false;
 
 				// Check HasUpgrades property (includes AreUpgradesUnlockd check)
-				return (bool?)_hasUpgradesProperty?.GetValue(building) ?? false;
+				return ReflectionHelper.GetPropBool(_hasUpgradesProperty, building);
 			} catch {
 				return false;
 			}
@@ -9951,10 +9438,10 @@ namespace ATSAccessibility {
 					!_upgradableBuildingType.IsAssignableFrom(building.GetType()))
 					return 0;
 
-				var state = _upgradableStateProperty?.GetValue(building);
+				var state = ReflectionHelper.GetProp(_upgradableStateProperty, building);
 				if (state == null) return 0;
 
-				return (int?)_upgradableStateLevelField?.GetValue(state) ?? 0;
+				return ReflectionHelper.GetInt(_upgradableStateLevelField, state);
 			} catch {
 				return 0;
 			}
@@ -9973,7 +9460,7 @@ namespace ATSAccessibility {
 					!_upgradableBuildingType.IsAssignableFrom(building.GetType()))
 					return 0;
 
-				var model = _upgradableModelProperty?.GetValue(building);
+				var model = ReflectionHelper.GetProp(_upgradableModelProperty, building);
 				if (model == null) return 0;
 
 				var levels = _upgradableModelLevelsField?.GetValue(model) as Array;
@@ -9996,11 +9483,11 @@ namespace ATSAccessibility {
 					!_upgradableBuildingType.IsAssignableFrom(building.GetType()))
 					return false;
 
-				var state = _upgradableStateProperty?.GetValue(building);
+				var state = ReflectionHelper.GetProp(_upgradableStateProperty, building);
 				if (state == null) return false;
 
 				// upgrades is bool[][] - jagged array
-				var upgrades = _upgradableStateUpgradesField?.GetValue(state);
+				var upgrades = ReflectionHelper.GetField(_upgradableStateUpgradesField, state);
 				if (upgrades == null) return false;
 
 				// Access as jagged array using reflection
@@ -10030,7 +9517,7 @@ namespace ATSAccessibility {
 			EnsureUpgradeTypes();
 
 			try {
-				var model = _upgradableModelProperty?.GetValue(building);
+				var model = ReflectionHelper.GetProp(_upgradableModelProperty, building);
 				if (model == null) return result;
 
 				var levels = _upgradableModelLevelsField?.GetValue(model) as Array;
@@ -10303,7 +9790,7 @@ namespace ATSAccessibility {
 			var result = new List<GoodsCost>();
 
 			try {
-				var model = _upgradableModelProperty?.GetValue(building);
+				var model = ReflectionHelper.GetProp(_upgradableModelProperty, building);
 				if (model == null) return result;
 
 				var levels = _upgradableModelLevelsField?.GetValue(model) as Array;

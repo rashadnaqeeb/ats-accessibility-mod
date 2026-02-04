@@ -88,9 +88,6 @@ namespace ATSAccessibility {
 		private static Type _paymentStateType = null;
 		private static Type _gameDateType = null;
 
-		// Pre-allocated args
-		private static readonly object[] _args1 = new object[1];
-
 		// Season names
 		private static readonly string[] _seasonNames = { "Drizzle", "Clearance", "Storm" };
 
@@ -104,14 +101,7 @@ namespace ATSAccessibility {
 		private static void EnsureCached() {
 			if (_cached) return;
 			_cached = true;
-
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] PaymentsReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("PaymentsReflection", assembly => {
 				CachePopupTypes(assembly);
 				CacheServiceTypes(assembly);
 				CachePaymentStateTypes(assembly);
@@ -120,11 +110,7 @@ namespace ATSAccessibility {
 				CachePaymentModelTypes(assembly);
 				CacheStateTypes(assembly);
 				CacheEffectTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] PaymentsReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PaymentsReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CachePopupTypes(Assembly assembly) {
@@ -287,8 +273,7 @@ namespace ATSAccessibility {
 					if (payment != null) {
 						var goodNameRaw = _goodNameField?.GetValue(payment) as string;
 						info.GoodName = GameReflection.GetGoodDisplayName(goodNameRaw);
-						var amountObj = _goodAmountField?.GetValue(payment);
-						info.GoodAmount = amountObj is int amt ? amt : 0;
+						info.GoodAmount = ReflectionHelper.GetInt(_goodAmountField, payment);
 					}
 
 					// Get due date
@@ -303,12 +288,8 @@ namespace ATSAccessibility {
 							? _seasonNames[seasonInt] : "Unknown";
 
 						// Get time remaining
-						if (calendarService != null && _calGetSecondsLeftToMethod != null) {
-							try {
-								_args1[0] = dueDate;
-								var secondsObj = _calGetSecondsLeftToMethod.Invoke(calendarService, _args1);
-								info.TimeRemaining = secondsObj is float s ? s : 0f;
-							} catch { info.TimeRemaining = 0f; }
+						if (calendarService != null) {
+							info.TimeRemaining = ReflectionHelper.InvokeFloat(_calGetSecondsLeftToMethod, calendarService, dueDate);
 						}
 					}
 
@@ -317,35 +298,24 @@ namespace ATSAccessibility {
 					info.AutoPaymentType = autoTypeObj != null ? (int)autoTypeObj : 0;
 
 					// Get CanPay
-					if (paymentsService != null && _canPayMethod != null) {
-						try {
-							_args1[0] = state;
-							var canPayObj = _canPayMethod.Invoke(paymentsService, _args1);
-							info.CanPay = canPayObj is bool cp && cp;
-						} catch { info.CanPay = false; }
+					if (paymentsService != null) {
+						info.CanPay = ReflectionHelper.InvokeBool(_canPayMethod, paymentsService, state);
 					}
 
 					// Get model for type/source labels
-					if (paymentsService != null && _getModelMethod != null) {
-						try {
-							_args1[0] = state;
-							var model = _getModelMethod.Invoke(paymentsService, _args1);
-							if (model != null) {
-								// Type label
-								var typeLabel = _pemTypeLabelField?.GetValue(model);
-								if (typeLabel != null) {
-									var displayName = _lmDisplayNameField?.GetValue(typeLabel);
-									info.TypeLabel = GameReflection.GetLocaText(displayName) ?? "";
-								}
+					if (paymentsService != null) {
+						var model = ReflectionHelper.Invoke(_getModelMethod, paymentsService, state);
+						if (model != null) {
+							// Type label
+							var typeLabel = ReflectionHelper.GetField(_pemTypeLabelField, model);
+							if (typeLabel != null)
+								info.TypeLabel = ReflectionHelper.GetLocaString(_lmDisplayNameField, typeLabel) ?? "";
 
-								// Source label
-								var sourceLabel = _pemSourceLabelField?.GetValue(model);
-								if (sourceLabel != null) {
-									var displayName = _lmDisplayNameField?.GetValue(sourceLabel);
-									info.SourceLabel = GameReflection.GetLocaText(displayName) ?? "";
-								}
-							}
-						} catch { }
+							// Source label
+							var sourceLabel = ReflectionHelper.GetField(_pemSourceLabelField, model);
+							if (sourceLabel != null)
+								info.SourceLabel = ReflectionHelper.GetLocaString(_lmDisplayNameField, sourceLabel) ?? "";
+						}
 					}
 
 					// Get penalty description
@@ -368,19 +338,12 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool Pay(object paymentState) {
 			EnsureCached();
-			if (paymentState == null || _payMethod == null) return false;
+			if (paymentState == null) return false;
 
 			var paymentsService = GetPaymentsService();
 			if (paymentsService == null) return false;
 
-			try {
-				_args1[0] = paymentState;
-				_payMethod.Invoke(paymentsService, _args1);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] PaymentsReflection.Pay failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_payMethod, paymentsService, paymentState);
 		}
 
 		/// <summary>
@@ -388,16 +351,12 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool CanPay(object paymentState) {
 			EnsureCached();
-			if (paymentState == null || _canPayMethod == null) return false;
+			if (paymentState == null) return false;
 
 			var paymentsService = GetPaymentsService();
 			if (paymentsService == null) return false;
 
-			try {
-				_args1[0] = paymentState;
-				var result = _canPayMethod.Invoke(paymentsService, _args1);
-				return result is bool b && b;
-			} catch { return false; }
+			return ReflectionHelper.InvokeBool(_canPayMethod, paymentsService, paymentState);
 		}
 
 		/// <summary>
@@ -430,37 +389,6 @@ namespace ATSAccessibility {
 			return "unknown";
 		}
 
-		/// <summary>
-		/// Format time in seconds to mm:ss or hh:mm:ss string.
-		/// </summary>
-		public static string FormatTime(float seconds) {
-			if (seconds <= 0) return "0:00";
-
-			var ts = TimeSpan.FromSeconds(seconds);
-			if (ts.TotalHours >= 1)
-				return string.Format("{0}:{1:D2}:{2:D2}", (int)ts.TotalHours, ts.Minutes, ts.Seconds);
-			return string.Format("{0}:{1:D2}", (int)ts.TotalMinutes, ts.Seconds);
-		}
-
-		/// <summary>
-		/// Convert year number to Roman numeral string.
-		/// </summary>
-		public static string YearToRoman(int year) {
-			if (year <= 0) return year.ToString();
-
-			var result = new System.Text.StringBuilder();
-			int[] values = { 1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1 };
-			string[] numerals = { "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I" };
-
-			for (int i = 0; i < values.Length; i++) {
-				while (year >= values[i]) {
-					result.Append(numerals[i]);
-					year -= values[i];
-				}
-			}
-			return result.ToString();
-		}
-
 		// ========================================
 		// INTERNAL HELPERS
 		// ========================================
@@ -472,16 +400,12 @@ namespace ATSAccessibility {
 			if (string.IsNullOrEmpty(effectModelName)) return null;
 
 			var gameModelService = GetGameModelService();
-			if (gameModelService == null || _gmsGetEffectMethod == null) return null;
+			if (gameModelService == null) return null;
 
-			try {
-				_args1[0] = effectModelName;
-				var effectModel = _gmsGetEffectMethod.Invoke(gameModelService, _args1);
-				if (effectModel == null) return null;
+			var effectModel = ReflectionHelper.Invoke(_gmsGetEffectMethod, gameModelService, effectModelName);
+			if (effectModel == null) return null;
 
-				var desc = _emDescriptionProperty?.GetValue(effectModel) as string;
-				return desc;
-			} catch { return null; }
+			return ReflectionHelper.GetPropString(_emDescriptionProperty, effectModel);
 		}
 
 		public static int LogCacheStatus() {

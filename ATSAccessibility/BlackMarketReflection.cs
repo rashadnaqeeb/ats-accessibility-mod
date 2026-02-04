@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -103,9 +102,6 @@ namespace ATSAccessibility {
 		// GameTime property
 		private static PropertyInfo _gtsTimeProperty = null;
 
-		// Pre-allocated args
-		private static readonly object[] _args1 = new object[1];
-
 		// Rating labels
 		private static readonly string[] _ratingLabels = { "good deal", "regular price", "bad deal" };
 
@@ -120,13 +116,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] BlackMarketReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("BlackMarketReflection", assembly => {
 				CachePopupTypes(assembly);
 				CacheBlackMarketTypes(assembly);
 				CacheBlackMarketStateTypes(assembly);
@@ -138,11 +128,7 @@ namespace ATSAccessibility {
 				CacheCalendarTypes(assembly);
 				CacheStorageTypes(assembly);
 				CacheGameTimeTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] BlackMarketReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BlackMarketReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CachePopupTypes(Assembly assembly) {
@@ -288,8 +274,7 @@ namespace ATSAccessibility {
 		private static float GetGameTime() {
 			EnsureCached();
 			var gts = GameReflection.GetService(_gsGameTimeServiceProperty);
-			if (gts == null || _gtsTimeProperty == null) return 0f;
-			try { return (float)_gtsTimeProperty.GetValue(gts); } catch { return 0f; }
+			return ReflectionHelper.GetPropFloat(_gtsTimeProperty, gts);
 		}
 
 		// ========================================
@@ -311,8 +296,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetBlackMarket(object popup) {
 			EnsureCached();
-			if (popup == null || _bmpBlackMarketField == null) return null;
-			try { return _bmpBlackMarketField.GetValue(popup); } catch { return null; }
+			return ReflectionHelper.GetField(_bmpBlackMarketField, popup);
 		}
 
 		/// <summary>
@@ -333,10 +317,10 @@ namespace ATSAccessibility {
 			if (blackMarket == null) return result;
 
 			try {
-				var state = _bmStateField?.GetValue(blackMarket);
+				var state = ReflectionHelper.GetField(_bmStateField, blackMarket);
 				if (state == null) return result;
 
-				var offers = _bmsOffersField?.GetValue(state) as IList;
+				var offers = ReflectionHelper.GetList(_bmsOffersField, state);
 				if (offers == null) return result;
 
 				foreach (var offer in offers) {
@@ -345,54 +329,40 @@ namespace ATSAccessibility {
 					var info = new OfferInfo { State = offer };
 
 					// Get bought status
-					var boughtObj = _bmosBoughtField?.GetValue(offer);
-					info.Bought = boughtObj is bool b && b;
+					info.Bought = ReflectionHelper.GetBool(_bmosBoughtField, offer);
 
 					if (!info.Bought) {
 						// Get good info
-						var good = _bmosGoodField?.GetValue(offer);
+						var good = ReflectionHelper.GetField(_bmosGoodField, offer);
 						if (good != null) {
-							var goodNameRaw = _goodNameField?.GetValue(good) as string;
+							var goodNameRaw = ReflectionHelper.GetString(_goodNameField, good);
 							info.GoodName = GameReflection.GetGoodDisplayName(goodNameRaw);
-							var amountObj = _goodAmountField?.GetValue(good);
-							info.GoodAmount = amountObj is int amt ? amt : 0;
+							info.GoodAmount = ReflectionHelper.GetInt(_goodAmountField, good);
 						}
 
 						// Get buy price
-						var buyPrice = _bmosBuyPriceField?.GetValue(offer);
+						var buyPrice = ReflectionHelper.GetField(_bmosBuyPriceField, offer);
 						if (buyPrice != null) {
-							var amountObj = _goodAmountField?.GetValue(buyPrice);
-							info.BuyPrice = amountObj is int amt ? amt : 0;
+							info.BuyPrice = ReflectionHelper.GetInt(_goodAmountField, buyPrice);
 						}
 
 						// Get credit price
-						var creditPrice = _bmosCreditPriceField?.GetValue(offer);
+						var creditPrice = ReflectionHelper.GetField(_bmosCreditPriceField, offer);
 						if (creditPrice != null) {
-							var amountObj = _goodAmountField?.GetValue(creditPrice);
-							info.CreditPrice = amountObj is int amt ? amt : 0;
+							info.CreditPrice = ReflectionHelper.GetInt(_goodAmountField, creditPrice);
 						}
 
 						// Get ratings
-						var buyRatingObj = _bmosBuyRatingField?.GetValue(offer);
-						if (buyRatingObj != null) {
-							int ratingInt = (int)buyRatingObj;
-							info.BuyRating = ratingInt >= 0 && ratingInt < _ratingLabels.Length
-								? _ratingLabels[ratingInt] : "unknown";
-						}
+						int buyRatingInt = ReflectionHelper.GetEnum(_bmosBuyRatingField, offer);
+						info.BuyRating = buyRatingInt >= 0 && buyRatingInt < _ratingLabels.Length
+							? _ratingLabels[buyRatingInt] : "unknown";
 
-						var creditRatingObj = _bmosCreditRatingField?.GetValue(offer);
-						if (creditRatingObj != null) {
-							int ratingInt = (int)creditRatingObj;
-							info.CreditRating = ratingInt >= 0 && ratingInt < _ratingLabels.Length
-								? _ratingLabels[ratingInt] : "unknown";
-						}
+						int creditRatingInt = ReflectionHelper.GetEnum(_bmosCreditRatingField, offer);
+						info.CreditRating = creditRatingInt >= 0 && creditRatingInt < _ratingLabels.Length
+							? _ratingLabels[creditRatingInt] : "unknown";
 
 						// Get time left
-						if (_bmGetTimeLeftForMethod != null) {
-							_args1[0] = offer;
-							var timeLeftObj = _bmGetTimeLeftForMethod.Invoke(blackMarket, _args1);
-							info.TimeLeft = timeLeftObj is float t ? t : 0f;
-						}
+						info.TimeLeft = ReflectionHelper.InvokeFloat(_bmGetTimeLeftForMethod, blackMarket, offer);
 
 						// Get payment terms
 						info.PaymentTerms = GetPaymentTerms(offer);
@@ -412,32 +382,29 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static string GetPaymentTerms(object offer) {
 			try {
-				var paymentModelName = _bmosPaymentModelField?.GetValue(offer) as string;
+				var paymentModelName = ReflectionHelper.GetString(_bmosPaymentModelField, offer);
 				if (string.IsNullOrEmpty(paymentModelName)) return "";
 
 				var settings = GameReflection.GetSettings();
 				if (settings == null || _settingsGetEffectMethod == null) return "";
 
-				_args1[0] = paymentModelName;
-				var paymentModel = _settingsGetEffectMethod.Invoke(settings, _args1);
+				var paymentModel = ReflectionHelper.Invoke(_settingsGetEffectMethod, settings, paymentModelName);
 				if (paymentModel == null) return "";
 
-				var seasonsToPayObj = _pemSeasonsToPayField?.GetValue(paymentModel);
-				int seasonsToPay = seasonsToPayObj is int s ? s : 1;
+				int seasonsToPay = ReflectionHelper.GetInt(_pemSeasonsToPayField, paymentModel);
+				if (seasonsToPay == 0) seasonsToPay = 1;
 
 				// Get current date and add seasons
 				var calendarService = GetCalendarService();
 				if (calendarService == null || _calGameDateProperty == null) return "";
 
-				var gameDate = _calGameDateProperty.GetValue(calendarService);
+				var gameDate = ReflectionHelper.GetProp(_calGameDateProperty, calendarService);
 				if (gameDate == null) return "";
 
 				// Clone the date by getting its values
-				var yearObj = _gdYearField?.GetValue(gameDate);
-				var seasonObj = _gdSeasonField?.GetValue(gameDate);
-
-				int year = yearObj is int y ? y : 1;
-				int season = seasonObj is int se ? se : 0;
+				int year = ReflectionHelper.GetInt(_gdYearField, gameDate);
+				if (year == 0) year = 1;
+				int season = ReflectionHelper.GetInt(_gdSeasonField, gameDate);
 
 				// Add seasons + 1 (as per game logic in BlackMarketOfferSlot.GetPaymentDate)
 				int totalSeasons = season + seasonsToPay + 1;
@@ -445,7 +412,7 @@ namespace ATSAccessibility {
 				season = totalSeasons % 3;
 
 				string seasonName = season >= 0 && season < _seasonNames.Length ? _seasonNames[season] : "Unknown";
-				string yearRoman = YearToRoman(year);
+				string yearRoman = FormattingUtils.YearToRoman(year);
 
 				return $"Year {yearRoman} {seasonName}";
 			} catch (Exception ex) {
@@ -460,15 +427,7 @@ namespace ATSAccessibility {
 		public static bool Buy(object blackMarket, object offer) {
 			EnsureCached();
 			if (blackMarket == null || offer == null || _bmBuyMethod == null) return false;
-
-			try {
-				_args1[0] = offer;
-				_bmBuyMethod.Invoke(blackMarket, _args1);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] BlackMarketReflection.Buy failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_bmBuyMethod, blackMarket, offer);
 		}
 
 		/// <summary>
@@ -477,15 +436,7 @@ namespace ATSAccessibility {
 		public static bool BuyOnCredit(object blackMarket, object offer) {
 			EnsureCached();
 			if (blackMarket == null || offer == null || _bmBuyOnCreditMethod == null) return false;
-
-			try {
-				_args1[0] = offer;
-				_bmBuyOnCreditMethod.Invoke(blackMarket, _args1);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] BlackMarketReflection.BuyOnCredit failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_bmBuyOnCreditMethod, blackMarket, offer);
 		}
 
 		/// <summary>
@@ -494,14 +445,7 @@ namespace ATSAccessibility {
 		public static bool Reroll(object blackMarket) {
 			EnsureCached();
 			if (blackMarket == null || _bmRerollMethod == null) return false;
-
-			try {
-				_bmRerollMethod.Invoke(blackMarket, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] BlackMarketReflection.Reroll failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_bmRerollMethod, blackMarket);
 		}
 
 		/// <summary>
@@ -510,11 +454,7 @@ namespace ATSAccessibility {
 		public static bool IsRerollOnCooldown(object blackMarket) {
 			EnsureCached();
 			if (blackMarket == null || _bmIsRerollOnCooldownMethod == null) return true;
-
-			try {
-				var result = _bmIsRerollOnCooldownMethod.Invoke(blackMarket, null);
-				return result is bool b && b;
-			} catch { return true; }
+			return ReflectionHelper.InvokeBool(_bmIsRerollOnCooldownMethod, blackMarket);
 		}
 
 		/// <summary>
@@ -525,15 +465,13 @@ namespace ATSAccessibility {
 			if (blackMarket == null) return 0f;
 
 			try {
-				var state = _bmStateField?.GetValue(blackMarket);
-				var model = _bmModelField?.GetValue(blackMarket);
+				var state = ReflectionHelper.GetField(_bmStateField, blackMarket);
+				var model = ReflectionHelper.GetField(_bmModelField, blackMarket);
 				if (state == null || model == null) return 0f;
 
-				var lastRerollObj = _bmsLastRerollField?.GetValue(state);
-				var cooldownObj = _bmmRerollCooldownField?.GetValue(model);
-
-				float lastReroll = lastRerollObj is float lr ? lr : 0f;
-				float cooldown = cooldownObj is float cd ? cd : 120f;
+				float lastReroll = ReflectionHelper.GetFloat(_bmsLastRerollField, state);
+				float cooldown = ReflectionHelper.GetFloat(_bmmRerollCooldownField, model);
+				if (cooldown == 0f) cooldown = 120f;
 
 				float gameTime = GetGameTime();
 				float endTime = lastReroll + cooldown;
@@ -550,17 +488,16 @@ namespace ATSAccessibility {
 			if (blackMarket == null) return 0;
 
 			try {
-				var model = _bmModelField?.GetValue(blackMarket);
+				var model = ReflectionHelper.GetField(_bmModelField, blackMarket);
 				if (model == null) return 0;
 
-				var rerollPrice = _bmmRerollPriceField?.GetValue(model);
-				if (rerollPrice == null || _goodRefToGoodMethod == null) return 0;
+				var rerollPrice = ReflectionHelper.GetField(_bmmRerollPriceField, model);
+				if (rerollPrice == null) return 0;
 
-				var good = _goodRefToGoodMethod.Invoke(rerollPrice, null);
+				var good = ReflectionHelper.Invoke(_goodRefToGoodMethod, rerollPrice);
 				if (good == null) return 0;
 
-				var amountObj = _goodAmountField?.GetValue(good);
-				return amountObj is int amt ? amt : 0;
+				return ReflectionHelper.GetInt(_goodAmountField, good);
 			} catch { return 0; }
 		}
 
@@ -572,13 +509,13 @@ namespace ATSAccessibility {
 			if (blackMarket == null) return false;
 
 			try {
-				var model = _bmModelField?.GetValue(blackMarket);
+				var model = ReflectionHelper.GetField(_bmModelField, blackMarket);
 				if (model == null) return false;
 
-				var rerollPrice = _bmmRerollPriceField?.GetValue(model);
-				if (rerollPrice == null || _goodRefToGoodMethod == null) return false;
+				var rerollPrice = ReflectionHelper.GetField(_bmmRerollPriceField, model);
+				if (rerollPrice == null) return false;
 
-				var good = _goodRefToGoodMethod.Invoke(rerollPrice, null);
+				var good = ReflectionHelper.Invoke(_goodRefToGoodMethod, rerollPrice);
 				return CanAffordGood(good);
 			} catch { return false; }
 		}
@@ -591,7 +528,7 @@ namespace ATSAccessibility {
 			if (offer == null) return false;
 
 			try {
-				var buyPrice = _bmosBuyPriceField?.GetValue(offer);
+				var buyPrice = ReflectionHelper.GetField(_bmosBuyPriceField, offer);
 				return CanAffordGood(buyPrice);
 			} catch { return false; }
 		}
@@ -604,50 +541,13 @@ namespace ATSAccessibility {
 
 			try {
 				var storageService = GetStorageService();
-				if (storageService == null || _ssMainProperty == null) return false;
+				if (storageService == null) return false;
 
-				var mainStorage = _ssMainProperty.GetValue(storageService);
-				if (mainStorage == null || _storageIsAvailableMethod == null) return false;
+				var mainStorage = ReflectionHelper.GetProp(_ssMainProperty, storageService);
+				if (mainStorage == null) return false;
 
-				_args1[0] = good;
-				var result = _storageIsAvailableMethod.Invoke(mainStorage, _args1);
-				return result is bool b && b;
+				return ReflectionHelper.InvokeBool(_storageIsAvailableMethod, mainStorage, good);
 			} catch { return false; }
-		}
-
-		// ========================================
-		// FORMATTING
-		// ========================================
-
-		/// <summary>
-		/// Format seconds into mm:ss or hh:mm:ss string.
-		/// </summary>
-		public static string FormatTime(float seconds) {
-			if (seconds <= 0) return "0:00";
-
-			var ts = TimeSpan.FromSeconds(seconds);
-			if (ts.TotalHours >= 1)
-				return string.Format("{0}:{1:D2}:{2:D2}", (int)ts.TotalHours, ts.Minutes, ts.Seconds);
-			return string.Format("{0}:{1:D2}", (int)ts.TotalMinutes, ts.Seconds);
-		}
-
-		/// <summary>
-		/// Convert year number to Roman numeral string.
-		/// </summary>
-		public static string YearToRoman(int year) {
-			if (year <= 0) return year.ToString();
-
-			var result = new System.Text.StringBuilder();
-			int[] values = { 1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1 };
-			string[] numerals = { "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I" };
-
-			for (int i = 0; i < values.Length; i++) {
-				while (year >= values[i]) {
-					result.Append(numerals[i]);
-					year -= values[i];
-				}
-			}
-			return result.ToString();
 		}
 
 		public static int LogCacheStatus() {

@@ -310,12 +310,12 @@ namespace ATSAccessibility {
 			} else if (isStorm) {
 				float stormEnds = TradeReflection.GetTimeTillSeasonChange();
 				if (progress >= 1f) {
-					arrivalInfo = $"waiting for storm to end, {TradeReflection.FormatTime(stormEnds)} remaining";
+					arrivalInfo = $"waiting for storm to end, {FormattingUtils.FormatTime(stormEnds)} remaining";
 				} else {
-					arrivalInfo = $"travel paused during storm, {Mathf.RoundToInt(progress * 100)}% traveled, storm ends in {TradeReflection.FormatTime(stormEnds)}";
+					arrivalInfo = $"travel paused during storm, {Mathf.RoundToInt(progress * 100)}% traveled, storm ends in {FormattingUtils.FormatTime(stormEnds)}";
 				}
 			} else if (timeToArrival > 0) {
-				arrivalInfo = $"arriving in {TradeReflection.FormatTime(timeToArrival)}";
+				arrivalInfo = $"arriving in {FormattingUtils.FormatTime(timeToArrival)}";
 			} else if (progress < 1f) {
 				arrivalInfo = $"{Mathf.RoundToInt(progress * 100)}% traveled";
 			} else {
@@ -400,8 +400,8 @@ namespace ATSAccessibility {
 			string dialogue = TradeReflection.GetTraderDialogue() ?? "";
 
 			string infoLabel = !string.IsNullOrEmpty(traderLabel)
-				? $"{traderName}, {traderLabel}, {TradeReflection.FormatTime(timeLeft)} remaining"
-				: $"{traderName}, {TradeReflection.FormatTime(timeLeft)} remaining";
+				? $"{traderName}, {traderLabel}, {FormattingUtils.FormatTime(timeLeft)} remaining"
+				: $"{traderName}, {FormattingUtils.FormatTime(timeLeft)} remaining";
 
 			if (!string.IsNullOrEmpty(dialogue))
 				infoLabel += $". {dialogue}";

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Reflection;
 using UnityEngine;
 
@@ -12,25 +13,6 @@ namespace ATSAccessibility {
 	/// - NEVER cache instance references - they are destroyed on scene change
 	/// </summary>
 	public static class WikiReflection {
-		// ========================================
-		// ASSEMBLY ACCESS (delegates to GameReflection)
-		// ========================================
-		private static Assembly _gameAssembly = null;
-		private static bool _assemblyCached = false;
-
-		private static void EnsureAssembly() {
-			if (_assemblyCached) return;
-
-			foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) {
-				if (assembly.GetName().Name == "Assembly-CSharp") {
-					_gameAssembly = assembly;
-					break;
-				}
-			}
-
-			_assemblyCached = true;
-		}
-
 		// ========================================
 		// WIKI/ENCYCLOPEDIA REFLECTION
 		// ========================================
@@ -55,16 +37,11 @@ namespace ATSAccessibility {
 
 		private static void EnsureWikiTypes() {
 			if (_wikiTypesLookedUp) return;
-			EnsureAssembly();
+			_wikiTypesLookedUp = true;
 
-			if (_gameAssembly == null) {
-				_wikiTypesLookedUp = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("WikiReflection", assembly => {
 				// Cache WikiPopup type
-				_wikiPopupType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiPopup");
+				_wikiPopupType = assembly.GetType("Eremite.View.UI.Wiki.WikiPopup");
 				if (_wikiPopupType != null) {
 					_wikiPopupCategoryButtonsField = _wikiPopupType.GetField("categoryButtons",
 						BindingFlags.NonPublic | BindingFlags.Instance);
@@ -72,36 +49,26 @@ namespace ATSAccessibility {
 						BindingFlags.NonPublic | BindingFlags.Instance);
 					_wikiPopupPanelsField = _wikiPopupType.GetField("panels",
 						BindingFlags.NonPublic | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached WikiPopup type info");
 				}
 
 				// Cache WikiCategoryButton type
-				_wikiCategoryButtonType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiCategoryButton");
+				_wikiCategoryButtonType = assembly.GetType("Eremite.View.UI.Wiki.WikiCategoryButton");
 				if (_wikiCategoryButtonType != null) {
 					_wcbButtonField = _wikiCategoryButtonType.GetField("button",
 						BindingFlags.NonPublic | BindingFlags.Instance);
 					_wcbPanelProp = _wikiCategoryButtonType.GetProperty("Panel",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached WikiCategoryButton type info");
 				}
 
 				// Cache WikiSlot base type
-				_wikiSlotType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiSlot");
+				_wikiSlotType = assembly.GetType("Eremite.View.UI.Wiki.WikiSlot");
 				if (_wikiSlotType != null) {
 					_wsButtonField = _wikiSlotType.GetField("button",
 						BindingFlags.NonPublic | BindingFlags.Instance);
 					_wsIsUnlockedMethod = _wikiSlotType.GetMethod("IsUnlocked",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached WikiSlot type info");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: Wiki type caching failed: {ex.Message}");
-			}
-
-			_wikiTypesLookedUp = true;
+			});
 		}
 
 		// Public accessors for wiki types
@@ -123,15 +90,9 @@ namespace ATSAccessibility {
 		/// <summary>
 		/// Get the category buttons list from a WikiPopup.
 		/// </summary>
-		public static System.Collections.IList GetWikiCategoryButtons(object wikiPopup) {
+		public static IList GetWikiCategoryButtons(object wikiPopup) {
 			EnsureWikiTypes();
-			if (wikiPopup == null || _wikiPopupCategoryButtonsField == null) return null;
-
-			try {
-				return _wikiPopupCategoryButtonsField.GetValue(wikiPopup) as System.Collections.IList;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetList(_wikiPopupCategoryButtonsField, wikiPopup);
 		}
 
 		/// <summary>
@@ -139,13 +100,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetCurrentWikiPanel(object wikiPopup) {
 			EnsureWikiTypes();
-			if (wikiPopup == null || _wikiPopupCurrentField == null) return null;
-
-			try {
-				return _wikiPopupCurrentField.GetValue(wikiPopup);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_wikiPopupCurrentField, wikiPopup);
 		}
 
 		/// <summary>
@@ -153,13 +108,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetCategoryButtonPanel(object categoryButton) {
 			EnsureWikiTypes();
-			if (categoryButton == null || _wcbPanelProp == null) return null;
-
-			try {
-				return _wcbPanelProp.GetValue(categoryButton);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetProp(_wcbPanelProp, categoryButton);
 		}
 
 		/// <summary>
@@ -167,13 +116,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsWikiSlotUnlocked(object slot) {
 			EnsureWikiTypes();
-			if (slot == null || _wsIsUnlockedMethod == null) return false;
-
-			try {
-				return (bool)_wsIsUnlockedMethod.Invoke(slot, null);
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_wsIsUnlockedMethod, slot);
 		}
 
 		/// <summary>
@@ -197,7 +140,7 @@ namespace ATSAccessibility {
 				}
 
 				if (buttonField != null) {
-					var button = buttonField.GetValue(buttonHolder) as UnityEngine.UI.Button;
+					var button = ReflectionHelper.GetField(buttonField, buttonHolder) as UnityEngine.UI.Button;
 					if (button != null && button.interactable) {
 						button.onClick.Invoke();
 					}
@@ -211,7 +154,7 @@ namespace ATSAccessibility {
 		/// Find slots in a WikiCategoryPanel via reflection.
 		/// All panel types have a "slots" field containing List of WikiSlot-derived types.
 		/// </summary>
-		public static System.Collections.IList GetPanelSlots(object panel) {
+		public static IList GetPanelSlots(object panel) {
 			if (panel == null) return null;
 
 			try {
@@ -219,9 +162,7 @@ namespace ATSAccessibility {
 				var slotsField = panelType.GetField("slots",
 					BindingFlags.NonPublic | BindingFlags.Instance);
 
-				if (slotsField != null) {
-					return slotsField.GetValue(panel) as System.Collections.IList;
-				}
+				return ReflectionHelper.GetList(slotsField, panel);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] WikiReflection: GetPanelSlots failed: {ex.Message}");
 			}
@@ -262,25 +203,18 @@ namespace ATSAccessibility {
 
 		private static void EnsureRaceTypes() {
 			if (_raceTypesLookedUp) return;
-			EnsureAssembly();
+			_raceTypesLookedUp = true;
 
-			if (_gameAssembly == null) {
-				_raceTypesLookedUp = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("WikiReflection", assembly => {
 				// Cache WikiRaceSlot type
-				_wikiRaceSlotType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiRaceSlot");
+				_wikiRaceSlotType = assembly.GetType("Eremite.View.UI.Wiki.WikiRaceSlot");
 				if (_wikiRaceSlotType != null) {
 					_wrsRaceProperty = _wikiRaceSlotType.GetProperty("Race",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached WikiRaceSlot type info");
 				}
 
 				// Cache RaceModel type and fields
-				var raceModelType = _gameAssembly.GetType("Eremite.Model.RaceModel");
+				var raceModelType = assembly.GetType("Eremite.Model.RaceModel");
 				if (raceModelType != null) {
 					_raceGetCharacteristicsListTextMethod = raceModelType.GetMethod("GetCharacteristicsListText",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -310,32 +244,22 @@ namespace ATSAccessibility {
 						BindingFlags.Public | BindingFlags.Instance);
 					_racePassiveEffectDescField = raceModelType.GetField("passiveEffectLongDesc",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached RaceModel type info");
 				}
 
 				// Cache NeedModel.DisplayName property
-				var needModelType = _gameAssembly.GetType("Eremite.Model.NeedModel");
+				var needModelType = assembly.GetType("Eremite.Model.NeedModel");
 				if (needModelType != null) {
 					_needDisplayNameProperty = needModelType.GetProperty("DisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached NeedModel type info");
 				}
 
 				// Cache BuildingModel.displayName field
-				var buildingModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingModel");
+				var buildingModelType = assembly.GetType("Eremite.Buildings.BuildingModel");
 				if (buildingModelType != null) {
 					_buildingDisplayNameField = buildingModelType.GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached BuildingModel type info");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: Race type caching failed: {ex.Message}");
-			}
-
-			_raceTypesLookedUp = true;
+			});
 		}
 
 		/// <summary>
@@ -359,12 +283,7 @@ namespace ATSAccessibility {
 			if (_wikiRaceSlotType == null || _wrsRaceProperty == null) return null;
 			if (!_wikiRaceSlotType.IsAssignableFrom(slot.GetType())) return null;
 
-			try {
-				return _wrsRaceProperty.GetValue(slot);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetRaceModelFromSlot failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetProp(_wrsRaceProperty, slot);
 		}
 
 		/// <summary>
@@ -373,15 +292,7 @@ namespace ATSAccessibility {
 		public static string GetRaceCharacteristicsText(object raceModel) {
 			if (raceModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_raceGetCharacteristicsListTextMethod == null) return null;
-
-			try {
-				return _raceGetCharacteristicsListTextMethod.Invoke(raceModel, null) as string;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetRaceCharacteristicsText failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.InvokeString(_raceGetCharacteristicsListTextMethod, raceModel);
 		}
 
 		/// <summary>
@@ -390,16 +301,7 @@ namespace ATSAccessibility {
 		public static string GetRaceDisplayName(object raceModel) {
 			if (raceModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_raceDisplayNameField == null) return null;
-
-			try {
-				var locaText = _raceDisplayNameField.GetValue(raceModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetRaceDisplayName failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_raceDisplayNameField, raceModel);
 		}
 
 		/// <summary>
@@ -408,16 +310,7 @@ namespace ATSAccessibility {
 		public static string GetRaceDescription(object raceModel) {
 			if (raceModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_raceDescriptionField == null) return null;
-
-			try {
-				var locaText = _raceDescriptionField.GetValue(raceModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetRaceDescription failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_raceDescriptionField, raceModel);
 		}
 
 		/// <summary>
@@ -426,15 +319,7 @@ namespace ATSAccessibility {
 		public static Array GetRaceNeeds(object raceModel) {
 			if (raceModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_raceNeedsField == null) return null;
-
-			try {
-				return _raceNeedsField.GetValue(raceModel) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetRaceNeeds failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_raceNeedsField, raceModel) as Array;
 		}
 
 		/// <summary>
@@ -443,15 +328,7 @@ namespace ATSAccessibility {
 		public static string GetNeedDisplayName(object needModel) {
 			if (needModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_needDisplayNameProperty == null) return null;
-
-			try {
-				return _needDisplayNameProperty.GetValue(needModel) as string;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetNeedDisplayName failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetPropString(_needDisplayNameProperty, needModel);
 		}
 
 		/// <summary>
@@ -460,15 +337,7 @@ namespace ATSAccessibility {
 		public static Array GetRaceBuildings(object raceModel) {
 			if (raceModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_raceRacialBuildingsField == null) return null;
-
-			try {
-				return _raceRacialBuildingsField.GetValue(raceModel) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetRaceBuildings failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_raceRacialBuildingsField, raceModel) as Array;
 		}
 
 		/// <summary>
@@ -477,16 +346,7 @@ namespace ATSAccessibility {
 		public static string GetBuildingDisplayName(object buildingModel) {
 			if (buildingModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_buildingDisplayNameField == null) return null;
-
-			try {
-				var locaText = _buildingDisplayNameField.GetValue(buildingModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetBuildingDisplayName failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_buildingDisplayNameField, buildingModel);
 		}
 
 		/// <summary>
@@ -495,14 +355,7 @@ namespace ATSAccessibility {
 		public static float GetRaceInitialResolve(object raceModel) {
 			if (raceModel == null) return 0f;
 			EnsureRaceTypes();
-
-			if (_raceInitialResolveField == null) return 0f;
-
-			try {
-				return (float)_raceInitialResolveField.GetValue(raceModel);
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.GetFloat(_raceInitialResolveField, raceModel);
 		}
 
 		/// <summary>
@@ -511,14 +364,7 @@ namespace ATSAccessibility {
 		public static float GetRaceNeedsInterval(object raceModel) {
 			if (raceModel == null) return 0f;
 			EnsureRaceTypes();
-
-			if (_raceNeedsIntervalField == null) return 0f;
-
-			try {
-				return (float)_raceNeedsIntervalField.GetValue(raceModel);
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.GetFloat(_raceNeedsIntervalField, raceModel);
 		}
 
 		/// <summary>
@@ -527,15 +373,7 @@ namespace ATSAccessibility {
 		public static string GetRaceResilienceLabel(object raceModel) {
 			if (raceModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_raceResilienceLabelField == null) return null;
-
-			try {
-				var locaText = _raceResilienceLabelField.GetValue(raceModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_raceResilienceLabelField, raceModel);
 		}
 
 		/// <summary>
@@ -561,14 +399,7 @@ namespace ATSAccessibility {
 		public static float GetRaceDecadent(object raceModel) {
 			if (raceModel == null) return 0f;
 			EnsureRaceTypes();
-
-			if (_raceRepThresholdIncreaseField == null) return 0f;
-
-			try {
-				return (float)_raceRepThresholdIncreaseField.GetValue(raceModel);
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.GetFloat(_raceRepThresholdIncreaseField, raceModel);
 		}
 
 		/// <summary>
@@ -577,14 +408,7 @@ namespace ATSAccessibility {
 		public static int GetRaceHungerTolerance(object raceModel) {
 			if (raceModel == null) return 0;
 			EnsureRaceTypes();
-
-			if (_raceHungerToleranceField == null) return 0;
-
-			try {
-				return (int)_raceHungerToleranceField.GetValue(raceModel);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_raceHungerToleranceField, raceModel);
 		}
 
 		/// <summary>
@@ -593,15 +417,7 @@ namespace ATSAccessibility {
 		public static string GetRaceRevealEffect(object raceModel) {
 			if (raceModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_raceRevealEffectDescField == null) return null;
-
-			try {
-				var locaText = _raceRevealEffectDescField.GetValue(raceModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_raceRevealEffectDescField, raceModel);
 		}
 
 		/// <summary>
@@ -610,15 +426,7 @@ namespace ATSAccessibility {
 		public static string GetRacePassiveEffect(object raceModel) {
 			if (raceModel == null) return null;
 			EnsureRaceTypes();
-
-			if (_racePassiveEffectDescField == null) return null;
-
-			try {
-				var locaText = _racePassiveEffectDescField.GetValue(raceModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_racePassiveEffectDescField, raceModel);
 		}
 
 		// ========================================
@@ -678,24 +486,18 @@ namespace ATSAccessibility {
 
 		private static void EnsureBuildingTypes() {
 			if (_buildingTypesLookedUp) return;
-			EnsureAssembly();
+			_buildingTypesLookedUp = true;
 
-			if (_gameAssembly == null) {
-				_buildingTypesLookedUp = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("WikiReflection", assembly => {
 				// Cache WikiBuildingSlot type
-				_wikiBuildingSlotType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiBuildingSlot");
+				_wikiBuildingSlotType = assembly.GetType("Eremite.View.UI.Wiki.WikiBuildingSlot");
 				if (_wikiBuildingSlotType != null) {
 					_wbsBuildingProperty = _wikiBuildingSlotType.GetProperty("Building",
 						BindingFlags.Public | BindingFlags.Instance);
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached WikiBuildingSlot type info");
 				}
 
 				// Cache BuildingModel type and fields
-				var buildingModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingModel");
+				var buildingModelType = assembly.GetType("Eremite.Buildings.BuildingModel");
 				if (buildingModelType != null) {
 					_buildingDescriptionField = buildingModelType.GetField("description",
 						BindingFlags.NonPublic | BindingFlags.Instance);
@@ -713,23 +515,19 @@ namespace ATSAccessibility {
 						BindingFlags.Public | BindingFlags.Instance);
 					_buildingDescriptionProperty = buildingModelType.GetProperty("Description",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached BuildingModel type info");
 				}
 
 				// Cache WorkshopModel type
-				_workshopModelType = _gameAssembly.GetType("Eremite.Buildings.WorkshopModel");
+				_workshopModelType = assembly.GetType("Eremite.Buildings.WorkshopModel");
 				if (_workshopModelType != null) {
 					_workshopRecipesField = _workshopModelType.GetField("recipes",
 						BindingFlags.Public | BindingFlags.Instance);
 					_workshopWorkplacesField = _workshopModelType.GetField("workplaces",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached WorkshopModel type info");
 				}
 
 				// Cache WorkshopRecipeModel type
-				_workshopRecipeModelType = _gameAssembly.GetType("Eremite.Buildings.WorkshopRecipeModel");
+				_workshopRecipeModelType = assembly.GetType("Eremite.Buildings.WorkshopRecipeModel");
 				if (_workshopRecipeModelType != null) {
 					_recipeProducedGoodField = _workshopRecipeModelType.GetField("producedGood",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -737,77 +535,63 @@ namespace ATSAccessibility {
 						BindingFlags.Public | BindingFlags.Instance);
 					_recipeProductionTimeField = _workshopRecipeModelType.GetField("productionTime",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached WorkshopRecipeModel type info");
 				}
 
 				// Cache RecipeModel base type for grade field
-				var recipeModelType = _gameAssembly.GetType("Eremite.Buildings.RecipeModel");
+				var recipeModelType = assembly.GetType("Eremite.Buildings.RecipeModel");
 				if (recipeModelType != null) {
 					_recipeGradeField = recipeModelType.GetField("grade",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache GoodRef type
-				_goodRefType = _gameAssembly.GetType("Eremite.Model.GoodRef");
+				_goodRefType = assembly.GetType("Eremite.Model.GoodRef");
 				if (_goodRefType != null) {
 					_goodRefGoodField = _goodRefType.GetField("good",
 						BindingFlags.Public | BindingFlags.Instance);
 					_goodRefAmountField = _goodRefType.GetField("amount",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached GoodRef type info");
 				}
 
 				// Cache GoodsSet type
-				_goodsSetType = _gameAssembly.GetType("Eremite.Model.GoodsSet");
+				_goodsSetType = assembly.GetType("Eremite.Model.GoodsSet");
 				if (_goodsSetType != null) {
 					_goodsSetGoodsField = _goodsSetType.GetField("goods",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached GoodsSet type info");
 				}
 
 				// Cache GoodModel type
-				var goodModelType = _gameAssembly.GetType("Eremite.Model.GoodModel");
+				var goodModelType = assembly.GetType("Eremite.Model.GoodModel");
 				if (goodModelType != null) {
 					_goodModelDisplayNameField = goodModelType.GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache BuildingTagModel type
-				var buildingTagModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingTagModel");
+				var buildingTagModelType = assembly.GetType("Eremite.Buildings.BuildingTagModel");
 				if (buildingTagModelType != null) {
 					_tagDisplayNameField = buildingTagModelType.GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
 					_tagVisibleField = buildingTagModelType.GetField("visible",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached BuildingTagModel type info");
 				}
 
 				// Cache LabelModel type for category display name
-				var labelModelType = _gameAssembly.GetType("Eremite.Model.LabelModel");
+				var labelModelType = assembly.GetType("Eremite.Model.LabelModel");
 				if (labelModelType != null) {
 					_categoryDisplayNameProperty = labelModelType.GetProperty("DisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache RecipeGradeModel type
-				var recipeGradeModelType = _gameAssembly.GetType("Eremite.Buildings.RecipeGradeModel");
+				var recipeGradeModelType = assembly.GetType("Eremite.Buildings.RecipeGradeModel");
 				if (recipeGradeModelType != null) {
 					_gradeDescriptionField = recipeGradeModelType.GetField("description",
 						BindingFlags.Public | BindingFlags.Instance);
 					_gradeLevelField = recipeGradeModelType.GetField("level",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached RecipeGradeModel type info");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: Building type caching failed: {ex.Message}");
-			}
-
-			_buildingTypesLookedUp = true;
+			});
 		}
 
 		// ========================================
@@ -835,12 +619,7 @@ namespace ATSAccessibility {
 			if (_wikiBuildingSlotType == null || _wbsBuildingProperty == null) return null;
 			if (!_wikiBuildingSlotType.IsAssignableFrom(slot.GetType())) return null;
 
-			try {
-				return _wbsBuildingProperty.GetValue(slot);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetBuildingModelFromSlot failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetProp(_wbsBuildingProperty, slot);
 		}
 
 		/// <summary>
@@ -849,15 +628,7 @@ namespace ATSAccessibility {
 		public static string GetBuildingDescription(object buildingModel) {
 			if (buildingModel == null) return null;
 			EnsureBuildingTypes();
-
-			if (_buildingDescriptionProperty == null) return null;
-
-			try {
-				return _buildingDescriptionProperty.GetValue(buildingModel) as string;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetBuildingDescription failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetPropString(_buildingDescriptionProperty, buildingModel);
 		}
 
 		/// <summary>
@@ -867,23 +638,15 @@ namespace ATSAccessibility {
 			if (buildingModel == null) return null;
 			EnsureBuildingTypes();
 
-			if (_buildingCategoryField == null) return null;
+			var category = ReflectionHelper.GetField(_buildingCategoryField, buildingModel);
+			if (category == null) return null;
 
-			try {
-				var category = _buildingCategoryField.GetValue(buildingModel);
-				if (category == null) return null;
+			// Try to get DisplayName from LabelModel
+			var name = ReflectionHelper.GetPropString(_categoryDisplayNameProperty, category);
+			if (name != null) return name;
 
-				// Try to get DisplayName from LabelModel
-				if (_categoryDisplayNameProperty != null) {
-					return _categoryDisplayNameProperty.GetValue(category) as string;
-				}
-
-				// Fallback to ToString
-				return category.ToString();
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetBuildingCategory failed: {ex.Message}");
-				return null;
-			}
+			// Fallback to ToString
+			return category.ToString();
 		}
 
 		/// <summary>
@@ -908,14 +671,7 @@ namespace ATSAccessibility {
 		public static bool GetBuildingMovable(object buildingModel) {
 			if (buildingModel == null) return false;
 			EnsureBuildingTypes();
-
-			if (_buildingMovableField == null) return false;
-
-			try {
-				return (bool)_buildingMovableField.GetValue(buildingModel);
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.GetBool(_buildingMovableField, buildingModel);
 		}
 
 		/// <summary>
@@ -924,14 +680,7 @@ namespace ATSAccessibility {
 		public static int GetBuildingWorkplacesCount(object buildingModel) {
 			if (buildingModel == null) return 0;
 			EnsureBuildingTypes();
-
-			if (_buildingWorkplacesCountProperty == null) return 0;
-
-			try {
-				return (int)_buildingWorkplacesCountProperty.GetValue(buildingModel);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetPropInt(_buildingWorkplacesCountProperty, buildingModel);
 		}
 
 		/// <summary>
@@ -940,15 +689,7 @@ namespace ATSAccessibility {
 		public static Array GetBuildingRequiredGoods(object buildingModel) {
 			if (buildingModel == null) return null;
 			EnsureBuildingTypes();
-
-			if (_buildingRequiredGoodsField == null) return null;
-
-			try {
-				return _buildingRequiredGoodsField.GetValue(buildingModel) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetBuildingRequiredGoods failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_buildingRequiredGoodsField, buildingModel) as Array;
 		}
 
 		/// <summary>
@@ -960,16 +701,10 @@ namespace ATSAccessibility {
 
 			if (_goodRefGoodField == null || _goodModelDisplayNameField == null) return null;
 
-			try {
-				var good = _goodRefGoodField.GetValue(goodRef);
-				if (good == null) return null;
+			var good = ReflectionHelper.GetField(_goodRefGoodField, goodRef);
+			if (good == null) return null;
 
-				var locaText = _goodModelDisplayNameField.GetValue(good);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetGoodRefDisplayName failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_goodModelDisplayNameField, good);
 		}
 
 		/// <summary>
@@ -978,14 +713,7 @@ namespace ATSAccessibility {
 		public static int GetGoodRefAmount(object goodRef) {
 			if (goodRef == null) return 0;
 			EnsureBuildingTypes();
-
-			if (_goodRefAmountField == null) return 0;
-
-			try {
-				return (int)_goodRefAmountField.GetValue(goodRef);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
 		}
 
 		/// <summary>
@@ -994,15 +722,7 @@ namespace ATSAccessibility {
 		public static Array GetBuildingTags(object buildingModel) {
 			if (buildingModel == null) return null;
 			EnsureBuildingTypes();
-
-			if (_buildingTagsField == null) return null;
-
-			try {
-				return _buildingTagsField.GetValue(buildingModel) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetBuildingTags failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_buildingTagsField, buildingModel) as Array;
 		}
 
 		/// <summary>
@@ -1011,16 +731,7 @@ namespace ATSAccessibility {
 		public static string GetTagDisplayName(object tagModel) {
 			if (tagModel == null) return null;
 			EnsureBuildingTypes();
-
-			if (_tagDisplayNameField == null) return null;
-
-			try {
-				var locaText = _tagDisplayNameField.GetValue(tagModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetTagDisplayName failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_tagDisplayNameField, tagModel);
 		}
 
 		/// <summary>
@@ -1029,14 +740,7 @@ namespace ATSAccessibility {
 		public static bool GetTagVisible(object tagModel) {
 			if (tagModel == null) return false;
 			EnsureBuildingTypes();
-
-			if (_tagVisibleField == null) return false;
-
-			try {
-				return (bool)_tagVisibleField.GetValue(tagModel);
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.GetBool(_tagVisibleField, tagModel);
 		}
 
 		/// <summary>
@@ -1060,12 +764,7 @@ namespace ATSAccessibility {
 			if (_workshopModelType == null || _workshopRecipesField == null) return null;
 			if (!_workshopModelType.IsAssignableFrom(workshopModel.GetType())) return null;
 
-			try {
-				return _workshopRecipesField.GetValue(workshopModel) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetWorkshopRecipes failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_workshopRecipesField, workshopModel) as Array;
 		}
 
 		/// <summary>
@@ -1075,15 +774,8 @@ namespace ATSAccessibility {
 			if (recipeModel == null) return null;
 			EnsureBuildingTypes();
 
-			if (_recipeProducedGoodField == null) return null;
-
-			try {
-				var producedGood = _recipeProducedGoodField.GetValue(recipeModel);
-				return GetGoodRefDisplayName(producedGood);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetRecipeOutputName failed: {ex.Message}");
-				return null;
-			}
+			var producedGood = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
+			return GetGoodRefDisplayName(producedGood);
 		}
 
 		/// <summary>
@@ -1093,14 +785,8 @@ namespace ATSAccessibility {
 			if (recipeModel == null) return 0;
 			EnsureBuildingTypes();
 
-			if (_recipeProducedGoodField == null) return 0;
-
-			try {
-				var producedGood = _recipeProducedGoodField.GetValue(recipeModel);
-				return GetGoodRefAmount(producedGood);
-			} catch {
-				return 0;
-			}
+			var producedGood = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
+			return GetGoodRefAmount(producedGood);
 		}
 
 		/// <summary>
@@ -1109,14 +795,7 @@ namespace ATSAccessibility {
 		public static float GetRecipeProductionTime(object recipeModel) {
 			if (recipeModel == null) return 0f;
 			EnsureBuildingTypes();
-
-			if (_recipeProductionTimeField == null) return 0f;
-
-			try {
-				return (float)_recipeProductionTimeField.GetValue(recipeModel);
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.GetFloat(_recipeProductionTimeField, recipeModel);
 		}
 
 		/// <summary>
@@ -1126,16 +805,10 @@ namespace ATSAccessibility {
 			if (recipeModel == null) return 0;
 			EnsureBuildingTypes();
 
-			if (_recipeGradeField == null || _gradeLevelField == null) return 0;
+			var grade = ReflectionHelper.GetField(_recipeGradeField, recipeModel);
+			if (grade == null) return 0;
 
-			try {
-				var grade = _recipeGradeField.GetValue(recipeModel);
-				if (grade == null) return 0;
-
-				return (int)_gradeLevelField.GetValue(grade);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_gradeLevelField, grade);
 		}
 
 		/// <summary>
@@ -1145,15 +818,7 @@ namespace ATSAccessibility {
 		public static Array GetRecipeRequiredGoods(object recipeModel) {
 			if (recipeModel == null) return null;
 			EnsureBuildingTypes();
-
-			if (_recipeRequiredGoodsField == null) return null;
-
-			try {
-				return _recipeRequiredGoodsField.GetValue(recipeModel) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetRecipeRequiredGoods failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_recipeRequiredGoodsField, recipeModel) as Array;
 		}
 
 		/// <summary>
@@ -1163,15 +828,7 @@ namespace ATSAccessibility {
 		public static Array GetGoodsSetGoods(object goodsSet) {
 			if (goodsSet == null) return null;
 			EnsureBuildingTypes();
-
-			if (_goodsSetGoodsField == null) return null;
-
-			try {
-				return _goodsSetGoodsField.GetValue(goodsSet) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetGoodsSetGoods failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_goodsSetGoodsField, goodsSet) as Array;
 		}
 
 		// ========================================
@@ -1203,49 +860,38 @@ namespace ATSAccessibility {
 			if (_upgradeTypesInitialized) return;
 			_upgradeTypesInitialized = true;
 
-			EnsureAssembly();
-			if (_gameAssembly == null) return;
-
-			try {
+			ReflectionHelper.InitCache("WikiReflection", assembly => {
 				// Cache UpgradableBuildingModel type
-				_upgradableBuildingModelType = _gameAssembly.GetType("Eremite.Buildings.UpgradableBuildingModel");
+				_upgradableBuildingModelType = assembly.GetType("Eremite.Buildings.UpgradableBuildingModel");
 				if (_upgradableBuildingModelType != null) {
 					_ubmLevelsField = _upgradableBuildingModelType.GetField("levels",
 						BindingFlags.Public | BindingFlags.Instance);
 					_ubmHideUpgradesField = _upgradableBuildingModelType.GetField("hideUpgradesInWiki",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached UpgradableBuildingModel type info");
 				}
 
 				// Cache BuildingLevelModel type
-				_buildingLevelModelType = _gameAssembly.GetType("Eremite.Buildings.BuildingLevelModel");
+				_buildingLevelModelType = assembly.GetType("Eremite.Buildings.BuildingLevelModel");
 				if (_buildingLevelModelType != null) {
 					_blmOptionsField = _buildingLevelModelType.GetField("options",
 						BindingFlags.Public | BindingFlags.Instance);
 					_blmRequiredGoodsField = _buildingLevelModelType.GetField("requiredGoods",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached BuildingLevelModel type info");
 				}
 
 				// Cache BuildingPerkModel type
-				_buildingPerkModelType = _gameAssembly.GetType("Eremite.Model.BuildingPerkModel");
+				_buildingPerkModelType = assembly.GetType("Eremite.Model.BuildingPerkModel");
 				if (_buildingPerkModelType != null) {
 					_bpmDisplayNameProperty = _buildingPerkModelType.GetProperty("DisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
 					_bpmGetDescriptionMethod = _buildingPerkModelType.GetMethod("GetDescription",
 						BindingFlags.Public | BindingFlags.Instance,
-						null, new Type[] { _gameAssembly.GetType("Eremite.Buildings.Building") ?? typeof(object) }, null);
+						null, new Type[] { assembly.GetType("Eremite.Buildings.Building") ?? typeof(object) }, null);
 					_bpmGetAmountTextMethod = _buildingPerkModelType.GetMethod("GetAmountText",
 						BindingFlags.Public | BindingFlags.Instance,
 						null, Type.EmptyTypes, null);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached BuildingPerkModel type info");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: EnsureUpgradeTypes failed: {ex.Message}");
-			}
+			});
 		}
 
 		/// <summary>
@@ -1269,6 +915,7 @@ namespace ATSAccessibility {
 			if (_upgradableBuildingModelType == null || _ubmHideUpgradesField == null) return true;
 			if (!_upgradableBuildingModelType.IsAssignableFrom(buildingModel.GetType())) return true;
 
+			// Can't use ReflectionHelper.GetBool - default must be true, not false
 			try {
 				return (bool)_ubmHideUpgradesField.GetValue(buildingModel);
 			} catch {
@@ -1286,12 +933,7 @@ namespace ATSAccessibility {
 			if (_upgradableBuildingModelType == null || _ubmLevelsField == null) return null;
 			if (!_upgradableBuildingModelType.IsAssignableFrom(buildingModel.GetType())) return null;
 
-			try {
-				return _ubmLevelsField.GetValue(buildingModel) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetBuildingLevels failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_ubmLevelsField, buildingModel) as Array;
 		}
 
 		/// <summary>
@@ -1300,15 +942,7 @@ namespace ATSAccessibility {
 		public static Array GetLevelOptions(object levelModel) {
 			if (levelModel == null) return null;
 			EnsureUpgradeTypes();
-
-			if (_blmOptionsField == null) return null;
-
-			try {
-				return _blmOptionsField.GetValue(levelModel) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetLevelOptions failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_blmOptionsField, levelModel) as Array;
 		}
 
 		/// <summary>
@@ -1317,15 +951,7 @@ namespace ATSAccessibility {
 		public static Array GetLevelRequiredGoods(object levelModel) {
 			if (levelModel == null) return null;
 			EnsureUpgradeTypes();
-
-			if (_blmRequiredGoodsField == null) return null;
-
-			try {
-				return _blmRequiredGoodsField.GetValue(levelModel) as Array;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetLevelRequiredGoods failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetField(_blmRequiredGoodsField, levelModel) as Array;
 		}
 
 		/// <summary>
@@ -1334,15 +960,7 @@ namespace ATSAccessibility {
 		public static string GetPerkDisplayName(object perkModel) {
 			if (perkModel == null) return null;
 			EnsureUpgradeTypes();
-
-			if (_bpmDisplayNameProperty == null) return null;
-
-			try {
-				return _bpmDisplayNameProperty.GetValue(perkModel) as string;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetPerkDisplayName failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetPropString(_bpmDisplayNameProperty, perkModel);
 		}
 
 		/// <summary>
@@ -1351,16 +969,8 @@ namespace ATSAccessibility {
 		public static string GetPerkDescription(object perkModel) {
 			if (perkModel == null) return null;
 			EnsureUpgradeTypes();
-
-			if (_bpmGetDescriptionMethod == null) return null;
-
-			try {
-				// Call GetDescription(null) - building context is optional
-				return _bpmGetDescriptionMethod.Invoke(perkModel, new object[] { null }) as string;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetPerkDescription failed: {ex.Message}");
-				return null;
-			}
+			// Call GetDescription(null) - building context is optional
+			return ReflectionHelper.InvokeString(_bpmGetDescriptionMethod, perkModel, null);
 		}
 
 		/// <summary>
@@ -1369,15 +979,7 @@ namespace ATSAccessibility {
 		public static string GetPerkAmountText(object perkModel) {
 			if (perkModel == null) return null;
 			EnsureUpgradeTypes();
-
-			if (_bpmGetAmountTextMethod == null) return null;
-
-			try {
-				return _bpmGetAmountTextMethod.Invoke(perkModel, null) as string;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetPerkAmountText failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.InvokeString(_bpmGetAmountTextMethod, perkModel);
 		}
 
 		// ========================================
@@ -1448,20 +1050,16 @@ namespace ATSAccessibility {
 			if (_relicTypesInitialized) return;
 			_relicTypesInitialized = true;
 
-			EnsureAssembly();
-			if (_gameAssembly == null) return;
-
-			try {
+			ReflectionHelper.InitCache("WikiReflection", assembly => {
 				// Cache WikiRelicSlot type
-				_wikiRelicSlotType = _gameAssembly.GetType("Eremite.View.UI.Wiki.WikiRelicSlot");
+				_wikiRelicSlotType = assembly.GetType("Eremite.View.UI.Wiki.WikiRelicSlot");
 				if (_wikiRelicSlotType != null) {
 					_wrsRelicProperty = _wikiRelicSlotType.GetProperty("Relic",
 						BindingFlags.Public | BindingFlags.Instance);
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached WikiRelicSlot type info");
 				}
 
 				// Cache RelicModel type
-				_relicModelType = _gameAssembly.GetType("Eremite.Buildings.RelicModel");
+				_relicModelType = assembly.GetType("Eremite.Buildings.RelicModel");
 				if (_relicModelType != null) {
 					_relicDisplayNameField = _relicModelType.GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -1485,12 +1083,10 @@ namespace ATSAccessibility {
 						BindingFlags.Public | BindingFlags.Instance);
 					_relicHasDecisionProperty = _relicModelType.GetProperty("HasDecision",
 						BindingFlags.Public | BindingFlags.Instance);
-
-					Debug.Log("[ATSAccessibility] WikiReflection: Cached RelicModel type info");
 				}
 
 				// Cache EffectStep type
-				_effectStepType = _gameAssembly.GetType("Eremite.Buildings.EffectStep");
+				_effectStepType = assembly.GetType("Eremite.Buildings.EffectStep");
 				if (_effectStepType != null) {
 					_effectStepTimeToStartField = _effectStepType.GetField("timeToStart",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -1499,7 +1095,7 @@ namespace ATSAccessibility {
 				}
 
 				// Cache RewardStep type
-				_rewardStepType = _gameAssembly.GetType("Eremite.Buildings.RewardStep");
+				_rewardStepType = assembly.GetType("Eremite.Buildings.RewardStep");
 				if (_rewardStepType != null) {
 					_rewardStepTimeToStartField = _rewardStepType.GetField("timeToStart",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -1510,7 +1106,7 @@ namespace ATSAccessibility {
 				}
 
 				// Cache RelicDifficulty type
-				_relicDifficultyType = _gameAssembly.GetType("Eremite.Buildings.RelicDifficulty");
+				_relicDifficultyType = assembly.GetType("Eremite.Buildings.RelicDifficulty");
 				if (_relicDifficultyType != null) {
 					_relicDifficultyDifficultyField = _relicDifficultyType.GetField("difficulty",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -1521,7 +1117,7 @@ namespace ATSAccessibility {
 				}
 
 				// Cache RelicDecision type
-				_relicDecisionType = _gameAssembly.GetType("Eremite.Buildings.RelicDecision");
+				_relicDecisionType = assembly.GetType("Eremite.Buildings.RelicDecision");
 				if (_relicDecisionType != null) {
 					_relicDecisionWorkingTimeField = _relicDecisionType.GetField("workingTime",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -1534,14 +1130,14 @@ namespace ATSAccessibility {
 				}
 
 				// Cache GoodsSetTable type
-				_goodsSetTableType = _gameAssembly.GetType("Eremite.Model.GoodsSetTable");
+				_goodsSetTableType = assembly.GetType("Eremite.Model.GoodsSetTable");
 				if (_goodsSetTableType != null) {
 					_goodsSetTableSetsField = _goodsSetTableType.GetField("sets",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache EffectModel type
-				_effectModelType = _gameAssembly.GetType("Eremite.Model.EffectModel");
+				_effectModelType = assembly.GetType("Eremite.Model.EffectModel");
 				if (_effectModelType != null) {
 					_effectModelDisplayNameProperty = _effectModelType.GetProperty("DisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -1550,23 +1146,19 @@ namespace ATSAccessibility {
 				}
 
 				// Cache EffectsTable type
-				_effectsTableType = _gameAssembly.GetType("Eremite.Model.EffectsTable");
+				_effectsTableType = assembly.GetType("Eremite.Model.EffectsTable");
 				if (_effectsTableType != null) {
 					_effectsTableGetAllEffectsMethod = _effectsTableType.GetMethod("GetAllEffects",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// Cache LabelModel displayName field
-				var labelModelType = _gameAssembly.GetType("Eremite.Model.LabelModel");
+				var labelModelType = assembly.GetType("Eremite.Model.LabelModel");
 				if (labelModelType != null) {
 					_labelModelDisplayNameField = labelModelType.GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
-
-				Debug.Log("[ATSAccessibility] WikiReflection: Cached all relic types");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: EnsureRelicTypes failed: {ex.Message}");
-			}
+			});
 		}
 
 		// ========================================
@@ -1594,12 +1186,7 @@ namespace ATSAccessibility {
 			if (_wikiRelicSlotType == null || _wrsRelicProperty == null) return null;
 			if (!_wikiRelicSlotType.IsAssignableFrom(slot.GetType())) return null;
 
-			try {
-				return _wrsRelicProperty.GetValue(slot);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] WikiReflection: GetRelicModelFromSlot failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetProp(_wrsRelicProperty, slot);
 		}
 
 		/// <summary>
@@ -1608,15 +1195,7 @@ namespace ATSAccessibility {
 		public static string GetRelicDisplayName(object relicModel) {
 			if (relicModel == null) return null;
 			EnsureRelicTypes();
-
-			if (_relicDisplayNameField == null) return null;
-
-			try {
-				var locaText = _relicDisplayNameField.GetValue(relicModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetLocaString(_relicDisplayNameField, relicModel);
 		}
 
 		/// <summary>
@@ -1625,15 +1204,7 @@ namespace ATSAccessibility {
 		public static string GetRelicDangerLevel(object relicModel) {
 			if (relicModel == null) return null;
 			EnsureRelicTypes();
-
-			if (_relicDangerLevelField == null) return null;
-
-			try {
-				var dangerLevel = _relicDangerLevelField.GetValue(relicModel);
-				return dangerLevel?.ToString();
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_relicDangerLevelField, relicModel)?.ToString();
 		}
 
 		/// <summary>
@@ -1643,14 +1214,8 @@ namespace ATSAccessibility {
 			if (relicModel == null) return 0;
 			EnsureRelicTypes();
 
-			if (_relicWorkplacesField == null) return 0;
-
-			try {
-				var workplaces = _relicWorkplacesField.GetValue(relicModel) as Array;
-				return workplaces?.Length ?? 0;
-			} catch {
-				return 0;
-			}
+			var workplaces = ReflectionHelper.GetField(_relicWorkplacesField, relicModel) as Array;
+			return workplaces?.Length ?? 0;
 		}
 
 		/// <summary>
@@ -1659,14 +1224,7 @@ namespace ATSAccessibility {
 		public static bool GetRelicHasDynamicEffects(object relicModel) {
 			if (relicModel == null) return false;
 			EnsureRelicTypes();
-
-			if (_relicHasDynamicEffectsField == null) return false;
-
-			try {
-				return (bool)_relicHasDynamicEffectsField.GetValue(relicModel);
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.GetBool(_relicHasDynamicEffectsField, relicModel);
 		}
 
 		/// <summary>
@@ -1675,14 +1233,7 @@ namespace ATSAccessibility {
 		public static Array GetRelicEffectsTiers(object relicModel) {
 			if (relicModel == null) return null;
 			EnsureRelicTypes();
-
-			if (_relicEffectsTiersField == null) return null;
-
-			try {
-				return _relicEffectsTiersField.GetValue(relicModel) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_relicEffectsTiersField, relicModel) as Array;
 		}
 
 		/// <summary>
@@ -1691,14 +1242,7 @@ namespace ATSAccessibility {
 		public static Array GetRelicActiveEffects(object relicModel) {
 			if (relicModel == null) return null;
 			EnsureRelicTypes();
-
-			if (_relicActiveEffectsField == null) return null;
-
-			try {
-				return _relicActiveEffectsField.GetValue(relicModel) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_relicActiveEffectsField, relicModel) as Array;
 		}
 
 		/// <summary>
@@ -1707,14 +1251,7 @@ namespace ATSAccessibility {
 		public static bool GetRelicHasDecision(object relicModel) {
 			if (relicModel == null) return false;
 			EnsureRelicTypes();
-
-			if (_relicHasDecisionProperty == null) return false;
-
-			try {
-				return (bool)_relicHasDecisionProperty.GetValue(relicModel);
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.GetPropBool(_relicHasDecisionProperty, relicModel);
 		}
 
 		/// <summary>
@@ -1723,14 +1260,7 @@ namespace ATSAccessibility {
 		public static Array GetRelicDifficulties(object relicModel) {
 			if (relicModel == null) return null;
 			EnsureRelicTypes();
-
-			if (_relicDifficultiesField == null) return null;
-
-			try {
-				return _relicDifficultiesField.GetValue(relicModel) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_relicDifficultiesField, relicModel) as Array;
 		}
 
 		/// <summary>
@@ -1739,14 +1269,7 @@ namespace ATSAccessibility {
 		public static Array GetRelicDecisionsRewards(object relicModel) {
 			if (relicModel == null) return null;
 			EnsureRelicTypes();
-
-			if (_relicDecisionsRewardsField == null) return null;
-
-			try {
-				return _relicDecisionsRewardsField.GetValue(relicModel) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_relicDecisionsRewardsField, relicModel) as Array;
 		}
 
 		/// <summary>
@@ -1755,14 +1278,7 @@ namespace ATSAccessibility {
 		public static Array GetRelicRewardsTiers(object relicModel) {
 			if (relicModel == null) return null;
 			EnsureRelicTypes();
-
-			if (_relicRewardsTiersField == null) return null;
-
-			try {
-				return _relicRewardsTiersField.GetValue(relicModel) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_relicRewardsTiersField, relicModel) as Array;
 		}
 
 		// ========================================
@@ -1775,14 +1291,7 @@ namespace ATSAccessibility {
 		public static float GetEffectStepTimeToStart(object effectStep) {
 			if (effectStep == null) return 0f;
 			EnsureRelicTypes();
-
-			if (_effectStepTimeToStartField == null) return 0f;
-
-			try {
-				return (float)_effectStepTimeToStartField.GetValue(effectStep);
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.GetFloat(_effectStepTimeToStartField, effectStep);
 		}
 
 		/// <summary>
@@ -1791,14 +1300,7 @@ namespace ATSAccessibility {
 		public static Array GetEffectStepEffects(object effectStep) {
 			if (effectStep == null) return null;
 			EnsureRelicTypes();
-
-			if (_effectStepEffectField == null) return null;
-
-			try {
-				return _effectStepEffectField.GetValue(effectStep) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_effectStepEffectField, effectStep) as Array;
 		}
 
 		// ========================================
@@ -1811,14 +1313,7 @@ namespace ATSAccessibility {
 		public static Array GetRewardStepRewards(object rewardStep) {
 			if (rewardStep == null) return null;
 			EnsureRelicTypes();
-
-			if (_rewardStepRewardsField == null) return null;
-
-			try {
-				return _rewardStepRewardsField.GetValue(rewardStep) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_rewardStepRewardsField, rewardStep) as Array;
 		}
 
 		/// <summary>
@@ -1832,7 +1327,7 @@ namespace ATSAccessibility {
 
 			try {
 				// Add direct rewards
-				var rewards = _rewardStepRewardsField?.GetValue(rewardStep) as Array;
+				var rewards = ReflectionHelper.GetField(_rewardStepRewardsField, rewardStep) as Array;
 				if (rewards != null) {
 					foreach (var reward in rewards) {
 						if (reward != null)
@@ -1841,9 +1336,9 @@ namespace ATSAccessibility {
 				}
 
 				// Add rewards from table
-				var rewardsTable = _rewardStepRewardsTableField?.GetValue(rewardStep);
-				if (rewardsTable != null && _effectsTableGetAllEffectsMethod != null) {
-					var tableEffects = _effectsTableGetAllEffectsMethod.Invoke(rewardsTable, null) as System.Collections.IEnumerable;
+				var rewardsTable = ReflectionHelper.GetField(_rewardStepRewardsTableField, rewardStep);
+				if (rewardsTable != null) {
+					var tableEffects = ReflectionHelper.Invoke(_effectsTableGetAllEffectsMethod, rewardsTable) as IEnumerable;
 					if (tableEffects != null) {
 						foreach (var effect in tableEffects) {
 							if (effect != null)
@@ -1868,14 +1363,7 @@ namespace ATSAccessibility {
 		public static int GetRelicDifficultyLevel(object relicDifficulty) {
 			if (relicDifficulty == null) return 0;
 			EnsureRelicTypes();
-
-			if (_relicDifficultyDifficultyField == null) return 0;
-
-			try {
-				return (int)_relicDifficultyDifficultyField.GetValue(relicDifficulty);
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_relicDifficultyDifficultyField, relicDifficulty);
 		}
 
 		/// <summary>
@@ -1887,8 +1375,9 @@ namespace ATSAccessibility {
 
 			if (_relicDifficultyEffectTimeRatioField == null) return 1f;
 
+			// Can't use ReflectionHelper.GetFloat - default must be 1f, not 0f
 			try {
-				return (float)_relicDifficultyEffectTimeRatioField.GetValue(relicDifficulty);
+				return _relicDifficultyEffectTimeRatioField.GetValue(relicDifficulty) is float f ? f : 1f;
 			} catch {
 				return 1f;
 			}
@@ -1900,14 +1389,7 @@ namespace ATSAccessibility {
 		public static Array GetRelicDifficultyDecisions(object relicDifficulty) {
 			if (relicDifficulty == null) return null;
 			EnsureRelicTypes();
-
-			if (_relicDifficultyDecisionsField == null) return null;
-
-			try {
-				return _relicDifficultyDecisionsField.GetValue(relicDifficulty) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_relicDifficultyDecisionsField, relicDifficulty) as Array;
 		}
 
 		// ========================================
@@ -1920,14 +1402,7 @@ namespace ATSAccessibility {
 		public static float GetRelicDecisionWorkingTime(object relicDecision) {
 			if (relicDecision == null) return 0f;
 			EnsureRelicTypes();
-
-			if (_relicDecisionWorkingTimeField == null) return 0f;
-
-			try {
-				return (float)_relicDecisionWorkingTimeField.GetValue(relicDecision);
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.GetFloat(_relicDecisionWorkingTimeField, relicDecision);
 		}
 
 		/// <summary>
@@ -1937,22 +1412,14 @@ namespace ATSAccessibility {
 			if (relicDecision == null) return null;
 			EnsureRelicTypes();
 
-			if (_relicDecisionLabelField == null) return null;
+			var label = ReflectionHelper.GetField(_relicDecisionLabelField, relicDecision);
+			if (label == null) return null;
 
-			try {
-				var label = _relicDecisionLabelField.GetValue(relicDecision);
-				if (label == null) return null;
+			// Get displayName from LabelModel
+			var locaString = ReflectionHelper.GetLocaString(_labelModelDisplayNameField, label);
+			if (locaString != null) return locaString;
 
-				// Get displayName from LabelModel
-				if (_labelModelDisplayNameField != null) {
-					var locaText = _labelModelDisplayNameField.GetValue(label);
-					return GameReflection.GetLocaText(locaText);
-				}
-
-				return label.ToString();
-			} catch {
-				return null;
-			}
+			return label.ToString();
 		}
 
 		/// <summary>
@@ -1962,21 +1429,10 @@ namespace ATSAccessibility {
 			if (relicDecision == null) return null;
 			EnsureRelicTypes();
 
-			if (_relicDecisionRequiredGoodsField == null) return null;
+			var goodsSetTable = ReflectionHelper.GetField(_relicDecisionRequiredGoodsField, relicDecision);
+			if (goodsSetTable == null) return null;
 
-			try {
-				var goodsSetTable = _relicDecisionRequiredGoodsField.GetValue(relicDecision);
-				if (goodsSetTable == null) return null;
-
-				// Get sets from GoodsSetTable
-				if (_goodsSetTableSetsField != null) {
-					return _goodsSetTableSetsField.GetValue(goodsSetTable) as Array;
-				}
-
-				return null;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_goodsSetTableSetsField, goodsSetTable) as Array;
 		}
 
 		/// <summary>
@@ -1985,14 +1441,7 @@ namespace ATSAccessibility {
 		public static Array GetRelicDecisionWorkingEffects(object relicDecision) {
 			if (relicDecision == null) return null;
 			EnsureRelicTypes();
-
-			if (_relicDecisionWorkingEffectsField == null) return null;
-
-			try {
-				return _relicDecisionWorkingEffectsField.GetValue(relicDecision) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_relicDecisionWorkingEffectsField, relicDecision) as Array;
 		}
 
 		// ========================================
@@ -2005,14 +1454,7 @@ namespace ATSAccessibility {
 		public static string GetEffectDisplayName(object effectModel) {
 			if (effectModel == null) return null;
 			EnsureRelicTypes();
-
-			if (_effectModelDisplayNameProperty == null) return null;
-
-			try {
-				return _effectModelDisplayNameProperty.GetValue(effectModel) as string;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetPropString(_effectModelDisplayNameProperty, effectModel);
 		}
 
 		/// <summary>
@@ -2021,14 +1463,7 @@ namespace ATSAccessibility {
 		public static string GetEffectDescription(object effectModel) {
 			if (effectModel == null) return null;
 			EnsureRelicTypes();
-
-			if (_effectModelDescriptionProperty == null) return null;
-
-			try {
-				return _effectModelDescriptionProperty.GetValue(effectModel) as string;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetPropString(_effectModelDescriptionProperty, effectModel);
 		}
 
 		/// <summary>
@@ -2043,7 +1478,7 @@ namespace ATSAccessibility {
 			var result = new System.Collections.Generic.List<object>();
 
 			try {
-				var effects = _effectsTableGetAllEffectsMethod.Invoke(effectsTable, null) as System.Collections.IEnumerable;
+				var effects = ReflectionHelper.Invoke(_effectsTableGetAllEffectsMethod, effectsTable) as IEnumerable;
 				if (effects != null) {
 					foreach (var effect in effects) {
 						if (effect != null)

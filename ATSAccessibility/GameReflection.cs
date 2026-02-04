@@ -53,25 +53,6 @@ namespace ATSAccessibility {
 		private static FieldInfo _tabsButtonContentField = null;     // TabsButton.content (GameObject)
 		private static bool _tabTypesCached = false;
 
-		// ========================================
-		// HELPER METHODS (reduce try-catch boilerplate)
-		// ========================================
-
-		private static T TryGetPropertyValue<T>(PropertyInfo prop, object instance) where T : class {
-			if (prop == null || instance == null) return null;
-			try { return prop.GetValue(instance) as T; } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] TryGetPropertyValue failed: {ex.Message}"); return null; }
-		}
-
-		private static object TryInvokeMethod(MethodInfo method, object instance, object[] args = null) {
-			if (method == null || instance == null) return null;
-			try { return method.Invoke(instance, args); } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] TryInvokeMethod failed: {ex.Message}"); return null; }
-		}
-
-		private static bool TryInvokeBool(MethodInfo method, object instance, object[] args = null) {
-			if (method == null || instance == null) return false;
-			try { return (bool?)method.Invoke(instance, args) ?? false; } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] TryInvokeBool failed: {ex.Message}"); return false; }
-		}
-
 		/// <summary>
 		/// Get a service from GameServices by its cached PropertyInfo.
 		/// Replaces the duplicated 6-line pattern across reflection files.
@@ -130,7 +111,10 @@ namespace ATSAccessibility {
 		}
 
 		internal static bool TryInvokeBoolInternal(MethodInfo method, object instance, object[] args = null) {
-			return TryInvokeBool(method, instance, args);
+			if (args == null) return ReflectionHelper.InvokeBool(method, instance);
+			if (args.Length == 1) return ReflectionHelper.InvokeBool(method, instance, args[0]);
+			if (args.Length == 2) return ReflectionHelper.InvokeBool(method, instance, args[0], args[1]);
+			return false;
 		}
 
 		internal static void EnsureMetaControllerTypesInternal() {
@@ -781,7 +765,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetMapService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsMapServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsMapServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -789,7 +773,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetGladesService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsGladesServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsGladesServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -797,7 +781,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetVillagersService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsVillagersServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsVillagersServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -806,7 +790,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetField(int x, int y) {
 			EnsureMapTypes();
-			return TryInvokeMethod(_mapGetFieldMethod, GetMapService(), new object[] { x, y });
+			return ReflectionHelper.Invoke(_mapGetFieldMethod, GetMapService(), x, y);
 		}
 
 		/// <summary>
@@ -815,7 +799,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetObjectOn(int x, int y) {
 			EnsureMapTypes();
-			return TryInvokeMethod(_mapGetObjectOnMethod, GetMapService(), new object[] { x, y });
+			return ReflectionHelper.Invoke(_mapGetObjectOnMethod, GetMapService(), x, y);
 		}
 
 		/// <summary>
@@ -824,7 +808,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetGlade(int x, int y) {
 			EnsureMapTypes();
-			return TryInvokeMethod(_gladesGetGladeMethod, GetGladesService(), new object[] { new Vector2Int(x, y) });
+			return ReflectionHelper.Invoke(_gladesGetGladeMethod, GetGladesService(), new Vector2Int(x, y));
 		}
 
 		/// <summary>
@@ -833,7 +817,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetAllVillagers() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_villagersVillagersProperty, GetVillagersService());
+			return ReflectionHelper.GetProp(_villagersVillagersProperty, GetVillagersService());
 		}
 
 		/// <summary>
@@ -842,7 +826,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetResourcesService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsResourcesServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsResourcesServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -851,7 +835,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetDepositsService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsDepositsServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsDepositsServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -860,7 +844,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetOreService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsOreServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsOreServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -869,7 +853,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetSpringsService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsSpringsServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsSpringsServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -878,7 +862,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetLakesService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsLakesServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsLakesServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -887,7 +871,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetBuildingsService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsBuildingsServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsBuildingsServiceProperty, GetGameServices());
 		}
 
 		private static MethodInfo _getBuildingByIdMethod;
@@ -927,7 +911,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetConditionsService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsConditionsServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsConditionsServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -935,7 +919,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetBiomeService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsBiomeServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsBiomeServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -944,7 +928,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetCurrentBiome() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_biomeCurrentBiomeProperty, GetBiomeService());
+			return ReflectionHelper.GetProp(_biomeCurrentBiomeProperty, GetBiomeService());
 		}
 
 		/// <summary>
@@ -967,7 +951,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetBlightService() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsBlightServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsBlightServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -1008,7 +992,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetBuildingsBlights() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_buildingsBlightsProperty, GetBuildingsService());
+			return ReflectionHelper.GetProp(_buildingsBlightsProperty, GetBuildingsService());
 		}
 
 		/// <summary>
@@ -1075,7 +1059,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetAllGlades() {
 			EnsureMapTypes();
-			return TryGetPropertyValue<object>(_gsGladesProperty, GetGladesService());
+			return ReflectionHelper.GetProp(_gsGladesProperty, GetGladesService());
 		}
 
 		/// <summary>
@@ -1134,7 +1118,7 @@ namespace ATSAccessibility {
 			EnsureMapTypes();
 			var mapService = GetMapService();
 			if (mapService == null) return false;
-			return TryInvokeBool(_mapInBoundsMethod, mapService, new object[] { x, y });
+			return ReflectionHelper.InvokeBool(_mapInBoundsMethod, mapService, x, y);
 		}
 
 		// Cached reflection for hearth position
@@ -1245,7 +1229,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetTimeScaleService() {
 			EnsureTimeScaleTypes();
-			return TryGetPropertyValue<object>(_gsTimeScaleServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsTimeScaleServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -1253,7 +1237,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsPaused() {
 			EnsureTimeScaleTypes();
-			return TryInvokeBool(_tssIsPausedMethod, GetTimeScaleService());
+			return ReflectionHelper.InvokeBool(_tssIsPausedMethod, GetTimeScaleService());
 		}
 
 		// Game speed values: 0=paused, 1=1x, 2=1.5x, 3=2x, 4=3x
@@ -7075,7 +7059,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetGameSealService() {
 			EnsureSealTypes();
-			return TryGetPropertyValue<object>(_gsGameSealServiceProperty, GetGameServices());
+			return ReflectionHelper.GetProp(_gsGameSealServiceProperty, GetGameServices());
 		}
 
 		/// <summary>
@@ -7085,7 +7069,7 @@ namespace ATSAccessibility {
 			EnsureSealTypes();
 			var gameSealService = GetGameSealService();
 			if (gameSealService == null || _gameSealServiceIsSealedBiomeMethod == null) return false;
-			return TryInvokeBool(_gameSealServiceIsSealedBiomeMethod, gameSealService);
+			return ReflectionHelper.InvokeBool(_gameSealServiceIsSealedBiomeMethod, gameSealService);
 		}
 
 		/// <summary>

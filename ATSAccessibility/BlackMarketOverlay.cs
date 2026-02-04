@@ -185,7 +185,7 @@ namespace ATSAccessibility {
 
 			if (BlackMarketReflection.IsRerollOnCooldown(_blackMarket)) {
 				float timeLeft = BlackMarketReflection.GetRerollTimeLeft(_blackMarket);
-				string timeStr = BlackMarketReflection.FormatTime(timeLeft);
+				string timeStr = FormattingUtils.FormatTime(timeLeft);
 				return $"Reroll, {timeStr} remaining";
 			}
 
@@ -209,7 +209,7 @@ namespace ATSAccessibility {
 			parts.Add($"Credit {offer.CreditPrice} Amber {offer.CreditRating}");
 
 			// Time left
-			string timeStr = BlackMarketReflection.FormatTime(offer.TimeLeft);
+			string timeStr = FormattingUtils.FormatTime(offer.TimeLeft);
 			parts.Add($"{timeStr} remaining");
 
 			return string.Join(", ", parts);
@@ -222,7 +222,7 @@ namespace ATSAccessibility {
 		private void ExecuteReroll() {
 			if (BlackMarketReflection.IsRerollOnCooldown(_blackMarket)) {
 				float timeLeft = BlackMarketReflection.GetRerollTimeLeft(_blackMarket);
-				string timeStr = BlackMarketReflection.FormatTime(timeLeft);
+				string timeStr = FormattingUtils.FormatTime(timeLeft);
 				Speech.Say($"On cooldown, {timeStr} remaining");
 				SoundManager.PlayFailed();
 				return;

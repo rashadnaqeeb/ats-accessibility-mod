@@ -191,14 +191,9 @@ namespace ATSAccessibility {
 
 		private static void EnsureTypes() {
 			if (_typesCached) return;
+			_typesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_typesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("CustomGamesReflection", assembly => {
 				// Cache CustomGamePopup type
 				_customGamePopupType = assembly.GetType("Eremite.WorldMap.UI.CustomGames.CustomGamePopup");
 				if (_customGamePopupType != null) {
@@ -490,13 +485,7 @@ namespace ATSAccessibility {
 				// Cache UnityEvent.Invoke
 				var unityEventType = typeof(UnityEngine.Events.UnityEvent);
 				_unityEventInvokeMethod = unityEventType.GetMethod("Invoke", BindingFlags.Public | BindingFlags.Instance);
-
-				Debug.Log("[ATSAccessibility] CustomGamesReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CustomGamesReflection: Type caching failed: {ex.Message}");
-			}
-
-			_typesCached = true;
+			});
 		}
 
 		// ========================================
@@ -527,12 +516,7 @@ namespace ATSAccessibility {
 
 		private static object GetPanel(object popup, FieldInfo panelField) {
 			EnsureTypes();
-			if (popup == null || panelField == null) return null;
-			try {
-				return panelField.GetValue(popup);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(panelField, popup);
 		}
 
 		public static object GetDifficultyPicker(object popup) => GetPanel(popup, _difficultyPickerField);
@@ -559,18 +543,12 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<object>();
 
-			try {
-				var picker = GetDifficultyPicker(popup);
-				if (picker == null || _pickerGetDifficultiesMethod == null) return result;
+			var picker = GetDifficultyPicker(popup);
+			var list = ReflectionHelper.Invoke(_pickerGetDifficultiesMethod, picker) as IList;
+			if (list == null) return result;
 
-				var list = _pickerGetDifficultiesMethod.Invoke(picker, null) as IList;
-				if (list == null) return result;
-
-				foreach (var item in list) {
-					if (item != null) result.Add(item);
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetAvailableDifficulties failed: {ex.Message}");
+			foreach (var item in list) {
+				if (item != null) result.Add(item);
 			}
 
 			return result;
@@ -581,15 +559,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetCurrentDifficulty(object popup) {
 			EnsureTypes();
-
-			try {
-				var picker = GetDifficultyPicker(popup);
-				if (picker == null || _pickerGetPickedDifficultyMethod == null) return null;
-
-				return _pickerGetPickedDifficultyMethod.Invoke(picker, null);
-			} catch {
-				return null;
-			}
+			var picker = GetDifficultyPicker(popup);
+			return ReflectionHelper.Invoke(_pickerGetPickedDifficultyMethod, picker);
 		}
 
 		/// <summary>
@@ -597,13 +568,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetDifficultyDisplayName(object difficulty) {
 			EnsureTypes();
-			if (difficulty == null || _dmGetDisplayNameMethod == null) return "Unknown";
-
-			try {
-				return _dmGetDisplayNameMethod.Invoke(difficulty, null)?.ToString() ?? "Unknown";
-			} catch {
-				return "Unknown";
-			}
+			return ReflectionHelper.Invoke(_dmGetDisplayNameMethod, difficulty)?.ToString() ?? "Unknown";
 		}
 
 		/// <summary>
@@ -611,13 +576,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetDifficultyIndex(object difficulty) {
 			EnsureTypes();
-			if (difficulty == null || _dmIndexField == null) return -1;
-
-			try {
-				return (int)_dmIndexField.GetValue(difficulty);
-			} catch {
-				return -1;
-			}
+			int val = ReflectionHelper.GetInt(_dmIndexField, difficulty);
+			return (_dmIndexField == null || difficulty == null) ? -1 : val;
 		}
 
 		/// <summary>
@@ -625,17 +585,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool SetDifficulty(object popup, object difficulty) {
 			EnsureTypes();
-
-			try {
-				var picker = GetDifficultyPicker(popup);
-				if (picker == null || _pickerSetDifficultyMethod == null) return false;
-
-				_pickerSetDifficultyMethod.Invoke(picker, new[] { difficulty });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SetDifficulty failed: {ex.Message}");
-				return false;
-			}
+			var picker = GetDifficultyPicker(popup);
+			return ReflectionHelper.InvokeVoid(_pickerSetDifficultyMethod, picker, difficulty);
 		}
 
 		// ========================================
@@ -647,18 +598,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetSeed(object popup) {
 			EnsureTypes();
-
-			try {
-				var seedPanel = GetSeedPanel(popup);
-				if (seedPanel == null || _seedInputField == null) return "";
-
-				var inputField = _seedInputField.GetValue(seedPanel);
-				if (inputField == null || _tmpInputFieldTextProperty == null) return "";
-
-				return _tmpInputFieldTextProperty.GetValue(inputField) as string ?? "";
-			} catch {
-				return "";
-			}
+			var seedPanel = GetSeedPanel(popup);
+			var inputField = ReflectionHelper.GetField(_seedInputField, seedPanel);
+			return ReflectionHelper.GetPropString(_tmpInputFieldTextProperty, inputField) ?? "";
 		}
 
 		/// <summary>
@@ -666,23 +608,10 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool RandomizeSeed(object popup) {
 			EnsureTypes();
-
-			try {
-				var seedPanel = GetSeedPanel(popup);
-				if (seedPanel == null || _seedButtonField == null) return false;
-
-				var button = _seedButtonField.GetValue(seedPanel);
-				if (button == null || _buttonOnClickProperty == null) return false;
-
-				var onClick = _buttonOnClickProperty.GetValue(button);
-				if (onClick == null || _unityEventInvokeMethod == null) return false;
-
-				_unityEventInvokeMethod.Invoke(onClick, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] RandomizeSeed failed: {ex.Message}");
-				return false;
-			}
+			var seedPanel = GetSeedPanel(popup);
+			var button = ReflectionHelper.GetField(_seedButtonField, seedPanel);
+			var onClick = ReflectionHelper.GetProp(_buttonOnClickProperty, button);
+			return ReflectionHelper.InvokeVoid(_unityEventInvokeMethod, onClick);
 		}
 
 		/// <summary>
@@ -690,15 +619,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static TMPro.TMP_InputField GetSeedInputField(object popup) {
 			EnsureTypes();
-
-			try {
-				var seedPanel = GetSeedPanel(popup);
-				if (seedPanel == null || _seedInputField == null) return null;
-
-				return _seedInputField.GetValue(seedPanel) as TMPro.TMP_InputField;
-			} catch {
-				return null;
-			}
+			var seedPanel = GetSeedPanel(popup);
+			return ReflectionHelper.GetField(_seedInputField, seedPanel) as TMPro.TMP_InputField;
 		}
 
 		// ========================================
@@ -712,20 +634,14 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<(object, string)>();
 
-			try {
-				var biomePanel = GetBiomePanel(popup);
-				if (biomePanel == null || _biomeBiomesField == null) return result;
+			var biomePanel = GetBiomePanel(popup);
+			var biomes = ReflectionHelper.GetField(_biomeBiomesField, biomePanel) as Array;
+			if (biomes == null) return result;
 
-				var biomes = _biomeBiomesField.GetValue(biomePanel) as Array;
-				if (biomes == null) return result;
-
-				foreach (var biome in biomes) {
-					if (biome == null) continue;
-					string name = GetBiomeDisplayName(biome);
-					result.Add((biome, name));
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetAvailableBiomes failed: {ex.Message}");
+			foreach (var biome in biomes) {
+				if (biome == null) continue;
+				string name = GetBiomeDisplayName(biome);
+				result.Add((biome, name));
 			}
 
 			return result;
@@ -738,26 +654,12 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			if (biome == null) return "Unknown";
 
-			try {
-				// Get displayName field (LocaText) and extract Text
-				if (_bmDisplayNameField != null) {
-					var locaText = _bmDisplayNameField.GetValue(biome);
-					if (locaText != null) {
-						string text = GameReflection.GetLocaText(locaText);
-						if (!string.IsNullOrEmpty(text))
-							return text;
-					}
-				}
+			string text = ReflectionHelper.GetLocaString(_bmDisplayNameField, biome);
+			if (!string.IsNullOrEmpty(text))
+				return text;
 
-				// Fallback to Name property (from SO base class)
-				if (_bmNameProperty != null) {
-					return _bmNameProperty.GetValue(biome)?.ToString() ?? "Unknown";
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetBiomeDisplayName failed: {ex.Message}");
-			}
-
-			return "Unknown";
+			// Fallback to Name property (from SO base class)
+			return ReflectionHelper.GetProp(_bmNameProperty, biome)?.ToString() ?? "Unknown";
 		}
 
 		/// <summary>
@@ -765,18 +667,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetCurrentBiomeIndex(object popup) {
 			EnsureTypes();
-
-			try {
-				var biomePanel = GetBiomePanel(popup);
-				if (biomePanel == null || _biomeDropdownField == null) return 0;
-
-				var dropdown = _biomeDropdownField.GetValue(biomePanel);
-				if (dropdown == null || _tmpDropdownValueProperty == null) return 0;
-
-				return (int)_tmpDropdownValueProperty.GetValue(dropdown);
-			} catch {
-				return 0;
-			}
+			var biomePanel = GetBiomePanel(popup);
+			var dropdown = ReflectionHelper.GetField(_biomeDropdownField, biomePanel);
+			return ReflectionHelper.GetPropInt(_tmpDropdownValueProperty, dropdown);
 		}
 
 		/// <summary>
@@ -784,18 +677,14 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool SetBiomeIndex(object popup, int index) {
 			EnsureTypes();
+			var biomePanel = GetBiomePanel(popup);
+			var dropdown = ReflectionHelper.GetField(_biomeDropdownField, biomePanel);
+			if (dropdown == null || _tmpDropdownValueProperty == null) return false;
 
 			try {
-				var biomePanel = GetBiomePanel(popup);
-				if (biomePanel == null || _biomeDropdownField == null) return false;
-
-				var dropdown = _biomeDropdownField.GetValue(biomePanel);
-				if (dropdown == null || _tmpDropdownValueProperty == null) return false;
-
 				_tmpDropdownValueProperty.SetValue(dropdown, index);
 				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SetBiomeIndex failed: {ex.Message}");
+			} catch {
 				return false;
 			}
 		}
@@ -812,43 +701,39 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<(object, string, bool)>();
 
-			try {
-				var racesPanel = GetRacesPanel(popup);
-				if (racesPanel == null) return result;
+			var racesPanel = GetRacesPanel(popup);
+			if (racesPanel == null) return result;
 
-				// Get the picked list
-				var pickedList = _racesPickedField?.GetValue(racesPanel) as IList;
-				var pickedSet = new HashSet<object>();
-				if (pickedList != null) {
-					foreach (var item in pickedList) {
-						if (item != null) pickedSet.Add(item);
-					}
+			// Get the picked list
+			var pickedList = ReflectionHelper.GetList(_racesPickedField, racesPanel);
+			var pickedSet = new HashSet<object>();
+			if (pickedList != null) {
+				foreach (var item in pickedList) {
+					if (item != null) pickedSet.Add(item);
 				}
+			}
 
-				// Get all slots
-				var slots = _racesSlotsField?.GetValue(racesPanel) as IList;
-				if (slots == null) return result;
+			// Get all slots
+			var slots = ReflectionHelper.GetList(_racesSlotsField, racesPanel);
+			if (slots == null) return result;
 
-				foreach (var slot in slots) {
-					if (slot == null) continue;
+			foreach (var slot in slots) {
+				if (slot == null) continue;
 
-					// Check if slot is active
-					var slotComponent = slot as UnityEngine.Component;
-					if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
+				// Check if slot is active
+				var slotComponent = slot as UnityEngine.Component;
+				if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
 
-					// Get race from slot (field is named "model" in CustomGameRaceSlot)
-					var modelField = slot.GetType().GetField("model",
-						BindingFlags.NonPublic | BindingFlags.Instance);
-					var race = modelField?.GetValue(slot);
-					if (race == null) continue;
+				// Get race from slot (field is named "model" in CustomGameRaceSlot)
+				var modelField = slot.GetType().GetField("model",
+					BindingFlags.NonPublic | BindingFlags.Instance);
+				var race = ReflectionHelper.GetField(modelField, slot);
+				if (race == null) continue;
 
-					string displayName = GetRaceDisplayName(race);
-					bool isSelected = pickedSet.Contains(race);
+				string displayName = GetRaceDisplayName(race);
+				bool isSelected = pickedSet.Contains(race);
 
-					result.Add((race, displayName, isSelected));
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetRaceSlots failed: {ex.Message}");
+				result.Add((race, displayName, isSelected));
 			}
 
 			return result;
@@ -861,26 +746,12 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			if (race == null) return "Unknown";
 
-			try {
-				// Get displayName field (LocaText) and extract Text
-				if (_rmDisplayNameField != null) {
-					var locaText = _rmDisplayNameField.GetValue(race);
-					if (locaText != null) {
-						string text = GameReflection.GetLocaText(locaText);
-						if (!string.IsNullOrEmpty(text))
-							return text;
-					}
-				}
+			string text = ReflectionHelper.GetLocaString(_rmDisplayNameField, race);
+			if (!string.IsNullOrEmpty(text))
+				return text;
 
-				// Fallback to Name property (from SO base class)
-				if (_rmNameProperty != null) {
-					return _rmNameProperty.GetValue(race)?.ToString() ?? "Unknown";
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetRaceDisplayName failed: {ex.Message}");
-			}
-
-			return "Unknown";
+			// Fallback to Name property (from SO base class)
+			return ReflectionHelper.GetProp(_rmNameProperty, race)?.ToString() ?? "Unknown";
 		}
 
 		/// <summary>
@@ -889,34 +760,28 @@ namespace ATSAccessibility {
 		public static bool ToggleRaceSlot(object popup, int slotIndex) {
 			EnsureTypes();
 
-			try {
-				var racesPanel = GetRacesPanel(popup);
-				if (racesPanel == null) return false;
+			var racesPanel = GetRacesPanel(popup);
+			if (racesPanel == null) return false;
 
-				var slots = _racesSlotsField?.GetValue(racesPanel) as IList;
-				if (slots == null || slotIndex < 0 || slotIndex >= slots.Count) return false;
+			var slots = ReflectionHelper.GetList(_racesSlotsField, racesPanel);
+			if (slots == null || slotIndex < 0 || slotIndex >= slots.Count) return false;
 
-				var slot = slots[slotIndex];
-				if (slot == null) return false;
+			var slot = slots[slotIndex];
+			if (slot == null) return false;
 
-				// Find and click the button
-				var slotComponent = slot as UnityEngine.Component;
-				if (slotComponent == null) return false;
+			// Find and click the button
+			var slotComponent = slot as UnityEngine.Component;
+			if (slotComponent == null) return false;
 
-				var button = slotComponent.GetComponentInChildren<UnityEngine.UI.Button>();
-				if (button != null) {
-					// Check interactability - game limits how many races can be selected
-					if (!button.interactable)
-						return false;
+			var button = slotComponent.GetComponentInChildren<UnityEngine.UI.Button>();
+			if (button == null) return false;
 
-					button.onClick.Invoke();
-					return true;
-				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ToggleRaceSlot failed: {ex.Message}");
-			}
+			// Check interactability - game limits how many races can be selected
+			if (!button.interactable)
+				return false;
 
-			return false;
+			button.onClick.Invoke();
+			return true;
 		}
 
 		// ========================================
@@ -931,38 +796,24 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			if (sliderPanel == null) return (0, 0, "", 0);
 
-			try {
-				int currentIndex = 0;
-				if (_sliderGetPickedIndexMethod != null) {
-					currentIndex = (int)_sliderGetPickedIndexMethod.Invoke(sliderPanel, null);
-				} else if (_sliderCurrentIndexField != null) {
-					currentIndex = (int)_sliderCurrentIndexField.GetValue(sliderPanel);
+			int currentIndex = _sliderGetPickedIndexMethod != null
+				? ReflectionHelper.InvokeInt(_sliderGetPickedIndexMethod, sliderPanel)
+				: ReflectionHelper.GetInt(_sliderCurrentIndexField, sliderPanel);
+
+			var options = ReflectionHelper.GetField(_sliderOptionsField, sliderPanel) as Array;
+			int maxIndex = options?.Length - 1 ?? 0;
+
+			string label = "";
+			float value = 0;
+			if (options != null && currentIndex >= 0 && currentIndex < options.Length) {
+				var option = options.GetValue(currentIndex);
+				if (option != null) {
+					value = ReflectionHelper.GetFloat(_floatOptionAmountField, option);
+					label = ReflectionHelper.GetLocaString(_floatOptionLabelField, option) ?? "";
 				}
-
-				var options = _sliderOptionsField?.GetValue(sliderPanel) as Array;
-				int maxIndex = options?.Length - 1 ?? 0;
-
-				string label = "";
-				float value = 0;
-				if (options != null && currentIndex >= 0 && currentIndex < options.Length) {
-					var option = options.GetValue(currentIndex);
-					if (option != null) {
-						if (_floatOptionAmountField != null) {
-							value = (float)_floatOptionAmountField.GetValue(option);
-						}
-
-						if (_floatOptionLabelField != null) {
-							var locaText = _floatOptionLabelField.GetValue(option);
-							label = GameReflection.GetLocaText(locaText) ?? "";
-						}
-					}
-				}
-
-				return (currentIndex, maxIndex, label, value);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetSliderInfo failed: {ex.Message}");
-				return (0, 0, "", 0);
 			}
+
+			return (currentIndex, maxIndex, label, value);
 		}
 
 		/// <summary>
@@ -970,14 +821,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static bool SetSliderIndex(object sliderPanel, int index) {
 			EnsureTypes();
-			if (sliderPanel == null || _sliderSetIndexMethod == null) return false;
-
-			try {
-				_sliderSetIndexMethod.Invoke(sliderPanel, new object[] { index });
-				return true;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_sliderSetIndexMethod, sliderPanel, index);
 		}
 
 		/// <summary>
@@ -987,28 +831,24 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<(string, int, int, float)>();
 
-			try {
-				var panel = GetReputationPanel(popup);
-				if (panel == null) return result;
+			var panel = GetReputationPanel(popup);
+			if (panel == null) return result;
 
-				var repSlider = _repReputationSliderField?.GetValue(panel);
-				var penSlider = _repPenaltySliderField?.GetValue(panel);
-				var rateSlider = _repPenaltyRateSliderField?.GetValue(panel);
+			var repSlider = ReflectionHelper.GetField(_repReputationSliderField, panel);
+			var penSlider = ReflectionHelper.GetField(_repPenaltySliderField, panel);
+			var rateSlider = ReflectionHelper.GetField(_repPenaltyRateSliderField, panel);
 
-				if (repSlider != null) {
-					var info = GetSliderInfo(repSlider);
-					result.Add(("Reputation to Win", info.index, info.max, info.value));
-				}
-				if (penSlider != null) {
-					var info = GetSliderInfo(penSlider);
-					result.Add(("Impatience to Lose", info.index, info.max, info.value));
-				}
-				if (rateSlider != null) {
-					var info = GetSliderInfo(rateSlider);
-					result.Add(("Impatience Rate", info.index, info.max, info.value));
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetReputationSliders failed: {ex.Message}");
+			if (repSlider != null) {
+				var info = GetSliderInfo(repSlider);
+				result.Add(("Reputation to Win", info.index, info.max, info.value));
+			}
+			if (penSlider != null) {
+				var info = GetSliderInfo(penSlider);
+				result.Add(("Impatience to Lose", info.index, info.max, info.value));
+			}
+			if (rateSlider != null) {
+				var info = GetSliderInfo(rateSlider);
+				result.Add(("Impatience Rate", info.index, info.max, info.value));
 			}
 
 			return result;
@@ -1020,25 +860,21 @@ namespace ATSAccessibility {
 		public static bool AdjustReputationSlider(object popup, int sliderIndex, int delta) {
 			EnsureTypes();
 
-			try {
-				var panel = GetReputationPanel(popup);
-				if (panel == null) return false;
+			var panel = GetReputationPanel(popup);
+			if (panel == null) return false;
 
-				object slider = null;
-				switch (sliderIndex) {
-					case 0: slider = _repReputationSliderField?.GetValue(panel); break;
-					case 1: slider = _repPenaltySliderField?.GetValue(panel); break;
-					case 2: slider = _repPenaltyRateSliderField?.GetValue(panel); break;
-				}
-
-				if (slider == null) return false;
-
-				var info = GetSliderInfo(slider);
-				int newIndex = Mathf.Clamp(info.index + delta, 0, info.max);
-				return SetSliderIndex(slider, newIndex);
-			} catch {
-				return false;
+			object slider = null;
+			switch (sliderIndex) {
+				case 0: slider = ReflectionHelper.GetField(_repReputationSliderField, panel); break;
+				case 1: slider = ReflectionHelper.GetField(_repPenaltySliderField, panel); break;
+				case 2: slider = ReflectionHelper.GetField(_repPenaltyRateSliderField, panel); break;
 			}
+
+			if (slider == null) return false;
+
+			var info = GetSliderInfo(slider);
+			int newIndex = Mathf.Clamp(info.index + delta, 0, info.max);
+			return SetSliderIndex(slider, newIndex);
 		}
 
 		/// <summary>
@@ -1048,28 +884,24 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<(string, int, int, float)>();
 
-			try {
-				var panel = GetSeasonsPanel(popup);
-				if (panel == null) return result;
+			var panel = GetSeasonsPanel(popup);
+			if (panel == null) return result;
 
-				var drizzle = _seasonsDrizzleField?.GetValue(panel);
-				var clearance = _seasonsClearanceField?.GetValue(panel);
-				var storm = _seasonsStormField?.GetValue(panel);
+			var drizzle = ReflectionHelper.GetField(_seasonsDrizzleField, panel);
+			var clearance = ReflectionHelper.GetField(_seasonsClearanceField, panel);
+			var storm = ReflectionHelper.GetField(_seasonsStormField, panel);
 
-				if (drizzle != null) {
-					var info = GetSliderInfo(drizzle);
-					result.Add(("Drizzle Duration", info.index, info.max, info.value));
-				}
-				if (clearance != null) {
-					var info = GetSliderInfo(clearance);
-					result.Add(("Clearance Duration", info.index, info.max, info.value));
-				}
-				if (storm != null) {
-					var info = GetSliderInfo(storm);
-					result.Add(("Storm Duration", info.index, info.max, info.value));
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetSeasonsSliders failed: {ex.Message}");
+			if (drizzle != null) {
+				var info = GetSliderInfo(drizzle);
+				result.Add(("Drizzle Duration", info.index, info.max, info.value));
+			}
+			if (clearance != null) {
+				var info = GetSliderInfo(clearance);
+				result.Add(("Clearance Duration", info.index, info.max, info.value));
+			}
+			if (storm != null) {
+				var info = GetSliderInfo(storm);
+				result.Add(("Storm Duration", info.index, info.max, info.value));
 			}
 
 			return result;
@@ -1081,25 +913,21 @@ namespace ATSAccessibility {
 		public static bool AdjustSeasonsSlider(object popup, int sliderIndex, int delta) {
 			EnsureTypes();
 
-			try {
-				var panel = GetSeasonsPanel(popup);
-				if (panel == null) return false;
+			var panel = GetSeasonsPanel(popup);
+			if (panel == null) return false;
 
-				object slider = null;
-				switch (sliderIndex) {
-					case 0: slider = _seasonsDrizzleField?.GetValue(panel); break;
-					case 1: slider = _seasonsClearanceField?.GetValue(panel); break;
-					case 2: slider = _seasonsStormField?.GetValue(panel); break;
-				}
-
-				if (slider == null) return false;
-
-				var info = GetSliderInfo(slider);
-				int newIndex = Mathf.Clamp(info.index + delta, 0, info.max);
-				return SetSliderIndex(slider, newIndex);
-			} catch {
-				return false;
+			object slider = null;
+			switch (sliderIndex) {
+				case 0: slider = ReflectionHelper.GetField(_seasonsDrizzleField, panel); break;
+				case 1: slider = ReflectionHelper.GetField(_seasonsClearanceField, panel); break;
+				case 2: slider = ReflectionHelper.GetField(_seasonsStormField, panel); break;
 			}
+
+			if (slider == null) return false;
+
+			var info = GetSliderInfo(slider);
+			int newIndex = Mathf.Clamp(info.index + delta, 0, info.max);
+			return SetSliderIndex(slider, newIndex);
 		}
 
 		// ========================================
@@ -1111,18 +939,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsBlightEnabled(object popup) {
 			EnsureTypes();
-
-			try {
-				var panel = GetBlightPanel(popup);
-				if (panel == null) return false;
-
-				var toggle = _blightToggleField?.GetValue(panel);
-				if (toggle == null || _toggleIsOnMethod == null) return false;
-
-				return (bool)_toggleIsOnMethod.Invoke(toggle, null);
-			} catch {
-				return false;
-			}
+			var panel = GetBlightPanel(popup);
+			var toggle = ReflectionHelper.GetField(_blightToggleField, panel);
+			return ReflectionHelper.InvokeBool(_toggleIsOnMethod, toggle);
 		}
 
 		/// <summary>
@@ -1131,27 +950,18 @@ namespace ATSAccessibility {
 		public static bool ToggleBlight(object popup) {
 			EnsureTypes();
 
-			try {
-				var panel = GetBlightPanel(popup);
-				if (panel == null) return false;
+			var panel = GetBlightPanel(popup);
+			var toggle = ReflectionHelper.GetField(_blightToggleField, panel);
 
-				var toggle = _blightToggleField?.GetValue(panel);
-				if (toggle == null) return false;
+			// Find and click the button
+			var toggleComponent = toggle as UnityEngine.Component;
+			if (toggleComponent == null) return false;
 
-				// Find and click the button
-				var toggleComponent = toggle as UnityEngine.Component;
-				if (toggleComponent == null) return false;
+			var button = toggleComponent.GetComponentInChildren<UnityEngine.UI.Button>();
+			if (button == null) return false;
 
-				var button = toggleComponent.GetComponentInChildren<UnityEngine.UI.Button>();
-				if (button != null) {
-					button.onClick.Invoke();
-					return true;
-				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ToggleBlight failed: {ex.Message}");
-			}
-
-			return false;
+			button.onClick.Invoke();
+			return true;
 		}
 
 		/// <summary>
@@ -1161,23 +971,19 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<(string, int, int, float)>();
 
-			try {
-				var panel = GetBlightPanel(popup);
-				if (panel == null) return result;
+			var panel = GetBlightPanel(popup);
+			if (panel == null) return result;
 
-				var footprint = _blightFootprintField?.GetValue(panel);
-				var corruption = _blightCorruptionField?.GetValue(panel);
+			var footprint = ReflectionHelper.GetField(_blightFootprintField, panel);
+			var corruption = ReflectionHelper.GetField(_blightCorruptionField, panel);
 
-				if (footprint != null) {
-					var info = GetSliderInfo(footprint);
-					result.Add(("Blight Footprint", info.index, info.max, info.value));
-				}
-				if (corruption != null) {
-					var info = GetSliderInfo(corruption);
-					result.Add(("Corruption Rate", info.index, info.max, info.value));
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetBlightSliders failed: {ex.Message}");
+			if (footprint != null) {
+				var info = GetSliderInfo(footprint);
+				result.Add(("Blight Footprint", info.index, info.max, info.value));
+			}
+			if (corruption != null) {
+				var info = GetSliderInfo(corruption);
+				result.Add(("Corruption Rate", info.index, info.max, info.value));
 			}
 
 			return result;
@@ -1189,24 +995,20 @@ namespace ATSAccessibility {
 		public static bool AdjustBlightSlider(object popup, int sliderIndex, int delta) {
 			EnsureTypes();
 
-			try {
-				var panel = GetBlightPanel(popup);
-				if (panel == null) return false;
+			var panel = GetBlightPanel(popup);
+			if (panel == null) return false;
 
-				object slider = null;
-				switch (sliderIndex) {
-					case 0: slider = _blightFootprintField?.GetValue(panel); break;
-					case 1: slider = _blightCorruptionField?.GetValue(panel); break;
-				}
-
-				if (slider == null) return false;
-
-				var info = GetSliderInfo(slider);
-				int newIndex = Mathf.Clamp(info.index + delta, 0, info.max);
-				return SetSliderIndex(slider, newIndex);
-			} catch {
-				return false;
+			object slider = null;
+			switch (sliderIndex) {
+				case 0: slider = ReflectionHelper.GetField(_blightFootprintField, panel); break;
+				case 1: slider = ReflectionHelper.GetField(_blightCorruptionField, panel); break;
 			}
+
+			if (slider == null) return false;
+
+			var info = GetSliderInfo(slider);
+			int newIndex = Mathf.Clamp(info.index + delta, 0, info.max);
+			return SetSliderIndex(slider, newIndex);
 		}
 
 		// ========================================
@@ -1218,18 +1020,13 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsSeasonalEffectsRandom(object popup) {
 			EnsureTypes();
+			var panel = GetSeasonalEffectsPanel(popup);
+			if (panel == null) return true;
 
-			try {
-				var panel = GetSeasonalEffectsPanel(popup);
-				if (panel == null) return true;
+			var toggle = ReflectionHelper.GetField(_seasonalRandomButtonField, panel);
+			if (toggle == null || _toggleIsOnMethod == null) return true;
 
-				var toggle = _seasonalRandomButtonField?.GetValue(panel);
-				if (toggle == null || _toggleIsOnMethod == null) return true;
-
-				return (bool)_toggleIsOnMethod.Invoke(toggle, null);
-			} catch {
-				return true;
-			}
+			return ReflectionHelper.InvokeBool(_toggleIsOnMethod, toggle);
 		}
 
 		/// <summary>
@@ -1237,26 +1034,16 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static (int positive, int negative) GetSeasonalEffectsCounts(object popup) {
 			EnsureTypes();
+			var panel = GetSeasonalEffectsPanel(popup);
+			if (panel == null) return (0, 0);
 
-			try {
-				var panel = GetSeasonalEffectsPanel(popup);
-				if (panel == null) return (0, 0);
+			var positiveSlider = ReflectionHelper.GetField(_seasonalPositiveSliderField, panel);
+			var negativeSlider = ReflectionHelper.GetField(_seasonalNegativeSliderField, panel);
 
-				var positiveSlider = _seasonalPositiveSliderField?.GetValue(panel);
-				var negativeSlider = _seasonalNegativeSliderField?.GetValue(panel);
+			int positive = Mathf.RoundToInt(ReflectionHelper.GetPropFloat(_sliderValueProperty, positiveSlider));
+			int negative = Mathf.RoundToInt(ReflectionHelper.GetPropFloat(_sliderValueProperty, negativeSlider));
 
-				int positive = 0, negative = 0;
-				if (positiveSlider != null && _sliderValueProperty != null) {
-					positive = Mathf.RoundToInt((float)_sliderValueProperty.GetValue(positiveSlider));
-				}
-				if (negativeSlider != null && _sliderValueProperty != null) {
-					negative = Mathf.RoundToInt((float)_sliderValueProperty.GetValue(negativeSlider));
-				}
-
-				return (positive, negative);
-			} catch {
-				return (0, 0);
-			}
+			return (positive, negative);
 		}
 
 		/// <summary>
@@ -1265,27 +1052,18 @@ namespace ATSAccessibility {
 		public static bool ToggleSeasonalEffectsMode(object popup) {
 			EnsureTypes();
 
-			try {
-				var panel = GetSeasonalEffectsPanel(popup);
-				if (panel == null) return false;
+			var panel = GetSeasonalEffectsPanel(popup);
+			var toggle = ReflectionHelper.GetField(_seasonalRandomButtonField, panel);
 
-				var toggle = _seasonalRandomButtonField?.GetValue(panel);
-				if (toggle == null) return false;
+			// Find and click the button
+			var toggleComponent = toggle as Component;
+			if (toggleComponent == null) return false;
 
-				// Find and click the button
-				var toggleComponent = toggle as Component;
-				if (toggleComponent == null) return false;
+			var button = toggleComponent.GetComponentInChildren<UnityEngine.UI.Button>();
+			if (button == null) return false;
 
-				var button = toggleComponent.GetComponentInChildren<UnityEngine.UI.Button>();
-				if (button != null) {
-					button.onClick.Invoke();
-					return true;
-				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ToggleSeasonalEffectsMode failed: {ex.Message}");
-			}
-
-			return false;
+			button.onClick.Invoke();
+			return true;
 		}
 
 		/// <summary>
@@ -1294,23 +1072,15 @@ namespace ATSAccessibility {
 		public static bool AdjustSeasonalEffectsPositive(object popup, int delta) {
 			EnsureTypes();
 
-			try {
-				var panel = GetSeasonalEffectsPanel(popup);
-				if (panel == null) return false;
+			var panel = GetSeasonalEffectsPanel(popup);
+			var slider = ReflectionHelper.GetField(_seasonalPositiveSliderField, panel) as UnityEngine.UI.Slider;
+			if (slider == null) return false;
 
-				var slider = _seasonalPositiveSliderField?.GetValue(panel) as UnityEngine.UI.Slider;
-				if (slider == null) return false;
+			float newValue = Mathf.Clamp(slider.value + delta, slider.minValue, slider.maxValue);
+			if (Mathf.Approximately(newValue, slider.value)) return false;
 
-				float newValue = Mathf.Clamp(slider.value + delta, slider.minValue, slider.maxValue);
-				if (Mathf.Approximately(newValue, slider.value)) return false;
-
-				slider.value = newValue;
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] AdjustSeasonalEffectsPositive failed: {ex.Message}");
-			}
-
-			return false;
+			slider.value = newValue;
+			return true;
 		}
 
 		/// <summary>
@@ -1332,65 +1102,61 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<SeasonalEffectInfo>();
 
-			try {
-				var panel = GetSeasonalEffectsPanel(popup);
-				if (panel == null) return result;
+			var panel = GetSeasonalEffectsPanel(popup);
+			if (panel == null) return result;
 
-				// Get the picked list to check which are selected
-				var picked = _seasonalPickedField?.GetValue(panel) as IList;
-				var pickedNames = new HashSet<string>();
-				if (picked != null) {
-					foreach (var se in picked) {
-						var nameField = se.GetType().GetField("name");
-						if (nameField != null) {
-							var name = nameField.GetValue(se) as string;
-							if (!string.IsNullOrEmpty(name))
-								pickedNames.Add(name);
-						}
+			// Get the picked list to check which are selected
+			var picked = ReflectionHelper.GetList(_seasonalPickedField, panel);
+			var pickedNames = new HashSet<string>();
+			if (picked != null) {
+				foreach (var se in picked) {
+					var nameField = se.GetType().GetField("name");
+					if (nameField != null) {
+						var name = ReflectionHelper.GetString(nameField, se);
+						if (!string.IsNullOrEmpty(name))
+							pickedNames.Add(name);
 					}
 				}
-
-				// Get all effects from Settings
-				var settings = GameReflection.GetSettings();
-				if (settings == null) return result;
-
-				var settingsType = settings.GetType();
-
-				// Get simple seasonal effects (these are fields, not properties)
-				var simpleEffects = settingsType.GetField("simpleSeasonalEffects")?.GetValue(settings) as IEnumerable;
-				int simpleCount = 0;
-				int simpleFiltered = 0;
-				if (simpleEffects != null) {
-					foreach (var effect in simpleEffects) {
-						simpleCount++;
-						var info = GetSeasonalEffectInfo(effect, 0, pickedNames);
-						if (info != null && info.DisplayName != "Unknown") {
-							result.Add(info);
-							simpleFiltered++;
-						}
-					}
-				}
-
-				// Get conditional seasonal effects (these are fields, not properties)
-				var conditionalEffects = settingsType.GetField("conditionalSeasonalEffects")?.GetValue(settings) as IEnumerable;
-				int condCount = 0;
-				int condFiltered = 0;
-				if (conditionalEffects != null) {
-					foreach (var effect in conditionalEffects) {
-						condCount++;
-						var info = GetSeasonalEffectInfo(effect, 1, pickedNames);
-						if (info != null && info.DisplayName != "Unknown") {
-							result.Add(info);
-							condFiltered++;
-						}
-					}
-				}
-
-				// Sort: positive first, then by name
-				result = result.OrderByDescending(e => e.IsPositive).ThenBy(e => e.DisplayName).ToList();
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetAllSeasonalEffects failed: {ex.Message}");
 			}
+
+			// Get all effects from Settings
+			var settings = GameReflection.GetSettings();
+			if (settings == null) return result;
+
+			var settingsType = settings.GetType();
+
+			// Get simple seasonal effects (these are fields, not properties)
+			var simpleEffects = ReflectionHelper.GetField(settingsType.GetField("simpleSeasonalEffects"), settings) as IEnumerable;
+			int simpleCount = 0;
+			int simpleFiltered = 0;
+			if (simpleEffects != null) {
+				foreach (var effect in simpleEffects) {
+					simpleCount++;
+					var info = GetSeasonalEffectInfo(effect, 0, pickedNames);
+					if (info != null && info.DisplayName != "Unknown") {
+						result.Add(info);
+						simpleFiltered++;
+					}
+				}
+			}
+
+			// Get conditional seasonal effects (these are fields, not properties)
+			var conditionalEffects = ReflectionHelper.GetField(settingsType.GetField("conditionalSeasonalEffects"), settings) as IEnumerable;
+			int condCount = 0;
+			int condFiltered = 0;
+			if (conditionalEffects != null) {
+				foreach (var effect in conditionalEffects) {
+					condCount++;
+					var info = GetSeasonalEffectInfo(effect, 1, pickedNames);
+					if (info != null && info.DisplayName != "Unknown") {
+						result.Add(info);
+						condFiltered++;
+					}
+				}
+			}
+
+			// Sort: positive first, then by name
+			result = result.OrderByDescending(e => e.IsPositive).ThenBy(e => e.DisplayName).ToList();
 
 			return result;
 		}
@@ -1404,22 +1170,21 @@ namespace ATSAccessibility {
 				// Check if in custom mode (property is PascalCase: IsInCustomMode)
 				var isInCustomModeProp = effectType.GetProperty("IsInCustomMode");
 				if (isInCustomModeProp == null) return null;
-				var isInCustomMode = isInCustomModeProp.GetValue(effect);
-				if (isInCustomMode == null || !(bool)isInCustomMode)
+				if (!ReflectionHelper.GetPropBool(isInCustomModeProp, effect))
 					return null;
 
-				var name = effectType.GetProperty("Name")?.GetValue(effect) as string;
+				var name = ReflectionHelper.GetPropString(effectType.GetProperty("Name"), effect);
 				if (string.IsNullOrEmpty(name)) return null;
 
-				var displayName = effectType.GetProperty("DisplayName")?.GetValue(effect) as string ?? "Unknown";
-				var description = effectType.GetProperty("Description")?.GetValue(effect) as string ?? "";
-				var isPositive = effectType.GetProperty("IsPositive")?.GetValue(effect);
+				var displayName = ReflectionHelper.GetPropString(effectType.GetProperty("DisplayName"), effect) ?? "Unknown";
+				var description = ReflectionHelper.GetPropString(effectType.GetProperty("Description"), effect) ?? "";
+				var isPositive = ReflectionHelper.GetPropBool(effectType.GetProperty("IsPositive"), effect);
 
 				return new SeasonalEffectInfo {
 					Name = name,
 					DisplayName = displayName,
 					Description = description,
-					IsPositive = isPositive != null && (bool)isPositive,
+					IsPositive = isPositive,
 					IsPicked = pickedNames.Contains(name),
 					Type = type
 				};
@@ -1435,53 +1200,45 @@ namespace ATSAccessibility {
 		public static bool ToggleSeasonalEffect(object popup, SeasonalEffectInfo effect) {
 			EnsureTypes();
 
-			try {
-				var panel = GetSeasonalEffectsPanel(popup);
-				if (panel == null) return false;
+			var panel = GetSeasonalEffectsPanel(popup);
+			var picked = ReflectionHelper.GetList(_seasonalPickedField, panel);
+			if (picked == null) return false;
 
-				var picked = _seasonalPickedField?.GetValue(panel) as IList;
-				if (picked == null) return false;
+			// Find the SeasonalEffect type
+			var seasonalEffectType = GameReflection.GameAssembly?.GetType("Eremite.Model.SeasonalEffect");
+			if (seasonalEffectType == null) return false;
 
-				// Find the SeasonalEffect type
-				var seasonalEffectType = GameReflection.GameAssembly.GetType("Eremite.Model.SeasonalEffect");
-				if (seasonalEffectType == null) return false;
-
-				if (effect.IsPicked) {
-					// Remove from picked
-					for (int i = picked.Count - 1; i >= 0; i--) {
-						var se = picked[i];
-						var nameField = se.GetType().GetField("name");
-						if (nameField != null) {
-							var name = nameField.GetValue(se) as string;
-							if (name == effect.Name) {
-								picked.RemoveAt(i);
-								effect.IsPicked = false;
-								return true;
-							}
-						}
+			if (effect.IsPicked) {
+				// Remove from picked
+				for (int i = picked.Count - 1; i >= 0; i--) {
+					var se = picked[i];
+					var nameField = se.GetType().GetField("name");
+					var name = nameField != null ? ReflectionHelper.GetString(nameField, se) : null;
+					if (name == effect.Name) {
+						picked.RemoveAt(i);
+						effect.IsPicked = false;
+						return true;
 					}
-				} else {
-					// Add to picked - create new SeasonalEffect
-					var newEffect = Activator.CreateInstance(seasonalEffectType);
-					var nameField = seasonalEffectType.GetField("name");
-					var typeField = seasonalEffectType.GetField("type");
-
-					if (nameField != null) nameField.SetValue(newEffect, effect.Name);
-					if (typeField != null) {
-						// SeasonEffectType: SimplePerk = 0, Conditional = 1
-						var enumType = GameReflection.GameAssembly.GetType("Eremite.Model.SeasonEffectType");
-						if (enumType != null) {
-							var enumValue = Enum.ToObject(enumType, effect.Type);
-							typeField.SetValue(newEffect, enumValue);
-						}
-					}
-
-					picked.Add(newEffect);
-					effect.IsPicked = true;
-					return true;
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ToggleSeasonalEffect failed: {ex.Message}");
+			} else {
+				// Add to picked - create new SeasonalEffect
+				var newEffect = Activator.CreateInstance(seasonalEffectType);
+				var nameField = seasonalEffectType.GetField("name");
+				var typeField = seasonalEffectType.GetField("type");
+
+				ReflectionHelper.SetField(nameField, newEffect, effect.Name);
+				if (typeField != null) {
+					// SeasonEffectType: SimplePerk = 0, Conditional = 1
+					var enumType = GameReflection.GameAssembly.GetType("Eremite.Model.SeasonEffectType");
+					if (enumType != null) {
+						var enumValue = Enum.ToObject(enumType, effect.Type);
+						ReflectionHelper.SetField(typeField, newEffect, enumValue);
+					}
+				}
+
+				picked.Add(newEffect);
+				effect.IsPicked = true;
+				return true;
 			}
 
 			return false;
@@ -1491,18 +1248,16 @@ namespace ATSAccessibility {
 		/// Get maximum number of seasonal effects that can be picked.
 		/// </summary>
 		public static int GetMaxSeasonalEffects() {
-			try {
-				var settings = GameReflection.GetSettings();
-				if (settings == null) return 6;
+			var settings = GameReflection.GetSettings();
+			if (settings == null) return 6;
 
-				var config = settings.GetType().GetProperty("customGameConfig")?.GetValue(settings);
-				if (config == null) return 6;
+			var configProp = settings.GetType().GetProperty("customGameConfig");
+			var config = ReflectionHelper.GetProp(configProp, settings);
+			if (config == null) return 6;
 
-				var maxEffects = config.GetType().GetField("maxSeasonalEffects")?.GetValue(config);
-				if (maxEffects != null) return (int)maxEffects;
-			} catch { }
-
-			return 6;  // Default fallback
+			var maxField = config.GetType().GetField("maxSeasonalEffects");
+			int val = ReflectionHelper.GetInt(maxField, config);
+			return maxField != null ? val : 6;
 		}
 
 		// ========================================
@@ -1516,37 +1271,25 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<(string, bool)>();
 
-			try {
-				var panel = GetTradeTownsPanel(popup);
-				if (panel == null) return result;
+			var panel = GetTradeTownsPanel(popup);
+			var slots = ReflectionHelper.GetList(_tradeTownsSlotsField, panel);
+			if (slots == null) return result;
 
-				var slots = _tradeTownsSlotsField?.GetValue(panel) as IList;
-				if (slots == null) return result;
+			foreach (var slot in slots) {
+				if (slot == null) continue;
 
-				foreach (var slot in slots) {
-					if (slot == null) continue;
+				var slotComponent = slot as Component;
+				if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
 
-					var slotComponent = slot as Component;
-					if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
+				// Get name from the label
+				var label = ReflectionHelper.GetField(_tradeTownSlotLabelField, slot);
+				string name = ReflectionHelper.GetPropString(_tmpTextProperty, label) ?? "Unknown";
 
-					// Get name from the label
-					string name = "Unknown";
-					var label = _tradeTownSlotLabelField?.GetValue(slot);
-					if (label != null && _tmpTextProperty != null) {
-						name = _tmpTextProperty.GetValue(label) as string ?? "Unknown";
-					}
+				// Get selection state from the toggle
+				var toggle = ReflectionHelper.GetField(_tradeTownSlotToggleField, slot);
+				bool isSelected = ReflectionHelper.InvokeBool(_toggleIsOnMethod, toggle);
 
-					// Get selection state from the toggle
-					bool isSelected = false;
-					var toggle = _tradeTownSlotToggleField?.GetValue(slot);
-					if (toggle != null && _toggleIsOnMethod != null) {
-						isSelected = (bool)_toggleIsOnMethod.Invoke(toggle, null);
-					}
-
-					result.Add((name, isSelected));
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetTradeTownSlots failed: {ex.Message}");
+				result.Add((name, isSelected));
 			}
 
 			return result;
@@ -1558,44 +1301,36 @@ namespace ATSAccessibility {
 		public static bool ToggleTradeTownSlot(object popup, int slotIndex) {
 			EnsureTypes();
 
-			try {
-				var panel = GetTradeTownsPanel(popup);
-				if (panel == null) return false;
+			var panel = GetTradeTownsPanel(popup);
+			var slots = ReflectionHelper.GetList(_tradeTownsSlotsField, panel);
+			if (slots == null) return false;
 
-				var slots = _tradeTownsSlotsField?.GetValue(panel) as IList;
-				if (slots == null) return false;
+			// Find the actual slot at the index (only counting active slots)
+			int activeIndex = 0;
+			foreach (var slot in slots) {
+				if (slot == null) continue;
 
-				// Find the actual slot at the index (only counting active slots)
-				int activeIndex = 0;
-				foreach (var slot in slots) {
-					if (slot == null) continue;
+				var slotComponent = slot as Component;
+				if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
 
-					var slotComponent = slot as Component;
-					if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
+				if (activeIndex == slotIndex) {
+					// Find and click the button
+					var toggle = ReflectionHelper.GetField(_tradeTownSlotToggleField, slot);
 
-					if (activeIndex == slotIndex) {
-						// Find and click the button
-						var toggle = _tradeTownSlotToggleField?.GetValue(slot);
-						if (toggle == null) return false;
+					var toggleComponent = toggle as Component;
+					if (toggleComponent == null) return false;
 
-						var toggleComponent = toggle as Component;
-						if (toggleComponent == null) return false;
+					var button = toggleComponent.GetComponentInChildren<UnityEngine.UI.Button>();
+					if (button == null) return false;
 
-						var button = toggleComponent.GetComponentInChildren<UnityEngine.UI.Button>();
-						if (button != null) {
-							// Check interactability - game limits how many can be selected
-							if (!button.interactable)
-								return false;
-
-							button.onClick.Invoke();
-							return true;
-						}
+					// Check interactability - game limits how many can be selected
+					if (!button.interactable)
 						return false;
-					}
-					activeIndex++;
+
+					button.onClick.Invoke();
+					return true;
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ToggleTradeTownSlot failed: {ex.Message}");
+				activeIndex++;
 			}
 
 			return false;
@@ -1613,36 +1348,30 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<ModifierInfo>();
 
-			try {
-				var panel = GetModifiersPanel(popup);
-				if (panel == null) return result;
+			var panel = GetModifiersPanel(popup);
+			var allModifiers = ReflectionHelper.GetList(_modAllModifiersField, panel);
+			if (allModifiers == null) return result;
 
-				var allModifiers = _modAllModifiersField?.GetValue(panel) as IList;
-				if (allModifiers == null) return result;
+			foreach (var modifier in allModifiers) {
+				if (modifier == null) continue;
 
-				foreach (var modifier in allModifiers) {
-					if (modifier == null) continue;
+				string effectName = ReflectionHelper.GetString(_mdEffectField, modifier) ?? "";
+				bool isPositive = ReflectionHelper.GetBool(_mdIsPositiveField, modifier);
+				bool isPicked = ReflectionHelper.GetBool(_mdIsPickedField, modifier);
+				int typeValue = ReflectionHelper.GetInt(_mdTypeField, modifier);
 
-					string effectName = _mdEffectField?.GetValue(modifier) as string ?? "";
-					bool isPositive = (bool)(_mdIsPositiveField?.GetValue(modifier) ?? false);
-					bool isPicked = (bool)(_mdIsPickedField?.GetValue(modifier) ?? false);
-					int typeValue = (int)(_mdTypeField?.GetValue(modifier) ?? 0);
+				// Get display name and description from effect model
+				var (displayName, description) = GetEffectNameAndDescription(effectName);
 
-					// Get display name and description from effect model
-					var (displayName, description) = GetEffectNameAndDescription(effectName);
-
-					result.Add(new ModifierInfo {
-						EffectName = effectName,
-						DisplayName = displayName,
-						Description = description,
-						IsPositive = isPositive,
-						IsPicked = isPicked,
-						Type = (ModifierType)typeValue,
-						DataObject = modifier
-					});
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetAllModifiers failed: {ex.Message}");
+				result.Add(new ModifierInfo {
+					EffectName = effectName,
+					DisplayName = displayName,
+					Description = description,
+					IsPositive = isPositive,
+					IsPicked = isPicked,
+					Type = (ModifierType)typeValue,
+					DataObject = modifier
+				});
 			}
 
 			return result;
@@ -1655,23 +1384,19 @@ namespace ATSAccessibility {
 			if (string.IsNullOrEmpty(effectName))
 				return ("Unknown", "");
 
-			try {
-				var effectModel = GameReflection.GetEffectModel(effectName);
-				if (effectModel == null)
-					return (effectName, "");
-
-				var displayNameProp = effectModel.GetType().GetProperty("DisplayName",
-					BindingFlags.Public | BindingFlags.Instance);
-				string displayName = displayNameProp?.GetValue(effectModel)?.ToString() ?? effectName;
-
-				var descProp = effectModel.GetType().GetProperty("Description",
-					BindingFlags.Public | BindingFlags.Instance);
-				string description = descProp?.GetValue(effectModel)?.ToString() ?? "";
-
-				return (displayName, description);
-			} catch {
+			var effectModel = GameReflection.GetEffectModel(effectName);
+			if (effectModel == null)
 				return (effectName, "");
-			}
+
+			var displayNameProp = effectModel.GetType().GetProperty("DisplayName",
+				BindingFlags.Public | BindingFlags.Instance);
+			string displayName = ReflectionHelper.GetProp(displayNameProp, effectModel)?.ToString() ?? effectName;
+
+			var descProp = effectModel.GetType().GetProperty("Description",
+				BindingFlags.Public | BindingFlags.Instance);
+			string description = ReflectionHelper.GetProp(descProp, effectModel)?.ToString() ?? "";
+
+			return (displayName, description);
 		}
 
 		/// <summary>
@@ -1681,27 +1406,22 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			if (modifier?.DataObject == null) return false;
 
-			try {
-				// Toggle the isPicked field directly on the data object
-				bool currentPicked = (bool)(_mdIsPickedField?.GetValue(modifier.DataObject) ?? false);
-				bool newPicked = !currentPicked;
-				_mdIsPickedField?.SetValue(modifier.DataObject, newPicked);
+			// Toggle the isPicked field directly on the data object
+			bool currentPicked = ReflectionHelper.GetBool(_mdIsPickedField, modifier.DataObject);
+			bool newPicked = !currentPicked;
+			ReflectionHelper.SetField(_mdIsPickedField, modifier.DataObject, newPicked);
 
-				// Update the UI by calling UpdateSlots on the panel
-				var panel = GetModifiersPanel(popup);
-				if (panel != null) {
-					var updateMethod = panel.GetType().GetMethod("UpdateSlots",
-						BindingFlags.NonPublic | BindingFlags.Instance);
-					updateMethod?.Invoke(panel, null);
-				}
-
-				// Update the ModifierInfo to reflect the new state
-				modifier.IsPicked = newPicked;
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ToggleModifier failed: {ex.Message}");
-				return false;
+			// Update the UI by calling UpdateSlots on the panel
+			var panel = GetModifiersPanel(popup);
+			if (panel != null) {
+				var updateMethod = panel.GetType().GetMethod("UpdateSlots",
+					BindingFlags.NonPublic | BindingFlags.Instance);
+				ReflectionHelper.InvokeVoid(updateMethod, panel);
 			}
+
+			// Update the ModifierInfo to reflect the new state
+			modifier.IsPicked = newPicked;
+			return true;
 		}
 
 		// ========================================
@@ -1715,35 +1435,27 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<(string, int)>();
 
-			try {
-				var panel = GetGoodsPanel(popup);
-				if (panel == null) return result;
+			var panel = GetGoodsPanel(popup);
+			var slots = ReflectionHelper.GetList(_goodsSlotsField, panel);
+			if (slots == null) return result;
 
-				var slots = _goodsSlotsField?.GetValue(panel) as IList;
-				if (slots == null) return result;
+			foreach (var slot in slots) {
+				if (slot == null) continue;
 
-				foreach (var slot in slots) {
-					if (slot == null) continue;
+				var slotComponent = slot as UnityEngine.Component;
+				if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
 
-					var slotComponent = slot as UnityEngine.Component;
-					if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
+				var good = ReflectionHelper.Invoke(_goodSlotGetGoodMethod, slot);
+				if (good != null) {
+					string goodName = ReflectionHelper.GetString(_goodNameField, good) ?? "";
+					int amount = ReflectionHelper.GetInt(_goodAmountField, good);
 
-					if (_goodSlotGetGoodMethod != null) {
-						var good = _goodSlotGetGoodMethod.Invoke(slot, null);
-						if (good != null) {
-							string goodName = _goodNameField?.GetValue(good) as string ?? "";
-							int amount = (int)(_goodAmountField?.GetValue(good) ?? 0);
-
-							// Include all goods even at 0 so player doesn't lose their place
-							if (!string.IsNullOrEmpty(goodName)) {
-								string displayName = GameReflection.GetGoodDisplayName(goodName);
-								result.Add((displayName, amount));
-							}
-						}
+					// Include all goods even at 0 so player doesn't lose their place
+					if (!string.IsNullOrEmpty(goodName)) {
+						string displayName = GameReflection.GetGoodDisplayName(goodName);
+						result.Add((displayName, amount));
 					}
 				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetEmbarkGoods failed: {ex.Message}");
 			}
 
 			return result;
@@ -1755,45 +1467,37 @@ namespace ATSAccessibility {
 		public static bool AdjustEmbarkGood(object popup, int slotIndex, int delta) {
 			EnsureTypes();
 
-			try {
-				var panel = GetGoodsPanel(popup);
-				if (panel == null) return false;
+			var panel = GetGoodsPanel(popup);
+			var slots = ReflectionHelper.GetList(_goodsSlotsField, panel);
+			if (slots == null) return false;
 
-				var slots = _goodsSlotsField?.GetValue(panel) as IList;
-				if (slots == null) return false;
+			// Find the slot at the active index
+			int activeIndex = 0;
+			foreach (var slot in slots) {
+				if (slot == null) continue;
 
-				// Find the slot at the active index
-				int activeIndex = 0;
-				foreach (var slot in slots) {
-					if (slot == null) continue;
+				var slotComponent = slot as UnityEngine.Component;
+				if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
 
-					var slotComponent = slot as UnityEngine.Component;
-					if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
+				if (activeIndex == slotIndex) {
+					// Click the plus or minus button directly
+					// This properly updates the internal Good struct
+					var buttonField = delta > 0 ? _goodSlotPlusButtonField : _goodSlotMinusButtonField;
+					var button = ReflectionHelper.GetField(buttonField, slot) as UnityEngine.UI.Button;
+					if (button == null) return false;
 
-					if (activeIndex == slotIndex) {
-						// Click the plus or minus button directly
-						// This properly updates the internal Good struct
-						var buttonField = delta > 0 ? _goodSlotPlusButtonField : _goodSlotMinusButtonField;
-						if (buttonField == null) return false;
-
-						var button = buttonField.GetValue(slot) as UnityEngine.UI.Button;
-						if (button == null) return false;
-
-						// Click the button multiple times based on delta magnitude
-						int clicks = Math.Abs(delta);
-						bool anyClicked = false;
-						for (int i = 0; i < clicks; i++) {
-							// Re-check button state each time (may hit min/max limit or be destroyed)
-							if (button == null || !button.interactable) break;
-							button.onClick?.Invoke();
-							anyClicked = true;
-						}
-						return anyClicked;
+					// Click the button multiple times based on delta magnitude
+					int clicks = Math.Abs(delta);
+					bool anyClicked = false;
+					for (int i = 0; i < clicks; i++) {
+						// Re-check button state each time (may hit min/max limit or be destroyed)
+						if (button == null || !button.interactable) break;
+						button.onClick?.Invoke();
+						anyClicked = true;
 					}
-					activeIndex++;
+					return anyClicked;
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] AdjustEmbarkGood failed: {ex.Message}");
+				activeIndex++;
 			}
 
 			return false;
@@ -1810,35 +1514,27 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<(object, string, bool)>();
 
-			try {
-				var panel = GetEffectsPanel(popup);
-				if (panel == null) return result;
+			var panel = GetEffectsPanel(popup);
+			if (panel == null) return result;
 
-				var allEffects = _effectsAllField?.GetValue(panel) as IList;
-				var pickedEffects = _effectsPickedField?.GetValue(panel) as IList;
+			var allEffects = ReflectionHelper.GetList(_effectsAllField, panel);
+			var pickedEffects = ReflectionHelper.GetList(_effectsPickedField, panel);
 
-				var pickedSet = new HashSet<object>();
-				if (pickedEffects != null) {
-					foreach (var item in pickedEffects) {
-						if (item != null) pickedSet.Add(item);
-					}
+			var pickedSet = new HashSet<object>();
+			if (pickedEffects != null) {
+				foreach (var item in pickedEffects) {
+					if (item != null) pickedSet.Add(item);
 				}
+			}
 
-				if (allEffects == null) return result;
+			if (allEffects == null) return result;
 
-				foreach (var effect in allEffects) {
-					if (effect == null) continue;
+			foreach (var effect in allEffects) {
+				if (effect == null) continue;
 
-					string displayName = "Unknown";
-					if (_emDisplayNameProperty != null) {
-						displayName = _emDisplayNameProperty.GetValue(effect)?.ToString() ?? "Unknown";
-					}
-
-					bool isSelected = pickedSet.Contains(effect);
-					result.Add((effect, displayName, isSelected));
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetEmbarkEffects failed: {ex.Message}");
+				string displayName = ReflectionHelper.GetProp(_emDisplayNameProperty, effect)?.ToString() ?? "Unknown";
+				bool isSelected = pickedSet.Contains(effect);
+				result.Add((effect, displayName, isSelected));
 			}
 
 			return result;
@@ -1850,34 +1546,28 @@ namespace ATSAccessibility {
 		public static bool ToggleEmbarkEffect(object popup, int effectIndex) {
 			EnsureTypes();
 
-			try {
-				var panel = GetEffectsPanel(popup);
-				if (panel == null) return false;
+			var panel = GetEffectsPanel(popup);
+			var slots = ReflectionHelper.GetList(_effectsSlotsField, panel);
+			if (slots == null) return false;
 
-				var slots = _effectsSlotsField?.GetValue(panel) as IList;
-				if (slots == null) return false;
+			// Find the slot at the index
+			int activeIndex = 0;
+			foreach (var slot in slots) {
+				if (slot == null) continue;
 
-				// Find the slot at the index
-				int activeIndex = 0;
-				foreach (var slot in slots) {
-					if (slot == null) continue;
+				var slotComponent = slot as UnityEngine.Component;
+				if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
 
-					var slotComponent = slot as UnityEngine.Component;
-					if (slotComponent == null || !slotComponent.gameObject.activeSelf) continue;
-
-					if (activeIndex == effectIndex) {
-						// Click the button
-						var button = slotComponent.GetComponentInChildren<UnityEngine.UI.Button>();
-						if (button != null) {
-							button.onClick.Invoke();
-							return true;
-						}
-						return false;
+				if (activeIndex == effectIndex) {
+					// Click the button
+					var button = slotComponent.GetComponentInChildren<UnityEngine.UI.Button>();
+					if (button != null) {
+						button.onClick.Invoke();
+						return true;
 					}
-					activeIndex++;
+					return false;
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ToggleEmbarkEffect failed: {ex.Message}");
+				activeIndex++;
 			}
 
 			return false;
@@ -1892,22 +1582,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool TriggerEmbark(object popup) {
 			EnsureTypes();
-
-			try {
-				if (popup == null || _embarkButtonField == null) return false;
-
-				var button = _embarkButtonField.GetValue(popup);
-				if (button == null || _buttonOnClickProperty == null) return false;
-
-				var onClick = _buttonOnClickProperty.GetValue(button);
-				if (onClick == null || _unityEventInvokeMethod == null) return false;
-
-				_unityEventInvokeMethod.Invoke(onClick, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] TriggerEmbark failed: {ex.Message}");
-				return false;
-			}
+			var button = ReflectionHelper.GetField(_embarkButtonField, popup);
+			var onClick = ReflectionHelper.GetProp(_buttonOnClickProperty, button);
+			return ReflectionHelper.InvokeVoid(_unityEventInvokeMethod, onClick);
 		}
 
 		// ========================================

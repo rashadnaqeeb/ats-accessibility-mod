@@ -75,11 +75,6 @@ namespace ATSAccessibility {
 		private static Type _raceModelType = null;
 		private static Type _needModelType = null;
 
-		// Pre-allocated args arrays
-		private static readonly object[] _args1 = new object[1];
-		private static readonly object[] _args2 = new object[2];
-		private static readonly object[] _args3 = new object[3];
-
 		// ========================================
 		// INITIALIZATION
 		// ========================================
@@ -88,13 +83,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] ConsumptionReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("ConsumptionReflection", assembly => {
 				CachePopupTypes(assembly);
 				CacheServiceTypes(assembly);
 				CacheNeedModelTypes(assembly);
@@ -102,11 +91,7 @@ namespace ATSAccessibility {
 				CacheRaceModelTypes(assembly);
 				CacheSettingsTypes(assembly);
 				CacheStateTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] ConsumptionReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ConsumptionReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CachePopupTypes(Assembly assembly) {
@@ -269,7 +254,7 @@ namespace ATSAccessibility {
 			EnsureCached();
 			var effectsService = GetEffectsService();
 			if (effectsService == null || _esIsConsumptionControlBlockedMethod == null) return false;
-			try { return (bool)_esIsConsumptionControlBlockedMethod.Invoke(effectsService, null); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_esIsConsumptionControlBlockedMethod, effectsService);
 		}
 
 		/// <summary>
@@ -285,13 +270,12 @@ namespace ATSAccessibility {
 			var seen = new HashSet<object>();
 			foreach (var need in needs) {
 				if (need == null) continue;
-				var category = _nmCategoryField?.GetValue(need);
+				var category = ReflectionHelper.GetField(_nmCategoryField, need);
 				if (category == null) continue;
 				if (seen.Contains(category)) continue;
 
 				// Skip house-based categories
-				var isHouseBased = _ncmIsHouseBasedField?.GetValue(category);
-				if (isHouseBased is bool hb && hb) continue;
+				if (ReflectionHelper.GetBool(_ncmIsHouseBasedField, category)) continue;
 
 				seen.Add(category);
 				result.Add(category);
@@ -306,8 +290,7 @@ namespace ATSAccessibility {
 		public static string GetCategoryName(object category) {
 			EnsureCached();
 			if (category == null) return "Unknown";
-			var locaText = _ncmDisplayNameField?.GetValue(category);
-			return GameReflection.GetLocaText(locaText) ?? "Unknown";
+			return ReflectionHelper.GetLocaString(_ncmDisplayNameField, category) ?? "Unknown";
 		}
 
 		/// <summary>
@@ -322,15 +305,13 @@ namespace ATSAccessibility {
 			if (stateService == null || _ssActorsProperty == null) return result;
 
 			try {
-				var actors = _ssActorsProperty.GetValue(stateService);
+				var actors = ReflectionHelper.GetProp(_ssActorsProperty, stateService);
 				if (actors == null || _actorsRawFoodPermitsField == null) return result;
 
-				var dict = _actorsRawFoodPermitsField.GetValue(actors);
+				var dict = ReflectionHelper.GetField(_actorsRawFoodPermitsField, actors);
 				if (dict == null) return result;
 
-				// Use reflection iteration pattern for the dictionary
-				var keysProperty = dict.GetType().GetProperty("Keys");
-				var keys = keysProperty?.GetValue(dict) as IEnumerable;
+				var keys = ReflectionHelper.IterateKeys(dict);
 				if (keys == null) return result;
 
 				foreach (var key in keys) {
@@ -358,15 +339,13 @@ namespace ATSAccessibility {
 				var getGoodMethod = settings.GetType().GetMethod("GetGood", new Type[] { typeof(string) });
 				if (getGoodMethod == null) return id;
 
-				_args1[0] = id;
-				var good = getGoodMethod.Invoke(settings, _args1);
+				var good = ReflectionHelper.Invoke(getGoodMethod, settings, id);
 				if (good == null) return id;
 
 				var displayNameField = good.GetType().GetField("displayName", GameReflection.PublicInstance);
 				if (displayNameField == null) return id;
 
-				var locaText = displayNameField.GetValue(good);
-				return GameReflection.GetLocaText(locaText) ?? id;
+				return ReflectionHelper.GetLocaString(displayNameField, good) ?? id;
 			} catch {
 				return id;
 			}
@@ -379,11 +358,8 @@ namespace ATSAccessibility {
 			EnsureCached();
 			var needsService = GetNeedsService();
 			if (needsService == null || _nsIsPermitedRawFoodMethod == null) return true;
-
-			try {
-				_args1[0] = id;
-				return (bool)_nsIsPermitedRawFoodMethod.Invoke(needsService, _args1);
-			} catch { return true; }
+			var result = ReflectionHelper.Invoke(_nsIsPermitedRawFoodMethod, needsService, id);
+			return result is bool b ? b : true;
 		}
 
 		/// <summary>
@@ -393,13 +369,7 @@ namespace ATSAccessibility {
 			EnsureCached();
 			var needsService = GetNeedsService();
 			if (needsService == null || _nsSetPermisionRawFoodMethod == null) return false;
-
-			try {
-				_args2[0] = id;
-				_args2[1] = isOn;
-				_nsSetPermisionRawFoodMethod.Invoke(needsService, _args2);
-				return true;
-			} catch { return false; }
+			return ReflectionHelper.InvokeVoid(_nsSetPermisionRawFoodMethod, needsService, id, isOn);
 		}
 
 		/// <summary>
@@ -419,7 +389,8 @@ namespace ATSAccessibility {
 			EnsureCached();
 			var needsService = GetNeedsService();
 			if (needsService == null || _nsIsAllRawFoodPermitedMethod == null) return true;
-			try { return (bool)_nsIsAllRawFoodPermitedMethod.Invoke(needsService, null); } catch { return true; }
+			var result = ReflectionHelper.Invoke(_nsIsAllRawFoodPermitedMethod, needsService);
+			return result is bool b ? b : true;
 		}
 
 		/// <summary>
@@ -429,7 +400,7 @@ namespace ATSAccessibility {
 			EnsureCached();
 			var needsService = GetNeedsService();
 			if (needsService == null || _nsIsAllRawFoodProhibitedMethod == null) return false;
-			try { return (bool)_nsIsAllRawFoodProhibitedMethod.Invoke(needsService, null); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_nsIsAllRawFoodProhibitedMethod, needsService);
 		}
 
 		/// <summary>
@@ -446,12 +417,11 @@ namespace ATSAccessibility {
 				if (need == null) continue;
 
 				// Check category matches
-				var needCategory = _nmCategoryField?.GetValue(need);
+				var needCategory = ReflectionHelper.GetField(_nmCategoryField, need);
 				if (needCategory == null || !ReferenceEquals(needCategory, category)) continue;
 
 				// Check canBeProhibited
-				var canBeProhibited = _nmCanBeProhibitedField?.GetValue(need);
-				if (canBeProhibited is bool cbp && cbp)
+				if (ReflectionHelper.GetBool(_nmCanBeProhibitedField, need))
 					result.Add(need);
 			}
 
@@ -464,9 +434,7 @@ namespace ATSAccessibility {
 		public static string GetNeedName(object need) {
 			EnsureCached();
 			if (need == null) return "Unknown";
-			try {
-				return _nmDisplayNameProperty?.GetValue(need) as string ?? "Unknown";
-			} catch { return "Unknown"; }
+			return ReflectionHelper.GetPropString(_nmDisplayNameProperty, need) ?? "Unknown";
 		}
 
 		/// <summary>
@@ -523,16 +491,14 @@ namespace ATSAccessibility {
 			if (racesService == null || _rsRacesProperty == null) return result;
 
 			try {
-				var races = _rsRacesProperty.GetValue(racesService) as Array;
+				var races = ReflectionHelper.GetProp(_rsRacesProperty, racesService) as Array;
 				if (races == null) return result;
 
 				foreach (var race in races) {
 					if (race == null) continue;
 
 					if (_rsIsRevealedMethod != null) {
-						_args1[0] = race;
-						var revealed = _rsIsRevealedMethod.Invoke(racesService, _args1);
-						if (revealed is bool r && !r) continue;
+						if (!ReflectionHelper.InvokeBool(_rsIsRevealedMethod, racesService, race)) continue;
 					}
 
 					result.Add(race);
@@ -557,7 +523,7 @@ namespace ATSAccessibility {
 			if (racesService == null || _rsRacesProperty == null) return result;
 
 			try {
-				var races = _rsRacesProperty.GetValue(racesService) as Array;
+				var races = ReflectionHelper.GetProp(_rsRacesProperty, racesService) as Array;
 				if (races == null) return result;
 
 				foreach (var race in races) {
@@ -565,16 +531,12 @@ namespace ATSAccessibility {
 
 					// Check if revealed
 					if (_rsIsRevealedMethod != null) {
-						_args1[0] = race;
-						var revealed = _rsIsRevealedMethod.Invoke(racesService, _args1);
-						if (revealed is bool r && !r) continue;
+						if (!ReflectionHelper.InvokeBool(_rsIsRevealedMethod, racesService, race)) continue;
 					}
 
 					// Check if race has this need
 					if (_rmHasNeedMethod != null) {
-						_args1[0] = need;
-						var hasNeed = _rmHasNeedMethod.Invoke(race, _args1);
-						if (hasNeed is bool hn && !hn) continue;
+						if (!ReflectionHelper.InvokeBool(_rmHasNeedMethod, race, need)) continue;
 					}
 
 					result.Add(race);
@@ -592,8 +554,7 @@ namespace ATSAccessibility {
 		public static string GetRaceName(object race) {
 			EnsureCached();
 			if (race == null) return "Unknown";
-			var locaText = _rmDisplayNameField?.GetValue(race);
-			return GameReflection.GetLocaText(locaText) ?? "Unknown";
+			return ReflectionHelper.GetLocaString(_rmDisplayNameField, race) ?? "Unknown";
 		}
 
 		/// <summary>
@@ -603,12 +564,8 @@ namespace ATSAccessibility {
 			EnsureCached();
 			var needsService = GetNeedsService();
 			if (needsService == null || _nsIsPermitedRaceNeedMethod == null) return true;
-
-			try {
-				_args2[0] = race;
-				_args2[1] = need;
-				return (bool)_nsIsPermitedRaceNeedMethod.Invoke(needsService, _args2);
-			} catch { return true; }
+			var result = ReflectionHelper.Invoke(_nsIsPermitedRaceNeedMethod, needsService, race, need);
+			return result is bool b ? b : true;
 		}
 
 		/// <summary>
@@ -618,14 +575,7 @@ namespace ATSAccessibility {
 			EnsureCached();
 			var needsService = GetNeedsService();
 			if (needsService == null || _nsSetPermisionRaceNeedMethod == null) return false;
-
-			try {
-				_args3[0] = race;
-				_args3[1] = need;
-				_args3[2] = isOn;
-				_nsSetPermisionRaceNeedMethod.Invoke(needsService, _args3);
-				return true;
-			} catch { return false; }
+			return ReflectionHelper.InvokeVoid(_nsSetPermisionRaceNeedMethod, needsService, race, need, isOn);
 		}
 
 		/// <summary>
@@ -640,19 +590,15 @@ namespace ATSAccessibility {
 			int current = 0;
 			int max = 0;
 
-			try {
-				if (_nsGetCurrentResolveImpactMethod != null) {
-					_args2[0] = race;
-					_args2[1] = need;
-					current = (int)_nsGetCurrentResolveImpactMethod.Invoke(needsService, _args2);
-				}
+			if (_nsGetCurrentResolveImpactMethod != null) {
+				var result = ReflectionHelper.Invoke(_nsGetCurrentResolveImpactMethod, needsService, race, need);
+				if (result is int i) current = i;
+			}
 
-				if (_nsGetMaxResolveImpactMethod != null) {
-					_args2[0] = race;
-					_args2[1] = need;
-					max = (int)_nsGetMaxResolveImpactMethod.Invoke(needsService, _args2);
-				}
-			} catch { }
+			if (_nsGetMaxResolveImpactMethod != null) {
+				var result = ReflectionHelper.Invoke(_nsGetMaxResolveImpactMethod, needsService, race, need);
+				if (result is int i) max = i;
+			}
 
 			return (current, max);
 		}
@@ -726,19 +672,15 @@ namespace ATSAccessibility {
 
 			try {
 				// Get StateService.Effects (EffectsState)
-				if (_ssEffectsProperty == null) return null;
-				var effectsState = _ssEffectsProperty.GetValue(stateService);
+				var effectsState = ReflectionHelper.GetProp(_ssEffectsProperty, stateService);
 				if (effectsState == null) return null;
 
 				// Get consumptionControlLocks (List<string>)
-				if (_effectsConsumptionControlLocksField == null) return null;
-				var locks = _effectsConsumptionControlLocksField.GetValue(effectsState) as List<string>;
+				var locks = ReflectionHelper.GetField(_effectsConsumptionControlLocksField, effectsState) as List<string>;
 				if (locks == null || locks.Count == 0) return null;
 
 				// Call EffectsService.GetEffectsDisplayList(List<string>)
-				if (_esGetEffectsDisplayListMethod == null) return null;
-				_args1[0] = locks;
-				return _esGetEffectsDisplayListMethod.Invoke(effectsService, _args1) as string;
+				return ReflectionHelper.InvokeString(_esGetEffectsDisplayListMethod, effectsService, locks);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] ConsumptionReflection.GetBlockingEffectsList failed: {ex.Message}");
 				return null;
@@ -761,8 +703,7 @@ namespace ATSAccessibility {
 
 			foreach (var need in allNeeds) {
 				if (need == null) continue;
-				var canBeProhibited = _nmCanBeProhibitedField?.GetValue(need);
-				if (!(canBeProhibited is bool cbp && cbp)) continue;
+				if (!ReflectionHelper.GetBool(_nmCanBeProhibitedField, need)) continue;
 
 				if (IsNeedPermittedForRace(race, need))
 					anyPermitted = true;
@@ -790,8 +731,7 @@ namespace ATSAccessibility {
 
 			foreach (var need in allNeeds) {
 				if (need == null) continue;
-				var canBeProhibited = _nmCanBeProhibitedField?.GetValue(need);
-				if (!(canBeProhibited is bool cbp && cbp)) continue;
+				if (!ReflectionHelper.GetBool(_nmCanBeProhibitedField, need)) continue;
 
 				SetNeedPermissionForRace(race, need, isOn);
 			}
@@ -807,10 +747,7 @@ namespace ATSAccessibility {
 		private static Array GetAllNeeds() {
 			var settings = GameReflection.GetSettings();
 			if (settings == null || _settingsNeedsField == null) return null;
-
-			try {
-				return _settingsNeedsField.GetValue(settings) as Array;
-			} catch { return null; }
+			return ReflectionHelper.GetField(_settingsNeedsField, settings) as Array;
 		}
 
 		public static int LogCacheStatus() {

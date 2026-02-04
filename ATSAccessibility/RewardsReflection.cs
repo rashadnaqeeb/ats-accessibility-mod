@@ -46,10 +46,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("RewardsReflection", assembly => {
 				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
 				if (gameServicesType == null) return;
 
@@ -77,11 +74,7 @@ namespace ATSAccessibility {
 					_nsAreNewcomersWaitningMethod = nsType.GetMethod("AreNewcomersWaitning");  // Note: typo in game
 					_nsGetCurrentNewcomersMethod = nsType.GetMethod("GetCurrentNewcomers");
 				}
-
-				Debug.Log("[ATSAccessibility] RewardsReflection cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] RewardsReflection caching failed: {ex.Message}");
-			}
+			});
 		}
 
 		// ========================================
@@ -99,10 +92,10 @@ namespace ATSAccessibility {
 				var gameServices = GameReflection.GetGameServices();
 				if (gameServices == null) return false;
 
-				var rewardsService = _gsReputationRewardsServiceProperty?.GetValue(gameServices);
+				var rewardsService = ReflectionHelper.GetProp(_gsReputationRewardsServiceProperty, gameServices);
 				if (rewardsService == null) return false;
 
-				var rewardsToCollect = _rrsRewardsToCollectProperty?.GetValue(rewardsService);
+				var rewardsToCollect = ReflectionHelper.GetProp(_rrsRewardsToCollectProperty, rewardsService);
 				if (rewardsToCollect == null) return false;
 
 				// Get the Value property from ReactiveProperty<int>
@@ -110,10 +103,7 @@ namespace ATSAccessibility {
 					_reactivePropertyValueProperty = rewardsToCollect.GetType().GetProperty("Value");
 				}
 
-				var value = _reactivePropertyValueProperty?.GetValue(rewardsToCollect);
-				if (value is int count) {
-					return count > 0;
-				}
+				return ReflectionHelper.GetPropInt(_reactivePropertyValueProperty, rewardsToCollect) > 0;
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] HasPendingBlueprints failed: {ex.Message}");
 			}
@@ -132,10 +122,10 @@ namespace ATSAccessibility {
 				var gameServices = GameReflection.GetGameServices();
 				if (gameServices == null) return false;
 
-				var cornerstonesService = _gsCornerstonesServiceProperty?.GetValue(gameServices);
+				var cornerstonesService = ReflectionHelper.GetProp(_gsCornerstonesServiceProperty, gameServices);
 				if (cornerstonesService == null) return false;
 
-				var currentPick = _csGetCurrentPickMethod?.Invoke(cornerstonesService, null);
+				var currentPick = ReflectionHelper.Invoke(_csGetCurrentPickMethod, cornerstonesService);
 				return currentPick != null;
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] HasPendingCornerstones failed: {ex.Message}");
@@ -155,13 +145,10 @@ namespace ATSAccessibility {
 				var gameServices = GameReflection.GetGameServices();
 				if (gameServices == null) return false;
 
-				var newcomersService = _gsNewcomersServiceProperty?.GetValue(gameServices);
+				var newcomersService = ReflectionHelper.GetProp(_gsNewcomersServiceProperty, gameServices);
 				if (newcomersService == null) return false;
 
-				var result = _nsAreNewcomersWaitningMethod?.Invoke(newcomersService, null);
-				if (result is bool waiting) {
-					return waiting;
-				}
+				return ReflectionHelper.InvokeBool(_nsAreNewcomersWaitningMethod, newcomersService);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] HasPendingNewcomers failed: {ex.Message}");
 			}
@@ -187,7 +174,7 @@ namespace ATSAccessibility {
 					return false;
 				}
 
-				var rewardsService = _gsReputationRewardsServiceProperty?.GetValue(gameServices);
+				var rewardsService = ReflectionHelper.GetProp(_gsReputationRewardsServiceProperty, gameServices);
 				if (rewardsService == null) {
 					Debug.LogWarning("[ATSAccessibility] OpenBlueprintsPopup: ReputationRewardsService not available");
 					return false;
@@ -198,7 +185,7 @@ namespace ATSAccessibility {
 					return false;
 				}
 
-				_rrsRequestPopupMethod.Invoke(rewardsService, null);
+				if (!ReflectionHelper.InvokeVoid(_rrsRequestPopupMethod, rewardsService)) return false;
 				Debug.Log("[ATSAccessibility] Opened blueprints popup");
 				return true;
 			} catch (Exception ex) {
@@ -253,13 +240,13 @@ namespace ATSAccessibility {
 					return false;
 				}
 
-				var newcomersService = _gsNewcomersServiceProperty?.GetValue(gameServices);
+				var newcomersService = ReflectionHelper.GetProp(_gsNewcomersServiceProperty, gameServices);
 				if (newcomersService == null) {
 					Debug.LogWarning("[ATSAccessibility] OpenNewcomersPopup: NewcomersService not available");
 					return false;
 				}
 
-				var currentNewcomers = _nsGetCurrentNewcomersMethod?.Invoke(newcomersService, null);
+				var currentNewcomers = ReflectionHelper.Invoke(_nsGetCurrentNewcomersMethod, newcomersService);
 				if (currentNewcomers == null) {
 					Debug.LogWarning("[ATSAccessibility] OpenNewcomersPopup: No current newcomers");
 					return false;
@@ -316,10 +303,7 @@ namespace ATSAccessibility {
 			if (_unavailTypesCached) return;
 			_unavailTypesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("RewardsReflection unavailability", assembly => {
 				// IReputationService.Reputation property
 				var repServiceType = assembly.GetType("Eremite.Services.IReputationService");
 				if (repServiceType != null) {
@@ -383,11 +367,7 @@ namespace ATSAccessibility {
 					_srmSeasonField = srmType.GetField("season", BindingFlags.Public | BindingFlags.Instance);
 					_srmQuarterField = srmType.GetField("quarter", BindingFlags.Public | BindingFlags.Instance);
 				}
-
-				Debug.Log("[ATSAccessibility] RewardsReflection unavailability types cached");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] Unavailability type caching failed: {ex.Message}");
-			}
+			});
 		}
 
 		/// <summary>
@@ -406,7 +386,7 @@ namespace ATSAccessibility {
 				var repService = GameReflection.GetReputationService();
 				if (repService == null) return null;
 
-				var repReactive = _repReputationProperty?.GetValue(repService);
+				var repReactive = ReflectionHelper.GetProp(_repReputationProperty, repService);
 				if (repReactive == null) return null;
 
 				// Get Value from ReactiveProperty<float>
@@ -417,15 +397,12 @@ namespace ATSAccessibility {
 				int currentRep = (int)repFloat;
 
 				// Get ReputationRewardsService instance
-				var rewardsService = _gsReputationRewardsServiceProperty?.GetValue(gameServices);
+				var rewardsService = ReflectionHelper.GetProp(_gsReputationRewardsServiceProperty, gameServices);
 				if (rewardsService == null || _rrsHasRewardForMethod == null) return null;
 
 				// Search for next threshold (reputation rewards are typically 1-20)
-				var args = new object[1];
 				for (int i = currentRep + 1; i <= 30; i++) {
-					args[0] = i;
-					var result = _rrsHasRewardForMethod.Invoke(rewardsService, args);
-					if (result is bool hasReward && hasReward) {
+					if (ReflectionHelper.InvokeBool(_rrsHasRewardForMethod, rewardsService, i)) {
 						return (i, currentRep);
 					}
 				}
@@ -455,27 +432,21 @@ namespace ATSAccessibility {
 
 				int curYear = GameReflection.GetYear();
 				int curSeason = GameReflection.GetSeason();
-				int curQuarter = -1;
-
-				if (_calQuarterProperty != null) {
-					var quarterVal = _calQuarterProperty.GetValue(calService);
-					if (quarterVal != null)
-						curQuarter = (int)quarterVal;
-				}
+				int curQuarter = ReflectionHelper.GetPropInt(_calQuarterProperty, calService);
 
 				if (curYear <= 0 || curSeason < 0 || curQuarter < 0) return null;
 
 				// Get biome's SeasonRewards list
-				var biomeService = _gsBiomeServiceProperty?.GetValue(gameServices);
+				var biomeService = ReflectionHelper.GetProp(_gsBiomeServiceProperty, gameServices);
 				if (biomeService == null) return null;
 
-				var currentBiome = _bsCurrentBiomeProperty?.GetValue(biomeService);
+				var currentBiome = ReflectionHelper.GetProp(_bsCurrentBiomeProperty, biomeService);
 				if (currentBiome == null) return null;
 
-				var seasonsConfig = _bmSeasonsField?.GetValue(currentBiome);
+				var seasonsConfig = ReflectionHelper.GetField(_bmSeasonsField, currentBiome);
 				if (seasonsConfig == null) return null;
 
-				var seasonRewardsList = _scSeasonRewardsField?.GetValue(seasonsConfig);
+				var seasonRewardsList = ReflectionHelper.GetField(_scSeasonRewardsField, seasonsConfig);
 				if (seasonRewardsList == null) return null;
 
 				// Iterate the list to find next reward date after current date
@@ -490,15 +461,9 @@ namespace ATSAccessibility {
 				foreach (var srm in enumerable) {
 					if (srm == null) continue;
 
-					var yVal = _srmYearField?.GetValue(srm);
-					var sVal = _srmSeasonField?.GetValue(srm);
-					var qVal = _srmQuarterField?.GetValue(srm);
-
-					if (yVal == null || sVal == null || qVal == null) continue;
-
-					int y = (int)yVal;
-					int s = (int)sVal;
-					int q = (int)qVal;
+					int y = ReflectionHelper.GetInt(_srmYearField, srm);
+					int s = ReflectionHelper.GetInt(_srmSeasonField, srm);
+					int q = ReflectionHelper.GetInt(_srmQuarterField, srm);
 
 					// Check if this date is in the future
 					if (!IsDateAfter(y, s, q, curYear, curSeason, curQuarter)) continue;
@@ -542,15 +507,12 @@ namespace ATSAccessibility {
 				var gameServices = GameReflection.GetGameServices();
 				if (gameServices == null) return -1f;
 
-				var newcomersService = _gsNewcomersServiceProperty?.GetValue(gameServices);
+				var newcomersService = ReflectionHelper.GetProp(_gsNewcomersServiceProperty, gameServices);
 				if (newcomersService == null) return -1f;
 
 				if (_nsGetTimeToNextVisitMethod == null) return -1f;
 
-				var result = _nsGetTimeToNextVisitMethod.Invoke(newcomersService, null);
-				if (result is float time) {
-					return time;
-				}
+				return ReflectionHelper.InvokeFloat(_nsGetTimeToNextVisitMethod, newcomersService);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetTimeToNextNewcomers failed: {ex.Message}");
 			}

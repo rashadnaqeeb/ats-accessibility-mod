@@ -103,8 +103,7 @@ namespace ATSAccessibility {
 		// LabelModel fields
 		private static FieldInfo _labelDisplayNameField = null;
 
-		// LocaText property
-		private static PropertyInfo _locaTextProperty = null;
+		// LocaText (delegated to GameReflection.GetLocaText)
 
 		// Good struct fields
 		private static FieldInfo _goodNameField = null;
@@ -169,10 +168,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("TradeReflection", assembly => {
 				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
 				if (gameServicesType == null) return;
 
@@ -275,13 +271,7 @@ namespace ATSAccessibility {
 					_labelDisplayNameField = labelModelType.GetField("displayName");
 				}
 
-				// LocaText
-				var locaTextType = assembly.GetType("Eremite.Model.LocaText");
-				if (locaTextType != null) {
-					_locaTextProperty = locaTextType.GetProperty("Text");
-				}
-
-				// Good struct
+				// Good struct (LocaText delegated to GameReflection.GetLocaText)
 				_goodType = assembly.GetType("Eremite.Model.Good");
 				if (_goodType != null) {
 					_goodNameField = _goodType.GetField("name");
@@ -372,11 +362,7 @@ namespace ATSAccessibility {
 					_traderPanelInstanceProperty = traderPanelType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
 					_traderPanelHideMethod = traderPanelType.GetMethod("Hide", BindingFlags.Public | BindingFlags.Instance);
 				}
-
-				Debug.Log("[ATSAccessibility] TradeReflection cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] TradeReflection caching failed: {ex.Message}");
-			}
+			});
 		}
 
 		// ========================================
@@ -399,8 +385,7 @@ namespace ATSAccessibility {
 		}
 
 		private static string GetLocaText(object locaText) {
-			if (locaText == null) return null;
-			return _locaTextProperty?.GetValue(locaText) as string;
+			return GameReflection.GetLocaText(locaText);
 		}
 
 		// ========================================
@@ -439,13 +424,11 @@ namespace ATSAccessibility {
 		}
 
 		private static object GetPanelVisit() {
-			if (_currentTraderPanel == null || _panelVisitField == null) return null;
-			try { return _panelVisitField.GetValue(_currentTraderPanel); } catch { return null; }
+			return ReflectionHelper.GetField(_panelVisitField, _currentTraderPanel);
 		}
 
 		private static bool IsVisitExtra(object visit) {
-			if (visit == null || _visitIsExtraField == null) return false;
-			try { var result = _visitIsExtraField.GetValue(visit); return result is bool b && b; } catch { return false; }
+			return ReflectionHelper.GetBool(_visitIsExtraField, visit);
 		}
 
 		/// <summary>
@@ -453,14 +436,11 @@ namespace ATSAccessibility {
 		/// Matches what the game's TraderPanel.GetCurrentTrader() does.
 		/// </summary>
 		private static object GetTraderFromVisit(object visit) {
-			if (visit == null || _visitTraderField == null || _getTraderFromSettingsMethod == null) return null;
-			try {
-				var traderKey = _visitTraderField.GetValue(visit) as string;
-				if (string.IsNullOrEmpty(traderKey)) return null;
-				var settings = GetSettings();
-				if (settings == null) return null;
-				return _getTraderFromSettingsMethod.Invoke(settings, new object[] { traderKey });
-			} catch { return null; }
+			var traderKey = ReflectionHelper.GetString(_visitTraderField, visit);
+			if (string.IsNullOrEmpty(traderKey)) return null;
+			var settings = GetSettings();
+			if (settings == null) return null;
+			return ReflectionHelper.Invoke(_getTraderFromSettingsMethod, settings, traderKey);
 		}
 
 		/// <summary>
@@ -475,7 +455,7 @@ namespace ATSAccessibility {
 			// Fall back to main trader
 			var tradeService = GetTradeService();
 			if (tradeService == null) return null;
-			try { return _getCurrentMainTraderMethod?.Invoke(tradeService, null); } catch { return null; }
+			return ReflectionHelper.Invoke(_getCurrentMainTraderMethod, tradeService);
 		}
 
 		// ========================================
@@ -490,18 +470,13 @@ namespace ATSAccessibility {
 			var tradeService = GetTradeService();
 			if (tradeService == null) return false;
 
-			try {
-				var result = _isMainTraderInTheVillageMethod?.Invoke(tradeService, null);
-				if (result is bool b && b) return true;
+			if (ReflectionHelper.InvokeBool(_isMainTraderInTheVillageMethod, tradeService))
+				return true;
 
-				// Glade event traders have isExtra = true on their visit
-				if (IsVisitExtra(GetPanelVisit())) return true;
+			// Glade event traders have isExtra = true on their visit
+			if (IsVisitExtra(GetPanelVisit())) return true;
 
-				return false;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] IsTraderPresent failed: {ex.Message}");
-				return false;
-			}
+			return false;
 		}
 
 		/// <summary>
@@ -510,13 +485,7 @@ namespace ATSAccessibility {
 		public static bool IsTradingBlocked() {
 			var tradeService = GetTradeService();
 			if (tradeService == null) return true;
-
-			try {
-				var result = _isTradingBlockedMethod?.Invoke(tradeService, null);
-				return result is bool b && b;
-			} catch {
-				return true;
-			}
+			return ReflectionHelper.InvokeBool(_isTradingBlockedMethod, tradeService);
 		}
 
 		/// <summary>
@@ -529,12 +498,7 @@ namespace ATSAccessibility {
 
 			var tradeService = GetTradeService();
 			if (tradeService == null) return null;
-
-			try {
-				return _getCurrentMainVisitMethod?.Invoke(tradeService, null);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.Invoke(_getCurrentMainVisitMethod, tradeService);
 		}
 
 		/// <summary>
@@ -543,13 +507,7 @@ namespace ATSAccessibility {
 		public static float GetTravelProgress() {
 			var visit = GetCurrentVisit();
 			if (visit == null) return 0f;
-
-			try {
-				var val = _visitTravelProgressField?.GetValue(visit);
-				return val is float f ? f : 0f;
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.GetFloat(_visitTravelProgressField, visit);
 		}
 
 		// ========================================
@@ -560,88 +518,59 @@ namespace ATSAccessibility {
 		/// Get the current trader's display name.
 		/// </summary>
 		public static string GetTraderName() {
-			try {
-				object trader;
-				if (IsTraderPresent()) {
-					trader = GetCurrentTrader();
-				} else {
-					var tradeService = GetTradeService();
-					if (tradeService == null) return null;
-					trader = _getNextMainTraderMethod?.Invoke(tradeService, null);
-				}
-
-				if (trader == null) return null;
-
-				var locaText = _traderDisplayNameField?.GetValue(trader);
-				return GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetTraderName failed: {ex.Message}");
-				return null;
+			object trader;
+			if (IsTraderPresent()) {
+				trader = GetCurrentTrader();
+			} else {
+				var tradeService = GetTradeService();
+				if (tradeService == null) return null;
+				trader = ReflectionHelper.Invoke(_getNextMainTraderMethod, tradeService);
 			}
+
+			return ReflectionHelper.GetLocaString(_traderDisplayNameField, trader);
 		}
 
 		/// <summary>
 		/// Get the trader's label (category like "General Goods").
 		/// </summary>
 		public static string GetTraderLabel() {
-			try {
-				object trader;
-				if (IsTraderPresent()) {
-					trader = GetCurrentTrader();
-				} else {
-					var tradeService = GetTradeService();
-					if (tradeService == null) return null;
-					trader = _getNextMainTraderMethod?.Invoke(tradeService, null);
-				}
-
-				if (trader == null) return null;
-
-				var label = _traderLabelField?.GetValue(trader);
-				if (label == null) return null;
-
-				var locaText = _labelDisplayNameField?.GetValue(label);
-				return GetLocaText(locaText);
-			} catch {
-				return null;
+			object trader;
+			if (IsTraderPresent()) {
+				trader = GetCurrentTrader();
+			} else {
+				var tradeService = GetTradeService();
+				if (tradeService == null) return null;
+				trader = ReflectionHelper.Invoke(_getNextMainTraderMethod, tradeService);
 			}
+
+			if (trader == null) return null;
+
+			var label = ReflectionHelper.GetField(_traderLabelField, trader);
+			return ReflectionHelper.GetLocaString(_labelDisplayNameField, label);
 		}
 
 		/// <summary>
 		/// Get the trader's description.
 		/// </summary>
 		public static string GetTraderDescription() {
-			try {
-				object trader;
-				if (IsTraderPresent()) {
-					trader = GetCurrentTrader();
-				} else {
-					var tradeService = GetTradeService();
-					if (tradeService == null) return null;
-					trader = _getNextMainTraderMethod?.Invoke(tradeService, null);
-				}
-
-				if (trader == null) return null;
-
-				var locaText = _traderDescriptionField?.GetValue(trader);
-				return GetLocaText(locaText);
-			} catch {
-				return null;
+			object trader;
+			if (IsTraderPresent()) {
+				trader = GetCurrentTrader();
+			} else {
+				var tradeService = GetTradeService();
+				if (tradeService == null) return null;
+				trader = ReflectionHelper.Invoke(_getNextMainTraderMethod, tradeService);
 			}
+
+			return ReflectionHelper.GetLocaString(_traderDescriptionField, trader);
 		}
 
 		/// <summary>
 		/// Get the trader's dialogue text.
 		/// </summary>
 		public static string GetTraderDialogue() {
-			try {
-				var trader = GetCurrentTrader();
-				if (trader == null) return null;
-
-				var locaText = _traderDialogueField?.GetValue(trader);
-				return GetLocaText(locaText);
-			} catch {
-				return null;
-			}
+			var trader = GetCurrentTrader();
+			return ReflectionHelper.GetLocaString(_traderDialogueField, trader);
 		}
 
 		/// <summary>
@@ -649,19 +578,14 @@ namespace ATSAccessibility {
 		/// Returns null if not available.
 		/// </summary>
 		public static object GetTraderTransactionSound() {
-			try {
-				var trader = GetCurrentTrader();
-				if (trader == null) return null;
+			var trader = GetCurrentTrader();
+			if (trader == null) return null;
 
-				var soundRef = _traderTransactionSoundField?.GetValue(trader);
-				if (soundRef == null) return null;
+			var soundRef = ReflectionHelper.GetField(_traderTransactionSoundField, trader);
+			if (soundRef == null) return null;
 
-				// Call GetNext() on the SoundRef to get the SoundModel
-				return _soundRefGetNextMethod?.Invoke(soundRef, null);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetTraderTransactionSound failed: {ex.Message}");
-				return null;
-			}
+			// Call GetNext() on the SoundRef to get the SoundModel
+			return ReflectionHelper.Invoke(_soundRefGetNextMethod, soundRef);
 		}
 
 		/// <summary>
@@ -671,13 +595,8 @@ namespace ATSAccessibility {
 			var tradeService = GetTradeService();
 			var visit = GetCurrentVisit();
 			if (tradeService == null || visit == null) return -1f;
-
-			try {
-				var result = _getTimeLeftToMethod?.Invoke(tradeService, new[] { visit });
-				return result is float f ? f : -1f;
-			} catch {
-				return -1f;
-			}
+			var result = ReflectionHelper.Invoke(_getTimeLeftToMethod, tradeService, visit);
+			return result is float f ? f : -1f;
 		}
 
 		/// <summary>
@@ -687,13 +606,8 @@ namespace ATSAccessibility {
 			var tradeService = GetTradeService();
 			var visit = GetCurrentVisit();
 			if (tradeService == null || visit == null) return -1f;
-
-			try {
-				var result = _getStayingTimeLeftMethod?.Invoke(tradeService, new[] { visit });
-				return result is float f ? f : -1f;
-			} catch {
-				return -1f;
-			}
+			var result = ReflectionHelper.Invoke(_getStayingTimeLeftMethod, tradeService, visit);
+			return result is float f ? f : -1f;
 		}
 
 		// ========================================
@@ -706,13 +620,7 @@ namespace ATSAccessibility {
 		public static bool CanForceArrival() {
 			var tradeService = GetTradeService();
 			if (tradeService == null) return false;
-
-			try {
-				var result = _canForceArrivalMethod?.Invoke(tradeService, null);
-				return result is bool b && b;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_canForceArrivalMethod, tradeService);
 		}
 
 		/// <summary>
@@ -721,13 +629,7 @@ namespace ATSAccessibility {
 		public static float GetForceArrivalCost() {
 			var tradeService = GetTradeService();
 			if (tradeService == null) return 0f;
-
-			try {
-				var result = _getForceArrivalPriceMethod?.Invoke(tradeService, null);
-				return result is float f ? f : 0f;
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.InvokeFloat(_getForceArrivalPriceMethod, tradeService);
 		}
 
 		/// <summary>
@@ -736,15 +638,7 @@ namespace ATSAccessibility {
 		public static bool ForceTraderArrival() {
 			var tradeService = GetTradeService();
 			if (tradeService == null) return false;
-			if (_forceArrivalMethod == null) return false;
-
-			try {
-				_forceArrivalMethod.Invoke(tradeService, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ForceTraderArrival failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_forceArrivalMethod, tradeService);
 		}
 
 		/// <summary>
@@ -753,13 +647,7 @@ namespace ATSAccessibility {
 		public static bool IsStormTooCloseToForce() {
 			var tradeService = GetTradeService();
 			if (tradeService == null) return true;
-
-			try {
-				var result = _isStormTooCloseToForceMethod?.Invoke(tradeService, null);
-				return result is bool b && b;
-			} catch {
-				return true;
-			}
+			return ReflectionHelper.InvokeBool(_isStormTooCloseToForceMethod, tradeService);
 		}
 
 		/// <summary>
@@ -768,13 +656,7 @@ namespace ATSAccessibility {
 		public static bool CanPayForceArrivalPrice() {
 			var tradeService = GetTradeService();
 			if (tradeService == null) return false;
-
-			try {
-				var result = _canPayForceArrivalPriceMethod?.Invoke(tradeService, null);
-				return result is bool b && b;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_canPayForceArrivalPriceMethod, tradeService);
 		}
 
 		/// <summary>
@@ -783,13 +665,7 @@ namespace ATSAccessibility {
 		public static bool HasAnyTradePost() {
 			var tradeService = GetTradeService();
 			if (tradeService == null) return false;
-
-			try {
-				var result = _hasAnyTradePostMethod?.Invoke(tradeService, null);
-				return result is bool b && b;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_hasAnyTradePostMethod, tradeService);
 		}
 
 		/// <summary>
@@ -798,13 +674,7 @@ namespace ATSAccessibility {
 		public static bool IsVisitAlreadyForced() {
 			var visit = GetCurrentVisit();
 			if (visit == null) return false;
-
-			try {
-				var result = _visitForcedField?.GetValue(visit);
-				return result is bool b && b;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.GetBool(_visitForcedField, visit);
 		}
 
 		/// <summary>
@@ -853,14 +723,9 @@ namespace ATSAccessibility {
 		public static bool IsStormSeason() {
 			var calendarService = GetCalendarService();
 			if (calendarService == null) return false;
-
-			try {
-				var season = _calendarSeasonProperty?.GetValue(calendarService);
-				// Season enum: Drizzle = 0, Clearance = 1, Storm = 2
-				return season != null && season.ToString() == "Storm";
-			} catch {
-				return false;
-			}
+			// Season enum: Drizzle = 0, Clearance = 1, Storm = 2
+			var season = ReflectionHelper.GetProp(_calendarSeasonProperty, calendarService);
+			return season != null && season.ToString() == "Storm";
 		}
 
 		/// <summary>
@@ -869,13 +734,8 @@ namespace ATSAccessibility {
 		public static float GetTimeTillSeasonChange() {
 			var calendarService = GetCalendarService();
 			if (calendarService == null) return -1f;
-
-			try {
-				var result = _getTimeTillNextSeasonChangeMethod?.Invoke(calendarService, null);
-				return result is float f ? f : -1f;
-			} catch {
-				return -1f;
-			}
+			var result = ReflectionHelper.Invoke(_getTimeTillNextSeasonChangeMethod, calendarService);
+			return result is float f ? f : -1f;
 		}
 
 		// ========================================
@@ -893,7 +753,7 @@ namespace ATSAccessibility {
 
 			try {
 				// Get village offer - this returns List<Good>
-				var villageOffer = _getVillageOfferMethod?.Invoke(tradeService, new[] { visit });
+				var villageOffer = ReflectionHelper.Invoke(_getVillageOfferMethod, tradeService, visit);
 				if (villageOffer == null) return result;
 
 				var enumerable = villageOffer as IEnumerable;
@@ -904,28 +764,20 @@ namespace ATSAccessibility {
 				foreach (var good in enumerable) {
 					if (good == null) continue;
 
-					var name = _goodNameField?.GetValue(good) as string;
-					var amount = _goodAmountField?.GetValue(good);
+					var name = ReflectionHelper.GetString(_goodNameField, good);
 					if (string.IsNullOrEmpty(name)) continue;
 
-					int storageAmount = amount is int a ? a : 0;
+					int storageAmount = ReflectionHelper.GetInt(_goodAmountField, good);
 
 					// Get display name from settings
 					string displayName = name;
-					if (settings != null && _getGoodMethod != null) {
-						var goodModel = _getGoodMethod.Invoke(settings, new object[] { name });
-						if (goodModel != null) {
-							var locaText = _goodDisplayNameField?.GetValue(goodModel);
-							displayName = GetLocaText(locaText) ?? name;
-						}
-					}
+					var goodModel = ReflectionHelper.Invoke(_getGoodMethod, settings, name);
+					if (goodModel != null)
+						displayName = ReflectionHelper.GetLocaString(_goodDisplayNameField, goodModel) ?? name;
 
 					// Get sell value
-					float unitValue = 0f;
-					if (_getValueInCurrencyGoodNameMethod != null) {
-						var val = _getValueInCurrencyGoodNameMethod.Invoke(tradeService, new object[] { name, 1 });
-						unitValue = val is float f ? f : 0f;
-					}
+					var val = ReflectionHelper.Invoke(_getValueInCurrencyGoodNameMethod, tradeService, name, 1);
+					float unitValue = val is float f ? f : 0f;
 
 					result.Add(new TradingGoodInfo {
 						Name = name,
@@ -952,7 +804,7 @@ namespace ATSAccessibility {
 			if (tradeService == null || visit == null) return result;
 
 			try {
-				var goodsArray = _visitGoodsField?.GetValue(visit);
+				var goodsArray = ReflectionHelper.GetField(_visitGoodsField, visit);
 				if (goodsArray == null) return result;
 
 				var settings = GetSettings();
@@ -962,29 +814,21 @@ namespace ATSAccessibility {
 				foreach (var good in arr) {
 					if (good == null) continue;
 
-					var name = _goodNameField?.GetValue(good) as string;
-					var amount = _goodAmountField?.GetValue(good);
+					var name = ReflectionHelper.GetString(_goodNameField, good);
 					if (string.IsNullOrEmpty(name)) continue;
 
-					int availableAmount = amount is int a ? a : 0;
+					int availableAmount = ReflectionHelper.GetInt(_goodAmountField, good);
 					if (availableAmount <= 0) continue;
 
 					// Get display name from settings
 					string displayName = name;
-					if (settings != null && _getGoodMethod != null) {
-						var goodModel = _getGoodMethod.Invoke(settings, new object[] { name });
-						if (goodModel != null) {
-							var locaText = _goodDisplayNameField?.GetValue(goodModel);
-							displayName = GetLocaText(locaText) ?? name;
-						}
-					}
+					var goodModel = ReflectionHelper.Invoke(_getGoodMethod, settings, name);
+					if (goodModel != null)
+						displayName = ReflectionHelper.GetLocaString(_goodDisplayNameField, goodModel) ?? name;
 
 					// Get buy value
-					float unitValue = 0f;
-					if (_getBuyValueInCurrencyGoodNameMethod != null) {
-						var val = _getBuyValueInCurrencyGoodNameMethod.Invoke(tradeService, new object[] { name, 1 });
-						unitValue = val is float f ? f : 0f;
-					}
+					var val = ReflectionHelper.Invoke(_getBuyValueInCurrencyGoodNameMethod, tradeService, name, 1);
+					float unitValue = val is float f ? f : 0f;
 
 					result.Add(new TradingGoodInfo {
 						Name = name,
@@ -1008,20 +852,13 @@ namespace ATSAccessibility {
 			var storageService = GetStorageService();
 			if (storageService == null) return 0;
 
-			try {
-				// Get trade currency name from Settings
-				string currencyName = GetTradeCurrencyName();
-				if (string.IsNullOrEmpty(currencyName)) {
-					Debug.LogWarning("[ATSAccessibility] Could not get trade currency name");
-					return 0;
-				}
-
-				var result = _getAmountMethod?.Invoke(storageService, new object[] { currencyName });
-				return result is int a ? a : 0;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetAmberInStorage failed: {ex.Message}");
+			string currencyName = GetTradeCurrencyName();
+			if (string.IsNullOrEmpty(currencyName)) {
+				Debug.LogWarning("[ATSAccessibility] Could not get trade currency name");
 				return 0;
 			}
+
+			return ReflectionHelper.InvokeInt(_getAmountMethod, storageService, currencyName);
 		}
 
 		/// <summary>
@@ -1032,24 +869,17 @@ namespace ATSAccessibility {
 			var settings = GetSettings();
 			if (settings == null) return null;
 
-			try {
-				// Get Settings.tradeCurrency (GoodModel)
-				var tradeCurrency = _tradeCurrencyField?.GetValue(settings);
-				if (tradeCurrency == null) return null;
+			var tradeCurrency = ReflectionHelper.GetField(_tradeCurrencyField, settings);
+			if (tradeCurrency == null) return null;
 
-				// Use runtime type to get Name property - handles inheritance properly
-				var nameProperty = tradeCurrency.GetType().GetProperty("Name", BindingFlags.Public | BindingFlags.Instance);
-				if (nameProperty == null) {
-					// Fallback to Unity Object.name property
-					nameProperty = tradeCurrency.GetType().GetProperty("name", BindingFlags.Public | BindingFlags.Instance);
-				}
-				if (nameProperty == null) return null;
-
-				return nameProperty.GetValue(tradeCurrency) as string;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetTradeCurrencyName failed: {ex.Message}");
-				return null;
+			// Use runtime type to get Name property - handles inheritance properly
+			var nameProperty = tradeCurrency.GetType().GetProperty("Name", BindingFlags.Public | BindingFlags.Instance);
+			if (nameProperty == null) {
+				// Fallback to Unity Object.name property
+				nameProperty = tradeCurrency.GetType().GetProperty("name", BindingFlags.Public | BindingFlags.Instance);
 			}
+
+			return ReflectionHelper.GetPropString(nameProperty, tradeCurrency);
 		}
 
 		/// <summary>
@@ -1057,14 +887,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static float GetGoodSellValue(string goodName, int amount) {
 			var tradeService = GetTradeService();
-			if (tradeService == null || _getValueInCurrencyGoodNameMethod == null) return 0f;
-
-			try {
-				var result = _getValueInCurrencyGoodNameMethod.Invoke(tradeService, new object[] { goodName, amount });
-				return result is float f ? f : 0f;
-			} catch {
-				return 0f;
-			}
+			if (tradeService == null) return 0f;
+			var result = ReflectionHelper.Invoke(_getValueInCurrencyGoodNameMethod, tradeService, goodName, amount);
+			return result is float f ? f : 0f;
 		}
 
 		/// <summary>
@@ -1072,14 +897,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static float GetGoodBuyValue(string goodName, int amount) {
 			var tradeService = GetTradeService();
-			if (tradeService == null || _getBuyValueInCurrencyGoodNameMethod == null) return 0f;
-
-			try {
-				var result = _getBuyValueInCurrencyGoodNameMethod.Invoke(tradeService, new object[] { goodName, amount });
-				return result is float f ? f : 0f;
-			} catch {
-				return 0f;
-			}
+			if (tradeService == null) return 0f;
+			var result = ReflectionHelper.Invoke(_getBuyValueInCurrencyGoodNameMethod, tradeService, goodName, amount);
+			return result is float f ? f : 0f;
 		}
 
 		/// <summary>
@@ -1130,19 +950,18 @@ namespace ATSAccessibility {
 				var traderOffer = _tradingOfferCtor.Invoke(new object[] { buyGoodArray });
 
 				// Get the goods dictionary from each offer and set offeredAmount
-				var goodsDictField = _tradingOfferType.GetField("goods");
-				if (goodsDictField != null) {
+				if (_tradingOfferGoodsField != null) {
 					// For village offer, move storageAmount to offeredAmount
-					var villageDict = goodsDictField.GetValue(villageOffer);
+					var villageDict = ReflectionHelper.GetField(_tradingOfferGoodsField, villageOffer);
 					SetOfferedAmountsFromStorage(villageDict);
 
 					// For trader offer, move storageAmount to offeredAmount
-					var traderDict = goodsDictField.GetValue(traderOffer);
+					var traderDict = ReflectionHelper.GetField(_tradingOfferGoodsField, traderOffer);
 					SetOfferedAmountsFromStorage(traderDict);
 				}
 
 				// Call CompleteTrade(visit, villageOffer, traderOffer)
-				_completeTradeMethod.Invoke(tradeService, new object[] { visit, villageOffer, traderOffer });
+				ReflectionHelper.Invoke(_completeTradeMethod, tradeService, visit, villageOffer, traderOffer);
 
 				Debug.Log("[ATSAccessibility] Trade executed successfully");
 				return true;
@@ -1159,7 +978,7 @@ namespace ATSAccessibility {
 			if (goodsDict == null) return;
 
 			try {
-				// goodsDict is Dictionary<string, TradingGood>
+				// goodsDict is Dictionary<string, TradingGood> - iterate via reflection
 				var valuesProperty = goodsDict.GetType().GetProperty("Values");
 				var values = valuesProperty?.GetValue(goodsDict) as IEnumerable;
 				if (values == null) return;
@@ -1167,12 +986,9 @@ namespace ATSAccessibility {
 				foreach (var tradingGood in values) {
 					if (tradingGood == null) continue;
 
-					// Get storageAmount and set offeredAmount to it
-					var storageVal = _tradingGoodStorageAmountField?.GetValue(tradingGood);
-					int storage = storageVal is int s ? s : 0;
-
-					_tradingGoodOfferedAmountField?.SetValue(tradingGood, storage);
-					_tradingGoodStorageAmountField?.SetValue(tradingGood, 0);
+					int storage = ReflectionHelper.GetInt(_tradingGoodStorageAmountField, tradingGood);
+					ReflectionHelper.SetField(_tradingGoodOfferedAmountField, tradingGood, storage);
+					ReflectionHelper.SetField(_tradingGoodStorageAmountField, tradingGood, 0);
 				}
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] SetOfferedAmountsFromStorage failed: {ex.Message}");
@@ -1193,7 +1009,7 @@ namespace ATSAccessibility {
 			if (tradeService == null || visit == null) return result;
 
 			try {
-				var effectsList = _visitOfferedEffectsField?.GetValue(visit);
+				var effectsList = ReflectionHelper.GetField(_visitOfferedEffectsField, visit);
 				if (effectsList == null) return result;
 
 				var enumerable = effectsList as IEnumerable;
@@ -1204,35 +1020,27 @@ namespace ATSAccessibility {
 				foreach (var effectState in enumerable) {
 					if (effectState == null) continue;
 
-					var effectName = _effectStateEffectField?.GetValue(effectState) as string;
-					var sold = _effectStateSoldField?.GetValue(effectState);
-					var discounted = _effectStateDiscountedField?.GetValue(effectState);
-					var priceRatio = _effectStatePriceRatioField?.GetValue(effectState);
-
+					var effectName = ReflectionHelper.GetString(_effectStateEffectField, effectState);
 					if (string.IsNullOrEmpty(effectName)) continue;
 
-					bool isSold = sold is bool b && b;
-					bool isDiscounted = discounted is bool d && d;
-					float ratio = priceRatio is float f ? f : 1f;
+					bool isSold = ReflectionHelper.GetBool(_effectStateSoldField, effectState);
+					bool isDiscounted = ReflectionHelper.GetBool(_effectStateDiscountedField, effectState);
+					float ratio = ReflectionHelper.GetFloat(_effectStatePriceRatioField, effectState);
+					if (ratio == 0f) ratio = 1f;
 
 					// Get display name and description from settings
 					// Use properties (not fields) to get formatted values
 					string displayName = effectName;
 					string description = "";
-					if (settings != null && _getEffectMethod != null) {
-						var effectModel = _getEffectMethod.Invoke(settings, new object[] { effectName });
-						if (effectModel != null) {
-							displayName = _effectDisplayNameProperty?.GetValue(effectModel) as string ?? effectName;
-							description = _effectDescriptionProperty?.GetValue(effectModel) as string ?? "";
-						}
+					var effectModel = ReflectionHelper.Invoke(_getEffectMethod, settings, effectName);
+					if (effectModel != null) {
+						displayName = ReflectionHelper.GetPropString(_effectDisplayNameProperty, effectModel) ?? effectName;
+						description = ReflectionHelper.GetPropString(_effectDescriptionProperty, effectModel) ?? "";
 					}
 
 					// Get price
-					float price = 0f;
-					if (_getValueInCurrencyEffectStateMethod != null) {
-						var val = _getValueInCurrencyEffectStateMethod.Invoke(tradeService, new[] { effectState });
-						price = val is float pf ? pf : 0f;
-					}
+					var val = ReflectionHelper.Invoke(_getValueInCurrencyEffectStateMethod, tradeService, effectState);
+					float price = val is float pf ? pf : 0f;
 
 					result.Add(new PerkInfo {
 						Name = effectName,
@@ -1259,15 +1067,7 @@ namespace ATSAccessibility {
 			var tradeService = GetTradeService();
 			var visit = GetCurrentVisit();
 			if (tradeService == null || visit == null || effectState == null) return false;
-			if (_completeTradeEffectMethod == null) return false;
-
-			try {
-				_completeTradeEffectMethod.Invoke(tradeService, new[] { visit, effectState });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] BuyPerk failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_completeTradeEffectMethod, tradeService, visit, effectState);
 		}
 
 		// ========================================
@@ -1278,26 +1078,20 @@ namespace ATSAccessibility {
 		/// Check if the trader can be assaulted.
 		/// </summary>
 		public static bool CanAssaultTrader() {
-			try {
-				var trader = GetCurrentTrader();
-				if (trader == null) return false;
+			var trader = GetCurrentTrader();
+			if (trader == null) return false;
 
-				// Check canAssault field on trader model
-				var canAssault = _traderCanAssaultField?.GetValue(trader);
-				if (canAssault is bool b && !b) return false;
+			// Check canAssault field on trader model
+			if (!ReflectionHelper.GetBool(_traderCanAssaultField, trader)) return false;
 
-				// Also check EffectsService.CanAttackTrader
-				var gameServices = GameReflection.GetGameServices();
-				if (gameServices == null) return false;
+			// Also check EffectsService.CanAttackTrader
+			var gameServices = GameReflection.GetGameServices();
+			if (gameServices == null) return false;
 
-				var effectsService = _gsEffectsServiceProperty?.GetValue(gameServices);
-				if (effectsService == null) return true; // Assume yes if we can't check
+			var effectsService = ReflectionHelper.GetProp(_gsEffectsServiceProperty, gameServices);
+			if (effectsService == null) return true; // Assume yes if we can't check
 
-				var result = _canAttackTraderMethod?.Invoke(effectsService, new[] { trader });
-				return result is bool r && r;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_canAttackTraderMethod, effectsService, trader);
 		}
 
 		/// <summary>
@@ -1312,7 +1106,7 @@ namespace ATSAccessibility {
 			if (_assaultTraderMethod == null) return result;
 
 			try {
-				var assaultResult = _assaultTraderMethod.Invoke(tradeService, new[] { visit });
+				var assaultResult = ReflectionHelper.Invoke(_assaultTraderMethod, tradeService, visit);
 				if (assaultResult == null) return result;
 
 				result.Success = true;
@@ -1320,24 +1114,17 @@ namespace ATSAccessibility {
 				// Extract counts from result
 				// goods is List<Good>
 				var goodsField = assaultResult.GetType().GetField("goods");
-				if (goodsField != null) {
-					var goods = goodsField.GetValue(assaultResult) as IList;
-					result.GoodsStolen = goods?.Count ?? 0;
-				}
+				var goods = ReflectionHelper.GetList(goodsField, assaultResult);
+				result.GoodsStolen = goods?.Count ?? 0;
 
 				// stolenEffects is List<EffectModel>
 				var effectsField = assaultResult.GetType().GetField("stolenEffects");
-				if (effectsField != null) {
-					var effects = effectsField.GetValue(assaultResult) as IList;
-					result.PerksStolen = effects?.Count ?? 0;
-				}
+				var effects = ReflectionHelper.GetList(effectsField, assaultResult);
+				result.PerksStolen = effects?.Count ?? 0;
 
 				// villagersKilled
 				var villagersField = assaultResult.GetType().GetField("villagersKilled");
-				if (villagersField != null) {
-					var villagers = villagersField.GetValue(assaultResult);
-					result.VillagersLost = villagers is int v ? v : 0;
-				}
+				result.VillagersLost = ReflectionHelper.GetInt(villagersField, assaultResult);
 
 				// Trigger the assault result popup (like the game does)
 				TriggerAssaultResultPopup(assaultResult);
@@ -1363,13 +1150,13 @@ namespace ATSAccessibility {
 					return;
 				}
 
-				var blackboardService = _gsGameBlackboardServiceProperty?.GetValue(gameServices);
+				var blackboardService = ReflectionHelper.GetProp(_gsGameBlackboardServiceProperty, gameServices);
 				if (blackboardService == null) {
 					Debug.LogWarning("[ATSAccessibility] TriggerAssaultResultPopup: blackboardService is null");
 					return;
 				}
 
-				var observable = _assaultResultPopupRequestedProperty?.GetValue(blackboardService);
+				var observable = ReflectionHelper.GetProp(_assaultResultPopupRequestedProperty, blackboardService);
 				if (observable == null) {
 					Debug.LogWarning("[ATSAccessibility] TriggerAssaultResultPopup: observable is null");
 					return;
@@ -1399,32 +1186,18 @@ namespace ATSAccessibility {
 					return;
 				}
 
+				// Static property - keep GetValue(null) for static access
 				var instance = _traderPanelInstanceProperty.GetValue(null);
 				if (instance == null) {
 					Debug.LogWarning("[ATSAccessibility] HideTraderPanel: Instance is null");
 					return;
 				}
 
-				_traderPanelHideMethod.Invoke(instance, null);
+				ReflectionHelper.InvokeVoid(_traderPanelHideMethod, instance);
 				Debug.Log("[ATSAccessibility] Hid trader panel after assault");
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] HideTraderPanel failed: {ex.Message}");
 			}
-		}
-
-		// ========================================
-		// TIME FORMATTING
-		// ========================================
-
-		/// <summary>
-		/// Format time in seconds to a readable string (e.g., "1:30").
-		/// </summary>
-		public static string FormatTime(float seconds) {
-			if (seconds <= 0) return "0:00";
-			int totalSeconds = Mathf.RoundToInt(seconds);
-			int minutes = totalSeconds / 60;
-			int secs = totalSeconds % 60;
-			return $"{minutes}:{secs:D2}";
 		}
 
 		public static int LogCacheStatus() {

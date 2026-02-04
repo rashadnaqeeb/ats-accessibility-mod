@@ -50,10 +50,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("NewcomersReflection", assembly => {
 				// NewcomersPopup type
 				_newcomersPopupType = assembly.GetType("Eremite.View.HUD.NewcomersPopup");
 
@@ -89,11 +86,7 @@ namespace ATSAccessibility {
 				if (popupType != null) {
 					_popupHideMethod = popupType.GetMethod("Hide", GameReflection.PublicInstance);
 				}
-
-				Debug.Log("[ATSAccessibility] NewcomersReflection cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NewcomersReflection caching failed: {ex.Message}");
-			}
+			});
 		}
 
 		// ========================================
@@ -121,21 +114,13 @@ namespace ATSAccessibility {
 		public static IList GetNewcomersGroups() {
 			EnsureCached();
 
-			try {
-				var gameServices = GameReflection.GetGameServices();
-				if (gameServices == null) return null;
+			var gameServices = GameReflection.GetGameServices();
+			if (gameServices == null) return null;
 
-				var newcomersService = _gsNewcomersServiceProperty?.GetValue(gameServices);
-				if (newcomersService == null) return null;
+			var newcomersService = ReflectionHelper.GetProp(_gsNewcomersServiceProperty, gameServices);
+			if (newcomersService == null) return null;
 
-				if (_nsGetCurrentNewcomersMethod == null) return null;
-
-				var result = _nsGetCurrentNewcomersMethod.Invoke(newcomersService, null);
-				return result as IList;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NewcomersReflection: GetNewcomersGroups failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.Invoke(_nsGetCurrentNewcomersMethod, newcomersService) as IList;
 		}
 
 		// ========================================
@@ -149,27 +134,20 @@ namespace ATSAccessibility {
 			if (group == null) return false;
 			EnsureCached();
 
-			try {
-				var gameServices = GameReflection.GetGameServices();
-				if (gameServices == null) return false;
+			var gameServices = GameReflection.GetGameServices();
+			if (gameServices == null) return false;
 
-				var newcomersService = _gsNewcomersServiceProperty?.GetValue(gameServices);
-				if (newcomersService == null) return false;
+			var newcomersService = ReflectionHelper.GetProp(_gsNewcomersServiceProperty, gameServices);
+			if (newcomersService == null) return false;
 
-				if (_nsPickGroupMethod == null) return false;
+			if (!ReflectionHelper.InvokeVoid(_nsPickGroupMethod, newcomersService, group)) return false;
 
-				_nsPickGroupMethod.Invoke(newcomersService, new[] { group });
-
-				// Hide the popup (mirrors NewcomersPopup.OnGroupPicked behavior)
-				if (popup != null && _popupHideMethod != null) {
-					_popupHideMethod.Invoke(popup, null);
-				}
-
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NewcomersReflection: PickGroup failed: {ex.Message}");
-				return false;
+			// Hide the popup (mirrors NewcomersPopup.OnGroupPicked behavior)
+			if (popup != null) {
+				ReflectionHelper.InvokeVoid(_popupHideMethod, popup);
 			}
+
+			return true;
 		}
 
 		// ========================================
@@ -184,60 +162,51 @@ namespace ATSAccessibility {
 			if (group == null) return "Unknown group";
 			EnsureCached();
 
-			try {
-				var parts = new List<string>();
+			var parts = new List<string>();
 
-				// Read races dictionary
-				var racesDict = _ngRacesField?.GetValue(group);
-				if (racesDict != null) {
-					// Use reflection iteration pattern for Dictionary<string, int>
-					var keysProperty = racesDict.GetType().GetProperty("Keys");
-					var keys = keysProperty?.GetValue(racesDict) as IEnumerable;
-					var indexer = racesDict.GetType().GetMethod("get_Item");
+			// Read races dictionary
+			var racesDict = ReflectionHelper.GetField(_ngRacesField, group);
+			if (racesDict != null) {
+				var keys = ReflectionHelper.IterateKeys(racesDict);
+				if (keys != null) {
+					foreach (var key in keys) {
+						var raceName = key as string;
+						if (string.IsNullOrEmpty(raceName)) continue;
 
-					if (keys != null && indexer != null) {
-						foreach (var key in keys) {
-							var raceName = key as string;
-							if (string.IsNullOrEmpty(raceName)) continue;
+						var countObj = ReflectionHelper.DictGet(racesDict, key);
+						int count = countObj is int c ? c : 0;
 
-							var countObj = indexer.Invoke(racesDict, new[] { key });
-							int count = countObj is int c ? c : 0;
-
-							var displayName = EmbarkReflection.GetRaceDisplayName(raceName);
-							parts.Add($"{count} {displayName}");
-						}
+						var displayName = EmbarkReflection.GetRaceDisplayName(raceName);
+						parts.Add($"{count} {displayName}");
 					}
 				}
-
-				string raceText = parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "No villagers";
-
-				// Read goods list
-				var goodsList = _ngGoodsField?.GetValue(group) as IList;
-				if (goodsList != null && goodsList.Count > 0) {
-					var goodParts = new List<string>();
-
-					foreach (var good in goodsList) {
-						if (good == null) continue;
-
-						var name = _goodNameField?.GetValue(good) as string ?? "";
-						var amount = _goodAmountField != null ? (int)_goodAmountField.GetValue(good) : 0;
-
-						if (amount <= 0 || string.IsNullOrEmpty(name)) continue;
-
-						var displayName = GameReflection.GetGoodDisplayName(name);
-						goodParts.Add($"{amount} {displayName}");
-					}
-
-					if (goodParts.Count > 0) {
-						return $"{raceText}. Bonus: {string.Join(", ", goodParts.ToArray())}";
-					}
-				}
-
-				return raceText;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NewcomersReflection: FormatGroup failed: {ex.Message}");
-				return "Unknown group";
 			}
+
+			string raceText = parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "No villagers";
+
+			// Read goods list
+			var goodsList = ReflectionHelper.GetList(_ngGoodsField, group);
+			if (goodsList != null && goodsList.Count > 0) {
+				var goodParts = new List<string>();
+
+				foreach (var good in goodsList) {
+					if (good == null) continue;
+
+					var name = ReflectionHelper.GetString(_goodNameField, good) ?? "";
+					int amount = ReflectionHelper.GetInt(_goodAmountField, good);
+
+					if (amount <= 0 || string.IsNullOrEmpty(name)) continue;
+
+					var displayName = GameReflection.GetGoodDisplayName(name);
+					goodParts.Add($"{amount} {displayName}");
+				}
+
+				if (goodParts.Count > 0) {
+					return $"{raceText}. Bonus: {string.Join(", ", goodParts.ToArray())}";
+				}
+			}
+
+			return raceText;
 		}
 
 		public static int LogCacheStatus() {

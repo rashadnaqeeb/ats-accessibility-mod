@@ -85,13 +85,7 @@ namespace ATSAccessibility {
 			if (_typesCached) return;
 			_typesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] CornerstoneReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("CornerstoneReflection", assembly => {
 				CacheServiceTypes(assembly);
 				CacheRewardPickStateTypes(assembly);
 				CacheEffectModelTypes(assembly);
@@ -99,11 +93,7 @@ namespace ATSAccessibility {
 				CacheBiomeTypes(assembly);
 				CacheGoodTypes(assembly);
 				CachePopupTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] CornerstoneReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CornerstoneReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CacheServiceTypes(Assembly assembly) {
@@ -241,8 +231,7 @@ namespace ATSAccessibility {
 
 		private static object GetCurrentPick() {
 			var service = GetCornerstonesService();
-			if (service == null || _csGetCurrentPickMethod == null) return null;
-			try { return _csGetCurrentPickMethod.Invoke(service, null); } catch { return null; }
+			return ReflectionHelper.Invoke(_csGetCurrentPickMethod, service);
 		}
 
 		// ========================================
@@ -264,26 +253,20 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private static string GetEffectDisplayName(object effectModel) {
-			if (effectModel == null || _emDisplayNameProperty == null) return null;
-			try { return _emDisplayNameProperty.GetValue(effectModel) as string; } catch { return null; }
+			return ReflectionHelper.GetPropString(_emDisplayNameProperty, effectModel);
 		}
 
 		private static string GetEffectDescription(object effectModel) {
-			if (effectModel == null || _emDescriptionProperty == null) return null;
-			try { return _emDescriptionProperty.GetValue(effectModel) as string; } catch { return null; }
+			return ReflectionHelper.GetPropString(_emDescriptionProperty, effectModel);
 		}
 
 		private static string GetEffectRarity(object effectModel) {
-			if (effectModel == null || _emRarityField == null) return "Unknown";
-			try {
-				var rarity = _emRarityField.GetValue(effectModel);
-				return rarity?.ToString() ?? "Unknown";
-			} catch { return "Unknown"; }
+			var rarity = ReflectionHelper.GetField(_emRarityField, effectModel);
+			return rarity?.ToString() ?? "Unknown";
 		}
 
 		private static bool GetEffectIsEthereal(object effectModel) {
-			if (effectModel == null || _emIsEtherealField == null) return false;
-			try { return (bool)_emIsEtherealField.GetValue(effectModel); } catch { return false; }
+			return ReflectionHelper.GetBool(_emIsEtherealField, effectModel);
 		}
 
 		private static CornerstoneOption BuildOption(object effectModel) {
@@ -313,7 +296,7 @@ namespace ATSAccessibility {
 			if (pickState == null || _rpsOptionsField == null) return result;
 
 			try {
-				var options = _rpsOptionsField.GetValue(pickState) as List<string>;
+				var options = ReflectionHelper.GetField(_rpsOptionsField, pickState) as List<string>;
 				if (options == null || options.Count == 0) return result;
 
 				foreach (var effectName in options) {
@@ -348,36 +331,24 @@ namespace ATSAccessibility {
 				var pickState = GetCurrentPick();
 				object viewConfig = null;
 
-				if (pickState != null && _rpsViewConfigurationField != null) {
-					var configName = _rpsViewConfigurationField.GetValue(pickState) as string;
+				if (pickState != null) {
+					var configName = ReflectionHelper.GetString(_rpsViewConfigurationField, pickState);
 					if (!string.IsNullOrEmpty(configName)) {
 						var settings = GameReflection.GetSettings();
-						if (settings != null && _settingsGetCornerstonesViewConfigMethod != null) {
-							viewConfig = _settingsGetCornerstonesViewConfigMethod.Invoke(
-								settings, new object[] { configName });
-						}
+						viewConfig = ReflectionHelper.Invoke(
+							_settingsGetCornerstonesViewConfigMethod, settings, configName);
 					}
 				}
 
 				// Fallback to popup's defaultConfiguration
-				if (viewConfig == null && popup != null && _rpDefaultConfigurationField != null) {
-					viewConfig = _rpDefaultConfigurationField.GetValue(popup);
+				if (viewConfig == null && popup != null) {
+					viewConfig = ReflectionHelper.GetField(_rpDefaultConfigurationField, popup);
 				}
 
 				if (viewConfig == null) return ("", "");
 
-				string npcName = "";
-				string dialogue = "";
-
-				if (_cvcNpcNameField != null) {
-					var nameLocaText = _cvcNpcNameField.GetValue(viewConfig);
-					npcName = GameReflection.GetLocaText(nameLocaText) ?? "";
-				}
-
-				if (_cvcNpcDialogueField != null) {
-					var dialogueLocaText = _cvcNpcDialogueField.GetValue(viewConfig);
-					dialogue = GameReflection.GetLocaText(dialogueLocaText) ?? "";
-				}
+				string npcName = ReflectionHelper.GetLocaString(_cvcNpcNameField, viewConfig) ?? "";
+				string dialogue = ReflectionHelper.GetLocaString(_cvcNpcDialogueField, viewConfig) ?? "";
 
 				return (npcName, dialogue);
 			} catch (Exception ex) {
@@ -397,15 +368,7 @@ namespace ATSAccessibility {
 		public static bool PickCornerstone(object popup, object effectModel) {
 			if (popup == null || effectModel == null) return false;
 			EnsureTypesCached();
-			if (_rpOnRewardPickedMethod == null) return false;
-
-			try {
-				_rpOnRewardPickedMethod.Invoke(popup, new[] { effectModel });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CornerstoneReflection: PickCornerstone failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_rpOnRewardPickedMethod, popup, effectModel);
 		}
 
 		// ========================================
@@ -418,15 +381,7 @@ namespace ATSAccessibility {
 		public static bool Skip(object popup) {
 			if (popup == null) return false;
 			EnsureTypesCached();
-			if (_rpSkipMethod == null) return false;
-
-			try {
-				_rpSkipMethod.Invoke(popup, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CornerstoneReflection: Skip failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_rpSkipMethod, popup);
 		}
 
 		/// <summary>
@@ -435,21 +390,14 @@ namespace ATSAccessibility {
 		public static (int amount, string goodDisplayName) GetDeclinePayoff() {
 			EnsureTypesCached();
 			var service = GetCornerstonesService();
-			if (service == null || _csGetDeclinePayoffMethod == null) return (0, "Unknown");
+			var good = ReflectionHelper.Invoke(_csGetDeclinePayoffMethod, service);
+			if (good == null) return (0, "Unknown");
 
-			try {
-				var good = _csGetDeclinePayoffMethod.Invoke(service, null);
-				if (good == null) return (0, "Unknown");
+			var name = ReflectionHelper.GetString(_goodNameField, good) ?? "";
+			var amount = ReflectionHelper.GetInt(_goodAmountField, good);
+			var displayName = GameReflection.GetGoodDisplayName(name);
 
-				var name = _goodNameField?.GetValue(good) as string ?? "";
-				var amount = _goodAmountField != null ? (int)_goodAmountField.GetValue(good) : 0;
-				var displayName = GameReflection.GetGoodDisplayName(name);
-
-				return (amount, displayName);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CornerstoneReflection: GetDeclinePayoff failed: {ex.Message}");
-				return (0, "Unknown");
-			}
+			return (amount, displayName);
 		}
 
 		// ========================================
@@ -462,11 +410,7 @@ namespace ATSAccessibility {
 		public static int GetRerollsLeft() {
 			EnsureTypesCached();
 			var service = GetCornerstonesService();
-			if (service == null || _csGetRerollsLeftMethod == null) return 0;
-
-			try {
-				return (int)_csGetRerollsLeftMethod.Invoke(service, null);
-			} catch { return 0; }
+			return ReflectionHelper.InvokeInt(_csGetRerollsLeftMethod, service);
 		}
 
 		/// <summary>
@@ -476,15 +420,7 @@ namespace ATSAccessibility {
 		public static bool Reroll(object popup) {
 			if (popup == null) return false;
 			EnsureTypesCached();
-			if (_rpRerollMethod == null) return false;
-
-			try {
-				_rpRerollMethod.Invoke(popup, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CornerstoneReflection: Reroll failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_rpRerollMethod, popup);
 		}
 
 		// ========================================
@@ -497,9 +433,7 @@ namespace ATSAccessibility {
 		public static bool CanExtend() {
 			EnsureTypesCached();
 			var service = GetCornerstonesService();
-			if (service == null || _csCanExtendMethod == null) return false;
-
-			try { return (bool)_csCanExtendMethod.Invoke(service, null); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_csCanExtendMethod, service);
 		}
 
 		/// <summary>
@@ -508,9 +442,7 @@ namespace ATSAccessibility {
 		public static bool CanAffordExtend() {
 			EnsureTypesCached();
 			var service = GetCornerstonesService();
-			if (service == null || _csCanAffordExtendMethod == null) return false;
-
-			try { return (bool)_csCanAffordExtendMethod.Invoke(service, null); } catch { return false; }
+			return ReflectionHelper.InvokeBool(_csCanAffordExtendMethod, service);
 		}
 
 		/// <summary>
@@ -519,15 +451,7 @@ namespace ATSAccessibility {
 		public static bool Extend() {
 			EnsureTypesCached();
 			var service = GetCornerstonesService();
-			if (service == null || _csExtendMethod == null) return false;
-
-			try {
-				_csExtendMethod.Invoke(service, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CornerstoneReflection: Extend failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_csExtendMethod, service);
 		}
 
 		/// <summary>
@@ -537,30 +461,19 @@ namespace ATSAccessibility {
 		public static (int amount, string goodDisplayName) GetExtendCost() {
 			EnsureTypesCached();
 
-			try {
-				var biomeService = GetBiomeService();
-				if (biomeService == null || _bsCurrentBiomeProperty == null) return (0, "Unknown");
+			var biomeService = GetBiomeService();
+			var biome = ReflectionHelper.GetProp(_bsCurrentBiomeProperty, biomeService);
+			var seasons = ReflectionHelper.GetField(_bmSeasonsField, biome);
+			var extendPrice = ReflectionHelper.GetField(_scExtendPriceField, seasons);
+			if (extendPrice == null) return (0, "Unknown");
 
-				var biome = _bsCurrentBiomeProperty.GetValue(biomeService);
-				if (biome == null || _bmSeasonsField == null) return (0, "Unknown");
+			var amount = ReflectionHelper.GetInt(_grAmountField, extendPrice);
+			var goodModel = ReflectionHelper.GetField(_grGoodField, extendPrice);
+			var displayName = goodModel != null
+				? (GameReflection.GetDisplayName(goodModel) ?? "Unknown")
+				: "Unknown";
 
-				var seasons = _bmSeasonsField.GetValue(biome);
-				if (seasons == null || _scExtendPriceField == null) return (0, "Unknown");
-
-				var extendPrice = _scExtendPriceField.GetValue(seasons);
-				if (extendPrice == null) return (0, "Unknown");
-
-				var amount = _grAmountField != null ? (int)_grAmountField.GetValue(extendPrice) : 0;
-				var goodModel = _grGoodField?.GetValue(extendPrice);
-				var displayName = goodModel != null
-					? (GameReflection.GetDisplayName(goodModel) ?? "Unknown")
-					: "Unknown";
-
-				return (amount, displayName);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CornerstoneReflection: GetExtendCost failed: {ex.Message}");
-				return (0, "Unknown");
-			}
+			return (amount, displayName);
 		}
 
 		// ========================================
@@ -601,9 +514,7 @@ namespace ATSAccessibility {
 			try {
 				// service.RemoveFromActive(effectModel)
 				var service = GetCornerstonesService();
-				if (service != null && _csRemoveFromActiveMethod != null) {
-					_csRemoveFromActiveMethod.Invoke(service, new[] { effectModel });
-				}
+				ReflectionHelper.InvokeVoid(_csRemoveFromActiveMethod, service, effectModel);
 
 				// effectModel.Remove() - has optional params, pass defaults
 				if (_emRemoveMethod != null) {
@@ -615,14 +526,10 @@ namespace ATSAccessibility {
 				}
 
 				// popup.FinishTask(true)
-				if (_clpFinishTaskMethod != null) {
-					_clpFinishTaskMethod.Invoke(limitPopup, new object[] { true });
-				}
+				ReflectionHelper.InvokeVoid(_clpFinishTaskMethod, limitPopup, true);
 
 				// popup.Hide()
-				if (_popupHideMethod != null) {
-					_popupHideMethod.Invoke(limitPopup, null);
-				}
+				ReflectionHelper.InvokeVoid(_popupHideMethod, limitPopup);
 
 				return true;
 			} catch (Exception ex) {
@@ -638,22 +545,13 @@ namespace ATSAccessibility {
 			if (limitPopup == null) return false;
 			EnsureTypesCached();
 
-			try {
-				// popup.FinishTask(false)
-				if (_clpFinishTaskMethod != null) {
-					_clpFinishTaskMethod.Invoke(limitPopup, new object[] { false });
-				}
+			// popup.FinishTask(false)
+			ReflectionHelper.InvokeVoid(_clpFinishTaskMethod, limitPopup, false);
 
-				// popup.Hide()
-				if (_popupHideMethod != null) {
-					_popupHideMethod.Invoke(limitPopup, null);
-				}
+			// popup.Hide()
+			ReflectionHelper.InvokeVoid(_popupHideMethod, limitPopup);
 
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] CornerstoneReflection: CancelLimitPopup failed: {ex.Message}");
-				return false;
-			}
+			return true;
 		}
 
 		public static int LogCacheStatus() {

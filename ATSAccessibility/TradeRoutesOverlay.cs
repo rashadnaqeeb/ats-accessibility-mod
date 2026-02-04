@@ -345,7 +345,7 @@ namespace ATSAccessibility {
 				return $"{route.GoodName}, {route.GoodAmount}, to {route.TownName}, ready to collect, {route.PriceAmount} {route.PriceName}";
 			} else {
 				int percent = Mathf.RoundToInt(route.Progress * 100);
-				string time = TradeRoutesReflection.FormatTime(route.TimeRemaining);
+				string time = FormattingUtils.FormatTime(route.TimeRemaining);
 				return $"{route.GoodName}, {route.GoodAmount}, to {route.TownName}, {percent}%, {time}";
 			}
 		}
@@ -445,7 +445,7 @@ namespace ATSAccessibility {
 				baseLabel += $", x{offer.Multiplier}";
 
 			baseLabel += $", sells for {offer.PriceAmount} {offer.PriceName}";
-			baseLabel += $", time {TradeRoutesReflection.FormatTime(offer.TravelTime)}";
+			baseLabel += $", time {FormattingUtils.FormatTime(offer.TravelTime)}";
 			baseLabel += $", requires {offer.FuelAmount} {offer.FuelName}";
 
 			if (offer.Accepted) {

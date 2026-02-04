@@ -70,10 +70,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("NarrationReflection", assembly => {
 				// HomePopup type
 				_homePopupType = assembly.GetType("Eremite.Narration.UI.HomePopup");
 
@@ -135,11 +132,7 @@ namespace ATSAccessibility {
 					_choiceExecuteMethod = choiceType.GetMethod("Execute", Type.EmptyTypes);
 					_choiceGetTextMethod = choiceType.GetMethod("GetText", Type.EmptyTypes);
 				}
-
-				Debug.Log("[ATSAccessibility] NarrationReflection cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NarrationReflection caching failed: {ex.Message}");
-			}
+			});
 		}
 
 		// ========================================
@@ -214,12 +207,10 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetWorldServices() {
 			EnsureCached();
-			if (_wcInstanceProperty == null || _wcWorldServicesProperty == null) return null;
-
+			if (_wcInstanceProperty == null) return null;
 			try {
 				var worldController = _wcInstanceProperty.GetValue(null);
-				if (worldController == null) return null;
-				return _wcWorldServicesProperty.GetValue(worldController);
+				return ReflectionHelper.GetProp(_wcWorldServicesProperty, worldController);
 			} catch {
 				return null;
 			}
@@ -231,13 +222,7 @@ namespace ATSAccessibility {
 		private static object GetNarrationBlackboardService() {
 			EnsureCached();
 			var worldServices = GetWorldServices();
-			if (worldServices == null || _wsNarrationBlackboardServiceProperty == null) return null;
-
-			try {
-				return _wsNarrationBlackboardServiceProperty.GetValue(worldServices);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetProp(_wsNarrationBlackboardServiceProperty, worldServices);
 		}
 
 		/// <summary>
@@ -246,13 +231,7 @@ namespace ATSAccessibility {
 		private static object GetNarrationService() {
 			EnsureCached();
 			var worldServices = GetWorldServices();
-			if (worldServices == null || _wsNarrationServiceProperty == null) return null;
-
-			try {
-				return _wsNarrationServiceProperty.GetValue(worldServices);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetProp(_wsNarrationServiceProperty, worldServices);
 		}
 
 		// ========================================
@@ -264,20 +243,11 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetNPCName() {
 			EnsureCached();
-
-			try {
-				var narrationService = GetNarrationService();
-				if (narrationService == null || _nsGetNPCMethod == null) return null;
-
-				var npc = _nsGetNPCMethod.Invoke(narrationService, null);
-				if (npc == null) return null;
-
-				var locaText = _npcDisplayNameField?.GetValue(npc);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NarrationReflection: GetNPCName failed: {ex.Message}");
-				return null;
-			}
+			var narrationService = GetNarrationService();
+			if (narrationService == null) return null;
+			var npc = ReflectionHelper.Invoke(_nsGetNPCMethod, narrationService);
+			if (npc == null) return null;
+			return ReflectionHelper.GetLocaString(_npcDisplayNameField, npc);
 		}
 
 		/// <summary>
@@ -285,20 +255,11 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetNPCTitle() {
 			EnsureCached();
-
-			try {
-				var narrationService = GetNarrationService();
-				if (narrationService == null || _nsGetNPCMethod == null) return null;
-
-				var npc = _nsGetNPCMethod.Invoke(narrationService, null);
-				if (npc == null) return null;
-
-				var locaText = _npcTitleField?.GetValue(npc);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NarrationReflection: GetNPCTitle failed: {ex.Message}");
-				return null;
-			}
+			var narrationService = GetNarrationService();
+			if (narrationService == null) return null;
+			var npc = ReflectionHelper.Invoke(_nsGetNPCMethod, narrationService);
+			if (npc == null) return null;
+			return ReflectionHelper.GetLocaString(_npcTitleField, npc);
 		}
 
 		/// <summary>
@@ -306,17 +267,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool HasAnyImportantTopics() {
 			EnsureCached();
-
-			try {
-				var narrationService = GetNarrationService();
-				if (narrationService == null || _nsHasAnyImportantTopicsMethod == null) return false;
-
-				var result = _nsHasAnyImportantTopicsMethod.Invoke(narrationService, null);
-				return result is bool b && b;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] NarrationReflection: HasAnyImportantTopics failed: {ex.Message}");
-				return false;
-			}
+			var narrationService = GetNarrationService();
+			if (narrationService == null) return false;
+			return ReflectionHelper.InvokeBool(_nsHasAnyImportantTopicsMethod, narrationService);
 		}
 
 		// ========================================
@@ -330,19 +283,12 @@ namespace ATSAccessibility {
 			if (dialogueModel == null) return null;
 			EnsureCached();
 
-			try {
-				// Prefer GetText() method as it handles pronouns
-				if (_dialogueGetTextMethod != null) {
-					return _dialogueGetTextMethod.Invoke(dialogueModel, null) as string;
-				}
+			// Prefer GetText() method as it handles pronouns
+			var text = ReflectionHelper.InvokeString(_dialogueGetTextMethod, dialogueModel);
+			if (text != null) return text;
 
-				// Fallback to raw text field
-				var locaText = _dialogueTextField?.GetValue(dialogueModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NarrationReflection: GetDialogueText failed: {ex.Message}");
-				return null;
-			}
+			// Fallback to raw text field
+			return ReflectionHelper.GetLocaString(_dialogueTextField, dialogueModel);
 		}
 
 		/// <summary>
@@ -351,14 +297,7 @@ namespace ATSAccessibility {
 		public static bool HasTransition(object dialogueModel) {
 			if (dialogueModel == null) return false;
 			EnsureCached();
-
-			try {
-				if (_dialogueHasTransitionProperty == null) return false;
-				var result = _dialogueHasTransitionProperty.GetValue(dialogueModel);
-				return result is bool b && b;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.GetPropBool(_dialogueHasTransitionProperty, dialogueModel);
 		}
 
 		/// <summary>
@@ -367,15 +306,7 @@ namespace ATSAccessibility {
 		public static bool ExecuteTransition(object dialogueModel) {
 			if (dialogueModel == null) return false;
 			EnsureCached();
-
-			try {
-				if (_dialogueExecuteTransitionMethod == null) return false;
-				_dialogueExecuteTransitionMethod.Invoke(dialogueModel, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NarrationReflection: ExecuteTransition failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_dialogueExecuteTransitionMethod, dialogueModel);
 		}
 
 		// ========================================
@@ -451,15 +382,7 @@ namespace ATSAccessibility {
 		public static bool SelectChoice(ChoiceInfo choice) {
 			if (choice?.Choice == null) return false;
 			EnsureCached();
-
-			try {
-				if (_choiceExecuteMethod == null) return false;
-				_choiceExecuteMethod.Invoke(choice.Choice, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] NarrationReflection: SelectChoice failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_choiceExecuteMethod, choice.Choice);
 		}
 
 		// ========================================

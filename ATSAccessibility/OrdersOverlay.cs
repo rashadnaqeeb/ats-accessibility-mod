@@ -246,7 +246,7 @@ namespace ATSAccessibility {
 			float gameTime = OrdersReflection.GetGameTime();
 			float remaining = startTime - gameTime;
 			if (remaining > 0) {
-				return $"Locked, unlocks in {OrdersReflection.FormatTime(remaining)}";
+				return $"Locked, unlocks in {FormattingUtils.FormatTime(remaining)}";
 			}
 
 			return "Locked";
@@ -267,7 +267,7 @@ namespace ATSAccessibility {
 			bool timed = OrdersReflection.CanBeFailed(orderModel);
 			if (timed) {
 				float timeLeft = OrdersReflection.GetTimeLeft(orderState);
-				string timeStr = OrdersReflection.FormatTime(timeLeft);
+				string timeStr = FormattingUtils.FormatTime(timeLeft);
 				parts.Add($"{name}, {timeStr}");
 			} else {
 				parts.Add(name);

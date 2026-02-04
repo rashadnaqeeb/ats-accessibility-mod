@@ -59,10 +59,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("TrendsReflection", assembly => {
 				// TrendsPopup
 				_trendsPopupType = assembly.GetType("Eremite.View.Trends.TrendsPopup");
 				if (_trendsPopupType != null) {
@@ -120,9 +117,7 @@ namespace ATSAccessibility {
 				if (locaTextType != null) {
 					_locaTextProperty = locaTextType.GetProperty("Text");
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] TrendsReflection caching failed: {ex.Message}");
-			}
+			});
 		}
 
 		// ========================================
@@ -136,18 +131,12 @@ namespace ATSAccessibility {
 
 		private static object GetTrendsState() {
 			var stateService = GetStateService();
-			if (stateService == null) return null;
-			return _stateServiceTrendsProperty?.GetValue(stateService);
+			return ReflectionHelper.GetProp(_stateServiceTrendsProperty, stateService);
 		}
 
 		private static object GetStorageOperationsService() {
 			EnsureCached();
 			return GameReflection.GetService(_gsStorageOperationsServiceProperty);
-		}
-
-		private static string GetLocaText(object locaText) {
-			if (locaText == null) return null;
-			return _locaTextProperty?.GetValue(locaText) as string;
 		}
 
 		// ========================================
@@ -170,14 +159,7 @@ namespace ATSAccessibility {
 		public static string GetCurrentGood(object popup) {
 			if (popup == null) return null;
 			EnsureCached();
-			if (_currentGoodField == null) return null;
-
-			try {
-				return _currentGoodField.GetValue(popup) as string;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetCurrentGood failed: {ex.Message}");
-				return null;
-			}
+			return ReflectionHelper.GetString(_currentGoodField, popup);
 		}
 
 		// ========================================
@@ -197,9 +179,7 @@ namespace ATSAccessibility {
 				var opsDict = _trendsGoodsOperationsField?.GetValue(trendsState);
 				if (opsDict == null) return result;
 
-				// Get Keys from the dictionary
-				var keysProperty = opsDict.GetType().GetProperty("Keys");
-				var keys = keysProperty?.GetValue(opsDict) as IEnumerable;
+				var keys = ReflectionHelper.IterateKeys(opsDict);
 				if (keys == null) return result;
 
 				foreach (var key in keys) {
@@ -227,11 +207,11 @@ namespace ATSAccessibility {
 				var settings = GameReflection.GetSettings();
 				if (settings == null || _getGoodMethod == null) return goodName;
 
-				var goodModel = _getGoodMethod.Invoke(settings, new object[] { goodName });
+				var goodModel = ReflectionHelper.Invoke(_getGoodMethod, settings, goodName);
 				if (goodModel == null) return goodName;
 
 				var locaText = _goodDisplayNameField?.GetValue(goodModel);
-				return GetLocaText(locaText) ?? goodName;
+				return GameReflection.GetLocaText(locaText) ?? goodName;
 			} catch {
 				return goodName;
 			}
@@ -245,15 +225,9 @@ namespace ATSAccessibility {
 		/// Get the current total ticks count.
 		/// </summary>
 		public static int GetTotalTicks() {
-			try {
-				var trendsState = GetTrendsState();
-				if (trendsState == null) return 0;
-
-				var result = _trendsTotalTicksField?.GetValue(trendsState);
-				return result is int i ? i : 0;
-			} catch {
-				return 0;
-			}
+			var trendsState = GetTrendsState();
+			if (trendsState == null) return 0;
+			return ReflectionHelper.GetInt(_trendsTotalTicksField, trendsState);
 		}
 
 		/// <summary>
@@ -299,13 +273,11 @@ namespace ATSAccessibility {
 				foreach (var op in opsList) {
 					if (op == null) continue;
 
-					var tickVal = _opTrendTickField?.GetValue(op);
-					int tick = tickVal is int t ? t : 0;
+					int tick = ReflectionHelper.GetInt(_opTrendTickField, op);
 
 					if (tick < minTick) continue;
 
-					var amountVal = _opAmountField?.GetValue(op);
-					int amount = amountVal is int a ? a : 0;
+					int amount = ReflectionHelper.GetInt(_opAmountField, op);
 
 					// Get the game's display name for this operation
 					string displayName = GetOperationDisplayName(opsService, op);
@@ -351,12 +323,8 @@ namespace ATSAccessibility {
 			if (opsService == null || _getDisplayNameMethod == null || operation == null)
 				return "Unknown";
 
-			try {
-				var name = _getDisplayNameMethod.Invoke(opsService, new[] { operation }) as string;
-				return !string.IsNullOrEmpty(name) ? name : "Unknown";
-			} catch {
-				return "Unknown";
-			}
+			var name = ReflectionHelper.InvokeString(_getDisplayNameMethod, opsService, operation);
+			return !string.IsNullOrEmpty(name) ? name : "Unknown";
 		}
 
 		public static int LogCacheStatus() {

@@ -73,11 +73,6 @@ namespace ATSAccessibility {
 		// OrderState.tracked field
 		private static FieldInfo _orderStateTrackedField = null;
 
-		// Pre-allocated args arrays
-		private static readonly object[] _args1 = new object[1];
-		private static readonly object[] _args2 = new object[2];
-		private static readonly object[] _args3 = new object[3];
-
 		// ========================================
 		// INITIALIZATION
 		// ========================================
@@ -86,13 +81,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] SealReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("SealReflection", assembly => {
 				CacheSealPanelType(assembly);
 				CacheSealTypes(assembly);
 				CacheSealKitTypes(assembly);
@@ -101,11 +90,7 @@ namespace ATSAccessibility {
 				CacheCalendarTypes(assembly);
 				CacheGameSealServiceTypes(assembly);
 				CacheBlackboardTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] SealReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SealReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CacheSealPanelType(Assembly assembly) {
@@ -267,7 +252,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsSealCompleted(object seal) {
 			if (seal == null || _sealIsSealCompletedMethod == null) return true;
-			try { return (bool)_sealIsSealCompletedMethod.Invoke(seal, null); } catch { return true; }
+			return ReflectionHelper.InvokeBool(_sealIsSealCompletedMethod, seal);
 		}
 
 		// ========================================
@@ -278,69 +263,57 @@ namespace ATSAccessibility {
 		/// Get the first uncompleted stage state (SealKitState).
 		/// </summary>
 		public static object GetFirstUncompletedStage(object seal) {
-			if (seal == null || _sealGetFirstUncompletedKitMethod == null) return null;
-			try { return _sealGetFirstUncompletedKitMethod.Invoke(seal, null); } catch { return null; }
+			if (seal == null) return null;
+			return ReflectionHelper.Invoke(_sealGetFirstUncompletedKitMethod, seal);
 		}
 
 		/// <summary>
 		/// Get the stage model (SealKitModel) for a stage state.
 		/// </summary>
 		public static object GetStageModel(object seal, object stageState) {
-			if (seal == null || stageState == null || _sealGetModelForMethod == null) return null;
-			try {
-				_args1[0] = stageState;
-				return _sealGetModelForMethod.Invoke(seal, _args1);
-			} catch { return null; }
+			if (seal == null || stageState == null) return null;
+			return ReflectionHelper.Invoke(_sealGetModelForMethod, seal, stageState);
 		}
 
 		/// <summary>
 		/// Check if a stage is completed.
 		/// </summary>
 		public static bool IsStageCompleted(object seal, object stageState) {
-			if (seal == null || stageState == null || _sealIsKitCompletedMethod == null) return false;
-			try {
-				_args1[0] = stageState;
-				return (bool)_sealIsKitCompletedMethod.Invoke(seal, _args1);
-			} catch { return false; }
+			if (seal == null || stageState == null) return false;
+			return ReflectionHelper.InvokeBool(_sealIsKitCompletedMethod, seal, stageState);
 		}
 
 		/// <summary>
 		/// Get the completed offering model (SealPartModel) for a completed stage.
 		/// </summary>
 		public static object GetCompletedOfferingFor(object seal, object stageState) {
-			if (seal == null || stageState == null || _sealGetCompletedPartForMethod == null) return null;
-			try {
-				_args1[0] = stageState;
-				return _sealGetCompletedPartForMethod.Invoke(seal, _args1);
-			} catch { return null; }
+			if (seal == null || stageState == null) return null;
+			return ReflectionHelper.Invoke(_sealGetCompletedPartForMethod, seal, stageState);
 		}
 
 		/// <summary>
 		/// Get the completed index from a stage state (-1 if not completed).
 		/// </summary>
 		public static int GetStageCompletedIndex(object stageState) {
-			if (stageState == null || _kitStateCompletedIndexField == null) return -1;
-			try { return (int)_kitStateCompletedIndexField.GetValue(stageState); } catch { return -1; }
+			if (stageState == null) return -1;
+			if (_kitStateCompletedIndexField == null) return -1;
+			var val = ReflectionHelper.GetField(_kitStateCompletedIndexField, stageState);
+			return val is int i ? i : -1;
 		}
 
 		/// <summary>
 		/// Get the orders array (OrderState[]) from a stage state.
 		/// </summary>
 		public static Array GetStageOrders(object stageState) {
-			if (stageState == null || _kitStateOrdersField == null) return null;
-			try { return _kitStateOrdersField.GetValue(stageState) as Array; } catch { return null; }
+			return ReflectionHelper.GetField(_kitStateOrdersField, stageState) as Array;
 		}
 
 		/// <summary>
 		/// Get all stage states from the seal.
 		/// </summary>
 		public static Array GetAllStages(object seal) {
-			if (seal == null || _sealStateField == null || _sealStateKitsField == null) return null;
-			try {
-				var state = _sealStateField.GetValue(seal);
-				if (state == null) return null;
-				return _sealStateKitsField.GetValue(state) as Array;
-			} catch { return null; }
+			var state = ReflectionHelper.GetField(_sealStateField, seal);
+			return ReflectionHelper.GetField(_sealStateKitsField, state) as Array;
 		}
 
 		// ========================================
@@ -351,27 +324,21 @@ namespace ATSAccessibility {
 		/// Get the dialogue text from a stage model.
 		/// </summary>
 		public static string GetStageDialogue(object stageModel) {
-			if (stageModel == null || _kitModelDialogueField == null) return null;
-			try {
-				var locaText = _kitModelDialogueField.GetValue(stageModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch { return null; }
+			return ReflectionHelper.GetLocaString(_kitModelDialogueField, stageModel);
 		}
 
 		/// <summary>
 		/// Get the offerings array (SealPartModel[]) from a stage model.
 		/// </summary>
 		public static Array GetStageOfferings(object stageModel) {
-			if (stageModel == null || _kitModelPartsField == null) return null;
-			try { return _kitModelPartsField.GetValue(stageModel) as Array; } catch { return null; }
+			return ReflectionHelper.GetField(_kitModelPartsField, stageModel) as Array;
 		}
 
 		/// <summary>
 		/// Get the reward (EffectModel) from a stage model.
 		/// </summary>
 		public static object GetStageReward(object stageModel) {
-			if (stageModel == null || _kitModelRewardField == null) return null;
-			try { return _kitModelRewardField.GetValue(stageModel); } catch { return null; }
+			return ReflectionHelper.GetField(_kitModelRewardField, stageModel);
 		}
 
 		// ========================================
@@ -382,30 +349,21 @@ namespace ATSAccessibility {
 		/// Get the display name from an offering model.
 		/// </summary>
 		public static string GetOfferingDisplayName(object offeringModel) {
-			if (offeringModel == null || _partModelDisplayNameField == null) return null;
-			try {
-				var locaText = _partModelDisplayNameField.GetValue(offeringModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch { return null; }
+			return ReflectionHelper.GetLocaString(_partModelDisplayNameField, offeringModel);
 		}
 
 		/// <summary>
 		/// Get the description from an offering model.
 		/// </summary>
 		public static string GetOfferingDescription(object offeringModel) {
-			if (offeringModel == null || _partModelDescriptionField == null) return null;
-			try {
-				var locaText = _partModelDescriptionField.GetValue(offeringModel);
-				return GameReflection.GetLocaText(locaText);
-			} catch { return null; }
+			return ReflectionHelper.GetLocaString(_partModelDescriptionField, offeringModel);
 		}
 
 		/// <summary>
 		/// Get the order model (OrderModel) from an offering model.
 		/// </summary>
 		public static object GetOfferingOrder(object offeringModel) {
-			if (offeringModel == null || _partModelOrderField == null) return null;
-			try { return _partModelOrderField.GetValue(offeringModel); } catch { return null; }
+			return ReflectionHelper.GetField(_partModelOrderField, offeringModel);
 		}
 
 		// ========================================
@@ -417,27 +375,22 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetSealGameState() {
 			EnsureCached();
-			try {
-				var stateService = GameReflection.GetStateService();
-				if (stateService == null || _stateServiceSealGameProperty == null) return null;
-				return _stateServiceSealGameProperty.GetValue(stateService);
-			} catch { return null; }
+			var stateService = GameReflection.GetStateService();
+			return ReflectionHelper.GetProp(_stateServiceSealGameProperty, stateService);
 		}
 
 		/// <summary>
 		/// Get the current active plague effect name (empty if not in storm).
 		/// </summary>
 		public static string GetCurrentEffect(object sealGameState) {
-			if (sealGameState == null || _sealGameStateCurrentEffectField == null) return null;
-			try { return _sealGameStateCurrentEffectField.GetValue(sealGameState) as string; } catch { return null; }
+			return ReflectionHelper.GetString(_sealGameStateCurrentEffectField, sealGameState);
 		}
 
 		/// <summary>
 		/// Get the next plague effect name (what will activate during storm).
 		/// </summary>
 		public static string GetNextEffect(object sealGameState) {
-			if (sealGameState == null || _sealGameStateNextEffectField == null) return null;
-			try { return _sealGameStateNextEffectField.GetValue(sealGameState) as string; } catch { return null; }
+			return ReflectionHelper.GetString(_sealGameStateNextEffectField, sealGameState);
 		}
 
 		/// <summary>
@@ -459,14 +412,13 @@ namespace ATSAccessibility {
 				if (_gameDateCtor == null || _calendarYearProperty == null || _seasonStorm == null) return 0f;
 
 				// Get current year
-				int year = (int)_calendarYearProperty.GetValue(calendarService);
+				int year = ReflectionHelper.GetPropInt(_calendarYearProperty, calendarService);
 
 				// Create GameDate(year, Season.Storm)
 				var gameDate = _gameDateCtor.Invoke(new object[] { year, _seasonStorm });
 
 				// Call GetSecondsLeftTo
-				_args1[0] = gameDate;
-				return (float)_calendarGetSecondsLeftToMethod.Invoke(calendarService, _args1);
+				return ReflectionHelper.InvokeFloat(_calendarGetSecondsLeftToMethod, calendarService, gameDate);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetSecondsUntilStorm failed: {ex.Message}");
 				return 0f;
@@ -488,11 +440,7 @@ namespace ATSAccessibility {
 				var gameSealService = GameReflection.GetGameSealService();
 				if (gameSealService == null) return false;
 
-				_args3[0] = stageState;
-				_args3[1] = stageModel;
-				_args3[2] = offeringIndex;
-				_gameSealServiceCompletePartMethod.Invoke(gameSealService, _args3);
-				return true;
+				return ReflectionHelper.InvokeVoid(_gameSealServiceCompletePartMethod, gameSealService, stageState, stageModel, offeringIndex);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] CompleteOffering failed: {ex.Message}");
 				return false;
@@ -509,22 +457,20 @@ namespace ATSAccessibility {
 
 			try {
 				// Toggle the tracked field
-				bool currentlyTracked = (bool)_orderStateTrackedField.GetValue(orderState);
-				_orderStateTrackedField.SetValue(orderState, !currentlyTracked);
+				bool currentlyTracked = ReflectionHelper.GetBool(_orderStateTrackedField, orderState);
+				ReflectionHelper.SetField(_orderStateTrackedField, orderState, !currentlyTracked);
 
 				// Fire the OnExternalOrderTrackingChanged event
 				var blackboard = GameReflection.GetGameBlackboardService();
 				if (blackboard == null) return false;
 
-				var subject = _gbbOnExternalOrderTrackingChangedProperty.GetValue(blackboard);
+				var subject = ReflectionHelper.GetProp(_gbbOnExternalOrderTrackingChangedProperty, blackboard);
 				if (subject == null) return false;
 
 				var onNextMethod = subject.GetType().GetMethod("OnNext", GameReflection.PublicInstance);
 				if (onNextMethod == null) return false;
 
-				_args1[0] = orderState;
-				onNextMethod.Invoke(subject, _args1);
-				return true;
+				return ReflectionHelper.InvokeVoid(onNextMethod, subject, orderState);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] ToggleOfferingTracking failed: {ex.Message}");
 				return false;
@@ -535,8 +481,7 @@ namespace ATSAccessibility {
 		/// Check if an order is currently tracked.
 		/// </summary>
 		public static bool IsOfferingTracked(object orderState) {
-			if (orderState == null || _orderStateTrackedField == null) return false;
-			try { return (bool)_orderStateTrackedField.GetValue(orderState); } catch { return false; }
+			return ReflectionHelper.GetBool(_orderStateTrackedField, orderState);
 		}
 
 		// ========================================

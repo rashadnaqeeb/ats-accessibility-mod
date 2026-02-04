@@ -65,24 +65,14 @@ namespace ATSAccessibility {
 			if (_typesCached) return;
 			_typesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] DeedsReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("DeedsReflection", assembly => {
 				CacheMetaStateTypes(assembly);
 				CacheGoalModelTypes(assembly);
 				CacheGoalStateTypes(assembly);
 				CacheCategoryTypes(assembly);
 				CacheGoalsServiceTypes(assembly);
 				CachePopupType(assembly);
-
-				Debug.Log("[ATSAccessibility] DeedsReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] DeedsReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CacheMetaStateTypes(Assembly assembly) {
@@ -266,58 +256,43 @@ namespace ATSAccessibility {
 		}
 
 		public static string GetGoalName(object model) {
-			if (model == null || _goalModelDisplayNameField == null) return "Unknown";
-			try {
-				var locaText = _goalModelDisplayNameField.GetValue(model);
-				return GameReflection.GetLocaText(locaText) ?? "Unknown";
-			} catch { return "Unknown"; }
+			if (model == null) return "Unknown";
+			return ReflectionHelper.GetLocaString(_goalModelDisplayNameField, model) ?? "Unknown";
 		}
 
 		public static string GetGoalDescription(object model) {
-			if (model == null || _goalModelDescriptionProperty == null) return "";
-			try {
-				return _goalModelDescriptionProperty.GetValue(model) as string ?? "";
-			} catch { return ""; }
+			if (model == null) return "";
+			return ReflectionHelper.GetPropString(_goalModelDescriptionProperty, model) ?? "";
 		}
 
 		public static string GetGoalProgressText(object model, object state) {
-			if (model == null || state == null || _goalModelGetMetaProgressTextMethod == null) return "";
-			try {
-				return _goalModelGetMetaProgressTextMethod.Invoke(model, new[] { state }) as string ?? "";
-			} catch { return ""; }
+			if (model == null || state == null) return "";
+			return ReflectionHelper.InvokeString(_goalModelGetMetaProgressTextMethod, model, state) ?? "";
 		}
 
 		public static bool IsGoalCompleted(object state) {
-			if (state == null || _goalStateCompletedField == null) return false;
-			try { return (bool)_goalStateCompletedField.GetValue(state); } catch { return false; }
+			return ReflectionHelper.GetBool(_goalStateCompletedField, state);
 		}
 
 		public static bool IsGoalRewarded(object state) {
-			if (state == null || _goalStateRewardedField == null) return false;
-			try { return (bool)_goalStateRewardedField.GetValue(state); } catch { return false; }
+			return ReflectionHelper.GetBool(_goalStateRewardedField, state);
 		}
 
 		public static object GetGoalCategory(object model) {
-			if (model == null || _goalModelLabelField == null) return null;
-			try { return _goalModelLabelField.GetValue(model); } catch { return null; }
+			return ReflectionHelper.GetField(_goalModelLabelField, model);
 		}
 
 		public static string GetCategoryName(object category) {
-			if (category == null || _categoryDisplayNameField == null) return "Unknown";
-			try {
-				var locaText = _categoryDisplayNameField.GetValue(category);
-				return GameReflection.GetLocaText(locaText) ?? "Unknown";
-			} catch { return "Unknown"; }
+			if (category == null) return "Unknown";
+			return ReflectionHelper.GetLocaString(_categoryDisplayNameField, category) ?? "Unknown";
 		}
 
 		public static int GetCategoryOrder(object category) {
-			if (category == null || _categoryOrderField == null) return 0;
-			try { return (int)_categoryOrderField.GetValue(category); } catch { return 0; }
+			return ReflectionHelper.GetInt(_categoryOrderField, category);
 		}
 
 		public static bool IsCategoryHidden(object category) {
-			if (category == null || _categoryIsHiddenField == null) return false;
-			try { return (bool)_categoryIsHiddenField.GetValue(category); } catch { return false; }
+			return ReflectionHelper.GetBool(_categoryIsHiddenField, category);
 		}
 
 		/// <summary>
@@ -363,13 +338,7 @@ namespace ATSAccessibility {
 			var goalsService = GetGoalsService();
 			if (goalsService == null) return false;
 
-			try {
-				_gsRewardGoalMethod.Invoke(goalsService, new[] { state, model });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] DeedsReflection: ClaimGoal failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_gsRewardGoalMethod, goalsService, state, model);
 		}
 
 		/// <summary>

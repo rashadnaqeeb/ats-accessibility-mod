@@ -166,10 +166,10 @@ namespace ATSAccessibility {
 
 			parts.Add($"{payment.GoodAmount} {payment.GoodName}");
 
-			string yearStr = PaymentsReflection.YearToRoman(payment.DueYear);
+			string yearStr = FormattingUtils.YearToRoman(payment.DueYear);
 			parts.Add($"due Year {yearStr} {payment.DueSeason}");
 
-			string timeStr = PaymentsReflection.FormatTime(payment.TimeRemaining);
+			string timeStr = FormattingUtils.FormatTime(payment.TimeRemaining);
 			parts.Add(timeStr);
 
 			string autoLabel = PaymentsReflection.GetAutoPaymentLabel(payment.AutoPaymentType);

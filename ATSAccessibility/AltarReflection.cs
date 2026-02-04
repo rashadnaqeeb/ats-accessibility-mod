@@ -130,9 +130,6 @@ namespace ATSAccessibility {
 		private static PropertyInfo _emDescriptionProperty = null;
 		private static MethodInfo _emGetTooltipFootnoteMethod = null;
 
-		// Pre-allocated args
-		private static readonly object[] _args1 = new object[1];
-
 		// ========================================
 		// INITIALIZATION
 		// ========================================
@@ -141,13 +138,7 @@ namespace ATSAccessibility {
 			if (_cached) return;
 			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] AltarReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("AltarReflection", assembly => {
 				CacheAltarPanelTypes(assembly);
 				CacheServiceTypes(assembly);
 				CacheAltarServiceMethods(assembly);
@@ -159,11 +150,7 @@ namespace ATSAccessibility {
 				CacheMetaEconomyTypes(assembly);
 				CacheSettingsTypes(assembly);
 				CacheModelTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] AltarReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] AltarReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CacheAltarPanelTypes(Assembly assembly) {
@@ -346,9 +333,7 @@ namespace ATSAccessibility {
 		private static object GetStateService() => GameReflection.GetService(_gsStateServiceProperty);
 
 		private static object GetAltarState() {
-			var stateService = GetStateService();
-			if (stateService == null || _ssAltarProperty == null) return null;
-			try { return _ssAltarProperty.GetValue(stateService); } catch { return null; }
+			return ReflectionHelper.GetProp(_ssAltarProperty, GetStateService());
 		}
 
 		private static object GetRacesService() => GameReflection.GetService(_gsRacesServiceProperty);
@@ -417,14 +402,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsStormSeason() {
 			EnsureCached();
-			var calendarService = GetCalendarService();
-			if (calendarService == null || _csSeasonProperty == null) return false;
-
-			try {
-				var seasonObj = _csSeasonProperty.GetValue(calendarService);
-				// Season enum: 0=Drizzle, 1=Clearance, 2=Storm
-				return seasonObj != null && (int)seasonObj == 2;
-			} catch { return false; }
+			// Season enum: 0=Drizzle, 1=Clearance, 2=Storm
+			return ReflectionHelper.GetPropInt(_csSeasonProperty, GetCalendarService()) == 2;
 		}
 
 		/// <summary>
@@ -432,13 +411,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool HasActivePick() {
 			EnsureCached();
-			var altarService = GetAltarService();
-			if (altarService == null || _asHasActivePickMethod == null) return false;
-
-			try {
-				var result = _asHasActivePickMethod.Invoke(altarService, null);
-				return result is bool b && b;
-			} catch { return false; }
+			return ReflectionHelper.InvokeBool(_asHasActivePickMethod, GetAltarService());
 		}
 
 		/// <summary>
@@ -446,13 +419,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool AreVillagersAllowed() {
 			EnsureCached();
-			var altarService = GetAltarService();
-			if (altarService == null || _asAreVillagersAllowedMethod == null) return false;
-
-			try {
-				var result = _asAreVillagersAllowedMethod.Invoke(altarService, null);
-				return result is bool b && b;
-			} catch { return false; }
+			return ReflectionHelper.InvokeBool(_asAreVillagersAllowedMethod, GetAltarService());
 		}
 
 		/// <summary>
@@ -461,12 +428,9 @@ namespace ATSAccessibility {
 		public static int GetLastPickedCharge() {
 			EnsureCached();
 			var altarState = GetAltarState();
-			if (altarState == null || _acsLastPickedChargeField == null) return -1;
-
-			try {
-				var result = _acsLastPickedChargeField.GetValue(altarState);
-				return result is int i ? i : -1;
-			} catch { return -1; }
+			if (altarState == null) return -1;
+			var result = ReflectionHelper.GetField(_acsLastPickedChargeField, altarState);
+			return result is int i ? i : -1;
 		}
 
 		/// <summary>
@@ -490,15 +454,8 @@ namespace ATSAccessibility {
 		}
 
 		private static int[] GetAltarCharges() {
-			var biomeService = GetBiomeService();
-			if (biomeService == null || _bsBlueprintsProperty == null) return null;
-
-			try {
-				var blueprints = _bsBlueprintsProperty.GetValue(biomeService);
-				if (blueprints == null || _bbcAltarChargesField == null) return null;
-
-				return _bbcAltarChargesField.GetValue(blueprints) as int[];
-			} catch { return null; }
+			var blueprints = ReflectionHelper.GetProp(_bsBlueprintsProperty, GetBiomeService());
+			return ReflectionHelper.GetField(_bbcAltarChargesField, blueprints) as int[];
 		}
 
 		// ========================================
@@ -510,13 +467,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetTotalMetaValue() {
 			EnsureCached();
-			var altarService = GetAltarService();
-			if (altarService == null || _asSumAllowedMetaValueMethod == null) return 0;
-
-			try {
-				var result = _asSumAllowedMetaValueMethod.Invoke(altarService, null);
-				return result is int i ? i : 0;
-			} catch { return 0; }
+			return ReflectionHelper.InvokeInt(_asSumAllowedMetaValueMethod, GetAltarService());
 		}
 
 		/// <summary>
@@ -524,13 +475,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetTotalVillagers() {
 			EnsureCached();
-			var altarService = GetAltarService();
-			if (altarService == null || _asSumAllowedRacesMethod == null) return 0;
-
-			try {
-				var result = _asSumAllowedRacesMethod.Invoke(altarService, null);
-				return result is int i ? i : 0;
-			} catch { return 0; }
+			return ReflectionHelper.InvokeInt(_asSumAllowedRacesMethod, GetAltarService());
 		}
 
 		// ========================================
@@ -560,33 +505,23 @@ namespace ATSAccessibility {
 					var info = new CurrencyInfo();
 
 					// Get name
-					var nameObj = _mcmNameProperty?.GetValue(currency);
-					info.Name = nameObj as string ?? "";
+					info.Name = ReflectionHelper.GetPropString(_mcmNameProperty, currency) ?? "";
 
 					// Get display name
-					var displayNameObj = _mcmDisplayNameProperty?.GetValue(currency);
-					info.DisplayName = displayNameObj as string ?? info.Name;
+					info.DisplayName = ReflectionHelper.GetPropString(_mcmDisplayNameProperty, currency) ?? info.Name;
 
 					// Get meta value rate
-					var rateObj = _mcmMetaValueRateField?.GetValue(currency);
+					var rateObj = ReflectionHelper.GetField(_mcmMetaValueRateField, currency);
 					info.MetaValueRate = rateObj is int r ? r : 1;
 
 					// Get amount from MetaEconomyService
-					if (metaEconomyService != null && _mesGetAmountMethod != null) {
-						_args1[0] = info.Name;
-						var amountObj = _mesGetAmountMethod.Invoke(metaEconomyService, _args1);
-						info.Amount = amountObj is int a ? a : 0;
-					}
+					info.Amount = ReflectionHelper.InvokeInt(_mesGetAmountMethod, metaEconomyService, info.Name);
 
 					// Calculate meta value
 					info.MetaValue = info.Amount * info.MetaValueRate;
 
 					// Check if enabled
-					if (altarService != null && _asIsAllowedCurrencyMethod != null) {
-						_args1[0] = currency;
-						var enabledObj = _asIsAllowedCurrencyMethod.Invoke(altarService, _args1);
-						info.Enabled = enabledObj is bool b && b;
-					}
+					info.Enabled = ReflectionHelper.InvokeBool(_asIsAllowedCurrencyMethod, altarService, currency);
 
 					result.Add(info);
 				}
@@ -615,9 +550,7 @@ namespace ATSAccessibility {
 				var currency = currenciesArray.GetValue(index);
 				if (currency == null) return false;
 
-				_args1[0] = currency;
-				_asSwitchCurrencyMethod.Invoke(altarService, _args1);
-				return true;
+				return ReflectionHelper.InvokeVoid(_asSwitchCurrencyMethod, altarService, currency);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] AltarReflection.ToggleCurrency failed: {ex.Message}");
 				return false;
@@ -650,36 +583,22 @@ namespace ATSAccessibility {
 					var info = new RaceInfo();
 
 					// Get name
-					var nameObj = _rmNameProperty?.GetValue(race);
-					info.Name = nameObj as string ?? "";
+					info.Name = ReflectionHelper.GetPropString(_rmNameProperty, race) ?? "";
 
 					// Get display name from LocaText
-					var locaText = _rmDisplayNameField?.GetValue(race);
-					info.DisplayName = GameReflection.GetLocaText(locaText) ?? info.Name;
+					info.DisplayName = ReflectionHelper.GetLocaString(_rmDisplayNameField, race) ?? info.Name;
 
 					// Check if revealed
-					if (_rsIsRevealedMethod != null) {
-						_args1[0] = race;
-						var revealedObj = _rsIsRevealedMethod.Invoke(racesService, _args1);
-						info.Revealed = revealedObj is bool b && b;
-					}
+					info.Revealed = ReflectionHelper.InvokeBool(_rsIsRevealedMethod, racesService, race);
 
 					// Only include revealed races
 					if (!info.Revealed) continue;
 
 					// Get count from VillagersService
-					if (villagersService != null && _vsGetAliveRaceAmountMethod != null) {
-						_args1[0] = info.Name;
-						var countObj = _vsGetAliveRaceAmountMethod.Invoke(villagersService, _args1);
-						info.Count = countObj is int c ? c : 0;
-					}
+					info.Count = ReflectionHelper.InvokeInt(_vsGetAliveRaceAmountMethod, villagersService, info.Name);
 
 					// Check if enabled
-					if (altarService != null && _asIsAllowedRaceMethod != null) {
-						_args1[0] = race;
-						var enabledObj = _asIsAllowedRaceMethod.Invoke(altarService, _args1);
-						info.Enabled = enabledObj is bool b && b;
-					}
+					info.Enabled = ReflectionHelper.InvokeBool(_asIsAllowedRaceMethod, altarService, race);
 
 					result.Add(info);
 				}
@@ -711,20 +630,11 @@ namespace ATSAccessibility {
 					if (race == null) continue;
 
 					// Check if revealed
-					bool revealed = false;
-					if (_rsIsRevealedMethod != null) {
-						_args1[0] = race;
-						var revealedObj = _rsIsRevealedMethod.Invoke(racesService, _args1);
-						revealed = revealedObj is bool b && b;
-					}
+					if (!ReflectionHelper.InvokeBool(_rsIsRevealedMethod, racesService, race))
+						continue;
 
-					if (!revealed) continue;
-
-					if (revealedIndex == index) {
-						_args1[0] = race;
-						_asSwitchRaceMethod.Invoke(altarService, _args1);
-						return true;
-					}
+					if (revealedIndex == index)
+						return ReflectionHelper.InvokeVoid(_asSwitchRaceMethod, altarService, race);
 
 					revealedIndex++;
 				}
@@ -741,16 +651,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool ToggleVillagersAllowed() {
 			EnsureCached();
-			var altarService = GetAltarService();
-			if (altarService == null || _asSwitchVillagersAllowedMethod == null) return false;
-
-			try {
-				_asSwitchVillagersAllowedMethod.Invoke(altarService, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] AltarReflection.ToggleVillagersAllowed failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_asSwitchVillagersAllowedMethod, GetAltarService());
 		}
 
 		// ========================================
@@ -777,30 +678,24 @@ namespace ATSAccessibility {
 					if (string.IsNullOrEmpty(effectName)) continue;
 
 					// Get AltarEffectModel from settings
-					if (_settingsGetAltarEffectMethod == null) continue;
-
-					_args1[0] = effectName;
-					var altarEffect = _settingsGetAltarEffectMethod.Invoke(settings, _args1);
+					var altarEffect = ReflectionHelper.Invoke(_settingsGetAltarEffectMethod, settings, effectName);
 					if (altarEffect == null) continue;
 
 					var info = new EffectInfo { Model = altarEffect };
 
 					// Get upgraded effect
-					var upgradedEffect = _aemUpgradedEffectField?.GetValue(altarEffect);
+					var upgradedEffect = ReflectionHelper.GetField(_aemUpgradedEffectField, altarEffect);
 					if (upgradedEffect != null) {
 						// Get display name
-						info.DisplayName = _emDisplayNameProperty?.GetValue(upgradedEffect) as string ?? effectName;
+						info.DisplayName = ReflectionHelper.GetPropString(_emDisplayNameProperty, upgradedEffect) ?? effectName;
 
 						// Get description
-						var desc = _emDescriptionProperty?.GetValue(upgradedEffect) as string ?? "";
+						var desc = ReflectionHelper.GetPropString(_emDescriptionProperty, upgradedEffect) ?? "";
 
 						// Get footnote if any
-						if (_emGetTooltipFootnoteMethod != null) {
-							var footnote = _emGetTooltipFootnoteMethod.Invoke(upgradedEffect, null);
-							var footnoteStr = footnote?.ToString();
-							if (!string.IsNullOrEmpty(footnoteStr) && footnoteStr != "None") {
-								desc += $" ({footnoteStr})";
-							}
+						var footnoteStr = ReflectionHelper.Invoke(_emGetTooltipFootnoteMethod, upgradedEffect)?.ToString();
+						if (!string.IsNullOrEmpty(footnoteStr) && footnoteStr != "None") {
+							desc += $" ({footnoteStr})";
 						}
 
 						info.Description = desc;
@@ -813,27 +708,10 @@ namespace ATSAccessibility {
 
 					// Get prices and affordability from AltarService
 					if (altarService != null) {
-						_args1[0] = altarEffect;
-
-						if (_asGetFullMetaPriceForMethod != null) {
-							var priceObj = _asGetFullMetaPriceForMethod.Invoke(altarService, _args1);
-							info.MetaPrice = priceObj is int p ? p : 0;
-						}
-
-						if (_asGetVillagersPriceForMethod != null) {
-							var vPriceObj = _asGetVillagersPriceForMethod.Invoke(altarService, _args1);
-							info.VillagersPrice = vPriceObj is int vp ? vp : 0;
-						}
-
-						if (_asCanBuyMethod != null) {
-							var canBuyObj = _asCanBuyMethod.Invoke(altarService, _args1);
-							info.CanAfford = canBuyObj is bool cb && cb;
-						}
-
-						if (_asIsUpgradeMethod != null) {
-							var isUpgradeObj = _asIsUpgradeMethod.Invoke(altarService, _args1);
-							info.IsUpgrade = isUpgradeObj is bool iu && iu;
-						}
+						info.MetaPrice = ReflectionHelper.InvokeInt(_asGetFullMetaPriceForMethod, altarService, altarEffect);
+						info.VillagersPrice = ReflectionHelper.InvokeInt(_asGetVillagersPriceForMethod, altarService, altarEffect);
+						info.CanAfford = ReflectionHelper.InvokeBool(_asCanBuyMethod, altarService, altarEffect);
+						info.IsUpgrade = ReflectionHelper.InvokeBool(_asIsUpgradeMethod, altarService, altarEffect);
 					}
 
 					result.Add(info);
@@ -850,17 +728,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool PickEffect(object altarEffectModel) {
 			EnsureCached();
-			var altarService = GetAltarService();
-			if (altarService == null || _asPickMethod == null) return false;
-
-			try {
-				_args1[0] = altarEffectModel;
-				_asPickMethod.Invoke(altarService, _args1);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] AltarReflection.PickEffect failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_asPickMethod, GetAltarService(), altarEffectModel);
 		}
 
 		/// <summary>
@@ -868,17 +736,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool Skip() {
 			EnsureCached();
-			var altarService = GetAltarService();
-			if (altarService == null || _asPickMethod == null) return false;
-
-			try {
-				_args1[0] = null;  // null = skip
-				_asPickMethod.Invoke(altarService, _args1);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] AltarReflection.Skip failed: {ex.Message}");
-				return false;
-			}
+			// null = skip
+			return ReflectionHelper.InvokeVoid(_asPickMethod, GetAltarService(), null);
 		}
 
 		public static int LogCacheStatus() {

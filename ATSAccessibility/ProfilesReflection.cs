@@ -51,20 +51,12 @@ namespace ATSAccessibility {
 			if (_typesCached) return;
 			_typesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] ProfilesReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("ProfilesReflection", assembly => {
 				CachePopupType(assembly);
 				CacheMbTypes(assembly);
 				CacheProfilesServiceTypes(assembly);
 				CacheProfileDataTypes(assembly);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ProfilesReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CachePopupType(Assembly assembly) {
@@ -133,13 +125,7 @@ namespace ATSAccessibility {
 		private static object GetProfilesService() {
 			EnsureTypesCached();
 			if (_mbProfilesServiceProperty == null) return null;
-
-			try {
-				return _mbProfilesServiceProperty.GetValue(null);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ProfilesReflection: GetProfilesService failed: {ex.Message}");
-				return null;
-			}
+			try { return _mbProfilesServiceProperty.GetValue(null); } catch { return null; }
 		}
 
 		// ========================================
@@ -222,13 +208,7 @@ namespace ATSAccessibility {
 		public static bool IsIronman(object profile) {
 			if (profile == null) return false;
 			EnsureTypesCached();
-			if (_pdIsIronmanField == null) return false;
-
-			try {
-				return _pdIsIronmanField.GetValue(profile) as bool? ?? false;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.GetBool(_pdIsIronmanField, profile);
 		}
 
 		/// <summary>
@@ -239,13 +219,7 @@ namespace ATSAccessibility {
 			if (profile == null) return false;
 			if (!IsIronman(profile)) return true;  // Non-ironman always "active"
 			EnsureTypesCached();
-			if (_pdIsIronmanActiveField == null) return false;
-
-			try {
-				return _pdIsIronmanActiveField.GetValue(profile) as bool? ?? false;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.GetBool(_pdIsIronmanActiveField, profile);
 		}
 
 		/// <summary>
@@ -255,13 +229,7 @@ namespace ATSAccessibility {
 		public static bool GetIronmanResult(object profile) {
 			if (profile == null) return false;
 			EnsureTypesCached();
-			if (_pdIronmanResultField == null) return false;
-
-			try {
-				return _pdIronmanResultField.GetValue(profile) as bool? ?? false;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.GetBool(_pdIronmanResultField, profile);
 		}
 
 		/// <summary>
@@ -302,11 +270,7 @@ namespace ATSAccessibility {
 			var service = GetProfilesService();
 			if (service == null || _pssCanResetIronmanSeedMethod == null) return false;
 
-			try {
-				return _pssCanResetIronmanSeedMethod.Invoke(service, new[] { profile }) as bool? ?? false;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_pssCanResetIronmanSeedMethod, service, profile);
 		}
 
 		/// <summary>
@@ -319,11 +283,7 @@ namespace ATSAccessibility {
 			var service = GetProfilesService();
 			if (service == null || _pssIsDefaultMethod == null) return false;
 
-			try {
-				return _pssIsDefaultMethod.Invoke(service, new[] { profile }) as bool? ?? false;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_pssIsDefaultMethod, service, profile);
 		}
 
 		/// <summary>
@@ -343,11 +303,7 @@ namespace ATSAccessibility {
 			var service = GetProfilesService();
 			if (service == null || _pssIsIronmanUnlockedMethod == null) return false;
 
-			try {
-				return _pssIsIronmanUnlockedMethod.Invoke(service, null) as bool? ?? false;
-			} catch {
-				return false;
-			}
+			return ReflectionHelper.InvokeBool(_pssIsIronmanUnlockedMethod, service);
 		}
 
 		/// <summary>
@@ -363,25 +319,16 @@ namespace ATSAccessibility {
 				return GetProfileName(profile);
 			}
 
-			try {
-				return _pssGetProfileDisplayNameMethod.Invoke(service, new[] { profile }) as string ?? "Unknown";
-			} catch {
-				return GetProfileName(profile);
-			}
+			return ReflectionHelper.InvokeString(_pssGetProfileDisplayNameMethod, service, profile) ?? GetProfileName(profile);
 		}
 
 		/// <summary>
 		/// Get the raw name field from a profile.
 		/// </summary>
 		public static string GetProfileName(object profile) {
-			if (profile == null || _pdNameField == null) return "Unknown";
-
-			try {
-				var name = _pdNameField.GetValue(profile) as string;
-				return string.IsNullOrEmpty(name) ? "Unnamed" : name;
-			} catch {
-				return "Unknown";
-			}
+			if (profile == null) return "Unknown";
+			var name = ReflectionHelper.GetString(_pdNameField, profile);
+			return string.IsNullOrEmpty(name) ? "Unnamed" : name;
 		}
 
 		/// <summary>
@@ -403,20 +350,15 @@ namespace ATSAccessibility {
 			var service = GetProfilesService();
 			if (service == null || _pssCreateNewProfileMethod == null) return false;
 
-			try {
-				// Count existing profiles of this type
-				var profiles = GetProfiles(ironman);
-				int count = profiles.Count;
-				string prefix = ironman ? "QH#" : "#";
-				string name = $"{prefix}{count + 1}";
+			var profiles = GetProfiles(ironman);
+			int count = profiles.Count;
+			string prefix = ironman ? "QH#" : "#";
+			string name = $"{prefix}{count + 1}";
 
-				_pssCreateNewProfileMethod.Invoke(service, new object[] { name, ironman });
+			bool success = ReflectionHelper.InvokeVoid(_pssCreateNewProfileMethod, service, name, ironman);
+			if (success)
 				Debug.Log($"[ATSAccessibility] ProfilesReflection: Created new profile: {name}");
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ProfilesReflection: CreateNewProfile failed: {ex.Message}");
-				return false;
-			}
+			return success;
 		}
 
 		/// <summary>
@@ -429,14 +371,10 @@ namespace ATSAccessibility {
 			var service = GetProfilesService();
 			if (service == null || _pssRenameProfileMethod == null) return false;
 
-			try {
-				_pssRenameProfileMethod.Invoke(service, new object[] { profile, newName });
+			bool success = ReflectionHelper.InvokeVoid(_pssRenameProfileMethod, service, profile, newName);
+			if (success)
 				Debug.Log($"[ATSAccessibility] ProfilesReflection: Renamed profile to: {newName}");
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ProfilesReflection: RenameProfile failed: {ex.Message}");
-				return false;
-			}
+			return success;
 		}
 
 		/// <summary>
@@ -449,15 +387,8 @@ namespace ATSAccessibility {
 			var service = GetProfilesService();
 			if (service == null || _pssChangeProfileMethod == null) return false;
 
-			try {
-				// This is async but we just invoke it and return
-				_pssChangeProfileMethod.Invoke(service, new[] { profile });
-				Debug.Log("[ATSAccessibility] ProfilesReflection: ChangeProfile invoked");
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ProfilesReflection: ChangeProfile failed: {ex.Message}");
-				return false;
-			}
+			// This is async but we just invoke it and return
+			return ReflectionHelper.InvokeVoid(_pssChangeProfileMethod, service, profile);
 		}
 
 		/// <summary>
@@ -470,15 +401,8 @@ namespace ATSAccessibility {
 			var service = GetProfilesService();
 			if (service == null || _pssClearProfileMethod == null) return false;
 
-			try {
-				// This is async but we just invoke it and return
-				_pssClearProfileMethod.Invoke(service, new[] { profile });
-				Debug.Log("[ATSAccessibility] ProfilesReflection: ClearProfile invoked");
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ProfilesReflection: ClearProfile failed: {ex.Message}");
-				return false;
-			}
+			// This is async but we just invoke it and return
+			return ReflectionHelper.InvokeVoid(_pssClearProfileMethod, service, profile);
 		}
 
 		/// <summary>
@@ -492,15 +416,8 @@ namespace ATSAccessibility {
 			var service = GetProfilesService();
 			if (service == null || _pssRemoveProfileMethod == null) return false;
 
-			try {
-				// This is async but we just invoke it and return
-				_pssRemoveProfileMethod.Invoke(service, new[] { profile });
-				Debug.Log("[ATSAccessibility] ProfilesReflection: RemoveProfile invoked");
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ProfilesReflection: RemoveProfile failed: {ex.Message}");
-				return false;
-			}
+			// This is async but we just invoke it and return
+			return ReflectionHelper.InvokeVoid(_pssRemoveProfileMethod, service, profile);
 		}
 
 		public static int LogCacheStatus() {

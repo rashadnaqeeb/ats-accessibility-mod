@@ -58,3 +58,4 @@
 - .editorconfig added; dotnet format applied to all source files
 - PowerShell build and deploy script added
 - Extract PopupRouter from AccessibilityCore, replacing ~600 lines of mirrored if/else popup routing
+- Add ReflectionHelper and FormattingUtils; migrate all 33 reflection files to eliminate _args arrays, try/catch boilerplate, and duplicated FormatTime/YearToRoman

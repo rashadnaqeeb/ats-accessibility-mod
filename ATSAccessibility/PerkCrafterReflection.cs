@@ -127,13 +127,7 @@ namespace ATSAccessibility {
 			if (_typesCached) return;
 			_typesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] PerkCrafterReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("PerkCrafterReflection", assembly => {
 				CachePopupTypes(assembly);
 				CachePerkCrafterTypes(assembly);
 				CacheStateTypes(assembly);
@@ -141,11 +135,7 @@ namespace ATSAccessibility {
 				CacheElementsTypes(assembly);
 				CacheEffectTypes(assembly);
 				CacheStorageTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] PerkCrafterReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PerkCrafterReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CachePopupTypes(Assembly assembly) {
@@ -293,11 +283,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsPopupShown() {
 			var popup = GetPopupInstance();
-			if (popup == null || _popupIsShownMethod == null) return false;
-
-			try {
-				return (bool)_popupIsShownMethod.Invoke(popup, null);
-			} catch { return false; }
+			return ReflectionHelper.InvokeBool(_popupIsShownMethod, popup);
 		}
 
 		/// <summary>
@@ -313,11 +299,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetPerkCrafter() {
 			var popup = GetPopupInstance();
-			if (popup == null || _popupPerkCrafterField == null) return null;
-
-			try {
-				return _popupPerkCrafterField.GetValue(popup);
-			} catch { return null; }
+			return ReflectionHelper.GetField(_popupPerkCrafterField, popup);
 		}
 
 		/// <summary>
@@ -325,11 +307,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetState() {
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcStateField == null) return null;
-
-			try {
-				return _pcStateField.GetValue(crafter);
-			} catch { return null; }
+			return ReflectionHelper.GetField(_pcStateField, crafter);
 		}
 
 		/// <summary>
@@ -337,11 +315,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetCraftingState() {
 			var state = GetState();
-			if (state == null || _pcssCraftingField == null) return null;
-
-			try {
-				return _pcssCraftingField.GetValue(state);
-			} catch { return null; }
+			return ReflectionHelper.GetField(_pcssCraftingField, state);
 		}
 
 		/// <summary>
@@ -349,11 +323,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetModel() {
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcModelField == null) return null;
-
-			try {
-				return _pcModelField.GetValue(crafter);
-			} catch { return null; }
+			return ReflectionHelper.GetField(_pcModelField, crafter);
 		}
 
 		/// <summary>
@@ -361,11 +331,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetElementsContainer() {
 			var model = GetModel();
-			if (model == null || _pcmEffectsElementsField == null) return null;
-
-			try {
-				return _pcmEffectsElementsField.GetValue(model);
-			} catch { return null; }
+			return ReflectionHelper.GetField(_pcmEffectsElementsField, model);
 		}
 
 		// ========================================
@@ -377,16 +343,12 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetNpcDialogue() {
 			var popup = GetPopupInstance();
-			if (popup == null || _popupDescTextField == null) return null;
+			var textComponent = ReflectionHelper.GetField(_popupDescTextField, popup);
+			if (textComponent == null) return null;
 
-			try {
-				var textComponent = _popupDescTextField.GetValue(popup);
-				if (textComponent == null) return null;
-
-				// TMP_Text has a 'text' property
-				var textProperty = textComponent.GetType().GetProperty("text", GameReflection.PublicInstance);
-				return textProperty?.GetValue(textComponent) as string;
-			} catch { return null; }
+			// TMP_Text has a 'text' property
+			var textProperty = textComponent.GetType().GetProperty("text", GameReflection.PublicInstance);
+			return ReflectionHelper.GetPropString(textProperty, textComponent);
 		}
 
 		// ========================================
@@ -398,11 +360,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool HasUsedAllCharges() {
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcHasUsedAllChargesMethod == null) return false;
-
-			try {
-				return (bool)_pcHasUsedAllChargesMethod.Invoke(crafter, null);
-			} catch { return false; }
+			return ReflectionHelper.InvokeBool(_pcHasUsedAllChargesMethod, crafter);
 		}
 
 		/// <summary>
@@ -410,11 +368,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetUsesLeft() {
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcGetUsesLeftMethod == null) return 0;
-
-			try {
-				return (int)_pcGetUsesLeftMethod.Invoke(crafter, null);
-			} catch { return 0; }
+			return ReflectionHelper.InvokeInt(_pcGetUsesLeftMethod, crafter);
 		}
 
 		/// <summary>
@@ -423,10 +377,8 @@ namespace ATSAccessibility {
 		public static int GetTotalCharges() {
 			var model = GetModel();
 			if (model == null || _pcmChargesField == null) return 3;
-
-			try {
-				return (int)_pcmChargesField.GetValue(model);
-			} catch { return 3; }
+			int val = ReflectionHelper.GetInt(_pcmChargesField, model);
+			return val != 0 ? val : 3;
 		}
 
 		/// <summary>
@@ -434,11 +386,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetCraftedPerksCount() {
 			var state = GetState();
-			if (state == null || _pcssCraftedPerksField == null) return 0;
-
-			try {
-				return (int)_pcssCraftedPerksField.GetValue(state);
-			} catch { return 0; }
+			return ReflectionHelper.GetInt(_pcssCraftedPerksField, state);
 		}
 
 		/// <summary>
@@ -446,11 +394,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool IsNegativePicked() {
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcIsNegativePickedMethod == null) return false;
-
-			try {
-				return (bool)_pcIsNegativePickedMethod.Invoke(crafter, null);
-			} catch { return false; }
+			return ReflectionHelper.InvokeBool(_pcIsNegativePickedMethod, crafter);
 		}
 
 		// ========================================
@@ -462,11 +406,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetPickedHookIndex() {
 			var craftingState = GetCraftingState();
-			if (craftingState == null || _pcsPickedHookField == null) return 0;
-
-			try {
-				return (int)_pcsPickedHookField.GetValue(craftingState);
-			} catch { return 0; }
+			return ReflectionHelper.GetInt(_pcsPickedHookField, craftingState);
 		}
 
 		/// <summary>
@@ -474,11 +414,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetPickedPositiveIndex() {
 			var craftingState = GetCraftingState();
-			if (craftingState == null || _pcsPickedPositiveField == null) return 0;
-
-			try {
-				return (int)_pcsPickedPositiveField.GetValue(craftingState);
-			} catch { return 0; }
+			return ReflectionHelper.GetInt(_pcsPickedPositiveField, craftingState);
 		}
 
 		/// <summary>
@@ -487,10 +423,8 @@ namespace ATSAccessibility {
 		public static int GetPickedNegativeIndex() {
 			var craftingState = GetCraftingState();
 			if (craftingState == null || _pcsPickedNegativeField == null) return -1;
-
-			try {
-				return (int)_pcsPickedNegativeField.GetValue(craftingState);
-			} catch { return -1; }
+			var val = ReflectionHelper.GetField(_pcsPickedNegativeField, craftingState);
+			return val is int i ? i : -1;
 		}
 
 		// ========================================
@@ -511,7 +445,7 @@ namespace ATSAccessibility {
 			if (crafter == null) return result;
 
 			try {
-				var hooks = _pcsHooksField.GetValue(craftingState) as Array;
+				var hooks = ReflectionHelper.GetField(_pcsHooksField, craftingState) as Array;
 				if (hooks == null) return result;
 
 				for (int i = 0; i < hooks.Length; i++) {
@@ -519,10 +453,10 @@ namespace ATSAccessibility {
 					if (tierState == null) continue;
 
 					// Get HookLogic via perkCrafter.GetHook(tierState)
-					var hookLogic = _pcGetHookMethod?.Invoke(crafter, new[] { tierState });
+					var hookLogic = ReflectionHelper.Invoke(_pcGetHookMethod, crafter, tierState);
 					if (hookLogic == null) continue;
 
-					string description = _hookDescriptionProperty?.GetValue(hookLogic) as string ?? "";
+					string description = ReflectionHelper.GetPropString(_hookDescriptionProperty, hookLogic) ?? "";
 
 					// HookLogic doesn't have a DisplayName, use description as name
 					// Extract a short name from the description or use a generic one
@@ -545,14 +479,12 @@ namespace ATSAccessibility {
 		private static string GetHookDisplayName(object hookLogic, int index) {
 			// Try to get a reasonable name from the hook
 			// HookLogic has a Name property inherited from SO (ScriptableObject)
-			try {
-				var nameProperty = hookLogic.GetType().GetProperty("Name", GameReflection.PublicInstance);
-				var name = nameProperty?.GetValue(hookLogic) as string;
-				if (!string.IsNullOrEmpty(name)) {
-					// Clean up internal names like "Hook_Crafted_Gathering_5"
-					return CleanInternalName(name);
-				}
-			} catch { }
+			var nameProperty = hookLogic.GetType().GetProperty("Name", GameReflection.PublicInstance);
+			var name = ReflectionHelper.GetPropString(nameProperty, hookLogic);
+			if (!string.IsNullOrEmpty(name)) {
+				// Clean up internal names like "Hook_Crafted_Gathering_5"
+				return CleanInternalName(name);
+			}
 
 			return $"Hook {index + 1}";
 		}
@@ -598,7 +530,7 @@ namespace ATSAccessibility {
 			if (crafter == null) return result;
 
 			try {
-				var effects = effectsField.GetValue(craftingState) as Array;
+				var effects = ReflectionHelper.GetField(effectsField, craftingState) as Array;
 				if (effects == null) return result;
 
 				for (int i = 0; i < effects.Length; i++) {
@@ -606,11 +538,11 @@ namespace ATSAccessibility {
 					if (tierState == null) continue;
 
 					// Get EffectModel via perkCrafter.GetEffect(tierState)
-					var effectModel = _pcGetEffectMethod?.Invoke(crafter, new[] { tierState });
+					var effectModel = ReflectionHelper.Invoke(_pcGetEffectMethod, crafter, tierState);
 					if (effectModel == null) continue;
 
 					// Use Description as the display text - these effects don't have proper display names
-					string description = _emDescriptionProperty?.GetValue(effectModel) as string ?? $"Effect {i + 1}";
+					string description = ReflectionHelper.GetPropString(_emDescriptionProperty, effectModel) ?? $"Effect {i + 1}";
 
 					result.Add(new EffectOption {
 						TierState = tierState,
@@ -679,24 +611,20 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetResultName() {
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcGetResultDisplayNameMethod == null) return null;
+			var displayName = ReflectionHelper.InvokeString(_pcGetResultDisplayNameMethod, crafter);
 
-			try {
-				var displayName = _pcGetResultDisplayNameMethod.Invoke(crafter, null) as string;
-
-				// If it's a localization key, resolve it
-				if (!string.IsNullOrEmpty(displayName)) {
-					// Try to get the localized text
-					var result = _pcGetCurrentResultMethod?.Invoke(crafter, null);
-					if (result != null) {
-						var resultDisplayName = _emDisplayNameProperty?.GetValue(result) as string;
-						if (!string.IsNullOrEmpty(resultDisplayName))
-							return resultDisplayName;
-					}
+			// If it's a localization key, resolve it
+			if (!string.IsNullOrEmpty(displayName)) {
+				// Try to get the localized text
+				var result = ReflectionHelper.Invoke(_pcGetCurrentResultMethod, crafter);
+				if (result != null) {
+					var resultDisplayName = ReflectionHelper.GetPropString(_emDisplayNameProperty, result);
+					if (!string.IsNullOrEmpty(resultDisplayName))
+						return resultDisplayName;
 				}
+			}
 
-				return displayName;
-			} catch { return null; }
+			return displayName;
 		}
 
 		/// <summary>
@@ -704,17 +632,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool SetResultName(string name) {
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcChangeNameMethod == null) return false;
-
-			try {
-				// ChangeName(string name, bool isLocalizedName)
-				// For custom names, isLocalizedName = false
-				_pcChangeNameMethod.Invoke(crafter, new object[] { name, false });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PerkCrafterReflection.SetResultName failed: {ex.Message}");
-				return false;
-			}
+			// ChangeName(string name, bool isLocalizedName)
+			// For custom names, isLocalizedName = false
+			return ReflectionHelper.InvokeVoid(_pcChangeNameMethod, crafter, name, (object)false);
 		}
 
 		/// <summary>
@@ -727,25 +647,20 @@ namespace ATSAccessibility {
 			var elements = GetElementsContainer();
 			if (elements == null || _cecDisplayNamesField == null) return false;
 
-			try {
-				// Get random name from displayNames array
-				var displayNames = _cecDisplayNamesField.GetValue(elements) as Array;
-				if (displayNames == null || displayNames.Length == 0) return false;
+			// Get random name from displayNames array
+			var displayNames = ReflectionHelper.GetField(_cecDisplayNamesField, elements) as Array;
+			if (displayNames == null || displayNames.Length == 0) return false;
 
-				int randomIndex = UnityEngine.Random.Range(0, displayNames.Length);
-				var locaText = displayNames.GetValue(randomIndex);
+			int randomIndex = UnityEngine.Random.Range(0, displayNames.Length);
+			var locaText = displayNames.GetValue(randomIndex);
 
-				// Get the key from LocaText
-				var keyField = locaText.GetType().GetField("key", GameReflection.PublicInstance);
-				var key = keyField?.GetValue(locaText) as string;
+			// Get the key from LocaText
+			var keyField = locaText?.GetType().GetField("key", GameReflection.PublicInstance);
+			var key = ReflectionHelper.GetString(keyField, locaText);
 
-				if (!string.IsNullOrEmpty(key)) {
-					// ChangeName with isLocalizedName = true
-					_pcChangeNameMethod.Invoke(crafter, new object[] { key, true });
-					return true;
-				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PerkCrafterReflection.RandomizeName failed: {ex.Message}");
+			if (!string.IsNullOrEmpty(key)) {
+				// ChangeName with isLocalizedName = true
+				return ReflectionHelper.InvokeVoid(_pcChangeNameMethod, crafter, key, (object)true);
 			}
 
 			return false;
@@ -762,17 +677,15 @@ namespace ATSAccessibility {
 			var model = GetModel();
 			if (model == null || _pcmPriceField == null) return (0, "Unknown");
 
-			try {
-				var priceRef = _pcmPriceField.GetValue(model);
-				if (priceRef == null) return (0, "Unknown");
+			var priceRef = ReflectionHelper.GetField(_pcmPriceField, model);
+			if (priceRef == null) return (0, "Unknown");
 
-				int amount = _grAmountField != null ? (int)_grAmountField.GetValue(priceRef) : 0;
-				var goodModel = _grGoodField?.GetValue(priceRef);
-				string goodName = goodModel != null ?
-					(GameReflection.GetDisplayName(goodModel) ?? "Unknown") : "Unknown";
+			int amount = ReflectionHelper.GetInt(_grAmountField, priceRef);
+			var goodModel = ReflectionHelper.GetField(_grGoodField, priceRef);
+			string goodName = goodModel != null ?
+				(GameReflection.GetDisplayName(goodModel) ?? "Unknown") : "Unknown";
 
-				return (amount, goodName);
-			} catch { return (0, "Unknown"); }
+			return (amount, goodName);
 		}
 
 		/// <summary>
@@ -782,34 +695,28 @@ namespace ATSAccessibility {
 			var model = GetModel();
 			if (model == null || _pcmPriceField == null) return 0;
 
-			try {
-				var priceRef = _pcmPriceField.GetValue(model);
-				if (priceRef == null) return 0;
+			var priceRef = ReflectionHelper.GetField(_pcmPriceField, model);
+			if (priceRef == null) return 0;
 
-				var goodModel = _grGoodField?.GetValue(priceRef);
-				if (goodModel == null) return 0;
+			var goodModel = ReflectionHelper.GetField(_grGoodField, priceRef);
+			if (goodModel == null) return 0;
 
-				// Get the good name
-				var nameProperty = goodModel.GetType().GetProperty("Name", GameReflection.PublicInstance);
-				var goodName = nameProperty?.GetValue(goodModel) as string;
-				if (string.IsNullOrEmpty(goodName)) return 0;
+			// Get the good name
+			var nameProperty = goodModel.GetType().GetProperty("Name", GameReflection.PublicInstance);
+			var goodName = ReflectionHelper.GetPropString(nameProperty, goodModel);
+			if (string.IsNullOrEmpty(goodName)) return 0;
 
-				// Access storage
-				var gameServices = GameReflection.GetGameServices();
-				if (gameServices == null) return 0;
+			// Access storage
+			var gameServices = GameReflection.GetGameServices();
+			if (gameServices == null) return 0;
 
-				var storageService = _gsStorageServiceProperty?.GetValue(gameServices);
-				if (storageService == null) return 0;
+			var storageService = ReflectionHelper.GetProp(_gsStorageServiceProperty, gameServices);
+			if (storageService == null) return 0;
 
-				var mainStorage = _ssMainProperty?.GetValue(storageService);
-				if (mainStorage == null) return 0;
+			var mainStorage = ReflectionHelper.GetProp(_ssMainProperty, storageService);
+			if (mainStorage == null) return 0;
 
-				if (_storageGetAmountMethod != null) {
-					return (int)_storageGetAmountMethod.Invoke(mainStorage, new object[] { goodName });
-				}
-			} catch { }
-
-			return 0;
+			return ReflectionHelper.InvokeInt(_storageGetAmountMethod, mainStorage, goodName);
 		}
 
 		/// <summary>
@@ -825,15 +732,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool PerformCraft() {
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcCreateCurrentPerkMethod == null) return false;
-
-			try {
-				_pcCreateCurrentPerkMethod.Invoke(crafter, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PerkCrafterReflection.PerformCraft failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_pcCreateCurrentPerkMethod, crafter);
 		}
 
 		// ========================================
@@ -845,17 +744,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool SelectHook(HookOption option) {
 			if (option == null) return false;
-
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcChangeHookMethod == null) return false;
-
-			try {
-				_pcChangeHookMethod.Invoke(crafter, new[] { option.TierState });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PerkCrafterReflection.SelectHook failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_pcChangeHookMethod, crafter, option.TierState);
 		}
 
 		/// <summary>
@@ -863,17 +753,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool SelectPositive(EffectOption option) {
 			if (option == null) return false;
-
 			var crafter = GetPerkCrafter();
-			if (crafter == null || _pcChangePositiveMethod == null) return false;
-
-			try {
-				_pcChangePositiveMethod.Invoke(crafter, new[] { option.TierState });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PerkCrafterReflection.SelectPositive failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_pcChangePositiveMethod, crafter, option.TierState);
 		}
 
 		/// <summary>
@@ -883,26 +764,15 @@ namespace ATSAccessibility {
 			var crafter = GetPerkCrafter();
 			if (crafter == null || _pcChangeNegativeMethod == null) return false;
 
-			try {
-				// If option is null, we need to clear the selection
-				// This is done by calling ChangeNegative with a non-existent index
-				// The game handles this by setting pickedNegative to -1
-				if (option == null) {
-					// Get the crafting state and directly set pickedNegative to -1
-					var craftingState = GetCraftingState();
-					if (craftingState == null || _pcsPickedNegativeField == null)
-						return false;
-
-					_pcsPickedNegativeField.SetValue(craftingState, -1);
-					return true;
-				}
-
-				_pcChangeNegativeMethod.Invoke(crafter, new[] { option.TierState });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PerkCrafterReflection.SelectNegative failed: {ex.Message}");
-				return false;
+			// If option is null, we need to clear the selection
+			// This is done by calling ChangeNegative with a non-existent index
+			// The game handles this by setting pickedNegative to -1
+			if (option == null) {
+				var craftingState = GetCraftingState();
+				return ReflectionHelper.SetField(_pcsPickedNegativeField, craftingState, -1);
 			}
+
+			return ReflectionHelper.InvokeVoid(_pcChangeNegativeMethod, crafter, option.TierState);
 		}
 
 		// ========================================
@@ -920,7 +790,7 @@ namespace ATSAccessibility {
 			if (state == null || _pcssResultsField == null) return result;
 
 			try {
-				var results = _pcssResultsField.GetValue(state) as IList<string>;
+				var results = ReflectionHelper.GetField(_pcssResultsField, state) as IList<string>;
 				if (results == null) return result;
 
 				foreach (var effectName in results) {
@@ -929,8 +799,8 @@ namespace ATSAccessibility {
 					var effectModel = GameReflection.GetEffectModel(effectName);
 					if (effectModel == null) continue;
 
-					string displayName = _emDisplayNameProperty?.GetValue(effectModel) as string ?? effectName;
-					string description = _emDescriptionProperty?.GetValue(effectModel) as string ?? "";
+					string displayName = ReflectionHelper.GetPropString(_emDisplayNameProperty, effectModel) ?? effectName;
+					string description = ReflectionHelper.GetPropString(_emDescriptionProperty, effectModel) ?? "";
 
 					result.Add(new CraftedPerkInfo {
 						Name = displayName,

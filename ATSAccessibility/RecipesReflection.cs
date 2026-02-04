@@ -96,22 +96,12 @@ namespace ATSAccessibility {
 			if (_typesCached) return;
 			_typesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] RecipesReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("RecipesReflection", assembly => {
 				CacheServiceProperties(assembly);
 				CacheRecipeTypes(assembly);
 				CacheGoodTypes(assembly);
 				CacheBuildingTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] RecipesReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] RecipesReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CacheServiceProperties(Assembly assembly) {
@@ -324,15 +314,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetGlobalLimit(string goodName) {
 			var workshopsService = GetWorkshopsService();
-			if (workshopsService == null || _getGlobalLimitForMethod == null) return 0;
-
-			try {
-				var result = _getGlobalLimitForMethod.Invoke(workshopsService, new object[] { goodName });
-				return result is int limit ? limit : 0;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] RecipesReflection: GetGlobalLimit failed: {ex.Message}");
-				return 0;
-			}
+			return ReflectionHelper.InvokeInt(_getGlobalLimitForMethod, workshopsService, goodName);
 		}
 
 		/// <summary>
@@ -341,15 +323,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool SetGlobalLimit(string goodName, int limit) {
 			var workshopsService = GetWorkshopsService();
-			if (workshopsService == null || _setGlobalLimitForMethod == null) return false;
-
-			try {
-				_setGlobalLimitForMethod.Invoke(workshopsService, new object[] { goodName, limit });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] RecipesReflection: SetGlobalLimit failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_setGlobalLimitForMethod, workshopsService, goodName, limit);
 		}
 
 		// ========================================
@@ -361,15 +335,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static int GetStorageAmount(string goodName) {
 			var storageService = GetStorageService();
-			if (storageService == null || _getAmountMethod == null) return 0;
-
-			try {
-				var result = _getAmountMethod.Invoke(storageService, new object[] { goodName });
-				return result is int amount ? amount : 0;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] RecipesReflection: GetStorageAmount failed: {ex.Message}");
-				return 0;
-			}
+			return ReflectionHelper.InvokeInt(_getAmountMethod, storageService, goodName);
 		}
 
 		// ========================================
@@ -433,17 +399,17 @@ namespace ATSAccessibility {
 			var buildingsService = GetBuildingsService();
 			if (buildingsService == null) return;
 
-			var workshopsDict = _workshopsDictProperty?.GetValue(buildingsService);
+			var workshopsDict = ReflectionHelper.GetProp(_workshopsDictProperty, buildingsService);
 			if (workshopsDict != null)
 				AddWorkshopsFromDict(workshopsDict, result, constructedBuildings);
 
-			var blightPostsDict = _blightPostsDictProperty?.GetValue(buildingsService);
+			var blightPostsDict = ReflectionHelper.GetProp(_blightPostsDictProperty, buildingsService);
 			if (blightPostsDict != null)
 				AddWorkshopsFromDict(blightPostsDict, result, constructedBuildings);
 		}
 
 		private static void AddWorkshopsFromDict(object dict, Dictionary<string, GoodInfo> result, HashSet<string> constructedBuildings) {
-			// Use reflection to iterate the dictionary
+			// Use reflection to iterate the dictionary values
 			var valuesProperty = dict.GetType().GetProperty("Values");
 			if (valuesProperty == null) return;
 
@@ -454,39 +420,39 @@ namespace ATSAccessibility {
 				if (workshop == null) continue;
 
 				// Mark this building model as constructed
-				var buildingModel = _workshopBaseModelProperty?.GetValue(workshop);
+				var buildingModel = ReflectionHelper.GetProp(_workshopBaseModelProperty, workshop);
 				if (buildingModel != null) {
-					var modelName = _buildingNameProperty?.GetValue(buildingModel) as string;
+					var modelName = ReflectionHelper.GetPropString(_buildingNameProperty, buildingModel);
 					if (!string.IsNullOrEmpty(modelName)) {
 						constructedBuildings.Add(modelName);
 					}
 				}
 
 				// Get recipes from this workshop
-				var recipes = _workshopRecipesProperty?.GetValue(workshop) as IEnumerable;
+				var recipes = ReflectionHelper.GetProp(_workshopRecipesProperty, workshop) as IEnumerable;
 				if (recipes == null) continue;
 
 				// Get workshop display name and index
 				var workshopDisplayName = GetBuildingDisplayName(buildingModel);
-				var workshopBase = _workshopBaseProperty?.GetValue(workshop);
+				var workshopBase = ReflectionHelper.GetProp(_workshopBaseProperty, workshop);
 				var showIndex = GetShowIndex(workshopBase);
 
 				foreach (var recipeState in recipes) {
 					if (recipeState == null) continue;
 
-					var modelName = _recipeStateModelField?.GetValue(recipeState) as string;
+					var modelName = ReflectionHelper.GetString(_recipeStateModelField, recipeState);
 					if (string.IsNullOrEmpty(modelName)) continue;
 
 					var recipeModel = GetWorkshopRecipeModel(modelName);
 					if (recipeModel == null) continue;
 
-					var producedGoodRef = _recipeProducedGoodField?.GetValue(recipeModel);
+					var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
 					if (producedGoodRef == null) continue;
 
-					var goodModel = _goodRefGoodField?.GetValue(producedGoodRef);
+					var goodModel = ReflectionHelper.GetField(_goodRefGoodField, producedGoodRef);
 					if (goodModel == null) continue;
 
-					var goodName = _goodNameProperty?.GetValue(goodModel) as string;
+					var goodName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
 					if (string.IsNullOrEmpty(goodName)) continue;
 
 					// Get or create GoodInfo
@@ -501,7 +467,6 @@ namespace ATSAccessibility {
 					}
 
 					// Add recipe info
-					var isActive = _recipeStateActiveField?.GetValue(recipeState);
 					goodInfo.Recipes.Add(new RecipeInfo {
 						Workshop = workshop,
 						WorkshopModel = buildingModel,
@@ -509,7 +474,7 @@ namespace ATSAccessibility {
 						RecipeModel = recipeModel,
 						WorkshopName = workshopDisplayName,
 						WorkshopIndex = showIndex,
-						IsActive = isActive is bool active && active,
+						IsActive = ReflectionHelper.GetBool(_recipeStateActiveField, recipeState),
 						IsBuilt = true
 					});
 				}
@@ -524,22 +489,18 @@ namespace ATSAccessibility {
 			var gameContentService = GetGameContentService();
 
 			// Get workshops array
-			if (_settingsWorkshopsField != null) {
-				var workshops = _settingsWorkshopsField.GetValue(settings) as Array;
-				if (workshops != null) {
-					foreach (var workshopModel in workshops) {
-						AddUnbuiltWorkshop(workshopModel, result, constructedBuildings, recipesService, gameContentService, skipUnlockCheck);
-					}
+			var workshops = ReflectionHelper.GetField(_settingsWorkshopsField, settings) as Array;
+			if (workshops != null) {
+				foreach (var workshopModel in workshops) {
+					AddUnbuiltWorkshop(workshopModel, result, constructedBuildings, recipesService, gameContentService, skipUnlockCheck);
 				}
 			}
 
 			// Get blight posts array
-			if (_settingsBlightPostsField != null) {
-				var blightPosts = _settingsBlightPostsField.GetValue(settings) as Array;
-				if (blightPosts != null) {
-					foreach (var workshopModel in blightPosts) {
-						AddUnbuiltWorkshop(workshopModel, result, constructedBuildings, recipesService, gameContentService, skipUnlockCheck);
-					}
+			var blightPosts = ReflectionHelper.GetField(_settingsBlightPostsField, settings) as Array;
+			if (blightPosts != null) {
+				foreach (var workshopModel in blightPosts) {
+					AddUnbuiltWorkshop(workshopModel, result, constructedBuildings, recipesService, gameContentService, skipUnlockCheck);
 				}
 			}
 		}
@@ -549,7 +510,7 @@ namespace ATSAccessibility {
 			HashSet<string> constructedBuildings, object recipesService, object gameContentService, bool skipUnlockCheck) {
 			if (workshopModel == null) return;
 
-			var modelName = _buildingNameProperty?.GetValue(workshopModel) as string;
+			var modelName = ReflectionHelper.GetPropString(_buildingNameProperty, workshopModel);
 			if (string.IsNullOrEmpty(modelName)) return;
 
 			// Skip if already constructed
@@ -559,10 +520,7 @@ namespace ATSAccessibility {
 			if (!skipUnlockCheck && !IsBuildingUnlocked(workshopModel, gameContentService)) return;
 
 			// Check if has access to
-			if (_hasAccessToMethod != null) {
-				var hasAccess = _hasAccessToMethod.Invoke(workshopModel, null);
-				if (hasAccess is bool access && !access) return;
-			}
+			if (!ReflectionHelper.InvokeBool(_hasAccessToMethod, workshopModel)) return;
 
 			// Get recipes for this building
 			var recipeNames = GetRecipesForBuilding(modelName, recipesService);
@@ -574,13 +532,13 @@ namespace ATSAccessibility {
 				var recipeModel = GetWorkshopRecipeModel(recipeName);
 				if (recipeModel == null) continue;
 
-				var producedGoodRef = _recipeProducedGoodField?.GetValue(recipeModel);
+				var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
 				if (producedGoodRef == null) continue;
 
-				var goodModel = _goodRefGoodField?.GetValue(producedGoodRef);
+				var goodModel = ReflectionHelper.GetField(_goodRefGoodField, producedGoodRef);
 				if (goodModel == null) continue;
 
-				var goodName = _goodNameProperty?.GetValue(goodModel) as string;
+				var goodName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
 				if (string.IsNullOrEmpty(goodName)) continue;
 
 				// Get or create GoodInfo
@@ -609,14 +567,7 @@ namespace ATSAccessibility {
 		}
 
 		private static List<string> GetRecipesForBuilding(string buildingName, object recipesService) {
-			if (recipesService == null || _getRecipesForMethod == null) return null;
-
-			try {
-				var result = _getRecipesForMethod.Invoke(recipesService, new object[] { buildingName });
-				return result as List<string>;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.Invoke(_getRecipesForMethod, recipesService, buildingName) as List<string>;
 		}
 
 		private static bool IsBuildingUnlocked(object buildingModel, object gameContentService) {
@@ -630,8 +581,7 @@ namespace ATSAccessibility {
 				foreach (var method in methods) {
 					var parameters = method.GetParameters();
 					if (parameters.Length == 1 && parameters[0].ParameterType.IsAssignableFrom(buildingModel.GetType())) {
-						var result = method.Invoke(gameContentService, new object[] { buildingModel });
-						return result is bool unlocked && unlocked;
+						return ReflectionHelper.InvokeBool(method, gameContentService, buildingModel);
 					}
 				}
 
@@ -643,14 +593,7 @@ namespace ATSAccessibility {
 
 		private static int GetShowIndex(object building) {
 			var constructionService = GetConstructionService();
-			if (constructionService == null || building == null || _getShowIndexMethod == null) return 0;
-
-			try {
-				var result = _getShowIndexMethod.Invoke(constructionService, new object[] { building });
-				return result is int index ? index : 0;
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.InvokeInt(_getShowIndexMethod, constructionService, building);
 		}
 
 		// ========================================
@@ -667,20 +610,12 @@ namespace ATSAccessibility {
 				return false;
 			}
 
-			try {
-				// Call workshop.SwitchProductionOf(recipeState)
-				if (_switchProductionOfMethod != null) {
-					_switchProductionOfMethod.Invoke(recipe.Workshop, new object[] { recipe.RecipeState });
-				}
+			// Call workshop.SwitchProductionOf(recipeState)
+			ReflectionHelper.InvokeVoid(_switchProductionOfMethod, recipe.Workshop, recipe.RecipeState);
 
-				// Get the new active state
-				var isActive = _recipeStateActiveField?.GetValue(recipe.RecipeState);
-				recipe.IsActive = isActive is bool active && active;
-				return recipe.IsActive;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] RecipesReflection: ToggleRecipe failed: {ex.Message}");
-				return recipe.IsActive;
-			}
+			// Get the new active state
+			recipe.IsActive = ReflectionHelper.GetBool(_recipeStateActiveField, recipe.RecipeState);
+			return recipe.IsActive;
 		}
 
 		// ========================================
@@ -693,18 +628,11 @@ namespace ATSAccessibility {
 		public static string GetGoodDisplayName(object goodModel) {
 			if (goodModel == null) return "Unknown";
 
-			try {
-				var locaText = _goodDisplayNameField?.GetValue(goodModel);
-				if (locaText != null) {
-					var text = GameReflection.GetLocaText(locaText);
-					if (!string.IsNullOrEmpty(text)) return text;
-				}
+			var text = ReflectionHelper.GetLocaString(_goodDisplayNameField, goodModel);
+			if (!string.IsNullOrEmpty(text)) return text;
 
-				// Fallback to Name property
-				return _goodNameProperty?.GetValue(goodModel) as string ?? "Unknown";
-			} catch {
-				return "Unknown";
-			}
+			// Fallback to Name property
+			return ReflectionHelper.GetPropString(_goodNameProperty, goodModel) ?? "Unknown";
 		}
 
 		/// <summary>
@@ -713,29 +641,16 @@ namespace ATSAccessibility {
 		public static string GetBuildingDisplayName(object buildingModel) {
 			if (buildingModel == null) return "Unknown";
 
-			try {
-				var locaText = _buildingDisplayNameField?.GetValue(buildingModel);
-				if (locaText != null) {
-					var text = GameReflection.GetLocaText(locaText);
-					if (!string.IsNullOrEmpty(text)) return text;
-				}
+			var text = ReflectionHelper.GetLocaString(_buildingDisplayNameField, buildingModel);
+			if (!string.IsNullOrEmpty(text)) return text;
 
-				// Fallback to Name property
-				return _buildingNameProperty?.GetValue(buildingModel) as string ?? "Unknown";
-			} catch {
-				return "Unknown";
-			}
+			// Fallback to Name property
+			return ReflectionHelper.GetPropString(_buildingNameProperty, buildingModel) ?? "Unknown";
 		}
 
 		private static object GetWorkshopRecipeModel(string recipeName) {
 			var settings = GetSettings();
-			if (settings == null || _getWorkshopRecipeMethod == null) return null;
-
-			try {
-				return _getWorkshopRecipeMethod.Invoke(settings, new object[] { recipeName });
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.Invoke(_getWorkshopRecipeMethod, settings, recipeName);
 		}
 
 		// ========================================
@@ -748,15 +663,10 @@ namespace ATSAccessibility {
 		public static int GetRecipeOutputAmount(object recipeModel) {
 			if (recipeModel == null) return 0;
 
-			try {
-				var producedGoodRef = _recipeProducedGoodField?.GetValue(recipeModel);
-				if (producedGoodRef == null) return 0;
+			var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
+			if (producedGoodRef == null) return 0;
 
-				var amount = _goodRefAmountField?.GetValue(producedGoodRef);
-				return amount is int a ? a : 0;
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_goodRefAmountField, producedGoodRef);
 		}
 
 		/// <summary>
@@ -765,46 +675,28 @@ namespace ATSAccessibility {
 		public static string GetRecipeOutputName(object recipeModel) {
 			if (recipeModel == null) return "Unknown";
 
-			try {
-				var producedGoodRef = _recipeProducedGoodField?.GetValue(recipeModel);
-				if (producedGoodRef == null) return "Unknown";
+			var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
+			if (producedGoodRef == null) return "Unknown";
 
-				var goodModel = _goodRefGoodField?.GetValue(producedGoodRef);
-				return GetGoodDisplayName(goodModel);
-			} catch {
-				return "Unknown";
-			}
+			var goodModel = ReflectionHelper.GetField(_goodRefGoodField, producedGoodRef);
+			return GetGoodDisplayName(goodModel);
 		}
 
 		/// <summary>
 		/// Get the production time from a recipe model.
 		/// </summary>
 		public static float GetRecipeProductionTime(object recipeModel) {
-			if (recipeModel == null || _recipeProductionTimeField == null) return 0f;
-
-			try {
-				var time = _recipeProductionTimeField.GetValue(recipeModel);
-				return time is float f ? f : 0f;
-			} catch {
-				return 0f;
-			}
+			return ReflectionHelper.GetFloat(_recipeProductionTimeField, recipeModel);
 		}
 
 		/// <summary>
 		/// Get the grade level (stars) from a recipe model.
 		/// </summary>
 		public static int GetRecipeGradeLevel(object recipeModel) {
-			if (recipeModel == null || _recipeGradeField == null) return 0;
+			var grade = ReflectionHelper.GetField(_recipeGradeField, recipeModel);
+			if (grade == null) return 0;
 
-			try {
-				var grade = _recipeGradeField.GetValue(recipeModel);
-				if (grade == null) return 0;
-
-				var level = _gradeModelLevelField?.GetValue(grade);
-				return level is int l ? l : 0;
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_gradeModelLevelField, grade);
 		}
 
 		/// <summary>
@@ -812,26 +704,14 @@ namespace ATSAccessibility {
 		/// Returns array of GoodsSet objects.
 		/// </summary>
 		public static Array GetRecipeRequiredGoods(object recipeModel) {
-			if (recipeModel == null || _recipeRequiredGoodsField == null) return null;
-
-			try {
-				return _recipeRequiredGoodsField.GetValue(recipeModel) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_recipeRequiredGoodsField, recipeModel) as Array;
 		}
 
 		/// <summary>
 		/// Get the goods array from a GoodsSet.
 		/// </summary>
 		public static Array GetGoodsSetGoods(object goodsSet) {
-			if (goodsSet == null || _goodsSetGoodsField == null) return null;
-
-			try {
-				return _goodsSetGoodsField.GetValue(goodsSet) as Array;
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_goodsSetGoodsField, goodsSet) as Array;
 		}
 
 		/// <summary>
@@ -840,26 +720,15 @@ namespace ATSAccessibility {
 		public static string GetGoodRefDisplayName(object goodRef) {
 			if (goodRef == null) return "Unknown";
 
-			try {
-				var goodModel = _goodRefGoodField?.GetValue(goodRef);
-				return GetGoodDisplayName(goodModel);
-			} catch {
-				return "Unknown";
-			}
+			var goodModel = ReflectionHelper.GetField(_goodRefGoodField, goodRef);
+			return GetGoodDisplayName(goodModel);
 		}
 
 		/// <summary>
 		/// Get the amount from a GoodRef.
 		/// </summary>
 		public static int GetGoodRefAmount(object goodRef) {
-			if (goodRef == null || _goodRefAmountField == null) return 0;
-
-			try {
-				var amount = _goodRefAmountField.GetValue(goodRef);
-				return amount is int a ? a : 0;
-			} catch {
-				return 0;
-			}
+			return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
 		}
 
 		// ========================================

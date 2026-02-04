@@ -135,13 +135,7 @@ namespace ATSAccessibility {
 			if (_typesCached) return;
 			_typesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] GamesHistoryReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("GamesHistoryReflection", assembly => {
 				CachePopupType(assembly);
 				CacheMetaStateTypes(assembly);
 				CacheWorldStateTypes(assembly);
@@ -150,9 +144,7 @@ namespace ATSAccessibility {
 				CacheSettingsTypes(assembly);
 				CacheModelTypes(assembly);
 				CacheServiceTypes(assembly);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GamesHistoryReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CachePopupType(Assembly assembly) {
@@ -371,10 +363,10 @@ namespace ATSAccessibility {
 				var appServices = GameReflection.GetAppServices();
 				if (appServices == null) return key;
 
-				var textsService = _servicesTextsServiceProperty.GetValue(appServices);
+				var textsService = ReflectionHelper.GetProp(_servicesTextsServiceProperty, appServices);
 				if (textsService == null) return key;
 
-				var result = _textsServiceGetLocaTextMethod.Invoke(textsService, new object[] { key }) as string;
+				var result = ReflectionHelper.InvokeString(_textsServiceGetLocaTextMethod, textsService, key);
 				return !string.IsNullOrEmpty(result) ? result : key;
 			} catch {
 				return key;
@@ -408,11 +400,11 @@ namespace ATSAccessibility {
 				if (metaStateService == null) return result;
 
 				// Get Stats (MetaStats)
-				var stats = _mssStatsProperty?.GetValue(metaStateService);
+				var stats = ReflectionHelper.GetProp(_mssStatsProperty, metaStateService);
 				if (stats == null) return result;
 
-				int gamesWon = _statsGamesWonField?.GetValue(stats) as int? ?? 0;
-				int gamesLost = _statsGamesLostField?.GetValue(stats) as int? ?? 0;
+				int gamesWon = ReflectionHelper.GetInt(_statsGamesWonField, stats);
+				int gamesLost = ReflectionHelper.GetInt(_statsGamesLostField, stats);
 				int gamesStarted = gamesWon + gamesLost;
 				double timeSpentSeconds = _statsTimeSpentInGameField?.GetValue(stats) as double? ?? 0;
 
@@ -443,17 +435,16 @@ namespace ATSAccessibility {
 
 		private static int CountCompletedGoals(object metaStateService) {
 			try {
-				var goalsState = _mssGoalsProperty?.GetValue(metaStateService);
+				var goalsState = ReflectionHelper.GetProp(_mssGoalsProperty, metaStateService);
 				if (goalsState == null || _mgsGoalsField == null) return 0;
 
-				var goalsList = _mgsGoalsField.GetValue(goalsState) as IList;
+				var goalsList = ReflectionHelper.GetList(_mgsGoalsField, goalsState);
 				if (goalsList == null) return 0;
 
 				int count = 0;
 				foreach (var goalState in goalsList) {
 					if (goalState == null) continue;
-					bool completed = _goalStateCompletedField?.GetValue(goalState) as bool? ?? false;
-					if (completed) count++;
+					if (ReflectionHelper.GetBool(_goalStateCompletedField, goalState)) count++;
 				}
 
 				return count;
@@ -477,12 +468,12 @@ namespace ATSAccessibility {
 				var metaStateService = GetMetaStateService();
 				if (metaStateService == null || _mssPerksProperty == null) return result;
 
-				var perks = _mssPerksProperty.GetValue(metaStateService);
+				var perks = ReflectionHelper.GetProp(_mssPerksProperty, metaStateService);
 				if (perks == null) return result;
 
-				// Helper to get int field
-				int GetInt(FieldInfo field) => field?.GetValue(perks) as int? ?? 0;
-				float GetFloat(FieldInfo field) => field?.GetValue(perks) as float? ?? 0f;
+				// Helper to get int/float field
+				int GetInt(FieldInfo field) => ReflectionHelper.GetInt(field, perks);
+				float GetFloat(FieldInfo field) => ReflectionHelper.GetFloat(field, perks);
 
 				// Format helpers
 				string FormatInt(int val) => val >= 0 ? $"+{val}" : val.ToString();
@@ -544,10 +535,10 @@ namespace ATSAccessibility {
 				var metaStateService = GetMetaStateService();
 				if (metaStateService == null || _mssGamesHistoryProperty == null) return result;
 
-				var gamesHistory = _mssGamesHistoryProperty.GetValue(metaStateService);
+				var gamesHistory = ReflectionHelper.GetProp(_mssGamesHistoryProperty, metaStateService);
 				if (gamesHistory == null || _ghsRecordsField == null) return result;
 
-				var records = _ghsRecordsField.GetValue(gamesHistory) as IList;
+				var records = ReflectionHelper.GetList(_ghsRecordsField, gamesHistory);
 				if (records == null) return result;
 
 				foreach (var record in records) {
@@ -568,14 +559,14 @@ namespace ATSAccessibility {
 		public static string GetSettlementName(object record) {
 			if (record == null) return "Unknown";
 			try {
-				string name = _ghsNameField?.GetValue(record) as string;
+				string name = ReflectionHelper.GetString(_ghsNameField, record);
 
 				// If name is empty, return localized "Missing Town Name"
 				if (string.IsNullOrEmpty(name)) {
 					return GetLocalizedText("MenuUI_GamesHistory_MissingTownName");
 				}
 
-				bool hasStaticName = _ghsHasStaticNameField?.GetValue(record) as bool? ?? false;
+				bool hasStaticName = ReflectionHelper.GetBool(_ghsHasStaticNameField, record);
 				if (hasStaticName) {
 					// Static name means it's a localization key
 					return GetLocalizedText(name);
@@ -588,47 +579,44 @@ namespace ATSAccessibility {
 
 		public static bool GetSettlementWon(object record) {
 			if (record == null) return false;
-			try { return _ghsHasWonField?.GetValue(record) as bool? ?? false; } catch { return false; }
+			return ReflectionHelper.GetBool(_ghsHasWonField, record);
 		}
 
 		public static string GetSettlementBiome(object record) {
 			if (record == null) return "Unknown";
 			try {
-				string biomeKey = _ghsBiomeField?.GetValue(record) as string;
+				string biomeKey = ReflectionHelper.GetString(_ghsBiomeField, record);
 				if (string.IsNullOrEmpty(biomeKey)) return "Unknown";
 
 				var settings = GameReflection.GetSettings();
 				if (settings == null) return biomeKey;
 
 				// Check if biome exists
-				bool containsBiome = _settingsContainsBiomeMethod?.Invoke(settings, new object[] { biomeKey }) as bool? ?? false;
-				if (!containsBiome) return "Unknown";
+				if (!ReflectionHelper.InvokeBool(_settingsContainsBiomeMethod, settings, biomeKey))
+					return "Unknown";
 
-				var biomeModel = _settingsGetBiomeMethod?.Invoke(settings, new object[] { biomeKey });
+				var biomeModel = ReflectionHelper.Invoke(_settingsGetBiomeMethod, settings, biomeKey);
 				if (biomeModel == null) return biomeKey;
 
-				var locaText = _biomeDisplayNameField?.GetValue(biomeModel);
-				return GameReflection.GetLocaText(locaText) ?? biomeKey;
+				return ReflectionHelper.GetLocaString(_biomeDisplayNameField, biomeModel) ?? biomeKey;
 			} catch { return "Unknown"; }
 		}
 
 		public static string GetSettlementDifficulty(object record) {
 			if (record == null) return "Unknown";
 			try {
-				string difficultyKey = _ghsDifficultyField?.GetValue(record) as string;
+				string difficultyKey = ReflectionHelper.GetString(_ghsDifficultyField, record);
 				if (string.IsNullOrEmpty(difficultyKey)) return "Unknown";
 
 				var settings = GameReflection.GetSettings();
 				if (settings == null) return difficultyKey;
 
-				var difficultyModel = _settingsGetDifficultyMethod?.Invoke(settings, new object[] { difficultyKey });
+				var difficultyModel = ReflectionHelper.Invoke(_settingsGetDifficultyMethod, settings, difficultyKey);
 				if (difficultyModel == null) return difficultyKey;
 
 				// Call GetRawDisplayName() method
-				if (_difficultyRawDisplayNameMethod != null) {
-					var name = _difficultyRawDisplayNameMethod.Invoke(difficultyModel, null) as string;
-					if (!string.IsNullOrEmpty(name)) return name;
-				}
+				var name = ReflectionHelper.InvokeString(_difficultyRawDisplayNameMethod, difficultyModel);
+				if (!string.IsNullOrEmpty(name)) return name;
 
 				return difficultyKey;
 			} catch { return "Unknown"; }
@@ -636,7 +624,7 @@ namespace ATSAccessibility {
 
 		public static float GetSettlementGameTime(object record) {
 			if (record == null) return 0f;
-			try { return _ghsGameTimeField?.GetValue(record) as float? ?? 0f; } catch { return 0f; }
+			return ReflectionHelper.GetFloat(_ghsGameTimeField, record);
 		}
 
 		public static string FormatGameTime(float seconds) {
@@ -648,17 +636,17 @@ namespace ATSAccessibility {
 
 		public static int GetSettlementYears(object record) {
 			if (record == null) return 0;
-			try { return _ghsYearsField?.GetValue(record) as int? ?? 0; } catch { return 0; }
+			return ReflectionHelper.GetInt(_ghsYearsField, record);
 		}
 
 		public static int GetSettlementLevel(object record) {
 			if (record == null) return 0;
-			try { return _ghsLevelField?.GetValue(record) as int? ?? 0; } catch { return 0; }
+			return ReflectionHelper.GetInt(_ghsLevelField, record);
 		}
 
 		public static int GetSettlementUpgrades(object record) {
 			if (record == null) return 0;
-			try { return _ghsUpgradesField?.GetValue(record) as int? ?? 0; } catch { return 0; }
+			return ReflectionHelper.GetInt(_ghsUpgradesField, record);
 		}
 
 		public static List<(string name, int count)> GetSettlementRaces(object record) {
@@ -666,32 +654,24 @@ namespace ATSAccessibility {
 			if (record == null) return result;
 
 			try {
-				var racesDict = _ghsRacesField?.GetValue(record);
+				var racesDict = ReflectionHelper.GetField(_ghsRacesField, record);
 				if (racesDict == null) return result;
 
 				var settings = GameReflection.GetSettings();
 				if (settings == null) return result;
 
-				// Iterate dictionary using reflection
-				var keysProperty = racesDict.GetType().GetProperty("Keys");
-				var keys = keysProperty?.GetValue(racesDict) as IEnumerable;
-				var indexer = racesDict.GetType().GetMethod("get_Item");
-
-				if (keys == null || indexer == null) return result;
+				var keys = ReflectionHelper.IterateKeys(racesDict);
+				if (keys == null) return result;
 
 				foreach (var key in keys) {
 					string raceKey = key as string;
 					if (string.IsNullOrEmpty(raceKey)) continue;
 
-					int count = (int)indexer.Invoke(racesDict, new[] { key });
+					var countObj = ReflectionHelper.DictGet(racesDict, key);
+					int count = countObj is int i ? i : 0;
 
-					var raceModel = _settingsGetRaceMethod?.Invoke(settings, new object[] { raceKey });
-					string name = raceKey;
-
-					if (raceModel != null && _raceDisplayNameField != null) {
-						var locaText = _raceDisplayNameField.GetValue(raceModel);
-						name = GameReflection.GetLocaText(locaText) ?? raceKey;
-					}
+					var raceModel = ReflectionHelper.Invoke(_settingsGetRaceMethod, settings, raceKey);
+					string name = ReflectionHelper.GetLocaString(_raceDisplayNameField, raceModel) ?? raceKey;
 
 					result.Add((name, count));
 				}
@@ -715,7 +695,7 @@ namespace ATSAccessibility {
 			if (record == null || field == null) return result;
 
 			try {
-				var list = field.GetValue(record) as IList;
+				var list = ReflectionHelper.GetList(field, record);
 				if (list == null) return result;
 
 				var settings = GameReflection.GetSettings();
@@ -725,12 +705,8 @@ namespace ATSAccessibility {
 					string key = item as string;
 					if (string.IsNullOrEmpty(key)) continue;
 
-					var effectModel = _settingsGetEffectMethod?.Invoke(settings, new object[] { key });
-					string name = key;
-
-					if (effectModel != null && _effectDisplayNameProperty != null) {
-						name = _effectDisplayNameProperty.GetValue(effectModel) as string ?? key;
-					}
+					var effectModel = ReflectionHelper.Invoke(_settingsGetEffectMethod, settings, key);
+					string name = ReflectionHelper.GetPropString(_effectDisplayNameProperty, effectModel) ?? key;
 
 					result.Add(name);
 				}
@@ -746,7 +722,7 @@ namespace ATSAccessibility {
 			if (record == null) return result;
 
 			try {
-				var list = _ghsBuildingsField?.GetValue(record) as IList;
+				var list = ReflectionHelper.GetList(_ghsBuildingsField, record);
 				if (list == null) return result;
 
 				var settings = GameReflection.GetSettings();
@@ -756,13 +732,8 @@ namespace ATSAccessibility {
 					string key = item as string;
 					if (string.IsNullOrEmpty(key)) continue;
 
-					var buildingModel = _settingsGetBuildingMethod?.Invoke(settings, new object[] { key });
-					string name = key;
-
-					if (buildingModel != null && _buildingDisplayNameField != null) {
-						var locaText = _buildingDisplayNameField.GetValue(buildingModel);
-						name = GameReflection.GetLocaText(locaText) ?? key;
-					}
+					var buildingModel = ReflectionHelper.Invoke(_settingsGetBuildingMethod, settings, key);
+					string name = ReflectionHelper.GetLocaString(_buildingDisplayNameField, buildingModel) ?? key;
 
 					result.Add(name);
 				}
@@ -778,7 +749,7 @@ namespace ATSAccessibility {
 			if (record == null) return result;
 
 			try {
-				var list = _ghsSeasonalEffectsField?.GetValue(record) as IList;
+				var list = ReflectionHelper.GetList(_ghsSeasonalEffectsField, record);
 				if (list == null) return result;
 
 				var settings = GameReflection.GetSettings();
@@ -788,14 +759,14 @@ namespace ATSAccessibility {
 					string key = item as string;
 					if (string.IsNullOrEmpty(key)) continue;
 
-					var seasonalModel = _settingsGetSeasonalEffectMethod?.Invoke(settings, new object[] { key });
+					var seasonalModel = ReflectionHelper.Invoke(_settingsGetSeasonalEffectMethod, settings, key);
 					string name = key;
 
 					if (seasonalModel != null) {
 						// Use DisplayName property for localized name (from ISeasonalEffectModel)
 						var displayNameProp = seasonalModel.GetType().GetProperty("DisplayName", GameReflection.PublicInstance);
 						if (displayNameProp != null) {
-							name = displayNameProp.GetValue(seasonalModel) as string ?? key;
+							name = ReflectionHelper.GetPropString(displayNameProp, seasonalModel) ?? key;
 						}
 					}
 

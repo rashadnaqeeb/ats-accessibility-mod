@@ -83,14 +83,9 @@ namespace ATSAccessibility {
 
 		private static void EnsureTypes() {
 			if (_typesCached) return;
+			_typesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) {
-				_typesCached = true;
-				return;
-			}
-
-			try {
+			ReflectionHelper.InitCache("DailyExpeditionReflection", assembly => {
 				// Cache DailyChallengePopup type and fields
 				_dailyChallengePopupType = assembly.GetType("Eremite.WorldMap.UI.DailyChallengePopup");
 				if (_dailyChallengePopupType != null) {
@@ -214,13 +209,7 @@ namespace ATSAccessibility {
 					_popupHideMethod = popupType.GetMethod("Hide",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
-
-				Debug.Log("[ATSAccessibility] DailyExpeditionReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] DailyExpeditionReflection: Type caching failed: {ex.Message}");
-			}
-
-			_typesCached = true;
+			});
 		}
 
 		// ========================================
@@ -254,13 +243,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static object GetChallengeData(object popup) {
 			EnsureTypes();
-			if (popup == null || _popupChallangeField == null) return null;
-
-			try {
-				return _popupChallangeField.GetValue(popup);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_popupChallangeField, popup);
 		}
 
 		/// <summary>
@@ -268,19 +251,9 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetBiomeName(object popup) {
 			EnsureTypes();
-
-			try {
-				if (popup == null || _popupBiomeTextField == null) return "Unknown";
-
-				var biomeText = _popupBiomeTextField.GetValue(popup);
-				if (biomeText == null || _tmpTextProperty == null) return "Unknown";
-
-				string text = _tmpTextProperty.GetValue(biomeText) as string;
-				return !string.IsNullOrEmpty(text) ? text : "Unknown";
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetBiomeName failed: {ex.Message}");
-				return "Unknown";
-			}
+			var biomeText = ReflectionHelper.GetField(_popupBiomeTextField, popup);
+			string text = ReflectionHelper.GetPropString(_tmpTextProperty, biomeText);
+			return !string.IsNullOrEmpty(text) ? text : "Unknown";
 		}
 
 		/// <summary>
@@ -298,31 +271,19 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetTimeLeft(object popup) {
 			EnsureTypes();
+			var timeLeftText = ReflectionHelper.GetField(_popupTimeLeftField, popup);
+			string text = ReflectionHelper.GetPropString(_tmpTextProperty, timeLeftText);
 
-			try {
-				if (popup == null || _popupTimeLeftField == null) {
-					return GetFallbackTimeLeft();
-				}
-
-				var timeLeftText = _popupTimeLeftField.GetValue(popup);
-				if (timeLeftText == null || _tmpTextProperty == null) {
-					return GetFallbackTimeLeft();
-				}
-
-				string text = _tmpTextProperty.GetValue(timeLeftText) as string;
-				// The text may contain localized prefix, try to extract just the time
-				if (!string.IsNullOrEmpty(text)) {
-					// Look for time pattern (HH:MM:SS)
-					var match = TimePattern.Match(text);
-					if (match.Success)
-						return match.Value;
-					return text;
-				}
-
-				return GetFallbackTimeLeft();
-			} catch {
-				return GetFallbackTimeLeft();
+			// The text may contain localized prefix, try to extract just the time
+			if (!string.IsNullOrEmpty(text)) {
+				// Look for time pattern (HH:MM:SS)
+				var match = TimePattern.Match(text);
+				if (match.Success)
+					return match.Value;
+				return text;
 			}
+
+			return GetFallbackTimeLeft();
 		}
 
 		/// <summary>
@@ -332,27 +293,21 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<string>();
 
-			try {
-				var challenge = GetChallengeData(popup);
-				if (challenge == null || _dataInitialVillagersField == null) return result;
+			var challenge = GetChallengeData(popup);
+			var villagersList = ReflectionHelper.GetList(_dataInitialVillagersField, challenge);
+			if (villagersList == null) return result;
 
-				var villagersList = _dataInitialVillagersField.GetValue(challenge) as IList;
-				if (villagersList == null) return result;
-
-				// Get distinct races
-				var distinctRaces = new HashSet<string>();
-				foreach (var raceName in villagersList) {
-					if (raceName is string name && !string.IsNullOrEmpty(name)) {
-						distinctRaces.Add(name);
-					}
+			// Get distinct races
+			var distinctRaces = new HashSet<string>();
+			foreach (var raceName in villagersList) {
+				if (raceName is string name && !string.IsNullOrEmpty(name)) {
+					distinctRaces.Add(name);
 				}
+			}
 
-				foreach (var raceName in distinctRaces) {
-					string displayName = EmbarkReflection.GetRaceDisplayName(raceName);
-					result.Add(displayName);
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetRaces failed: {ex.Message}");
+			foreach (var raceName in distinctRaces) {
+				string displayName = EmbarkReflection.GetRaceDisplayName(raceName);
+				result.Add(displayName);
 			}
 
 			return result;
@@ -365,26 +320,20 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<string>();
 
-			try {
-				var challenge = GetChallengeData(popup);
-				if (challenge == null || _dataEmbarkGoodsField == null) return result;
+			var challenge = GetChallengeData(popup);
+			var goodsList = ReflectionHelper.GetList(_dataEmbarkGoodsField, challenge);
+			if (goodsList == null) return result;
 
-				var goodsList = _dataEmbarkGoodsField.GetValue(challenge) as IList;
-				if (goodsList == null) return result;
+			foreach (var good in goodsList) {
+				if (good == null) continue;
 
-				foreach (var good in goodsList) {
-					if (good == null) continue;
+				string goodName = ReflectionHelper.GetString(_goodNameField, good);
+				int amount = ReflectionHelper.GetInt(_goodAmountField, good);
 
-					string goodName = _goodNameField?.GetValue(good) as string;
-					int amount = _goodAmountField != null ? (int)_goodAmountField.GetValue(good) : 0;
-
-					if (!string.IsNullOrEmpty(goodName) && amount > 0) {
-						string displayName = GameReflection.GetGoodDisplayName(goodName);
-						result.Add($"{amount} {displayName}");
-					}
+				if (!string.IsNullOrEmpty(goodName) && amount > 0) {
+					string displayName = GameReflection.GetGoodDisplayName(goodName);
+					result.Add($"{amount} {displayName}");
 				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetEmbarkGoods failed: {ex.Message}");
 			}
 
 			return result;
@@ -397,21 +346,15 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<string>();
 
-			try {
-				var challenge = GetChallengeData(popup);
-				if (challenge == null || _dataEmbarkEffectsField == null) return result;
+			var challenge = GetChallengeData(popup);
+			var effectsList = ReflectionHelper.GetList(_dataEmbarkEffectsField, challenge);
+			if (effectsList == null) return result;
 
-				var effectsList = _dataEmbarkEffectsField.GetValue(challenge) as IList;
-				if (effectsList == null) return result;
-
-				foreach (var effectName in effectsList) {
-					if (effectName is string name && !string.IsNullOrEmpty(name)) {
-						string displayName = EmbarkReflection.GetEffectDisplayName(name);
-						result.Add(displayName);
-					}
+			foreach (var effectName in effectsList) {
+				if (effectName is string name && !string.IsNullOrEmpty(name)) {
+					string displayName = EmbarkReflection.GetEffectDisplayName(name);
+					result.Add(displayName);
 				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetEmbarkEffects failed: {ex.Message}");
 			}
 
 			return result;
@@ -437,37 +380,29 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<(string, string)>();
 
-			try {
-				var challenge = GetChallengeData(popup);
-				if (challenge == null) return result;
+			var challenge = GetChallengeData(popup);
+			if (challenge == null) return result;
 
-				// Get early modifiers
-				if (_dataEarlyModifiersField != null) {
-					var earlyList = _dataEarlyModifiersField.GetValue(challenge) as IList;
-					if (earlyList != null) {
-						foreach (var modName in earlyList) {
-							if (modName is string name && !string.IsNullOrEmpty(name)) {
-								var (displayName, description) = GetEffectNameAndDescription(name);
-								result.Add((displayName, description));
-							}
-						}
+			// Get early modifiers
+			var earlyList = ReflectionHelper.GetList(_dataEarlyModifiersField, challenge);
+			if (earlyList != null) {
+				foreach (var modName in earlyList) {
+					if (modName is string name && !string.IsNullOrEmpty(name)) {
+						var (displayName, description) = GetEffectNameAndDescription(name);
+						result.Add((displayName, description));
 					}
 				}
+			}
 
-				// Get late modifiers
-				if (_dataLateModifiersField != null) {
-					var lateList = _dataLateModifiersField.GetValue(challenge) as IList;
-					if (lateList != null) {
-						foreach (var modName in lateList) {
-							if (modName is string name && !string.IsNullOrEmpty(name)) {
-								var (displayName, description) = GetEffectNameAndDescription(name);
-								result.Add((displayName, description));
-							}
-						}
+			// Get late modifiers
+			var lateList = ReflectionHelper.GetList(_dataLateModifiersField, challenge);
+			if (lateList != null) {
+				foreach (var modName in lateList) {
+					if (modName is string name && !string.IsNullOrEmpty(name)) {
+						var (displayName, description) = GetEffectNameAndDescription(name);
+						result.Add((displayName, description));
 					}
 				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetModifiersDetailed failed: {ex.Message}");
 			}
 
 			return result;
@@ -480,25 +415,21 @@ namespace ATSAccessibility {
 			if (string.IsNullOrEmpty(effectName))
 				return ("Unknown", "");
 
-			try {
-				var effectModel = GameReflection.GetEffectModel(effectName);
-				if (effectModel == null)
-					return (effectName, "");
-
-				// Get DisplayName property
-				var displayNameProp = effectModel.GetType().GetProperty("DisplayName",
-					BindingFlags.Public | BindingFlags.Instance);
-				string displayName = displayNameProp?.GetValue(effectModel)?.ToString() ?? effectName;
-
-				// Get Description property
-				var descProp = effectModel.GetType().GetProperty("Description",
-					BindingFlags.Public | BindingFlags.Instance);
-				string description = descProp?.GetValue(effectModel)?.ToString() ?? "";
-
-				return (displayName, description);
-			} catch {
+			var effectModel = GameReflection.GetEffectModel(effectName);
+			if (effectModel == null)
 				return (effectName, "");
-			}
+
+			// Get DisplayName property
+			var displayNameProp = effectModel.GetType().GetProperty("DisplayName",
+				BindingFlags.Public | BindingFlags.Instance);
+			string displayName = ReflectionHelper.GetProp(displayNameProp, effectModel)?.ToString() ?? effectName;
+
+			// Get Description property
+			var descProp = effectModel.GetType().GetProperty("Description",
+				BindingFlags.Public | BindingFlags.Instance);
+			string description = ReflectionHelper.GetProp(descProp, effectModel)?.ToString() ?? "";
+
+			return (displayName, description);
 		}
 
 		// ========================================
@@ -510,13 +441,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static object GetDifficultyPicker(object popup) {
 			EnsureTypes();
-			if (popup == null || _popupDifficultyPickerField == null) return null;
-
-			try {
-				return _popupDifficultyPickerField.GetValue(popup);
-			} catch {
-				return null;
-			}
+			return ReflectionHelper.GetField(_popupDifficultyPickerField, popup);
 		}
 
 		/// <summary>
@@ -525,21 +450,13 @@ namespace ATSAccessibility {
 		public static object GetCurrentDifficulty(object popup) {
 			EnsureTypes();
 
-			try {
-				// First try to get from the popup's difficulty field (already resolved)
-				if (popup != null && _popupDifficultyField != null) {
-					var difficulty = _popupDifficultyField.GetValue(popup);
-					if (difficulty != null) return difficulty;
-				}
+			// First try to get from the popup's difficulty field (already resolved)
+			var difficulty = ReflectionHelper.GetField(_popupDifficultyField, popup);
+			if (difficulty != null) return difficulty;
 
-				// Fallback to picker
-				var picker = GetDifficultyPicker(popup);
-				if (picker == null || _pickerGetPickedDifficultyMethod == null) return null;
-
-				return _pickerGetPickedDifficultyMethod.Invoke(picker, null);
-			} catch {
-				return null;
-			}
+			// Fallback to picker
+			var picker = GetDifficultyPicker(popup);
+			return ReflectionHelper.Invoke(_pickerGetPickedDifficultyMethod, picker);
 		}
 
 		/// <summary>
@@ -547,13 +464,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetDifficultyDisplayName(object difficulty) {
 			EnsureTypes();
-			if (difficulty == null || _dmGetDisplayNameMethod == null) return "Unknown";
-
-			try {
-				return _dmGetDisplayNameMethod.Invoke(difficulty, null)?.ToString() ?? "Unknown";
-			} catch {
-				return "Unknown";
-			}
+			return ReflectionHelper.Invoke(_dmGetDisplayNameMethod, difficulty)?.ToString() ?? "Unknown";
 		}
 
 		/// <summary>
@@ -562,12 +473,7 @@ namespace ATSAccessibility {
 		public static int GetDifficultyIndex(object difficulty) {
 			EnsureTypes();
 			if (difficulty == null || _dmIndexField == null) return -1;
-
-			try {
-				return (int)_dmIndexField.GetValue(difficulty);
-			} catch {
-				return -1;
-			}
+			return ReflectionHelper.GetInt(_dmIndexField, difficulty);
 		}
 
 		/// <summary>
@@ -577,19 +483,13 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			var result = new List<object>();
 
-			try {
-				var picker = GetDifficultyPicker(popup);
-				if (picker == null || _pickerGetDifficultiesMethod == null) return result;
+			var picker = GetDifficultyPicker(popup);
+			var difficultiesList = ReflectionHelper.Invoke(_pickerGetDifficultiesMethod, picker) as IList;
+			if (difficultiesList == null) return result;
 
-				var difficultiesList = _pickerGetDifficultiesMethod.Invoke(picker, null) as IList;
-				if (difficultiesList == null) return result;
-
-				foreach (var diff in difficultiesList) {
-					if (diff != null)
-						result.Add(diff);
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetAvailableDifficulties failed: {ex.Message}");
+			foreach (var diff in difficultiesList) {
+				if (diff != null)
+					result.Add(diff);
 			}
 
 			return result;
@@ -600,20 +500,8 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool SetDifficulty(object popup, object difficulty) {
 			EnsureTypes();
-
-			try {
-				var picker = GetDifficultyPicker(popup);
-				if (picker == null || _pickerSetDifficultyMethod == null) {
-					Debug.LogWarning("[ATSAccessibility] SetDifficulty: Picker or method not found");
-					return false;
-				}
-
-				_pickerSetDifficultyMethod.Invoke(picker, new[] { difficulty });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SetDifficulty failed: {ex.Message}");
-				return false;
-			}
+			var picker = GetDifficultyPicker(popup);
+			return ReflectionHelper.InvokeVoid(_pickerSetDifficultyMethod, picker, difficulty);
 		}
 
 		/// <summary>
@@ -623,18 +511,9 @@ namespace ATSAccessibility {
 			EnsureTypes();
 			if (difficulty == null) return (0, 0);
 
-			try {
-				int positive = 0, negative = 0;
-
-				if (_dmPositiveEffectsField != null)
-					positive = (int)_dmPositiveEffectsField.GetValue(difficulty);
-				if (_dmNegativeEffectsField != null)
-					negative = (int)_dmNegativeEffectsField.GetValue(difficulty);
-
-				return (positive, negative);
-			} catch {
-				return (0, 0);
-			}
+			int positive = ReflectionHelper.GetInt(_dmPositiveEffectsField, difficulty);
+			int negative = ReflectionHelper.GetInt(_dmNegativeEffectsField, difficulty);
+			return (positive, negative);
 		}
 
 		/// <summary>
@@ -642,14 +521,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static string GetEffectsMagnitude(object difficulty) {
 			EnsureTypes();
-			if (difficulty == null || _dmEffectsMagnitudeField == null) return "";
-
-			try {
-				var locaText = _dmEffectsMagnitudeField.GetValue(difficulty);
-				return GameReflection.GetLocaText(locaText) ?? "";
-			} catch {
-				return "";
-			}
+			return ReflectionHelper.GetLocaString(_dmEffectsMagnitudeField, difficulty) ?? "";
 		}
 
 		// ========================================
@@ -663,30 +535,18 @@ namespace ATSAccessibility {
 		public static bool IsCompleted(object popup) {
 			EnsureTypes();
 
-			try {
-				// Try reading from completedMarker.activeSelf
-				if (popup != null && _popupCompletedMarkerField != null) {
-					var marker = _popupCompletedMarkerField.GetValue(popup) as GameObject;
-					if (marker != null) {
-						return marker.activeSelf;
-					}
-				}
+			// Try reading from completedMarker.activeSelf
+			var marker = ReflectionHelper.GetField(_popupCompletedMarkerField, popup) as GameObject;
+			if (marker != null)
+				return marker.activeSelf;
 
-				// Fallback to DailyService check
-				var difficulty = GetCurrentDifficulty(popup);
-				if (difficulty == null) return false;
+			// Fallback to DailyService check
+			var difficulty = GetCurrentDifficulty(popup);
+			if (difficulty == null) return false;
 
-				var metaServices = GameReflection.GetMetaServices();
-				if (metaServices == null || _msDailyServiceProperty == null) return false;
-
-				var dailyService = _msDailyServiceProperty.GetValue(metaServices);
-				if (dailyService == null || _dailyIsCompletedTodayMethod == null) return false;
-
-				var result = _dailyIsCompletedTodayMethod.Invoke(dailyService, new[] { difficulty });
-				return result != null && (bool)result;
-			} catch {
-				return false;
-			}
+			var metaServices = GameReflection.GetMetaServices();
+			var dailyService = ReflectionHelper.GetProp(_msDailyServiceProperty, metaServices);
+			return ReflectionHelper.InvokeBool(_dailyIsCompletedTodayMethod, dailyService, difficulty);
 		}
 
 		/// <summary>
@@ -695,69 +555,46 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static List<string> GetRewards(object popup) {
 			EnsureTypes();
-			var result = new List<string>();
 
-			try {
-				var challenge = GetChallengeData(popup);
-				var difficulty = GetCurrentDifficulty(popup);
-				if (challenge == null || difficulty == null) return result;
+			var challenge = GetChallengeData(popup);
+			var difficulty = GetCurrentDifficulty(popup);
+			if (challenge == null || difficulty == null) return new List<string>();
 
-				// Get base rewards from challenge data
-				var baseRewards = _dataBaseRewardsField?.GetValue(challenge) as IList;
-				if (baseRewards == null) return result;
+			// Get base rewards from challenge data
+			var baseRewards = ReflectionHelper.GetList(_dataBaseRewardsField, challenge);
+			if (baseRewards == null) return new List<string>();
 
-				// Get DailyService.GetRewardsFor
-				var metaServices = GameReflection.GetMetaServices();
-				if (metaServices == null || _msDailyServiceProperty == null) return result;
+			// Get DailyService.GetRewardsFor
+			var metaServices = GameReflection.GetMetaServices();
+			var dailyService = ReflectionHelper.GetProp(_msDailyServiceProperty, metaServices);
+			var adjustedRewards = ReflectionHelper.Invoke(_dailyGetRewardsForMethod, dailyService,
+				difficulty, baseRewards) as IList;
 
-				var dailyService = _msDailyServiceProperty.GetValue(metaServices);
-				if (dailyService == null || _dailyGetRewardsForMethod == null) {
-					// Fall back to base rewards
-					return FormatRewardsFromList(baseRewards);
-				}
-
-				var adjustedRewards = _dailyGetRewardsForMethod.Invoke(dailyService,
-					new[] { difficulty, baseRewards }) as IList;
-
-				if (adjustedRewards != null) {
-					return FormatRewardsFromList(adjustedRewards);
-				}
-
-				return FormatRewardsFromList(baseRewards);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetRewards failed: {ex.Message}");
-			}
-
-			return result;
+			return FormatRewardsFromList(adjustedRewards ?? baseRewards);
 		}
 
 		private static List<string> FormatRewardsFromList(IList rewardsList) {
 			var result = new List<string>();
+			if (rewardsList == null) return result;
 
-			try {
-				var settings = GameReflection.GetSettings();
+			var settings = GameReflection.GetSettings();
 
-				foreach (var reward in rewardsList) {
-					if (reward == null) continue;
+			foreach (var reward in rewardsList) {
+				if (reward == null) continue;
 
-					string currencyName = _mcNameField?.GetValue(reward) as string;
-					int amount = _mcAmountField != null ? (int)_mcAmountField.GetValue(reward) : 0;
+				string currencyName = ReflectionHelper.GetString(_mcNameField, reward);
+				int amount = ReflectionHelper.GetInt(_mcAmountField, reward);
 
-					if (string.IsNullOrEmpty(currencyName) || amount <= 0) continue;
+				if (string.IsNullOrEmpty(currencyName) || amount <= 0) continue;
 
-					// Get display name from MetaCurrencyModel
-					string displayName = currencyName;
-					if (settings != null && _settingsGetMetaCurrencyMethod != null) {
-						var model = _settingsGetMetaCurrencyMethod.Invoke(settings, new object[] { currencyName });
-						if (model != null && _mcModelDisplayNameProperty != null) {
-							displayName = _mcModelDisplayNameProperty.GetValue(model)?.ToString() ?? currencyName;
-						}
-					}
-
-					result.Add($"{amount} {displayName}");
+				// Get display name from MetaCurrencyModel
+				string displayName = currencyName;
+				var model = ReflectionHelper.Invoke(_settingsGetMetaCurrencyMethod, settings, currencyName);
+				if (model != null) {
+					displayName = ReflectionHelper.GetProp(_mcModelDisplayNameProperty, model)?.ToString() ?? currencyName;
 				}
-			} catch {
-				// Ignore
+
+				result.Add($"{amount} {displayName}");
 			}
 
 			return result;
@@ -772,28 +609,18 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool TriggerEmbark(object popup) {
 			EnsureTypes();
+			var button = ReflectionHelper.GetField(_popupEmbarkButtonField, popup);
+			if (button == null) return false;
 
-			try {
-				if (popup == null || _popupEmbarkButtonField == null) return false;
+			// Get the onClick UnityEvent and invoke it
+			var onClickProp = button.GetType().GetProperty("onClick",
+				BindingFlags.Public | BindingFlags.Instance);
+			var onClick = ReflectionHelper.GetProp(onClickProp, button);
+			if (onClick == null) return false;
 
-				var button = _popupEmbarkButtonField.GetValue(popup);
-				if (button == null) return false;
-
-				// Get the onClick UnityEvent and invoke it
-				var onClickProp = button.GetType().GetProperty("onClick",
-					BindingFlags.Public | BindingFlags.Instance);
-				var onClick = onClickProp?.GetValue(button);
-				if (onClick == null) return false;
-
-				var invokeMethod = onClick.GetType().GetMethod("Invoke",
-					BindingFlags.Public | BindingFlags.Instance);
-				invokeMethod?.Invoke(onClick, null);
-
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] TriggerEmbark failed: {ex.Message}");
-				return false;
-			}
+			var invokeMethod = onClick.GetType().GetMethod("Invoke",
+				BindingFlags.Public | BindingFlags.Instance);
+			return ReflectionHelper.InvokeVoid(invokeMethod, onClick);
 		}
 
 		/// <summary>
@@ -801,16 +628,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static bool HidePopup(object popup) {
 			EnsureTypes();
-
-			try {
-				if (popup == null || _popupHideMethod == null) return false;
-
-				_popupHideMethod.Invoke(popup, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] HidePopup failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_popupHideMethod, popup);
 		}
 
 		public static int LogCacheStatus() {

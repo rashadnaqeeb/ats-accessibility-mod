@@ -74,13 +74,7 @@ namespace ATSAccessibility {
 			if (_typesCached) return;
 			_typesCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) {
-					Debug.LogWarning("[ATSAccessibility] ReputationRewardReflection: Game assembly not available");
-					return;
-				}
-
+			ReflectionHelper.InitCache("ReputationRewardReflection", assembly => {
 				CacheServiceMethods(assembly);
 				CacheRewardTypes(assembly);
 				CacheSettingsMethods(assembly);
@@ -88,11 +82,7 @@ namespace ATSAccessibility {
 				CacheGoodTypes(assembly);
 				CacheBiomeTypes(assembly);
 				CachePopupTypes(assembly);
-
-				Debug.Log("[ATSAccessibility] ReputationRewardReflection: Types cached successfully");
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ReputationRewardReflection: Failed to cache types: {ex.Message}");
-			}
+			});
 		}
 
 		private static void CacheServiceMethods(Assembly assembly) {
@@ -283,26 +273,19 @@ namespace ATSAccessibility {
 			if (popup == null) return null;
 			EnsureTypesCached();
 
-			if (_rpTextTyperField == null) return null;
+			var textTyper = ReflectionHelper.GetField(_rpTextTyperField, popup);
+			if (textTyper == null) return null;
 
-			try {
-				var textTyper = _rpTextTyperField.GetValue(popup);
-				if (textTyper == null || _ttTextMeshField == null) return null;
+			var textMesh = ReflectionHelper.GetField(_ttTextMeshField, textTyper);
+			if (textMesh == null) return null;
 
-				var textMesh = _ttTextMeshField.GetValue(textTyper);
-				if (textMesh == null) return null;
-
-				// Cache TMP_Text.text property on first use
-				if (_tmpTextProperty == null) {
-					_tmpTextProperty = textMesh.GetType().GetProperty("text",
-						BindingFlags.Public | BindingFlags.Instance);
-				}
-
-				return _tmpTextProperty?.GetValue(textMesh) as string;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ReputationRewardReflection: GetPopupDescription failed: {ex.Message}");
-				return null;
+			// Cache TMP_Text.text property on first use
+			if (_tmpTextProperty == null) {
+				_tmpTextProperty = textMesh.GetType().GetProperty("text",
+					BindingFlags.Public | BindingFlags.Instance);
 			}
+
+			return ReflectionHelper.GetPropString(_tmpTextProperty, textMesh);
 		}
 
 		// ========================================
@@ -321,7 +304,7 @@ namespace ATSAccessibility {
 			if (service == null || _rrsGetCurrentPicksMethod == null) return result;
 
 			try {
-				var picks = _rrsGetCurrentPicksMethod.Invoke(service, null) as IList;
+				var picks = ReflectionHelper.Invoke(_rrsGetCurrentPicksMethod, service) as IList;
 				if (picks == null || picks.Count == 0) return result;
 
 				var settings = GameReflection.GetSettings();
@@ -330,14 +313,14 @@ namespace ATSAccessibility {
 				foreach (var pick in picks) {
 					if (pick == null) continue;
 
-					var buildingName = _rrBuildingField?.GetValue(pick) as string;
+					var buildingName = ReflectionHelper.GetString(_rrBuildingField, pick);
 					if (string.IsNullOrEmpty(buildingName)) continue;
 
-					var buildingModel = _settingsGetBuildingMethod.Invoke(settings, new object[] { buildingName });
+					var buildingModel = ReflectionHelper.Invoke(_settingsGetBuildingMethod, settings, buildingName);
 					if (buildingModel == null) continue;
 
 					var displayName = GameReflection.GetDisplayName(buildingModel) ?? buildingName;
-					var description = _bmListDescriptionProperty?.GetValue(buildingModel) as string;
+					var description = ReflectionHelper.GetPropString(_bmListDescriptionProperty, buildingModel);
 
 					result.Add(new RewardOption {
 						Model = buildingModel,
@@ -360,15 +343,7 @@ namespace ATSAccessibility {
 			if (popup == null || buildingModel == null) return false;
 			EnsureTypesCached();
 
-			if (_rpOnBuildingPickedMethod == null) return false;
-
-			try {
-				_rpOnBuildingPickedMethod.Invoke(popup, new[] { buildingModel });
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ReputationRewardReflection: PickBuilding failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_rpOnBuildingPickedMethod, popup, buildingModel);
 		}
 
 		// ========================================
@@ -381,11 +356,9 @@ namespace ATSAccessibility {
 		public static bool CanAffordReroll() {
 			EnsureTypesCached();
 			var service = GetService();
-			if (service == null || _rrsCanAffordRerollMethod == null) return false;
+			if (service == null) return false;
 
-			try {
-				return (bool)_rrsCanAffordRerollMethod.Invoke(service, null);
-			} catch { return false; }
+			return ReflectionHelper.InvokeBool(_rrsCanAffordRerollMethod, service);
 		}
 
 		/// <summary>
@@ -396,15 +369,7 @@ namespace ATSAccessibility {
 			if (popup == null) return false;
 			EnsureTypesCached();
 
-			if (_rpRerollMethod == null) return false;
-
-			try {
-				_rpRerollMethod.Invoke(popup, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ReputationRewardReflection: Reroll failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_rpRerollMethod, popup);
 		}
 
 		/// <summary>
@@ -416,11 +381,11 @@ namespace ATSAccessibility {
 			if (service == null || _rrsGetRerollPriceMethod == null) return (0, "Unknown");
 
 			try {
-				var good = _rrsGetRerollPriceMethod.Invoke(service, null);
+				var good = ReflectionHelper.Invoke(_rrsGetRerollPriceMethod, service);
 				if (good == null) return (0, "Unknown");
 
-				var name = _goodNameField?.GetValue(good) as string ?? "";
-				var amount = _goodAmountField != null ? (int)_goodAmountField.GetValue(good) : 0;
+				var name = ReflectionHelper.GetString(_goodNameField, good) ?? "";
+				var amount = ReflectionHelper.GetInt(_goodAmountField, good);
 				var displayName = GameReflection.GetGoodDisplayName(name);
 
 				return (amount, displayName);
@@ -440,11 +405,9 @@ namespace ATSAccessibility {
 		public static bool CanExtend() {
 			EnsureTypesCached();
 			var service = GetService();
-			if (service == null || _rrsCanExtendMethod == null) return false;
+			if (service == null) return false;
 
-			try {
-				return (bool)_rrsCanExtendMethod.Invoke(service, null);
-			} catch { return false; }
+			return ReflectionHelper.InvokeBool(_rrsCanExtendMethod, service);
 		}
 
 		/// <summary>
@@ -453,11 +416,9 @@ namespace ATSAccessibility {
 		public static bool CanAffordExtend() {
 			EnsureTypesCached();
 			var service = GetService();
-			if (service == null || _rrsCanAffordExtendMethod == null) return false;
+			if (service == null) return false;
 
-			try {
-				return (bool)_rrsCanAffordExtendMethod.Invoke(service, null);
-			} catch { return false; }
+			return ReflectionHelper.InvokeBool(_rrsCanAffordExtendMethod, service);
 		}
 
 		/// <summary>
@@ -466,15 +427,9 @@ namespace ATSAccessibility {
 		public static bool Extend() {
 			EnsureTypesCached();
 			var service = GetService();
-			if (service == null || _rrsExtendMethod == null) return false;
+			if (service == null) return false;
 
-			try {
-				_rrsExtendMethod.Invoke(service, null);
-				return true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ReputationRewardReflection: Extend failed: {ex.Message}");
-				return false;
-			}
+			return ReflectionHelper.InvokeVoid(_rrsExtendMethod, service);
 		}
 
 		/// <summary>
@@ -486,16 +441,16 @@ namespace ATSAccessibility {
 
 			try {
 				var biomeService = GetBiomeService();
-				if (biomeService == null || _bsBlueprintsProperty == null) return (0, "Unknown");
+				if (biomeService == null) return (0, "Unknown");
 
-				var blueprints = _bsBlueprintsProperty.GetValue(biomeService);
-				if (blueprints == null || _bbcExtendCostField == null) return (0, "Unknown");
+				var blueprints = ReflectionHelper.GetProp(_bsBlueprintsProperty, biomeService);
+				if (blueprints == null) return (0, "Unknown");
 
-				var extendCost = _bbcExtendCostField.GetValue(blueprints);
+				var extendCost = ReflectionHelper.GetField(_bbcExtendCostField, blueprints);
 				if (extendCost == null) return (0, "Unknown");
 
-				var amount = _grAmountField != null ? (int)_grAmountField.GetValue(extendCost) : 0;
-				var goodModel = _grGoodField?.GetValue(extendCost);
+				var amount = ReflectionHelper.GetInt(_grAmountField, extendCost);
+				var goodModel = ReflectionHelper.GetField(_grGoodField, extendCost);
 				var displayName = goodModel != null ? (GameReflection.GetDisplayName(goodModel) ?? "Unknown") : "Unknown";
 
 				return (amount, displayName);
