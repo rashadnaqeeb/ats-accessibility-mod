@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
@@ -8,80 +9,49 @@ namespace ATSAccessibility {
 	/// Triggers game sounds when mod actions bypass normal game flow.
 	/// </summary>
 	public static class SoundManager {
-		// Cached reflection metadata
-		private static PropertyInfo _soundsManagerProperty = null;  // MainController.SoundsManager
-		private static PropertyInfo _soundsProperty = null;  // MainController.Sounds (SoundReferences)
-		private static MethodInfo _playSoundEffectMethod = null;  // ISoundsManager.PlaySoundEffect
-		private static MethodInfo _playButtonSoundMethod = null;  // ISoundsManager.PlayButtonSound
-		private static MethodInfo _playFailedSoundMethod = null;  // ISoundsManager.PlayFailedSound
-		private static bool _cached = false;
+		// Infrastructure reflection metadata
+		private static PropertyInfo _soundsManagerProperty;
+		private static PropertyInfo _soundsProperty;
+		private static MethodInfo _playSoundEffectMethod;
+		private static MethodInfo _playButtonSoundMethod;
+		private static MethodInfo _playFailedSoundMethod;
+		private static bool _cached;
 
-		// Sound properties from SoundReferences
-		private static PropertyInfo _buildingDestroyedProperty = null;
-		private static PropertyInfo _buildingPlacedProperty = null;
-		private static PropertyInfo _buildingRotatedProperty = null;
-		private static PropertyInfo _buildingMoveStartedProperty = null;
-		private static PropertyInfo _buildingMoveFinishedProperty = null;
-		private static PropertyInfo _buildingSleepProperty = null;
-		private static PropertyInfo _buildingWakeUpProperty = null;
-		private static PropertyInfo _buildingRecipeOnProperty = null;
-		private static PropertyInfo _buildingRecipeOffProperty = null;
-		private static PropertyInfo _buildingPanelShowProperty = null;
-		private static PropertyInfo _buildingPanelHideProperty = null;
-		private static PropertyInfo _rainpunkUnlockProperty = null;
-		private static PropertyInfo _rainpunkStopButtonProperty = null;
-		private static PropertyInfo _buildingFireButtonStartProperty = null;
+		// Sound properties from SoundReferences, keyed by game property name
+		private static readonly Dictionary<string, PropertyInfo> _sounds = new Dictionary<string, PropertyInfo>();
 
-		// Popup sounds
-		private static PropertyInfo _popupShowProperty = null;
-		private static PropertyInfo _homePopupHideProperty = null;
-		private static PropertyInfo _consumptionPopupShowProperty = null;
-		private static PropertyInfo _traderPanelOpenedProperty = null;
-
-		// Season rewards sounds
-		private static PropertyInfo _seasonRewardsPopupSlotProperty = null;
-
-		// Capital upgrade sounds
-		private static PropertyInfo _capitalUpgradeBoughtProperty = null;
-
-		// Relic sounds
-		private static PropertyInfo _relicStartWithWorkingEffectsProperty = null;
-		private static PropertyInfo _relicStopWithWorkingEffectsProperty = null;
-
-		// Port sounds
-		private static PropertyInfo _portStartClickProperty = null;
-		private static PropertyInfo _portCancelClickProperty = null;
-		private static PropertyInfo _portRewardsClickProperty = null;
-
-		// Trade sounds
-		private static PropertyInfo _traderTransactionCompletedProperty = null;
-		private static PropertyInfo _traderAssaultProperty = null;
-
-		// Resource sounds
-		private static PropertyInfo _resourceRemovedProperty = null;
-
-		// Lake sounds
-		private static PropertyInfo _portNetsRetrivedProperty = null;
-
-		// Seal sounds
-		private static PropertyInfo _sealOrderDeliverProperty = null;
+		// All SoundReferences property names to cache. To add a new sound:
+		// 1. Add the property name here
+		// 2. Add a one-liner public method below
+		private static readonly string[] SoundPropertyNames = {
+			"BuildingDestroyed", "BuildingPlaced", "BuildingRotated",
+			"BuildingMoveStarted", "BuildingMoveFinished",
+			"BuildingSleep", "BuildingWakeUp",
+			"BuildingRecipeOn", "BuildingRecipeOff",
+			"BuildingPanelShow", "BuildingPanelHide",
+			"BuildingFireButtonStart",
+			"RainpunkUnlock", "RainpunkStopButton",
+			"PopupShow", "HomePopupHide", "ConsumptionPopupShow", "TraderPanelOpened",
+			"SeasonRewardsPopupSlot", "CapitalUpgradeBought",
+			"RelicStartWithWorkingEffects", "RelicStopWithWorkingEffects",
+			"PortStartClick", "PortCancelClick", "PortRewardsClick",
+			"TraderTransactionCompleted", "TraderAssault",
+			"ResourceRemoved",
+			"PortNetsRetrived",
+			"SealOrderDeliver",
+		};
 
 		private static void EnsureCached() {
 			if (_cached) return;
-			_cached = true;  // Set early to prevent repeated attempts on failure
+			_cached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
-				// MainController properties
+			ReflectionHelper.InitCache("SoundManager", assembly => {
 				var mainControllerType = assembly.GetType("Eremite.Controller.MainController");
 				if (mainControllerType != null) {
 					_soundsManagerProperty = mainControllerType.GetProperty("SoundsManager", GameReflection.PublicInstance);
 					_soundsProperty = mainControllerType.GetProperty("Sounds", GameReflection.PublicInstance);
 				}
 
-				// ISoundsManager methods
 				var soundsManagerType = assembly.GetType("Eremite.Sound.ISoundsManager");
 				if (soundsManagerType != null) {
 					_playSoundEffectMethod = soundsManagerType.GetMethod("PlaySoundEffect", GameReflection.PublicInstance);
@@ -89,460 +59,145 @@ namespace ATSAccessibility {
 					_playFailedSoundMethod = soundsManagerType.GetMethod("PlayFailedSound", GameReflection.PublicInstance);
 				}
 
-				// SoundReferences properties
 				var soundReferencesType = assembly.GetType("Eremite.Model.Sound.SoundReferences");
 				if (soundReferencesType != null) {
-					_buildingDestroyedProperty = soundReferencesType.GetProperty("BuildingDestroyed", GameReflection.PublicInstance);
-					_buildingPlacedProperty = soundReferencesType.GetProperty("BuildingPlaced", GameReflection.PublicInstance);
-					_buildingRotatedProperty = soundReferencesType.GetProperty("BuildingRotated", GameReflection.PublicInstance);
-					_buildingMoveStartedProperty = soundReferencesType.GetProperty("BuildingMoveStarted", GameReflection.PublicInstance);
-					_buildingMoveFinishedProperty = soundReferencesType.GetProperty("BuildingMoveFinished", GameReflection.PublicInstance);
-					_buildingSleepProperty = soundReferencesType.GetProperty("BuildingSleep", GameReflection.PublicInstance);
-					_buildingWakeUpProperty = soundReferencesType.GetProperty("BuildingWakeUp", GameReflection.PublicInstance);
-					_buildingRecipeOnProperty = soundReferencesType.GetProperty("BuildingRecipeOn", GameReflection.PublicInstance);
-					_buildingRecipeOffProperty = soundReferencesType.GetProperty("BuildingRecipeOff", GameReflection.PublicInstance);
-					_buildingPanelShowProperty = soundReferencesType.GetProperty("BuildingPanelShow", GameReflection.PublicInstance);
-					_buildingPanelHideProperty = soundReferencesType.GetProperty("BuildingPanelHide", GameReflection.PublicInstance);
-					_rainpunkUnlockProperty = soundReferencesType.GetProperty("RainpunkUnlock", GameReflection.PublicInstance);
-					_rainpunkStopButtonProperty = soundReferencesType.GetProperty("RainpunkStopButton", GameReflection.PublicInstance);
-					_buildingFireButtonStartProperty = soundReferencesType.GetProperty("BuildingFireButtonStart", GameReflection.PublicInstance);
-
-					// Popup sounds
-					_popupShowProperty = soundReferencesType.GetProperty("PopupShow", GameReflection.PublicInstance);
-					_homePopupHideProperty = soundReferencesType.GetProperty("HomePopupHide", GameReflection.PublicInstance);
-					_consumptionPopupShowProperty = soundReferencesType.GetProperty("ConsumptionPopupShow", GameReflection.PublicInstance);
-					_traderPanelOpenedProperty = soundReferencesType.GetProperty("TraderPanelOpened", GameReflection.PublicInstance);
-
-					// Season rewards sounds
-					_seasonRewardsPopupSlotProperty = soundReferencesType.GetProperty("SeasonRewardsPopupSlot", GameReflection.PublicInstance);
-
-					// Capital upgrade sounds
-					_capitalUpgradeBoughtProperty = soundReferencesType.GetProperty("CapitalUpgradeBought", GameReflection.PublicInstance);
-
-					// Relic sounds
-					_relicStartWithWorkingEffectsProperty = soundReferencesType.GetProperty("RelicStartWithWorkingEffects", GameReflection.PublicInstance);
-					_relicStopWithWorkingEffectsProperty = soundReferencesType.GetProperty("RelicStopWithWorkingEffects", GameReflection.PublicInstance);
-
-					// Port sounds
-					_portStartClickProperty = soundReferencesType.GetProperty("PortStartClick", GameReflection.PublicInstance);
-					_portCancelClickProperty = soundReferencesType.GetProperty("PortCancelClick", GameReflection.PublicInstance);
-					_portRewardsClickProperty = soundReferencesType.GetProperty("PortRewardsClick", GameReflection.PublicInstance);
-
-					// Trade sounds
-					_traderTransactionCompletedProperty = soundReferencesType.GetProperty("TraderTransactionCompleted", GameReflection.PublicInstance);
-					_traderAssaultProperty = soundReferencesType.GetProperty("TraderAssault", GameReflection.PublicInstance);
-
-					// Seal sounds
-					_sealOrderDeliverProperty = soundReferencesType.GetProperty("SealOrderDeliver", GameReflection.PublicInstance);
-
-					// Resource sounds
-					_resourceRemovedProperty = soundReferencesType.GetProperty("ResourceRemoved", GameReflection.PublicInstance);
-
-					// Lake sounds
-					_portNetsRetrivedProperty = soundReferencesType.GetProperty("PortNetsRetrived", GameReflection.PublicInstance);
+					foreach (var name in SoundPropertyNames) {
+						var prop = soundReferencesType.GetProperty(name, GameReflection.PublicInstance);
+						if (prop != null)
+							_sounds[name] = prop;
+					}
 				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SoundManager cache failed: {ex.Message}");
-			}
+			});
 		}
 
-		/// <summary>
-		/// Get the sounds manager instance. Returns null if not available.
-		/// </summary>
 		private static object GetSoundsManager() {
 			EnsureCached();
 			var mainController = GameReflection.GetMainControllerInstance();
-			if (mainController == null) return null;
-			return _soundsManagerProperty?.GetValue(mainController);
+			return ReflectionHelper.GetProp(_soundsManagerProperty, mainController);
 		}
 
-		/// <summary>
-		/// Play a sound effect from SoundReferences.
-		/// </summary>
-		private static void PlaySound(PropertyInfo soundProperty) {
-			if (soundProperty == null) return;
+		private static void PlaySound(string soundName) {
+			EnsureCached();
+			if (_sounds.TryGetValue(soundName, out var prop))
+				PlaySoundRef(prop);
+		}
 
-			try {
-				var mainController = GameReflection.GetMainControllerInstance();
-				if (mainController == null) return;
-
-				var soundsManager = _soundsManagerProperty?.GetValue(mainController);
-				if (soundsManager == null) return;
-
-				var sounds = _soundsProperty?.GetValue(mainController);
-				if (sounds == null) return;
-
-				var sound = soundProperty.GetValue(sounds);
-				if (sound == null) return;
-
-				_playSoundEffectMethod?.Invoke(soundsManager, new object[] { sound });
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PlaySound failed: {ex.Message}");
-			}
+		private static void PlaySoundRef(PropertyInfo soundProperty) {
+			var mainController = GameReflection.GetMainControllerInstance();
+			var soundsManager = ReflectionHelper.GetProp(_soundsManagerProperty, mainController);
+			var sounds = ReflectionHelper.GetProp(_soundsProperty, mainController);
+			var sound = ReflectionHelper.GetProp(soundProperty, sounds);
+			ReflectionHelper.Invoke(_playSoundEffectMethod, soundsManager, sound);
 		}
 
 		// ========================================
 		// UI SOUNDS
 		// ========================================
 
-		/// <summary>
-		/// Play the standard button click sound.
-		/// </summary>
 		public static void PlayButtonClick() {
-			try {
-				var soundsManager = GetSoundsManager();
-				_playButtonSoundMethod?.Invoke(soundsManager, null);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PlayButtonClick failed: {ex.Message}");
-			}
+			ReflectionHelper.InvokeVoid(_playButtonSoundMethod, GetSoundsManager());
 		}
 
-		/// <summary>
-		/// Play the failed/error sound.
-		/// </summary>
 		public static void PlayFailed() {
-			try {
-				var soundsManager = GetSoundsManager();
-				_playFailedSoundMethod?.Invoke(soundsManager, null);
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PlayFailed failed: {ex.Message}");
-			}
+			ReflectionHelper.InvokeVoid(_playFailedSoundMethod, GetSoundsManager());
 		}
 
 		// ========================================
 		// BUILDING SOUNDS
 		// ========================================
 
-		/// <summary>
-		/// Play the building destroyed sound.
-		/// </summary>
-		public static void PlayBuildingDestroyed() {
-			EnsureCached();
-			PlaySound(_buildingDestroyedProperty);
-		}
-
-		/// <summary>
-		/// Play the building placed sound.
-		/// </summary>
-		public static void PlayBuildingPlaced() {
-			EnsureCached();
-			PlaySound(_buildingPlacedProperty);
-		}
-
-		/// <summary>
-		/// Play the building rotated sound.
-		/// </summary>
-		public static void PlayBuildingRotated() {
-			EnsureCached();
-			PlaySound(_buildingRotatedProperty);
-		}
-
-		/// <summary>
-		/// Play the building move started sound.
-		/// </summary>
-		public static void PlayBuildingMoveStarted() {
-			EnsureCached();
-			PlaySound(_buildingMoveStartedProperty);
-		}
-
-		/// <summary>
-		/// Play the building move finished sound.
-		/// </summary>
-		public static void PlayBuildingMoveFinished() {
-			EnsureCached();
-			PlaySound(_buildingMoveFinishedProperty);
-		}
-
-		/// <summary>
-		/// Play the building sleep sound.
-		/// </summary>
-		public static void PlayBuildingSleep() {
-			EnsureCached();
-			PlaySound(_buildingSleepProperty);
-		}
-
-		/// <summary>
-		/// Play the building wake up sound.
-		/// </summary>
-		public static void PlayBuildingWakeUp() {
-			EnsureCached();
-			PlaySound(_buildingWakeUpProperty);
-		}
-
-		/// <summary>
-		/// Play the recipe enabled sound.
-		/// </summary>
-		public static void PlayRecipeOn() {
-			EnsureCached();
-			PlaySound(_buildingRecipeOnProperty);
-		}
-
-		/// <summary>
-		/// Play the recipe disabled sound.
-		/// </summary>
-		public static void PlayRecipeOff() {
-			EnsureCached();
-			PlaySound(_buildingRecipeOffProperty);
-		}
-
-		/// <summary>
-		/// Play the fire button start sound (used for sacrifice enable).
-		/// </summary>
-		public static void PlayBuildingFireButtonStart() {
-			EnsureCached();
-			PlaySound(_buildingFireButtonStartProperty);
-		}
-
-		/// <summary>
-		/// Play the building panel opened sound.
-		/// </summary>
-		public static void PlayBuildingPanelShow() {
-			EnsureCached();
-			PlaySound(_buildingPanelShowProperty);
-		}
-
-		/// <summary>
-		/// Play the building panel closed sound.
-		/// </summary>
-		public static void PlayBuildingPanelHide() {
-			EnsureCached();
-			PlaySound(_buildingPanelHideProperty);
-		}
+		public static void PlayBuildingDestroyed() => PlaySound("BuildingDestroyed");
+		public static void PlayBuildingPlaced() => PlaySound("BuildingPlaced");
+		public static void PlayBuildingRotated() => PlaySound("BuildingRotated");
+		public static void PlayBuildingMoveStarted() => PlaySound("BuildingMoveStarted");
+		public static void PlayBuildingMoveFinished() => PlaySound("BuildingMoveFinished");
+		public static void PlayBuildingSleep() => PlaySound("BuildingSleep");
+		public static void PlayBuildingWakeUp() => PlaySound("BuildingWakeUp");
+		public static void PlayRecipeOn() => PlaySound("BuildingRecipeOn");
+		public static void PlayRecipeOff() => PlaySound("BuildingRecipeOff");
+		/// <summary>Play the fire button start sound (used for sacrifice enable).</summary>
+		public static void PlayBuildingFireButtonStart() => PlaySound("BuildingFireButtonStart");
+		public static void PlayBuildingPanelShow() => PlaySound("BuildingPanelShow");
+		public static void PlayBuildingPanelHide() => PlaySound("BuildingPanelHide");
 
 		// ========================================
 		// RAINPUNK SOUNDS
 		// ========================================
 
-		/// <summary>
-		/// Play the rainpunk unlock/install sound.
-		/// </summary>
-		public static void PlayRainpunkUnlock() {
-			EnsureCached();
-			PlaySound(_rainpunkUnlockProperty);
-		}
-
-		/// <summary>
-		/// Play the rainpunk stop button sound.
-		/// </summary>
-		public static void PlayRainpunkStop() {
-			EnsureCached();
-			PlaySound(_rainpunkStopButtonProperty);
-		}
+		public static void PlayRainpunkUnlock() => PlaySound("RainpunkUnlock");
+		public static void PlayRainpunkStop() => PlaySound("RainpunkStopButton");
 
 		// ========================================
 		// POPUP SOUNDS
 		// ========================================
 
-		/// <summary>
-		/// Play the popup/menu hide sound.
-		/// </summary>
-		public static void PlayHomePopupHide() {
-			EnsureCached();
-			PlaySound(_homePopupHideProperty);
-		}
-
-		/// <summary>
-		/// Play the generic popup show sound.
-		/// </summary>
-		public static void PlayPopupShow() {
-			EnsureCached();
-			PlaySound(_popupShowProperty);
-		}
-
-		/// <summary>
-		/// Play the consumption popup show sound.
-		/// </summary>
-		public static void PlayConsumptionPopupShow() {
-			EnsureCached();
-			PlaySound(_consumptionPopupShowProperty);
-		}
-
-		/// <summary>
-		/// Play the trader panel opened sound.
-		/// </summary>
-		public static void PlayTraderPanelOpened() {
-			EnsureCached();
-			PlaySound(_traderPanelOpenedProperty);
-		}
-
-		/// <summary>
-		/// Play the season rewards popup slot sound (slot reveal).
-		/// </summary>
-		public static void PlaySeasonRewardsSlot() {
-			EnsureCached();
-			PlaySound(_seasonRewardsPopupSlotProperty);
-		}
-
-		/// <summary>
-		/// Play the capital upgrade purchased sound.
-		/// </summary>
-		public static void PlayCapitalUpgradeBought() {
-			EnsureCached();
-			PlaySound(_capitalUpgradeBoughtProperty);
-		}
+		public static void PlayHomePopupHide() => PlaySound("HomePopupHide");
+		public static void PlayPopupShow() => PlaySound("PopupShow");
+		public static void PlayConsumptionPopupShow() => PlaySound("ConsumptionPopupShow");
+		public static void PlayTraderPanelOpened() => PlaySound("TraderPanelOpened");
+		public static void PlaySeasonRewardsSlot() => PlaySound("SeasonRewardsPopupSlot");
+		public static void PlayCapitalUpgradeBought() => PlaySound("CapitalUpgradeBought");
 
 		// ========================================
-		// RELIC SOUNDS
+		// RELIC & PORT SOUNDS
 		// ========================================
 
-		public static void PlayRelicStartWithWorkingEffects() {
-			EnsureCached();
-			PlaySound(_relicStartWithWorkingEffectsProperty);
-		}
-
-		public static void PlayRelicStopWithWorkingEffects() {
-			EnsureCached();
-			PlaySound(_relicStopWithWorkingEffectsProperty);
-		}
-
-		public static void PlayPortStartClick() {
-			EnsureCached();
-			PlaySound(_portStartClickProperty);
-		}
-
-		public static void PlayPortCancelClick() {
-			EnsureCached();
-			PlaySound(_portCancelClickProperty);
-		}
-
-		public static void PlayPortRewardsClick() {
-			EnsureCached();
-			PlaySound(_portRewardsClickProperty);
-		}
+		public static void PlayRelicStartWithWorkingEffects() => PlaySound("RelicStartWithWorkingEffects");
+		public static void PlayRelicStopWithWorkingEffects() => PlaySound("RelicStopWithWorkingEffects");
+		public static void PlayPortStartClick() => PlaySound("PortStartClick");
+		public static void PlayPortCancelClick() => PlaySound("PortCancelClick");
+		public static void PlayPortRewardsClick() => PlaySound("PortRewardsClick");
 
 		// ========================================
 		// TRADE SOUNDS
 		// ========================================
 
-		/// <summary>
-		/// Play the trader transaction completed sound.
-		/// </summary>
-		public static void PlayTraderTransactionCompleted() {
-			EnsureCached();
-			PlaySound(_traderTransactionCompletedProperty);
-		}
-
-		/// <summary>
-		/// Play the trader assault sound.
-		/// </summary>
-		public static void PlayTraderAssault() {
-			EnsureCached();
-			PlaySound(_traderAssaultProperty);
-		}
+		public static void PlayTraderTransactionCompleted() => PlaySound("TraderTransactionCompleted");
+		public static void PlayTraderAssault() => PlaySound("TraderAssault");
 
 		// ========================================
-		// SEAL SOUNDS
+		// OTHER SOUNDS
 		// ========================================
 
-		/// <summary>
-		/// Play the seal offering delivery sound.
-		/// </summary>
-		public static void PlaySealOrderDeliver() {
-			EnsureCached();
-			PlaySound(_sealOrderDeliverProperty);
-		}
-
-		// ========================================
-		// RESOURCE SOUNDS
-		// ========================================
-
-		public static void PlayResourceRemoved() {
-			EnsureCached();
-			PlaySound(_resourceRemovedProperty);
-		}
-
-		// ========================================
-		// LAKE SOUNDS
-		// ========================================
-
-		public static void PlayPortNetsRetrieved() {
-			EnsureCached();
-			PlaySound(_portNetsRetrivedProperty);
-		}
+		public static void PlaySealOrderDeliver() => PlaySound("SealOrderDeliver");
+		public static void PlayResourceRemoved() => PlaySound("ResourceRemoved");
+		public static void PlayPortNetsRetrieved() => PlaySound("PortNetsRetrived");
 
 		public static void PlaySoundEffect(object soundModel) {
 			if (soundModel == null) return;
-
-			try {
-				var soundsManager = GetSoundsManager();
-				if (soundsManager == null) return;
-				_playSoundEffectMethod?.Invoke(soundsManager, new object[] { soundModel });
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PlaySoundEffect failed: {ex.Message}");
-			}
-		}
-
-		/// <summary>
-		/// Play the newcomers banner accept sound.
-		/// </summary>
-		public static void PlayNewcomersBannerAccept() {
-			PlaySoundByClipName("newcomers banner accept");
-		}
-
-		/// <summary>
-		/// Play the reroll sound.
-		/// </summary>
-		public static void PlayReroll() {
-			PlaySoundByClipName("reroll");
-		}
-
-		/// <summary>
-		/// Play the decline/skip sound.
-		/// </summary>
-		public static void PlayDecline() {
-			PlaySoundByClipName("decline");
+			ReflectionHelper.Invoke(_playSoundEffectMethod, GetSoundsManager(), soundModel);
 		}
 
 		// ========================================
-		// MENU BUTTON SOUNDS (by clip name)
+		// CLIP-NAME SOUNDS
 		// ========================================
 
-		/// <summary>
-		/// Play the recipes menu button sound.
-		/// </summary>
-		public static void PlayMenuRecipes() {
-			PlaySoundByClipName("menu_recipes");
-		}
+		public static void PlayNewcomersBannerAccept() => PlaySoundByClipName("newcomers banner accept");
+		public static void PlayReroll() => PlaySoundByClipName("reroll");
+		public static void PlayDecline() => PlaySoundByClipName("decline");
+		public static void PlayMenuRecipes() => PlaySoundByClipName("menu_recipes");
+		public static void PlayMenuOrders() => PlaySoundByClipName("menu_orders");
+		public static void PlayMenuTrends() => PlaySoundByClipName("trends_window");
+		public static void PlayMenuTradeRoutes() => PlaySoundByClipName("menu_trade_routes");
 
-		/// <summary>
-		/// Play the orders menu button sound.
-		/// </summary>
-		public static void PlayMenuOrders() {
-			PlaySoundByClipName("menu_orders");
-		}
+		// ========================================
+		// CLIP-NAME INFRASTRUCTURE
+		// ========================================
 
-		/// <summary>
-		/// Play the trends menu button sound.
-		/// </summary>
-		public static void PlayMenuTrends() {
-			PlaySoundByClipName("trends_window");
-		}
-
-		/// <summary>
-		/// Play the trade routes menu button sound.
-		/// </summary>
-		public static void PlayMenuTradeRoutes() {
-			PlaySoundByClipName("menu_trade_routes");
-		}
-
-		// Cached AudioClip type and AudioSource type
-		private static Type _audioClipType = null;
-		private static Type _audioSourceType = null;
-
-		// Cached clip lookups to avoid repeated Resources.FindObjectsOfTypeAll calls
-		private static System.Collections.Generic.Dictionary<string, object> _clipCache =
-			new System.Collections.Generic.Dictionary<string, object>();
+		private static Type _audioClipType;
+		private static Type _audioSourceType;
+		private static readonly Dictionary<string, object> _clipCache = new Dictionary<string, object>();
 
 		// Volume access: MainController.AppServices.ClientPrefsService.EffectsVolume.Value
-		private static PropertyInfo _appServicesProperty = null;
-		private static PropertyInfo _clientPrefsServiceProperty = null;
-		private static PropertyInfo _effectsVolumeProperty = null;
-		private static PropertyInfo _reactiveValueProperty = null;
-		private static bool _volumeCached = false;
+		private static PropertyInfo _appServicesProperty;
+		private static PropertyInfo _clientPrefsServiceProperty;
+		private static PropertyInfo _effectsVolumeProperty;
+		private static PropertyInfo _reactiveValueProperty;
+		private static bool _volumeCached;
 
 		// Our own AudioSource to avoid conflicts with game's buttonAudioSource
-		private static object _modAudioSource = null;
-		private static MethodInfo _playOneShotWithVolumeMethod = null;
+		private static object _modAudioSource;
+		private static MethodInfo _playOneShotWithVolumeMethod;
 
 		private static object GetModAudioSource() {
 			if (_modAudioSource == null) {
@@ -575,53 +230,29 @@ namespace ATSAccessibility {
 			if (_volumeCached) return;
 			_volumeCached = true;
 
-			try {
-				var assembly = GameReflection.GameAssembly;
-				if (assembly == null) return;
-
+			ReflectionHelper.InitCache("SoundManager.Volume", assembly => {
 				var mainControllerType = assembly.GetType("Eremite.Controller.MainController");
-				if (mainControllerType != null)
-					_appServicesProperty = mainControllerType.GetProperty("AppServices", GameReflection.PublicInstance);
+				_appServicesProperty = mainControllerType?.GetProperty("AppServices", GameReflection.PublicInstance);
 
 				var servicesType = assembly.GetType("Eremite.Services.IServices");
-				if (servicesType != null)
-					_clientPrefsServiceProperty = servicesType.GetProperty("ClientPrefsService", GameReflection.PublicInstance);
+				_clientPrefsServiceProperty = servicesType?.GetProperty("ClientPrefsService", GameReflection.PublicInstance);
 
 				var clientPrefsType = assembly.GetType("Eremite.Services.IClientPrefsService");
-				if (clientPrefsType != null)
-					_effectsVolumeProperty = clientPrefsType.GetProperty("EffectsVolume", GameReflection.PublicInstance);
+				_effectsVolumeProperty = clientPrefsType?.GetProperty("EffectsVolume", GameReflection.PublicInstance);
 
-				// ReactiveProperty<float>.Value
-				if (_effectsVolumeProperty != null) {
-					var rpType = _effectsVolumeProperty.PropertyType;
-					_reactiveValueProperty = rpType.GetProperty("Value", GameReflection.PublicInstance);
-				}
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] SoundManager volume cache failed: {ex.Message}");
-			}
+				if (_effectsVolumeProperty != null)
+					_reactiveValueProperty = _effectsVolumeProperty.PropertyType.GetProperty("Value", GameReflection.PublicInstance);
+			});
 		}
 
 		private static float GetEffectsVolume() {
-			try {
-				EnsureVolumeCached();
-				var mainController = GameReflection.GetMainControllerInstance();
-				if (mainController == null) return 1f;
-
-				var appServices = _appServicesProperty?.GetValue(mainController);
-				if (appServices == null) return 1f;
-
-				var clientPrefs = _clientPrefsServiceProperty?.GetValue(appServices);
-				if (clientPrefs == null) return 1f;
-
-				var effectsVolume = _effectsVolumeProperty?.GetValue(clientPrefs);
-				if (effectsVolume == null) return 1f;
-
-				var value = _reactiveValueProperty?.GetValue(effectsVolume);
-				if (value is float f) return f;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetEffectsVolume failed: {ex.Message}");
-			}
-			return 1f;
+			EnsureVolumeCached();
+			var mainController = GameReflection.GetMainControllerInstance();
+			var appServices = ReflectionHelper.GetProp(_appServicesProperty, mainController);
+			var clientPrefs = ReflectionHelper.GetProp(_clientPrefsServiceProperty, appServices);
+			var effectsVolume = ReflectionHelper.GetProp(_effectsVolumeProperty, clientPrefs);
+			var value = ReflectionHelper.GetProp(_reactiveValueProperty, effectsVolume);
+			return value is float f ? f : 1f;
 		}
 
 		/// <summary>
@@ -630,7 +261,6 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static void PlaySoundByClipName(string clipName) {
 			try {
-				// Get AudioClip type via reflection (once)
 				if (_audioClipType == null) {
 					_audioClipType = Type.GetType("UnityEngine.AudioClip, UnityEngine.AudioModule");
 					if (_audioClipType == null) {
