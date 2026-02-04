@@ -24,6 +24,7 @@ namespace ATSAccessibility {
 
 		public HarvestMarkHandler(MapNavigator mapNavigator) {
 			_mapNavigator = mapNavigator;
+			MenuBase.OnAnyMenuOpened += () => { if (IsActive) ExitMode(); };
 		}
 
 		/// <summary>

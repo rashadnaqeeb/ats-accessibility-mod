@@ -25,6 +25,7 @@ namespace ATSAccessibility {
 		public BuildModeController(MapNavigator mapNavigator, BuildingMenuPanel buildingMenuPanel) {
 			_mapNavigator = mapNavigator;
 			_buildingMenuPanel = buildingMenuPanel;
+			MenuBase.OnAnyMenuOpened += () => { if (_isActive) ExitBuildMode(); };
 		}
 
 		/// <summary>
@@ -54,7 +55,7 @@ namespace ATSAccessibility {
 		/// <summary>
 		/// Exit build mode and clean up.
 		/// </summary>
-		public void ExitBuildMode() {
+		public void ExitBuildMode(bool queue = false) {
 			if (!_isActive) return;
 
 			_isActive = false;
@@ -64,7 +65,7 @@ namespace ATSAccessibility {
 
 			SoundManager.PlayBuildingPanelHide();
 			InputBlocker.BlockCancelOnce = true;
-			Speech.Say("Exited build mode");
+			Speech.Say("Exited build mode", interrupt: !queue);
 			Debug.Log("[ATSAccessibility] Exited build mode");
 		}
 
@@ -91,9 +92,13 @@ namespace ATSAccessibility {
 					ReturnToMenu();
 					return true;
 
-				case KeyCode.Escape:
 				case KeyCode.Return:
 				case KeyCode.KeypadEnter:
+					PlaceBuilding();
+					if (_isActive) ExitBuildMode(queue: true);
+					return true;
+
+				case KeyCode.Escape:
 					ExitBuildMode();
 					return true;
 
@@ -129,9 +134,13 @@ namespace ATSAccessibility {
 					}
 					return true;
 
-				default:
-					// Pass unhandled keys through to other handlers
-					return false;
+				// Consume M to prevent activating move mode while in build mode
+			case KeyCode.M:
+				return true;
+
+			default:
+				// Pass unhandled keys through to other handlers
+				return false;
 			}
 		}
 

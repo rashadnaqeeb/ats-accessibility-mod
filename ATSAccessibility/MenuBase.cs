@@ -34,6 +34,13 @@ namespace ATSAccessibility {
 		}
 
 		// ========================================
+		// STATIC EVENTS
+		// ========================================
+
+		/// <summary>Fired when any MenuBase opens. Used by exclusive modes to auto-close.</summary>
+		public static event System.Action OnAnyMenuOpened;
+
+		// ========================================
 		// STATE
 		// ========================================
 
@@ -207,6 +214,7 @@ namespace ATSAccessibility {
 			if (_isOpen) return;
 
 			_isOpen = true;
+			OnAnyMenuOpened?.Invoke();
 			_level = 0;
 			for (int i = 0; i < _indices.Length; i++)
 				_indices[i] = 0;

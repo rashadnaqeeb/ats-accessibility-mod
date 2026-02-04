@@ -25,6 +25,7 @@ namespace ATSAccessibility {
 
 		public MoveModeController(MapNavigator mapNavigator) {
 			_mapNavigator = mapNavigator;
+			MenuBase.OnAnyMenuOpened += () => { if (_isActive) ExitMoveMode(true); };
 		}
 
 		/// <summary>
@@ -256,7 +257,12 @@ namespace ATSAccessibility {
 						return true;
 					}
 
-				default:
+				// Consume M and Tab to prevent activating build mode while in move mode
+			case KeyCode.M:
+			case KeyCode.Tab:
+				return true;
+
+			default:
 					// Pass unhandled keys through to other handlers
 					return false;
 			}

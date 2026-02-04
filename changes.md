@@ -12,6 +12,7 @@
 - Alt+K to toggle appending coordinates to tile announcements (Ancient Hearth as origin)
 - E key for entrance preview in build and move modes
 - D key for range info in move mode
+- Enter in build mode places building and exits; build/move/mark modes auto-close when a menu opens
 - Royal Resupply overlay for world map cycle effects pick popup
 
 - Seal candidate glades shown in scanner via triangulation from discovered guiding stones
