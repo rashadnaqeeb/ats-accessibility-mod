@@ -258,11 +258,11 @@ namespace ATSAccessibility {
 					}
 
 				// Consume M and Tab to prevent activating build mode while in move mode
-			case KeyCode.M:
-			case KeyCode.Tab:
-				return true;
+				case KeyCode.M:
+				case KeyCode.Tab:
+					return true;
 
-			default:
+				default:
 					// Pass unhandled keys through to other handlers
 					return false;
 			}

@@ -135,12 +135,12 @@ namespace ATSAccessibility {
 					return true;
 
 				// Consume M to prevent activating move mode while in build mode
-			case KeyCode.M:
-				return true;
+				case KeyCode.M:
+					return true;
 
-			default:
-				// Pass unhandled keys through to other handlers
-				return false;
+				default:
+					// Pass unhandled keys through to other handlers
+					return false;
 			}
 		}
 

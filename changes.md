@@ -35,6 +35,7 @@
 - Favouring now stops old race before starting new one
 - WorkersPanel profession display fixed
 - I key tile info blocked on unrevealed glades
+- Fix cross-category navigation getting stuck on empty categories in modifiers and resources panels
 
 ## Internal / refactoring
 

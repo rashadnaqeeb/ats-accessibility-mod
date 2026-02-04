@@ -243,15 +243,24 @@ namespace ATSAccessibility {
 			int newIndex = _currentItemIndex + direction;
 
 			if (newIndex >= itemCount) {
-				// Past end of category - move to next category's first item
-				_currentCategoryIndex = (_currentCategoryIndex + 1) % _categories.Count;
+				// Past end of category - find next non-empty category
+				int originalCategory = _currentCategoryIndex;
+				do {
+					_currentCategoryIndex = (_currentCategoryIndex + 1) % _categories.Count;
+				} while (_categories[_currentCategoryIndex].Items.Count == 0 && _currentCategoryIndex != originalCategory);
+
+				if (_categories[_currentCategoryIndex].Items.Count == 0) return;
 				_currentItemIndex = 0;
 				AnnounceCategoryAndItem();
 			} else if (newIndex < 0) {
-				// Before start of category - move to previous category's last item
-				_currentCategoryIndex = (_currentCategoryIndex - 1 + _categories.Count) % _categories.Count;
-				int newItemCount = _categories[_currentCategoryIndex].Items.Count;
-				_currentItemIndex = newItemCount > 0 ? newItemCount - 1 : 0;
+				// Before start of category - find previous non-empty category
+				int originalCategory = _currentCategoryIndex;
+				do {
+					_currentCategoryIndex = (_currentCategoryIndex - 1 + _categories.Count) % _categories.Count;
+				} while (_categories[_currentCategoryIndex].Items.Count == 0 && _currentCategoryIndex != originalCategory);
+
+				if (_categories[_currentCategoryIndex].Items.Count == 0) return;
+				_currentItemIndex = _categories[_currentCategoryIndex].Items.Count - 1;
 				AnnounceCategoryAndItem();
 			} else {
 				_currentItemIndex = newIndex;
