@@ -145,22 +145,38 @@ namespace ATSAccessibility {
 		}
 
 		/// <summary>
-		/// Read embark status and distance/direction to capital (D key).
+		/// Read embark range and distance from embark starting point (D key).
 		/// </summary>
 		public void ReadEmbarkAndDistance() {
 			var parts = new List<string>();
 
 			// Embark status
-			if (WorldMapReflection.WorldMapCanBePicked(_cursorPos))
-				parts.Add("Can embark here");
+			if (!WorldMapReflection.WorldMapIsRevealed(_cursorPos))
+				parts.Add("Unexplored");
+			else if (WorldMapReflection.WorldMapCanBePicked(_cursorPos))
+				parts.Add("Can embark");
+			else if (!WorldMapReflection.WorldMapHasAnyPathTo(_cursorPos))
+				parts.Add("Out of reach");
 			else
-				parts.Add("Cannot embark");
+				parts.Add(GetUnpickableReason());
 
-			// Distance to capital (unless at capital)
-			if (!WorldMapReflection.WorldMapIsCapital(_cursorPos)) {
-				var distance = GetHexDistance(_cursorPos, Vector3Int.zero);
-				var direction = GetDirectionToCapital(_cursorPos);
-				parts.Add($"Capital: {distance} {direction}");
+			// Get embark starting point (last town or capital)
+			var (lastTownPos, lastTownName) = WorldMapReflection.GetLastTownInfo();
+
+			// Embark range from that starting point
+			var range = WorldMapReflection.GetEmbarkRange(lastTownPos);
+			if (range >= 0)
+				parts.Add($"Range: {range}");
+
+			// Distance and direction to embark point
+			if (_cursorPos == lastTownPos) {
+				var townLabel = !string.IsNullOrEmpty(lastTownName) ? lastTownName : "Capital";
+				parts.Add($"At {townLabel}");
+			} else {
+				var distance = GetHexDistance(_cursorPos, lastTownPos);
+				var direction = GetDirectionTo(_cursorPos, lastTownPos);
+				var townLabel = !string.IsNullOrEmpty(lastTownName) ? lastTownName : "Capital";
+				parts.Add($"{townLabel}: {distance} {direction}");
 			}
 
 			Speech.Say(string.Join(", ", parts));
@@ -246,7 +262,8 @@ namespace ATSAccessibility {
 				tileType = "Capital";
 			} else if (isCity) {
 				_cachedTileType = TileType.City;
-				tileType = "City";
+				var cityName = WorldMapReflection.WorldMapGetCityName(_cursorPos);
+				tileType = !string.IsNullOrEmpty(cityName) ? cityName : "City";
 			} else if (hasSeal) {
 				_cachedTileType = TileType.Seal;
 				var sealName = WorldMapReflection.WorldMapGetSealName(_cursorPos);
@@ -266,7 +283,7 @@ namespace ATSAccessibility {
 				_cachedTileType = TileType.PlayableField;
 			} else {
 				_cachedTileType = TileType.OutOfReach;
-				tileType = "Out of reach";
+				tileType = GetUnpickableReason();
 			}
 
 			// Brief info
@@ -439,11 +456,36 @@ namespace ATSAccessibility {
 		/// <summary>
 		/// Build tooltip for out of reach tiles.
 		/// </summary>
+		/// <summary>
+		/// Determine why a reachable tile can't be embarked on.
+		/// Checks all conditions since multiple can apply simultaneously.
+		/// </summary>
+		private string GetUnpickableReason() {
+			var reasons = new List<string>();
+
+			if (WorldMapReflection.HasPlayedFinalGame())
+				reasons.Add("Seal already attempted");
+
+			var (current, required) = WorldMapReflection.GetSealFragmentStatus(_cursorPos);
+			if (required >= 0 && current < required)
+				reasons.Add($"Need {required} seal fragments, have {current}");
+
+			if (WorldMapReflection.IsStormAboutToCome())
+				reasons.Add("Blightstorm approaching");
+
+			return reasons.Count > 0 ? string.Join(", ", reasons) : "Unavailable";
+		}
+
 		private string BuildOutOfReachTooltip() {
 			var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos);
-			if (!string.IsNullOrEmpty(biome))
-				return $"{biome}, cannot reach";
-			return "Cannot reach";
+			var prefix = !string.IsNullOrEmpty(biome) ? $"{biome}, " : "";
+
+			// For tiles with no path, the brief info already says "Out of reach"
+			if (!WorldMapReflection.WorldMapHasAnyPathTo(_cursorPos))
+				return $"{prefix}out of reach";
+
+			// For tiles that have a path but can't be picked, show specific reasons
+			return $"{prefix}{GetUnpickableReason().ToLower()}";
 		}
 
 		/// <summary>
@@ -466,21 +508,20 @@ namespace ATSAccessibility {
 		/// For hex grids, distance = max(|dx|, |dy|, |dz|)
 		/// </summary>
 		private int GetHexDistance(Vector3Int from, Vector3Int to) {
-			var diff = from - to;
-			return Mathf.Max(Mathf.Abs(diff.x), Mathf.Abs(diff.y), Mathf.Abs(diff.z));
+			return Mathf.Max(Mathf.Abs(from.x - to.x),
+				Mathf.Max(Mathf.Abs(from.y - to.y), Mathf.Abs(from.z - to.z)));
 		}
 
 		/// <summary>
-		/// Get the direction name from current position toward the capital.
+		/// Get the direction name from one position toward another.
 		/// Returns the closest direction (north, south, or one of 6 hex directions).
 		/// </summary>
-		private string GetDirectionToCapital(Vector3Int from) {
-			// Direction vector pointing toward capital (0,0,0)
-			var toCapital = Vector3Int.zero - from;
+		private string GetDirectionTo(Vector3Int from, Vector3Int to) {
+			var toTarget = to - from;
 
-			int x = toCapital.x;
-			int y = toCapital.y;
-			int z = toCapital.z;
+			int x = toTarget.x;
+			int y = toTarget.y;
+			int z = toTarget.z;
 
 			int absX = Mathf.Abs(x);
 			int absY = Mathf.Abs(y);
@@ -501,7 +542,7 @@ namespace ATSAccessibility {
 
 			for (int i = 0; i < HexDirections.Length; i++) {
 				var dir = HexDirections[i];
-				int dot = toCapital.x * dir.x + toCapital.y * dir.y + toCapital.z * dir.z;
+				int dot = toTarget.x * dir.x + toTarget.y * dir.y + toTarget.z * dir.z;
 				if (dot > bestDot) {
 					bestDot = dot;
 					bestIndex = i;

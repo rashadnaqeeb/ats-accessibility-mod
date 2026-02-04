@@ -19,6 +19,11 @@
 
 ## Bug fixes
 
+- World map tiles that can't be embarked now show the actual reason (blightstorm approaching, not enough seal fragments, seal already attempted) instead of generic "Out of reach"
+- D key on world map now shows embark range and distance from actual embark point (last town) instead of capital
+- City tiles on world map now read the localized settlement name instead of "City"
+- Fix hex distance formula using wrong Mathf.Max overload (float params instead of nested int)
+- Fix embark range off-by-one: game uses strict less-than in pathfinding, so effective range is one less than raw value
 - Seal and order objectives now show reputation source (e.g. "from Orders") and use localization-aware number placement
 - Fix number doubling in objectives when good names contain amounts (e.g. "Deliver 50 Pack of Luxury Goods")
 - Completed objectives prefixed with ✓ instead of awkward inline "Done" text

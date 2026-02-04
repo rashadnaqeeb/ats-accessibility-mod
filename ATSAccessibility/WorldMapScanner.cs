@@ -282,8 +282,8 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private int GetHexDistance(Vector3Int from, Vector3Int to) {
-			var diff = from - to;
-			return Mathf.Max(Mathf.Abs(diff.x), Mathf.Abs(diff.y), Mathf.Abs(diff.z));
+			return Mathf.Max(Mathf.Abs(from.x - to.x),
+				Mathf.Max(Mathf.Abs(from.y - to.y), Mathf.Abs(from.z - to.z)));
 		}
 
 		private string GetDirectionTo(Vector3Int from, Vector3Int to) {

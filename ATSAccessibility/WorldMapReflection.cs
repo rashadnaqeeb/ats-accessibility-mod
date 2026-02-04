@@ -39,6 +39,7 @@ namespace ATSAccessibility {
 		private static MethodInfo _wmsIsCapitalMethod = null;
 		private static MethodInfo _wmsIsCityMethod = null;
 		private static MethodInfo _wmsGetDistanceToStartTownMethod = null;
+		private static MethodInfo _wmsFindLastTownMethod = null;
 		private static PropertyInfo _wmsFieldsMapProperty = null;
 
 		// WorldStateService methods
@@ -51,6 +52,19 @@ namespace ATSAccessibility {
 		private static MethodInfo _wssGetSealModelMethod = null;
 		private static MethodInfo _wssGetDisplayNameForMethod = null;
 		private static PropertyInfo _wssFieldsProperty = null;
+
+		// WorldCalendarService
+		private static PropertyInfo _wsWorldCalendarServiceProperty = null;
+		private static MethodInfo _wcsIsStormAboutToComeMethod = null;
+		private static MethodInfo _wcsHasPlayedFinalGameMethod = null;
+
+		// WorldSealsService (from WorldServices)
+		private static PropertyInfo _wsWorldSealsServiceProperty = null;
+		private static MethodInfo _wsealsCanAffordSealMethod = null;
+
+		// WorldStateService additional
+		private static MethodInfo _wssGetNearbySealMethod = null;
+		private static PropertyInfo _wssCycleProperty = null;
 
 		// WorldBlackboardService
 		private static PropertyInfo _wbbOnFieldClickedProperty = null;
@@ -106,6 +120,25 @@ namespace ATSAccessibility {
 						BindingFlags.Public | BindingFlags.Instance);
 					_wsWorldBlackboardServiceProperty = worldServicesType.GetProperty("WorldBlackboardService",
 						BindingFlags.Public | BindingFlags.Instance);
+					_wsWorldCalendarServiceProperty = worldServicesType.GetProperty("WorldCalendarService",
+						BindingFlags.Public | BindingFlags.Instance);
+					_wsWorldSealsServiceProperty = worldServicesType.GetProperty("WorldSealsService",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				// Cache IWorldCalendarService methods
+				var worldCalendarServiceType = gameAssembly.GetType("Eremite.Services.World.IWorldCalendarService");
+				if (worldCalendarServiceType != null) {
+					_wcsIsStormAboutToComeMethod = worldCalendarServiceType.GetMethod("IsStormAboutToCome");
+					_wcsHasPlayedFinalGameMethod = worldCalendarServiceType.GetMethod("HasPlayedFinalGame");
+					Debug.Log("[ATSAccessibility] Cached IWorldCalendarService type info");
+				}
+
+				// Cache IWorldSealsService methods
+				var worldSealsServiceType = gameAssembly.GetType("Eremite.Services.World.IWorldSealsService");
+				if (worldSealsServiceType != null) {
+					_wsealsCanAffordSealMethod = worldSealsServiceType.GetMethod("CanAffordSeal");
+					Debug.Log("[ATSAccessibility] Cached IWorldSealsService type info");
 				}
 
 				// Cache IWorldMapService methods
@@ -125,6 +158,7 @@ namespace ATSAccessibility {
 						new Type[] { typeof(Vector3Int) });
 					_wmsGetDistanceToStartTownMethod = worldMapServiceType.GetMethod("GetDistanceToStartTown",
 						new Type[] { typeof(Vector3Int) });
+					_wmsFindLastTownMethod = worldMapServiceType.GetMethod("FindLastTown");
 					_wmsFieldsMapProperty = worldMapServiceType.GetProperty("FieldsMap",
 						BindingFlags.Public | BindingFlags.Instance);
 
@@ -155,6 +189,10 @@ namespace ATSAccessibility {
 					_wssGetDisplayNameForMethod = worldStateServiceType.GetMethod("GetDisplayNameFor",
 						new Type[] { typeof(Vector3Int) });
 					_wssFieldsProperty = worldStateServiceType.GetProperty("Fields",
+						BindingFlags.Public | BindingFlags.Instance);
+					_wssGetNearbySealMethod = worldStateServiceType.GetMethod("GetNearbySeal",
+						new Type[] { typeof(Vector3Int) });
+					_wssCycleProperty = worldStateServiceType.GetProperty("Cycle",
 						BindingFlags.Public | BindingFlags.Instance);
 
 					Debug.Log("[ATSAccessibility] Cached IWorldStateService type info");
@@ -335,6 +373,137 @@ namespace ATSAccessibility {
 				return _wsWorldBlackboardServiceProperty.GetValue(ws);
 			} catch {
 				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get WorldCalendarService from WorldServices.
+		/// </summary>
+		public static object GetWorldCalendarService() {
+			EnsureWorldMapTypes();
+			var ws = GetWorldServices();
+			if (ws == null || _wsWorldCalendarServiceProperty == null) return null;
+
+			try {
+				return _wsWorldCalendarServiceProperty.GetValue(ws);
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get WorldSealsService from WorldServices.
+		/// </summary>
+		public static object GetWorldSealsService() {
+			EnsureWorldMapTypes();
+			var ws = GetWorldServices();
+			if (ws == null || _wsWorldSealsServiceProperty == null) return null;
+
+			try {
+				return _wsWorldSealsServiceProperty.GetValue(ws);
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Check if the blightstorm is about to come (last year of cycle).
+		/// </summary>
+		public static bool IsStormAboutToCome() {
+			EnsureWorldMapTypes();
+			return GameReflection.TryInvokeBoolInternal(_wcsIsStormAboutToComeMethod, GetWorldCalendarService());
+		}
+
+		/// <summary>
+		/// Check if the final (seal) game has already been played this cycle.
+		/// </summary>
+		public static bool HasPlayedFinalGame() {
+			EnsureWorldMapTypes();
+			return GameReflection.TryInvokeBoolInternal(_wcsHasPlayedFinalGameMethod, GetWorldCalendarService());
+		}
+
+		/// <summary>
+		/// Get seal fragment status for a tile's nearby seal.
+		/// Returns (currentFragments, requiredFragments), or (-1, -1) if no nearby seal.
+		/// </summary>
+		public static (int current, int required) GetSealFragmentStatus(Vector3Int cubicPos) {
+			EnsureWorldMapTypes();
+			var wss = GetWorldStateService();
+			if (wss == null) return (-1, -1);
+
+			try {
+				// Get nearby seal model
+				if (_wssGetNearbySealMethod == null) return (-1, -1);
+				var seal = _wssGetNearbySealMethod.Invoke(wss, new object[] { cubicPos });
+				if (seal == null) return (-1, -1);
+
+				// Get minFragmentsToStart
+				var minFragField = seal.GetType().GetField("minFragmentsToStart",
+					BindingFlags.Public | BindingFlags.Instance);
+				var required = (int)(minFragField?.GetValue(seal) ?? -1);
+				if (required < 0) return (-1, -1);
+
+				// Get current fragments from CycleState
+				if (_wssCycleProperty == null) return (-1, required);
+				var cycle = _wssCycleProperty.GetValue(wss);
+				if (cycle == null) return (-1, required);
+
+				var sealFragmentsField = cycle.GetType().GetField("sealFragments",
+					BindingFlags.Public | BindingFlags.Instance);
+				var current = (int)(sealFragmentsField?.GetValue(cycle) ?? -1);
+
+				return (current, required);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetSealFragmentStatus failed: {ex.Message}");
+				return (-1, -1);
+			}
+		}
+
+		/// <summary>
+		/// Get the position and name of the last town (embark starting point).
+		/// Returns the most recently finished non-capital city, or the capital if none.
+		/// </summary>
+		public static (Vector3Int position, string name) GetLastTownInfo() {
+			EnsureWorldMapTypes();
+			var wms = GetWorldMapService();
+			if (wms == null || _wmsFindLastTownMethod == null)
+				return (Vector3Int.zero, null);
+
+			try {
+				var cityState = _wmsFindLastTownMethod.Invoke(wms, null);
+				if (cityState == null)
+					return (Vector3Int.zero, null);
+
+				var fieldInfo = cityState.GetType().GetField("field",
+					BindingFlags.Public | BindingFlags.Instance);
+				var position = (Vector3Int)(fieldInfo?.GetValue(cityState) ?? Vector3Int.zero);
+
+				// Use GetDisplayNameFor for the localized town name
+				var name = WorldMapGetCityName(position);
+
+				return (position, name);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetLastTownInfo failed: {ex.Message}");
+				return (Vector3Int.zero, null);
+			}
+		}
+
+		/// <summary>
+		/// Get the embark range from a given starting position.
+		/// This is the max hex distance you can embark from that position.
+		/// The game's InRange check uses strict less-than (path.Count - 1 < range),
+		/// and the path includes the start tile, so effective max distance = raw range - 1.
+		/// </summary>
+		public static int GetEmbarkRange(Vector3Int from) {
+			EnsureWorldMapTypes();
+			var wms = GetWorldMapService();
+			if (wms == null || _wmsGetDistanceToStartTownMethod == null) return -1;
+
+			try {
+				var raw = (int)_wmsGetDistanceToStartTownMethod.Invoke(wms, new object[] { from });
+				return raw - 1;
+			} catch {
+				return -1;
 			}
 		}
 
