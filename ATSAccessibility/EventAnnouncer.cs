@@ -85,35 +85,38 @@ namespace ATSAccessibility {
 		/// Called when leaving game scene.
 		/// </summary>
 		public void Dispose() {
-			foreach (var sub in _subscriptions) {
-				sub?.Dispose();
+			try {
+				foreach (var sub in _subscriptions) {
+					sub?.Dispose();
+				}
+				_subscriptions.Clear();
+				_subscribed = false;
+				_gracePeriodEndTime = 0f;
+				_lastAnnouncedHostilityLevel = -1;
+				_announcedAlerts.Clear();
+				_announcedAlertsOrder.Clear();
+				_announcedNews.Clear();
+				_announcedNewsOrder.Clear();
+				_pendingMessages.Clear();
+
+				// Reset reflection cached flags so they get re-cached on next game
+				// (services may have different types/methods in different game versions)
+				EventReflection.ResetCache();
+
+				// Clear sacrifice tracking state
+				ClearSacrificeState();
+
+				// Clear highlighted relics tracking
+				GameReflection.ClearHighlightedRelics();
+			} finally {
+				// Clear static instance to prevent stale reference on scene change
+				// Must be in finally to avoid stale reference if cleanup throws
+				if (_instance == this) {
+					_instance = null;
+				}
+
+				Debug.Log("[ATSAccessibility] EventAnnouncer: Disposed all subscriptions");
 			}
-			_subscriptions.Clear();
-			_subscribed = false;
-			_gracePeriodEndTime = 0f;
-			_lastAnnouncedHostilityLevel = -1;
-			_announcedAlerts.Clear();
-			_announcedAlertsOrder.Clear();
-			_announcedNews.Clear();
-			_announcedNewsOrder.Clear();
-			_pendingMessages.Clear();
-
-			// Reset reflection cached flags so they get re-cached on next game
-			// (services may have different types/methods in different game versions)
-			EventReflection.ResetCache();
-
-			// Clear sacrifice tracking state
-			ClearSacrificeState();
-
-			// Clear highlighted relics tracking
-			GameReflection.ClearHighlightedRelics();
-
-			// Clear static instance to prevent stale reference on scene change
-			if (_instance == this) {
-				_instance = null;
-			}
-
-			Debug.Log("[ATSAccessibility] EventAnnouncer: Disposed all subscriptions");
 		}
 
 		/// <summary>
