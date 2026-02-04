@@ -64,3 +64,4 @@
 - Extract scattered reflection from 9 files into PopupReflection, MapReflection, TileInfoReflection, StatsReflection, EventReflection; extend WorldMapReflection with MetaState/CycleState sections
 - Add ReflectionHelper.DictGetInt; migrate remaining manual dictionary iteration in StatsReader, TrendsReflection, WorldMapReflection; remove duplicate helpers from TileInfoReflection and SealOverlay
 - Move IKeyHandler into MenuBase; remove duplicate IsActive/ProcessKey boilerplate from 39 subclass files
+- Refactor TraderOverlay to use MenuBase level system; remove custom parallel navigation (~150 lines)

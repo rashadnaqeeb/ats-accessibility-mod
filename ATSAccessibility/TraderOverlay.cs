@@ -8,6 +8,10 @@ namespace ATSAccessibility {
 	/// Provides multi-level navigation for trader interaction:
 	/// - Mode 1 (No Trader): Flat list with next trader info and force arrival
 	/// - Mode 2 (Trader Present): Main menu with goods trading, perks, and assault
+	///
+	/// Level 0: Main menu (NoTrader items or TraderPresent items)
+	/// Level 1: Branch content — GoodsTrade goods list (with tabs) or Perks list
+	/// Confirmations are modal (not a level) — intercepted in HandleSpecialKey.
 	/// </summary>
 	public class TraderOverlay: MenuBase {
 		// ========================================
@@ -15,8 +19,9 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private enum Mode { NoTrader, TraderPresent }
-		private enum SubLevel { MainMenu, GoodsTrade, Perks, AssaultConfirm, TradeConfirm }
+		private enum Branch { GoodsTrade, Perks }
 		private enum Tab { Sell, Buy }
+		private enum ConfirmState { None, Trade, Assault }
 
 		private class NavItem {
 			public string Label;
@@ -45,10 +50,9 @@ namespace ATSAccessibility {
 		}
 
 		private Mode _mode;
-		private SubLevel _subLevel;
+		private Branch _branch;
 		private Tab _currentTab;
-		private int _subIndex;
-		private bool _inConfirmation;
+		private ConfirmState _confirmState;
 
 		// Mode 1 (No Trader) data
 		private List<NavItem> _noTraderItems = new List<NavItem>();
@@ -67,19 +71,43 @@ namespace ATSAccessibility {
 		protected override string EmptyMessage => "No trader information available";
 
 		protected override int GetItemCount() {
-			if (Level > 0) return 0;
-			if (_mode == Mode.NoTrader) return _noTraderItems.Count;
-			return _mainMenuItems.Count;
+			if (Level == 0) {
+				if (_mode == Mode.NoTrader) return _noTraderItems.Count;
+				return _mainMenuItems.Count;
+			}
+
+			switch (_branch) {
+				case Branch.GoodsTrade:
+					return (_currentTab == Tab.Sell ? _sellGoods : _buyGoods).Count;
+				case Branch.Perks:
+					return _perks.Count;
+				default:
+					return 0;
+			}
 		}
 
 		protected override string GetLabel(int index) {
-			if (Level > 0) return null;
-			if (_mode == Mode.NoTrader) {
-				if (index < 0 || index >= _noTraderItems.Count) return null;
-				return _noTraderItems[index].Label;
-			} else {
-				if (index < 0 || index >= _mainMenuItems.Count) return null;
-				return _mainMenuItems[index].Label;
+			if (Level == 0) {
+				if (_mode == Mode.NoTrader) {
+					if (index < 0 || index >= _noTraderItems.Count) return null;
+					return _noTraderItems[index].Label;
+				} else {
+					if (index < 0 || index >= _mainMenuItems.Count) return null;
+					return _mainMenuItems[index].Label;
+				}
+			}
+
+			switch (_branch) {
+				case Branch.GoodsTrade: {
+					var goodsList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
+					if (index < 0 || index >= goodsList.Count) return null;
+					return BuildGoodLabel(goodsList[index]);
+				}
+				case Branch.Perks:
+					if (index < 0 || index >= _perks.Count) return null;
+					return BuildPerkLabel(_perks[index]);
+				default:
+					return null;
 			}
 		}
 
@@ -96,40 +124,38 @@ namespace ATSAccessibility {
 		protected override EnterAction OnEnter(int index) => EnterAction.Action;
 
 		protected override void OnAction(int index) {
-			if (_mode == Mode.NoTrader) {
-				if (index < 0 || index >= _noTraderItems.Count) return;
-				var item = _noTraderItems[index];
+			if (Level == 0) {
+				var items = _mode == Mode.NoTrader ? _noTraderItems : _mainMenuItems;
+				if (index < 0 || index >= items.Count) return;
+				var item = items[index];
 				if (item.OnActivate != null)
 					item.OnActivate();
 				else
 					Speech.Say(item.Label);
-			} else {
-				if (index < 0 || index >= _mainMenuItems.Count) return;
-				var item = _mainMenuItems[index];
-				if (item.OnActivate != null)
-					item.OnActivate();
-				else
-					Speech.Say(item.Label);
+				return;
+			}
+
+			switch (_branch) {
+				case Branch.Perks:
+					BuyCurrentPerk();
+					break;
 			}
 		}
 
 		protected override EscapeAction OnEscape() {
-			// Pass to game to close panel
-			return EscapeAction.PassThrough;
+			return Level > 0 ? EscapeAction.GoBack : EscapeAction.PassThrough;
 		}
 
-		protected override void AnnounceCurrentItem() {
-			if (Level > 0) {
-				AnnounceSubLevelItem();
-				return;
+		protected override void OnGoBack() {
+			if (_branch == Branch.Perks) {
+				RefreshMainMenu();
 			}
+		}
 
-			int count = GetItemCount();
-			if (count == 0) return;
-
-			string label = GetLabel(CurrentIndex);
-			if (!string.IsNullOrEmpty(label))
-				Speech.Say(label);
+		protected override void OnAdjust(int index, int dir, KeyboardManager.KeyModifiers modifiers) {
+			if (Level == 1 && _branch == Branch.GoodsTrade) {
+				AdjustQuantity(dir * (modifiers.Shift ? 10 : 1));
+			}
 		}
 
 		protected override string GetOpenAnnouncement() {
@@ -145,35 +171,13 @@ namespace ATSAccessibility {
 		}
 
 		protected override void OnClosed() {
-			_inConfirmation = false;
+			_confirmState = ConfirmState.None;
 			ClearData();
 		}
 
 		// ========================================
-		// SEARCH OVERRIDES (Level > 0)
+		// SEARCH OVERRIDES
 		// ========================================
-
-		protected override int SearchItemCount {
-			get {
-				if (Level == 0) return base.SearchItemCount;
-
-				switch (_subLevel) {
-					case SubLevel.GoodsTrade:
-						return (_currentTab == Tab.Sell ? _sellGoods : _buyGoods).Count;
-					case SubLevel.Perks:
-						return _perks.Count;
-					default:
-						return 0;
-				}
-			}
-		}
-
-		protected override int SearchCurrentIndex {
-			get {
-				if (Level == 0) return base.SearchCurrentIndex;
-				return _subIndex;
-			}
-		}
 
 		protected override string GetSearchName(int index) {
 			if (Level == 0) {
@@ -186,82 +190,60 @@ namespace ATSAccessibility {
 				}
 			}
 
-			switch (_subLevel) {
-				case SubLevel.GoodsTrade:
+			switch (_branch) {
+				case Branch.GoodsTrade:
 					var goodsList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
 					return (index >= 0 && index < goodsList.Count) ? goodsList[index].DisplayName : null;
-				case SubLevel.Perks:
+				case Branch.Perks:
 					return (index >= 0 && index < _perks.Count) ? _perks[index].DisplayName : null;
 				default:
 					return null;
 			}
 		}
 
-		protected override void SearchMoveTo(int index) {
-			if (Level == 0) {
-				base.SearchMoveTo(index);
-				return;
-			}
-
-			_subIndex = index;
-			AnnounceSubLevelItem();
-		}
-
 		// ========================================
-		// SPECIAL KEY HANDLING (Level > 0)
+		// SPECIAL KEY HANDLING
 		// ========================================
 
 		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
-			if (_inConfirmation)
+			// Confirmation modal intercepts all keys
+			if (_confirmState != ConfirmState.None)
 				return ProcessConfirmationKey(keyCode);
 
-			if (Level > 0) {
-				if (_search.HandleKey(keyCode, modifiers, this))
-					return true;
-
-				if (_subLevel == SubLevel.GoodsTrade && modifiers.Alt) {
-					if (keyCode == KeyCode.B) { AnnounceBalance(); return true; }
-					if (keyCode == KeyCode.A) { TryAcceptTrade(); return true; }
-				}
-
-				return ProcessSubLevelKey(keyCode, modifiers);
-			}
-
+			// Alt+B/A available when trader present (any level)
 			if (_mode == Mode.TraderPresent && modifiers.Alt) {
 				if (keyCode == KeyCode.B) { AnnounceBalance(); return true; }
 				if (keyCode == KeyCode.A) { TryAcceptTrade(); return true; }
 			}
 
+			// Goods trade tab switching and +/- at level 1
+			if (Level == 1 && _branch == Branch.GoodsTrade) {
+				switch (keyCode) {
+					case KeyCode.LeftArrow:
+						if (_currentTab != Tab.Sell) {
+							_currentTab = Tab.Sell;
+							_indices[1] = 0;
+							_search.Clear();
+							AnnounceSellTab();
+						}
+						return true;
+
+					case KeyCode.RightArrow:
+						if (_currentTab != Tab.Buy) {
+							_currentTab = Tab.Buy;
+							_indices[1] = 0;
+							_search.Clear();
+							AnnounceBuyTab();
+						}
+						return true;
+
+					case KeyCode.Plus:
+						AdjustQuantity(modifiers.Shift ? 10 : 1);
+						return true;
+				}
+			}
+
 			return null;
-		}
-
-		private bool ProcessSubLevelKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
-			switch (_subLevel) {
-				case SubLevel.GoodsTrade:
-					return ProcessGoodsTradeKey(keyCode, modifiers);
-				case SubLevel.Perks:
-					return ProcessPerksKey(keyCode, modifiers);
-				default:
-					return true;
-			}
-		}
-
-		// ========================================
-		// SUB-LEVEL ANNOUNCEMENTS
-		// ========================================
-
-		private void AnnounceSubLevelItem() {
-			switch (_subLevel) {
-				case SubLevel.GoodsTrade:
-					var goodsList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
-					if (_subIndex >= 0 && _subIndex < goodsList.Count)
-						Speech.Say(BuildGoodLabel(goodsList[_subIndex]));
-					break;
-				case SubLevel.Perks:
-					if (_subIndex >= 0 && _subIndex < _perks.Count)
-						Speech.Say(BuildPerkLabel(_perks[_subIndex]));
-					break;
-			}
 		}
 
 		// ========================================
@@ -488,10 +470,10 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void EnterGoodsTrade() {
-			SetLevel(1);
-			_subLevel = SubLevel.GoodsTrade;
+			_branch = Branch.GoodsTrade;
 			_currentTab = Tab.Sell;
-			_subIndex = 0;
+			SetLevel(1);
+			_indices[1] = 0;
 			_search.Clear();
 
 			SoundManager.PlayButtonClick();
@@ -532,89 +514,11 @@ namespace ATSAccessibility {
 			}
 		}
 
-		private bool ProcessGoodsTradeKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
-			switch (keyCode) {
-				case KeyCode.LeftArrow:
-					if (_currentTab != Tab.Sell) {
-						_currentTab = Tab.Sell;
-						_subIndex = 0;
-						_search.Clear();
-						AnnounceSellTab();
-					}
-					return true;
-
-				case KeyCode.RightArrow:
-					if (_currentTab != Tab.Buy) {
-						_currentTab = Tab.Buy;
-						_subIndex = 0;
-						_search.Clear();
-						AnnounceBuyTab();
-					}
-					return true;
-
-				case KeyCode.UpArrow:
-					NavigateGoods(-1);
-					return true;
-
-				case KeyCode.DownArrow:
-					NavigateGoods(1);
-					return true;
-
-				case KeyCode.Home: {
-						var homeList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
-						if (homeList.Count > 0) {
-							_subIndex = 0;
-							Speech.Say(BuildGoodLabel(homeList[_subIndex]));
-						}
-					}
-					return true;
-
-				case KeyCode.End: {
-						var endList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
-						if (endList.Count > 0) {
-							_subIndex = endList.Count - 1;
-							Speech.Say(BuildGoodLabel(endList[_subIndex]));
-						}
-					}
-					return true;
-
-				case KeyCode.Plus:
-				case KeyCode.KeypadPlus:
-				case KeyCode.Equals:
-					AdjustQuantity(modifiers.Shift ? 10 : 1);
-					return true;
-
-				case KeyCode.Minus:
-				case KeyCode.KeypadMinus:
-					AdjustQuantity(modifiers.Shift ? -10 : -1);
-					return true;
-
-				case KeyCode.Escape:
-					SetLevel(0);
-					CurrentIndex = 1; // Goods Trade item
-					_search.Clear();
-					Speech.Say("Main menu. Goods Trade");
-					InputBlocker.BlockCancelOnce = true;
-					return true;
-
-				default:
-					return true;
-			}
-		}
-
-		private void NavigateGoods(int direction) {
-			var currentList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
-			if (currentList.Count == 0) return;
-
-			_subIndex = NavigationUtils.WrapIndex(_subIndex, direction, currentList.Count);
-			Speech.Say(BuildGoodLabel(currentList[_subIndex]));
-		}
-
 		private void AdjustQuantity(int delta) {
 			var currentList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
-			if (_subIndex < 0 || _subIndex >= currentList.Count) return;
+			if (CurrentIndex < 0 || CurrentIndex >= currentList.Count) return;
 
-			var good = currentList[_subIndex];
+			var good = currentList[CurrentIndex];
 			int oldAmount = good.OfferedAmount;
 			good.OfferedAmount = Mathf.Clamp(good.OfferedAmount + delta, 0, good.MaxAmount);
 
@@ -697,8 +601,7 @@ namespace ATSAccessibility {
 			string sellText = sellList.Count > 0 ? string.Join(", ", sellList) : "nothing";
 			string buyText = buyList.Count > 0 ? string.Join(", ", buyList) : "nothing";
 
-			_inConfirmation = true;
-			_subLevel = SubLevel.TradeConfirm;
+			_confirmState = ConfirmState.Trade;
 			Speech.Say($"Selling: {sellText}. Buying: {buyText}. Balance: {balance:F2}. Enter to confirm, Escape to cancel");
 		}
 
@@ -707,9 +610,9 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void EnterPerks() {
+			_branch = Branch.Perks;
 			SetLevel(1);
-			_subLevel = SubLevel.Perks;
-			_subIndex = 0;
+			_indices[1] = 0;
 			_search.Clear();
 
 			SoundManager.PlayButtonClick();
@@ -738,59 +641,10 @@ namespace ATSAccessibility {
 			return $"{nameAndDesc}, {perk.Price:F0} Amber";
 		}
 
-		private bool ProcessPerksKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
-			switch (keyCode) {
-				case KeyCode.UpArrow:
-					NavigatePerks(-1);
-					return true;
-
-				case KeyCode.DownArrow:
-					NavigatePerks(1);
-					return true;
-
-				case KeyCode.Home:
-					if (_perks.Count > 0) {
-						_subIndex = 0;
-						Speech.Say(BuildPerkLabel(_perks[_subIndex]));
-					}
-					return true;
-
-				case KeyCode.End:
-					if (_perks.Count > 0) {
-						_subIndex = _perks.Count - 1;
-						Speech.Say(BuildPerkLabel(_perks[_subIndex]));
-					}
-					return true;
-
-				case KeyCode.Return:
-				case KeyCode.KeypadEnter:
-					BuyCurrentPerk();
-					return true;
-
-				case KeyCode.Escape:
-					SetLevel(0);
-					CurrentIndex = 2; // Perks item
-					RefreshMainMenu();
-					_search.Clear();
-					Speech.Say($"Main menu. {_mainMenuItems[CurrentIndex].Label}");
-					InputBlocker.BlockCancelOnce = true;
-					return true;
-
-				default:
-					return true;
-			}
-		}
-
-		private void NavigatePerks(int direction) {
-			if (_perks.Count == 0) return;
-			_subIndex = NavigationUtils.WrapIndex(_subIndex, direction, _perks.Count);
-			Speech.Say(BuildPerkLabel(_perks[_subIndex]));
-		}
-
 		private void BuyCurrentPerk() {
-			if (_subIndex < 0 || _subIndex >= _perks.Count) return;
+			if (CurrentIndex < 0 || CurrentIndex >= _perks.Count) return;
 
-			var perk = _perks[_subIndex];
+			var perk = _perks[CurrentIndex];
 			if (perk.Sold) {
 				Speech.Say("Already sold");
 				SoundManager.PlayFailed();
@@ -822,13 +676,11 @@ namespace ATSAccessibility {
 		}
 
 		// ========================================
-		// ASSAULT CONFIRM SUB-LEVEL
+		// ASSAULT CONFIRM
 		// ========================================
 
 		private void EnterAssaultConfirm() {
-			SetLevel(1);
-			_subLevel = SubLevel.AssaultConfirm;
-			_inConfirmation = true;
+			_confirmState = ConfirmState.Assault;
 			SoundManager.PlayButtonClick();
 			Speech.Say("Assault trader? May lose villagers and reputation. Enter to confirm, Escape to cancel");
 		}
@@ -838,7 +690,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private bool ProcessConfirmationKey(KeyCode keyCode) {
-			if (_subLevel == SubLevel.AssaultConfirm) {
+			if (_confirmState == ConfirmState.Assault) {
 				switch (keyCode) {
 					case KeyCode.Return:
 					case KeyCode.KeypadEnter:
@@ -846,10 +698,8 @@ namespace ATSAccessibility {
 						return true;
 
 					case KeyCode.Escape:
-						_inConfirmation = false;
-						SetLevel(0);
-						CurrentIndex = Math.Min(_mainMenuItems.Count - 1, 3);
-						Speech.Say($"Cancelled. Main menu. {_mainMenuItems[CurrentIndex].Label}");
+						_confirmState = ConfirmState.None;
+						Speech.Say($"Cancelled. {_mainMenuItems[CurrentIndex].Label}");
 						InputBlocker.BlockCancelOnce = true;
 						return true;
 
@@ -865,9 +715,7 @@ namespace ATSAccessibility {
 					return true;
 
 				case KeyCode.Escape:
-					_inConfirmation = false;
-					SetLevel(1);
-					_subLevel = SubLevel.GoodsTrade;
+					_confirmState = ConfirmState.None;
 					Speech.Say("Cancelled");
 					InputBlocker.BlockCancelOnce = true;
 					return true;
@@ -879,7 +727,7 @@ namespace ATSAccessibility {
 
 		private void ExecuteAssault() {
 			var result = TradeReflection.AssaultTrader();
-			_inConfirmation = false;
+			_confirmState = ConfirmState.None;
 
 			if (result.Success) {
 				SoundManager.PlayButtonClick();
@@ -887,13 +735,12 @@ namespace ATSAccessibility {
 			} else {
 				Speech.Say("Assault failed");
 				SoundManager.PlayFailed();
-				SetLevel(0);
 				CurrentIndex = 0;
 			}
 		}
 
 		private void ExecuteTrade() {
-			_inConfirmation = false;
+			_confirmState = ConfirmState.None;
 
 			var sellList = new List<KeyValuePair<string, int>>();
 			foreach (var g in _sellGoods) {
@@ -923,9 +770,7 @@ namespace ATSAccessibility {
 			foreach (var g in _buyGoods)
 				g.OfferedAmount = 0;
 
-			SetLevel(1);
-			_subLevel = SubLevel.GoodsTrade;
-			_subIndex = 0;
+			_indices[1] = 0;
 
 			RefreshSellGoods();
 			RefreshBuyGoods();
