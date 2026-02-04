@@ -23,6 +23,7 @@
 - Fix number doubling in objectives when good names contain amounts (e.g. "Deliver 50 Pack of Luxury Goods")
 - Completed objectives prefixed with ✓ instead of awkward inline "Done" text
 - Fix double period in seal offering description
+- Order pick objectives now show reputation source and use consistent localization logic
 - Fix guiding stone direction calculation (was reporting wrong compass direction)
 - Type-ahead search no longer clears on modifier keys or arrow navigation
 - Favouring now stops old race before starting new one

@@ -730,11 +730,11 @@ namespace ATSAccessibility {
 						if (!string.IsNullOrEmpty(stripped) && !displayName.Contains(stripped)) {
 							// Amount not in DisplayName - use type-specific formatting
 							string typeName = logic.GetType().Name;
-							bool skipDescription = typeName.Contains("Building") || typeName == "GoodLogic";
+							bool skipDescription = typeName.Contains("Building");
 
 							if (!skipDescription) {
 								// Try Description which may have proper localized placement
-								// (e.g. "Complete 2 events")
+								// (e.g. "Earn 3 Reputation Points from Orders")
 								string desc = _olDescriptionProperty?.GetValue(logic) as string;
 								string strippedDesc = !string.IsNullOrEmpty(desc) ? StripRichText(desc).Trim() : null;
 
@@ -752,16 +752,24 @@ namespace ATSAccessibility {
 							// Fallback: type-specific formatting
 							// For building types, prefix with "Build" (e.g. "Build 3 Shelter")
 							// For verb+noun patterns, insert after first word (e.g. "Produce 6 Pipes")
+							string formatted;
 							int spaceIdx = displayName.IndexOf(' ');
 							if (typeName.Contains("Building")) {
 								int amount = 0;
 								int.TryParse(stripped, out amount);
 								string name = amount > 1 ? Pluralize(displayName) : displayName;
-								result.Add(TrimObjectiveText($"Build {stripped} {name}"));
+								formatted = TrimObjectiveText($"Build {stripped} {name}");
 							} else if (spaceIdx > 0)
-								result.Add(TrimObjectiveText($"{displayName.Substring(0, spaceIdx)} {stripped} {displayName.Substring(spaceIdx + 1)}"));
+								formatted = TrimObjectiveText($"{displayName.Substring(0, spaceIdx)} {stripped} {displayName.Substring(spaceIdx + 1)}");
 							else
-								result.Add(TrimObjectiveText($"{stripped} {displayName}"));
+								formatted = TrimObjectiveText($"{stripped} {displayName}");
+
+							// Append source for reputation objectives when not already in text
+							string source = GetReputationSourceText(logic);
+							if (source != null)
+								formatted += " from " + source;
+
+							result.Add(formatted);
 						} else {
 							result.Add(TrimObjectiveText(displayName));
 						}
