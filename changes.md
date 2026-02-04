@@ -67,3 +67,5 @@
 - Refactor TraderOverlay to use MenuBase level system; remove custom parallel navigation (~150 lines)
 - Add Debug.LogWarning to 6 bare catch blocks in business logic methods (EventAnnouncer, MapReflection, BuildingReflection)
 - Refactor StatsReflection to use ReflectionHelper.InitCache pattern; consolidate 5 separate EnsureXxxTypes methods into single EnsureCached
+- Refactor SoundManager to data-driven design, use ReflectionHelper; eliminate ~370 lines of repetitive per-sound methods
+- Move EventAnnouncer._instance clearing into finally block in Dispose for safety
