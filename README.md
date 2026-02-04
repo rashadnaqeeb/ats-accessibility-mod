@@ -10,7 +10,6 @@ If this is your first time playing, there is another file included with this mod
 
 **Implemented but needs testing** (may have bugs):
 - World Events
-- Sealed Forest
 
 ## Installation
 
@@ -23,8 +22,8 @@ If this is your first time playing, there is another file included with this mod
 
 ### Requirements
 
-- Against the Storm (Steam version)
-- A screen reader (NVDA, JAWS, sapi).
+- Against the Storm (Any version, including demos).
+- windows.
 
 ### Uninstallation
 
@@ -34,10 +33,10 @@ Delete the BepInEx folder, winhttp.dll, and doorstop_config.ini from your game f
 
 ## Navigation Model
 
-All menus use arrow key navigation. Up/Down moves through items, Right/Enter drills into submenus, Left/Escape backs out. Most lists support type-ahead search: start typing a name to jump to the first match. Backspace removes the last character, and the buffer auto-clears on arrow key navigation.
+All menus use arrow key navigation. Up/Down moves through items, Right/Enter drills into submenus, Left/Escape backs out. Most lists support type-ahead search: start typing a name to jump to the first match, arrow to scroll through results. You can type single letters back to back for first letter navigation. Backspace removes the last character, and the buffer auto-clears on arrow key navigation.
 There are only two exceptions to this: the options menu and the encyclopedia. Both require you to press Enter on section headers to switch to them. This is a limitation of the game's UI.
 
-- Space performs the contextual action (toggle recipe, assign worker, etc.)
+- Space performs the contextual action (toggle recipe, check checkbox, etc.)
 - +/- adjusts values (limits, levels, sliders). Shift+/- for larger increments.
 
 ---
@@ -48,7 +47,8 @@ There are only two exceptions to this: the options menu and the encyclopedia. Bo
 
 - Arrows: Move cursor one tile
 - Ctrl+Arrows: Skip to next different tile in direction, announcing tile count
-- K: Announce cursor coordinates
+- K: Announce cursor coordinates, with the main hearth as 0, 0.
+- Alt+K: Toggle coordinate reading.
 - I: Get more info about object at tile.
 - Space: Pause/Resume
 - 1-4: Set speed
@@ -59,8 +59,7 @@ There are only two exceptions to this: the options menu and the encyclopedia. Bo
 - V: Species resolve breakdown, press multiple times to cycle.
 - T: Time summary (year, season, time remaining)
 - O: Announce tracked order objectives
-
-Alt+S, Alt+V, and Alt+O also work from inside building panels and game menus.
+Alt+S, Alt+V, and Alt+O also work from inside building panels and game menus, to accomplish the same result without interfering with menu search.
 
 ### Building Interaction
 
@@ -69,12 +68,16 @@ Alt+S, Alt+V, and Alt+O also work from inside building panels and game menus.
 - R/Shift+R: Rotate building clockwise/counterclockwise
 - Shift+Space: Destroy building or remove resource node at cursor (with confirmation)
 - Alt+Space: Toggle pause from inside building panels and menus
-- E: Announce focused building entrance location. Where workers will enter and exit from. Changed with rotation.
+- E: Announce focused building entrance location. Where workers will enter and exit from.
 - W: Announce status of worker slots at focused building.
 
 Quickly change worker slots without opening building settings:
 - +/-: Cycle between worker races.
 - Shift+/-: Add/remove worker at building
+
+Cycle between buildings with worker slots:
+- Comma/Period: Jump to previous/next worker building
+- Shift+Comma/Shift+Period: Change worker category filter (All, Gathering, Production, Service, Events)
 
 #### Marking Trees
 
@@ -88,12 +91,24 @@ To unmark trees, press Enter on an already-marked tree. This enters unmarking mo
 
 You can also press Backspace on any tree to quickly toggle its mark without entering marking mode.
 
+### Bookmarks
+The mod gives you access to 11 bookmarks. A quick-use one, and 10 others controlled through the number row.
+
+- Shift+B: Set quick bookmark at cursor position
+- B: Jump to bookmark
+- Alt+B: Announce direction and distance to bookmark
+
+Numbered bookmarks (slots 0-9):
+- Ctrl+0-9: Set numbered bookmark at cursor position
+- Shift+0-9: Jump to numbered bookmark
+- Alt+0-9: Announce direction to numbered bookmark
+
 ### Helpers
 
-- D: Building range guide. Press with cursor on a building or while in build mode: contextually announces what current building connects to. For resource gatherers, shows you what resources will be in range. For producers, shows you the nearest warehouse and other suppliers.
-- Shift+B: Set bookmark at cursor position
-- B: Jump to bookmark
-- Alt+B: Blight helper: directs you to the nearest Blight Cyst. If on a building with Blight Cysts, tells you how many.
+- D: Building range guide. Press with cursor on a building or while in build/move mode: contextually announces what current building connects to. For resource gatherers, shows you what resources will be in range. For producers, shows you the nearest warehouse and other suppliers. You can also press it on a resource patch for the reverse effect.
+- Alt+D: Blight helper: directs you to the nearest Blight Cyst. If on a building with Blight Cysts, tells you how many. Also reports total cyst count and corruption percentage.
+- Alt+H: Reset cursor to hearth
+- Shift+N: Jump to latest event location
 - P: Rainpunk helper: directs you to the nearest Rainpunk engine that's running. If on a building with running engines, Shift+P quickly turns them off without needing to open the panel.
 
 ### Settlement Scanner
@@ -107,26 +122,26 @@ The settlement scanner finds things on the map organized into a three-level hier
 - Home: Move cursor to current item
 - End: Announce distance and direction to current item
 - Alt+I: Read detailed info about current scanner item
-- Alt+End: Announce distance from bookmark to scanner item
 - Alt+Home: Toggle auto-move cursor mode
 
-Glades category - Groups by danger level (Small, Dangerous, Forbidden). If glade info modifiers are active, contents are shown. Only unrevealed glades are listed.
+Glades category - Groups by danger level (Small, Dangerous, Forbidden). If glade info modifiers are active, contents are shown. Only unrevealed glades are listed. Also includes revealed tiles inside glades (for example the nearest patch of fertile soil revealed by the unlockable human starting ability). On a sealed forest map, it will also show you candidate glades for the location of the seal as you uncover guidance stones.
 
-Resources category - Four subcategories:
+Resources category - Five subcategories:
+- All: All resource types combined
 - Natural Resources: trees, plants, fertile soil
-- Extracted Resources, e.g., copper, iron, coal, geysers.
-- Collected Resources (Nodes Small): e.g., clay, stone
-- Collected Resources (Nodes Large): e.g., fish ponds, lakes
+- Extracted Resources: e.g., copper, iron, coal, geysers
+- Nodes Small: e.g., clay, stone, bird nests, fish ponds.
+- Nodes Large: same as above, but bigger.
 
-Buildings category - Ten subcategories: Essential, Gathering, Production, Trade, Housing and Services, Special Buildings, Blight Fighting, Decorations, Ruins, Roads.
+Buildings category - Eleven subcategories: All, Essential, Gathering, Production, Trade, Housing and Services, Special Buildings, Blight Fighting, Decorations, Ruins, Roads. The "All" subcategory combines everything except Decorations and Roads.
 
 ### Menus
 
 - F1: Info panels (Resources, Villagers, Workers, Stats, Modifiers, Announcements)
 - F2: Menu hub (Recipes, Orders, Trade Routes, Payments, Consumption, Trends, Trader)
 - F3: Pending rewards
-- Tab: Building menu (construction). Buildings organised into categories or can type building name directly. In build mode, press Space to place building, Shift+Space to remove. Enter or Escape to exit mode.
-- Alt+H: Announcement history
+- Tab: Building menu (construction). Buildings organised into categories or can type building name directly. In build mode, press Space to place building, Shift+Space to remove. Enter places and exits, Escape exits without placing.
+- Alt+N: Announcement history. Enter on an entry jumps to the event location on the map. Shift+N jumps to location of most recent event.
 
 Direct panel shortcuts:
 - Shift+S: Stats
@@ -146,7 +161,6 @@ Opened via Menu Hub (F2 > Trends). Shows storage operations (gains and losses) f
 - 1: Last 10 seconds
 - 2: Last minute
 - 3: Last 5 minutes
-- A-Z: Type-ahead search for goods
 
 ---
 
@@ -155,7 +169,7 @@ Opened via Menu Hub (F2 > Trends). Shows storage operations (gains and losses) f
 - Arrows: Move hex cursor
 - I: Read hex tooltip
 - F1: Open tutorial hub
-- D: Embark status and distance to capital
+- D: Embark status and distance from embark point
 - M: Descriptions of modifiers at tile.
 - L: Current level
 - R: Meta resources
@@ -177,8 +191,6 @@ Same as settlement map, just with no categories.
 ## Menus with Special Keys
 
 ### Orders Overlay (via F2 > Orders)
-
-Orders are sorted by status: To Pick, Completable, Active, Locked, Completed, Failed. Each announcement includes name, status, objectives, rewards, and time remaining if timed.
 
 - T: Toggle tracking on the current order. Tracked orders can be checked from the map with O.
 
@@ -226,8 +238,6 @@ When you've hit your perk limit and must remove one to accept a new cornerstone:
 
 - Space: Select/deselect a perk for removal
 - Enter: Confirm removal of the selected perk
-
-This is likely to change, I just haven't actually ever seen this menu yet.
 
 ---
 
