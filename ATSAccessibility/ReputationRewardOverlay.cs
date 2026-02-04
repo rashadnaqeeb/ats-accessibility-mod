@@ -24,6 +24,11 @@ namespace ATSAccessibility {
 		// Flag to suppress EventAnnouncer's "New blueprint available" when we announce description
 		public static bool SuppressBlueprintAnnouncement { get; private set; }
 
+		/// <summary>Defensive reset for scene transitions.</summary>
+		public static void ResetSuppression() {
+			SuppressBlueprintAnnouncement = false;
+		}
+
 		// ========================================
 		// IKeyHandler Implementation
 		// ========================================

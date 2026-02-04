@@ -52,6 +52,12 @@ namespace ATSAccessibility {
 		private static int _currentSpeciesIndex = 0;
 		private static List<string> _cachedPresentRaces = null;
 
+		/// <summary>Reset species cycling state between games.</summary>
+		public static void ResetSpeciesCycling() {
+			_currentSpeciesIndex = 0;
+			_cachedPresentRaces = null;
+		}
+
 		// ========================================
 		// INITIALIZATION
 		// ========================================

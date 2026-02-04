@@ -440,6 +440,8 @@ namespace ATSAccessibility {
 			_buildingPanelHandler?.Dispose();
 
 			Speech.Shutdown();
+
+			MenuBase.ClearStaticState();
 		}
 
 		private void Update() {
@@ -521,6 +523,9 @@ namespace ATSAccessibility {
 				_announcedGameStart = false;
 				_wasGameActive = false;
 				_mapNavigator?.ClearCursor();  // Clear so it reinitializes on next game
+				WorkerInfoHelper.Reset();
+				StatsReader.ResetSpeciesCycling();
+				AnnouncementHistoryPanel.ClearHistory();
 			} else if (scene.buildIndex == SCENE_MENU) {
 				_announcedMainMenu = false;
 				_cachedMainMenuCanvas = null;
@@ -546,6 +551,12 @@ namespace ATSAccessibility {
 
 			// Dispose event announcer subscriptions
 			_eventAnnouncer?.Dispose();
+
+			// Clear static state that could become stale across scenes
+			TradeReflection.ClearCurrentPanel();
+			GameReflection.ClearBuildingCreatorInstance();
+			CameraControllerUpdateMovementPatch.ClearTarget();
+			ReputationRewardOverlay.ResetSuppression();
 
 			// Reset UI navigator state
 			_uiNavigator?.Reset();

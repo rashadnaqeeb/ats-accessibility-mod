@@ -43,6 +43,7 @@
 - Fix building pause/unpause sound playing twice (game already plays it internally)
 - Space key now toggles building pause/active from any section in building panels
 - Fix operator precedence bug in WrapIndex causing incorrect index wrapping
+- Fix static state bugs: stale cached instances, stuck flags, and per-game state persisting across scene changes
 
 ## Internal / refactoring
 

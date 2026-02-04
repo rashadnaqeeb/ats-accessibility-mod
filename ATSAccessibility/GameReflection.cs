@@ -2331,6 +2331,14 @@ namespace ATSAccessibility {
 		private static object _buildingCreatorInstance = null;
 		private static bool _buildingTypesCached = false;
 
+		/// <summary>
+		/// Clear cached BuildingCreator instance on scene change.
+		/// The instance may hold internal references to destroyed game services.
+		/// </summary>
+		public static void ClearBuildingCreatorInstance() {
+			_buildingCreatorInstance = null;
+		}
+
 		// BuildingModel field caching (used by multiple methods called per-building)
 		private static FieldInfo _bmCategoryField = null;
 		private static FieldInfo _bmIsInShopField = null;
@@ -3835,7 +3843,7 @@ namespace ATSAccessibility {
 			}
 		}
 
-		// Cached Unit.Default value
+		// Cached Unit.Default value — safe to cache permanently: UniRx.Unit.Default is an immutable boxed struct, not a game service instance.
 		private static object _unitDefault = null;
 		private static bool _unitDefaultCached = false;
 

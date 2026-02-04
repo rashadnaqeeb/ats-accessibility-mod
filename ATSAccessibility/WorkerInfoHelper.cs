@@ -13,6 +13,13 @@ namespace ATSAccessibility {
 		private static float _lastRaceRefreshTime = 0f;
 		private const float RACE_CACHE_DURATION = 1f;
 
+		/// <summary>Reset state between games to prevent stale race selection.</summary>
+		public static void Reset() {
+			_selectedRaceIndex = 0;
+			_cachedRaces.Clear();
+			_lastRaceRefreshTime = 0f;
+		}
+
 		/// <summary>
 		/// Get worker summary for a building.
 		/// On building with workers: "3/3: 2 beavers, 1 harpy"

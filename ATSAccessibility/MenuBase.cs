@@ -40,6 +40,11 @@ namespace ATSAccessibility {
 		/// <summary>Fired when any MenuBase opens. Used by exclusive modes to auto-close.</summary>
 		public static event System.Action OnAnyMenuOpened;
 
+		/// <summary>Clear static event to prevent stale subscribers after mod reload.</summary>
+		public static void ClearStaticState() {
+			OnAnyMenuOpened = null;
+		}
+
 		// ========================================
 		// STATE
 		// ========================================
