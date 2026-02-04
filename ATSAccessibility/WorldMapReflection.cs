@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -68,6 +69,71 @@ namespace ATSAccessibility {
 
 		// WorldBlackboardService
 		private static PropertyInfo _wbbOnFieldClickedProperty = null;
+
+		// ========================================
+		// META STATE SERVICE
+		// ========================================
+		// Path: MetaController.Instance.MetaServices.MetaStateService
+
+		private static bool _metaStateCached = false;
+
+		// MetaStateService access
+		private static PropertyInfo _msMetaStateServiceProperty = null;
+
+		// MetaStateService properties
+		private static PropertyInfo _mssEconomyProperty = null;      // MetaStateService.Economy
+		private static PropertyInfo _mssLevelProperty = null;         // MetaStateService.Level
+		private static PropertyInfo _mssCapitalProperty = null;       // MetaStateService.Capital
+		private static PropertyInfo _mssStateProperty = null;         // MetaStateService.State
+
+		// MetaEconomyState fields
+		private static FieldInfo _economyCurrentCycleExpField = null;
+		private static FieldInfo _economyMetaCurrenciesField = null;
+
+		// LevelState fields
+		private static FieldInfo _levelLevelField = null;
+		private static FieldInfo _levelExpField = null;
+		private static FieldInfo _levelTargetExpField = null;
+
+		// CapitalState
+		private static FieldInfo _capitalCurrentCycleUpgradesField = null;
+
+		// MetaState.isIronman
+		private static FieldInfo _stateIsIronmanField = null;
+
+		// Settings.GetCapitalUpgrade / Settings.GetMetaCurrency
+		private static MethodInfo _settingsGetCapitalUpgradeMethod = null;
+		private static MethodInfo _settingsGetMetaCurrencyMethod = null;
+
+		// CapitalUpgradeModel
+		private static FieldInfo _upgradeDisplayNameField = null;
+		private static FieldInfo _upgradeIronmanDisplayNameField = null;
+
+		// WorldBlackboardService.OnCycleEndPhase
+		private static PropertyInfo _wbbOnCycleEndPhaseProperty = null;
+
+		// CycleEndPhase.AnimationRequested enum value
+		private static object _animationRequestedValue = null;
+
+		// ========================================
+		// CYCLE STATE
+		// ========================================
+
+		private static PropertyInfo _wssSealsProperty = null;
+
+		// CycleState fields
+		private static FieldInfo _cycleYearField = null;
+		private static FieldInfo _cycleYearsInCycleField = null;
+		private static FieldInfo _cycleGamesPlayedField = null;
+		private static FieldInfo _cycleGamesWonField = null;
+		private static FieldInfo _cycleSealFragmentsField = null;
+
+		// ========================================
+		// SEALS (uses _wsWorldSealsServiceProperty from WORLD MAP REFLECTION section)
+		// ========================================
+
+		private static MethodInfo _sealsWasAnyCompletedMethod = null;
+		private static MethodInfo _sealsGetHighestWonMethod = null;
 
 		// WorldField properties (accessed frequently)
 		private static PropertyInfo _worldFieldBiomeProperty = null;
@@ -257,6 +323,146 @@ namespace ATSAccessibility {
 			}
 
 			_worldMapTypesCached = true;
+		}
+
+		private static void EnsureMetaStateTypes() {
+			if (_metaStateCached) return;
+			GameReflection.EnsureMetaControllerTypesInternal();
+
+			var gameAssembly = GameReflection.GameAssembly;
+			if (gameAssembly == null) {
+				_metaStateCached = true;
+				return;
+			}
+
+			try {
+				// MetaStateService access from IMetaServices
+				var metaServicesType = gameAssembly.GetType("Eremite.Services.IMetaServices");
+				if (metaServicesType != null) {
+					_msMetaStateServiceProperty = metaServicesType.GetProperty("MetaStateService",
+						GameReflection.PublicInstance);
+				}
+
+				// MetaStateService properties from IMetaStateService
+				var metaStateServiceType = gameAssembly.GetType("Eremite.Services.IMetaStateService");
+				if (metaStateServiceType != null) {
+					_mssEconomyProperty = metaStateServiceType.GetProperty("Economy",
+						GameReflection.PublicInstance);
+					_mssLevelProperty = metaStateServiceType.GetProperty("Level",
+						GameReflection.PublicInstance);
+					_mssCapitalProperty = metaStateServiceType.GetProperty("Capital",
+						GameReflection.PublicInstance);
+					_mssStateProperty = metaStateServiceType.GetProperty("State",
+						GameReflection.PublicInstance);
+				}
+
+				// MetaEconomyState fields
+				var economyStateType = gameAssembly.GetType("Eremite.Model.State.MetaEconomyState");
+				if (economyStateType != null) {
+					_economyCurrentCycleExpField = economyStateType.GetField("currentCycleExp",
+						GameReflection.PublicInstance);
+					_economyMetaCurrenciesField = economyStateType.GetField("metaCurrencies",
+						GameReflection.PublicInstance);
+				}
+
+				// LevelState fields
+				var levelStateType = gameAssembly.GetType("Eremite.Model.State.LevelState");
+				if (levelStateType != null) {
+					_levelLevelField = levelStateType.GetField("level",
+						GameReflection.PublicInstance);
+					_levelExpField = levelStateType.GetField("exp",
+						GameReflection.PublicInstance);
+					_levelTargetExpField = levelStateType.GetField("targetExp",
+						GameReflection.PublicInstance);
+				}
+
+				// CapitalState
+				var capitalStateType = gameAssembly.GetType("Eremite.WorldMap.CapitalState");
+				if (capitalStateType != null) {
+					_capitalCurrentCycleUpgradesField = capitalStateType.GetField("currentCycleUnlockedUpgrades",
+						GameReflection.PublicInstance);
+				}
+
+				// MetaState.isIronman
+				var metaStateType = gameAssembly.GetType("Eremite.Model.State.MetaState");
+				if (metaStateType != null) {
+					_stateIsIronmanField = metaStateType.GetField("isIronman",
+						GameReflection.PublicInstance);
+				}
+
+				// Settings.GetCapitalUpgrade / Settings.GetMetaCurrency
+				var settingsType = gameAssembly.GetType("Eremite.Model.Settings");
+				if (settingsType != null) {
+					_settingsGetCapitalUpgradeMethod = settingsType.GetMethod("GetCapitalUpgrade",
+						GameReflection.PublicInstance, null, new[] { typeof(string) }, null);
+					_settingsGetMetaCurrencyMethod = settingsType.GetMethod("GetMetaCurrency",
+						GameReflection.PublicInstance, null, new[] { typeof(string) }, null);
+				}
+
+				// CapitalUpgradeModel
+				var upgradeModelType = gameAssembly.GetType("Eremite.WorldMap.CapitalUpgradeModel");
+				if (upgradeModelType != null) {
+					_upgradeDisplayNameField = upgradeModelType.GetField("displayName",
+						GameReflection.PublicInstance);
+					_upgradeIronmanDisplayNameField = upgradeModelType.GetField("ironmanDisplayName",
+						GameReflection.PublicInstance);
+				}
+
+				// WorldBlackboardService.OnCycleEndPhase
+				var wbbType = gameAssembly.GetType("Eremite.Services.World.IWorldBlackboardService");
+				if (wbbType != null) {
+					_wbbOnCycleEndPhaseProperty = wbbType.GetProperty("OnCycleEndPhase",
+						GameReflection.PublicInstance);
+				}
+
+				// CycleEndPhase.AnimationRequested enum value
+				var cycleEndPhaseType = gameAssembly.GetType("Eremite.CycleEndPhase");
+				if (cycleEndPhaseType != null) {
+					try {
+						_animationRequestedValue = Enum.Parse(cycleEndPhaseType, "AnimationRequested");
+					} catch (ArgumentException) {
+						Debug.LogWarning("[ATSAccessibility] WorldMapReflection: AnimationRequested enum value not found");
+						_animationRequestedValue = null;
+					}
+				}
+
+				// CycleState fields
+				var cycleStateType = gameAssembly.GetType("Eremite.WorldMap.CycleState");
+				if (cycleStateType != null) {
+					_cycleYearField = cycleStateType.GetField("year",
+						GameReflection.PublicInstance);
+					_cycleYearsInCycleField = cycleStateType.GetField("yearsInCycle",
+						GameReflection.PublicInstance);
+					_cycleGamesPlayedField = cycleStateType.GetField("gamesPlayedInCycle",
+						GameReflection.PublicInstance);
+					_cycleGamesWonField = cycleStateType.GetField("gamesWonInCycle",
+						GameReflection.PublicInstance);
+					_cycleSealFragmentsField = cycleStateType.GetField("sealFragments",
+						GameReflection.PublicInstance);
+				}
+
+				// WorldStateService.Seals
+				var worldStateServiceType = gameAssembly.GetType("Eremite.Services.IWorldStateService");
+				if (worldStateServiceType != null) {
+					_wssSealsProperty = worldStateServiceType.GetProperty("Seals",
+						GameReflection.PublicInstance);
+				}
+
+				// Seal service methods (WorldSealsService property cached in EnsureWorldMapTypes)
+				var worldSealsServiceType = gameAssembly.GetType("Eremite.Services.World.IWorldSealsService");
+				if (worldSealsServiceType != null) {
+					_sealsWasAnyCompletedMethod = worldSealsServiceType.GetMethod("WasAnySealEverCompleted",
+						GameReflection.PublicInstance);
+					_sealsGetHighestWonMethod = worldSealsServiceType.GetMethod("GetHighestWonSeal",
+						GameReflection.PublicInstance);
+				}
+
+				Debug.Log("[ATSAccessibility] Cached MetaState/CycleState/Seals types");
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] MetaState type caching failed: {ex.Message}");
+			}
+
+			_metaStateCached = true;
 		}
 
 		/// <summary>
@@ -1485,6 +1691,297 @@ namespace ATSAccessibility {
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] WorldMapGetFieldEffectsWithDescriptions failed: {ex.Message}");
 				return new List<(string, string)>();
+			}
+		}
+
+		// ========================================
+		// META STATE SERVICE API
+		// ========================================
+
+		/// <summary>
+		/// Get MetaStateService from MetaController.Instance.MetaServices.
+		/// </summary>
+		public static object GetMetaStateService() {
+			EnsureMetaStateTypes();
+
+			try {
+				var metaServices = GameReflection.GetMetaServices();
+				if (metaServices == null || _msMetaStateServiceProperty == null) return null;
+
+				return _msMetaStateServiceProperty.GetValue(metaServices);
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get player level info.
+		/// Returns (level, exp, targetExp).
+		/// </summary>
+		public static (int level, int exp, int targetExp) GetLevelInfo() {
+			EnsureMetaStateTypes();
+
+			try {
+				var metaStateService = GetMetaStateService();
+				if (metaStateService == null) return (0, 0, 0);
+
+				var levelState = _mssLevelProperty?.GetValue(metaStateService);
+				if (levelState == null) return (0, 0, 0);
+
+				var level = (int)(_levelLevelField?.GetValue(levelState) ?? 0);
+				var exp = (int)(_levelExpField?.GetValue(levelState) ?? 0);
+				var targetExp = (int)(_levelTargetExpField?.GetValue(levelState) ?? 0);
+
+				return (level, exp, targetExp);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetLevelInfo failed: {ex.Message}");
+				return (0, 0, 0);
+			}
+		}
+
+		/// <summary>
+		/// Get the experience gained in the current cycle.
+		/// </summary>
+		public static int GetCurrentCycleExp() {
+			EnsureMetaStateTypes();
+
+			try {
+				var metaStateService = GetMetaStateService();
+				if (metaStateService == null) return 0;
+
+				var economy = _mssEconomyProperty?.GetValue(metaStateService);
+				if (economy == null || _economyCurrentCycleExpField == null) return 0;
+
+				var expObj = _economyCurrentCycleExpField.GetValue(economy);
+				return expObj is int exp ? exp : 0;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetCurrentCycleExp failed: {ex.Message}");
+				return 0;
+			}
+		}
+
+		/// <summary>
+		/// Get the capital upgrades unlocked during the current cycle.
+		/// Returns an IEnumerable of upgrade ID strings, or null.
+		/// </summary>
+		public static IEnumerable GetCurrentCycleUnlockedUpgrades() {
+			EnsureMetaStateTypes();
+
+			try {
+				var metaStateService = GetMetaStateService();
+				if (metaStateService == null) return null;
+
+				var capital = _mssCapitalProperty?.GetValue(metaStateService);
+				if (capital == null || _capitalCurrentCycleUpgradesField == null) return null;
+
+				return _capitalCurrentCycleUpgradesField.GetValue(capital) as IEnumerable;
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the display name for a capital upgrade.
+		/// Uses ironman display name if isIronman is true and one exists.
+		/// </summary>
+		public static string GetCapitalUpgradeDisplayName(object settings, string upgradeId, bool isIronman) {
+			EnsureMetaStateTypes();
+
+			try {
+				if (_settingsGetCapitalUpgradeMethod == null) return upgradeId;
+
+				var upgrade = _settingsGetCapitalUpgradeMethod.Invoke(settings, new object[] { upgradeId });
+				if (upgrade == null) return upgradeId;
+
+				string name = null;
+
+				// Try ironman display name first if in ironman mode
+				if (isIronman && _upgradeIronmanDisplayNameField != null) {
+					var ironmanLocaText = _upgradeIronmanDisplayNameField.GetValue(upgrade);
+					name = GameReflection.GetLocaText(ironmanLocaText);
+				}
+
+				// Fall back to regular display name
+				if (string.IsNullOrEmpty(name) && _upgradeDisplayNameField != null) {
+					var locaText = _upgradeDisplayNameField.GetValue(upgrade);
+					name = GameReflection.GetLocaText(locaText);
+				}
+
+				return !string.IsNullOrEmpty(name) ? name : upgradeId;
+			} catch {
+				return upgradeId;
+			}
+		}
+
+		/// <summary>
+		/// Check if the current save is in ironman mode.
+		/// </summary>
+		public static bool IsIronmanMode() {
+			EnsureMetaStateTypes();
+
+			try {
+				var metaStateService = GetMetaStateService();
+				if (metaStateService == null || _mssStateProperty == null || _stateIsIronmanField == null)
+					return false;
+
+				var state = _mssStateProperty.GetValue(metaStateService);
+				if (state == null) return false;
+
+				var isIronmanObj = _stateIsIronmanField.GetValue(state);
+				return isIronmanObj is bool b && b;
+			} catch {
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Get meta currencies dictionary from economy state.
+		/// Returns IDictionary (string -> int), or null.
+		/// </summary>
+		public static System.Collections.IDictionary GetMetaCurrencies() {
+			EnsureMetaStateTypes();
+
+			try {
+				var metaStateService = GetMetaStateService();
+				if (metaStateService == null) return null;
+
+				var economyState = _mssEconomyProperty?.GetValue(metaStateService);
+				if (economyState == null || _economyMetaCurrenciesField == null) return null;
+
+				return _economyMetaCurrenciesField.GetValue(economyState) as System.Collections.IDictionary;
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the display name for a meta currency by its internal name.
+		/// </summary>
+		public static string GetMetaCurrencyDisplayName(string currencyName) {
+			EnsureMetaStateTypes();
+
+			try {
+				if (_settingsGetMetaCurrencyMethod == null || string.IsNullOrEmpty(currencyName))
+					return currencyName;
+
+				var settings = GameReflection.GetSettings();
+				if (settings == null) return currencyName;
+
+				var model = _settingsGetMetaCurrencyMethod.Invoke(settings, new object[] { currencyName });
+				if (model == null) return currencyName;
+
+				var displayNameProp = model.GetType().GetProperty("DisplayName",
+					GameReflection.PublicInstance);
+				return displayNameProp?.GetValue(model) as string ?? currencyName;
+			} catch {
+				return currencyName;
+			}
+		}
+
+		// ========================================
+		// CYCLE STATE API
+		// ========================================
+
+		/// <summary>
+		/// Cycle property on WorldStateService, for direct access by consumers.
+		/// </summary>
+		public static PropertyInfo CycleProperty {
+			get {
+				EnsureWorldMapTypes();
+				return _wssCycleProperty;
+			}
+		}
+
+		/// <summary>
+		/// Get cycle/storm information.
+		/// Returns (year, yearsInCycle, gamesWon, gamesPlayed, sealFragments).
+		/// </summary>
+		public static (int year, int yearsInCycle, int gamesWon, int gamesPlayed, int sealFragments) GetCycleInfo() {
+			EnsureMetaStateTypes();
+
+			try {
+				var worldStateService = GetWorldStateService();
+				if (worldStateService == null || _wssCycleProperty == null) return (0, 0, 0, 0, 0);
+
+				var cycleState = _wssCycleProperty.GetValue(worldStateService);
+				if (cycleState == null) return (0, 0, 0, 0, 0);
+
+				var year = (int)(_cycleYearField?.GetValue(cycleState) ?? 0);
+				var yearsInCycle = (int)(_cycleYearsInCycleField?.GetValue(cycleState) ?? 0);
+				var gamesPlayed = (int)(_cycleGamesPlayedField?.GetValue(cycleState) ?? 0);
+				var gamesWon = (int)(_cycleGamesWonField?.GetValue(cycleState) ?? 0);
+				var sealFragments = (int)(_cycleSealFragmentsField?.GetValue(cycleState) ?? 0);
+
+				return (year, yearsInCycle, gamesWon, gamesPlayed, sealFragments);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetCycleInfo failed: {ex.Message}");
+				return (0, 0, 0, 0, 0);
+			}
+		}
+
+		// ========================================
+		// SEALS API
+		// ========================================
+
+		/// <summary>
+		/// WorldSealsService property on IWorldServices, for direct access by consumers.
+		/// </summary>
+		public static PropertyInfo WorldSealsServiceProperty {
+			get {
+				EnsureWorldMapTypes();
+				return _wsWorldSealsServiceProperty;
+			}
+		}
+
+		/// <summary>
+		/// WasAnySealEverCompleted method on WorldSealsService.
+		/// </summary>
+		public static MethodInfo SealsWasAnyCompleted {
+			get {
+				EnsureMetaStateTypes();
+				return _sealsWasAnyCompletedMethod;
+			}
+		}
+
+		/// <summary>
+		/// GetHighestWonSeal method on WorldSealsService.
+		/// </summary>
+		public static MethodInfo SealsGetHighestWon {
+			get {
+				EnsureMetaStateTypes();
+				return _sealsGetHighestWonMethod;
+			}
+		}
+
+		// ========================================
+		// CYCLE END API
+		// ========================================
+
+		/// <summary>
+		/// Trigger the cycle end animation by invoking
+		/// WorldBlackboardService.OnCycleEndPhase.OnNext(CycleEndPhase.AnimationRequested).
+		/// Returns true if successful.
+		/// </summary>
+		public static bool TriggerCycleEndAnimation() {
+			EnsureMetaStateTypes();
+
+			var wbb = GetWorldBlackboardService();
+			if (wbb == null || _wbbOnCycleEndPhaseProperty == null || _animationRequestedValue == null)
+				return false;
+
+			try {
+				var subject = _wbbOnCycleEndPhaseProperty.GetValue(wbb);
+				if (subject == null) return false;
+
+				var onNextMethod = subject.GetType().GetMethod("OnNext",
+					GameReflection.PublicInstance);
+				if (onNextMethod == null) return false;
+
+				onNextMethod.Invoke(subject, new[] { _animationRequestedValue });
+				return true;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] TriggerCycleEndAnimation failed: {ex.Message}");
+				return false;
 			}
 		}
 

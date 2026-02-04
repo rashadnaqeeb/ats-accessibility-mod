@@ -8,124 +8,9 @@ namespace ATSAccessibility {
 	/// <summary>
 	/// Reads detailed tile information (like tooltips) for the I key feature.
 	/// Provides building, natural resource, and deposit info via reflection.
-	/// Uses cached reflection metadata for performance while fetching fresh values each call.
+	/// Reflection caching is handled by TileInfoReflection.
 	/// </summary>
 	public static class TileInfoReader {
-		// ========================================
-		// REFLECTION CACHE (per-type dictionaries)
-		// ========================================
-
-		// NaturalResource reflection cache (per-type for different resource/model types)
-		private static Dictionary<Type, PropertyInfo> _naturalResourceModelProps = new Dictionary<Type, PropertyInfo>();
-		private static Dictionary<Type, PropertyInfo> _naturalResourceStateProps = new Dictionary<Type, PropertyInfo>();
-		private static Dictionary<Type, FieldInfo> _resourceStateChargesLeftFields = new Dictionary<Type, FieldInfo>();
-		private static Dictionary<Type, FieldInfo> _resourceModelChargesFields = new Dictionary<Type, FieldInfo>();
-		private static Dictionary<Type, PropertyInfo> _resourceModelRefGoodNameProps = new Dictionary<Type, PropertyInfo>();
-
-		// ResourceDeposit reflection cache (per-type)
-		private static Dictionary<Type, PropertyInfo> _depositModelProps = new Dictionary<Type, PropertyInfo>();
-		private static Dictionary<Type, PropertyInfo> _depositStateProps = new Dictionary<Type, PropertyInfo>();
-		private static Dictionary<Type, PropertyInfo> _depositModelDescProps = new Dictionary<Type, PropertyInfo>();
-		private static Dictionary<Type, FieldInfo> _depositStateChargesLeftFields = new Dictionary<Type, FieldInfo>();
-		private static Dictionary<Type, FieldInfo> _depositStateMaxChargesFields = new Dictionary<Type, FieldInfo>();
-
-		// Building reflection cache (per-type)
-		private static Dictionary<Type, PropertyInfo> _buildingModelProps = new Dictionary<Type, PropertyInfo>();
-		private static Dictionary<Type, PropertyInfo> _buildingModelDescProps = new Dictionary<Type, PropertyInfo>();
-
-		// Shared model fields (production, extraProduction)
-		private static FieldInfo _productionField;
-		private static FieldInfo _extraProductionField;
-		private static FieldInfo _goodRefGoodField;
-		private static FieldInfo _goodRefAmountField;
-		private static PropertyInfo _goodRefChanceDisplayNameProp;
-		private static FieldInfo _goodRefChanceField;
-		private static FieldInfo _goodDisplayNameField;
-		private static bool _sharedCached;
-
-		// Service reflection cache
-		private static PropertyInfo _campsMatrixProp;
-		private static PropertyInfo _hutsMatrixProp;
-		private static bool _serviceCached;
-
-		// ========================================
-		// CACHE INITIALIZATION METHODS
-		// ========================================
-
-		private static void EnsureSharedCache(object model) {
-			if (_sharedCached || model == null) return;
-
-			var modelType = model.GetType();
-			_productionField = modelType.GetField("production", BindingFlags.Public | BindingFlags.Instance);
-			_extraProductionField = modelType.GetField("extraProduction", BindingFlags.Public | BindingFlags.Instance);
-
-			// Cache GoodRef fields if we have a production object
-			if (_productionField != null) {
-				var production = _productionField.GetValue(model);
-				if (production != null) {
-					var prodType = production.GetType();
-					_goodRefGoodField = prodType.GetField("good", BindingFlags.Public | BindingFlags.Instance);
-					_goodRefAmountField = prodType.GetField("amount", BindingFlags.Public | BindingFlags.Instance);
-
-					// Cache Good fields
-					if (_goodRefGoodField != null) {
-						var good = _goodRefGoodField.GetValue(production);
-						if (good != null) {
-							_goodDisplayNameField = good.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
-						}
-					}
-				}
-			}
-
-			// Cache GoodRefChance fields if we have extraProduction
-			if (_extraProductionField != null) {
-				var extraProduction = _extraProductionField.GetValue(model) as Array;
-				if (extraProduction != null && extraProduction.Length > 0) {
-					var firstItem = extraProduction.GetValue(0);
-					if (firstItem != null) {
-						var itemType = firstItem.GetType();
-						_goodRefChanceDisplayNameProp = itemType.GetProperty("DisplayName");
-						_goodRefChanceField = itemType.GetField("chance", BindingFlags.Public | BindingFlags.Instance);
-					}
-				}
-			}
-
-			_sharedCached = true;
-		}
-
-		private static void EnsureServiceCache(object resourcesService, object depositsService) {
-			if (_serviceCached) return;
-
-			if (resourcesService != null && _campsMatrixProp == null) {
-				_campsMatrixProp = resourcesService.GetType().GetProperty("CampsMatrix", BindingFlags.Public | BindingFlags.Instance);
-			}
-
-			if (depositsService != null && _hutsMatrixProp == null) {
-				_hutsMatrixProp = depositsService.GetType().GetProperty("HutsMatrix", BindingFlags.Public | BindingFlags.Instance);
-			}
-
-			_serviceCached = true;
-		}
-
-		// ========================================
-		// SAFE ACCESS HELPERS
-		// ========================================
-
-		private static int GetIntField(object obj, FieldInfo field) {
-			if (obj == null || field == null) return 0;
-			try { return (int)field.GetValue(obj); } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetIntField failed: {ex.Message}"); return 0; }
-		}
-
-		private static string GetStringProperty(object obj, PropertyInfo prop) {
-			if (obj == null || prop == null) return null;
-			try { return prop.GetValue(obj) as string; } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetStringProperty failed: {ex.Message}"); return null; }
-		}
-
-		private static float GetFloatField(object obj, FieldInfo field) {
-			if (obj == null || field == null) return 0f;
-			try { return (float)field.GetValue(obj); } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetFloatField failed: {ex.Message}"); return 0f; }
-		}
-
 		// ========================================
 		// CONSOLIDATED HELPERS
 		// ========================================
@@ -136,42 +21,10 @@ namespace ATSAccessibility {
 		/// For Deposit: both from state
 		/// </summary>
 		private static string GetChargesInfo(object state, FieldInfo chargesLeftField, object maxSource, FieldInfo maxChargesField) {
-			int chargesLeft = GetIntField(state, chargesLeftField);
-			int maxCharges = GetIntField(maxSource, maxChargesField);
+			int chargesLeft = TileInfoReflection.GetIntField(state, chargesLeftField);
+			int maxCharges = TileInfoReflection.GetIntField(maxSource, maxChargesField);
 
 			return maxCharges > 0 ? $"{chargesLeft} of {maxCharges} charges" : null;
-		}
-
-		/// <summary>
-		/// Get localized text from a LocaText field (fieldName.Text).
-		/// </summary>
-		private static string GetLocalizedText(object obj, string fieldName) {
-			try {
-				var field = obj.GetType().GetField(fieldName, BindingFlags.Public | BindingFlags.Instance);
-				if (field == null) return null;
-
-				var locaText = field.GetValue(obj);
-				return GameReflection.GetLocaText(locaText);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetLocalizedText failed: {ex.Message}");
-				return null;
-			}
-		}
-
-		/// <summary>
-		/// Get the Description property from a model object.
-		/// For NaturalResourceModel/ResourceDepositModel, this includes the grade requirement text with sprite tags.
-		/// </summary>
-		private static string GetDescriptionProperty(object model) {
-			if (model == null) return null;
-
-			try {
-				var descProp = model.GetType().GetProperty("Description", BindingFlags.Public | BindingFlags.Instance);
-				return descProp?.GetValue(model) as string;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetDescriptionProperty failed: {ex.Message}");
-				return null;
-			}
 		}
 
 		/// <summary>
@@ -213,7 +66,7 @@ namespace ATSAccessibility {
 				foreach (var building in listEnumerable) {
 					if (building == null) continue;
 
-					string name = GetLocalizedText(building, "displayName");
+					string name = TileInfoReflection.GetLocalizedText(building, "displayName");
 					if (!string.IsNullOrEmpty(name)) {
 						names.Add(name);
 					}
@@ -236,7 +89,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		public static void ReadCurrentTile(int cursorX, int cursorY) {
 			var glade = GameReflection.GetGlade(cursorX, cursorY);
-			if (glade != null && !GetGladeWasDiscovered(glade)) {
+			if (glade != null && !TileInfoReflection.GetGladeWasDiscovered(glade)) {
 				Speech.Say("Unrevealed glade");
 				return;
 			}
@@ -321,7 +174,7 @@ namespace ATSAccessibility {
 				if (!GameReflection.IsSealedBiome()) return null;
 
 				// Get the building's view field (Decoration has public "view" field)
-				var viewField = building.GetType().GetField("view", BindingFlags.Public | BindingFlags.Instance);
+				var viewField = building.GetType().GetField("view", GameReflection.PublicInstance);
 				if (viewField == null) return null;
 
 				var view = viewField.GetValue(building);
@@ -331,7 +184,7 @@ namespace ATSAccessibility {
 				if (view.GetType().Name != "SealGuidepostView") return null;
 
 				// Get building's world position from view.Position (inherited from BaseMB)
-				var positionProp = view.GetType().GetProperty("Position", BindingFlags.Public | BindingFlags.Instance);
+				var positionProp = view.GetType().GetProperty("Position", GameReflection.PublicInstance);
 				if (positionProp == null) return null;
 
 				var positionObj = positionProp.GetValue(view);
@@ -380,11 +233,8 @@ namespace ATSAccessibility {
 
 				var buildingType = building.GetType();
 
-				// Get or cache BuildingModel property for this type
-				if (!_buildingModelProps.TryGetValue(buildingType, out var buildingModelProp)) {
-					buildingModelProp = buildingType.GetProperty("BuildingModel");
-					_buildingModelProps[buildingType] = buildingModelProp;
-				}
+				// Get BuildingModel property for this type
+				var buildingModelProp = TileInfoReflection.GetBuildingModelProp(buildingType);
 				if (buildingModelProp == null) return null;
 
 				var buildingModel = buildingModelProp.GetValue(building);
@@ -392,14 +242,11 @@ namespace ATSAccessibility {
 
 				var modelType = buildingModel.GetType();
 
-				// Get or cache Description property for this model type
-				if (!_buildingModelDescProps.TryGetValue(modelType, out var descProp)) {
-					descProp = modelType.GetProperty("Description");
-					_buildingModelDescProps[modelType] = descProp;
-				}
+				// Get Description property for this model type
+				var descProp = TileInfoReflection.GetBuildingModelDescProp(modelType);
 
 				// Get Description
-				string desc = GetStringProperty(buildingModel, descProp);
+				string desc = TileInfoReflection.GetStringProperty(buildingModel, descProp);
 				if (!string.IsNullOrEmpty(desc)) {
 					parts.Add(desc);
 				}
@@ -419,11 +266,8 @@ namespace ATSAccessibility {
 			try {
 				var resourceType = resource.GetType();
 
-				// Get or cache Model property
-				if (!_naturalResourceModelProps.TryGetValue(resourceType, out var modelProp)) {
-					modelProp = resourceType.GetProperty("Model");
-					_naturalResourceModelProps[resourceType] = modelProp;
-				}
+				// Get Model property
+				var modelProp = TileInfoReflection.GetNaturalResourceModelProp(resourceType);
 				if (modelProp == null) return null;
 
 				var model = modelProp.GetValue(resource);
@@ -431,31 +275,21 @@ namespace ATSAccessibility {
 
 				var modelType = model.GetType();
 
-				// Get or cache State property
-				if (!_naturalResourceStateProps.TryGetValue(resourceType, out var stateProp)) {
-					stateProp = resourceType.GetProperty("State");
-					_naturalResourceStateProps[resourceType] = stateProp;
-				}
+				// Get State property
+				var stateProp = TileInfoReflection.GetNaturalResourceStateProp(resourceType);
 				var state = stateProp?.GetValue(resource);
 				var stateType = state?.GetType();
 
-				// Get or cache charges fields
-				if (!_resourceModelChargesFields.TryGetValue(modelType, out var modelChargesField)) {
-					modelChargesField = modelType.GetField("charges", BindingFlags.Public | BindingFlags.Instance);
-					_resourceModelChargesFields[modelType] = modelChargesField;
-				}
+				// Get charges fields
+				var modelChargesField = TileInfoReflection.GetResourceModelChargesField(modelType);
 
 				FieldInfo stateChargesLeftField = null;
-				if (stateType != null && !_resourceStateChargesLeftFields.TryGetValue(stateType, out stateChargesLeftField)) {
-					stateChargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
-					_resourceStateChargesLeftFields[stateType] = stateChargesLeftField;
+				if (stateType != null) {
+					stateChargesLeftField = TileInfoReflection.GetResourceStateChargesLeftField(stateType);
 				}
 
-				// Get or cache RefGoodName property
-				if (!_resourceModelRefGoodNameProps.TryGetValue(modelType, out var refGoodNameProp)) {
-					refGoodNameProp = modelType.GetProperty("RefGoodName");
-					_resourceModelRefGoodNameProps[modelType] = refGoodNameProp;
-				}
+				// Get RefGoodName property
+				var refGoodNameProp = TileInfoReflection.GetResourceModelRefGoodNameProp(modelType);
 
 				var parts = new List<string>();
 
@@ -466,7 +300,7 @@ namespace ATSAccessibility {
 				}
 
 				// Description from model.description field (LocaText)
-				string desc = GetLocalizedText(model, "description");
+				string desc = TileInfoReflection.GetLocalizedText(model, "description");
 				if (!string.IsNullOrEmpty(desc)) {
 					parts.Add(desc);
 				}
@@ -504,11 +338,8 @@ namespace ATSAccessibility {
 			try {
 				var depositType = deposit.GetType();
 
-				// Get or cache Model property
-				if (!_depositModelProps.TryGetValue(depositType, out var modelProp)) {
-					modelProp = depositType.GetProperty("Model");
-					_depositModelProps[depositType] = modelProp;
-				}
+				// Get Model property
+				var modelProp = TileInfoReflection.GetDepositModelProp(depositType);
 				if (modelProp == null) return null;
 
 				var model = modelProp.GetValue(deposit);
@@ -516,32 +347,20 @@ namespace ATSAccessibility {
 
 				var modelType = model.GetType();
 
-				// Get or cache State property
-				if (!_depositStateProps.TryGetValue(depositType, out var stateProp)) {
-					stateProp = depositType.GetProperty("State");
-					_depositStateProps[depositType] = stateProp;
-				}
+				// Get State property
+				var stateProp = TileInfoReflection.GetDepositStateProp(depositType);
 				var state = stateProp?.GetValue(deposit);
 				var stateType = state?.GetType();
 
-				// Get or cache Description property
-				if (!_depositModelDescProps.TryGetValue(modelType, out var descProp)) {
-					descProp = modelType.GetProperty("Description");
-					_depositModelDescProps[modelType] = descProp;
-				}
+				// Get Description property
+				var descProp = TileInfoReflection.GetDepositModelDescProp(modelType);
 
-				// Get or cache charges fields (both from state for deposits)
+				// Get charges fields (both from state for deposits)
 				FieldInfo stateChargesLeftField = null;
 				FieldInfo stateMaxChargesField = null;
 				if (stateType != null) {
-					if (!_depositStateChargesLeftFields.TryGetValue(stateType, out stateChargesLeftField)) {
-						stateChargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
-						_depositStateChargesLeftFields[stateType] = stateChargesLeftField;
-					}
-					if (!_depositStateMaxChargesFields.TryGetValue(stateType, out stateMaxChargesField)) {
-						stateMaxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
-						_depositStateMaxChargesFields[stateType] = stateMaxChargesField;
-					}
+					stateChargesLeftField = TileInfoReflection.GetDepositStateChargesLeftField(stateType);
+					stateMaxChargesField = TileInfoReflection.GetDepositStateMaxChargesField(stateType);
 				}
 
 				var parts = new List<string>();
@@ -553,7 +372,7 @@ namespace ATSAccessibility {
 				}
 
 				// Description
-				string desc = GetStringProperty(model, descProp);
+				string desc = TileInfoReflection.GetStringProperty(model, descProp);
 				if (!string.IsNullOrEmpty(desc)) {
 					parts.Add(desc);
 				}
@@ -607,8 +426,8 @@ namespace ATSAccessibility {
 				// Get total charges from state (mainCharges + extraCharges arrays)
 				if (state != null) {
 					var stateType = state.GetType();
-					var mainChargesField = stateType.GetField("mainCharges", BindingFlags.Public | BindingFlags.Instance);
-					var extraChargesField = stateType.GetField("extraCharges", BindingFlags.Public | BindingFlags.Instance);
+					var mainChargesField = stateType.GetField("mainCharges", GameReflection.PublicInstance);
+					var extraChargesField = stateType.GetField("extraCharges", GameReflection.PublicInstance);
 
 					int totalCharges = 0;
 					if (mainChargesField != null) {
@@ -630,22 +449,22 @@ namespace ATSAccessibility {
 				}
 
 				// Description
-				string desc = GetLocalizedText(model, "description");
+				string desc = TileInfoReflection.GetLocalizedText(model, "description");
 				if (!string.IsNullOrEmpty(desc)) {
 					parts.Add(desc);
 				}
 
 				// Product info from displayProduct
 				var modelType = model.GetType();
-				var displayProductField = modelType.GetField("displayProduct", BindingFlags.Public | BindingFlags.Instance);
+				var displayProductField = modelType.GetField("displayProduct", GameReflection.PublicInstance);
 				if (displayProductField != null) {
 					var displayProduct = displayProductField.GetValue(model);
 					if (displayProduct != null) {
-						var goodField = displayProduct.GetType().GetField("good", BindingFlags.Public | BindingFlags.Instance);
+						var goodField = displayProduct.GetType().GetField("good", GameReflection.PublicInstance);
 						if (goodField != null) {
 							var good = goodField.GetValue(displayProduct);
 							if (good != null) {
-								string productName = GetLocalizedText(good, "displayName");
+								string productName = TileInfoReflection.GetLocalizedText(good, "displayName");
 								if (!string.IsNullOrEmpty(productName)) {
 									parts.Add($"Produces {productName}");
 								}
@@ -685,11 +504,11 @@ namespace ATSAccessibility {
 				// Get charges from state
 				if (state != null) {
 					var stateType = state.GetType();
-					var chargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
-					var maxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
+					var chargesLeftField = stateType.GetField("chargesLeft", GameReflection.PublicInstance);
+					var maxChargesField = stateType.GetField("maxCharges", GameReflection.PublicInstance);
 
-					int chargesLeft = GetIntField(state, chargesLeftField);
-					int maxCharges = GetIntField(state, maxChargesField);
+					int chargesLeft = TileInfoReflection.GetIntField(state, chargesLeftField);
+					int maxCharges = TileInfoReflection.GetIntField(state, maxChargesField);
 
 					if (maxCharges > 0) {
 						parts.Add($"{chargesLeft} of {maxCharges} charges");
@@ -697,7 +516,7 @@ namespace ATSAccessibility {
 				}
 
 				// Description
-				string desc = GetLocalizedText(model, "description");
+				string desc = TileInfoReflection.GetLocalizedText(model, "description");
 				if (!string.IsNullOrEmpty(desc)) {
 					parts.Add(desc);
 				}
@@ -733,23 +552,23 @@ namespace ATSAccessibility {
 				// Get charges from state
 				if (state != null) {
 					var stateType = state.GetType();
-					var chargesLeftField = stateType.GetField("chargesLeft", BindingFlags.Public | BindingFlags.Instance);
-					var maxChargesField = stateType.GetField("maxCharges", BindingFlags.Public | BindingFlags.Instance);
+					var chargesLeftField = stateType.GetField("chargesLeft", GameReflection.PublicInstance);
+					var maxChargesField = stateType.GetField("maxCharges", GameReflection.PublicInstance);
 
-					int chargesLeft = GetIntField(state, chargesLeftField);
-					int maxCharges = GetIntField(state, maxChargesField);
+					int chargesLeft = TileInfoReflection.GetIntField(state, chargesLeftField);
+					int maxCharges = TileInfoReflection.GetIntField(state, maxChargesField);
 
 					if (maxCharges > 0) {
 						parts.Add($"{chargesLeft} of {maxCharges} charges");
 					}
 
 					// Get stored fish waiting for pickup
-					var goodsField = stateType.GetField("goods", BindingFlags.Public | BindingFlags.Instance);
+					var goodsField = stateType.GetField("goods", GameReflection.PublicInstance);
 					if (goodsField != null) {
 						var goods = goodsField.GetValue(state);
 						if (goods != null) {
 							// GoodsContainer has a Sum() method
-							var sumMethod = goods.GetType().GetMethod("Sum", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
+							var sumMethod = goods.GetType().GetMethod("Sum", GameReflection.PublicInstance, null, Type.EmptyTypes, null);
 							if (sumMethod != null) {
 								int storedFish = (int)sumMethod.Invoke(goods, null);
 								if (storedFish > 0) {
@@ -761,7 +580,7 @@ namespace ATSAccessibility {
 				}
 
 				// Description - LakeModel has a Description property that includes grade requirement
-				string desc = GetDescriptionProperty(model);
+				string desc = TileInfoReflection.GetDescriptionProperty(model);
 				if (!string.IsNullOrEmpty(desc)) {
 					parts.Add(desc);
 				}
@@ -789,7 +608,7 @@ namespace ATSAccessibility {
 				if (modelProp != null) {
 					var model = modelProp.GetValue(obj);
 					if (model != null) {
-						string name = GetLocalizedText(model, "displayName");
+						string name = TileInfoReflection.GetLocalizedText(model, "displayName");
 						if (!string.IsNullOrEmpty(name)) {
 							return name;
 						}
@@ -814,29 +633,29 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static string GetMainProductInfo(object model) {
 			try {
-				var productionField = _productionField ?? model.GetType().GetField("production", BindingFlags.Public | BindingFlags.Instance);
+				var productionField = TileInfoReflection.ProductionField ?? model.GetType().GetField("production", GameReflection.PublicInstance);
 				if (productionField == null) return null;
 
 				var production = productionField.GetValue(model);
 				if (production == null) return null;
 
 				// Get good
-				var goodField = _goodRefGoodField ?? production.GetType().GetField("good", BindingFlags.Public | BindingFlags.Instance);
+				var goodField = TileInfoReflection.GoodRefGoodField ?? production.GetType().GetField("good", GameReflection.PublicInstance);
 				if (goodField == null) return null;
 
 				var good = goodField.GetValue(production);
 				if (good == null) return null;
 
 				// Get displayName
-				var displayNameField = _goodDisplayNameField ?? good.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+				var displayNameField = TileInfoReflection.GoodDisplayNameField ?? good.GetType().GetField("displayName", GameReflection.PublicInstance);
 				if (displayNameField == null) return null;
 
 				var displayName = displayNameField.GetValue(good);
 				string productName = GameReflection.GetLocaText(displayName);
 
 				// Get amount
-				var amountField = _goodRefAmountField ?? production.GetType().GetField("amount", BindingFlags.Public | BindingFlags.Instance);
-				int amount = GetIntField(production, amountField);
+				var amountField = TileInfoReflection.GoodRefAmountField ?? production.GetType().GetField("amount", GameReflection.PublicInstance);
+				int amount = TileInfoReflection.GetIntField(production, amountField);
 
 				if (!string.IsNullOrEmpty(productName)) {
 					return amount > 1 ? $"{amount} {productName}" : productName;
@@ -852,7 +671,7 @@ namespace ATSAccessibility {
 		/// </summary>
 		private static string GetExtraProductsInfo(object model) {
 			try {
-				var extraProductionField = _extraProductionField ?? model.GetType().GetField("extraProduction", BindingFlags.Public | BindingFlags.Instance);
+				var extraProductionField = TileInfoReflection.ExtraProductionField ?? model.GetType().GetField("extraProduction", GameReflection.PublicInstance);
 				if (extraProductionField == null) return null;
 
 				var extraProduction = extraProductionField.GetValue(model) as Array;
@@ -864,12 +683,12 @@ namespace ATSAccessibility {
 					if (item == null) continue;
 
 					// Get DisplayName (using cached property if available)
-					var displayNameProp = _goodRefChanceDisplayNameProp ?? item.GetType().GetProperty("DisplayName");
+					var displayNameProp = TileInfoReflection.GoodRefChanceDisplayNameProp ?? item.GetType().GetProperty("DisplayName");
 					string productName = displayNameProp != null ? displayNameProp.GetValue(item) as string : null;
 
 					// Get chance (using cached field if available)
-					var chanceField = _goodRefChanceField ?? item.GetType().GetField("chance", BindingFlags.Public | BindingFlags.Instance);
-					float chance = GetFloatField(item, chanceField);
+					var chanceField = TileInfoReflection.GoodRefChanceField ?? item.GetType().GetField("chance", GameReflection.PublicInstance);
+					float chance = TileInfoReflection.GetFloatField(item, chanceField);
 
 					if (!string.IsNullOrEmpty(productName) && chance > 0) {
 						int percent = Mathf.RoundToInt(chance * 100f);
@@ -894,7 +713,7 @@ namespace ATSAccessibility {
 		private static string GetCampsForResource(object resourceModel, PropertyInfo refGoodNameProp) {
 			try {
 				// Get RefGoodName from model (use passed-in cached property)
-				string refGoodName = GetStringProperty(resourceModel, refGoodNameProp);
+				string refGoodName = TileInfoReflection.GetStringProperty(resourceModel, refGoodNameProp);
 				if (string.IsNullOrEmpty(refGoodName)) return null;
 
 				// Get ResourcesService
@@ -902,10 +721,10 @@ namespace ATSAccessibility {
 				if (resourcesService == null) return null;
 
 				// Initialize service cache
-				EnsureServiceCache(resourcesService, null);
+				TileInfoReflection.EnsureServiceCache(resourcesService, null);
 
 				// Get CampsMatrix dictionary
-				var campsMatrixProp = _campsMatrixProp ?? resourcesService.GetType().GetProperty("CampsMatrix", BindingFlags.Public | BindingFlags.Instance);
+				var campsMatrixProp = TileInfoReflection.CampsMatrixProp ?? resourcesService.GetType().GetProperty("CampsMatrix", GameReflection.PublicInstance);
 				if (campsMatrixProp == null) return null;
 
 				var campsMatrix = campsMatrixProp.GetValue(resourcesService);
@@ -929,10 +748,10 @@ namespace ATSAccessibility {
 				if (depositsService == null) return null;
 
 				// Initialize service cache
-				EnsureServiceCache(null, depositsService);
+				TileInfoReflection.EnsureServiceCache(null, depositsService);
 
 				// Get HutsMatrix dictionary
-				var hutsMatrixProp = _hutsMatrixProp ?? depositsService.GetType().GetProperty("HutsMatrix", BindingFlags.Public | BindingFlags.Instance);
+				var hutsMatrixProp = TileInfoReflection.HutsMatrixProp ?? depositsService.GetType().GetProperty("HutsMatrix", GameReflection.PublicInstance);
 				if (hutsMatrixProp == null) return null;
 
 				var hutsMatrix = hutsMatrixProp.GetValue(depositsService);
@@ -948,27 +767,6 @@ namespace ATSAccessibility {
 		// ========================================
 		// UTILITY METHODS
 		// ========================================
-
-		private static FieldInfo _wasDiscoveredField;
-		private static bool _wasDiscoveredCached;
-
-		private static bool GetGladeWasDiscovered(object glade) {
-			if (!_wasDiscoveredCached) {
-				_wasDiscoveredField = glade.GetType().GetField("wasDiscovered",
-					BindingFlags.Public | BindingFlags.Instance);
-				_wasDiscoveredCached = true;
-			}
-
-			try {
-				if (_wasDiscoveredField != null)
-					return (bool)_wasDiscoveredField.GetValue(glade);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}");
-			}
-
-			// Default to discovered (don't hide content if we can't determine state)
-			return true;
-		}
 
 		/// <summary>
 		/// Check if a type inherits from a class with the given name anywhere in its hierarchy.

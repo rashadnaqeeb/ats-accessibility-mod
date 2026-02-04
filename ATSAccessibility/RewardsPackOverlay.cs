@@ -12,17 +12,10 @@ namespace ATSAccessibility {
 		private object _popup;
 		private List<string> _items = new List<string>();
 
-		// Cached reflection
+		// Cached reflection (popup-specific fields only; shared slot types in PopupReflection)
 		private static bool _typesCached;
 		private static FieldInfo _goodsSlotsField;
 		private static FieldInfo _effectsSlotsField;
-		private static FieldInfo _goodSlotGoodField;
-		private static FieldInfo _effectSlotModelField;
-		private static FieldInfo _goodNameField;
-		private static FieldInfo _goodAmountField;
-		private static PropertyInfo _effectDisplayNameProperty;
-		private static PropertyInfo _effectDescriptionProperty;
-		private static MethodInfo _popupHideMethod;
 		private static FieldInfo _headerField;
 		private static FieldInfo _descField;
 
@@ -64,17 +57,14 @@ namespace ATSAccessibility {
 					var mb = slot as MonoBehaviour;
 					if (mb != null && !mb.gameObject.activeSelf) continue;
 
-					var good = _goodSlotGoodField?.GetValue(slot);
+					var good = PopupReflection.GetGoodFromSlot(slot);
 					if (good == null) continue;
 
-					string name = _goodNameField?.GetValue(good) as string;
-					int amount = 0;
-					var amountObj = _goodAmountField?.GetValue(good);
-					if (amountObj is int a) amount = a;
-
+					string name = PopupReflection.GetGoodName(good);
 					if (string.IsNullOrEmpty(name)) continue;
 
-					string displayName = GetGoodDisplayName(name);
+					int amount = PopupReflection.GetGoodAmount(good);
+					string displayName = PopupReflection.GetGoodDisplayName(name);
 					if (amount > 1)
 						_items.Add($"{displayName}, {amount}");
 					else
@@ -91,11 +81,11 @@ namespace ATSAccessibility {
 					var mb = slot as MonoBehaviour;
 					if (mb != null && !mb.gameObject.activeSelf) continue;
 
-					var model = _effectSlotModelField?.GetValue(slot);
+					var model = PopupReflection.GetEffectModel(slot);
 					if (model == null) continue;
 
-					string displayName = _effectDisplayNameProperty?.GetValue(model) as string;
-					string description = _effectDescriptionProperty?.GetValue(model) as string;
+					string displayName = PopupReflection.GetEffectDisplayName(model);
+					string description = PopupReflection.GetEffectDescription(model);
 
 					if (!string.IsNullOrEmpty(displayName)) {
 						if (!string.IsNullOrEmpty(description))
@@ -159,14 +149,8 @@ namespace ATSAccessibility {
 		private void Dismiss() {
 			if (_popup == null) return;
 
-			EnsureTypes();
-			if (_popupHideMethod != null) {
-				try {
-					_popupHideMethod.Invoke(_popup, null);
-					SoundManager.PlayButtonClick();
-				} catch (System.Exception ex) {
-					Debug.LogError($"[ATSAccessibility] RewardsPackOverlay: Failed to hide popup: {ex.Message}");
-				}
+			if (PopupReflection.HidePopup(_popup)) {
+				SoundManager.PlayButtonClick();
 			}
 		}
 
@@ -174,37 +158,9 @@ namespace ATSAccessibility {
 		// HELPERS
 		// ========================================
 
-		private string GetGoodDisplayName(string goodName) {
-			if (string.IsNullOrEmpty(goodName)) return goodName;
-
-			try {
-				var settings = GameReflection.GetSettings();
-				if (settings == null) return goodName;
-
-				var getGoodMethod = settings.GetType().GetMethod("GetGood", new[] { typeof(string) });
-				var goodModel = getGoodMethod?.Invoke(settings, new object[] { goodName });
-				if (goodModel == null) return goodName;
-
-				var displayNameField = goodModel.GetType().GetField("displayName", GameReflection.PublicInstance);
-				var displayNameObj = displayNameField?.GetValue(goodModel);
-				return GameReflection.GetLocaText(displayNameObj) ?? goodName;
-			} catch {
-				return goodName;
-			}
-		}
-
 		private string GetPopupText(FieldInfo textField) {
 			if (_popup == null || textField == null) return null;
-
-			try {
-				var tmpText = textField.GetValue(_popup);
-				if (tmpText == null) return null;
-
-				var textProp = tmpText.GetType().GetProperty("text", GameReflection.PublicInstance);
-				return textProp?.GetValue(tmpText) as string;
-			} catch {
-				return null;
-			}
+			return PopupReflection.GetTmpText(textField.GetValue(_popup));
 		}
 
 		// ========================================
@@ -213,11 +169,9 @@ namespace ATSAccessibility {
 
 		private static void EnsureTypes() {
 			if (_typesCached) return;
+			_typesCached = true;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) return;
-
-			try {
+			ReflectionHelper.InitCache("RewardsPackOverlay", assembly => {
 				var popupType = assembly.GetType("Eremite.View.HUD.Rewards.RewardsPackPopup");
 				if (popupType != null) {
 					_goodsSlotsField = popupType.GetField("goodsSlots", GameReflection.NonPublicInstance);
@@ -225,42 +179,7 @@ namespace ATSAccessibility {
 					_headerField = popupType.GetField("header", GameReflection.NonPublicInstance);
 					_descField = popupType.GetField("desc", GameReflection.NonPublicInstance);
 				}
-
-				var goodSlotType = assembly.GetType("Eremite.View.HUD.GoodSlot");
-				if (goodSlotType != null) {
-					_goodSlotGoodField = goodSlotType.GetField("good", GameReflection.NonPublicInstance);
-				}
-
-				var effectSlotType = assembly.GetType("Eremite.View.HUD.EffectSlot");
-				if (effectSlotType != null) {
-					_effectSlotModelField = effectSlotType.GetField("model",
-						BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
-					if (_effectSlotModelField == null) {
-						_effectSlotModelField = effectSlotType.GetField("model", GameReflection.NonPublicInstance);
-					}
-				}
-
-				var effectModelType = assembly.GetType("Eremite.Model.EffectModel");
-				if (effectModelType != null) {
-					_effectDisplayNameProperty = effectModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
-					_effectDescriptionProperty = effectModelType.GetProperty("Description", GameReflection.PublicInstance);
-				}
-
-				var goodType = assembly.GetType("Eremite.Model.Good");
-				if (goodType != null) {
-					_goodNameField = goodType.GetField("name", GameReflection.PublicInstance);
-					_goodAmountField = goodType.GetField("amount", GameReflection.PublicInstance);
-				}
-
-				var basePopupType = assembly.GetType("Eremite.View.Popups.Popup");
-				if (basePopupType != null) {
-					_popupHideMethod = basePopupType.GetMethod("Hide", GameReflection.PublicInstance);
-				}
-			} catch (System.Exception ex) {
-				Debug.LogError($"[ATSAccessibility] RewardsPackOverlay: Type caching failed: {ex.Message}");
-			}
-
-			_typesCached = true;
+			});
 		}
 	}
 }

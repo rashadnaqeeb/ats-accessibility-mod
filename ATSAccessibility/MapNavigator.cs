@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 
 namespace ATSAccessibility {
@@ -20,21 +19,7 @@ namespace ATSAccessibility {
 		private int _originY;
 		private bool _originSet = false;
 
-		// Cached reflection info for Field properties (static per CLAUDE.md Pattern #6)
-		private static PropertyInfo _fieldTypeProperty = null;
-		private static PropertyInfo _fieldIsTraversableProperty = null;
-		private static bool _fieldPropertiesCached = false;
-
-		// Cached reflection info for Glade fields (static per CLAUDE.md Pattern #6)
-		private static FieldInfo _gladeWasDiscoveredField = null;
-		private static FieldInfo _gladeDangerLevelField = null;
-		private static bool _gladePropertiesCached = false;
-
-		// Cached reflection info for Villager properties (static per CLAUDE.md Pattern #6)
-		private static PropertyInfo _villagerActorStateProperty = null;
-		private static FieldInfo _actorStatePositionField = null;
-		private static PropertyInfo _villagerRaceProperty = null;
-		private static bool _villagerPropertiesCached = false;
+		// (Field, glade, and villager reflection moved to MapReflection)
 
 		/// <summary>
 		/// Current cursor X position.
@@ -363,124 +348,41 @@ namespace ATSAccessibility {
 		// FIELD PROPERTY ACCESS
 		// ========================================
 
-		private void EnsureFieldProperties(object field) {
-			if (_fieldPropertiesCached || field == null) return;
-
-			try {
-				var fieldType = field.GetType();
-				_fieldTypeProperty = fieldType.GetProperty("Type");
-				_fieldIsTraversableProperty = fieldType.GetProperty("IsTraversable");
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureFieldProperties failed: {ex.Message}"); }
-
-			_fieldPropertiesCached = true;
-		}
-
 		private string GetFieldType(object field) {
-			EnsureFieldProperties(field);
-			if (_fieldTypeProperty == null) return "unknown";
+			string result = MapReflection.GetFieldTypeName(field);
+			if (result == null) return "unknown";
 
-			try {
-				var typeValue = _fieldTypeProperty.GetValue(field);
-				if (typeValue == null) return "unknown";
+			// Map game names to more descriptive names
+			if (result == "Grass") return "Fertile Soil";
+			if (result == "Sand") return "Soil";
 
-				var typeType = typeValue.GetType();
-				string result = null;
-
-				// Try to get displayName or name from the type object
-				var displayNameProp = typeType.GetProperty("displayName");
-				if (displayNameProp != null) {
-					var displayName = displayNameProp.GetValue(typeValue);
-					if (displayName != null) result = displayName.ToString();
-				}
-
-				if (result == null) {
-					var nameProp = typeType.GetProperty("name");
-					if (nameProp != null) {
-						var name = nameProp.GetValue(typeValue);
-						if (name != null) result = name.ToString();
-					}
-				}
-
-				if (result == null) result = typeValue.ToString();
-
-				// Map game names to more descriptive names
-				if (result == "Grass") return "Fertile Soil";
-				if (result == "Sand") return "Soil";
-
-				return result;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetFieldType failed: {ex.Message}");
-				return "unknown";
-			}
+			return result;
 		}
 
 		private bool GetFieldIsTraversable(object field) {
-			EnsureFieldProperties(field);
-			if (_fieldIsTraversableProperty == null) return true;
-
-			try {
-				return (bool)_fieldIsTraversableProperty.GetValue(field);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetFieldIsTraversable failed: {ex.Message}");
-				return true;
-			}
+			return MapReflection.GetFieldIsTraversable(field);
 		}
 
 		// ========================================
 		// GLADE PROPERTY ACCESS
 		// ========================================
 
-		private void EnsureGladeProperties(object glade) {
-			if (_gladePropertiesCached || glade == null) return;
-
-			try {
-				var gladeType = glade.GetType();
-				// GladeState uses fields, not properties
-				_gladeWasDiscoveredField = gladeType.GetField("wasDiscovered",
-					BindingFlags.Public | BindingFlags.Instance);
-				_gladeDangerLevelField = gladeType.GetField("dangerLevel",
-					BindingFlags.Public | BindingFlags.Instance);
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureGladeProperties failed: {ex.Message}"); }
-
-			_gladePropertiesCached = true;
-		}
-
 		private bool GetGladeWasDiscovered(object glade) {
-			EnsureGladeProperties(glade);
-
-			try {
-				if (_gladeWasDiscoveredField != null) {
-					return (bool)_gladeWasDiscoveredField.GetValue(glade);
-				}
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}"); }
-
-			// Default to discovered (don't hide content if we can't determine state)
-			return true;
+			// Default to discovered if field not cached yet (don't hide content)
+			if (glade == null) return true;
+			return MapReflection.GetGladeWasDiscovered(glade);
 		}
 
 		private string GetGladeDangerLevel(object glade) {
-			EnsureGladeProperties(glade);
+			string raw = MapReflection.GetGladeDangerLevelRaw(glade);
+			if (raw == null) return "unknown";
 
-			try {
-				if (_gladeDangerLevelField != null) {
-					var dangerValue = _gladeDangerLevelField.GetValue(glade);
-					string dangerStr = dangerValue?.ToString() ?? "unknown";
-
-					// Map enum values to user-friendly names
-					switch (dangerStr) {
-						case "None":
-							return "small";
-						case "Dangerous":
-							return "dangerous";
-						case "Forbidden":
-							return "forbidden";
-						default:
-							return dangerStr.ToLower();
-					}
-				}
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeDangerLevel failed: {ex.Message}"); }
-
-			return "unknown";
+			return raw switch {
+				"None" => "small",
+				"Dangerous" => "dangerous",
+				"Forbidden" => "forbidden",
+				_ => raw.ToLower()
+			};
 		}
 
 		// ========================================
@@ -502,7 +404,7 @@ namespace ATSAccessibility {
 						var modelType = model.GetType();
 
 						// Try Model.displayName first
-						var displayNameField = modelType.GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+						var displayNameField = modelType.GetField("displayName", GameReflection.PublicInstance);
 						if (displayNameField != null) {
 							var displayName = displayNameField.GetValue(model);
 							if (displayName != null) {
@@ -514,11 +416,11 @@ namespace ATSAccessibility {
 						}
 
 						// Fall back to Model.label.displayName
-						var labelField = modelType.GetField("label", BindingFlags.Public | BindingFlags.Instance);
+						var labelField = modelType.GetField("label", GameReflection.PublicInstance);
 						if (labelField != null) {
 							var label = labelField.GetValue(model);
 							if (label != null) {
-								var labelDisplayNameField = label.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+								var labelDisplayNameField = label.GetType().GetField("displayName", GameReflection.PublicInstance);
 								if (labelDisplayNameField != null) {
 									var labelDisplayName = labelDisplayNameField.GetValue(label);
 									if (labelDisplayName != null) {
@@ -571,35 +473,11 @@ namespace ATSAccessibility {
 		// VILLAGER ACCESS
 		// ========================================
 
-		private void EnsureVillagerProperties(object villager) {
-			if (_villagerPropertiesCached || villager == null) return;
-
-			try {
-				var villagerType = villager.GetType();
-				_villagerActorStateProperty = villagerType.GetProperty("ActorState");
-				_villagerRaceProperty = villagerType.GetProperty("Race");
-
-				// Get ActorState type for position field
-				if (_villagerActorStateProperty != null) {
-					var actorState = _villagerActorStateProperty.GetValue(villager);
-					if (actorState != null) {
-						var actorStateType = actorState.GetType();
-						_actorStatePositionField = actorStateType.GetField("position",
-							BindingFlags.Public | BindingFlags.Instance);
-					}
-				}
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureVillagerProperties failed: {ex.Message}"); }
-
-			_villagerPropertiesCached = true;
-		}
-
 		private string GetVillagersOnTile(int x, int y) {
 			var allVillagers = GameReflection.GetAllVillagers();
 			if (allVillagers == null) return null;
 
 			try {
-				// allVillagers is Dictionary<int, Villager>
-				// We need to iterate and check positions
 				var villagersDict = allVillagers as IDictionary;
 				if (villagersDict == null) return null;
 
@@ -609,16 +487,12 @@ namespace ATSAccessibility {
 					var villager = entry.Value;
 					if (villager == null) continue;
 
-					EnsureVillagerProperties(villager);
-
-					// Get position
-					Vector3 position = GetVillagerPosition(villager);
+					Vector3 position = MapReflection.GetVillagerPosition(villager);
 					int villagerX = Mathf.FloorToInt(position.x);
 					int villagerZ = Mathf.FloorToInt(position.z);
 
 					if (villagerX == x && villagerZ == y) {
-						// Villager is on this tile
-						string race = GetVillagerRace(villager);
+						string race = MapReflection.GetVillagerRace(villager);
 						if (string.IsNullOrEmpty(race)) race = "villager";
 
 						if (raceCounts.ContainsKey(race)) {
@@ -631,13 +505,11 @@ namespace ATSAccessibility {
 
 				if (raceCounts.Count == 0) return null;
 
-				// Build announcement like "2 beavers, 1 human"
 				var parts = new List<string>();
 				foreach (var kvp in raceCounts) {
 					string race = kvp.Key.ToLower();
 					int count = kvp.Value;
 
-					// Pluralize if count > 1 and doesn't already end in 's'
 					if (count > 1 && !race.EndsWith("s")) {
 						race += "s";
 					}
@@ -648,32 +520,6 @@ namespace ATSAccessibility {
 				return string.Join(", ", parts);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetVillagersOnTile failed: {ex.Message}");
-				return null;
-			}
-		}
-
-		private Vector3 GetVillagerPosition(object villager) {
-			try {
-				if (_villagerActorStateProperty == null) return Vector3.zero;
-
-				var actorState = _villagerActorStateProperty.GetValue(villager);
-				if (actorState == null || _actorStatePositionField == null) return Vector3.zero;
-
-				return (Vector3)_actorStatePositionField.GetValue(actorState);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetVillagerPosition failed: {ex.Message}");
-				return Vector3.zero;
-			}
-		}
-
-		private string GetVillagerRace(object villager) {
-			try {
-				if (_villagerRaceProperty == null) return null;
-
-				var raceValue = _villagerRaceProperty.GetValue(villager);
-				return raceValue?.ToString();
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetVillagerRace failed: {ex.Message}");
 				return null;
 			}
 		}

@@ -118,25 +118,7 @@ namespace ATSAccessibility {
 			"Nodes Large"
 		};
 
-		// Reflection cache for scanning
-		private FieldInfo _gladeFieldsField = null;
-		private FieldInfo _gladeDangerLevelField = null;
-		private FieldInfo _gladeWasDiscoveredField = null;
-		private FieldInfo _gladeHasRewardChaseField = null;
-		private FieldInfo _gladeRewardChaseEndField = null;
-		private FieldInfo _gladeRelicsField = null;
-		private FieldInfo _relicIsRewardChaseField = null;
-		private FieldInfo _relicNameField = null;
-		private FieldInfo _relicPositionField = null;
-		private bool _chaseFieldsCached = false;
-		private PropertyInfo _naturalResourcesProperty = null;
-		private PropertyInfo _depositsProperty = null;
-		private PropertyInfo _oresProperty = null;
-		private PropertyInfo _springsProperty = null;
-		private PropertyInfo _lakesProperty = null;
-		private PropertyInfo _buildingsProperty = null;
-		private PropertyInfo _fieldTypeProperty = null;
-		private bool _fieldTypeCached = false;
+		// (Reflection caching moved to MapReflection)
 		private bool _reflectionCached = false;
 
 		// Unrevealed glade tiles cache (rebuilt each scan)
@@ -494,16 +476,12 @@ namespace ATSAccessibility {
 				foreach (var glade in gladesList) {
 					if (glade == null) continue;
 
-					// Only include unrevealed glades
-					if (GetGladeWasDiscovered(glade)) continue;
+					if (MapReflection.GetGladeWasDiscovered(glade)) continue;
 
-					// Get all fields in this glade
-					if (_gladeFieldsField != null) {
-						var fields = _gladeFieldsField.GetValue(glade) as IList;
-						if (fields != null) {
-							foreach (var field in fields) {
-								_unrevealedGladeTiles.Add((Vector2Int)field);
-							}
+					var fields = MapReflection.GetGladeFields(glade);
+					if (fields != null) {
+						foreach (var field in fields) {
+							_unrevealedGladeTiles.Add((Vector2Int)field);
 						}
 					}
 				}
@@ -533,8 +511,7 @@ namespace ATSAccessibility {
 					if (glade == null) continue;
 
 					// Check if glade is unrevealed (only show unrevealed glades)
-					bool wasDiscovered = GetGladeWasDiscovered(glade);
-					if (wasDiscovered) continue;  // Skip revealed glades
+					if (MapReflection.GetGladeWasDiscovered(glade)) continue;
 
 					// Get danger level for grouping
 					string dangerLevel = GetGladeDangerLevel(glade);
@@ -554,7 +531,7 @@ namespace ATSAccessibility {
 					}
 
 					// Get position (first field in glade)
-					Vector2Int position = GetGladePosition(glade);
+					Vector2Int position = MapReflection.GetGladeFirstField(glade);
 					if (position.x < 0 || position.y < 0) continue;
 
 					unrevealedGlades.Add((glade, position));
@@ -609,13 +586,13 @@ namespace ATSAccessibility {
 
 			foreach (var building in GameReflection.GetAllBuildingObjects()) {
 				var viewField = building.GetType().GetField("view",
-					BindingFlags.Public | BindingFlags.Instance);
+					GameReflection.PublicInstance);
 				if (viewField == null) continue;
 
 				var view = viewField.GetValue(building);
 				if (view == null || view.GetType().Name != "SealGuidepostView") continue;
 
-				Vector2Int stonePos = GetBuildingPosition(building);
+				Vector2Int stonePos = MapReflection.GetBuildingPosition(building);
 				if (stonePos.x < 0 || stonePos.y < 0) continue;
 
 				// Ray direction from stone toward seal center
@@ -634,7 +611,7 @@ namespace ATSAccessibility {
 
 			foreach (var (glade, firstField) in unrevealedGlades) {
 				// Compute glade center from all field tiles
-				var fields = _gladeFieldsField?.GetValue(glade) as IList;
+				var fields = MapReflection.GetGladeFields(glade);
 				if (fields == null || fields.Count == 0) continue;
 
 				float sumX = 0, sumY = 0;
@@ -740,9 +717,6 @@ namespace ATSAccessibility {
 		/// Each chase gets a group named with the relic display name and remaining time.
 		/// </summary>
 		private void ScanRewardChaseRelics(Dictionary<string, ItemGroup> groups, int cursorX, int cursorY) {
-			if (_gladeHasRewardChaseField == null || _gladeRewardChaseEndField == null || _gladeRelicsField == null)
-				return;
-
 			try {
 				var allGlades = GameReflection.GetAllGlades();
 				if (allGlades == null) return;
@@ -755,43 +729,24 @@ namespace ATSAccessibility {
 				foreach (var glade in gladesList) {
 					if (glade == null) continue;
 
-					// Check if this glade has an active reward chase
-					bool hasChase = false;
-					try { hasChase = (bool)_gladeHasRewardChaseField.GetValue(glade); } catch { continue; }
+					if (!MapReflection.GetGladeHasRewardChase(glade)) continue;
 
-					if (!hasChase) continue;
-
-					// Get remaining time
-					float chaseEnd = 0f;
-					try { chaseEnd = (float)_gladeRewardChaseEndField.GetValue(glade); } catch { continue; }
-
+					float chaseEnd = MapReflection.GetGladeRewardChaseEnd(glade);
 					float remaining = chaseEnd - gameTime;
-					if (remaining <= 0f) continue;  // Expired
+					if (remaining <= 0f) continue;
 
-					// Get relics list
-					var relics = _gladeRelicsField.GetValue(glade) as IList;
+					var relics = MapReflection.GetGladeRelics(glade);
 					if (relics == null || relics.Count == 0) continue;
 
-					// Find the chase relic
 					foreach (var relic in relics) {
 						if (relic == null) continue;
 
-						EnsureChaseReflectionFields(relic);
+						if (!MapReflection.IsRewardChaseRelic(relic)) continue;
 
-						if (_relicIsRewardChaseField == null) break;
+						Vector2Int pos = MapReflection.GetRelicPosition(relic);
+						if (pos.x < 0 || pos.y < 0) continue;
 
-						bool isChaseRelic = false;
-						try { isChaseRelic = (bool)_relicIsRewardChaseField.GetValue(relic); } catch { continue; }
-
-						if (!isChaseRelic) continue;
-
-						// Get position
-						Vector2Int pos;
-						try { pos = (Vector2Int)_relicPositionField.GetValue(relic); } catch { continue; }
-
-						// Get model name and convert to display name
-						string modelName = null;
-						try { modelName = _relicNameField?.GetValue(relic) as string; } catch { }
+						string modelName = MapReflection.GetRelicName(relic);
 
 						string displayName = !string.IsNullOrEmpty(modelName)
 							? GameReflection.GetRelicDisplayName(modelName)
@@ -825,156 +780,120 @@ namespace ATSAccessibility {
 
 			try {
 				// Scan NaturalResources
-				var resourcesService = GameReflection.GetResourcesService();
-				if (resourcesService != null) {
-					EnsureResourcesProperty(resourcesService);
-					if (_naturalResourcesProperty != null) {
-						var resources = _naturalResourcesProperty.GetValue(resourcesService) as IDictionary;
-						if (resources != null) {
-							foreach (DictionaryEntry entry in resources) {
-								var pos = (Vector2Int)entry.Key;
-								var resource = entry.Value;
+				var resources = MapReflection.GetNaturalResources(GameReflection.GetResourcesService());
+				if (resources != null) {
+					foreach (DictionaryEntry entry in resources) {
+						var pos = (Vector2Int)entry.Key;
+						var resource = entry.Value;
 
-								// Skip if inside unrevealed glade
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(resource);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(resource);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								// Separate marked (for woodcutting) from unmarked
-								bool isMarked = GameReflection.IsNaturalResourceMarked(resource);
-								string groupName = isMarked ? $"Marked {displayName}" : displayName;
+						bool isMarked = GameReflection.IsNaturalResourceMarked(resource);
+						string groupName = isMarked ? $"Marked {displayName}" : displayName;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								if (!groups.TryGetValue(groupName, out var group)) {
-									group = new ItemGroup(groupName);
-									groups[groupName] = group;
-								}
-
-								group.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!groups.TryGetValue(groupName, out var group)) {
+							group = new ItemGroup(groupName);
+							groups[groupName] = group;
 						}
+
+						group.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 
 				// Scan Deposits
-				var depositsService = GameReflection.GetDepositsService();
-				if (depositsService != null) {
-					EnsureDepositsProperty(depositsService);
-					if (_depositsProperty != null) {
-						var deposits = _depositsProperty.GetValue(depositsService) as IDictionary;
-						if (deposits != null) {
-							foreach (DictionaryEntry entry in deposits) {
-								var pos = (Vector2Int)entry.Key;
-								var deposit = entry.Value;
+				var deposits = MapReflection.GetDeposits(GameReflection.GetDepositsService());
+				if (deposits != null) {
+					foreach (DictionaryEntry entry in deposits) {
+						var pos = (Vector2Int)entry.Key;
+						var deposit = entry.Value;
 
-								// Skip if inside unrevealed glade
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(deposit);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(deposit);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								if (!groups.TryGetValue(displayName, out var depositGroup)) {
-									depositGroup = new ItemGroup(displayName);
-									groups[displayName] = depositGroup;
-								}
-
-								depositGroup.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!groups.TryGetValue(displayName, out var depositGroup)) {
+							depositGroup = new ItemGroup(displayName);
+							groups[displayName] = depositGroup;
 						}
+
+						depositGroup.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 
 				// Scan Ores (copper veins, etc.)
-				var oreService = GameReflection.GetOreService();
-				if (oreService != null) {
-					EnsureOresProperty(oreService);
-					if (_oresProperty != null) {
-						var ores = _oresProperty.GetValue(oreService) as IDictionary;
-						if (ores != null) {
-							foreach (DictionaryEntry entry in ores) {
-								var pos = (Vector2Int)entry.Key;
-								var ore = entry.Value;
+				var ores = MapReflection.GetOres(GameReflection.GetOreService());
+				if (ores != null) {
+					foreach (DictionaryEntry entry in ores) {
+						var pos = (Vector2Int)entry.Key;
+						var ore = entry.Value;
 
-								// Skip if inside unrevealed glade
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(ore);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(ore);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								if (!groups.TryGetValue(displayName, out var oreGroup)) {
-									oreGroup = new ItemGroup(displayName);
-									groups[displayName] = oreGroup;
-								}
-
-								oreGroup.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!groups.TryGetValue(displayName, out var oreGroup)) {
+							oreGroup = new ItemGroup(displayName);
+							groups[displayName] = oreGroup;
 						}
+
+						oreGroup.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 
 				// Scan Springs (water geysers)
-				var springsService = GameReflection.GetSpringsService();
-				if (springsService != null) {
-					EnsureSpringsProperty(springsService);
-					if (_springsProperty != null) {
-						var springs = _springsProperty.GetValue(springsService) as IDictionary;
-						if (springs != null) {
-							foreach (DictionaryEntry entry in springs) {
-								var pos = (Vector2Int)entry.Key;
-								var spring = entry.Value;
+				var springs = MapReflection.GetSprings(GameReflection.GetSpringsService());
+				if (springs != null) {
+					foreach (DictionaryEntry entry in springs) {
+						var pos = (Vector2Int)entry.Key;
+						var spring = entry.Value;
 
-								// Skip if inside unrevealed glade
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(spring);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(spring);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								if (!groups.TryGetValue(displayName, out var springGroup)) {
-									springGroup = new ItemGroup(displayName);
-									groups[displayName] = springGroup;
-								}
-
-								springGroup.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!groups.TryGetValue(displayName, out var springGroup)) {
+							springGroup = new ItemGroup(displayName);
+							groups[displayName] = springGroup;
 						}
+
+						springGroup.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 
 				// Scan Lakes (fishing spots)
-				var lakesService = GameReflection.GetLakesService();
-				if (lakesService != null) {
-					EnsureLakesProperty(lakesService);
-					if (_lakesProperty != null) {
-						var lakes = _lakesProperty.GetValue(lakesService) as IDictionary;
-						if (lakes != null) {
-							foreach (DictionaryEntry entry in lakes) {
-								var pos = (Vector2Int)entry.Key;
-								var lake = entry.Value;
+				var lakes = MapReflection.GetLakes(GameReflection.GetLakesService());
+				if (lakes != null) {
+					foreach (DictionaryEntry entry in lakes) {
+						var pos = (Vector2Int)entry.Key;
+						var lake = entry.Value;
 
-								// Skip if inside unrevealed glade
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(lake);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(lake);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								if (!groups.TryGetValue(displayName, out var lakeGroup)) {
-									lakeGroup = new ItemGroup(displayName);
-									groups[displayName] = lakeGroup;
-								}
-
-								lakeGroup.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!groups.TryGetValue(displayName, out var lakeGroup)) {
+							lakeGroup = new ItemGroup(displayName);
+							groups[displayName] = lakeGroup;
 						}
+
+						lakeGroup.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 
@@ -991,9 +910,8 @@ namespace ATSAccessibility {
 						var field = GameReflection.GetField(x, y);
 						if (field == null) continue;
 
-						string typeName = GetFieldTypeName(field);
+						string typeName = MapReflection.GetFieldTypeName(field);
 						if (typeName == "Grass") {
-							// Skip if there's already a building (e.g., farm field) on this tile
 							if (GameReflection.GetBuildingAtPosition(x, y) != null) continue;
 
 							int distance = CalculateDistance(pos, cursorX, cursorY);
@@ -1018,37 +936,29 @@ namespace ATSAccessibility {
 			GetScanOrigin(out int cursorX, out int cursorY);
 
 			try {
-				var buildingsService = GameReflection.GetBuildingsService();
-				if (buildingsService != null) {
-					EnsureBuildingsProperty(buildingsService);
-					if (_buildingsProperty != null) {
-						var buildings = _buildingsProperty.GetValue(buildingsService) as IDictionary;
-						if (buildings != null) {
-							foreach (DictionaryEntry entry in buildings) {
-								var building = entry.Value;
-								if (building == null) continue;
+				var buildings = MapReflection.GetBuildings(GameReflection.GetBuildingsService());
+				if (buildings != null) {
+					foreach (DictionaryEntry entry in buildings) {
+						var building = entry.Value;
+						if (building == null) continue;
 
-								// Get building position from Field property
-								Vector2Int pos = GetBuildingPosition(building);
-								if (pos.x < 0 || pos.y < 0) continue;
+						Vector2Int pos = MapReflection.GetBuildingPosition(building);
+						if (pos.x < 0 || pos.y < 0) continue;
 
-								// Skip if inside unrevealed glade
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetBuildingDisplayName(building);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetBuildingDisplayName(building);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								if (!groups.TryGetValue(displayName, out var group)) {
-									group = new ItemGroup(displayName);
-									group.BuildingTypeName = GetBuildingTypeName(building);
-									groups[displayName] = group;
-								}
-
-								group.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!groups.TryGetValue(displayName, out var group)) {
+							group = new ItemGroup(displayName);
+							group.BuildingTypeName = GetBuildingTypeName(building);
+							groups[displayName] = group;
 						}
+
+						group.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 			} catch (Exception ex) {
@@ -1148,295 +1058,41 @@ namespace ATSAccessibility {
 		}
 
 		// ========================================
-		// REFLECTION HELPERS
+		// REFLECTION HELPERS (delegating to MapReflection)
 		// ========================================
 
 		private void EnsureReflectionCache() {
 			if (_reflectionCached) return;
-
-			try {
-				// GladeState fields
-				var gladesService = GameReflection.GetGladesService();
-				var allGlades = GameReflection.GetAllGlades();
-				if (allGlades != null) {
-					var gladesList = allGlades as IEnumerable;
-					if (gladesList != null) {
-						foreach (var glade in gladesList) {
-							if (glade != null) {
-								var gladeType = glade.GetType();
-								_gladeFieldsField = gladeType.GetField("fields",
-									BindingFlags.Public | BindingFlags.Instance);
-								_gladeDangerLevelField = gladeType.GetField("dangerLevel",
-									BindingFlags.Public | BindingFlags.Instance);
-								_gladeWasDiscoveredField = gladeType.GetField("wasDiscovered",
-									BindingFlags.Public | BindingFlags.Instance);
-								_gladeHasRewardChaseField = gladeType.GetField("hasRewardChase",
-									BindingFlags.Public | BindingFlags.Instance);
-								_gladeRewardChaseEndField = gladeType.GetField("rewardChaseEnd",
-									BindingFlags.Public | BindingFlags.Instance);
-								_gladeRelicsField = gladeType.GetField("relics",
-									BindingFlags.Public | BindingFlags.Instance);
-								break;
-							}
-						}
-					}
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] EnsureReflectionCache failed: {ex.Message}");
-			}
-
 			_reflectionCached = true;
-		}
 
-		private void EnsureResourcesProperty(object resourcesService) {
-			if (_naturalResourcesProperty != null) return;
-
-			try {
-				_naturalResourcesProperty = resourcesService.GetType().GetProperty("NaturalResources",
-					BindingFlags.Public | BindingFlags.Instance);
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureResourcesProperty failed: {ex.Message}"); }
-		}
-
-		private void EnsureDepositsProperty(object depositsService) {
-			if (_depositsProperty != null) return;
-
-			try {
-				_depositsProperty = depositsService.GetType().GetProperty("Deposits",
-					BindingFlags.Public | BindingFlags.Instance);
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureDepositsProperty failed: {ex.Message}"); }
-		}
-
-		private void EnsureOresProperty(object oreService) {
-			if (_oresProperty != null) return;
-
-			try {
-				_oresProperty = oreService.GetType().GetProperty("Ore",
-					BindingFlags.Public | BindingFlags.Instance);
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureOresProperty failed: {ex.Message}"); }
-		}
-
-		private void EnsureSpringsProperty(object springsService) {
-			if (_springsProperty != null) return;
-
-			try {
-				_springsProperty = springsService.GetType().GetProperty("Springs",
-					BindingFlags.Public | BindingFlags.Instance);
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureSpringsProperty failed: {ex.Message}"); }
-		}
-
-		private void EnsureLakesProperty(object lakesService) {
-			if (_lakesProperty != null) return;
-
-			try {
-				_lakesProperty = lakesService.GetType().GetProperty("Lakes",
-					BindingFlags.Public | BindingFlags.Instance);
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureLakesProperty failed: {ex.Message}"); }
-		}
-
-		private void EnsureBuildingsProperty(object buildingsService) {
-			if (_buildingsProperty != null) return;
-
-			try {
-				_buildingsProperty = buildingsService.GetType().GetProperty("Buildings",
-					BindingFlags.Public | BindingFlags.Instance);
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] EnsureBuildingsProperty failed: {ex.Message}"); }
-		}
-
-		private bool GetGladeWasDiscovered(object glade) {
-			try {
-				if (_gladeWasDiscoveredField != null) {
-					return (bool)_gladeWasDiscoveredField.GetValue(glade);
-				}
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeWasDiscovered failed: {ex.Message}"); }
-			return true;  // Default to discovered
+			// Trigger MapReflection glade caching from first available glade
+			MapReflection.EnsureGladeCachedFromList(GameReflection.GetAllGlades());
 		}
 
 		private string GetGladeDangerLevel(object glade) {
-			try {
-				if (_gladeDangerLevelField != null) {
-					var dangerValue = _gladeDangerLevelField.GetValue(glade);
-					string dangerStr = dangerValue?.ToString() ?? "unknown";
+			string raw = MapReflection.GetGladeDangerLevelRaw(glade);
+			if (raw == null) return "Unknown";
 
-					return dangerStr switch {
-						"None" => "Small",
-						"Dangerous" => "Dangerous",
-						"Forbidden" => "Forbidden",
-						_ => dangerStr
-					};
-				}
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladeDangerLevel failed: {ex.Message}"); }
-			return "Unknown";
+			return raw switch {
+				"None" => "Small",
+				"Dangerous" => "Dangerous",
+				"Forbidden" => "Forbidden",
+				_ => raw
+			};
 		}
 
-		private Vector2Int GetGladePosition(object glade) {
-			try {
-				if (_gladeFieldsField != null) {
-					var fields = _gladeFieldsField.GetValue(glade) as IList;
-					if (fields != null && fields.Count > 0) {
-						return (Vector2Int)fields[0];
-					}
-				}
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetGladePosition failed: {ex.Message}"); }
-			return new Vector2Int(-1, -1);
-		}
-
-		private Vector2Int GetBuildingPosition(object building) {
-			try {
-				var fieldProp = building.GetType().GetProperty("Field",
-					BindingFlags.Public | BindingFlags.Instance);
-				if (fieldProp != null) {
-					return (Vector2Int)fieldProp.GetValue(building);
-				}
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingPosition failed: {ex.Message}"); }
-			return new Vector2Int(-1, -1);
-		}
-
-		private string GetFieldTypeName(object field) {
-			if (field == null) return null;
-
-			if (!_fieldTypeCached) {
-				_fieldTypeProperty = field.GetType().GetProperty("Type");
-				_fieldTypeCached = true;
-			}
-
-			if (_fieldTypeProperty == null) return null;
-
-			try {
-				var typeValue = _fieldTypeProperty.GetValue(field);
-				if (typeValue == null) return null;
-
-				var typeType = typeValue.GetType();
-
-				// Try displayName first (matches navigator's approach)
-				var displayNameProp = typeType.GetProperty("displayName");
-				if (displayNameProp != null) {
-					var displayName = displayNameProp.GetValue(typeValue);
-					if (displayName != null) {
-						string text = displayName.ToString();
-						if (!string.IsNullOrEmpty(text)) return text;
-					}
-				}
-
-				// Fallback to name
-				var nameProp = typeType.GetProperty("name");
-				if (nameProp != null) {
-					var name = nameProp.GetValue(typeValue);
-					if (name != null) return name.ToString();
-				}
-
-				// Final fallback to ToString()
-				return typeValue.ToString();
-			} catch { }
-
-			return null;
-		}
-
-		private string GetObjectDisplayName(object obj) {
-			if (obj == null) return null;
-
-			try {
-				var objType = obj.GetType();
-
-				// Try Model.displayName
-				var modelProperty = objType.GetProperty("Model",
-					BindingFlags.Public | BindingFlags.Instance);
-				if (modelProperty != null) {
-					var model = modelProperty.GetValue(obj);
-					if (model != null) {
-						var modelType = model.GetType();
-
-						// Try displayName field
-						var displayNameField = modelType.GetField("displayName",
-							BindingFlags.Public | BindingFlags.Instance);
-						if (displayNameField != null) {
-							var displayName = displayNameField.GetValue(model);
-							if (displayName != null) {
-								string text = displayName.ToString();
-								if (!string.IsNullOrEmpty(text)) {
-									return text;
-								}
-							}
-						}
-
-						// Try name property
-						var nameProp = modelType.GetProperty("name",
-							BindingFlags.Public | BindingFlags.Instance);
-						if (nameProp != null) {
-							var name = nameProp.GetValue(model);
-							if (name != null) {
-								return Speech.CleanResourceName(name.ToString());
-							}
-						}
-					}
-				}
-
-				// Fallback to type name
-				return objType.Name;
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetObjectDisplayName failed: {ex.Message}");
-				return null;
-			}
-		}
-
-		/// <summary>
-		/// Get the ResourceSize type string from a deposit or lake state object.
-		/// Returns "Small", "Large", or "Gigantic" (or null on failure).
-		/// </summary>
-		private string GetResourceSizeType(object resourceState) {
-			try {
-				var modelProp = resourceState.GetType().GetProperty("Model",
-					BindingFlags.Public | BindingFlags.Instance);
-				if (modelProp == null) return null;
-
-				var model = modelProp.GetValue(resourceState);
-				if (model == null) return null;
-
-				var typeField = model.GetType().GetField("type",
-					BindingFlags.Public | BindingFlags.Instance);
-				if (typeField == null) return null;
-
-				return typeField.GetValue(model)?.ToString();
-			} catch { return null; }
-		}
-
-		/// <summary>
-		/// Check if position is inside an unrevealed glade (Vector2Int overload, avoids allocation in hot path).
-		/// </summary>
 		private bool IsInsideUnrevealedGlade(Vector2Int pos) {
-			// Use cached HashSet for O(1) lookup
 			if (_unrevealedGladeTiles != null) {
 				return _unrevealedGladeTiles.Contains(pos);
 			}
 
-			// Fallback if cache not built (shouldn't happen in normal flow)
 			var glade = GameReflection.GetGlade(pos.x, pos.y);
 			if (glade == null) return false;
-			return !GetGladeWasDiscovered(glade);
+			return !MapReflection.GetGladeWasDiscovered(glade);
 		}
 
 		private bool IsInsideUnrevealedGlade(int x, int y) {
 			return IsInsideUnrevealedGlade(new Vector2Int(x, y));
-		}
-
-		/// <summary>
-		/// Lazy-cache GladeRelicState fields from the first encountered relic instance.
-		/// </summary>
-		private void EnsureChaseReflectionFields(object relic) {
-			if (_chaseFieldsCached) return;
-
-			try {
-				var relicType = relic.GetType();
-				_relicIsRewardChaseField = relicType.GetField("isRewardChase",
-					BindingFlags.Public | BindingFlags.Instance);
-				_relicNameField = relicType.GetField("name",
-					BindingFlags.Public | BindingFlags.Instance);
-				_relicPositionField = relicType.GetField("field",
-					BindingFlags.Public | BindingFlags.Instance);
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] EnsureChaseReflectionFields failed: {ex.Message}");
-			}
-
-			_chaseFieldsCached = true;
 		}
 
 		// ========================================
@@ -1480,67 +1136,6 @@ namespace ATSAccessibility {
 		}
 
 		/// <summary>
-		/// Get the display name of a building from BuildingsService.
-		/// Uses BuildingModel.displayName (same pattern as TileInfoReader).
-		/// </summary>
-		private string GetBuildingDisplayName(object building) {
-			if (building == null) return null;
-
-			try {
-				var buildingType = building.GetType();
-
-				// Try BuildingModel property first (like TileInfoReader uses)
-				var buildingModelProp = buildingType.GetProperty("BuildingModel",
-					BindingFlags.Public | BindingFlags.Instance);
-				if (buildingModelProp != null) {
-					var buildingModel = buildingModelProp.GetValue(building);
-					if (buildingModel != null) {
-						var modelType = buildingModel.GetType();
-
-						// Try displayName field
-						var displayNameField = modelType.GetField("displayName",
-							BindingFlags.Public | BindingFlags.Instance);
-						if (displayNameField != null) {
-							var displayName = displayNameField.GetValue(buildingModel);
-							if (displayName != null) {
-								string text = displayName.ToString();
-								if (!string.IsNullOrEmpty(text)) {
-									return text;
-								}
-							}
-						}
-					}
-				}
-
-				// Fallback to Model property
-				var modelProperty = buildingType.GetProperty("Model",
-					BindingFlags.Public | BindingFlags.Instance);
-				if (modelProperty != null) {
-					var model = modelProperty.GetValue(building);
-					if (model != null) {
-						var modelType = model.GetType();
-
-						var displayNameField = modelType.GetField("displayName",
-							BindingFlags.Public | BindingFlags.Instance);
-						if (displayNameField != null) {
-							var displayName = displayNameField.GetValue(model);
-							if (displayName != null) {
-								string text = displayName.ToString();
-								if (!string.IsNullOrEmpty(text)) {
-									return text;
-								}
-							}
-						}
-					}
-				}
-
-				return null;
-			} catch {
-				return null;
-			}
-		}
-
-		/// <summary>
 		/// Scan all buildings and organize them by subcategory.
 		/// </summary>
 		private void ScanBuildingsWithSubcategories() {
@@ -1553,13 +1148,7 @@ namespace ATSAccessibility {
 			}
 
 			try {
-				var buildingsService = GameReflection.GetBuildingsService();
-				if (buildingsService == null) return;
-
-				EnsureBuildingsProperty(buildingsService);
-				if (_buildingsProperty == null) return;
-
-				var buildings = _buildingsProperty.GetValue(buildingsService) as IDictionary;
+				var buildings = MapReflection.GetBuildings(GameReflection.GetBuildingsService());
 				if (buildings == null) return;
 
 				// Group buildings by (subcategory, displayName)
@@ -1569,15 +1158,12 @@ namespace ATSAccessibility {
 					var building = entry.Value;
 					if (building == null) continue;
 
-					// Get building position
-					Vector2Int pos = GetBuildingPosition(building);
+					Vector2Int pos = MapReflection.GetBuildingPosition(building);
 					if (pos.x < 0 || pos.y < 0) continue;
 
-					// Skip if inside unrevealed glade
 					if (IsInsideUnrevealedGlade(pos)) continue;
 
-					// Get building info
-					string displayName = GetBuildingDisplayName(building);
+					string displayName = MapReflection.GetBuildingDisplayName(building);
 					if (string.IsNullOrEmpty(displayName)) continue;
 
 					string buildingTypeName = GetBuildingTypeName(building);
@@ -1651,34 +1237,28 @@ namespace ATSAccessibility {
 				// === Subcategory 1: Natural Resources ===
 
 				// NaturalResources service
-				var resourcesService = GameReflection.GetResourcesService();
-				if (resourcesService != null) {
-					EnsureResourcesProperty(resourcesService);
-					if (_naturalResourcesProperty != null) {
-						var resources = _naturalResourcesProperty.GetValue(resourcesService) as IDictionary;
-						if (resources != null) {
-							foreach (DictionaryEntry entry in resources) {
-								var pos = (Vector2Int)entry.Key;
-								var resource = entry.Value;
+				var resources = MapReflection.GetNaturalResources(GameReflection.GetResourcesService());
+				if (resources != null) {
+					foreach (DictionaryEntry entry in resources) {
+						var pos = (Vector2Int)entry.Key;
+						var resource = entry.Value;
 
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(resource);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(resource);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								bool isMarked = GameReflection.IsNaturalResourceMarked(resource);
-								string groupName = isMarked ? $"Marked {displayName}" : displayName;
+						bool isMarked = GameReflection.IsNaturalResourceMarked(resource);
+						string groupName = isMarked ? $"Marked {displayName}" : displayName;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								if (!naturalGroups.TryGetValue(groupName, out var group)) {
-									group = new ItemGroup(groupName);
-									naturalGroups[groupName] = group;
-								}
-
-								group.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!naturalGroups.TryGetValue(groupName, out var group)) {
+							group = new ItemGroup(groupName);
+							naturalGroups[groupName] = group;
 						}
+
+						group.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 
@@ -1695,7 +1275,7 @@ namespace ATSAccessibility {
 						var field = GameReflection.GetField(x, y);
 						if (field == null) continue;
 
-						string typeName = GetFieldTypeName(field);
+						string typeName = MapReflection.GetFieldTypeName(field);
 						if (typeName == "Grass") {
 							// Skip if there's already a building (e.g., farm field) on this tile
 							if (GameReflection.GetBuildingAtPosition(x, y) != null) continue;
@@ -1714,128 +1294,104 @@ namespace ATSAccessibility {
 				// === Subcategory 2: Extracted Resources ===
 
 				// Ores service
-				var oreService = GameReflection.GetOreService();
-				if (oreService != null) {
-					EnsureOresProperty(oreService);
-					if (_oresProperty != null) {
-						var ores = _oresProperty.GetValue(oreService) as IDictionary;
-						if (ores != null) {
-							foreach (DictionaryEntry entry in ores) {
-								var pos = (Vector2Int)entry.Key;
-								var ore = entry.Value;
+				var ores = MapReflection.GetOres(GameReflection.GetOreService());
+				if (ores != null) {
+					foreach (DictionaryEntry entry in ores) {
+						var pos = (Vector2Int)entry.Key;
+						var ore = entry.Value;
 
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(ore);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(ore);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								if (!extractedGroups.TryGetValue(displayName, out var oreGroup)) {
-									oreGroup = new ItemGroup(displayName);
-									extractedGroups[displayName] = oreGroup;
-								}
-
-								oreGroup.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!extractedGroups.TryGetValue(displayName, out var oreGroup)) {
+							oreGroup = new ItemGroup(displayName);
+							extractedGroups[displayName] = oreGroup;
 						}
+
+						oreGroup.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 
 				// Springs service
-				var springsService = GameReflection.GetSpringsService();
-				if (springsService != null) {
-					EnsureSpringsProperty(springsService);
-					if (_springsProperty != null) {
-						var springs = _springsProperty.GetValue(springsService) as IDictionary;
-						if (springs != null) {
-							foreach (DictionaryEntry entry in springs) {
-								var pos = (Vector2Int)entry.Key;
-								var spring = entry.Value;
+				var springs = MapReflection.GetSprings(GameReflection.GetSpringsService());
+				if (springs != null) {
+					foreach (DictionaryEntry entry in springs) {
+						var pos = (Vector2Int)entry.Key;
+						var spring = entry.Value;
 
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(spring);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(spring);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								if (!extractedGroups.TryGetValue(displayName, out var springGroup)) {
-									springGroup = new ItemGroup(displayName);
-									extractedGroups[displayName] = springGroup;
-								}
-
-								springGroup.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!extractedGroups.TryGetValue(displayName, out var springGroup)) {
+							springGroup = new ItemGroup(displayName);
+							extractedGroups[displayName] = springGroup;
 						}
+
+						springGroup.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 
 				// === Subcategories 3 & 4: Nodes Small / Nodes Large ===
 
 				// Deposits service
-				var depositsService = GameReflection.GetDepositsService();
-				if (depositsService != null) {
-					EnsureDepositsProperty(depositsService);
-					if (_depositsProperty != null) {
-						var deposits = _depositsProperty.GetValue(depositsService) as IDictionary;
-						if (deposits != null) {
-							foreach (DictionaryEntry entry in deposits) {
-								var pos = (Vector2Int)entry.Key;
-								var deposit = entry.Value;
+				var deposits = MapReflection.GetDeposits(GameReflection.GetDepositsService());
+				if (deposits != null) {
+					foreach (DictionaryEntry entry in deposits) {
+						var pos = (Vector2Int)entry.Key;
+						var deposit = entry.Value;
 
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(deposit);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(deposit);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								// Route to Small or Large based on ResourceSize
-								string sizeType = GetResourceSizeType(deposit);
-								var targetGroups = sizeType == "Small" ? nodesSmallGroups : nodesLargeGroups;
+						// Route to Small or Large based on ResourceSize
+						string sizeType = MapReflection.GetResourceSizeType(deposit);
+						var targetGroups = sizeType == "Small" ? nodesSmallGroups : nodesLargeGroups;
 
-								if (!targetGroups.TryGetValue(displayName, out var depositGroup)) {
-									depositGroup = new ItemGroup(displayName);
-									targetGroups[displayName] = depositGroup;
-								}
-
-								depositGroup.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!targetGroups.TryGetValue(displayName, out var depositGroup)) {
+							depositGroup = new ItemGroup(displayName);
+							targetGroups[displayName] = depositGroup;
 						}
+
+						depositGroup.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 
 				// Lakes service
-				var lakesService = GameReflection.GetLakesService();
-				if (lakesService != null) {
-					EnsureLakesProperty(lakesService);
-					if (_lakesProperty != null) {
-						var lakes = _lakesProperty.GetValue(lakesService) as IDictionary;
-						if (lakes != null) {
-							foreach (DictionaryEntry entry in lakes) {
-								var pos = (Vector2Int)entry.Key;
-								var lake = entry.Value;
+				var lakes = MapReflection.GetLakes(GameReflection.GetLakesService());
+				if (lakes != null) {
+					foreach (DictionaryEntry entry in lakes) {
+						var pos = (Vector2Int)entry.Key;
+						var lake = entry.Value;
 
-								if (IsInsideUnrevealedGlade(pos)) continue;
+						if (IsInsideUnrevealedGlade(pos)) continue;
 
-								string displayName = GetObjectDisplayName(lake);
-								if (string.IsNullOrEmpty(displayName)) continue;
+						string displayName = MapReflection.GetObjectDisplayName(lake);
+						if (string.IsNullOrEmpty(displayName)) continue;
 
-								int distance = CalculateDistance(pos, cursorX, cursorY);
+						int distance = CalculateDistance(pos, cursorX, cursorY);
 
-								// Route to Small or Large based on ResourceSize
-								string sizeType = GetResourceSizeType(lake);
-								var targetGroups = sizeType == "Small" ? nodesSmallGroups : nodesLargeGroups;
+						// Route to Small or Large based on ResourceSize
+						string sizeType = MapReflection.GetResourceSizeType(lake);
+						var targetGroups = sizeType == "Small" ? nodesSmallGroups : nodesLargeGroups;
 
-								if (!targetGroups.TryGetValue(displayName, out var lakeGroup)) {
-									lakeGroup = new ItemGroup(displayName);
-									targetGroups[displayName] = lakeGroup;
-								}
-
-								lakeGroup.Items.Add(new ScannedItem(pos, distance));
-							}
+						if (!targetGroups.TryGetValue(displayName, out var lakeGroup)) {
+							lakeGroup = new ItemGroup(displayName);
+							targetGroups[displayName] = lakeGroup;
 						}
+
+						lakeGroup.Items.Add(new ScannedItem(pos, distance));
 					}
 				}
 

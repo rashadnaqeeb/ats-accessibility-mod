@@ -40,45 +40,6 @@ namespace ATSAccessibility {
 		// Callback for when a new order becomes available (used to refresh OrdersOverlay)
 		public Action OnNewOrderAvailable { get; set; }
 
-		// Cached reflection for villager removal
-		private static MethodInfo _villagerGetDisplayNameMethod;
-		private static FieldInfo _villagerStateField;
-		private static FieldInfo _villagerStateLossTypeField;
-		private static FieldInfo _villagerStateLossReasonField;
-		private static bool _villagerReflectionCached = false;
-
-		// Cached reflection for glade danger level
-		private static MethodInfo _gladesGetDangerLevelMethod;
-		private static bool _gladesGetDangerLevelCached = false;
-
-		// Cached reflection for MonitorAlert fields
-		private static FieldInfo _alertTextField;
-		private static FieldInfo _alertDismissedField;
-		private static FieldInfo _alertShowTimeField;
-		private static bool _alertFieldsCached = false;
-
-		// Cached reflection for glade fields[0] location
-		private static FieldInfo _gladeFieldsField;
-		private static bool _gladeFieldsCached = false;
-
-		// Cached reflection for villager lastWorkId location (cached in EnsureVillagerReflectionCached)
-		private static FieldInfo _villagerLastWorkIdField;
-
-		// Cached reflection metadata
-		private static bool _reflectionCached = false;
-		private static PropertyInfo _calendarServiceProperty;
-		private static PropertyInfo _hostilityServiceProperty;
-		private static PropertyInfo _tradeServiceProperty;
-		private static PropertyInfo _ordersServiceProperty;
-		private static PropertyInfo _gladesServiceProperty;
-		private static PropertyInfo _reputationServiceProperty;
-		private static PropertyInfo _newsServiceProperty;
-		private static PropertyInfo _newcomersServiceProperty;
-		private static PropertyInfo _reputationRewardsServiceProperty;
-		private static PropertyInfo _cornerstonesServiceProperty;
-		private static PropertyInfo _monitorsServiceProperty;
-		private static PropertyInfo _villagersServiceProperty;
-
 		/// <summary>
 		/// Try to subscribe to game events.
 		/// Called periodically until successful.
@@ -88,7 +49,7 @@ namespace ATSAccessibility {
 			if (!GameReflection.GetIsGameActive()) return;
 
 			try {
-				EnsureReflectionCached();
+				EventReflection.EnsureReflectionCached();
 
 				var gameServices = GameReflection.GetGameServices();
 				if (gameServices == null) return;
@@ -139,11 +100,7 @@ namespace ATSAccessibility {
 
 			// Reset reflection cached flags so they get re-cached on next game
 			// (services may have different types/methods in different game versions)
-			_reflectionCached = false;
-			_villagerReflectionCached = false;
-			_gladeFieldsCached = false;
-			_alertFieldsCached = false;
-			_gladesGetDangerLevelCached = false;
+			EventReflection.ResetCache();
 
 			// Clear sacrifice tracking state
 			ClearSacrificeState();
@@ -182,15 +139,11 @@ namespace ATSAccessibility {
 		private static Vector2Int? GetGladeLocation(object gladeState) {
 			if (gladeState == null) return null;
 
-			if (!_gladeFieldsCached) {
-				_gladeFieldsField = gladeState.GetType().GetField("fields");
-				_gladeFieldsCached = true;
-			}
-
-			if (_gladeFieldsField == null) return null;
+			EventReflection.EnsureGladeFieldsCached(gladeState);
+			if (EventReflection.GladeFieldsField == null) return null;
 
 			try {
-				var fields = _gladeFieldsField.GetValue(gladeState) as List<Vector2Int>;
+				var fields = EventReflection.GladeFieldsField.GetValue(gladeState) as List<Vector2Int>;
 				if (fields != null && fields.Count > 0)
 					return fields[0];
 			} catch { }
@@ -207,12 +160,12 @@ namespace ATSAccessibility {
 			if (villager == null) return null;
 
 			try {
-				if (_villagerLastWorkIdField == null || _villagerStateField == null) return null;
+				if (EventReflection.VillagerLastWorkIdField == null || EventReflection.VillagerStateField == null) return null;
 
-				var stateObj = _villagerStateField.GetValue(villager);
+				var stateObj = EventReflection.VillagerStateField.GetValue(villager);
 				if (stateObj == null) return null;
 
-				int lastWorkId = (int)_villagerLastWorkIdField.GetValue(stateObj);
+				int lastWorkId = (int)EventReflection.VillagerLastWorkIdField.GetValue(stateObj);
 				if (lastWorkId <= 0) return null;
 
 				var building = GameReflection.GetBuildingById(lastWorkId);
@@ -412,37 +365,12 @@ namespace ATSAccessibility {
 			_pendingMessages.Clear();
 		}
 
-		private void EnsureReflectionCached() {
-			if (_reflectionCached) return;
-
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) return;
-
-			var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
-			if (gameServicesType != null) {
-				_calendarServiceProperty = gameServicesType.GetProperty("CalendarService");
-				_hostilityServiceProperty = gameServicesType.GetProperty("HostilityService");
-				_tradeServiceProperty = gameServicesType.GetProperty("TradeService");
-				_ordersServiceProperty = gameServicesType.GetProperty("OrdersService");
-				_gladesServiceProperty = gameServicesType.GetProperty("GladesService");
-				_reputationServiceProperty = gameServicesType.GetProperty("ReputationService");
-				_newsServiceProperty = gameServicesType.GetProperty("NewsService");
-				_newcomersServiceProperty = gameServicesType.GetProperty("NewcomersService");
-				_reputationRewardsServiceProperty = gameServicesType.GetProperty("ReputationRewardsService");
-				_cornerstonesServiceProperty = gameServicesType.GetProperty("CornerstonesService");
-				_monitorsServiceProperty = gameServicesType.GetProperty("MonitorsService");
-				_villagersServiceProperty = gameServicesType.GetProperty("VillagersService");
-			}
-
-			_reflectionCached = true;
-		}
-
 		// ========================================
 		// CALENDAR SERVICE (Season, Year)
 		// ========================================
 
 		private void SubscribeToCalendar(object gameServices) {
-			var service = _calendarServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.CalendarServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// OnSeasonChanged
@@ -496,8 +424,11 @@ namespace ATSAccessibility {
 				if (string.IsNullOrEmpty(effectName)) return;
 
 				var effectModel = GameReflection.GetEffectModel(effectName);
-				string displayName = GetEffectDisplayName(effectModel) ?? effectName;
-				string description = GetEffectDescription(effectModel);
+				string displayName = EventReflection.GetEffectDisplayName(effectModel) ?? effectName;
+				string description = EventReflection.GetEffectDescription(effectModel);
+				// Strip rich text tags from description
+				if (!string.IsNullOrEmpty(description))
+					description = RichTextTagsRegex.Replace(description, "").Trim();
 
 				if (!string.IsNullOrEmpty(description))
 					Announce($"Plague activated: {displayName}. {description}");
@@ -507,48 +438,6 @@ namespace ATSAccessibility {
 				// Plague ends when Drizzle starts
 				Announce("Plague ended");
 			}
-		}
-
-		// Cached effect property info for plague announcements
-		private static PropertyInfo _effectDisplayNameProperty = null;
-		private static PropertyInfo _effectDescriptionProperty = null;
-		private static bool _effectPropsCached = false;
-
-		private static void EnsureEffectPropertyCached() {
-			if (_effectPropsCached) return;
-			_effectPropsCached = true;
-
-			try {
-				var effectModelType = GameReflection.GameAssembly?.GetType("Eremite.Model.EffectModel");
-				if (effectModelType != null) {
-					_effectDisplayNameProperty = effectModelType.GetProperty("DisplayName", GameReflection.PublicInstance);
-					_effectDescriptionProperty = effectModelType.GetProperty("Description", GameReflection.PublicInstance);
-				}
-			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] EventAnnouncer: Failed to cache effect properties: {ex.Message}");
-			}
-		}
-
-		private static string GetEffectDisplayName(object effectModel) {
-			if (effectModel == null) return null;
-			EnsureEffectPropertyCached();
-			if (_effectDisplayNameProperty == null) return null;
-
-			try { return _effectDisplayNameProperty.GetValue(effectModel)?.ToString(); } catch { return null; }
-		}
-
-		private static string GetEffectDescription(object effectModel) {
-			if (effectModel == null) return null;
-			EnsureEffectPropertyCached();
-			if (_effectDescriptionProperty == null) return null;
-
-			try {
-				string desc = _effectDescriptionProperty.GetValue(effectModel)?.ToString();
-				// Strip rich text tags
-				if (!string.IsNullOrEmpty(desc))
-					desc = RichTextTagsRegex.Replace(desc, "").Trim();
-				return desc;
-			} catch { return null; }
 		}
 
 		private void OnYearChanged(object year) {
@@ -563,7 +452,7 @@ namespace ATSAccessibility {
 		// OnNewcomersArrival removed - covered by game's AlertsNewcomers
 
 		private void SubscribeToNewcomers(object gameServices) {
-			var service = _newcomersServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.NewcomersServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// OnNewcomersArrival - announces when newcomers arrive and are ready to be picked
@@ -586,7 +475,7 @@ namespace ATSAccessibility {
 		// Re-added because game's NewsService alerts depend on user's in-game alert settings
 
 		private void SubscribeToVillagers(object gameServices) {
-			var service = _villagersServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.VillagersServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// OnVillagerRemoved - fires when a villager dies or leaves
@@ -597,41 +486,23 @@ namespace ATSAccessibility {
 			}
 		}
 
-		private void EnsureVillagerReflectionCached(object villager) {
-			if (_villagerReflectionCached || villager == null) return;
-
-			var villagerType = villager.GetType();
-			_villagerGetDisplayNameMethod = villagerType.GetMethod("GetDisplayName");
-			_villagerStateField = villagerType.GetField("state");
-
-			var stateObj = _villagerStateField?.GetValue(villager);
-			if (stateObj != null) {
-				var stateType = stateObj.GetType();
-				_villagerStateLossTypeField = stateType.GetField("lossType");
-				_villagerStateLossReasonField = stateType.GetField("lossReasonKey");
-				_villagerLastWorkIdField = stateType.GetField("lastWorkId");
-			}
-
-			_villagerReflectionCached = true;
-		}
-
 		private void OnVillagerRemoved(object villager) {
 			if (!Plugin.AnnounceVillagerLost.Value) return;
 			if (IsInGracePeriod()) return;
 
 			try {
-				EnsureVillagerReflectionCached(villager);
+				EventReflection.EnsureVillagerReflectionCached(villager);
 
 				// Get villager name using cached method
-				string villagerName = _villagerGetDisplayNameMethod?.Invoke(villager, null) as string ?? "Villager";
+				string villagerName = EventReflection.VillagerGetDisplayNameMethod?.Invoke(villager, null) as string ?? "Villager";
 
 				// Get loss type from villager.state.lossType using cached fields
-				var state = _villagerStateField?.GetValue(villager);
-				var lossType = _villagerStateLossTypeField?.GetValue(state);
+				var state = EventReflection.VillagerStateField?.GetValue(villager);
+				var lossType = EventReflection.VillagerStateLossTypeField?.GetValue(state);
 				string lossTypeStr = lossType?.ToString() ?? "Unknown";
 
 				// Get reason from villager.state.lossReasonKey using cached field
-				string reasonKey = _villagerStateLossReasonField?.GetValue(state) as string;
+				string reasonKey = EventReflection.VillagerStateLossReasonField?.GetValue(state) as string;
 
 				string reason = "";
 				if (!string.IsNullOrEmpty(reasonKey)) {
@@ -664,7 +535,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void SubscribeToHostility(object gameServices) {
-			var service = _hostilityServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.HostilityServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// OnLevelUp
@@ -708,7 +579,7 @@ namespace ATSAccessibility {
 		// OnTraderArrived removed - covered by game's AlertsTraderArrived
 
 		private void SubscribeToTrade(object gameServices) {
-			var service = _tradeServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.TradeServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// OnTraderDepartured (note: game uses "Departured" spelling) - not covered by game alerts
@@ -730,7 +601,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void SubscribeToOrders(object gameServices) {
-			var service = _ordersServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.OrdersServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// OnOrderStarted (new order available) - not covered by game alerts
@@ -781,7 +652,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void SubscribeToGlades(object gameServices) {
-			var service = _gladesServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.GladesServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// OnGladeRevealed
@@ -800,15 +671,11 @@ namespace ATSAccessibility {
 			try {
 				// Get danger level from GladesService using cached method
 				var gameServices = GameReflection.GetGameServices();
-				var gladesService = _gladesServiceProperty?.GetValue(gameServices);
+				var gladesService = EventReflection.GladesServiceProperty?.GetValue(gameServices);
 				if (gladesService != null) {
-					// Cache the method on first use
-					if (!_gladesGetDangerLevelCached) {
-						_gladesGetDangerLevelMethod = gladesService.GetType().GetMethod("GetDangerLevel");
-						_gladesGetDangerLevelCached = true;
-					}
+					EventReflection.EnsureGladesGetDangerLevelCached(gladesService);
 
-					var dangerLevel = _gladesGetDangerLevelMethod?.Invoke(gladesService, new[] { gladeState });
+					var dangerLevel = EventReflection.GladesGetDangerLevelMethod?.Invoke(gladesService, new[] { gladeState });
 					if (dangerLevel != null) {
 						string level = dangerLevel.ToString();
 						if (level != "None" && level != "Safe") {
@@ -826,7 +693,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void SubscribeToReputation(object gameServices) {
-			var service = _reputationServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.ReputationServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// OnReputationChanged
@@ -882,7 +749,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void SubscribeToNews(object gameServices) {
-			var service = _newsServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.NewsServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// News
@@ -1200,7 +1067,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void SubscribeToReputationRewards(object gameServices) {
-			var service = _reputationRewardsServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.ReputationRewardsServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// PickPopupRequested - fires when the blueprint pick popup is requested
@@ -1222,7 +1089,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void SubscribeToCornerstones(object gameServices) {
-			var service = _cornerstonesServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.CornerstonesServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// OnPicksChanged - fires when cornerstone picks become available
@@ -1244,7 +1111,7 @@ namespace ATSAccessibility {
 		// ========================================
 
 		private void SubscribeToMonitors(object gameServices) {
-			var service = _monitorsServiceProperty?.GetValue(gameServices);
+			var service = EventReflection.MonitorsServiceProperty?.GetValue(gameServices);
 			if (service == null) return;
 
 			// Subscribe to Alerts observable
@@ -1268,17 +1135,11 @@ namespace ATSAccessibility {
 					if (alert == null) continue;
 
 					// Cache alert field metadata on first use
-					if (!_alertFieldsCached) {
-						var alertType = alert.GetType();
-						_alertTextField = alertType.GetField("text");
-						_alertDismissedField = alertType.GetField("dismissed");
-						_alertShowTimeField = alertType.GetField("showTime");
-						_alertFieldsCached = true;
-					}
+					EventReflection.EnsureAlertFieldsCached(alert);
 
-					string text = _alertTextField?.GetValue(alert) as string;
-					bool dismissed = _alertDismissedField != null && (bool)_alertDismissedField.GetValue(alert);
-					float showTime = _alertShowTimeField != null ? (float)_alertShowTimeField.GetValue(alert) : 0f;
+					string text = EventReflection.AlertTextField?.GetValue(alert) as string;
+					bool dismissed = EventReflection.AlertDismissedField != null && (bool)EventReflection.AlertDismissedField.GetValue(alert);
+					float showTime = EventReflection.AlertShowTimeField != null ? (float)EventReflection.AlertShowTimeField.GetValue(alert) : 0f;
 
 					if (string.IsNullOrEmpty(text) || dismissed) continue;
 

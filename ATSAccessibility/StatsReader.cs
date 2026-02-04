@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 
 namespace ATSAccessibility {
@@ -9,42 +8,6 @@ namespace ATSAccessibility {
 	/// via reflection and announces them via speech.
 	/// </summary>
 	public static class StatsReader {
-		// Cached reflection metadata for ReputationService
-		private static PropertyInfo _repReputationProperty = null;       // ReactiveProperty<float>
-		private static PropertyInfo _repPenaltyProperty = null;          // ReactiveProperty<float> (impatience)
-		private static MethodInfo _repGetToWinMethod = null;             // GetReputationToWin()
-		private static MethodInfo _repGetPenaltyToLooseMethod = null;    // GetReputationPenaltyToLoose()
-		private static MethodInfo _repGetGainedFromMethod = null;        // GetReputationGainedFrom(source)
-		private static MethodInfo _repGetPenaltyPerSecMethod = null;     // GetReputationPenaltyPerSec()
-		private static MethodInfo _repGetBasePenaltyPerSecMethod = null; // GetBaseReputationPenaltyPerSec()
-		private static PropertyInfo _repStateProperty = null;            // State (GameObjectivesState)
-		private static FieldInfo _gracePeriodLeftField = null;           // gracePeriodLeft field
-		private static bool _repTypesCached = false;
-
-		// Cached reflection metadata for HostilityService
-		private static PropertyInfo _hostPointsProperty = null;          // ReactiveProperty<int>
-		private static PropertyInfo _hostLevelProperty = null;           // ReactiveProperty<int>
-		private static MethodInfo _hostGetSourceAmountMethod = null;     // GetSourceAmount(source)
-		private static MethodInfo _hostGetPointsForMethod = null;        // GetPointsFor(source)
-		private static MethodInfo _hostGetPointsLeftToNextLevelMethod = null; // GetPointsLeftToNextLevel()
-		private static bool _hostTypesCached = false;
-
-		// Cached reflection metadata for ResolveService
-		private static MethodInfo _resGetResolveForMethod = null;        // GetResolveFor(race)
-		private static MethodInfo _resGetMinResolveForRepMethod = null;  // GetMinResolveForReputation(race)
-		private static MethodInfo _resGetTargetResolveForMethod = null; // GetTargetResolveFor(race) - settling point
-		private static PropertyInfo _resEffectsProperty = null;          // Effects dictionary
-		private static bool _resTypesCached = false;
-
-		// Cached reflection metadata for VillagersService.Races
-		private static PropertyInfo _villRacesProperty = null;           // Races dictionary
-		private static bool _villTypesCached = false;
-
-		// Cached enum type for ReputationChangeSource
-		private static Type _reputationChangeSourceType = null;
-		private static Type _hostilitySourceType = null;
-		private static bool _enumTypesCached = false;
-
 		// Reusable object array for single-argument method invocations (avoid allocations in loops)
 		private static readonly object[] _singleArgArray = new object[1];
 
@@ -59,125 +22,6 @@ namespace ATSAccessibility {
 		}
 
 		// ========================================
-		// INITIALIZATION
-		// ========================================
-
-		private static void EnsureReputationTypes() {
-			if (_repTypesCached) return;
-
-			var repService = GameReflection.GetReputationService();
-			if (repService == null) {
-				return;
-			}
-
-			try {
-				var type = repService.GetType();
-				_repReputationProperty = type.GetProperty("Reputation", BindingFlags.Public | BindingFlags.Instance);
-				_repPenaltyProperty = type.GetProperty("ReputationPenalty", BindingFlags.Public | BindingFlags.Instance);
-				_repGetToWinMethod = type.GetMethod("GetReputationToWin", BindingFlags.Public | BindingFlags.Instance);
-				_repGetPenaltyToLooseMethod = type.GetMethod("GetReputationPenaltyToLoose", BindingFlags.Public | BindingFlags.Instance);
-				_repGetGainedFromMethod = type.GetMethod("GetReputationGainedFrom", BindingFlags.Public | BindingFlags.Instance);
-				_repGetPenaltyPerSecMethod = type.GetMethod("GetReputationPenaltyPerSec", BindingFlags.Public | BindingFlags.Instance);
-				_repGetBasePenaltyPerSecMethod = type.GetMethod("GetBaseReputationPenaltyPerSec", BindingFlags.Public | BindingFlags.Instance);
-				_repStateProperty = type.GetProperty("State", BindingFlags.Public | BindingFlags.Instance);
-
-				// Get gracePeriodLeft field from GameObjectivesState
-				var assembly = GameReflection.GameAssembly;
-				var stateType = assembly?.GetType("Eremite.Model.State.GameObjectivesState");
-				if (stateType != null) {
-					_gracePeriodLeftField = stateType.GetField("gracePeriodLeft", BindingFlags.Public | BindingFlags.Instance);
-				}
-
-				Debug.Log("[ATSAccessibility] Cached ReputationService types");
-				_repTypesCached = true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ReputationService type caching failed: {ex.Message}");
-			}
-		}
-
-		private static void EnsureHostilityTypes() {
-			if (_hostTypesCached) return;
-
-			var hostService = GameReflection.GetHostilityService();
-			if (hostService == null) {
-				return;
-			}
-
-			try {
-				var type = hostService.GetType();
-				_hostPointsProperty = type.GetProperty("Points", BindingFlags.Public | BindingFlags.Instance);
-				_hostLevelProperty = type.GetProperty("Level", BindingFlags.Public | BindingFlags.Instance);
-				_hostGetSourceAmountMethod = type.GetMethod("GetSourceAmount", BindingFlags.Public | BindingFlags.Instance);
-				_hostGetPointsForMethod = type.GetMethod("GetPointsFor", BindingFlags.Public | BindingFlags.Instance);
-				_hostGetPointsLeftToNextLevelMethod = type.GetMethod("GetPointsLeftToNextLevel", BindingFlags.Public | BindingFlags.Instance);
-
-				Debug.Log("[ATSAccessibility] Cached HostilityService types");
-				_hostTypesCached = true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] HostilityService type caching failed: {ex.Message}");
-			}
-		}
-
-		private static void EnsureResolveTypes() {
-			if (_resTypesCached) return;
-
-			var resService = GameReflection.GetResolveService();
-			if (resService == null) {
-				return;
-			}
-
-			try {
-				var type = resService.GetType();
-				_resGetResolveForMethod = type.GetMethod("GetResolveFor", BindingFlags.Public | BindingFlags.Instance);
-				_resGetMinResolveForRepMethod = type.GetMethod("GetMinResolveForReputation",
-					BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(string) }, null);
-				_resGetTargetResolveForMethod = type.GetMethod("GetTargetResolveFor",
-					BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(string) }, null);
-				_resEffectsProperty = type.GetProperty("Effects", BindingFlags.Public | BindingFlags.Instance);
-
-				Debug.Log("[ATSAccessibility] Cached ResolveService types");
-				_resTypesCached = true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] ResolveService type caching failed: {ex.Message}");
-			}
-		}
-
-		private static void EnsureVillagersTypes() {
-			if (_villTypesCached) return;
-
-			var villService = GameReflection.GetVillagersService();
-			if (villService == null) {
-				return;
-			}
-
-			try {
-				var type = villService.GetType();
-				_villRacesProperty = type.GetProperty("Races", BindingFlags.Public | BindingFlags.Instance);
-
-				Debug.Log("[ATSAccessibility] Cached VillagersService types");
-				_villTypesCached = true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] VillagersService type caching failed: {ex.Message}");
-			}
-		}
-
-		private static void EnsureEnumTypes() {
-			if (_enumTypesCached) return;
-
-			try {
-				foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) {
-					if (assembly.GetName().Name == "Assembly-CSharp") {
-						_reputationChangeSourceType = assembly.GetType("Eremite.Services.ReputationChangeSource");
-						break;
-					}
-				}
-				_enumTypesCached = true;
-			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] Enum type caching failed: {ex.Message}");
-			}
-		}
-
-		// ========================================
 		// DATA ACCESS METHODS
 		// ========================================
 
@@ -185,14 +29,14 @@ namespace ATSAccessibility {
 		/// Get reputation summary as (current, target).
 		/// </summary>
 		public static (float current, int target) GetReputationSummary() {
-			EnsureReputationTypes();
+			StatsReflection.EnsureReputationTypes();
 
 			var repService = GameReflection.GetReputationService();
 			if (repService == null) return (0, 0);
 
 			try {
 				// Get Reputation.Value from ReactiveProperty
-				var repProp = _repReputationProperty?.GetValue(repService);
+				var repProp = StatsReflection.RepReputationProperty?.GetValue(repService);
 				float current = 0;
 				if (repProp != null) {
 					var valueProp = repProp.GetType().GetProperty("Value");
@@ -200,7 +44,7 @@ namespace ATSAccessibility {
 				}
 
 				// Get target
-				int target = (int)(_repGetToWinMethod?.Invoke(repService, null) ?? 0);
+				int target = (int)(StatsReflection.RepGetToWinMethod?.Invoke(repService, null) ?? 0);
 
 				return (current, target);
 			} catch (Exception ex) {
@@ -213,14 +57,14 @@ namespace ATSAccessibility {
 		/// Get impatience (reputation penalty) summary as (current, max).
 		/// </summary>
 		public static (float current, int max) GetImpatienceSummary() {
-			EnsureReputationTypes();
+			StatsReflection.EnsureReputationTypes();
 
 			var repService = GameReflection.GetReputationService();
 			if (repService == null) return (0, 0);
 
 			try {
 				// Get ReputationPenalty.Value from ReactiveProperty
-				var penaltyProp = _repPenaltyProperty?.GetValue(repService);
+				var penaltyProp = StatsReflection.RepPenaltyProperty?.GetValue(repService);
 				float current = 0;
 				if (penaltyProp != null) {
 					var valueProp = penaltyProp.GetType().GetProperty("Value");
@@ -228,7 +72,7 @@ namespace ATSAccessibility {
 				}
 
 				// Get max
-				int max = (int)(_repGetPenaltyToLooseMethod?.Invoke(repService, null) ?? 0);
+				int max = (int)(StatsReflection.RepGetPenaltyToLooseMethod?.Invoke(repService, null) ?? 0);
 
 				return (current, max);
 			} catch (Exception ex) {
@@ -249,14 +93,14 @@ namespace ATSAccessibility {
 		/// Get hostility points, level, and points to next level.
 		/// </summary>
 		public static (int points, int level, int pointsToNext) GetHostilitySummary() {
-			EnsureHostilityTypes();
+			StatsReflection.EnsureHostilityTypes();
 
 			var hostService = GameReflection.GetHostilityService();
 			if (hostService == null) return (0, 0, 0);
 
 			try {
 				// Get Points.Value from ReactiveProperty
-				var pointsProp = _hostPointsProperty?.GetValue(hostService);
+				var pointsProp = StatsReflection.HostPointsProperty?.GetValue(hostService);
 				int points = 0;
 				if (pointsProp != null) {
 					var valueProp = pointsProp.GetType().GetProperty("Value");
@@ -264,7 +108,7 @@ namespace ATSAccessibility {
 				}
 
 				// Get Level.Value from ReactiveProperty
-				var levelProp = _hostLevelProperty?.GetValue(hostService);
+				var levelProp = StatsReflection.HostLevelProperty?.GetValue(hostService);
 				int level = 0;
 				if (levelProp != null) {
 					var valueProp = levelProp.GetType().GetProperty("Value");
@@ -273,8 +117,8 @@ namespace ATSAccessibility {
 
 				// Get points left to next level
 				int pointsToNext = 0;
-				if (_hostGetPointsLeftToNextLevelMethod != null) {
-					var result = _hostGetPointsLeftToNextLevelMethod.Invoke(hostService, null);
+				if (StatsReflection.HostGetPointsLeftToNextLevelMethod != null) {
+					var result = StatsReflection.HostGetPointsLeftToNextLevelMethod.Invoke(hostService, null);
 					pointsToNext = result is int p ? p : 0;
 				}
 
@@ -289,15 +133,15 @@ namespace ATSAccessibility {
 		/// Get resolve for a specific race as (currentResolve, thresholdForReputation, settlingPoint).
 		/// </summary>
 		public static (float resolve, int threshold, int settling) GetResolveSummary(string race) {
-			EnsureResolveTypes();
+			StatsReflection.EnsureResolveTypes();
 
 			var resService = GameReflection.GetResolveService();
 			if (resService == null) return (0, 0, 0);
 
 			try {
-				float resolve = (float)(_resGetResolveForMethod?.Invoke(resService, new object[] { race }) ?? 0f);
-				int threshold = (int)(_resGetMinResolveForRepMethod?.Invoke(resService, new object[] { race }) ?? 0);
-				int settling = (int)(_resGetTargetResolveForMethod?.Invoke(resService, new object[] { race }) ?? 0);
+				float resolve = (float)(StatsReflection.ResGetResolveForMethod?.Invoke(resService, new object[] { race }) ?? 0f);
+				int threshold = (int)(StatsReflection.ResGetMinResolveForRepMethod?.Invoke(resService, new object[] { race }) ?? 0);
+				int settling = (int)(StatsReflection.ResGetTargetResolveForMethod?.Invoke(resService, new object[] { race }) ?? 0);
 
 				return (resolve, threshold, settling);
 			} catch (Exception ex) {
@@ -310,7 +154,7 @@ namespace ATSAccessibility {
 		/// Get list of present races (those with at least one villager).
 		/// </summary>
 		public static List<string> GetPresentRaces() {
-			EnsureVillagersTypes();
+			StatsReflection.EnsureVillagersTypes();
 
 			var result = new List<string>();
 			var villService = GameReflection.GetVillagersService();
@@ -318,7 +162,7 @@ namespace ATSAccessibility {
 
 			try {
 				// Get Races dictionary: Dictionary<string, List<Villager>>
-				var racesDict = _villRacesProperty?.GetValue(villService);
+				var racesDict = StatsReflection.VillRacesProperty?.GetValue(villService);
 				if (racesDict == null) return result;
 
 				// Iterate via reflection
@@ -349,13 +193,13 @@ namespace ATSAccessibility {
 		/// Get villager count for a specific race.
 		/// </summary>
 		public static int GetRaceCount(string race) {
-			EnsureVillagersTypes();
+			StatsReflection.EnsureVillagersTypes();
 
 			var villService = GameReflection.GetVillagersService();
 			if (villService == null) return 0;
 
 			try {
-				var racesDict = _villRacesProperty?.GetValue(villService);
+				var racesDict = StatsReflection.VillRacesProperty?.GetValue(villService);
 				if (racesDict == null) return 0;
 
 				var indexer = racesDict.GetType().GetProperty("Item");
@@ -413,21 +257,21 @@ namespace ATSAccessibility {
 		/// Returns list of strings like "+2 from Orders".
 		/// </summary>
 		public static List<string> GetReputationBreakdown() {
-			EnsureReputationTypes();
-			EnsureEnumTypes();
+			StatsReflection.EnsureReputationTypes();
+			StatsReflection.EnsureEnumTypes();
 
 			var result = new List<string>();
 			var repService = GameReflection.GetReputationService();
-			if (repService == null || _reputationChangeSourceType == null) return result;
+			if (repService == null || StatsReflection.ReputationChangeSourceType == null) return result;
 
 			try {
 				// ReputationChangeSource enum: Other=0, Order=1, Resolve=2, Relics=3
 				string[] sourceNames = { "Other", "Orders", "Resolve", "Relics" };
 
 				for (int i = 0; i < 4; i++) {
-					var enumValue = Enum.ToObject(_reputationChangeSourceType, i);
+					var enumValue = Enum.ToObject(StatsReflection.ReputationChangeSourceType, i);
 					_singleArgArray[0] = enumValue;
-					float amount = (float)(_repGetGainedFromMethod?.Invoke(repService, _singleArgArray) ?? 0f);
+					float amount = (float)(StatsReflection.RepGetGainedFromMethod?.Invoke(repService, _singleArgArray) ?? 0f);
 
 					if (amount > 0.01f) {
 						result.Add($"+{amount:F1} from {sourceNames[i]}");
@@ -444,7 +288,7 @@ namespace ATSAccessibility {
 		/// Get impatience breakdown showing rate and grace period.
 		/// </summary>
 		public static List<string> GetImpatienceBreakdown() {
-			EnsureReputationTypes();
+			StatsReflection.EnsureReputationTypes();
 
 			var result = new List<string>();
 			var repService = GameReflection.GetReputationService();
@@ -453,15 +297,15 @@ namespace ATSAccessibility {
 			try {
 				// Get current rate
 				float ratePerSec = 0f;
-				if (_repGetPenaltyPerSecMethod != null) {
-					var val = _repGetPenaltyPerSecMethod.Invoke(repService, null);
+				if (StatsReflection.RepGetPenaltyPerSecMethod != null) {
+					var val = StatsReflection.RepGetPenaltyPerSecMethod.Invoke(repService, null);
 					ratePerSec = val is float f ? f : 0f;
 				}
 
 				// Get base rate
 				float baseRatePerSec = 0f;
-				if (_repGetBasePenaltyPerSecMethod != null) {
-					var val = _repGetBasePenaltyPerSecMethod.Invoke(repService, null);
+				if (StatsReflection.RepGetBasePenaltyPerSecMethod != null) {
+					var val = StatsReflection.RepGetBasePenaltyPerSecMethod.Invoke(repService, null);
 					baseRatePerSec = val is float f ? f : 0f;
 				}
 
@@ -478,10 +322,10 @@ namespace ATSAccessibility {
 				}
 
 				// Get grace period
-				if (_repStateProperty != null && _gracePeriodLeftField != null) {
-					var state = _repStateProperty.GetValue(repService);
+				if (StatsReflection.RepStateProperty != null && StatsReflection.GracePeriodLeftField != null) {
+					var state = StatsReflection.RepStateProperty.GetValue(repService);
 					if (state != null) {
-						var graceVal = _gracePeriodLeftField.GetValue(state);
+						var graceVal = StatsReflection.GracePeriodLeftField.GetValue(state);
 						float grace = graceVal is float g ? g : 0f;
 						if (grace > 0) {
 							int graceSec = Mathf.FloorToInt(grace);
@@ -501,7 +345,7 @@ namespace ATSAccessibility {
 		/// Returns list of strings describing hostility sources.
 		/// </summary>
 		public static List<string> GetHostilityBreakdown() {
-			EnsureHostilityTypes();
+			StatsReflection.EnsureHostilityTypes();
 
 			var result = new List<string>();
 			var hostService = GameReflection.GetHostilityService();
@@ -509,11 +353,11 @@ namespace ATSAccessibility {
 
 			try {
 				// Cache HostilitySource type outside loop
-				if (_hostilitySourceType == null) {
-					_hostilitySourceType = hostService.GetType().Assembly.GetType("Eremite.Model.State.HostilitySource");
+				if (StatsReflection.HostilitySourceType == null) {
+					StatsReflection.HostilitySourceType = hostService.GetType().Assembly.GetType("Eremite.Model.State.HostilitySource");
 				}
 
-				if (_hostilitySourceType == null) return result;
+				if (StatsReflection.HostilitySourceType == null) return result;
 
 				// HostilitySource enum values and their meanings
 				var sources = new (int value, string name)[]
@@ -533,9 +377,9 @@ namespace ATSAccessibility {
 
 				foreach (var (value, name) in sources) {
 					try {
-						var enumValue = Enum.ToObject(_hostilitySourceType, value);
+						var enumValue = Enum.ToObject(StatsReflection.HostilitySourceType, value);
 						_singleArgArray[0] = enumValue;
-						int points = (int)(_hostGetPointsForMethod?.Invoke(hostService, _singleArgArray) ?? 0);
+						int points = (int)(StatsReflection.HostGetPointsForMethod?.Invoke(hostService, _singleArgArray) ?? 0);
 
 						if (points != 0) {
 							string prefix = points > 0 ? "+" : "";
@@ -556,7 +400,7 @@ namespace ATSAccessibility {
 		/// Get resolve breakdown for a race (all effects affecting resolve).
 		/// </summary>
 		public static List<string> GetResolveBreakdown(string race) {
-			EnsureResolveTypes();
+			StatsReflection.EnsureResolveTypes();
 
 			var result = new List<string>();
 			var resService = GameReflection.GetResolveService();
@@ -573,7 +417,7 @@ namespace ATSAccessibility {
 				}
 
 				// Effects is Dictionary<string, Dictionary<ResolveEffectModel, int>>
-				var effectsDict = _resEffectsProperty?.GetValue(resService);
+				var effectsDict = StatsReflection.ResEffectsProperty?.GetValue(resService);
 				if (effectsDict == null) return result;
 
 				// Get the race's effects dictionary
@@ -601,7 +445,7 @@ namespace ATSAccessibility {
 
 					if (effectModel != null && count > 0) {
 						// Get effect name
-						var displayNameField = effectModel.GetType().GetField("displayName", BindingFlags.Public | BindingFlags.Instance);
+						var displayNameField = effectModel.GetType().GetField("displayName", GameReflection.PublicInstance);
 						var nameProp = effectModel.GetType().GetProperty("Name");
 
 						var locaText = displayNameField?.GetValue(effectModel);
@@ -612,7 +456,7 @@ namespace ATSAccessibility {
 						// Get per-villager resolve value
 						int perVillager = 0;
 						var resProp = effectModel.GetType().GetProperty("resolve");
-						var resField = effectModel.GetType().GetField("resolve", BindingFlags.Public | BindingFlags.Instance);
+						var resField = effectModel.GetType().GetField("resolve", GameReflection.PublicInstance);
 						if (resProp != null)
 							perVillager = (int)(resProp.GetValue(effectModel) ?? 0);
 						else if (resField != null)
@@ -623,7 +467,7 @@ namespace ATSAccessibility {
 						try {
 							// Must specify parameter types due to method overloads
 							var getRoundedAvgMethod = resService.GetType().GetMethod("GetRoundedAverageResolveImpact",
-								BindingFlags.Public | BindingFlags.Instance,
+								GameReflection.PublicInstance,
 								null,
 								new Type[] { typeof(string), effectModel.GetType() },
 								null);
