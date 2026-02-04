@@ -45,6 +45,9 @@ namespace ATSAccessibility {
 		// Type-ahead search
 		private TypeAheadSearch _search = new TypeAheadSearch();
 
+		// Section tracking for announcements
+		private string _lastAnnouncedSection = null;
+
 		/// <summary>
 		/// Whether there's an active popup being navigated.
 		/// </summary>
@@ -304,6 +307,7 @@ namespace ATSAccessibility {
 			_tabsPanelRef = null;
 			_currentPanelIndex = 0;
 			_currentElementIndex = 0;
+			_lastAnnouncedSection = null;
 			_search.Clear();
 		}
 
@@ -319,6 +323,7 @@ namespace ATSAccessibility {
 
 			_currentPanelIndex = (_currentPanelIndex + direction + _panels.Count) % _panels.Count;
 			_currentElementIndex = 0;
+			_lastAnnouncedSection = null;
 
 			RebuildElementsForCurrentPanel();
 			AnnouncePanelName();
@@ -359,11 +364,23 @@ namespace ATSAccessibility {
 
 			try {
 				if (element is Button button) {
+					// Check if this Button is wrapped by a ToggleButton (game's custom toggle)
+					var toggleButton = UIElementFinder.FindToggleButton(element);
+					if (toggleButton != null) {
+						button.onClick.Invoke();
+						bool? newState = UIElementFinder.GetToggleButtonState(toggleButton);
+						if (newState.HasValue) {
+							Speech.Say(newState.Value ? "checked" : "unchecked");
+						}
+						return true;
+					}
+
 					button.onClick.Invoke();
 
 					// If we just activated a tab, auto-switch to content panel
 					if (_isTabbedPopup && _currentPanelIndex == 0) {
 						_currentPanelIndex = 1;
+						_lastAnnouncedSection = null;
 						RebuildElementsForCurrentPanel();
 						AnnouncePanelName();
 						return true;
@@ -789,11 +806,21 @@ namespace ATSAccessibility {
 			var element = _elements[_currentElementIndex];
 			if (element == null) return;
 
+			// Check for section change
+			string section = UIElementFinder.FindSectionName(element.transform);
+			string sectionPrefix = null;
+			if (!string.IsNullOrEmpty(section) && section != _lastAnnouncedSection) {
+				_lastAnnouncedSection = section;
+				sectionPrefix = section;
+			}
+
 			string text = UIElementFinder.GetElementText(element);
 			string type = UIElementFinder.GetElementType(element);
 			string state = UIElementFinder.GetElementState(element);
 
 			var parts = new List<string>();
+			if (!string.IsNullOrEmpty(sectionPrefix))
+				parts.Add(sectionPrefix);
 			if (!string.IsNullOrEmpty(text))
 				parts.Add(text);
 			if (!string.IsNullOrEmpty(type))

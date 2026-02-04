@@ -21,6 +21,8 @@
 
 ## Bug fixes
 
+- Options menu fuel toggles now recognized as checkboxes with proper checked/unchecked state feedback
+- Options menu section headings announced when navigating into a new section (e.g. Gameplay, Autopause, Video)
 - World map tiles that can't be embarked now show the actual reason (blightstorm approaching, not enough seal fragments, seal already attempted) instead of generic "Out of reach"
 - D key on world map now shows embark range and distance from actual embark point (last town) instead of capital
 - City tiles on world map now read the localized settlement name instead of "City"

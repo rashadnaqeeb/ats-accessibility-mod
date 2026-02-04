@@ -445,6 +445,42 @@ namespace ATSAccessibility {
 		public static FieldInfo TabsButtonContentField { get { EnsureTabTypes(); return _tabsButtonContentField; } }
 
 		// ========================================
+		// TOGGLEBUTTON REFLECTION (game's custom toggle wrapping a Button)
+		// ========================================
+		private static Type _toggleButtonType = null;
+		private static MethodInfo _toggleIsOnMethod = null;
+		private static bool _toggleButtonTypeCached = false;
+
+		/// <summary>
+		/// Ensure ToggleButton type and IsOn method are cached.
+		/// ToggleButton is the game's custom toggle that wraps a Unity Button.
+		/// </summary>
+		public static void EnsureToggleButtonType() {
+			if (_toggleButtonTypeCached) return;
+			EnsureAssembly();
+
+			if (_gameAssembly == null) {
+				_toggleButtonTypeCached = true;
+				return;
+			}
+
+			try {
+				_toggleButtonType = _gameAssembly.GetType("Eremite.View.ToggleButton");
+				if (_toggleButtonType != null) {
+					_toggleIsOnMethod = _toggleButtonType.GetMethod("IsOn",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] ToggleButton type caching failed: {ex.Message}");
+			}
+
+			_toggleButtonTypeCached = true;
+		}
+
+		public static Type ToggleButtonType { get { EnsureToggleButtonType(); return _toggleButtonType; } }
+		public static MethodInfo ToggleIsOnMethod { get { EnsureToggleButtonType(); return _toggleIsOnMethod; } }
+
+		// ========================================
 		// META CONTROLLER REFLECTION
 		// ========================================
 		// Path: MetaController.Instance.MetaServices

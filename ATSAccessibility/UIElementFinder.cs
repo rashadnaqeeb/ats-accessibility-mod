@@ -533,8 +533,12 @@ namespace ATSAccessibility {
 		/// Get the semantic type of a UI element.
 		/// </summary>
 		public static string GetElementType(Selectable element) {
-			if (element is Button)
+			if (element is Button) {
+				// Check if this Button is wrapped by a ToggleButton (game's custom toggle)
+				if (FindToggleButton(element) != null)
+					return "checkbox";
 				return "button";
+			}
 
 			if (element is Toggle toggle) {
 				if (toggle.group != null)
@@ -562,11 +566,102 @@ namespace ATSAccessibility {
 				return toggle.isOn ? "checked" : "unchecked";
 			}
 
+			if (element is Button) {
+				var toggleButton = FindToggleButton(element);
+				if (toggleButton != null) {
+					bool? state = GetToggleButtonState(toggleButton);
+					if (state.HasValue) return state.Value ? "checked" : "unchecked";
+				}
+			}
+
 			if (element is Slider slider) {
 				int percent = Mathf.RoundToInt(slider.normalizedValue * 100);
 				return $"{percent} percent";
 			}
 
+			return null;
+		}
+
+		// ========================================
+		// TOGGLEBUTTON DETECTION
+		// ========================================
+
+		/// <summary>
+		/// Check if a Button element is wrapped by the game's ToggleButton component.
+		/// Returns the ToggleButton component if found, null otherwise.
+		/// </summary>
+		public static Component FindToggleButton(Selectable element) {
+			if (!(element is Button)) return null;
+			var toggleButtonType = GameReflection.ToggleButtonType;
+			if (toggleButtonType == null) return null;
+
+			// Check same GameObject (Button and ToggleButton on same object)
+			var toggleButton = element.GetComponent(toggleButtonType);
+			if (toggleButton != null) return toggleButton;
+
+			// Check parent (ToggleButton might be on parent of the Button)
+			var parent = element.transform.parent;
+			if (parent != null) {
+				toggleButton = parent.GetComponent(toggleButtonType);
+				if (toggleButton != null) return toggleButton;
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Get the isOn state of a ToggleButton component via reflection.
+		/// </summary>
+		public static bool? GetToggleButtonState(Component toggleButton) {
+			var method = GameReflection.ToggleIsOnMethod;
+			if (method == null || toggleButton == null) return null;
+			try {
+				return (bool)method.Invoke(toggleButton, null);
+			} catch {
+				return null;
+			}
+		}
+
+		// ========================================
+		// SECTION DETECTION
+		// ========================================
+
+		/// <summary>
+		/// Find the section name for a UI element by walking up the hierarchy.
+		/// Looks for ancestors whose name contains "Section" and returns a readable name.
+		/// </summary>
+		public static string FindSectionName(Transform element) {
+			var current = element.parent;
+			while (current != null) {
+				string name = current.name;
+				if (name.IndexOf("Section", StringComparison.OrdinalIgnoreCase) >= 0) {
+					// Try to find a header text label in this section
+					string headerText = FindSectionHeaderText(current);
+					if (!string.IsNullOrEmpty(headerText)) return headerText;
+
+					// Fall back to cleaned name without "Section" suffix
+					int idx = name.IndexOf("Section", StringComparison.OrdinalIgnoreCase);
+					if (idx > 0) name = name.Substring(0, idx);
+					return CleanObjectName(name);
+				}
+				current = current.parent;
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Look for a header TMP_Text in a section that's a direct child and not part of a Selectable.
+		/// </summary>
+		private static string FindSectionHeaderText(Transform section) {
+			foreach (Transform child in section) {
+				// Skip if this child contains interactive elements
+				if (child.GetComponent<Selectable>() != null) continue;
+
+				var text = child.GetComponent<TMP_Text>();
+				if (text != null && !string.IsNullOrEmpty(text.text) && !IsGenericText(text.text)) {
+					return text.text;
+				}
+			}
 			return null;
 		}
 	}
