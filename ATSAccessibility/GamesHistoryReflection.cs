@@ -667,8 +667,7 @@ namespace ATSAccessibility {
 					string raceKey = key as string;
 					if (string.IsNullOrEmpty(raceKey)) continue;
 
-					var countObj = ReflectionHelper.DictGet(racesDict, key);
-					int count = countObj is int i ? i : 0;
+					int count = ReflectionHelper.DictGetInt(racesDict, key);
 
 					var raceModel = ReflectionHelper.Invoke(_settingsGetRaceMethod, settings, raceKey);
 					string name = ReflectionHelper.GetLocaString(_raceDisplayNameField, raceModel) ?? raceKey;

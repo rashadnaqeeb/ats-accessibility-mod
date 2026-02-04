@@ -173,8 +173,7 @@ namespace ATSAccessibility {
 						var raceName = key as string;
 						if (string.IsNullOrEmpty(raceName)) continue;
 
-						var countObj = ReflectionHelper.DictGet(racesDict, key);
-						int count = countObj is int c ? c : 0;
+						int count = ReflectionHelper.DictGetInt(racesDict, key);
 
 						var displayName = EmbarkReflection.GetRaceDisplayName(raceName);
 						parts.Add($"{count} {displayName}");

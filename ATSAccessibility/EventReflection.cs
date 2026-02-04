@@ -43,24 +43,23 @@ namespace ATSAccessibility {
 		public static void EnsureReflectionCached() {
 			if (_reflectionCached) return;
 
-			var assembly = GameReflection.GameAssembly;
-			if (assembly == null) return;
-
-			var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
-			if (gameServicesType != null) {
-				_calendarServiceProperty = gameServicesType.GetProperty("CalendarService");
-				_hostilityServiceProperty = gameServicesType.GetProperty("HostilityService");
-				_tradeServiceProperty = gameServicesType.GetProperty("TradeService");
-				_ordersServiceProperty = gameServicesType.GetProperty("OrdersService");
-				_gladesServiceProperty = gameServicesType.GetProperty("GladesService");
-				_reputationServiceProperty = gameServicesType.GetProperty("ReputationService");
-				_newsServiceProperty = gameServicesType.GetProperty("NewsService");
-				_newcomersServiceProperty = gameServicesType.GetProperty("NewcomersService");
-				_reputationRewardsServiceProperty = gameServicesType.GetProperty("ReputationRewardsService");
-				_cornerstonesServiceProperty = gameServicesType.GetProperty("CornerstonesService");
-				_monitorsServiceProperty = gameServicesType.GetProperty("MonitorsService");
-				_villagersServiceProperty = gameServicesType.GetProperty("VillagersService");
-			}
+			ReflectionHelper.InitCache("EventReflection", assembly => {
+				var gameServicesType = assembly.GetType("Eremite.Services.IGameServices");
+				if (gameServicesType != null) {
+					_calendarServiceProperty = gameServicesType.GetProperty("CalendarService");
+					_hostilityServiceProperty = gameServicesType.GetProperty("HostilityService");
+					_tradeServiceProperty = gameServicesType.GetProperty("TradeService");
+					_ordersServiceProperty = gameServicesType.GetProperty("OrdersService");
+					_gladesServiceProperty = gameServicesType.GetProperty("GladesService");
+					_reputationServiceProperty = gameServicesType.GetProperty("ReputationService");
+					_newsServiceProperty = gameServicesType.GetProperty("NewsService");
+					_newcomersServiceProperty = gameServicesType.GetProperty("NewcomersService");
+					_reputationRewardsServiceProperty = gameServicesType.GetProperty("ReputationRewardsService");
+					_cornerstonesServiceProperty = gameServicesType.GetProperty("CornerstonesService");
+					_monitorsServiceProperty = gameServicesType.GetProperty("MonitorsService");
+					_villagersServiceProperty = gameServicesType.GetProperty("VillagersService");
+				}
+			});
 
 			_reflectionCached = true;
 		}

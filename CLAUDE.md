@@ -25,9 +25,13 @@ After each commit, append a one-line summary to the appropriate section in `chan
 
 ## Code Organization
 
-**Reflection** (game API access): `*Reflection.cs` files — one per game system (e.g., `OrdersReflection.cs`, `BuildingReflection.cs`). Core game access via `GameReflection.cs`.
+**Reflection** (game API access): `*Reflection.cs` files — one per game system (e.g., `OrdersReflection.cs`, `BuildingReflection.cs`). Core game access via `GameReflection.cs`. All reflection files use `ReflectionHelper` for null-safe field/property/method access and `ReflectionHelper.InitCache` for assembly caching.
 
-**Key handlers**: `KeyboardManager.cs` - priority chain, first active handler wins. Register in `AccessibilityCore.Start()`.
+**Reflection utilities**: `ReflectionHelper.cs` (null-safe accessors, `InitCache`, dictionary helpers), `FormattingUtils.cs` (shared `FormatTime`, `YearToRoman`)
+
+**Popup routing**: `PopupRouter.cs` - delegate-based routing for game popup show/hide events. Replaces if/else chains in Harmony patches. Registered in `AccessibilityCore.Start()`.
+
+**Key handlers**: `KeyboardManager.cs` - priority chain, first active handler wins. Registered in `AccessibilityCore.Start()` separately from popup routing.
 
 **Base classes**: `MenuBase` (all navigable menus/overlays), `BuildingSectionNavigator` (building panels, extends MenuBase)
 
@@ -70,7 +74,8 @@ public class MyHandler: IKeyHandler {
 ```
 
 - `IsActive` must be side-effect free - move cleanup to `ProcessKey()`
-- Register in `AccessibilityCore.Start()` in priority order (highest first)
+- Register in `AccessibilityCore.Start()` via `KeyboardManager.RegisterHandler()` in priority order (highest first)
+- Key handlers are **separate** from popup routing — a popup overlay registers with both `PopupRouter` (for show/hide events) and `KeyboardManager` (for key input)
 - **Consume by default**: Return `true` for all keys unless intentionally passing through
 - **Document pass-throughs**: When returning `false`, add a comment explaining why (e.g., `// Pass to game to close popup`)
 
@@ -86,7 +91,25 @@ Base class for all keyboard-navigable menus and overlays. See `MenuBase.cs` for 
 - **Search**: Automatic via `ISearchable` — override `GetSearchName()` or `SearchItemCount` to customize
 - **Nesting**: `Suspend()`/`Resume()` for nested popup handling
 
-### 3. BuildingSectionNavigator Pattern
+### 3. PopupRouter Pattern
+
+Delegate-based routing for game popup show/hide events (via Harmony patches on `PopupService`). Each popup type registers a predicate and callbacks in `AccessibilityCore.Start()`.
+
+```csharp
+// Convenience form: predicate + onShow + MenuBase overlay (auto-wires onHide/forceClose)
+_popupRouter.Register(RecipesReflection.IsRecipesPopup, _ => recipesOverlay.Open(), recipesOverlay);
+
+// Full control form: explicit callbacks for each event
+_popupRouter.Register(canHandle, onShow, onHide, forceClose, context);
+```
+
+- **Registration order matters** — first matching predicate wins (like key handlers)
+- `HandlePopupShown(popup)` routes to `OnShow`, sets navigation context
+- `HandlePopupHidden(popup)` routes to `OnHide`, returns whether caller should restore context
+- `CloseAll()` force-closes all registered overlays (used on scene unload)
+- Fallback chain: deeds child-capture → deeds suspend → generic UINavigator
+
+### 4. BuildingSectionNavigator Pattern
 
 Extends `MenuBase` for building panels. Maps 4 navigation levels to building concepts:
 - Level 0: Sections (Info, Workers, Recipes, Storage, etc.)
@@ -96,7 +119,7 @@ Extends `MenuBase` for building panels. Maps 4 navigation levels to building con
 
 Provides compatibility properties (`_currentSectionIndex`, `_currentItemIndex`, `_currentSubItemIndex`) that map to MenuBase's `_indices` array. All building navigators in `Navigators/` extend this class.
 
-### 4. Event Subscription Pattern
+### 5. Event Subscription Pattern
 
 Grace period + FIFO deduplication for game events.
 
@@ -138,37 +161,51 @@ public void Dispose() {
 }
 ```
 
-### 5. Reflection Caching Pattern
+### 6. Reflection Caching Pattern
 
-Cache type metadata, never cache service instances (destroyed on scene change).
+Cache type metadata via `ReflectionHelper.InitCache`. Never cache service instances (destroyed on scene change). Access field/property/method values through `ReflectionHelper` accessors.
 
 ```csharp
 // SAFE to cache (survives scene changes)
 private static PropertyInfo _serviceProp;
+private static FieldInfo _nameField;
 private static bool _cached = false;
 
-private void EnsureCached() {
+private static void EnsureCached() {
 	if (_cached) return;
-	var type = GameReflection.GameAssembly.GetType("Eremite.Services.IGameServices");
-	_serviceProp = type?.GetProperty("CalendarService");
 	_cached = true;
+
+	ReflectionHelper.InitCache("MyReflection", assembly => {
+		var type = assembly.GetType("Eremite.Services.IGameServices");
+		_serviceProp = type?.GetProperty("CalendarService");
+		_nameField = type?.GetField("name");
+	});
 }
 
 // NEVER cache the result of this - get fresh each time
-var service = _serviceProp?.GetValue(gameServices);
+var service = ReflectionHelper.GetProp(_serviceProp, gameServices);
+string name = ReflectionHelper.GetString(_nameField, instance);
+int count = ReflectionHelper.GetPropInt(_countProp, instance);
 ```
 
-### 6. Reflection Dictionary Iteration
+**ReflectionHelper accessor families** (all null-safe, return sensible defaults on failure):
+- **Fields**: `GetField`, `GetBool`, `GetInt`, `GetFloat`, `GetString`, `GetEnum`, `SetField`
+- **Properties**: `GetProp`, `GetPropBool`, `GetPropInt`, `GetPropFloat`, `GetPropString`
+- **Methods**: `Invoke`, `InvokeBool`, `InvokeInt`, `InvokeFloat`, `InvokeString`, `InvokeVoid` (each with 0–3 arg overloads)
+- **Collections**: `GetList`, `IterateKeys`, `DictGet`, `DictGetInt`
+- **Localization**: `GetLocaString` (combines `GetField` + `GameReflection.GetLocaText`)
 
-Direct cast to `Dictionary<K,V>` fails at runtime. Use reflection iteration:
+### 7. Reflection Dictionary Iteration
+
+Direct cast to `Dictionary<K,V>` fails at runtime. Use `ReflectionHelper`:
 
 ```csharp
-var keysProperty = dictObj.GetType().GetProperty("Keys");
-var keys = keysProperty?.GetValue(dictObj) as IEnumerable;
-var indexer = dictObj.GetType().GetMethod("get_Item");
+var keys = ReflectionHelper.IterateKeys(dictObj);
+if (keys == null) return;
 
 foreach (var key in keys) {
-	var value = indexer?.Invoke(dictObj, new[] { key });
+	var value = ReflectionHelper.DictGet(dictObj, key);
+	int count = ReflectionHelper.DictGetInt(dictObj, key);
 	// Process key/value
 }
 ```
@@ -243,10 +280,13 @@ public void Dispose() {
 
 ### Reflection Method Return Values
 
-Methods that invoke reflected game methods should return `false` if the method wasn't found, not `true`:
+Methods that invoke reflected game methods should return `false` if the method wasn't found. `ReflectionHelper.InvokeVoid` handles this automatically — it returns `false` when the method is null and `true` on success. For custom wrappers, follow the same pattern:
 
 ```csharp
-// Correct
+// Correct — use ReflectionHelper
+return ReflectionHelper.InvokeVoid(_someMethod, instance, arg);
+
+// Correct — manual version
 if (_someMethod == null) return false;
 _someMethod.Invoke(...);
 return true;

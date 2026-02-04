@@ -557,10 +557,7 @@ namespace ATSAccessibility {
 				if (fields == null) return Enumerable.Empty<Vector3Int>();
 
 				// Fields is Dictionary<Vector3Int, WorldFieldState>
-				var keysProperty = fields.GetType().GetProperty("Keys");
-				if (keysProperty == null) return Enumerable.Empty<Vector3Int>();
-
-				var keys = keysProperty.GetValue(fields) as IEnumerable<Vector3Int>;
+				var keys = ReflectionHelper.IterateKeys(fields) as IEnumerable<Vector3Int>;
 				return keys ?? Enumerable.Empty<Vector3Int>();
 			} catch {
 				return Enumerable.Empty<Vector3Int>();

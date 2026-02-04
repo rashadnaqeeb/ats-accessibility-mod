@@ -166,14 +166,14 @@ namespace ATSAccessibility {
 				if (racesDict == null) return result;
 
 				// Iterate via reflection
-				var keysProperty = racesDict.GetType().GetProperty("Keys");
-				var keys = keysProperty?.GetValue(racesDict) as IEnumerable<string>;
+				var keys = ReflectionHelper.IterateKeys(racesDict);
 				if (keys == null) return result;
 
-				var indexer = racesDict.GetType().GetProperty("Item");
+				foreach (var key in keys) {
+					var race = key as string;
+					if (string.IsNullOrEmpty(race)) continue;
 
-				foreach (var race in keys) {
-					var villagerList = indexer?.GetValue(racesDict, new object[] { race });
+					var villagerList = ReflectionHelper.DictGet(racesDict, key);
 					if (villagerList != null) {
 						var countProp = villagerList.GetType().GetProperty("Count");
 						int count = (int)(countProp?.GetValue(villagerList) ?? 0);

@@ -68,7 +68,7 @@ namespace ATSAccessibility {
 			if (field == null || instance == null) return 0;
 			try {
 				var val = field.GetValue(instance);
-				return val != null ? (int)val : 0;
+				return val != null ? Convert.ToInt32(val) : 0;
 			} catch { return 0; }
 		}
 
@@ -234,6 +234,13 @@ namespace ATSAccessibility {
 				var keysProp = dict.GetType().GetProperty("Keys");
 				return keysProp?.GetValue(dict) as IEnumerable;
 			} catch { return null; }
+		}
+
+		/// <summary>
+		/// Get an int value from a reflected dictionary by key. Returns 0 if missing or wrong type.
+		/// </summary>
+		public static int DictGetInt(object dict, object key) {
+			return DictGet(dict, key) is int i ? i : 0;
 		}
 
 		/// <summary>

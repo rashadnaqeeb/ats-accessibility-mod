@@ -251,14 +251,7 @@ namespace ATSAccessibility {
 				if (opsDict == null) return result;
 
 				// Get the operations list for this good
-				var indexer = opsDict.GetType().GetMethod("get_Item");
-				var containsKey = opsDict.GetType().GetMethod("ContainsKey");
-				if (indexer == null || containsKey == null) return result;
-
-				var hasKey = containsKey.Invoke(opsDict, new object[] { goodName });
-				if (!(hasKey is bool b && b)) return result;
-
-				var opsList = indexer.Invoke(opsDict, new object[] { goodName }) as IEnumerable;
+				var opsList = ReflectionHelper.DictGet(opsDict, goodName) as IEnumerable;
 				if (opsList == null) return result;
 
 				int totalTicks = GetTotalTicks();

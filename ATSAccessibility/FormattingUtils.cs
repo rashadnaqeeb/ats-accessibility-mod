@@ -10,7 +10,7 @@ namespace ATSAccessibility {
 		/// Format time in seconds to mm:ss or h:mm:ss string.
 		/// </summary>
 		public static string FormatTime(float seconds) {
-			if (seconds <= 0) return "0:00";
+			if (seconds <= 0 || float.IsNaN(seconds) || float.IsInfinity(seconds)) return "0:00";
 
 			var ts = TimeSpan.FromSeconds(seconds);
 			if (ts.TotalHours >= 1)

@@ -3904,7 +3904,7 @@ namespace ATSAccessibility {
 					string goodName = key as string;
 					if (string.IsNullOrEmpty(goodName)) continue;
 
-					int amount = ReflectionHelper.DictGet(goodsDict, key) is int i ? i : 0;
+					int amount = ReflectionHelper.DictGetInt(goodsDict, key);
 					if (amount > 0) {
 						result.Add((goodName, amount));
 					}
@@ -3996,7 +3996,7 @@ namespace ATSAccessibility {
 					string goodName = key as string;
 					if (string.IsNullOrEmpty(goodName)) continue;
 
-					int amount = ReflectionHelper.DictGet(goodsDict, key) is int i ? i : 0;
+					int amount = ReflectionHelper.DictGetInt(goodsDict, key);
 					if (amount > 0) {
 						result.Add((goodName, amount));
 					}
@@ -9207,7 +9207,7 @@ namespace ATSAccessibility {
 					string goodName = key as string;
 					if (string.IsNullOrEmpty(goodName)) continue;
 
-					int amount = ReflectionHelper.DictGet(goodsDict, key) is int i ? i : 0;
+					int amount = ReflectionHelper.DictGetInt(goodsDict, key);
 					if (amount > 0) {
 						result[goodName] = amount;
 					}
@@ -9350,7 +9350,7 @@ namespace ATSAccessibility {
 					string goodName = key as string;
 					if (string.IsNullOrEmpty(goodName)) continue;
 
-					int baseAmount = ReflectionHelper.DictGet(goodsDict, key) is int i ? i : 0;
+					int baseAmount = ReflectionHelper.DictGetInt(goodsDict, key);
 					if (baseAmount <= 0) continue;
 
 					// Calculate refunded amount (floor of baseAmount * refundRate)

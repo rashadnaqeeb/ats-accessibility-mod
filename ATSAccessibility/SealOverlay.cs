@@ -214,7 +214,7 @@ namespace ATSAccessibility {
 				string description = GetEffectDescription(effectModel);
 
 				float seconds = SealReflection.GetSecondsUntilStorm();
-				string timeText = FormatTime(seconds);
+				string timeText = FormattingUtils.FormatTime(seconds);
 
 				if (!string.IsNullOrEmpty(description))
 					Speech.Say($"Next plague: {displayName}. {description}. Activates in {timeText}");
@@ -403,15 +403,6 @@ namespace ATSAccessibility {
 					desc = OrdersReflection.StripRichText(desc).Trim();
 				return desc;
 			} catch { return null; }
-		}
-
-		private static string FormatTime(float seconds) {
-			if (seconds <= 0) return "0:00";
-
-			var ts = TimeSpan.FromSeconds(seconds);
-			if (ts.TotalHours >= 1)
-				return ts.ToString(@"h\:mm\:ss");
-			return ts.ToString(@"m\:ss");
 		}
 	}
 }

@@ -21,8 +21,8 @@ namespace ATSAccessibility {
 		/// For Deposit: both from state
 		/// </summary>
 		private static string GetChargesInfo(object state, FieldInfo chargesLeftField, object maxSource, FieldInfo maxChargesField) {
-			int chargesLeft = TileInfoReflection.GetIntField(state, chargesLeftField);
-			int maxCharges = TileInfoReflection.GetIntField(maxSource, maxChargesField);
+			int chargesLeft = ReflectionHelper.GetInt(chargesLeftField, state);
+			int maxCharges = ReflectionHelper.GetInt(maxChargesField, maxSource);
 
 			return maxCharges > 0 ? $"{chargesLeft} of {maxCharges} charges" : null;
 		}
@@ -246,7 +246,7 @@ namespace ATSAccessibility {
 				var descProp = TileInfoReflection.GetBuildingModelDescProp(modelType);
 
 				// Get Description
-				string desc = TileInfoReflection.GetStringProperty(buildingModel, descProp);
+				string desc = ReflectionHelper.GetPropString(descProp, buildingModel);
 				if (!string.IsNullOrEmpty(desc)) {
 					parts.Add(desc);
 				}
@@ -372,7 +372,7 @@ namespace ATSAccessibility {
 				}
 
 				// Description
-				string desc = TileInfoReflection.GetStringProperty(model, descProp);
+				string desc = ReflectionHelper.GetPropString(descProp, model);
 				if (!string.IsNullOrEmpty(desc)) {
 					parts.Add(desc);
 				}
@@ -507,8 +507,8 @@ namespace ATSAccessibility {
 					var chargesLeftField = stateType.GetField("chargesLeft", GameReflection.PublicInstance);
 					var maxChargesField = stateType.GetField("maxCharges", GameReflection.PublicInstance);
 
-					int chargesLeft = TileInfoReflection.GetIntField(state, chargesLeftField);
-					int maxCharges = TileInfoReflection.GetIntField(state, maxChargesField);
+					int chargesLeft = ReflectionHelper.GetInt(chargesLeftField, state);
+					int maxCharges = ReflectionHelper.GetInt(maxChargesField, state);
 
 					if (maxCharges > 0) {
 						parts.Add($"{chargesLeft} of {maxCharges} charges");
@@ -555,8 +555,8 @@ namespace ATSAccessibility {
 					var chargesLeftField = stateType.GetField("chargesLeft", GameReflection.PublicInstance);
 					var maxChargesField = stateType.GetField("maxCharges", GameReflection.PublicInstance);
 
-					int chargesLeft = TileInfoReflection.GetIntField(state, chargesLeftField);
-					int maxCharges = TileInfoReflection.GetIntField(state, maxChargesField);
+					int chargesLeft = ReflectionHelper.GetInt(chargesLeftField, state);
+					int maxCharges = ReflectionHelper.GetInt(maxChargesField, state);
 
 					if (maxCharges > 0) {
 						parts.Add($"{chargesLeft} of {maxCharges} charges");
@@ -655,7 +655,7 @@ namespace ATSAccessibility {
 
 				// Get amount
 				var amountField = TileInfoReflection.GoodRefAmountField ?? production.GetType().GetField("amount", GameReflection.PublicInstance);
-				int amount = TileInfoReflection.GetIntField(production, amountField);
+				int amount = ReflectionHelper.GetInt(amountField, production);
 
 				if (!string.IsNullOrEmpty(productName)) {
 					return amount > 1 ? $"{amount} {productName}" : productName;
@@ -688,7 +688,7 @@ namespace ATSAccessibility {
 
 					// Get chance (using cached field if available)
 					var chanceField = TileInfoReflection.GoodRefChanceField ?? item.GetType().GetField("chance", GameReflection.PublicInstance);
-					float chance = TileInfoReflection.GetFloatField(item, chanceField);
+					float chance = ReflectionHelper.GetFloat(chanceField, item);
 
 					if (!string.IsNullOrEmpty(productName) && chance > 0) {
 						int percent = Mathf.RoundToInt(chance * 100f);
@@ -713,7 +713,7 @@ namespace ATSAccessibility {
 		private static string GetCampsForResource(object resourceModel, PropertyInfo refGoodNameProp) {
 			try {
 				// Get RefGoodName from model (use passed-in cached property)
-				string refGoodName = TileInfoReflection.GetStringProperty(resourceModel, refGoodNameProp);
+				string refGoodName = ReflectionHelper.GetPropString(refGoodNameProp, resourceModel);
 				if (string.IsNullOrEmpty(refGoodName)) return null;
 
 				// Get ResourcesService

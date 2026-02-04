@@ -236,21 +236,6 @@ namespace ATSAccessibility {
 		// SAFE ACCESS HELPERS
 		// ========================================
 
-		public static int GetIntField(object obj, FieldInfo field) {
-			if (obj == null || field == null) return 0;
-			try { return (int)field.GetValue(obj); } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetIntField failed: {ex.Message}"); return 0; }
-		}
-
-		public static string GetStringProperty(object obj, PropertyInfo prop) {
-			if (obj == null || prop == null) return null;
-			try { return prop.GetValue(obj) as string; } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetStringProperty failed: {ex.Message}"); return null; }
-		}
-
-		public static float GetFloatField(object obj, FieldInfo field) {
-			if (obj == null || field == null) return 0f;
-			try { return (float)field.GetValue(obj); } catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetFloatField failed: {ex.Message}"); return 0f; }
-		}
-
 		// ========================================
 		// UTILITY METHODS
 		// ========================================
