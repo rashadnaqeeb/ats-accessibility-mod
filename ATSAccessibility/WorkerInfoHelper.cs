@@ -22,9 +22,12 @@ namespace ATSAccessibility {
 
 		/// <summary>
 		/// Get worker summary for a building.
-		/// On building with workers: "3/3: 2 beavers, 1 harpy"
-		/// On building with no workers: "0/3"
+		/// On building with workers: "3/3: 2 beavers, 1 harpy, Woodworking Efficiency (Beavers)"
+		/// On building with no workers: "0/3, Woodworking Efficiency (Beavers)"
 		/// On non-production building: "No worker slots"
+		/// Specialty info only shown when matching races are present in settlement.
+		/// Bonus type is "Efficiency" (speed bonus) or "Comfort" (resolve bonus).
+		/// Special case for Hearth: shows firekeeper effect for assigned race only.
 		/// </summary>
 		public static string GetWorkerSummary(object building) {
 			if (building == null) {
@@ -50,20 +53,77 @@ namespace ATSAccessibility {
 
 			int currentWorkers = BuildingReflection.GetWorkerCount(building);
 
+			// Special case for Hearth - show firekeeper effect for assigned race only
+			if (BuildingReflection.IsHearth(building)) {
+				if (currentWorkers == 0) {
+					return $"0/{maxWorkers}";
+				}
+
+				// Get the assigned worker's race and their firekeeper effect
+				var hearthWorkers = GetWorkerRaceCounts(building);
+				if (hearthWorkers.Count > 0) {
+					string raceName = hearthWorkers[0].raceName;
+					// Use GetRaceBonusForBuilding - same path as worker menu
+					string effect = BuildingReflection.GetRaceBonusForBuilding(building, raceName);
+					if (!string.IsNullOrEmpty(effect)) {
+						return $"{currentWorkers}/{maxWorkers}: {raceName}, {effect}";
+					}
+					return $"{currentWorkers}/{maxWorkers}: {raceName}";
+				}
+				return $"{currentWorkers}/{maxWorkers}";
+			}
+
 			if (currentWorkers == 0) {
-				return $"0/{maxWorkers}";
+				return $"0/{maxWorkers}{FormatSpecialtyInfo(building)}";
 			}
 
 			// Count workers by race
 			var raceCounts = GetWorkerRaceCounts(building);
 			if (raceCounts.Count == 0) {
-				return $"{currentWorkers}/{maxWorkers}";
+				return $"{currentWorkers}/{maxWorkers}{FormatSpecialtyInfo(building)}";
 			}
 
-			// Format: "3/3: 2 beavers, 1 harpy"
+			// Format: "3/3: 2 beavers, 1 harpy, Woodworking Efficiency (Beavers)"
 			var raceStrings = raceCounts.Select(rc =>
 				$"{rc.count} {Pluralize(rc.raceName.ToLowerInvariant(), rc.count)}");
-			return $"{currentWorkers}/{maxWorkers}: {string.Join(", ", raceStrings)}";
+			return $"{currentWorkers}/{maxWorkers}: {string.Join(", ", raceStrings)}{FormatSpecialtyInfo(building)}";
+		}
+
+		/// <summary>
+		/// Get building specialty and which present races match it.
+		/// Returns (specialty name, bonus type, list of matching race names) or (null, null, empty) if none.
+		/// </summary>
+		private static (string specialty, string bonusType, List<string> matchingRaces) GetBuildingSpecialtyInfo(object building) {
+			var presentRaces = StatsReader.GetPresentRaces();
+			string specialty = null;
+			string bonusType = null;
+			var matchingRaces = new List<string>();
+
+			foreach (var race in presentRaces) {
+				var (bonus, type) = BuildingReflection.GetRaceBonusWithType(building, race);
+				if (!string.IsNullOrEmpty(bonus)) {
+					if (specialty == null) {
+						specialty = bonus;
+						bonusType = type;
+					}
+					matchingRaces.Add(race);
+				}
+			}
+
+			return (specialty, bonusType, matchingRaces);
+		}
+
+		/// <summary>
+		/// Format specialty info for announcement.
+		/// Returns ", Woodworking Efficiency (Beavers)" or empty string if no matching races.
+		/// </summary>
+		private static string FormatSpecialtyInfo(object building) {
+			var (specialty, bonusType, matchingRaces) = GetBuildingSpecialtyInfo(building);
+			if (specialty == null || matchingRaces.Count == 0) {
+				return "";
+			}
+			string typeStr = !string.IsNullOrEmpty(bonusType) ? $" {bonusType}" : "";
+			return $", {specialty}{typeStr} ({string.Join(", ", matchingRaces)})";
 		}
 
 		/// <summary>

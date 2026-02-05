@@ -157,6 +157,7 @@ namespace ATSAccessibility {
 		// RacesService for race bonuses
 		private static PropertyInfo _racesServiceRacesProperty = null;  // IRacesService.Races (RaceModel[])
 		private static FieldInfo _raceModelCharacteristicsField = null;  // RaceModel.characteristics (RaceCharacteristicModel[])
+		private static FieldInfo _raceModelPassiveEffectDescField = null;  // RaceModel.passiveEffectLongDesc (LocaText) - firekeeper effect
 		private static FieldInfo _raceCharacteristicTagField = null;  // RaceCharacteristicModel.tag (BuildingTagModel)
 		private static FieldInfo _raceCharacteristicEffectField = null;  // RaceCharacteristicModel.effect (VillagerPerkModel)
 		private static FieldInfo _raceCharacteristicGlobalEffectField = null;  // RaceCharacteristicModel.globalEffect (EffectModel)
@@ -949,10 +950,11 @@ namespace ATSAccessibility {
 					_racesServiceRacesProperty = racesServiceType.GetProperty("Races", GameReflection.PublicInstance);
 				}
 
-				// RaceModel.characteristics field
+				// RaceModel fields
 				var raceModelType = assembly.GetType("Eremite.Model.RaceModel");
 				if (raceModelType != null) {
 					_raceModelCharacteristicsField = raceModelType.GetField("characteristics", GameReflection.PublicInstance);
+					_raceModelPassiveEffectDescField = raceModelType.GetField("passiveEffectLongDesc", GameReflection.PublicInstance);
 				}
 
 				// RaceCharacteristicModel fields
@@ -2995,135 +2997,219 @@ namespace ATSAccessibility {
 		}
 
 		/// <summary>
-		/// Get the racial bonus tag name for a race at a specific building, if any.
-		/// Returns the tag's display name (e.g., "Woodcutters", "Farmers") if the race has a matching bonus,
-		/// or null if no bonus applies to this building.
+		/// Find a RaceModel by name from RacesService.
+		/// Returns null if not found.
 		/// </summary>
-		public static string GetRaceBonusForBuilding(object building, string raceName) {
-			if (building == null || string.IsNullOrEmpty(raceName)) return null;
+		private static object FindRaceModel(string raceName) {
+			if (string.IsNullOrEmpty(raceName)) return null;
+
+			var racesService = GameReflection.GetRacesService();
+			if (racesService == null) return null;
+
+			var races = _racesServiceRacesProperty?.GetValue(racesService) as System.Array;
+			if (races == null) return null;
+
+			foreach (var race in races) {
+				if (race == null) continue;
+				var nameProperty = race.GetType().GetProperty("Name", GameReflection.PublicInstance);
+				string name = nameProperty?.GetValue(race) as string;
+				if (name == raceName) {
+					return race;
+				}
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Find a matching characteristic between a race and building.
+		/// Returns (characteristic, matchingTag) or (null, null) if no match.
+		/// </summary>
+		private static (object characteristic, object tag) FindMatchingCharacteristic(object building, object raceModel) {
+			if (building == null || raceModel == null) return (null, null);
+
+			var buildingModel = ReflectionHelper.GetProp(_buildingModelProperty, building);
+			if (buildingModel == null) return (null, null);
+
+			var tags = _buildingModelTagsField?.GetValue(buildingModel) as System.Array;
+			if (tags == null || tags.Length == 0) return (null, null);
+
+			var characteristics = _raceModelCharacteristicsField?.GetValue(raceModel) as System.Array;
+			if (characteristics == null || characteristics.Length == 0) return (null, null);
+
+			foreach (var buildingTag in tags) {
+				if (buildingTag == null) continue;
+
+				foreach (var characteristic in characteristics) {
+					if (characteristic == null) continue;
+
+					var characteristicTag = ReflectionHelper.GetField(_raceCharacteristicTagField, characteristic);
+					if (characteristicTag != null && characteristicTag == buildingTag) {
+						return (characteristic, buildingTag);
+					}
+				}
+			}
+
+			return (null, null);
+		}
+
+		/// <summary>
+		/// Determine the bonus type (Efficiency or Comfort) from a characteristic's effect.
+		/// </summary>
+		private static string GetBonusTypeFromCharacteristic(object characteristic) {
+			var effect = ReflectionHelper.GetField(_raceCharacteristicEffectField, characteristic);
+			if (effect != null) {
+				string typeName = effect.GetType().Name;
+				return typeName.Contains("Resolve") ? "Comfort" : "Efficiency";
+			}
+
+			var buildingPerk = ReflectionHelper.GetField(_raceCharacteristicBuildingPerkField, characteristic);
+			if (buildingPerk != null) {
+				string typeName = buildingPerk.GetType().Name;
+				return typeName.Contains("Resolve") ? "Comfort" : "Efficiency";
+			}
+
+			var globalEffect = ReflectionHelper.GetField(_raceCharacteristicGlobalEffectField, characteristic);
+			if (globalEffect != null) {
+				string typeName = globalEffect.GetType().Name;
+				return typeName.Contains("Resolve") ? "Comfort" : "Efficiency";
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Get both the racial bonus name and type for a race at a building in one call.
+		/// More efficient than calling GetRaceBonusForBuilding and GetRaceBonusTypeForBuilding separately.
+		/// Returns (bonus name, bonus type) or (null, null) if no bonus applies.
+		/// </summary>
+		public static (string bonus, string bonusType) GetRaceBonusWithType(object building, string raceName) {
+			if (building == null || string.IsNullOrEmpty(raceName)) return (null, null);
 
 			EnsureRaceBonusTypes();
 			EnsureBuildingTypes();
 
 			try {
-				// Get RacesService
-				var racesService = GameReflection.GetRacesService();
-				if (racesService == null) return null;
+				var raceModel = FindRaceModel(raceName);
+				if (raceModel == null) return (null, null);
 
-				// Get Races array
-				var races = _racesServiceRacesProperty?.GetValue(racesService) as System.Array;
-				if (races == null) return null;
+				var (characteristic, buildingTag) = FindMatchingCharacteristic(building, raceModel);
+				if (characteristic == null) return (null, null);
 
-				// Find the RaceModel with matching name
-				object raceModel = null;
-				foreach (var race in races) {
-					if (race == null) continue;
+				// Get the bonus name
+				string bonus = GetBonusNameFromCharacteristic(characteristic, buildingTag);
 
-					// RaceModel inherits from SO which has Name property
-					var nameProperty = race.GetType().GetProperty("Name", GameReflection.PublicInstance);
-					string name = nameProperty?.GetValue(race) as string;
-					if (name == raceName) {
-						raceModel = race;
-						break;
+				// Get the bonus type
+				string bonusType = GetBonusTypeFromCharacteristic(characteristic);
+
+				return (bonus, bonusType);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetRaceBonusWithType failed: {ex.Message}");
+				return (null, null);
+			}
+		}
+
+		/// <summary>
+		/// Extract the bonus display name from a characteristic and its tag.
+		/// </summary>
+		private static string GetBonusNameFromCharacteristic(object characteristic, object buildingTag) {
+			// Try tag's display name first
+			var displayNameLoca = ReflectionHelper.GetField(_buildingTagDisplayNameField, buildingTag);
+			if (displayNameLoca != null) {
+				string displayName = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca);
+				if (!string.IsNullOrEmpty(displayName) && !displayName.Contains("Missing key")) {
+					return displayName;
+				}
+			}
+
+			// Try effect's displayName (VillagerPerkModel)
+			var effect = ReflectionHelper.GetField(_raceCharacteristicEffectField, characteristic);
+			if (effect != null) {
+				var effectDisplayNameLoca = ReflectionHelper.GetField(_villagerPerkDisplayNameField, effect);
+				if (effectDisplayNameLoca != null) {
+					string effectDisplayName = ReflectionHelper.GetPropString(_locaTextTextProperty, effectDisplayNameLoca);
+					if (!string.IsNullOrEmpty(effectDisplayName) && !effectDisplayName.Contains("Missing key")) {
+						var descProp = effect.GetType().GetProperty("Description", GameReflection.PublicInstance);
+						string desc = descProp?.GetValue(effect) as string;
+						if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key")) {
+							return $"{effectDisplayName}, {desc}";
+						}
+						return effectDisplayName;
 					}
 				}
+			}
 
+			// Try buildingPerk's DisplayName (BuildingPerkModel)
+			var buildingPerk = ReflectionHelper.GetField(_raceCharacteristicBuildingPerkField, characteristic);
+			if (buildingPerk != null) {
+				string perkDisplayName = ReflectionHelper.GetPropString(_buildingPerkDisplayNameProperty, buildingPerk);
+				if (!string.IsNullOrEmpty(perkDisplayName) && !perkDisplayName.Contains("Missing key")) {
+					var getDescMethod = buildingPerk.GetType().GetMethod("GetDescription", new[] { typeof(object).Assembly.GetType("Eremite.Buildings.Building") ?? typeof(object) });
+					string desc = null;
+					try {
+						desc = getDescMethod?.Invoke(buildingPerk, new object[] { null }) as string;
+					} catch {
+						// Ignore description fetch errors
+					}
+					if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key")) {
+						return $"{perkDisplayName}, {desc}";
+					}
+					return perkDisplayName;
+				}
+			}
+
+			// Try globalEffect's DisplayName (EffectModel)
+			var globalEffect = ReflectionHelper.GetField(_raceCharacteristicGlobalEffectField, characteristic);
+			if (globalEffect != null) {
+				string globalDisplayName = ReflectionHelper.GetPropString(_effectModelDisplayNameProperty, globalEffect);
+				if (!string.IsNullOrEmpty(globalDisplayName) && !globalDisplayName.Contains("Missing key")) {
+					var descProp = globalEffect.GetType().GetProperty("Description", GameReflection.PublicInstance);
+					string desc = descProp?.GetValue(globalEffect) as string;
+					if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key")) {
+						return $"{globalDisplayName}, {desc}";
+					}
+					return globalDisplayName;
+				}
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Get the racial bonus tag name for a race at a specific building, if any.
+		/// Returns the tag's display name (e.g., "Woodcutters", "Farmers") if the race has a matching bonus,
+		/// or null if no bonus applies to this building.
+		/// </summary>
+		public static string GetRaceBonusForBuilding(object building, string raceName) {
+			var (bonus, _) = GetRaceBonusWithType(building, raceName);
+			return bonus;
+		}
+
+		/// <summary>
+		/// Get the bonus type (Efficiency or Comfort) for a race working at a building.
+		/// Prefer GetRaceBonusWithType if you need both bonus name and type.
+		/// </summary>
+		public static string GetRaceBonusTypeForBuilding(object building, string raceName) {
+			var (_, bonusType) = GetRaceBonusWithType(building, raceName);
+			return bonusType;
+		}
+
+		/// <summary>
+		/// Get the firekeeper (passive) effect description for a race.
+		/// This is the bonus that applies when the race is assigned to a Hearth.
+		/// </summary>
+		public static string GetRaceFirekeeperEffect(string raceName) {
+			if (string.IsNullOrEmpty(raceName)) return null;
+
+			EnsureRaceBonusTypes();
+
+			try {
+				var raceModel = FindRaceModel(raceName);
 				if (raceModel == null) return null;
 
-				// Get the building model
-				var buildingModel = ReflectionHelper.GetProp(_buildingModelProperty, building);
-				if (buildingModel == null) return null;
-
-				// Get building's tags array
-				var tags = _buildingModelTagsField?.GetValue(buildingModel) as System.Array;
-				if (tags == null || tags.Length == 0) return null;
-
-				// Get race's characteristics array
-				var characteristics = _raceModelCharacteristicsField?.GetValue(raceModel) as System.Array;
-				if (characteristics == null || characteristics.Length == 0) return null;
-
-				// For each building tag, check if the race has a characteristic for it
-				foreach (var buildingTag in tags) {
-					if (buildingTag == null) continue;
-
-					// Check each characteristic to see if its tag matches
-					foreach (var characteristic in characteristics) {
-						if (characteristic == null) continue;
-
-						var characteristicTag = ReflectionHelper.GetField(_raceCharacteristicTagField, characteristic);
-						if (characteristicTag == null) continue;
-
-						// Compare the tags (they should be the same object reference)
-						if (characteristicTag == buildingTag) {
-							// Found a match! Try to get the tag's display name first
-							var displayNameLoca = ReflectionHelper.GetField(_buildingTagDisplayNameField, buildingTag);
-							if (displayNameLoca != null) {
-								string displayName = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca);
-								// Check for valid display name (missing localization keys show as ">Missing key<")
-								if (!string.IsNullOrEmpty(displayName) && !displayName.Contains("Missing key")) {
-									return displayName;
-								}
-							}
-
-							// Try effect's displayName (VillagerPerkModel)
-							var effect = ReflectionHelper.GetField(_raceCharacteristicEffectField, characteristic);
-							if (effect != null) {
-								var effectDisplayNameLoca = ReflectionHelper.GetField(_villagerPerkDisplayNameField, effect);
-								if (effectDisplayNameLoca != null) {
-									string effectDisplayName = ReflectionHelper.GetPropString(_locaTextTextProperty, effectDisplayNameLoca);
-									if (!string.IsNullOrEmpty(effectDisplayName) && !effectDisplayName.Contains("Missing key")) {
-										// Get description too for VillagerPerkModel
-										var descProp = effect.GetType().GetProperty("Description", GameReflection.PublicInstance);
-										string desc = descProp?.GetValue(effect) as string;
-										if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key")) {
-											return $"{effectDisplayName}, {desc}";
-										}
-										return effectDisplayName;
-									}
-								}
-							}
-
-							// Try buildingPerk's DisplayName (BuildingPerkModel)
-							var buildingPerk = ReflectionHelper.GetField(_raceCharacteristicBuildingPerkField, characteristic);
-							if (buildingPerk != null) {
-								string perkDisplayName = ReflectionHelper.GetPropString(_buildingPerkDisplayNameProperty, buildingPerk);
-								if (!string.IsNullOrEmpty(perkDisplayName) && !perkDisplayName.Contains("Missing key")) {
-									// Get description too - BuildingPerkModel.GetDescription(Building) but we can pass null
-									var getDescMethod = buildingPerk.GetType().GetMethod("GetDescription", new[] { typeof(object).Assembly.GetType("Eremite.Buildings.Building") ?? typeof(object) });
-									string desc = null;
-									try {
-										desc = getDescMethod?.Invoke(buildingPerk, new object[] { null }) as string;
-									} catch (Exception ex) {
-										Debug.LogWarning($"[ATSAccessibility] GetRaceCharacteristicLabel failed: {ex.Message}");
-									}
-									if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key")) {
-										return $"{perkDisplayName}, {desc}";
-									}
-									return perkDisplayName;
-								}
-							}
-
-							// Try globalEffect's DisplayName (EffectModel)
-							var globalEffect = ReflectionHelper.GetField(_raceCharacteristicGlobalEffectField, characteristic);
-							if (globalEffect != null) {
-								string globalDisplayName = ReflectionHelper.GetPropString(_effectModelDisplayNameProperty, globalEffect);
-								if (!string.IsNullOrEmpty(globalDisplayName) && !globalDisplayName.Contains("Missing key")) {
-									// Get description too for EffectModel
-									var descProp = globalEffect.GetType().GetProperty("Description", GameReflection.PublicInstance);
-									string desc = descProp?.GetValue(globalEffect) as string;
-									if (!string.IsNullOrEmpty(desc) && !desc.Contains("Missing key")) {
-										return $"{globalDisplayName}, {desc}";
-									}
-									return globalDisplayName;
-								}
-							}
-						}
-					}
-				}
-
-				return null;
+				return ReflectionHelper.GetLocaString(_raceModelPassiveEffectDescField, raceModel);
 			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] GetRaceBonusForBuilding failed: {ex.Message}");
+				Debug.LogError($"[ATSAccessibility] GetRaceFirekeeperEffect failed: {ex.Message}");
 				return null;
 			}
 		}

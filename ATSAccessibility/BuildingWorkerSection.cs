@@ -153,14 +153,10 @@ namespace ATSAccessibility {
 			int raceIndex = subItemIndex - raceOffset;
 			if (raceIndex >= 0 && raceIndex < _availableRaces.Count) {
 				var (raceName, freeCount) = _availableRaces[raceIndex];
-				string bonus = BuildingReflection.GetRaceBonusForBuilding(_building, raceName);
+				var (bonus, bonusType) = BuildingReflection.GetRaceBonusWithType(_building, raceName);
 				if (!string.IsNullOrEmpty(bonus)) {
-					// If bonus contains a comma, it already has a description - don't add "specialist"
-					if (bonus.Contains(",")) {
-						Speech.Say($"{raceName}: {freeCount} available, {bonus}");
-					} else {
-						Speech.Say($"{raceName}: {freeCount} available, {bonus} specialist");
-					}
+					string typeStr = !string.IsNullOrEmpty(bonusType) ? $" {bonusType}" : "";
+					Speech.Say($"{raceName}: {freeCount} available, {bonus}{typeStr}");
 				} else {
 					Speech.Say($"{raceName}: {freeCount} available");
 				}
