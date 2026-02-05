@@ -257,7 +257,7 @@ namespace ATSAccessibility {
 				return;
 			}
 
-			// Search into working lists so we can roll back on no match
+			// Search into working lists
 			_workIndices.Clear();
 			_workNames.Clear();
 			string lowerBuffer = _buffer.ToLowerInvariant();
@@ -271,12 +271,12 @@ namespace ATSAccessibility {
 			}
 
 			if (_workIndices.Count == 0) {
-				// No match — roll back the failed character, keep previous results
+				// No match — clear results but keep the buffer
+				_resultIndices.Clear();
+				_resultNames.Clear();
+				_resultCursor = 0;
+				_isSearchActive = true;
 				Speech.Say($"No match for {_buffer}");
-				if (_buffer.Length > 1)
-					_buffer = _buffer.Substring(0, _buffer.Length - 1);
-				else
-					_buffer = "";
 			} else {
 				// Swap working lists into result lists (no allocation)
 				var tempIndices = _resultIndices;
