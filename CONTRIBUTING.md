@@ -2,71 +2,74 @@
 
 ## Prerequisites
 
-- .NET SDK (for `dotnet build`)
+- .NET SDK 6.0+ (for `dotnet build`)
 - Against the Storm (Steam version)
 - BepInEx 5.x installed in your game folder
-- A code editor (VS Code, Visual Studio, Rider)
+- PowerShell (for build script)
 
-## Setup
+## Quick Start
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/rashadnaqeeb/ats-accessibility-mod.git
-   cd ats-accessibility-mod
-   ```
-
-2. Configure your game path (if not using default Steam location):
-   ```bash
-   cp Directory.Build.props.template Directory.Build.props
-   ```
-   Edit `Directory.Build.props` and set your game installation path.
-
-   Default path: `C:\Program Files (x86)\Steam\steamapps\common\Against the Storm`
-
-3. Build:
-   ```bash
-   dotnet build ATSAccessibility/ATSAccessibility.csproj
-   ```
-
-## Deploy for Testing
-
-Copy the built DLL to your game's BepInEx plugins folder:
-
-```bash
-cp ATSAccessibility/bin/Debug/net472/ATSAccessibility.dll "/path/to/Against the Storm/BepInEx/plugins/ATSAccessibility/"
+```powershell
+# Clone and build+deploy in one step
+git clone https://github.com/rashadnaqeeb/ats-accessibility-mod.git
+cd ats-accessibility-mod
+powershell -ExecutionPolicy Bypass -File "build.ps1"
 ```
 
-The plugin folder should also contain `Tolk.dll` and `SAAPI64.dll` (screen reader bridge libraries).
+The build script compiles and deploys the DLL to your game's BepInEx plugins folder automatically.
+
+For debug builds: `powershell -ExecutionPolicy Bypass -File "build.ps1" -Configuration Debug`
+
+### Custom Game Path
+
+If your game isn't in the default Steam location:
+```bash
+cp Directory.Build.props.template Directory.Build.props
+```
+Edit `Directory.Build.props` and set your installation path.
+
+## Project Structure
+
+```
+ATSAccessibility/           # All source code
+  Navigators/               # Building-specific panels (extend BuildingSectionNavigator)
+  *Overlay.cs               # Popup navigation (extend MenuBase)
+  *Reflection.cs            # Game API access (one per system)
+game-source/                # Decompiled game code (read-only reference)
+```
+
+## Development Workflow
+
+1. Read `CLAUDE.md` for architecture and patterns
+2. Make changes
+3. Build and test in-game
+4. **Update `changes.md`** with a one-line summary (required for every commit)
+5. Commit (include `changes.md` in the same commit)
 
 ## Debugging
 
-Check the game's log file for `[ATSAccessibility]` output:
+Check the Player log for `[ATSAccessibility]` output:
 ```
-%APPDATA%\..\LocalLow\Eremite Games\Against the Storm\Player.log
+C:\Users\<you>\AppData\LocalLow\Eremite Games\Against the Storm\Player.log
 ```
 
-All mod logging is prefixed with `[ATSAccessibility]`.
+## Key Patterns (see CLAUDE.md for details)
 
-## Architecture
+- **MenuBase**: Base class for all navigable overlays. Handles keyboard input, search, multi-level navigation.
+- **PopupRouter**: Routes game popup events to overlays. Register in `AccessibilityCore.Start()`.
+- **IKeyHandler**: Priority chain for keyboard input. Return `true` to consume, `false` to pass through.
+- **ReflectionHelper**: Null-safe accessors for game internals. Cache types, never cache service instances.
 
-See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation, including:
+## Code Style
 
-- Code organization and key files
-- Design patterns (IKeyHandler, TwoLevelPanel, BuildingSectionNavigator, etc.)
-- Reflection patterns for accessing game internals
-- Announcement style guidelines
+- **Tabs** for indentation (not spaces)
+- **K&R braces** (opening brace on same line)
+- Run `dotnet format` if you have whitespace issues
+- See `.editorconfig` for full rules
 
-## Coding Guidelines
+## Announcement Style
 
-### Key Patterns
-
-- **Reflection classes** (`*Reflection.cs`): Cache type metadata (Type, PropertyInfo, MethodInfo), never cache service instances (they're destroyed on scene change)
-- **Overlays** (`*Overlay.cs`): Implement `IKeyHandler` for popup/panel navigation
-- **Key handlers**: Return `true` to consume a key, `false` to pass it to the game
-
-### Announcement Style
-
-Keep announcements concise. Users are experienced screen reader users.
+Keep it concise. No item counts, no navigation hints, no redundant context.
 
 ```csharp
 // Good
@@ -77,19 +80,13 @@ Speech.Say("Planks recipe, active");
 Speech.Say("Lumber Mill, 1 of 5 buildings, press Enter to open");
 ```
 
-### Conventions
-
-- Prefix all log messages with `[ATSAccessibility]`
-- Use `NavigationUtils.WrapIndex()` for circular navigation
-- Always null-check reflection results
-
 ## Pull Requests
 
-1. Create a feature branch from `master`
-2. Make your changes
-3. Test in-game with a screen reader
-4. Submit a PR with a clear description of what changed and why
+1. Branch from `master`
+2. Test in-game with a screen reader (or verify log output)
+3. Include `changes.md` update
+4. Submit PR with clear description
 
 ## Questions?
 
-Open an issue on GitHub if you have questions or run into problems.
+Open an issue on GitHub.
