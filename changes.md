@@ -12,3 +12,4 @@
 - Use StringBuilder in TypeAheadSearch to reduce GC allocations during search
 - Refactor race bonus methods to eliminate code duplication and reduce double-lookup overhead
 - Update CONTRIBUTING.md with current build workflow and project structure
+- Complete game-internals.md with TOC, intro, and all system documentation (Daily Expedition, Custom Games, Payments, World Events, Games History, Stats, Ironman)

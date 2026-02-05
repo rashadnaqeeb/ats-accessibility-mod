@@ -2,6 +2,61 @@
 
 Reference documentation for "Against the Storm" game internals discovered through reflection. Update this file as new patterns are discovered.
 
+## How to Use This Document
+
+This is a **reference**, not a tutorial. Use it when you need:
+- Type names for reflection caching
+- Field/property/method signatures
+- Service access patterns
+
+**For implementation patterns**, see `CLAUDE.md` — it documents how to structure reflection code, key handlers, overlays, and other mod patterns.
+
+**For working examples**, see the `*Reflection.cs` files — each system documented here has a corresponding reflection file (e.g., `OrdersReflection.cs`, `TradeReflection.cs`).
+
+---
+
+## Table of Contents
+
+- [Controller Hierarchy](#controller-hierarchy)
+- [Service Containers](#service-containers)
+- [Settings Access](#settings-access)
+- [Map System](#map-system)
+- [Events and Observables](#events-and-observables)
+- [UI Hierarchy](#ui-hierarchy)
+- [Key Class Names](#key-class-names)
+- [Input System](#input-system)
+- [UI Element Visibility](#ui-element-visibility)
+- [Reflection Notes](#reflection-notes)
+- [Building Panel System](#building-panel-system)
+- [Building Upgrade System](#building-upgrade-system)
+- [World Map System](#world-map-system)
+- [Embark System](#embark-system)
+- [Capital/Citadel System](#capitalcitadel-system)
+- [Orders System](#orders-system)
+- [Recipes/Workshop System](#recipesworkshop-system)
+- [Cornerstones System](#cornerstones-system)
+- [Reputation Rewards System](#reputation-rewards-system)
+- [Newcomers System](#newcomers-system)
+- [Wildcard System](#wildcard-system)
+- [Wiki/Encyclopedia System](#wikiencyclopedia-system)
+- [Trade System](#trade-system)
+- [Trade Routes System](#trade-routes-system)
+- [Black Market System](#black-market-system)
+- [Altar System](#altar-system-forsaken-altar)
+- [Seal System](#seal-system)
+- [Game Result System](#game-result-system)
+- [PerkCrafter System](#perkcrafter-system-cornerstone-forge)
+- [Deeds/Goals System](#deedsgoals-system)
+- [Consumption Control System](#consumption-control-system)
+- [Trends System](#trends-system)
+- [Daily Expedition System](#daily-expedition-system)
+- [Custom Games System](#custom-games-system-training-expeditions)
+- [Payments System](#payments-system)
+- [World Event System](#world-event-system)
+- [Games History System](#games-history-system)
+- [Stats System](#stats-system)
+- [Ironman System](#ironman-system-queens-hand-trial)
+
 ---
 
 ## Controller Hierarchy
@@ -1775,3 +1830,1030 @@ Description         // string - trigger description (e.g., "During Storm")
 | Tier state | `Eremite.Model.Effects.TierState` |
 | Hook logic | `Eremite.Model.Effects.HookLogic` |
 | Popup | `Eremite.Buildings.UI.PerkCrafters.PerkCrafterPopup` |
+
+---
+
+## Capital/Citadel System
+
+### Overview
+
+The Capital screen is the hub between settlements. From here players access upgrades, deeds, game history, daily expeditions, and training expeditions.
+
+### WorldBlackboardService Subjects
+
+```csharp
+OnCapitalEnabled             // Observable - capital screen opened
+OnCapitalClosed              // Observable - capital screen closed
+CapitalUpgradePanelRequested // Subject<bool> - open upgrades panel
+HomePopupRequested           // Subject<Unit> - open home popup
+GenderPickPopupRequested     // Subject<Unit> - open gender pick popup
+DailyChallengePopupRequested // Subject<bool> - open daily expedition
+CustomGamePopupRequested     // Subject<bool> - open training expedition
+```
+
+### MetaPerksService Unlock Checks
+
+```csharp
+IsHomeEnbabled()             // bool - note typo in game API
+IsDailyChallengeEnabled()    // bool
+IsCustomGameEnabled()        // bool
+AreGoalsEnabled()            // bool - deeds unlocked
+```
+
+### BlackboardService (from AppServices)
+
+```csharp
+GoalsPopupRequested          // Subject<bool> - open deeds popup
+GamesHistoryPopupRequested   // Subject<bool> - open history popup
+```
+
+### Gender/Narration State
+
+```csharp
+MetaStateService.Narration.handType  // int - -1 if not picked, >= 0 if picked
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| World blackboard | `Eremite.Services.World.IWorldBlackboardService` |
+| Meta perks service | `Eremite.Services.IMetaPerksService` |
+| Meta state service | `Eremite.Services.IMetaStateService` |
+| Narration state | `Eremite.Model.State.NarrationState` |
+| App blackboard | `Eremite.Services.IBlackboardService` |
+
+---
+
+## Deeds/Goals System
+
+### Overview
+
+Deeds are meta-progression achievements with rewards. They're accessed via the GoalsPopup from the Capital screen.
+
+### Service Access
+
+```
+MetaController.Instance → MetaServices → MetaStateService → Goals (MetaGoalsState)
+MetaController.Instance → MetaServices → GoalsService
+```
+
+### MetaGoalsState Fields
+
+```csharp
+goals                  // List<GoalState> - all goal states
+```
+
+### GoalState Fields
+
+```csharp
+model                  // string - internal name (resolve via Settings.GetGoal)
+completed              // bool - objectives met
+rewarded               // bool - reward claimed
+```
+
+### GoalModel Fields/Properties
+
+```csharp
+label                  // GoalCategoryModel - category reference
+displayName            // LocaText
+Description            // string (property) - localized
+isActive               // bool - goal is active
+isCycleGoal            // bool - world event goal (filter out in deeds)
+rewards                // MetaRewardModel[] - rewards to claim
+HasAccessTo()          // bool - DLC/demo access check
+GetMetaProgressText(GoalState)  // string - progress text
+```
+
+### GoalCategoryModel Fields
+
+```csharp
+displayName            // LocaText (inherited from LabelModel)
+order                  // int - sort order
+isHiddenCategory       // bool - only show completed goals
+```
+
+### IGoalsService Methods
+
+```csharp
+RewardGoal(GoalState, GoalModel)  // Claim reward
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Goals popup | `Eremite.WorldMap.UI.Goals.GoalsPopup` |
+| Goal state | `Eremite.Model.Goals.GoalState` |
+| Goal model | `Eremite.Model.Goals.GoalModel` |
+| Meta goals state | `Eremite.Model.State.MetaGoalsState` |
+| Category model | `Eremite.Model.Goals.GoalCategoryModel` |
+| Goals service | `Eremite.Services.IGoalsService` |
+| Meta reward model | `Eremite.Model.Meta.MetaRewardModel` |
+
+---
+
+## Trade Routes System
+
+### Overview
+
+Trade routes are persistent goods-for-amber exchanges with discovered towns. Separate from the Trader visits system.
+
+### Service Access
+
+```
+GameController.Instance → GameServices → TradeRoutesService
+GameController.Instance → GameServices → StateService → Trade (TradeState)
+```
+
+### TradeState Fields
+
+```csharp
+tradeTowns             // List<TradeTownState> - discovered towns
+routes                 // List<RouteState> - active routes
+```
+
+### TradeTownState Fields
+
+```csharp
+id                     // int - unique ID
+townName               // string - display name (or loca key if hasStaticName)
+hasStaticName          // bool - townName is a localization key
+biome                  // string - biome internal name
+faction                // string - faction name (nullable)
+distance               // int - distance from capital
+standingLevel          // int - reputation level
+isMaxStanding          // bool
+currentStandingValue   // int
+valueForLevelUp        // int
+offers                 // List<TownOfferState>
+```
+
+### TownOfferState Fields
+
+```csharp
+townId                 // int
+townName               // string
+good                   // Good - base good per unit
+fuel                   // int - base fuel amount
+price                  // Good - amber reward
+amount                 // int - current multiplier (1-5)
+travelTime             // float - base travel time
+accpeted               // bool - note typo in game API
+hasStaticName          // bool
+```
+
+### RouteState Fields
+
+```csharp
+townId                 // int
+townName               // string
+good                   // Good - goods being traded
+fuel                   // Good
+price                  // Good - amber reward
+travelTime             // float
+startTime              // float
+progress               // float - 0-1
+offerAmount            // int - multiplier used
+hasStaticName          // bool
+```
+
+### ITradeRoutesService Methods
+
+```csharp
+CanCollect(RouteState)           // bool
+Collect(RouteState)              // void
+AcceptOffer(TownOfferState)      // void
+CanAccept(TownOfferState)        // bool
+CanAcceptAnyAmount(TownOfferState) // bool - for "only available" filter
+GetOfferExtendingPrice(TradeTownState)  // Good - cost to add offer slot
+ReachedMaxOffers(TradeTownState) // bool
+CanExtendOffer(TradeTownState)   // bool
+ExtendOffer(TradeTownState)      // void
+GetStandingLabelFor(TradeTownState)  // string - e.g., "Friendly"
+GetFullGood(TownOfferState)      // Good - scaled by multiplier
+GetFullPrice(TownOfferState)     // Good
+GetFullFuel(TownOfferState)      // Good
+GetFullTravelTime(TownOfferState) // float
+HaveEnoughGoodsFor(TownOfferState) // bool
+HaveEnoughFuelFor(TownOfferState)  // bool
+HasReachedLimit()                // bool - max active routes
+```
+
+### IEffectsService
+
+```csharp
+GetTradeRoutesAmount()           // int - max routes allowed
+```
+
+### Preferences (PrefsState)
+
+```csharp
+autoCollectTradeRoutes           // bool
+onlyAvailableTradeRoutes         // bool - filter to affordable offers
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Trade routes service | `Eremite.Services.ITradeRoutesService` |
+| Trade state | `Eremite.Model.State.TradeState` |
+| Town state | `Eremite.Model.State.TradeTownState` |
+| Offer state | `Eremite.Model.State.TownOfferState` |
+| Route state | `Eremite.Model.State.RouteState` |
+| Popup | `Eremite.View.HUD.TradeRoutesPopup` |
+
+---
+
+## Seal System
+
+### Overview
+
+The Seal is a special building with 4 stages. Each stage has multiple offering choices, each with an order to complete. Completing offerings triggers plague effects during Storm season.
+
+### Building Access
+
+```csharp
+BuildingsService.Seals           // Dictionary<int, Seal>
+```
+
+### Seal Methods
+
+```csharp
+IsSealCompleted()                // bool - all 4 stages done
+GetFirstUncompletedKit()         // SealKitState - current stage
+GetModelFor(SealKitState)        // SealKitModel
+IsKitCompleted(SealKitState)     // bool
+GetCompletedPartFor(SealKitState) // SealPartModel - chosen offering
+```
+
+### SealKitState (Stage State)
+
+```csharp
+completedIndex         // int - -1 if not completed
+orders                 // OrderState[] - one per offering option
+```
+
+### SealKitModel (Stage Model)
+
+```csharp
+dialogue               // LocaText - NPC text
+parts                  // SealPartModel[] - offering options
+reward                 // EffectModel - granted on completion
+```
+
+### SealPartModel (Offering Model)
+
+```csharp
+displayName            // LocaText
+description            // LocaText
+order                  // OrderModel - requirements to complete
+```
+
+### Plague State (SealGameState)
+
+```csharp
+// Via StateService.SealGame
+currentEffect          // string - active plague (empty if not in storm)
+nextEffect             // string - plague for next storm
+```
+
+### IGameSealService Methods
+
+```csharp
+CompletePart(SealKitState, SealKitModel, int index)  // Complete offering
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Seal building | `Eremite.Buildings.Seal` |
+| Seal state | `Eremite.Buildings.SealState` |
+| Stage state | `Eremite.Buildings.SealKitState` |
+| Stage model | `Eremite.Buildings.SealKitModel` |
+| Offering model | `Eremite.Buildings.SealPartModel` |
+| Game seal state | `Eremite.Model.State.SealGameState` |
+| Game seal service | `Eremite.Services.IGameSealService` |
+| Panel | `Eremite.Buildings.UI.Seals.SealPanel` |
+
+---
+
+## Consumption Control System
+
+### Overview
+
+Consumption control lets players enable/disable food types and services (needs) per race. Can be blocked by certain effects.
+
+### Service Access
+
+```
+GameController.Instance → GameServices → NeedsService
+GameController.Instance → GameServices → EffectsService
+GameController.Instance → GameServices → RacesService
+```
+
+### INeedsService Methods
+
+```csharp
+// Raw food permissions
+IsPermited(string rawFood)       // bool
+SetPermision(string rawFood, bool isOn)  // void
+IsAllRawFoodPermited()           // bool
+IsAllRawFoodProhibited()         // bool
+
+// Race+Need permissions
+IsPermited(RaceModel, NeedModel) // bool
+SetPermision(RaceModel, NeedModel, bool isOn)  // void
+GetCurrentResolveImpact(RaceModel, NeedModel)  // int
+GetMaxResolveImpact(RaceModel, NeedModel)      // int
+```
+
+### IEffectsService
+
+```csharp
+IsConsumptionControlBlocked()    // bool
+GetEffectsDisplayList(List<string>)  // string - comma-separated names
+```
+
+### Blocking Effects
+
+```csharp
+StateService.Effects.consumptionControlLocks  // List<string> - effect names
+```
+
+### NeedModel Fields
+
+```csharp
+canBeProhibited        // bool
+category               // NeedCategoryModel
+DisplayName            // string (property)
+```
+
+### NeedCategoryModel Fields
+
+```csharp
+displayName            // LocaText
+isHouseBased           // bool - filter out for consumption popup
+```
+
+### RaceModel Fields/Methods
+
+```csharp
+displayName            // LocaText
+needs                  // NeedModel[]
+HasNeed(NeedModel)     // bool
+```
+
+### IRacesService
+
+```csharp
+Races                  // RaceModel[] (property)
+IsRevealed(RaceModel)  // bool
+```
+
+### Raw Food Access
+
+```csharp
+StateService.Actors.rawFoodConsumptionPermits  // Dictionary<string, bool>
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Needs service | `Eremite.Services.INeedsService` |
+| Effects service | `Eremite.Services.IEffectsService` |
+| Races service | `Eremite.Services.IRacesService` |
+| Need model | `Eremite.Model.NeedModel` |
+| Need category | `Eremite.Model.NeedCategoryModel` |
+| Race model | `Eremite.Model.RaceModel` |
+| Consumption popup | `Eremite.View.Popups.Consumption.ConsumptionPopup` |
+
+---
+
+## Trends System
+
+### Overview
+
+Trends track goods flow over time — production, consumption, trade. Accessed via the TrendsPopup.
+
+### Service Access
+
+```
+GameController.Instance → GameServices → StateService → Trends (TrendsState)
+GameController.Instance → GameServices → StorageOperationsService
+```
+
+### TrendsState Fields
+
+```csharp
+goodsOperations        // Dictionary<string, List<StorageOperation>>
+totalTicks             // int - current tick count
+```
+
+### StorageOperation Fields
+
+```csharp
+amount                 // int - positive = gain, negative = loss
+trendTick              // int - when this operation occurred
+```
+
+### IStorageOperationsService Methods
+
+```csharp
+GetDisplayName(StorageOperation)  // string - source label (building name, "Consumption", etc.)
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Trends popup | `Eremite.View.Trends.TrendsPopup` |
+| Trends state | `Eremite.Model.State.TrendsState` |
+| Storage operation | `Eremite.Model.StorageOperation` |
+| Operations service | `Eremite.Services.IStorageOperationsService` |
+
+---
+
+## Daily Expedition System
+
+### Overview
+
+Daily Expeditions are timed challenges that reset at midnight UTC. Players select a difficulty and embark with fixed starting conditions (biome, races, goods, effects, modifiers).
+
+### Popup Type
+
+```csharp
+Eremite.WorldMap.UI.DailyChallengePopup
+```
+
+### DailyChallengeData Fields
+
+Contains the fixed challenge parameters:
+
+```csharp
+biome               // BiomeModel - the biome for today's challenge
+initialVillagers    // List<string> - race names for starting villagers
+embarkGoods         // List<Good> - starting goods
+embarkEffects       // List<string> - starting effect names
+earlyModifiers      // List<string> - early game modifier effect names
+lateModifiers       // List<string> - late game modifier effect names
+baseRewards         // List<MetaCurrency> - base meta currency rewards
+```
+
+### DailyDifficultyPicker (extends DifficultyPicker)
+
+```csharp
+GetDifficulties()           // IList<DifficultyModel> - available difficulties
+GetPickedDifficulty()       // DifficultyModel - current selection
+SetDifficulty(DifficultyModel)  // Change selection
+```
+
+### DifficultyModel Fields (for Daily)
+
+```csharp
+index               // int - difficulty level
+positiveEffects     // int - positive seasonal mystery count
+negativeEffects     // int - negative seasonal mystery count
+effectsMagnitude    // LocaText - severity description
+GetDisplayName()    // string - localized name (e.g., "Pioneer")
+```
+
+### IDailyService (via MetaServices)
+
+```csharp
+IsCompletedToday(DifficultyModel)   // bool - already completed at this difficulty
+GetRewardsFor(difficulty, baseRewards)  // MetaCurrency[] - adjusted rewards
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Daily popup | `Eremite.WorldMap.UI.DailyChallengePopup` |
+| Challenge data | `Eremite.WorldMap.DailyChallengeData` |
+| Difficulty picker | `Eremite.WorldMap.UI.DailyDifficultyPicker` |
+| Daily service | `Eremite.Services.IDailyService` |
+| Meta currency | `Eremite.Model.MetaCurrency` |
+| Meta currency model | `Eremite.Model.MetaCurrencyModel` |
+
+---
+
+## Custom Games System (Training Expeditions)
+
+### Overview
+
+Training Expeditions allow full customization of game parameters: difficulty, biome, races, season durations, seasonal effects, blight settings, modifiers, trade towns, embark goods, and embark effects.
+
+### Popup Type
+
+```csharp
+Eremite.WorldMap.UI.CustomGames.CustomGamePopup
+```
+
+### Panel Types
+
+The popup contains multiple sub-panels for different configuration areas:
+
+| Panel | Type | Purpose |
+|-------|------|---------|
+| Difficulty | `DifficultyPicker` | Prestige level selection |
+| Seed | `CustomGameSeedPanel` | Map seed input |
+| Biome | `CustomGameBiomePanel` | Biome dropdown selection |
+| Races | `CustomGameRacesPanel` | Starting race selection (multi-select) |
+| Reputation | `CustomGameReputationPanel` | Win/lose thresholds, impatience rate |
+| Seasons | `CustomGameSeasonsDurationPanel` | Season duration sliders |
+| Seasonal Effects | `CustomGameSeasonalEffectsPanel` | Random or manual effect picks |
+| Blight | `CustomGameBlightPanel` | Blight toggle, footprint, corruption |
+| Modifiers | `CustomGameModifiersPanel` | World/difficulty modifier toggles |
+| Trade Towns | `CustomGameTradeTownsPanel` | Trade town selection |
+| Goods | `CustomGameEmbarkGoodsPanel` | Starting goods amounts |
+| Effects | `CustomGameEmbarkEffectsPanel` | Starting effect selection |
+
+### FloatOptionsSliderPanel
+
+Used for sliders with discrete options (reputation, seasons, blight):
+
+```csharp
+options             // FloatOption[] - available values
+currentIndex        // int - selected option index
+GetPickedIndex()    // int
+SetIndex(int)       // void
+```
+
+### FloatOption
+
+```csharp
+label               // LocaText - display label
+amount              // float - the value
+```
+
+### ModifierData
+
+```csharp
+model               // ModifierModel
+effect              // string - effect internal name
+isPositive          // bool
+isPicked            // bool - currently selected
+type                // ModifierType enum (WorldMap=0, Daily=1, Difficulty=2)
+```
+
+### SeasonalEffect Types
+
+Two types of seasonal effects available in manual mode:
+
+```csharp
+Settings.simpleSeasonalEffects      // Simple perk effects
+Settings.conditionalSeasonalEffects // Conditional trigger effects
+```
+
+Each effect has:
+```csharp
+IsInCustomMode      // bool - available in training expeditions
+Name                // string - internal name
+DisplayName         // string - localized name
+Description         // string - localized description
+IsPositive          // bool
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Custom game popup | `Eremite.WorldMap.UI.CustomGames.CustomGamePopup` |
+| Seed panel | `Eremite.WorldMap.UI.CustomGames.CustomGameSeedPanel` |
+| Biome panel | `Eremite.WorldMap.UI.CustomGames.CustomGameBiomePanel` |
+| Races panel | `Eremite.WorldMap.UI.CustomGames.CustomGameRacesPanel` |
+| Reputation panel | `Eremite.WorldMap.UI.CustomGames.CustomGameReputationPanel` |
+| Seasons panel | `Eremite.WorldMap.UI.CustomGames.CustomGameSeasonsDurationPanel` |
+| Seasonal effects panel | `Eremite.WorldMap.UI.CustomGames.CustomGameSeasonalEffectsPanel` |
+| Blight panel | `Eremite.WorldMap.UI.CustomGames.CustomGameBlightPanel` |
+| Modifiers panel | `Eremite.WorldMap.UI.CustomGames.CustomGameModifiersPanel` |
+| Trade towns panel | `Eremite.WorldMap.UI.CustomGames.CustomGameTradeTownsPanel` |
+| Goods panel | `Eremite.WorldMap.UI.CustomGames.CustomGameEmbarkGoodsPanel` |
+| Effects panel | `Eremite.WorldMap.UI.CustomGames.CustomGameEmbarkEffectsPanel` |
+| Slider panel | `Eremite.WorldMap.UI.CustomGames.FloatOptionsSliderPanel` |
+| Float option | `Eremite.Model.Configs.CustomGame.FloatOption` |
+| Modifier data | `Eremite.WorldMap.ConditionsCreator.ModifierData` |
+| Layouts popup | `Eremite.WorldMap.UI.CustomGames.CustomGameLayoutsPopup` |
+
+---
+
+## Payments System
+
+### Overview
+
+Payments are obligations (taxes, tithes) that must be paid by a due date. Each payment has a good cost, due date, auto-payment setting, and penalty for non-payment.
+
+### Popup Type
+
+```csharp
+Eremite.View.Popups.Recipes.PaymentsPopup
+```
+
+### Service Access
+
+```
+GameController.Instance → GameServices → PaymentsService
+GameController.Instance → GameServices → StateService → Effects → payments
+```
+
+### IPaymentsService Methods
+
+```csharp
+Pay(PaymentState)           // Execute payment
+CanPay(PaymentState)        // bool - can afford
+GetModel(PaymentState)      // PaymentEffectModel - type/source labels
+```
+
+### PaymentState Fields
+
+```csharp
+payment             // Good - amount owed
+dueDate             // GameDate - when due
+autoPaymentType     // AutoPaymentType enum
+model               // string - effect model name
+penaltyModel        // string - penalty effect name
+```
+
+### AutoPaymentType Enum
+
+```csharp
+None = 0            // Manual payment only
+Instant = 1         // Pay immediately when goods available
+End = 2             // Pay at last minute before due
+```
+
+### GameDate Fields
+
+```csharp
+year                // int
+season              // int (0=Drizzle, 1=Clearance, 2=Storm)
+```
+
+### PaymentEffectModel Fields
+
+```csharp
+typeLabel           // LabelModel - "Tax", "Tithe", etc.
+sourceLabel         // LabelModel - source description
+```
+
+### ICalendarService
+
+```csharp
+GetSecondsLeftTo(GameDate)  // float - time remaining
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Payments popup | `Eremite.View.Popups.Recipes.PaymentsPopup` |
+| Payments service | `Eremite.Services.IPaymentsService` |
+| Payment state | `Eremite.Model.State.PaymentState` |
+| Payment effect model | `Eremite.Model.Effects.Payment.PaymentEffectModel` |
+| Game date | `Eremite.Model.State.GameDate` |
+| Auto payment type | `Eremite.Model.State.AutoPaymentType` |
+| Calendar service | `Eremite.Services.ICalendarService` |
+
+---
+
+## World Event System
+
+### Overview
+
+World Events are decision popups on the world map with multiple choice options. Each option may have requirements and consequences.
+
+### Popup Type
+
+```csharp
+Eremite.WorldMap.UI.WorldEvents.WorldEventPopup
+```
+
+### WorldEventPopup Fields
+
+```csharp
+worldEvent          // WorldEvent instance (private)
+```
+
+### WorldEvent Fields
+
+```csharp
+model               // WorldEventModel
+state               // WorldEventState
+```
+
+### WorldEventModel Fields/Methods
+
+```csharp
+displayName         // LocaText - event title
+description         // LocaText - event description
+options             // WorldEventLogic[] - decision options
+
+GetDescriptionForOption(int index)  // string - option description
+CanExecute(int index)               // bool - option available
+GetExecutionBlockReason(int index)  // string - why blocked
+ExecuteDecision(WorldEventState, int index)  // UniTask<bool> - execute choice
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| World event popup | `Eremite.WorldMap.UI.WorldEvents.WorldEventPopup` |
+| World event controller | `Eremite.WorldMap.Controllers.WorldEvent` |
+| World event model | `Eremite.Model.WorldEventModel` |
+| World event state | `Eremite.WorldMap.WorldEventState` |
+| World event logic | `Eremite.Model.WorldEventLogic` |
+
+---
+
+## Games History System
+
+### Overview
+
+Tracks play history with detailed records of past settlements, career stats, and meta perk state.
+
+### Popup Type
+
+```csharp
+Eremite.WorldMap.UI.History.GamesHistoryPopup
+```
+
+### Service Access
+
+```
+MetaController.Instance → MetaServices → MetaStateService
+  → GamesHistory (GamesHistoryState)
+  → Stats (MetaStats)
+  → Perks (MetaPerksState)
+  → Goals (MetaGoalsState)
+```
+
+### GamesHistoryState Fields
+
+```csharp
+records             // List<GameHistoryState> - past settlements
+```
+
+### GameHistoryState Fields
+
+```csharp
+name                // string - settlement name (or loca key if hasStaticName)
+hasStaticName       // bool - name is a localization key
+hasWon              // bool - victory or defeat
+difficulty          // string - difficulty model name
+biome               // string - biome model name
+level               // int - citadel level at end
+upgrades            // int - building upgrades count
+years               // int - years survived
+gameTime            // float - real time in seconds
+races               // Dictionary<string, int> - race counts
+cornerstones        // List<string> - effect names
+modifiers           // List<string> - modifier effect names
+buildings           // List<string> - building model names
+seasonalEffects     // List<string> - seasonal effect names
+```
+
+### MetaStats Fields
+
+```csharp
+gamesWon            // int - total victories
+gamesLost           // int - total defeats
+timeSpentInGame     // double - total play time in seconds
+```
+
+### MetaPerksState Fields (26 Upgrade Categories)
+
+Integer bonuses:
+```csharp
+bonusReputationRewardsPicks    bonusPreparationPoints
+bonusSeasonRewardsAmount       bonusCaravans
+bonusTradeRoutesLimit          bonusCapitalVision
+bonusTownsVision               bonusEmbarkRange
+bonusTraderMerchSlots          rawDepositsChargesBonus
+globalBuildingStorageBonus     bonusCornerstonesRerolls
+bonusGracePeriod               globalCapacityBonus
+bonusFarmArea
+```
+
+Float rate bonuses:
+```csharp
+currencyMultiplayer                    traderMerchandisePriceBonusRates
+tradersIntervalBonusRate               reputationPenaltyBonusRate
+globalSpeedBonusRate                   fuelConsumptionBonusRate
+newcommersGoodsBonusRate               globalProductionSpeedBonusRate
+hearthSacraficeTimeBonusRate           bonusEmbarkGoodsAmount
+globalExtraProductionChanceBonus
+```
+
+### CycleState Fields (via WorldStateService)
+
+```csharp
+gamesWonInCycle         // int
+gamesPlayedInCycle      // int
+sealFragments           // int - current fragments
+totalSealFragments      // int - fragments needed
+finishedModifiers       // List<string>
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| History popup | `Eremite.WorldMap.UI.History.GamesHistoryPopup` |
+| Games history state | `Eremite.Model.State.GamesHistoryState` |
+| Game history state | `Eremite.Model.State.GameHistoryState` |
+| Meta stats | `Eremite.Model.State.MetaStats` |
+| Meta perks state | `Eremite.Model.State.MetaPerksState` |
+| Cycle state | `Eremite.WorldMap.CycleState` |
+| Meta state service | `Eremite.Services.IMetaStateService` |
+
+---
+
+## Stats System
+
+### Overview
+
+Game statistics services track reputation, hostility, resolve, and villagers during a settlement. Used for status announcements and HUD data.
+
+### Service Access
+
+```
+GameController.Instance → GameServices → ReputationService
+GameController.Instance → GameServices → HostilityService
+GameController.Instance → GameServices → ResolveService
+GameController.Instance → GameServices → VillagersService
+```
+
+### ReputationService
+
+```csharp
+Reputation                      // ReactiveProperty<float> - current reputation
+ReputationPenalty               // ReactiveProperty<float> - current impatience
+State                           // GameObjectivesState
+
+GetReputationToWin()            // float - reputation threshold for victory
+GetReputationPenaltyToLoose()   // float - impatience threshold for defeat
+GetReputationGainedFrom(source) // float - rep from specific source
+GetReputationPenaltyPerSec()    // float - current impatience rate
+GetBaseReputationPenaltyPerSec() // float - base impatience rate
+```
+
+### ReputationChangeSource Enum
+
+Sources of reputation gain:
+```csharp
+Orders, Perks, CornerstoneRerolls, ResolvePoints
+```
+
+### GameObjectivesState Fields
+
+```csharp
+gracePeriodLeft     // float - seconds remaining in grace period
+```
+
+### HostilityService
+
+```csharp
+Points                          // ReactiveProperty<int> - current hostility points
+Level                           // ReactiveProperty<int> - current hostility level
+
+GetSourceAmount(source)         // int - count from source type
+GetPointsFor(source)            // int - points from source type
+GetPointsLeftToNextLevel()      // int
+```
+
+### HostilitySource Enum
+
+```csharp
+Glade, Dangerous, Forbidden, Cyst, Villager, Time
+```
+
+### ResolveService
+
+```csharp
+GetResolveFor(race)             // float - current resolve for race
+GetMinResolveForReputation(race) // float - resolve threshold for rep bonus
+GetTargetResolveFor(race)       // float - settling point
+Effects                         // Dictionary - resolve effects
+```
+
+### VillagersService
+
+```csharp
+Races                           // Dictionary - race population data
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Reputation service | `Eremite.Services.ReputationService` |
+| Hostility service | `Eremite.Services.HostilityService` |
+| Resolve service | `Eremite.Services.ResolveService` |
+| Villagers service | `Eremite.Services.VillagersService` |
+| Game objectives state | `Eremite.Model.State.GameObjectivesState` |
+| Reputation change source | `Eremite.Services.ReputationChangeSource` |
+| Hostility source | `Eremite.Model.State.HostilitySource` |
+
+---
+
+## Ironman System (Queen's Hand Trial)
+
+### Overview
+
+Queen's Hand Trial is an ironman mode with unique upgrades. Players choose from 3 random pick options after completing milestones, plus core upgrades available any time.
+
+### Popup Type
+
+```csharp
+Eremite.WorldMap.UI.IronmanUpgradePopup
+```
+
+### Service Access
+
+```
+MetaController.Instance → MetaServices → IronmanService
+```
+
+### IIronmanService Methods
+
+```csharp
+GetCompletedPicks()             // int - picks completed
+HasReachedMaxPicks()            // bool
+GetCurrentPick()                // IronmanPickState - current 3 options
+```
+
+### IronmanService Methods (concrete class)
+
+```csharp
+CanAfford(CapitalUpgradeModel)  // bool
+IsUnlocked(CapitalUpgradeModel) // bool - already purchased
+IsCore(CapitalUpgradeModel)     // bool - is a core upgrade
+Pick(CapitalUpgradeModel)       // void - purchase upgrade
+```
+
+### IronmanConfig Fields (via Settings)
+
+```csharp
+coreUpgrades        // CapitalUpgradeModel[] - always-available upgrades
+picks               // IronmanPickConfig[] - milestone pick configs
+```
+
+### IronmanPickState Fields
+
+```csharp
+options             // IronmanPickOption[] - 3 random options
+```
+
+### IronmanPickOption Fields
+
+```csharp
+model               // string - CapitalUpgradeModel name
+```
+
+### CapitalUpgradeModel Fields (Ironman-specific)
+
+```csharp
+ironmanDisplayName  // LocaText - name in ironman context
+ironmanPrice        // MetaCurrencyRef[] - ironman-specific cost
+rewards             // MetaRewardModel[] - unlock rewards
+```
+
+### MetaCurrencyRef Fields
+
+```csharp
+currency            // MetaCurrencyModel
+amount              // int
+```
+
+### MetaRewardModel Properties
+
+```csharp
+DisplayName         // string
+Description         // string
+```
+
+### Unlocked Upgrades Access
+
+```
+MetaStateService.Capital.unlockedUpgrades  // HashSet<string> - upgrade names
+```
+
+### Key Class Names
+
+| Purpose | Full Type Name |
+|---------|----------------|
+| Ironman popup | `Eremite.WorldMap.UI.IronmanUpgradePopup` |
+| Ironman service | `Eremite.Services.IIronmanService` |
+| Ironman service (impl) | `Eremite.Services.IronmanService` |
+| Ironman config | `Eremite.Model.Configs.IronmanConfig` |
+| Pick state | `Eremite.Model.State.IronmanPickState` |
+| Pick option | `Eremite.Model.State.IronmanPickOption` |
+| Capital upgrade model | `Eremite.WorldMap.CapitalUpgradeModel` |
+| Meta currency ref | `Eremite.Model.MetaCurrencyRef` |
+| Meta reward model | `Eremite.Model.Meta.MetaRewardModel` |
+| Capital state | `Eremite.Model.State.CapitalState` |
