@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 namespace ATSAccessibility {
@@ -39,7 +40,7 @@ namespace ATSAccessibility {
 	/// or the lower-level API (AddChar/Search/NavigateResults) for custom handling.
 	/// </summary>
 	public class TypeAheadSearch {
-		private string _buffer = "";
+		private StringBuilder _buffer = new StringBuilder(32);
 		private float _lastTime = 0f;
 
 		// Filtered results state
@@ -72,12 +73,12 @@ namespace ATSAccessibility {
 		/// <summary>
 		/// Current search buffer contents.
 		/// </summary>
-		public string Buffer => _buffer;
+		public string Buffer => _buffer.ToString();
 
 		/// <summary>
 		/// Whether there is an active search buffer.
 		/// </summary>
-		public bool HasBuffer => !string.IsNullOrEmpty(_buffer);
+		public bool HasBuffer => _buffer.Length > 0;
 
 		/// <summary>
 		/// Whether filtered results are currently being navigated.
@@ -104,21 +105,21 @@ namespace ATSAccessibility {
 		/// </summary>
 		public string AddChar(char c) {
 			if (Time.time - _lastTime > Timeout)
-				_buffer = "";
+				_buffer.Clear();
 
-			_buffer += c;
+			_buffer.Append(c);
 			_lastTime = Time.time;
-			return _buffer;
+			return _buffer.ToString();
 		}
 
 		/// <summary>
 		/// Remove the last character from the search buffer (backspace).
 		/// </summary>
 		public bool RemoveChar() {
-			if (string.IsNullOrEmpty(_buffer))
+			if (_buffer.Length == 0)
 				return false;
 
-			_buffer = _buffer.Substring(0, _buffer.Length - 1);
+			_buffer.Length--;
 			_lastTime = Time.time;
 			return true;
 		}
@@ -127,7 +128,7 @@ namespace ATSAccessibility {
 		/// Clear the search buffer and all results state.
 		/// </summary>
 		public void Clear() {
-			_buffer = "";
+			_buffer.Clear();
 			_isSearchActive = false;
 			_resultIndices.Clear();
 			_resultNames.Clear();
@@ -237,8 +238,9 @@ namespace ATSAccessibility {
 		public void Search(int itemCount, Func<int, string> nameByIndex, Action<int> announceResult = null) {
 			// Repeat single-letter: typing the same letter again cycles through results
 			// e.g., b → Beaver, b → Bat, b → Brewery
-			if (_isSearchActive && _resultIndices.Count > 0 && _buffer.Length > 1 && IsAllSameChar(_buffer)) {
-				_buffer = _buffer.Substring(0, 1);
+			string bufferStr = _buffer.ToString();
+			if (_isSearchActive && _resultIndices.Count > 0 && _buffer.Length > 1 && IsAllSameChar(bufferStr)) {
+				_buffer.Length = 1;
 				if (announceResult != null)
 					_announceResult = announceResult;
 				NavigateResults(1);
@@ -253,14 +255,14 @@ namespace ATSAccessibility {
 				_resultNames.Clear();
 				_resultCursor = 0;
 				_isSearchActive = true;
-				Speech.Say($"No match for {_buffer}");
+				Speech.Say($"No match for {bufferStr}");
 				return;
 			}
 
 			// Search into working lists
 			_workIndices.Clear();
 			_workNames.Clear();
-			string lowerBuffer = _buffer.ToLowerInvariant();
+			string lowerBuffer = bufferStr.ToLowerInvariant();
 
 			for (int i = 0; i < itemCount; i++) {
 				string name = nameByIndex(i);
@@ -276,7 +278,7 @@ namespace ATSAccessibility {
 				_resultNames.Clear();
 				_resultCursor = 0;
 				_isSearchActive = true;
-				Speech.Say($"No match for {_buffer}");
+				Speech.Say($"No match for {bufferStr}");
 			} else {
 				// Swap working lists into result lists (no allocation)
 				var tempIndices = _resultIndices;
