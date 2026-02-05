@@ -99,10 +99,10 @@ namespace ATSAccessibility {
 
 			switch (_branch) {
 				case Branch.GoodsTrade: {
-					var goodsList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
-					if (index < 0 || index >= goodsList.Count) return null;
-					return BuildGoodLabel(goodsList[index]);
-				}
+						var goodsList = _currentTab == Tab.Sell ? _sellGoods : _buyGoods;
+						if (index < 0 || index >= goodsList.Count) return null;
+						return BuildGoodLabel(goodsList[index]);
+					}
 				case Branch.Perks:
 					if (index < 0 || index >= _perks.Count) return null;
 					return BuildPerkLabel(_perks[index]);
