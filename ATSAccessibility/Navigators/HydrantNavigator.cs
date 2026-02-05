@@ -1,6 +1,8 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Navigator for Hydrant buildings.
 	/// Hydrants extend Building (not ProductionBuilding) so they have no workers.

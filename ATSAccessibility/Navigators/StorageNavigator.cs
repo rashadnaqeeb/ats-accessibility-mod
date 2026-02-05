@@ -1,7 +1,9 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Navigator for the main Storage building (warehouse).
 	/// Provides navigation through Goods, Workers, Abilities, and Upgrades sections.

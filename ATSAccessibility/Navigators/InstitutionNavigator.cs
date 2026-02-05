@@ -1,7 +1,9 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Navigator for Institution buildings (Tavern, Temple, etc.).
 	/// Institutions extend ProductionBuilding and have workers.

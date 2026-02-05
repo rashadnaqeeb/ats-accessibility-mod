@@ -25,25 +25,32 @@ After each commit, append a one-line summary to the appropriate section in `chan
 
 ## Code Organization
 
-**Reflection** (game API access): `*Reflection.cs` files — one per game system (e.g., `OrdersReflection.cs`, `BuildingReflection.cs`). Core game access via `GameReflection.cs`. All reflection files use `ReflectionHelper` for null-safe field/property/method access and `ReflectionHelper.InitCache` for assembly caching.
+The codebase is organized into subdirectories by responsibility:
 
-**Reflection utilities**: `ReflectionHelper.cs` (null-safe accessors, `InitCache`, dictionary helpers), `FormattingUtils.cs` (shared `FormatTime`, `YearToRoman`)
+```
+ATSAccessibility/
+├── Core/           (9 files)  - Entry point, managers, base classes, interfaces
+├── Overlays/       (36 files) - Game popup navigation (*Overlay.cs, UINavigator, EncyclopediaNavigator)
+├── Reflection/     (40 files) - Game API access via reflection (*Reflection.cs, ReflectionHelper)
+├── Handlers/       (10 files) - Key handlers, mode controllers (*Handler.cs, *Controller.cs, MapNavigator)
+├── Navigators/     (17 files) - Building navigators + BuildingSectionNavigator base class
+├── Utils/          (19 files) - Utilities, formatters, readers, scanners, helpers
+├── Panels/         (14 files) - Information panels and menu hubs (*Panel.cs, MenuHub)
+```
 
-**Popup routing**: `PopupRouter.cs` - delegate-based routing for game popup show/hide events. Replaces if/else chains in Harmony patches. Registered in `AccessibilityCore.Start()`.
+**Core/** (`ATSAccessibility.Core`): Entry point (`Plugin.cs`, `AccessibilityCore.cs`), managers (`KeyboardManager.cs`, `PopupRouter.cs`), base classes (`MenuBase.cs`), interfaces (`IKeyHandler.cs`, `IBuildingNavigator.cs`), input handling (`InputPatches.cs`, `InputBlocker.cs`).
 
-**Key handlers**: `KeyboardManager.cs` - priority chain, first active handler wins. Registered in `AccessibilityCore.Start()` separately from popup routing.
+**Reflection/** (`ATSAccessibility.Reflection`): Game API access — one `*Reflection.cs` per game system. Core access via `GameReflection.cs`. All use `ReflectionHelper` for null-safe field/property/method access.
 
-**Base classes**: `MenuBase` (all navigable menus/overlays), `BuildingSectionNavigator` (building panels, extends MenuBase)
+**Overlays/** (`ATSAccessibility.Overlays`): Popup navigation — one `*Overlay.cs` per game popup. All extend `MenuBase`.
 
-**Overlays** (popup navigation): `*Overlay.cs` files — one per game popup. All extend `MenuBase`.
+**Handlers/** (`ATSAccessibility.Handlers`): Key handlers and mode controllers. `MapNavigator.cs` and `WorldMapNavigator.cs` handle map-level navigation.
 
-**Building navigators** (`Navigators/`): `*Navigator.cs` files — one per building type. All extend `BuildingSectionNavigator`.
+**Navigators/** (`ATSAccessibility.Navigators`): Building navigators — one per building type. All extend `BuildingSectionNavigator` (also in this directory). Includes shared helpers `BuildingWorkerSection.cs` and `BuildingUpgradesSection.cs`.
 
-**Tile Info**: `TileInfoReader.cs` - detailed info for I key on buildings, natural resources, deposits
+**Utils/** (`ATSAccessibility.Utils`): `Speech.cs`, `SoundManager.cs`, `EventAnnouncer.cs`, `TypeAheadSearch.cs`, `*Helper.cs`, `*Reader.cs`, `*Scanner.cs`, `FormattingUtils.cs`, `NavigationUtils.cs`.
 
-**Events**: `EventAnnouncer.cs` - game event subscriptions with grace period and deduplication
-
-**Audio**: `SoundManager.cs` - centralized game sound playback via reflection
+**Panels/** (`ATSAccessibility.Panels`): Information panels (`*Panel.cs`), `MenuHub.cs`, `ConfirmationDialog.cs`.
 
 ---
 

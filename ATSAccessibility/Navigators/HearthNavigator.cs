@@ -1,7 +1,10 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
+using ATSAccessibility.Core;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Navigator for Hearth buildings (Ancient Hearth, Small Hearth).
 	/// Provides navigation through Fire, Sacrifice, Upgrades, Blight, and Workers sections.

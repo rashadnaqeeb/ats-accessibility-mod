@@ -1,7 +1,10 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
+using ATSAccessibility.Core;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Navigator for Port buildings (expeditions).
 	/// Provides phase-based navigation:

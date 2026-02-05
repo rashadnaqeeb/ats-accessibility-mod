@@ -1,7 +1,9 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Navigator for House buildings (Shelters).
 	/// Provides navigation through Residents and Upgrades sections.

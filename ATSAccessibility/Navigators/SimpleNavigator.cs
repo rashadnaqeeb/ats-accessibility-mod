@@ -1,6 +1,8 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Simple navigator for buildings without specialized navigation needs.
 	/// Provides basic Info section with building name, description, and status.

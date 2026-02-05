@@ -1,6 +1,8 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Navigator for individual farm field tiles.
 	/// Provides a flat list of information: Name, Status (Empty/Plowed/Seeded), Expected Yield.

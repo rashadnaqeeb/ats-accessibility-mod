@@ -1,6 +1,8 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Navigator for water-producing buildings (RainCatcher, Extractor).
 	/// Both extend ProductionBuilding and have workers.

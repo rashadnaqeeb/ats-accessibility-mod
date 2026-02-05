@@ -1,8 +1,11 @@
+using ATSAccessibility.Utils;
+using ATSAccessibility.Reflection;
+using ATSAccessibility.Core;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ATSAccessibility {
+namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Navigator for production buildings (Workshop, Farm, Mine, Camp, etc.).
 	/// Top section shows Status (Active/Paused) with Enter/Space to toggle.
