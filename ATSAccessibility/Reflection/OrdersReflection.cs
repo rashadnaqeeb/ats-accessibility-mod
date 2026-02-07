@@ -22,6 +22,7 @@ namespace ATSAccessibility.Reflection {
 		private static readonly Regex ProductionBonusRegex = new Regex(
 			@"(\+\d+) to (.+?) production \(from gathering, farming, fishing, or production\)\.?",
 			RegexOptions.Compiled);
+		private static readonly Regex ForTimeSecondsRegex = new Regex(@"for \d+ seconds", RegexOptions.Compiled);
 
 		public static string StripRichText(string text) {
 			if (string.IsNullOrEmpty(text)) return text;
@@ -34,6 +35,22 @@ namespace ATSAccessibility.Reflection {
 		private static string TrimObjectiveText(string text) {
 			if (string.IsNullOrEmpty(text)) return text;
 			return text.TrimEnd('.');
+		}
+
+		/// <summary>
+		/// Parse a timer string (e.g. "00:56" or "1:30:00") to total seconds.
+		/// Returns -1 if the string is not a valid timer format.
+		/// </summary>
+		private static int ParseTimerSeconds(string timer) {
+			var parts = timer.Split(':');
+			if (parts.Length < 2) return -1;
+			int total = 0;
+			foreach (var part in parts) {
+				int val;
+				if (!int.TryParse(part, out val)) return -1;
+				total = total * 60 + val;
+			}
+			return total;
 		}
 
 		/// <summary>
@@ -486,6 +503,16 @@ namespace ATSAccessibility.Reflection {
 							totalAmount = StripRichText(raw);
 					}
 
+					// Detect comply timer (e.g. "00:56" → threshold met, counting down).
+					// Replace with "total/total" progress and track remaining seconds.
+					int complySecondsLeft = -1;
+					if (!string.IsNullOrEmpty(progressAmount) && progressAmount.Contains(":")) {
+						complySecondsLeft = ParseTimerSeconds(progressAmount);
+						if (complySecondsLeft >= 0 && !string.IsNullOrEmpty(totalAmount)) {
+							progressAmount = $"{totalAmount}/{totalAmount}";
+						}
+					}
+
 					// If DisplayName unavailable, fall back to raw GetObjectiveText
 					if (string.IsNullOrEmpty(displayName)) {
 						string rawText = ReflectionHelper.InvokeString(_olGetObjectiveTextMethod, logic, objState);
@@ -561,6 +588,15 @@ namespace ATSAccessibility.Reflection {
 						// No amount text - fall back to raw GetObjectiveText
 						string rawText = ReflectionHelper.InvokeString(_olGetObjectiveTextMethod, logic, objState);
 						formatted = !string.IsNullOrEmpty(rawText) ? TrimObjectiveText(StripRichText(rawText)) : null;
+					}
+
+					// For comply timers, replace "for X seconds" with remaining time
+					if (complySecondsLeft >= 0 && formatted != null) {
+						string replaced = ForTimeSecondsRegex.Replace(formatted, $"for {complySecondsLeft} seconds");
+						if (replaced != formatted)
+							formatted = replaced;
+						else
+							formatted += $", {complySecondsLeft} seconds remaining";
 					}
 
 					// Prefix completed objectives with checkmark
