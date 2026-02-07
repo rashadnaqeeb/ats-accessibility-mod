@@ -332,3 +332,6 @@ Access from the main menu. A hierarchical menu for configuring custom game setti
 - Embark Goods: Adjust starting resource quantities
 - Embark Effects: Toggle starting perks
 - Embark: Start the game
+# starting cutscene.
+Below you will find a transcript of the starting cut scene, if you are a non-English player wishing to translate it. I am unable to get the localised subtitles to read.
+The world is plagued by the Blightstorm, a vile cycle of destruction ravaging everything in its path. The only safe haven is the smoldering city, where the mysterious Scorched queen reins. You are one of her viceroys, a pioneer sent into the wilds, tasked with scouting new settlements and acquiring resources for the crown. Your goal is to help rebuild the smoldering city and secure the future for the queens subjects.
