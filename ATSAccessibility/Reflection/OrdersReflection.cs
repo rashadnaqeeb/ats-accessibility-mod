@@ -628,12 +628,9 @@ namespace ATSAccessibility.Reflection {
 					+ text.Substring(pos + totalAmount.Length);
 			}
 
-			// Non-numeric (e.g. "Done"): just remove the amount from the text.
+			// Non-numeric (e.g. "Done"): keep the target amount in the text.
 			// Caller prefixes with checkmark for completed objectives.
-			int endPos = pos + totalAmount.Length;
-			if (endPos < text.Length && text[endPos] == ' ')
-				endPos++;
-			return text.Substring(0, pos) + text.Substring(endPos);
+			return text;
 		}
 
 		/// <summary>
