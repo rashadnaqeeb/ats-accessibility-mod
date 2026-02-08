@@ -190,9 +190,30 @@ namespace ATSAccessibility.Handlers {
 					}
 					return true;
 
-				case KeyCode.Escape:
 				case KeyCode.Return:
 				case KeyCode.KeypadEnter:
+					if (_awaitingPlaceConfirm) {
+						_awaitingPlaceConfirm = false;
+						ExitMoveMode(false); // Confirmed placement
+					} else if (_pricePaid) {
+						int ex = _mapNavigator.CursorX;
+						int ey = _mapNavigator.CursorY;
+						Vector2Int enterPos = new Vector2Int(ex, ey);
+						GameReflection.SetBuildingPosition(_movingBuilding, enterPos);
+						if (!GameReflection.CanPlaceBuilding(_movingBuilding)) {
+							GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							Speech.Say("Cannot place here");
+						} else {
+							GameReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							_awaitingPlaceConfirm = true;
+							Speech.Say("Space to confirm move");
+						}
+					} else {
+						ExitMoveMode(false); // Free move, no confirm needed
+					}
+					return true;
+
+				case KeyCode.Escape:
 					_awaitingPlaceConfirm = false;
 					ExitMoveMode(true); // Cancel
 					return true;
