@@ -47,15 +47,13 @@ release-package/
    ```bash
    git tag vX.X.X
    git push origin vX.X.X
-   gh release create vX.X.X ../ATSAccessibility-vX.X.X-with-BepInEx.zip --title "vX.X.X" --notes-file ../changes.md
+   gh release create vX.X.X ../ATSAccessibility-vX.X.X-with-BepInEx.zip --title "vX.X.X" --notes "release notes here"
    ```
    Creating the tag locally before pushing ensures it exists in both the local repo and on GitHub. Do not use `gh release create` with `--target` alone, as that only creates the tag on the remote.
+   Use the `--notes` flag with release notes derived from the "Changes since" section in `changes.md`, formatted to match the style of previous GitHub releases (see any prior release for the template with installation instructions, known limitations, etc.). Do not pass `changes.md` directly as `--notes-file` since it now contains the full project history.
 
-6. **Reset changes.md** for the next cycle:
-   Replace the contents of `changes.md` with:
-   ```
-   # Changes since vX.X.X
-   ```
+6. **Update changes.md** for the next cycle:
+   In `changes.md`, rename the `## Changes since vX.X.X` section to `## vX.X.X` and add a new empty `## Changes since vX.X.X` section above it with empty `### New features`, `### Bug fixes`, and `### Internal` subsections.
 
 ## Source Locations
 
