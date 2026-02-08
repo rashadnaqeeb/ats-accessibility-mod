@@ -456,6 +456,8 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _shrineEffectsModelChargesField = null;  // ShrineEffectsModel.charges
 		private static FieldInfo _shrineEffectsModelEffectsField = null;  // ShrineEffectsModel.effects (EffectModel[])
 		private static MethodInfo _shrineUseEffectMethod = null;  // Shrine.UseEffect(state, model, index)
+		private static FieldInfo _shrineModelChargingLoopField = null;  // ShrineModel.effectChargingLoop (SoundRef)
+		private static FieldInfo _shrineModelFinalSoundField = null;  // ShrineModel.effectChargingFinalSound (SoundRef)
 		private static bool _shrineTypesCached = false;
 
 		// Poro-specific
@@ -1655,6 +1657,8 @@ namespace ATSAccessibility.Reflection {
 				var shrineModelType = assembly.GetType("Eremite.Buildings.ShrineModel");
 				if (shrineModelType != null) {
 					_shrineModelEffectsField = shrineModelType.GetField("effects", GameReflection.PublicInstance);
+					_shrineModelChargingLoopField = shrineModelType.GetField("effectChargingLoop", GameReflection.PublicInstance);
+					_shrineModelFinalSoundField = shrineModelType.GetField("effectChargingFinalSound", GameReflection.PublicInstance);
 				}
 
 				var shrineEffectsStateType = assembly.GetType("Eremite.Buildings.ShrineEffectsState");
@@ -1667,6 +1671,13 @@ namespace ATSAccessibility.Reflection {
 					_shrineEffectsModelLabelField = shrineEffectsModelType.GetField("label", GameReflection.PublicInstance);
 					_shrineEffectsModelChargesField = shrineEffectsModelType.GetField("charges", GameReflection.PublicInstance);
 					_shrineEffectsModelEffectsField = shrineEffectsModelType.GetField("effects", GameReflection.PublicInstance);
+				}
+
+				// SoundRef.GetNext() (also cached in EnsureRelicTypes/EnsureRainpunkEngineTypes)
+				if (_soundRefGetNextMethod == null) {
+					var soundRefType = assembly.GetType("Eremite.Model.Sound.SoundRef");
+					if (soundRefType != null)
+						_soundRefGetNextMethod = soundRefType.GetMethod("GetNext", GameReflection.PublicInstance);
 				}
 
 			});
@@ -7739,6 +7750,33 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
+		/// Get the description of a specific effect in a shrine tier.
+		/// </summary>
+		public static string GetShrineTierEffectDescription(object building, int tierIndex, int effectIndex) {
+			if (!IsShrine(building)) return null;
+
+			EnsureShrineTypes();
+
+			try {
+				var model = ReflectionHelper.GetField(_shrineModelField, building);
+				if (model == null) return null;
+
+				var effectTiers = _shrineModelEffectsField?.GetValue(model) as Array;
+				if (effectTiers == null || tierIndex >= effectTiers.Length) return null;
+
+				var effectModel = effectTiers.GetValue(tierIndex);
+				var effects = _shrineEffectsModelEffectsField?.GetValue(effectModel) as Array;
+				if (effects == null || effectIndex >= effects.Length) return null;
+
+				var effect = effects.GetValue(effectIndex);
+				var descriptionProp = effect.GetType().GetProperty("Description", GameReflection.PublicInstance);
+				return descriptionProp?.GetValue(effect) as string;
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Try to extract species name from an effect, using multiple strategies.
 		/// </summary>
 		private static string ExtractSpeciesFromEffect(object effect, Type effectType, string description) {
@@ -7832,6 +7870,42 @@ namespace ATSAccessibility.Reflection {
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] UseShrineEffect failed: {ex.Message}\n{ex.StackTrace}");
 				return false;
+			}
+		}
+
+		/// <summary>
+		/// Get the charging loop sound from a shrine building's model.
+		/// Returns a SoundModel ready for SoundManager.PlaySoundEffect(), or null.
+		/// </summary>
+		public static object GetShrineChargingLoopSound(object building) {
+			if (!IsShrine(building)) return null;
+			EnsureShrineTypes();
+			return GetShrineSoundModel(building, _shrineModelChargingLoopField);
+		}
+
+		/// <summary>
+		/// Get the charging final sound from a shrine building's model.
+		/// Returns a SoundModel ready for SoundManager.PlaySoundEffect(), or null.
+		/// </summary>
+		public static object GetShrineFinalSound(object building) {
+			if (!IsShrine(building)) return null;
+			EnsureShrineTypes();
+			return GetShrineSoundModel(building, _shrineModelFinalSoundField);
+		}
+
+		private static object GetShrineSoundModel(object building, FieldInfo soundField) {
+			if (soundField == null || _soundRefGetNextMethod == null) return null;
+
+			try {
+				var model = ReflectionHelper.GetField(_shrineModelField, building);
+				if (model == null) return null;
+
+				var soundRef = soundField.GetValue(model);
+				if (soundRef == null) return null;
+
+				return ReflectionHelper.Invoke(_soundRefGetNextMethod, soundRef);
+			} catch {
+				return null;
 			}
 		}
 
@@ -8418,6 +8492,33 @@ namespace ATSAccessibility.Reflection {
 				return ReflectionHelper.GetInt(_cycleAbilityChargesField, ability);
 			} catch {
 				return 0;
+			}
+		}
+
+		/// <summary>
+		/// Get the description of a cycle ability at the given index.
+		/// </summary>
+		public static string GetCycleAbilityDescription(int index) {
+			EnsureCycleAbilityTypes();
+			EnsureGameModelServiceTypes();
+			EnsureRelicTypes();  // For _effectModelDescriptionProperty
+
+			var abilities = GetCycleAbilitiesList();
+			if (abilities == null || index < 0 || index >= abilities.Count) return null;
+
+			try {
+				var ability = abilities[index];
+				if (ability == null) return null;
+
+				string gameEffect = ReflectionHelper.GetString(_cycleAbilityGameEffectField, ability);
+				if (string.IsNullOrEmpty(gameEffect)) return null;
+
+				var effectModel = GetEffectModel(gameEffect);
+				if (effectModel == null) return null;
+
+				return ReflectionHelper.GetPropString(_effectModelDescriptionProperty, effectModel);
+			} catch {
+				return null;
 			}
 		}
 

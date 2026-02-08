@@ -1,5 +1,6 @@
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
+using ATSAccessibility.Core;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -27,6 +28,11 @@ namespace ATSAccessibility.Navigators {
 
 		// Effect tier data
 		private List<EffectTierInfo> _effectTiers = new List<EffectTierInfo>();
+
+		// Confirmation state
+		private bool _awaitingConfirm = false;
+		private int _confirmTierIndex;
+		private int _confirmEffectIndex;
 
 		// ========================================
 		// EFFECT TIER INFO CLASS
@@ -101,9 +107,31 @@ namespace ATSAccessibility.Navigators {
 				if (subItemIndex < tier.DrawableEffectIndices.Count) {
 					int actualEffectIndex = tier.DrawableEffectIndices[subItemIndex];
 					string effectName = BuildingReflection.GetShrineTierEffectName(_building, tier.TierIndex, actualEffectIndex);
-					Speech.Say(effectName ?? "Unknown effect");
+					string description = BuildingReflection.GetShrineTierEffectDescription(_building, tier.TierIndex, actualEffectIndex);
+
+					if (!string.IsNullOrEmpty(description))
+						Speech.Say($"{effectName ?? "Unknown effect"}: {description}");
+					else
+						Speech.Say(effectName ?? "Unknown effect");
 				}
 			}
+		}
+
+		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			if (_awaitingConfirm) {
+				if (keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter || keyCode == KeyCode.Space) {
+					// Confirm — use the effect
+					_awaitingConfirm = false;
+					DoUseEffect(_confirmTierIndex, _confirmEffectIndex);
+				} else {
+					// Any other key cancels
+					_awaitingConfirm = false;
+					Speech.Say("Cancelled");
+				}
+				return true;
+			}
+
+			return base.HandleSpecialKey(keyCode, modifiers);
 		}
 
 		protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex) {
@@ -120,14 +148,19 @@ namespace ATSAccessibility.Navigators {
 
 				int actualEffectIndex = tier.DrawableEffectIndices[subItemIndex];
 
-				if (BuildingReflection.UseShrineEffect(_building, tier.TierIndex, actualEffectIndex)) {
-					string effectName = BuildingReflection.GetShrineTierEffectName(_building, tier.TierIndex, actualEffectIndex);
-					Speech.Say($"Used {effectName ?? "effect"}");
-					RefreshEffectData();  // Refresh to update charges and drawable effects
-					return true;
-				} else {
-					Speech.Say("Failed to use effect");
-				}
+				// Play charging loop sound (or fallback) and await confirmation
+				var loopSound = BuildingReflection.GetShrineChargingLoopSound(_building);
+				if (loopSound != null)
+					SoundManager.PlaySoundEffect(loopSound);
+				else
+					SoundManager.PlaySeasonRewardsSlot();
+
+				_awaitingConfirm = true;
+				_confirmTierIndex = tier.TierIndex;
+				_confirmEffectIndex = actualEffectIndex;
+
+				Speech.Say("Enter to confirm");
+				return true;
 			}
 			return false;
 		}
@@ -146,6 +179,7 @@ namespace ATSAccessibility.Navigators {
 			_effectTiers.Clear();
 			_sectionNames = null;
 			_sectionTypes = null;
+			_awaitingConfirm = false;
 		}
 
 		// ========================================
@@ -204,6 +238,24 @@ namespace ATSAccessibility.Navigators {
 				} else {
 					Speech.Say($"{label}, no charges remaining");
 				}
+			}
+		}
+
+		private void DoUseEffect(int tierIndex, int effectIndex) {
+			if (BuildingReflection.UseShrineEffect(_building, tierIndex, effectIndex)) {
+				// Play final sound on success (or fallback)
+				var finalSound = BuildingReflection.GetShrineFinalSound(_building);
+				if (finalSound != null)
+					SoundManager.PlaySoundEffect(finalSound);
+				else
+					SoundManager.PlayButtonClick();
+
+				string effectName = BuildingReflection.GetShrineTierEffectName(_building, tierIndex, effectIndex);
+				Speech.Say($"Used {effectName ?? "effect"}");
+				RefreshEffectData();  // Refresh to update charges and drawable effects
+			} else {
+				SoundManager.PlayFailed();
+				Speech.Say("Failed to use effect");
 			}
 		}
 	}

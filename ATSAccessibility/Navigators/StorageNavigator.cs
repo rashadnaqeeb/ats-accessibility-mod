@@ -234,11 +234,14 @@ namespace ATSAccessibility.Navigators {
 
 			string abilityName = BuildingReflection.GetCycleAbilityName(itemIndex) ?? "Unknown ability";
 			int charges = BuildingReflection.GetCycleAbilityCharges(itemIndex);
+			string description = BuildingReflection.GetCycleAbilityDescription(itemIndex);
 
-			if (charges > 0) {
-				Speech.Say($"{abilityName}: {charges} charges");
+			string chargeText = charges > 0 ? $"{charges} charges" : "No charges remaining";
+
+			if (!string.IsNullOrEmpty(description)) {
+				Speech.Say($"{abilityName}: {description}, {chargeText}");
 			} else {
-				Speech.Say($"{abilityName}: No charges remaining");
+				Speech.Say($"{abilityName}: {chargeText}");
 			}
 		}
 
