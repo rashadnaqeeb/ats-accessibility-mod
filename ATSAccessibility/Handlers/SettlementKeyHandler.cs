@@ -350,24 +350,34 @@ namespace ATSAccessibility.Handlers {
 					return true;
 
 				case KeyCode.Equals:
-				case KeyCode.KeypadPlus:
-					if (modifiers.Shift) {
+				case KeyCode.KeypadPlus: {
+					var plusObj = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
+					string plusType = plusObj?.GetType().Name;
+					if (plusType == "ResourceDeposit" || plusType == "Lake") {
+						AdjustNodePriority(plusObj, +1, modifiers.Shift);
+					} else if (modifiers.Shift) {
 						var addBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
 						Speech.Say(WorkerInfoHelper.AddWorker(addBuilding));
 					} else {
 						Speech.Say(WorkerInfoHelper.CycleRace(1));
 					}
 					return true;
+				}
 
 				case KeyCode.Minus:
-				case KeyCode.KeypadMinus:
-					if (modifiers.Shift) {
+				case KeyCode.KeypadMinus: {
+					var minusObj = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
+					string minusType = minusObj?.GetType().Name;
+					if (minusType == "ResourceDeposit" || minusType == "Lake") {
+						AdjustNodePriority(minusObj, -1, modifiers.Shift);
+					} else if (modifiers.Shift) {
 						var removeBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
 						Speech.Say(WorkerInfoHelper.RemoveWorker(removeBuilding));
 					} else {
 						Speech.Say(WorkerInfoHelper.CycleRace(-1));
 					}
 					return true;
+				}
 
 				// Building activation, harvest mark, or lake retrieve
 				case KeyCode.Return:
@@ -589,6 +599,45 @@ namespace ATSAccessibility.Handlers {
 				else
 					Speech.Say("Marked");
 			}
+		}
+
+		private void AdjustNodePriority(object node, int delta, bool global) {
+			int current;
+			if (global) {
+				// Base global adjustment on what other same-good nodes are at
+				var (otherPrio, otherCount) = GameReflection.GetOtherNodesPriority(node);
+				if (otherCount > 0 && otherPrio != null) {
+					current = otherPrio.Value;
+				} else {
+					// No other nodes or mixed — use this node's priority
+					current = GameReflection.GetResourceNodePriority(node);
+				}
+			} else {
+				current = GameReflection.GetResourceNodePriority(node);
+			}
+
+			int newPrio = Math.Max(-5, Math.Min(5, current + delta));
+
+			if (newPrio == current) {
+				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				return;
+			}
+
+			if (global) {
+				GameReflection.SetGlobalResourceNodePriority(node, newPrio);
+				string nodeName = GameReflection.GetResourceNodeDisplayName(node);
+				Speech.Say($"All {nodeName} set to priority {FormatNodePriority(newPrio)}");
+			} else {
+				GameReflection.SetResourceNodePriority(node, newPrio);
+				Speech.Say($"Priority: {FormatNodePriority(newPrio)}");
+			}
+		}
+
+		private static string FormatNodePriority(int priority) {
+			if (priority == -5) return "-5 (lowest)";
+			if (priority == 5) return "5 (highest)";
+			if (priority == 0) return "0 (default)";
+			return priority.ToString();
 		}
 
 	}

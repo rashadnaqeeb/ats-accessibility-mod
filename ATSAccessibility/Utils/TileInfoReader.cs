@@ -372,6 +372,12 @@ namespace ATSAccessibility.Utils {
 					parts.Add(chargesInfo);
 				}
 
+				// Priority (only if non-default)
+				int depositPrio = GameReflection.GetResourceNodePriority(deposit);
+				if (depositPrio != 0) {
+					parts.Add($"Priority: {FormatNodePriority(depositPrio)}");
+				}
+
 				// Description
 				string desc = ReflectionHelper.GetPropString(descProp, model);
 				if (!string.IsNullOrEmpty(desc)) {
@@ -580,6 +586,12 @@ namespace ATSAccessibility.Utils {
 					}
 				}
 
+				// Priority (only if non-default)
+				int lakePrio = GameReflection.GetResourceNodePriority(lake);
+				if (lakePrio != 0) {
+					parts.Add($"Priority: {FormatNodePriority(lakePrio)}");
+				}
+
 				// Description - LakeModel has a Description property that includes grade requirement
 				string desc = TileInfoReflection.GetDescriptionProperty(model);
 				if (!string.IsNullOrEmpty(desc)) {
@@ -780,6 +792,12 @@ namespace ATSAccessibility.Utils {
 				current = current.BaseType;
 			}
 			return false;
+		}
+		private static string FormatNodePriority(int priority) {
+			if (priority == -5) return "-5 (lowest)";
+			if (priority == 5) return "5 (highest)";
+			if (priority == 0) return "0 (default)";
+			return priority.ToString();
 		}
 	}
 }

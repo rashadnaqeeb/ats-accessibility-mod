@@ -5298,6 +5298,149 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
+		/// Get the priority of a resource deposit or lake.
+		/// Both ResourceDepositState and LakeState have a "prio" field.
+		/// </summary>
+		public static int GetResourceNodePriority(object node) {
+			if (node == null) return 0;
+			string typeName = node.GetType().Name;
+			if (typeName != "ResourceDeposit" && typeName != "Lake") return 0;
+
+			try {
+				var stateProp = node.GetType().GetProperty("State", PublicInstance);
+				var state = stateProp?.GetValue(node);
+				if (state == null) return 0;
+
+				var prioField = state.GetType().GetField("prio", PublicInstance);
+				return prioField != null ? (int)prioField.GetValue(state) : 0;
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetResourceNodePriority failed: {ex.Message}");
+				return 0;
+			}
+		}
+
+		/// <summary>
+		/// Set the priority of a resource deposit or lake.
+		/// Both ResourceDepositState and LakeState have a "prio" field.
+		/// Clamps to -5/+5 (same as game UI).
+		/// </summary>
+		public static bool SetResourceNodePriority(object node, int priority) {
+			if (node == null) return false;
+			string typeName = node.GetType().Name;
+			if (typeName != "ResourceDeposit" && typeName != "Lake") return false;
+
+			priority = Math.Max(-5, Math.Min(5, priority));
+
+			try {
+				var stateProp = node.GetType().GetProperty("State", PublicInstance);
+				var state = stateProp?.GetValue(node);
+				if (state == null) return false;
+
+				var prioField = state.GetType().GetField("prio", PublicInstance);
+				if (prioField == null) return false;
+				prioField.SetValue(state, priority);
+				return true;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] SetResourceNodePriority failed: {ex.Message}");
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Set priority on all deposits or lakes producing the same good as the given node.
+		/// Calls the game's ChangeGlobalPriorityTo on the appropriate service.
+		/// </summary>
+		public static bool SetGlobalResourceNodePriority(object node, int priority) {
+			if (node == null) return false;
+			string typeName = node.GetType().Name;
+			if (typeName != "ResourceDeposit" && typeName != "Lake") return false;
+
+			priority = Math.Max(-5, Math.Min(5, priority));
+
+			try {
+				object service;
+				if (typeName == "ResourceDeposit") {
+					service = GetDepositsService();
+				} else {
+					service = GetLakesService();
+				}
+				if (service == null) return false;
+
+				var method = service.GetType().GetMethod("ChangeGlobalPriorityTo", PublicInstance);
+				if (method == null) return false;
+				method.Invoke(service, new object[] { node, priority });
+				return true;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] SetGlobalResourceNodePriority failed: {ex.Message}");
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Get the shared priority of OTHER same-good deposits/lakes (excluding the given node).
+		/// Returns (priority, otherCount) if all other same-good nodes share the same value.
+		/// Returns (null, otherCount) if other nodes have mixed priorities.
+		/// otherCount is the number of other same-good nodes (excludes the given node).
+		/// </summary>
+		public static (int? priority, int otherCount) GetOtherNodesPriority(object node) {
+			if (node == null) return (null, 0);
+			string typeName = node.GetType().Name;
+			if (typeName != "ResourceDeposit" && typeName != "Lake") return (null, 0);
+
+			try {
+				// Get this node's good reference for comparison
+				var modelProp = node.GetType().GetProperty("Model", PublicInstance);
+				var model = modelProp?.GetValue(node);
+				if (model == null) return (null, 0);
+
+				var productionField = model.GetType().GetField("production", PublicInstance);
+				var production = productionField?.GetValue(model);
+				if (production == null) return (null, 0);
+
+				var goodField = production.GetType().GetField("good", PublicInstance);
+				var targetGood = goodField?.GetValue(production);
+				if (targetGood == null) return (null, 0);
+
+				// Get all nodes from the service
+				IDictionary allNodes;
+				if (typeName == "ResourceDeposit") {
+					allNodes = MapReflection.GetDeposits(GetDepositsService());
+				} else {
+					allNodes = MapReflection.GetLakes(GetLakesService());
+				}
+				if (allNodes == null) return (null, 0);
+
+				int? sharedPrio = null;
+				int otherCount = 0;
+				bool mixed = false;
+				foreach (var other in allNodes.Values) {
+					if (other == null || other == node) continue;
+
+					// Check if same good (reference equality like the game does)
+					var otherModel = modelProp.GetValue(other);
+					if (otherModel == null) continue;
+					var otherProduction = productionField.GetValue(otherModel);
+					if (otherProduction == null) continue;
+					var otherGood = goodField.GetValue(otherProduction);
+					if (otherGood != targetGood) continue;
+
+					otherCount++;
+					int prio = GetResourceNodePriority(other);
+					if (sharedPrio == null) {
+						sharedPrio = prio;
+					} else if (sharedPrio != prio) {
+						mixed = true;
+					}
+				}
+
+				return (mixed ? null : sharedPrio, otherCount);
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetOtherNodesPriority failed: {ex.Message}");
+				return (null, 0);
+			}
+		}
+
+		/// <summary>
 		/// Get the center position of a building.
 		/// Returns null if building is null or center cannot be determined.
 		/// </summary>
