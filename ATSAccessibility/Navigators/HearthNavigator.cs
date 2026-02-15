@@ -208,6 +208,12 @@ namespace ATSAccessibility.Navigators {
 			if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
 				return;
 
+			// Fire section: adjust fuel priority at sub-item level
+			if (_sectionTypes[sectionIndex] == SectionType.Fire && _navigationLevel >= 2) {
+				AdjustFuelPriority(_currentSubItemIndex, delta);
+				return;
+			}
+
 			// Sacrifice section uses +/- to adjust level
 			if (_sectionTypes[sectionIndex] == SectionType.Sacrifice) {
 				AdjustSacrificeLevel(itemIndex, delta);
@@ -583,7 +589,10 @@ namespace ATSAccessibility.Navigators {
 
 			var fuel = _fuelTypes[subItemIndex];
 			string status = fuel.isEnabled ? "Enabled" : "Disabled";
-			Speech.Say($"{fuel.displayName}: {status}");
+			if (fuel.priority > 0)
+				Speech.Say($"{fuel.displayName}: {status}, priority {fuel.priority}");
+			else
+				Speech.Say($"{fuel.displayName}: {status}");
 		}
 
 		private bool ToggleFuel(int subItemIndex) {
@@ -602,6 +611,32 @@ namespace ATSAccessibility.Navigators {
 				SoundManager.PlayFailed();
 				Speech.Say("Cannot change fuel setting");
 				return false;
+			}
+		}
+
+		private void AdjustFuelPriority(int subItemIndex, int delta) {
+			if (subItemIndex < 0 || subItemIndex >= _fuelTypes.Count)
+				return;
+
+			var fuel = _fuelTypes[subItemIndex];
+			int currentPrio = BuildingReflection.GetFuelPriority(fuel.name);
+			int newPrio = Mathf.Clamp(currentPrio + delta, 0, 3);
+
+			if (newPrio == currentPrio) {
+				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				return;
+			}
+
+			BuildingReflection.SetFuelPriority(fuel.name, newPrio);
+			Speech.Say($"Priority: {FormatPriority(newPrio)}");
+			_fuelTypes = BuildingReflection.GetAllFuelTypes();
+		}
+
+		private string FormatPriority(int priority) {
+			switch (priority) {
+				case 0: return "0 (lowest)";
+				case 3: return "3 (highest)";
+				default: return priority.ToString();
 			}
 		}
 

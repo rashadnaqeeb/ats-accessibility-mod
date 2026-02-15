@@ -225,6 +225,8 @@ namespace ATSAccessibility.Reflection {
 		private static PropertyInfo _goodsServiceFuelsProperty = null;  // IGoodsService.Fuels (GoodModel[])
 		private static MethodInfo _hearthServiceCanBeBurnedMethod = null;  // IHearthService.CanBeBurned(string)
 		private static MethodInfo _hearthServiceSetCanBeBurnedMethod = null;  // IHearthService.SetCanBeBurned(string, bool)
+		private static MethodInfo _hearthServiceGetPriorityMethod = null;  // IHearthService.GetPriority(string)
+		private static MethodInfo _hearthServiceSetPriorityMethod = null;  // IHearthService.SetPriority(string, int)
 		private static PropertyInfo _gsHearthServiceProperty = null;  // IGameServices.HearthService
 		private static PropertyInfo _gsGoodsServiceProperty = null;  // IGameServices.GoodsService
 		private static FieldInfo _goodModelDisplayNameField = null;  // GoodModel.displayName
@@ -1181,6 +1183,8 @@ namespace ATSAccessibility.Reflection {
 				if (hearthServiceType != null) {
 					_hearthServiceCanBeBurnedMethod = hearthServiceType.GetMethod("CanBeBurned", GameReflection.PublicInstance);
 					_hearthServiceSetCanBeBurnedMethod = hearthServiceType.GetMethod("SetCanBeBurned", GameReflection.PublicInstance);
+					_hearthServiceGetPriorityMethod = hearthServiceType.GetMethod("GetPriority", GameReflection.PublicInstance);
+					_hearthServiceSetPriorityMethod = hearthServiceType.GetMethod("SetPriority", GameReflection.PublicInstance);
 				}
 
 				// GoodModel fields
@@ -4921,6 +4925,7 @@ namespace ATSAccessibility.Reflection {
 			public string name;         // Internal name (GoodModel.Name)
 			public string displayName;  // Display name (GoodModel.displayName.Text)
 			public bool isEnabled;      // Whether this fuel can be burned
+			public int priority;        // Burn priority (0-3, higher = preferred)
 		}
 
 		/// <summary>
@@ -4967,6 +4972,9 @@ namespace ATSAccessibility.Reflection {
 					// Check if enabled
 					info.isEnabled = ReflectionHelper.InvokeBool(_hearthServiceCanBeBurnedMethod, hearthService, info.name);
 
+					// Get priority
+					info.priority = ReflectionHelper.InvokeInt(_hearthServiceGetPriorityMethod, hearthService, info.name);
+
 					result.Add(info);
 				}
 			} catch (Exception ex) {
@@ -4995,6 +5003,49 @@ namespace ATSAccessibility.Reflection {
 				return true;
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] SetFuelEnabled failed: {ex.Message}");
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Get the burn priority for a fuel type (0-3).
+		/// </summary>
+		public static int GetFuelPriority(string fuelName) {
+			EnsureHearthFuelTypes();
+
+			try {
+				var gameServices = GameReflection.GetGameServices();
+				if (gameServices == null) return 0;
+
+				var hearthService = ReflectionHelper.GetProp(_gsHearthServiceProperty, gameServices);
+				if (hearthService == null) return 0;
+
+				return ReflectionHelper.InvokeInt(_hearthServiceGetPriorityMethod, hearthService, fuelName);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetFuelPriority failed: {ex.Message}");
+				return 0;
+			}
+		}
+
+		/// <summary>
+		/// Set the burn priority for a fuel type (0-3).
+		/// </summary>
+		public static bool SetFuelPriority(string fuelName, int priority) {
+			EnsureHearthFuelTypes();
+
+			if (_hearthServiceSetPriorityMethod == null) return false;
+
+			try {
+				var gameServices = GameReflection.GetGameServices();
+				if (gameServices == null) return false;
+
+				var hearthService = ReflectionHelper.GetProp(_gsHearthServiceProperty, gameServices);
+				if (hearthService == null) return false;
+
+				_hearthServiceSetPriorityMethod.Invoke(hearthService, new object[] { fuelName, priority });
+				return true;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] SetFuelPriority failed: {ex.Message}");
 				return false;
 			}
 		}
