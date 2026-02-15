@@ -289,7 +289,9 @@ namespace ATSAccessibility.Navigators {
 		protected override void AdjustItemValue(int sectionIndex, int itemIndex, int delta, KeyboardManager.KeyModifiers modifiers) {
 			// +/- adjusts priority when on the priority sub-item, limit otherwise
 			if (_sectionTypes[sectionIndex] == SectionType.Recipes && itemIndex < _recipes.Count) {
-				if (_navigationLevel >= 2 && _currentSubItemIndex == RECIPE_SUBITEM_PRIORITY) {
+				if (_navigationLevel >= 3) {
+					AdjustIngredientPriority(itemIndex, delta);
+				} else if (_navigationLevel >= 2 && _currentSubItemIndex == RECIPE_SUBITEM_PRIORITY) {
 					AdjustRecipePriority(itemIndex, delta);
 				} else {
 					// Shift modifier increases increment to 10
@@ -498,6 +500,30 @@ namespace ATSAccessibility.Navigators {
 			updatedRecipe.Priority = newPrio;
 			_recipes[recipeIndex] = updatedRecipe;
 
+			Speech.Say($"Priority: {FormatPriority(newPrio)}");
+		}
+
+		private void AdjustIngredientPriority(int recipeIndex, int delta) {
+			if (recipeIndex >= _recipes.Count) return;
+
+			int slotIndex = _currentSubItemIndex - RECIPE_SUBITEM_INGREDIENTS_START;
+			if (slotIndex < 0) return;
+
+			var recipe = _recipes[recipeIndex];
+			var options = BuildingReflection.GetIngredientSlotOptions(recipe.RecipeState, slotIndex);
+
+			if (_currentSubSubItemIndex >= options.Length) return;
+
+			var option = options[_currentSubSubItemIndex];
+			int currentPrio = BuildingReflection.GetIngredientPriority(option);
+			int newPrio = System.Math.Max(0, System.Math.Min(3, currentPrio + delta));
+
+			if (newPrio == currentPrio) {
+				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				return;
+			}
+
+			BuildingReflection.SetIngredientPriority(option, newPrio);
 			Speech.Say($"Priority: {FormatPriority(newPrio)}");
 		}
 
@@ -1252,8 +1278,10 @@ namespace ATSAccessibility.Navigators {
 			int amount = BuildingReflection.GetIngredientAmount(option);
 			bool allowed = BuildingReflection.IsIngredientAllowed(option);
 			int inStorage = BuildingReflection.GetStoredGoodAmount(rawName);
+			int priority = BuildingReflection.GetIngredientPriority(option);
 
-			Speech.Say($"{amount} {name} ({inStorage} in storage): {(allowed ? "enabled" : "disabled")}. Space to toggle");
+			string priorityPart = priority > 0 ? $", priority {priority}" : "";
+			Speech.Say($"{amount} {name}{priorityPart} ({inStorage} in storage): {(allowed ? "enabled" : "disabled")}. Space to toggle");
 		}
 
 		protected override bool PerformSubSubItemAction(int sectionIndex, int itemIndex, int subItemIndex, int subSubItemIndex) {

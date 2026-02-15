@@ -123,6 +123,7 @@ namespace ATSAccessibility.Reflection {
 		// IngredientState fields
 		private static FieldInfo _ingredientGoodField = null;
 		private static FieldInfo _ingredientAllowedField = null;
+		private static FieldInfo _ingredientPriorityField = null;
 		// Good struct fields (for ingredient amounts)
 		private static FieldInfo _goodAmountField = null;  // Good.amount
 		private static bool _ingredientTypesCached = false;
@@ -849,6 +850,7 @@ namespace ATSAccessibility.Reflection {
 				if (ingredientStateType != null) {
 					_ingredientGoodField = ingredientStateType.GetField("good", GameReflection.PublicInstance);
 					_ingredientAllowedField = ingredientStateType.GetField("allowed", GameReflection.PublicInstance);
+					_ingredientPriorityField = ingredientStateType.GetField("priority", GameReflection.PublicInstance);
 				}
 
 				// Good struct has amount field
@@ -3921,6 +3923,32 @@ namespace ATSAccessibility.Reflection {
 				bool current = ReflectionHelper.GetBool(_ingredientAllowedField, ingredientState);
 				_ingredientAllowedField?.SetValue(ingredientState, !current);
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] ToggleIngredientAllowed failed: {ex.Message}"); }
+		}
+
+		/// <summary>
+		/// Get an ingredient's priority (0-3). Returns 0 if not available.
+		/// </summary>
+		public static int GetIngredientPriority(object ingredientState) {
+			if (ingredientState == null) return 0;
+
+			EnsureIngredientTypes();
+			return ReflectionHelper.GetInt(_ingredientPriorityField, ingredientState);
+		}
+
+		/// <summary>
+		/// Set an ingredient's priority (clamped to 0-3). Also force-enables the ingredient.
+		/// </summary>
+		public static void SetIngredientPriority(object ingredientState, int priority) {
+			if (ingredientState == null) return;
+
+			EnsureIngredientTypes();
+
+			try {
+				int clamped = System.Math.Max(0, System.Math.Min(3, priority));
+				_ingredientPriorityField?.SetValue(ingredientState, clamped);
+				// Setting priority also enables the ingredient (matches game behavior)
+				_ingredientAllowedField?.SetValue(ingredientState, true);
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SetIngredientPriority failed: {ex.Message}"); }
 		}
 
 		/// <summary>
