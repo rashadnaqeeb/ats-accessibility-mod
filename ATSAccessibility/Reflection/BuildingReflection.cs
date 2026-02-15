@@ -3952,6 +3952,35 @@ namespace ATSAccessibility.Reflection {
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SetRecipeLimitFromGlobal failed: {ex.Message}"); }
 		}
 
+		/// <summary>
+		/// Get recipe priority (0-3, higher = worked on first).
+		/// </summary>
+		public static int GetRecipePriority(object recipeState) {
+			if (recipeState == null) return 0;
+
+			EnsureRecipeTypes();
+
+			try {
+				return (int?)_recipePrioField?.GetValue(recipeState) ?? 0;
+			} catch {
+				return 0;
+			}
+		}
+
+		/// <summary>
+		/// Set recipe priority (clamped to 0-3).
+		/// </summary>
+		public static void SetRecipePriority(object recipeState, int priority) {
+			if (recipeState == null) return;
+
+			EnsureRecipeTypes();
+
+			try {
+				int clamped = Math.Max(0, Math.Min(3, priority));
+				_recipePrioField?.SetValue(recipeState, clamped);
+			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] SetRecipePriority failed: {ex.Message}"); }
+		}
+
 		// ========================================
 		// PUBLIC API - STORAGE
 		// ========================================

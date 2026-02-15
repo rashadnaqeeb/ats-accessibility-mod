@@ -4,6 +4,8 @@
 
 ### New features
 
+- Add recipe priority adjustment (0-3) in building recipe settings, adjustable with plus/minus keys
+
 ### Bug fixes
 
 ### Internal

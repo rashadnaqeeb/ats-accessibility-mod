@@ -1,7 +1,6 @@
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -288,11 +287,15 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		protected override void AdjustItemValue(int sectionIndex, int itemIndex, int delta, KeyboardManager.KeyModifiers modifiers) {
-			// At sub-item level, +/- adjusts limit
+			// +/- adjusts priority when on the priority sub-item, limit otherwise
 			if (_sectionTypes[sectionIndex] == SectionType.Recipes && itemIndex < _recipes.Count) {
-				// Shift modifier increases increment to 10
-				int increment = modifiers.Shift ? delta * 10 : delta;
-				AdjustRecipeLimit(itemIndex, increment);
+				if (_navigationLevel >= 2 && _currentSubItemIndex == RECIPE_SUBITEM_PRIORITY) {
+					AdjustRecipePriority(itemIndex, delta);
+				} else {
+					// Shift modifier increases increment to 10
+					int increment = modifiers.Shift ? delta * 10 : delta;
+					AdjustRecipeLimit(itemIndex, increment);
+				}
 			}
 			// Rainpunk engine level adjustment (only for engine items, not info items)
 			else if (_sectionTypes[sectionIndex] == SectionType.Rainpunk) {
@@ -462,22 +465,40 @@ namespace ATSAccessibility.Navigators {
 					IsActive = BuildingReflection.IsRecipeActive(recipeState),
 					Limit = BuildingReflection.GetRecipeLimit(recipeState),
 					IsLimitLocal = BuildingReflection.IsRecipeLimitLocal(recipeState),
-					Priority = GetRecipePriority(recipeState)
+					Priority = BuildingReflection.GetRecipePriority(recipeState)
 				};
 				_recipes.Add(info);
 			}
 		}
 
-		private int GetRecipePriority(object recipeState) {
-			// Try to get priority from recipe state
-			// Priority field is "prio" in RecipeState
-			try {
-				var prioField = recipeState.GetType().GetField("prio", GameReflection.PublicInstance);
-				if (prioField != null) {
-					return (int?)prioField.GetValue(recipeState) ?? 0;
-				}
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetRecipePriority failed: {ex.Message}"); }
-			return 0;
+		private string FormatPriority(int priority) {
+			switch (priority) {
+				case 0: return "0 (lowest)";
+				case 3: return "3 (highest)";
+				default: return priority.ToString();
+			}
+		}
+
+		private void AdjustRecipePriority(int recipeIndex, int delta) {
+			if (recipeIndex >= _recipes.Count) return;
+
+			var recipe = _recipes[recipeIndex];
+			int currentPrio = BuildingReflection.GetRecipePriority(recipe.RecipeState);
+			int newPrio = System.Math.Max(0, System.Math.Min(3, currentPrio + delta));
+
+			if (newPrio == currentPrio) {
+				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				return;
+			}
+
+			BuildingReflection.SetRecipePriority(recipe.RecipeState, newPrio);
+
+			// Update cached value
+			var updatedRecipe = recipe;
+			updatedRecipe.Priority = newPrio;
+			_recipes[recipeIndex] = updatedRecipe;
+
+			Speech.Say($"Priority: {FormatPriority(newPrio)}");
 		}
 
 		// ========================================
@@ -995,14 +1016,16 @@ namespace ATSAccessibility.Navigators {
 
 		// Sub-item indices for recipes:
 		// 0: Status (enabled/disabled)
-		// 1: Production info (combined: produces X items every Y seconds. Z stars)
-		// 2: Limit
-		// 3+: Ingredient slots
+		// 1: Priority (0-3, adjustable with +/-)
+		// 2: Production info (combined: produces X items every Y seconds. Z stars)
+		// 3: Limit
+		// 4+: Ingredient slots
 
 		private const int RECIPE_SUBITEM_STATUS = 0;
-		private const int RECIPE_SUBITEM_PRODUCTION = 1;
-		private const int RECIPE_SUBITEM_LIMIT = 2;
-		private const int RECIPE_SUBITEM_INGREDIENTS_START = 3;
+		private const int RECIPE_SUBITEM_PRIORITY = 1;
+		private const int RECIPE_SUBITEM_PRODUCTION = 2;
+		private const int RECIPE_SUBITEM_LIMIT = 3;
+		private const int RECIPE_SUBITEM_INGREDIENTS_START = 4;
 
 		private int GetRecipeSubItemCount(int recipeIndex) {
 			if (recipeIndex >= _recipes.Count) return 0;
@@ -1010,8 +1033,8 @@ namespace ATSAccessibility.Navigators {
 			var recipe = _recipes[recipeIndex];
 			int ingredientSlots = BuildingReflection.GetRecipeIngredientSlotCount(recipe.RecipeState);
 
-			// Status + Production info + Limit + Ingredient slots
-			return 3 + ingredientSlots;
+			// Status + Priority + Production info + Limit + Ingredient slots
+			return 4 + ingredientSlots;
 		}
 
 		private void AnnounceRecipeSubItem(int recipeIndex, int subItemIndex) {
@@ -1023,6 +1046,11 @@ namespace ATSAccessibility.Navigators {
 				case RECIPE_SUBITEM_STATUS:
 					bool isActive = BuildingReflection.IsRecipeActive(recipe.RecipeState);
 					Speech.Say($"Status: {(isActive ? "enabled" : "disabled")}. Space to toggle");
+					break;
+
+				case RECIPE_SUBITEM_PRIORITY:
+					int prio = BuildingReflection.GetRecipePriority(recipe.RecipeState);
+					Speech.Say($"Priority: {FormatPriority(prio)}. Plus/minus to adjust");
 					break;
 
 				case RECIPE_SUBITEM_PRODUCTION:
@@ -1334,6 +1362,8 @@ namespace ATSAccessibility.Navigators {
 			switch (subItemIndex) {
 				case RECIPE_SUBITEM_STATUS:
 					return "Status";
+				case RECIPE_SUBITEM_PRIORITY:
+					return "Priority";
 				case RECIPE_SUBITEM_PRODUCTION:
 					return "Production";
 				case RECIPE_SUBITEM_LIMIT:
