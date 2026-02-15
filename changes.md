@@ -1,14 +1,17 @@
 # Changelog
 
-## Changes since v1.1.2
+## v1.1.3
+
+Added working priority support across the mod. You can now:
+
+- Adjust the priority that recipes are worked on within individual buildings (+ and - on the priority line in the recipe submenu).
+- The priority that ingredients are used when multiple are available for a given recipe (+ and - on the ingredient line).
+- The priority in which hearth fuels are consumed (+ and - on the fuel name from within hearth/fire/fuel).
+- The priority that resource deposits are harvested and new buildings are constructed. + and - to adjust the single deposit under the cursor, Shift + and - to adjust every item of that same type simultaneously.
+
+## Changes since v1.1.3
 
 ### New features
-
-- Add recipe priority adjustment (0-3) in building recipe settings, adjustable with plus/minus keys
-- Add resource deposit and lake priority adjustment (-5 to +5) via +/- keys on map cursor, Shift for global; I key shows current priority
-- Add construction priority adjustment (-5 to +5) for buildings under construction via +/- keys on map cursor, Shift for global; I key shows current priority
-- Add ingredient priority adjustment (0-3) via +/- keys when navigated to an individual ingredient option in a recipe
-- Add hearth fuel priority adjustment (0-3) via +/- keys when navigated to a fuel type in the Fire section
 
 ### Bug fixes
 

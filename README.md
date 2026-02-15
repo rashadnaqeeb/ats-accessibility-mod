@@ -91,6 +91,14 @@ To unmark trees, press Enter on an already-marked tree. This enters unmarking mo
 
 You can also press Backspace on any tree to quickly toggle its mark without entering marking mode.
 
+#### Priority Adjustment on Map
+
+For buildings under construction, resource deposits, and lakes, you can adjust priority directly from the map cursor without opening any panel:
+
+- +/-: Adjust priority (-5 to +5)
+- Shift+/-: Adjust global priority (applies to all of that type)
+- I: Announce current priority
+
 ### Bookmarks
 The mod gives you access to 11 bookmarks. A quick-use one, and 10 others controlled through the number row.
 
@@ -206,6 +214,12 @@ Used to look up recipes and set global production limits.
 
 - Ctrl+T: Toggle showing all recipes vs. only recipes you've unlocked.
 
+### Recipe Priority
+
+In building recipe settings, navigate to a recipe and use +/- to adjust its priority (0-3). Higher priority recipes are processed first.
+
+When a recipe has multiple ingredient options, drill into an individual ingredient and use +/- to adjust its priority (0-3) as well. This also works for fuel types in the hearth's Fire section.
+
 ### Trader Overlay (via F2 > Trader)
 
 When no trader is present, announces the time until next arrival. When a trader is visiting, provides a three-option menu: Goods Trade, Perks, and Assault (if unlocked via meta progression).
@@ -238,6 +252,16 @@ When you've hit your perk limit and must remove one to accept a new cornerstone:
 
 - Space: Select/deselect a perk for removal
 - Enter: Confirm removal of the selected perk
+
+### Hearth
+
+Open a hearth building (Ancient Hearth or Small Hearth) with Enter. Sections:
+
+- **Fire**: Fuel level, time remaining, and fuel types. Drill into Fuel Types to toggle individual fuels with Space and adjust fuel priority (0-3) with +/-.
+- **Sacrifice**: Lists goods you can sacrifice for bonuses. Each sacrifice has a level that determines consumption rate and effect strength. +/- to adjust level. Level 0 is off.
+- **Services** (main hearth only, requires meta unlock): The Commons. Lists needs the hearth can fulfill. Press Enter to unlock when available.
+- **Upgrades**: Shows hearth upgrade tiers and their requirements (housed population, institutions, decorations). Upgrades unlock sequentially as you progress — you start with only the first tier available.
+- **Blight** (main hearth only, when blight is active): Shows corruption percentage.
 
 ---
 
