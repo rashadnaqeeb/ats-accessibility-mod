@@ -355,11 +355,15 @@ namespace ATSAccessibility.Handlers {
 					string plusType = plusObj?.GetType().Name;
 					if (plusType == "ResourceDeposit" || plusType == "Lake") {
 						AdjustNodePriority(plusObj, +1, modifiers.Shift);
-					} else if (modifiers.Shift) {
-						var addBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
-						Speech.Say(WorkerInfoHelper.AddWorker(addBuilding));
 					} else {
-						Speech.Say(WorkerInfoHelper.CycleRace(1));
+						var plusBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+						if (plusBuilding != null && GameReflection.IsBuildingUnfinished(plusBuilding)) {
+							AdjustConstructionPriority(plusBuilding, +1, modifiers.Shift);
+						} else if (modifiers.Shift) {
+							Speech.Say(WorkerInfoHelper.AddWorker(plusBuilding));
+						} else {
+							Speech.Say(WorkerInfoHelper.CycleRace(1));
+						}
 					}
 					return true;
 				}
@@ -370,11 +374,15 @@ namespace ATSAccessibility.Handlers {
 					string minusType = minusObj?.GetType().Name;
 					if (minusType == "ResourceDeposit" || minusType == "Lake") {
 						AdjustNodePriority(minusObj, -1, modifiers.Shift);
-					} else if (modifiers.Shift) {
-						var removeBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
-						Speech.Say(WorkerInfoHelper.RemoveWorker(removeBuilding));
 					} else {
-						Speech.Say(WorkerInfoHelper.CycleRace(-1));
+						var minusBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+						if (minusBuilding != null && GameReflection.IsBuildingUnfinished(minusBuilding)) {
+							AdjustConstructionPriority(minusBuilding, -1, modifiers.Shift);
+						} else if (modifiers.Shift) {
+							Speech.Say(WorkerInfoHelper.RemoveWorker(minusBuilding));
+						} else {
+							Speech.Say(WorkerInfoHelper.CycleRace(-1));
+						}
 					}
 					return true;
 				}
@@ -602,19 +610,8 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		private void AdjustNodePriority(object node, int delta, bool global) {
-			int current;
-			if (global) {
-				// Base global adjustment on what other same-good nodes are at
-				var (otherPrio, otherCount) = GameReflection.GetOtherNodesPriority(node);
-				if (otherCount > 0 && otherPrio != null) {
-					current = otherPrio.Value;
-				} else {
-					// No other nodes or mixed — use this node's priority
-					current = GameReflection.GetResourceNodePriority(node);
-				}
-			} else {
-				current = GameReflection.GetResourceNodePriority(node);
-			}
+			// Always base on focused node's priority (matches game UI behavior)
+			int current = GameReflection.GetResourceNodePriority(node);
 
 			int newPrio = Math.Max(-5, Math.Min(5, current + delta));
 
@@ -629,6 +626,27 @@ namespace ATSAccessibility.Handlers {
 				Speech.Say($"All {nodeName} set to priority {FormatNodePriority(newPrio)}");
 			} else {
 				GameReflection.SetResourceNodePriority(node, newPrio);
+				Speech.Say($"Priority: {FormatNodePriority(newPrio)}");
+			}
+		}
+
+		private void AdjustConstructionPriority(object building, int delta, bool global) {
+			// Always base on focused building's priority (matches game UI behavior)
+			int current = GameReflection.GetBuildingConstructionPriority(building);
+
+			int newPrio = Math.Max(-5, Math.Min(5, current + delta));
+
+			if (newPrio == current) {
+				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				return;
+			}
+
+			if (global) {
+				GameReflection.SetGlobalBuildingConstructionPriority(building, newPrio);
+				string name = GameReflection.GetBuildingDisplayName(building);
+				Speech.Say($"All {name} set to priority {FormatNodePriority(newPrio)}");
+			} else {
+				GameReflection.SetBuildingConstructionPriority(building, newPrio);
 				Speech.Say($"Priority: {FormatNodePriority(newPrio)}");
 			}
 		}

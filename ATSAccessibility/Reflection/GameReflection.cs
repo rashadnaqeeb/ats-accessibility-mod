@@ -5377,66 +5377,64 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get the shared priority of OTHER same-good deposits/lakes (excluding the given node).
-		/// Returns (priority, otherCount) if all other same-good nodes share the same value.
-		/// Returns (null, otherCount) if other nodes have mixed priorities.
-		/// otherCount is the number of other same-good nodes (excludes the given node).
+		/// Get the construction priority of a building under construction.
+		/// Reads BuildingState.constructionPriority. Returns 0 default.
 		/// </summary>
-		public static (int? priority, int otherCount) GetOtherNodesPriority(object node) {
-			if (node == null) return (null, 0);
-			string typeName = node.GetType().Name;
-			if (typeName != "ResourceDeposit" && typeName != "Lake") return (null, 0);
+		public static int GetBuildingConstructionPriority(object building) {
+			if (building == null) return 0;
 
 			try {
-				// Get this node's good reference for comparison
-				var modelProp = node.GetType().GetProperty("Model", PublicInstance);
-				var model = modelProp?.GetValue(node);
-				if (model == null) return (null, 0);
+				var stateProperty = building.GetType().GetProperty("BuildingState", PublicInstance);
+				var state = stateProperty?.GetValue(building);
+				if (state == null) return 0;
 
-				var productionField = model.GetType().GetField("production", PublicInstance);
-				var production = productionField?.GetValue(model);
-				if (production == null) return (null, 0);
-
-				var goodField = production.GetType().GetField("good", PublicInstance);
-				var targetGood = goodField?.GetValue(production);
-				if (targetGood == null) return (null, 0);
-
-				// Get all nodes from the service
-				IDictionary allNodes;
-				if (typeName == "ResourceDeposit") {
-					allNodes = MapReflection.GetDeposits(GetDepositsService());
-				} else {
-					allNodes = MapReflection.GetLakes(GetLakesService());
-				}
-				if (allNodes == null) return (null, 0);
-
-				int? sharedPrio = null;
-				int otherCount = 0;
-				bool mixed = false;
-				foreach (var other in allNodes.Values) {
-					if (other == null || other == node) continue;
-
-					// Check if same good (reference equality like the game does)
-					var otherModel = modelProp.GetValue(other);
-					if (otherModel == null) continue;
-					var otherProduction = productionField.GetValue(otherModel);
-					if (otherProduction == null) continue;
-					var otherGood = goodField.GetValue(otherProduction);
-					if (otherGood != targetGood) continue;
-
-					otherCount++;
-					int prio = GetResourceNodePriority(other);
-					if (sharedPrio == null) {
-						sharedPrio = prio;
-					} else if (sharedPrio != prio) {
-						mixed = true;
-					}
-				}
-
-				return (mixed ? null : sharedPrio, otherCount);
+				var prioField = state.GetType().GetField("constructionPriority", PublicInstance);
+				return prioField != null ? (int)prioField.GetValue(state) : 0;
 			} catch (Exception ex) {
-				Debug.LogWarning($"[ATSAccessibility] GetOtherNodesPriority failed: {ex.Message}");
-				return (null, 0);
+				Debug.LogWarning($"[ATSAccessibility] GetBuildingConstructionPriority failed: {ex.Message}");
+				return 0;
+			}
+		}
+
+		/// <summary>
+		/// Set the construction priority of a building under construction.
+		/// Uses BuildingsService.ChangePriorityTo so ConstructionQueue re-sorts.
+		/// </summary>
+		public static bool SetBuildingConstructionPriority(object building, int priority) {
+			if (building == null) return false;
+
+			try {
+				var service = GetBuildingsService();
+				if (service == null) return false;
+
+				var method = service.GetType().GetMethod("ChangePriorityTo", PublicInstance);
+				if (method == null) return false;
+				method.Invoke(service, new object[] { building, priority });
+				return true;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] SetBuildingConstructionPriority failed: {ex.Message}");
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Set construction priority on all under-construction buildings of the same model.
+		/// Uses BuildingsService.ChangeGlobalPriorityTo.
+		/// </summary>
+		public static bool SetGlobalBuildingConstructionPriority(object building, int priority) {
+			if (building == null) return false;
+
+			try {
+				var service = GetBuildingsService();
+				if (service == null) return false;
+
+				var method = service.GetType().GetMethod("ChangeGlobalPriorityTo", PublicInstance);
+				if (method == null) return false;
+				method.Invoke(service, new object[] { building, priority });
+				return true;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] SetGlobalBuildingConstructionPriority failed: {ex.Message}");
+				return false;
 			}
 		}
 

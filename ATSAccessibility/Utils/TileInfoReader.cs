@@ -232,6 +232,14 @@ namespace ATSAccessibility.Utils {
 				if (!string.IsNullOrEmpty(guidepostInfo))
 					parts.Add(guidepostInfo);
 
+				// Construction priority for buildings under construction
+				if (GameReflection.IsBuildingUnfinished(building)) {
+					int constructionPrio = GameReflection.GetBuildingConstructionPriority(building);
+					if (constructionPrio != 0) {
+						parts.Add($"Priority: {FormatNodePriority(constructionPrio)}");
+					}
+				}
+
 				var buildingType = building.GetType();
 
 				// Get BuildingModel property for this type

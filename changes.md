@@ -6,6 +6,7 @@
 
 - Add recipe priority adjustment (0-3) in building recipe settings, adjustable with plus/minus keys
 - Add resource deposit and lake priority adjustment (-5 to +5) via +/- keys on map cursor, Shift for global; I key shows current priority
+- Add construction priority adjustment (-5 to +5) for buildings under construction via +/- keys on map cursor, Shift for global; I key shows current priority
 
 ### Bug fixes
 
