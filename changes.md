@@ -9,7 +9,15 @@ Added working priority support across the mod. You can now:
 - The priority in which hearth fuels are consumed (+ and - on the fuel name from within hearth/fire/fuel).
 - The priority that resource deposits are harvested and new buildings are constructed. + and - to adjust the single deposit under the cursor, Shift + and - to adjust every item of that same type simultaneously.
 
-## Changes since v1.1.3
+## Changes since v1.1.4
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.1.4
 
 ### New features
 - Pressing Enter on hearth sacrifice items now hints to use + and - to adjust levels
@@ -18,8 +26,6 @@ Added working priority support across the mod. You can now:
 
 ### Bug fixes
 - Strip trailing period from sacrifice effect descriptions
-
-### Internal
 
 ## v1.1.2
 
