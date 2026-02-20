@@ -12,8 +12,11 @@ Added working priority support across the mod. You can now:
 ## Changes since v1.1.3
 
 ### New features
+- Pressing Enter on hearth sacrifice items now hints to use + and - to adjust levels
+- Hearth upgrade section now shows meta-locked tiers with "unlocked through meta progression upgrade" message
 
 ### Bug fixes
+- Strip trailing period from sacrifice effect descriptions
 
 ### Internal
 

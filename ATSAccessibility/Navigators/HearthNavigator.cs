@@ -164,6 +164,12 @@ namespace ATSAccessibility.Navigators {
 			if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
 				return false;
 
+			// Sacrifice: hint about +/- keys
+			if (_sectionTypes[sectionIndex] == SectionType.Sacrifice) {
+				Speech.Say("Press plus and minus to adjust sacrifice levels");
+				return true;
+			}
+
 			// Services unlock action
 			if (_sectionTypes[sectionIndex] == SectionType.Services && !_servicesSettlementUnlocked && itemIndex == 0) {
 				if (!BuildingReflection.CanAffordHearthServicesUnlock(_building)) {
@@ -365,6 +371,12 @@ namespace ATSAccessibility.Navigators {
 
 			var info = _upgradeInfo[itemIndex];
 
+			// Locked tiers: just announce the name and that it requires meta progression
+			if (!info.isUnlockedInMeta) {
+				Speech.Say($"{info.displayName}, unlocked through meta progression upgrade");
+				return;
+			}
+
 			// Build status string
 			string status = info.isAchieved ? "Achieved" : "Available";
 
@@ -449,12 +461,13 @@ namespace ATSAccessibility.Navigators {
 				name = info.recipeName;
 			}
 
-			// Get effect description
+			// Get effect description (strip trailing period from localized text)
 			string effect = info.effectDescription;
 			if (string.IsNullOrEmpty(effect)) {
 				effect = info.effectName;
 			}
 			if (!string.IsNullOrEmpty(effect)) {
+				effect = effect.TrimEnd('.');
 				effect = effect + " per level";
 			}
 

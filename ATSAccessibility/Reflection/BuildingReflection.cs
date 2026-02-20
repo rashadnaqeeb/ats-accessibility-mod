@@ -4565,48 +4565,47 @@ namespace ATSAccessibility.Reflection {
 				foreach (var tier in tiers) {
 					int tierIndex = ReflectionHelper.GetInt(_hubTierIndexField, tier);
 
-					// Skip tiers not unlocked in meta progression
-					if (tierIndex >= unlockedCount)
-						continue;
-
 					var info = new HearthUpgradeInfo();
 					info.decorationRequirements = new List<DecorationRequirementInfo>();
 
 					info.index = tierIndex;
-					info.isUnlockedInMeta = true;  // Only unlocked tiers are included
-					info.isAchieved = currentHubIndex >= info.index;
+					info.isUnlockedInMeta = tierIndex < unlockedCount;
+					info.isAchieved = info.isUnlockedInMeta && currentHubIndex >= info.index;
 
 					// Display name
 					var displayNameLoca = ReflectionHelper.GetField(_hubTierDisplayNameField, tier);
 					info.displayName = GameReflection.GetLocaText(displayNameLoca) ?? $"Upgrade {info.index + 1}";
 
-					// Effect description
-					var effect = ReflectionHelper.GetField(_hubTierEffectField, tier);
-					if (effect != null) {
-						EnsureHearthSacrificeTypes(); // For _effectModelDescProp
-						info.effectDescription = _effectModelDescProp?.GetValue(effect) as string ?? "";
-					}
+					// Only gather detailed info for meta-unlocked tiers
+					if (info.isUnlockedInMeta) {
+						// Effect description
+						var effect = ReflectionHelper.GetField(_hubTierEffectField, tier);
+						if (effect != null) {
+							EnsureHearthSacrificeTypes(); // For _effectModelDescProp
+							info.effectDescription = _effectModelDescProp?.GetValue(effect) as string ?? "";
+						}
 
-					// Requirements
-					info.minPopulation = ReflectionHelper.GetInt(_hubTierMinPopulationField, tier);
-					info.currentPopulation = currentPop;
-					info.minInstitutions = ReflectionHelper.GetInt(_hubTierMinInstitutionsField, tier);
-					info.currentInstitutions = currentInst;
+						// Requirements
+						info.minPopulation = ReflectionHelper.GetInt(_hubTierMinPopulationField, tier);
+						info.currentPopulation = currentPop;
+						info.minInstitutions = ReflectionHelper.GetInt(_hubTierMinInstitutionsField, tier);
+						info.currentInstitutions = currentInst;
 
-					// Decoration requirements
-					var decorReqs = _hubTierDecorationsField?.GetValue(tier) as Array;
-					if (decorReqs != null) {
-						foreach (var decorReq in decorReqs) {
-							var reqInfo = new DecorationRequirementInfo();
+						// Decoration requirements
+						var decorReqs = _hubTierDecorationsField?.GetValue(tier) as Array;
+						if (decorReqs != null) {
+							foreach (var decorReq in decorReqs) {
+								var reqInfo = new DecorationRequirementInfo();
 
-							var decorTier = ReflectionHelper.GetField(_decorReqTierField, decorReq);
-							// Get tier name and append "decorations" for clarity
-							string tierName = GetDecorationTierName(decorTier);
-							reqInfo.tierName = tierName + " decorations";
-							reqInfo.required = ReflectionHelper.GetInt(_decorReqAmountField, decorReq);
-							reqInfo.current = CountDecorationsForHearth(building, decorTier);
+								var decorTier = ReflectionHelper.GetField(_decorReqTierField, decorReq);
+								// Get tier name and append "decorations" for clarity
+								string tierName = GetDecorationTierName(decorTier);
+								reqInfo.tierName = tierName + " decorations";
+								reqInfo.required = ReflectionHelper.GetInt(_decorReqAmountField, decorReq);
+								reqInfo.current = CountDecorationsForHearth(building, decorTier);
 
-							info.decorationRequirements.Add(reqInfo);
+								info.decorationRequirements.Add(reqInfo);
+							}
 						}
 					}
 
