@@ -14,6 +14,7 @@ Added working priority support across the mod. You can now:
 ### New features
 - Pressing Enter on hearth sacrifice items now hints to use + and - to adjust levels
 - Hearth upgrade section now shows meta-locked tiers with "unlocked through meta progression upgrade" message
+- World map stat keys (Alt+L, Alt+R, Alt+S, Alt+T) now work through popups and overlays
 
 ### Bug fixes
 - Strip trailing period from sacrifice effect descriptions

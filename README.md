@@ -184,6 +184,7 @@ Opened via Menu Hub (F2 > Trends). Shows storage operations (gains and losses) f
 - S: Seal info
 - T: Cycle info
 - E: End cycle.
+Alt+L, Alt+R, Alt+S, and Alt+T also work from inside world map popups and menus.
 - Enter: Select tile / embark
 
 ### World Map Scanner
