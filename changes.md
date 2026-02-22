@@ -9,15 +9,19 @@ Added working priority support across the mod. You can now:
 - The priority in which hearth fuels are consumed (+ and - on the fuel name from within hearth/fire/fuel).
 - The priority that resource deposits are harvested and new buildings are constructed. + and - to adjust the single deposit under the cursor, Shift + and - to adjust every item of that same type simultaneously.
 
-## Changes since v1.1.4
+## Changes since v1.1.5
 
 ### New features
 
 ### Bug fixes
 
-- Fix Extractor (Geyser Pump) placement failing with "Cannot place here" — springs were not removed from the grid before the placement check
-
 ### Internal
+
+## v1.1.5
+
+### Bug fixes
+
+- Fix Extractor (Geyser Pump) placement failing with "Cannot place here" — springs were not removed from the grid before the placement check
 
 ## v1.1.4
 
