@@ -590,6 +590,8 @@ namespace ATSAccessibility.Reflection {
 		private static PropertyInfo _gsDepositsServiceProperty = null;
 		private static PropertyInfo _gsOreServiceProperty = null;
 		private static PropertyInfo _gsSpringsServiceProperty = null;
+		private static MethodInfo _springsRemoveFromGridMethod = null;
+		private static MethodInfo _springsReturnOnGridMethod = null;
 		private static PropertyInfo _gsLakesServiceProperty = null;
 		private static PropertyInfo _gsBuildingsServiceProperty = null;
 		private static PropertyInfo _gsConditionsServiceProperty = null;
@@ -638,6 +640,16 @@ namespace ATSAccessibility.Reflection {
 						BindingFlags.Public | BindingFlags.Instance);
 					_gsSpringsServiceProperty = gameServicesType.GetProperty("SpringsService",
 						BindingFlags.Public | BindingFlags.Instance);
+
+					// Cache SpringsService grid methods for Extractor placement
+					var springsServiceType = _gameAssembly.GetType("Eremite.Services.SpringsService");
+					if (springsServiceType != null) {
+						_springsRemoveFromGridMethod = springsServiceType.GetMethod("RemoveSpringsFromGrid",
+							BindingFlags.Public | BindingFlags.Instance);
+						_springsReturnOnGridMethod = springsServiceType.GetMethod("ReturnSpringsOnGrid",
+							BindingFlags.Public | BindingFlags.Instance);
+					}
+
 					_gsLakesServiceProperty = gameServicesType.GetProperty("LakesService",
 						BindingFlags.Public | BindingFlags.Instance);
 					_gsBuildingsServiceProperty = gameServicesType.GetProperty("BuildingsService",
@@ -856,6 +868,27 @@ namespace ATSAccessibility.Reflection {
 		public static object GetSpringsService() {
 			EnsureMapTypes();
 			return ReflectionHelper.GetProp(_gsSpringsServiceProperty, GetGameServices());
+		}
+
+		/// <summary>
+		/// Remove all free springs from the map grid.
+		/// Must be called before Extractor placement checks so IsFieldEmpty passes.
+		/// Always pair with ReturnSpringsOnGrid after the check.
+		/// </summary>
+		public static bool RemoveSpringsFromGrid() {
+			EnsureMapTypes();
+			var springsService = GetSpringsService();
+			return ReflectionHelper.InvokeVoid(_springsRemoveFromGridMethod, springsService);
+		}
+
+		/// <summary>
+		/// Return all free springs to the map grid.
+		/// Must be called after Extractor placement checks to restore grid state.
+		/// </summary>
+		public static bool ReturnSpringsOnGrid() {
+			EnsureMapTypes();
+			var springsService = GetSpringsService();
+			return ReflectionHelper.InvokeVoid(_springsReturnOnGridMethod, springsService);
 		}
 
 		/// <summary>

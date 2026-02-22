@@ -15,6 +15,8 @@ Added working priority support across the mod. You can now:
 
 ### Bug fixes
 
+- Fix Extractor (Geyser Pump) placement failing with "Cannot place here" — springs were not removed from the grid before the placement check
+
 ### Internal
 
 ## v1.1.4

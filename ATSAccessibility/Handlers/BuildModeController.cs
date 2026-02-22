@@ -226,17 +226,28 @@ namespace ATSAccessibility.Handlers {
 			// Set position
 			GameReflection.SetBuildingPosition(building, new Vector2Int(x, y));
 
-			// Check if placement is valid
-			if (!GameReflection.CanPlaceBuilding(building)) {
-				// Remove the building since we can't place it
-				GameReflection.RemoveBuilding(building, false);
-				Speech.Say("Cannot place here");
-				Debug.Log($"[ATSAccessibility] Cannot place {_selectedBuildingName} at ({x}, {y})");
-				return;
-			}
+			// Extractors need springs removed from the grid before placement check,
+			// otherwise IsFieldEmpty fails because the spring occupies the grid
+			bool isExtractor = BuildingReflection.IsExtractorModel(_selectedBuildingModel);
+			if (isExtractor)
+				GameReflection.RemoveSpringsFromGrid();
 
-			// Finalize placement
-			GameReflection.FinalizeBuildingPlacement(building);
+			try {
+				// Check if placement is valid
+				if (!GameReflection.CanPlaceBuilding(building)) {
+					// Remove the building since we can't place it
+					GameReflection.RemoveBuilding(building, false);
+					Speech.Say("Cannot place here");
+					Debug.Log($"[ATSAccessibility] Cannot place {_selectedBuildingName} at ({x}, {y})");
+					return;
+				}
+
+				// Finalize placement
+				GameReflection.FinalizeBuildingPlacement(building);
+			} finally {
+				if (isExtractor)
+					GameReflection.ReturnSpringsOnGrid();
+			}
 
 			Speech.Say($"{_selectedBuildingName} placed");
 			Debug.Log($"[ATSAccessibility] Placed {_selectedBuildingName} at ({x}, {y}) rotation {_rotation}");
@@ -328,8 +339,16 @@ namespace ATSAccessibility.Handlers {
 			// Set position
 			GameReflection.SetBuildingPosition(building, new Vector2Int(_mapNavigator.CursorX, _mapNavigator.CursorY));
 
+			// Extractors need springs removed from the grid before placement check
+			bool isExtractor = BuildingReflection.IsExtractorModel(_selectedBuildingModel);
+			if (isExtractor)
+				GameReflection.RemoveSpringsFromGrid();
+
 			// Check if placement is valid
 			bool canPlace = GameReflection.CanPlaceBuilding(building);
+
+			if (isExtractor)
+				GameReflection.ReturnSpringsOnGrid();
 
 			// Remove the temporary building (no refund)
 			GameReflection.RemoveBuilding(building, false);

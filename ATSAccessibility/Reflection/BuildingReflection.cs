@@ -495,6 +495,7 @@ namespace ATSAccessibility.Reflection {
 
 		// Extractor-specific
 		private static Type _extractorType = null;
+		private static Type _extractorModelType = null;
 		private static FieldInfo _extractorStateField = null;  // Extractor.state
 		private static FieldInfo _extractorModelField = null;  // Extractor.model
 		private static MethodInfo _extractorGetWaterTypeMethod = null;  // Extractor.GetWaterType()
@@ -1763,10 +1764,10 @@ namespace ATSAccessibility.Reflection {
 					_extractorGetWaterTypeMethod = _extractorType.GetMethod("GetWaterType", GameReflection.PublicInstance);
 				}
 
-				var extractorModelType = assembly.GetType("Eremite.Buildings.ExtractorModel");
-				if (extractorModelType != null) {
-					_extractorModelProductionTimeField = extractorModelType.GetField("productionTime", GameReflection.PublicInstance);
-					_extractorModelProducedAmountField = extractorModelType.GetField("producedAmount", GameReflection.PublicInstance);
+				_extractorModelType = assembly.GetType("Eremite.Buildings.ExtractorModel");
+				if (_extractorModelType != null) {
+					_extractorModelProductionTimeField = _extractorModelType.GetField("productionTime", GameReflection.PublicInstance);
+					_extractorModelProducedAmountField = _extractorModelType.GetField("producedAmount", GameReflection.PublicInstance);
 				}
 
 			});
@@ -8452,6 +8453,19 @@ namespace ATSAccessibility.Reflection {
 			if (_extractorType == null) return false;
 
 			return _extractorType.IsInstanceOfType(building);
+		}
+
+		/// <summary>
+		/// Check if a building model is an ExtractorModel.
+		/// </summary>
+		public static bool IsExtractorModel(object buildingModel) {
+			if (buildingModel == null) return false;
+
+			EnsureExtractorTypes();
+
+			if (_extractorModelType == null) return false;
+
+			return _extractorModelType.IsInstanceOfType(buildingModel);
 		}
 
 		/// <summary>
