@@ -7,6 +7,8 @@ namespace ATSAccessibility.Overlays {
 	/// Key handler for MetaRewardsPopup and MetaLevelUpPopup.
 	/// Registered above GameResultOverlay so players can close the level-up
 	/// popup before interacting with the game result screen.
+	/// Does not extend MenuBase because it operates on raw GameObjects (not
+	/// service-layer popups) and delegates reading to a coroutine-based reader.
 	/// </summary>
 	public class MetaRewardsOverlay: IKeyHandler {
 		private GameObject _currentPopup;

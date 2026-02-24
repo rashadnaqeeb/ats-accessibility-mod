@@ -10,6 +10,9 @@ namespace ATSAccessibility.Overlays {
 	/// <summary>
 	/// Provides keyboard navigation for the game's WikiPopup (encyclopedia).
 	/// Supports 3-panel navigation: Categories, Articles, and Content.
+	/// Does not extend MenuBase because Left/Right switches between panels with
+	/// fundamentally different content types, and the Content panel uses a text
+	/// reader rather than item navigation — neither maps to MenuBase's level model.
 	/// </summary>
 	public class EncyclopediaNavigator: IKeyHandler, ISearchable {
 		public enum WikiPanel { Categories = 0, Articles = 1, Content = 2 }
