@@ -52,7 +52,8 @@ namespace ATSAccessibility.Utils {
 		private enum ScanCategory {
 			Glades = 0,
 			Resources = 1,
-			Buildings = 2
+			Buildings = 2,
+			SearchResults = 3
 		}
 
 		private ScanCategory _currentCategory = ScanCategory.Glades;
@@ -66,6 +67,15 @@ namespace ATSAccessibility.Utils {
 		private Dictionary<int, List<ItemGroup>> _cachedResourcesBySubcategory = null;
 
 		private readonly MapNavigator _mapNavigator;
+
+		// Search results state
+		private List<ItemGroup> _searchResultGroups = null;
+		private ScanCategory _categoryBeforeSearch = ScanCategory.Glades;
+
+		/// <summary>
+		/// Whether the scanner is currently showing search results.
+		/// </summary>
+		public bool IsInSearchResults => _currentCategory == ScanCategory.SearchResults;
 
 		// Scan origin for stable distance calculations when auto-move is on
 		private int _scanOriginX;
@@ -274,6 +284,19 @@ namespace ATSAccessibility.Utils {
 		public void ChangeGroup(int direction) {
 			UpdateScanOrigin();
 			_currentItemIndex = 0;
+
+			// Search results: no rescan, navigate within cached results
+			if (_currentCategory == ScanCategory.SearchResults) {
+				if (_searchResultGroups == null || _searchResultGroups.Count == 0) {
+					AnnounceEmpty();
+					return;
+				}
+				_cachedGroups = _searchResultGroups;
+				_currentGroupIndex = NavigationUtils.WrapIndex(_currentGroupIndex, direction, _cachedGroups.Count);
+				AnnounceCurrentItem();
+				AutoMoveCursorSilent();
+				return;
+			}
 
 			// For Buildings, use subcategory groups
 			if (_currentCategory == ScanCategory.Buildings) {
@@ -1036,6 +1059,7 @@ namespace ATSAccessibility.Utils {
 				ScanCategory.Glades => "glades",
 				ScanCategory.Resources => "resources",
 				ScanCategory.Buildings => "buildings",
+				ScanCategory.SearchResults => "search results",
 				_ => "items"
 			};
 			Speech.Say($"No {categoryName}");
@@ -1433,6 +1457,10 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public void ChangeSubcategory(int direction) {
 			UpdateScanOrigin();
+			if (_currentCategory == ScanCategory.SearchResults) {
+				Speech.Say("No subcategories");
+				return;
+			}
 			if (_currentCategory == ScanCategory.Buildings) {
 				EnsureReflectionCache();
 				BuildUnrevealedGladeTilesMap();
@@ -1479,6 +1507,120 @@ namespace ATSAccessibility.Utils {
 
 			_currentSubcategoryIndex = startIndex;
 			Speech.Say(emptyMessage);
+		}
+
+		// ========================================
+		// SEARCH
+		// ========================================
+
+		/// <summary>
+		/// Execute a search across all categories and switch to search results.
+		/// </summary>
+		public void CommitSearch(string query) {
+			if (string.IsNullOrWhiteSpace(query)) {
+				Speech.Say("Search cancelled");
+				return;
+			}
+
+			UpdateScanOrigin();
+			EnsureReflectionCache();
+			BuildUnrevealedGladeTilesMap();
+
+			// Scan all three categories
+			var allGroups = new List<ItemGroup>();
+			allGroups.AddRange(ScanGlades());
+
+			ScanResourcesWithSubcategories();
+			if (_cachedResourcesBySubcategory != null &&
+				_cachedResourcesBySubcategory.TryGetValue(0, out var resGroups))
+				allGroups.AddRange(resGroups);
+
+			ScanBuildingsWithSubcategories();
+			// Include all subcategories (1..N) to capture Decorations and Roads
+			// which are excluded from the "All" bucket (index 0)
+			if (_cachedBuildingsBySubcategory != null) {
+				for (int i = 1; i < SubcategoryNames.Length; i++) {
+					if (_cachedBuildingsBySubcategory.TryGetValue(i, out var subGroups))
+						allGroups.AddRange(subGroups);
+				}
+			}
+
+			_unrevealedGladeTiles = null;
+
+			// Score and filter
+			string lowerQuery = query.ToLowerInvariant();
+			var scored = new List<(int score, int distance, ItemGroup group)>();
+			foreach (var group in allGroups) {
+				int score = ScoreMatch(group.TypeName, lowerQuery);
+				if (score == 0) continue;
+				int dist = group.Items.Count > 0 ? group.Items[0].Distance : int.MaxValue;
+				scored.Add((score, dist, group));
+			}
+
+			// Sort: highest score first, then nearest distance
+			scored.Sort((a, b) => {
+				int cmp = b.score.CompareTo(a.score);
+				if (cmp != 0) return cmp;
+				return a.distance.CompareTo(b.distance);
+			});
+
+			_searchResultGroups = new List<ItemGroup>();
+			foreach (var (_, _, group) in scored)
+				_searchResultGroups.Add(group);
+
+			_categoryBeforeSearch = _currentCategory;
+			_currentCategory = ScanCategory.SearchResults;
+			_currentGroupIndex = 0;
+			_currentItemIndex = 0;
+			_cachedGroups = _searchResultGroups;
+
+			if (_searchResultGroups.Count == 0) {
+				Speech.Say($"No results for {query}");
+			} else {
+				var first = _searchResultGroups[0];
+				// Intentional: "X of Y" position context is useful for scanner navigation
+				Speech.Say($"Search results, {first.TypeName}, 1 of {first.Items.Count}");
+				AutoMoveCursorSilent();
+			}
+		}
+
+		/// <summary>
+		/// Clear search results and return to Glades category.
+		/// </summary>
+		public void ClearSearchResults() {
+			_searchResultGroups = null;
+			_currentCategory = _categoryBeforeSearch;
+			_currentGroupIndex = 0;
+			_currentItemIndex = 0;
+			_cachedGroups = null;
+		}
+
+		/// <summary>
+		/// Score how well a name matches a query.
+		/// Returns 3 for starts-with, 2 for whole-word match, 1 for substring, 0 for no match.
+		/// </summary>
+		private static int ScoreMatch(string name, string lowerQuery) {
+			if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(lowerQuery)) return 0;
+
+			string lowerName = name.ToLowerInvariant();
+
+			// Tier 3: starts with query
+			if (lowerName.Length >= lowerQuery.Length &&
+				string.Compare(lowerName, 0, lowerQuery, 0, lowerQuery.Length, StringComparison.Ordinal) == 0)
+				return 3;
+
+			// Tier 2: whole-word match (preceded by space)
+			for (int i = 1; i < lowerName.Length; i++) {
+				if (lowerName[i - 1] == ' ' && lowerName.Length - i >= lowerQuery.Length &&
+					string.Compare(lowerName, i, lowerQuery, 0, lowerQuery.Length, StringComparison.Ordinal) == 0)
+					return 2;
+			}
+
+			// Tier 1: substring match anywhere
+			if (lowerName.Contains(lowerQuery))
+				return 1;
+
+			return 0;
 		}
 	}
 }

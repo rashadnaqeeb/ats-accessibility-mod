@@ -12,6 +12,7 @@ Added working priority support across the mod. You can now:
 ## Changes since v1.1.5
 
 ### New features
+- Add Ctrl+F scanner search on the settlement map — searches all categories with priority matching (starts-with > whole-word > substring)
 
 ### Bug fixes
 

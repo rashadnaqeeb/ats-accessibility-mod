@@ -4,6 +4,7 @@ using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 namespace ATSAccessibility.Handlers {
@@ -30,6 +31,10 @@ namespace ATSAccessibility.Handlers {
 		private readonly bool[] _numberedBookmarkSet = new bool[10];
 		private readonly int[] _numberedBookmarkX = new int[10];
 		private readonly int[] _numberedBookmarkY = new int[10];
+
+		// Scanner search input state
+		private bool _searchInputActive = false;
+		private readonly StringBuilder _searchBuffer = new StringBuilder();
 
 		// Worker building cycling
 		private int _workerBuildingIndex = -1;
@@ -78,6 +83,9 @@ namespace ATSAccessibility.Handlers {
 		/// </summary>
 		public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
 			if (!IsActive) return false;
+
+			if (_searchInputActive)
+				return HandleSearchInput(keyCode, modifiers);
 
 			switch (keyCode) {
 				// Arrow key navigation
@@ -233,9 +241,14 @@ namespace ATSAccessibility.Handlers {
 
 				// Map Scanner controls
 				case KeyCode.PageUp:
-					if (modifiers.Control)
-						_mapScanner?.ChangeCategory(-1);
-					else if (modifiers.Shift)
+					if (modifiers.Control) {
+						if (_mapScanner != null && _mapScanner.IsInSearchResults) {
+							_mapScanner.ClearSearchResults();
+							_mapScanner.ChangeCategory(-1);
+						} else {
+							_mapScanner?.ChangeCategory(-1);
+						}
+					} else if (modifiers.Shift)
 						_mapScanner?.ChangeSubcategory(-1);
 					else if (modifiers.Alt)
 						_mapScanner?.ChangeItem(-1);
@@ -243,9 +256,14 @@ namespace ATSAccessibility.Handlers {
 						_mapScanner?.ChangeGroup(-1);
 					return true;
 				case KeyCode.PageDown:
-					if (modifiers.Control)
-						_mapScanner?.ChangeCategory(1);
-					else if (modifiers.Shift)
+					if (modifiers.Control) {
+						if (_mapScanner != null && _mapScanner.IsInSearchResults) {
+							_mapScanner.ClearSearchResults();
+							_mapScanner.ChangeCategory(1);
+						} else {
+							_mapScanner?.ChangeCategory(1);
+						}
+					} else if (modifiers.Shift)
 						_mapScanner?.ChangeSubcategory(1);
 					else if (modifiers.Alt)
 						_mapScanner?.ChangeItem(1);
@@ -478,6 +496,17 @@ namespace ATSAccessibility.Handlers {
 						Speech.Say("No building here");
 					return true;
 
+				// Scanner search
+				case KeyCode.F:
+					if (modifiers.Control) {
+						if (_mapScanner != null && _mapScanner.IsInSearchResults)
+							_mapScanner.ClearSearchResults();
+						_searchBuffer.Clear();
+						_searchInputActive = true;
+						Speech.Say("Search");
+					}
+					return true;
+
 				// Worker building cycling
 				case KeyCode.Period:
 					if (modifiers.Shift)
@@ -496,6 +525,54 @@ namespace ATSAccessibility.Handlers {
 					// Consume all keys - mod has full keyboard control in settlement
 					return true;
 			}
+		}
+
+		private bool HandleSearchInput(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			switch (keyCode) {
+				case KeyCode.Return:
+				case KeyCode.KeypadEnter:
+					_searchInputActive = false;
+					_mapScanner?.CommitSearch(_searchBuffer.ToString().Trim());
+					return true;
+
+				case KeyCode.Escape:
+					_searchInputActive = false;
+					_searchBuffer.Clear();
+					Speech.Say("Search cancelled");
+					InputBlocker.BlockCancelOnce = true;
+					return true;
+
+				case KeyCode.Backspace:
+					if (_searchBuffer.Length > 0) {
+						_searchBuffer.Remove(_searchBuffer.Length - 1, 1);
+						Speech.Say(_searchBuffer.Length > 0 ? _searchBuffer.ToString() : "empty");
+					}
+					return true;
+
+				case KeyCode.Space:
+					_searchBuffer.Append(' ');
+					Speech.Say(_searchBuffer.ToString());
+					return true;
+
+				default:
+					char? ch = KeyCodeToChar(keyCode);
+					if (ch.HasValue) {
+						_searchBuffer.Append(ch.Value);
+						Speech.Say(_searchBuffer.ToString());
+					}
+					// Consume all keys during text input
+					return true;
+			}
+		}
+
+		private static char? KeyCodeToChar(KeyCode keyCode) {
+			if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
+				return (char)('a' + (keyCode - KeyCode.A));
+			if (keyCode >= KeyCode.Alpha0 && keyCode <= KeyCode.Alpha9)
+				return (char)('0' + (keyCode - KeyCode.Alpha0));
+			if (keyCode >= KeyCode.Keypad0 && keyCode <= KeyCode.Keypad9)
+				return (char)('0' + (keyCode - KeyCode.Keypad0));
+			return null;
 		}
 
 		private void SetNumberedBookmark(int slot) {
