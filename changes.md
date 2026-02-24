@@ -9,14 +9,18 @@ Added working priority support across the mod. You can now:
 - The priority in which hearth fuels are consumed (+ and - on the fuel name from within hearth/fire/fuel).
 - The priority that resource deposits are harvested and new buildings are constructed. + and - to adjust the single deposit under the cursor, Shift + and - to adjust every item of that same type simultaneously.
 
-## Changes since v1.1.5
+## Changes since v1.1.6
 
 ### New features
-- Scanner search: Press Ctrl+F, type what you're looking for, and press Enter. This searches across all categories and creates a temporary Search Results category. Navigate results with the same keys as the regular scanner (PageUp/Down for groups, Alt+PageUp/Down for instances). Results are cleared if you switch categories with Ctrl+PageUp/Down or start a new search with Ctrl+F.
 
 ### Bug fixes
 
 ### Internal
+
+## v1.1.6
+
+### New features
+- Scanner search: Press Ctrl+F, type what you're looking for, and press Enter. This searches across all categories and creates a temporary Search Results category. Navigate results with the same keys as the regular scanner (PageUp/Down for groups, Alt+PageUp/Down for instances). Results are cleared if you switch categories with Ctrl+PageUp/Down or start a new search with Ctrl+F.
 
 ## v1.1.5
 
