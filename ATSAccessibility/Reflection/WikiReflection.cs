@@ -476,7 +476,7 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _tagVisibleField;             // bool visible
 
 		// BuildingCategoryModel / LabelModel fields
-		private static PropertyInfo _categoryDisplayNameProperty;  // string DisplayName (from LabelModel)
+		private static FieldInfo _categoryDisplayNameField;  // LocaText displayName (from LabelModel)
 
 		// RecipeGradeModel fields
 		private static FieldInfo _gradeDescriptionField;       // LocaText description
@@ -579,7 +579,7 @@ namespace ATSAccessibility.Reflection {
 				// Cache LabelModel type for category display name
 				var labelModelType = assembly.GetType("Eremite.Model.LabelModel");
 				if (labelModelType != null) {
-					_categoryDisplayNameProperty = labelModelType.GetProperty("DisplayName",
+					_categoryDisplayNameField = labelModelType.GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
@@ -641,8 +641,9 @@ namespace ATSAccessibility.Reflection {
 			var category = ReflectionHelper.GetField(_buildingCategoryField, buildingModel);
 			if (category == null) return null;
 
-			// Try to get DisplayName from LabelModel
-			var name = ReflectionHelper.GetPropString(_categoryDisplayNameProperty, category);
+			// Get displayName (LocaText) from LabelModel
+			var displayNameLoca = ReflectionHelper.GetField(_categoryDisplayNameField, category);
+			var name = GameReflection.GetLocaText(displayNameLoca);
 			if (name != null) return name;
 
 			// Fallback to ToString

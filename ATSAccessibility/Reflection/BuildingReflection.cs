@@ -117,7 +117,7 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _recipeModelProducedGoodField = null;  // GoodRef
 		private static FieldInfo _goodRefAmountField = null;  // GoodRef.amount
 		private static FieldInfo _goodRefGoodField = null;  // GoodRef.good (GoodModel)
-		private static PropertyInfo _goodModelDisplayNameProperty = null;  // GoodModel.displayName
+		private static FieldInfo _recipeGoodModelDisplayNameField = null;  // GoodModel.displayName (LocaText)
 		private static bool _recipeModelTypesCached = false;
 
 		// IngredientState fields
@@ -836,10 +836,10 @@ namespace ATSAccessibility.Reflection {
 					_goodRefGoodField = goodRefType.GetField("good", GameReflection.PublicInstance);
 				}
 
-				// GoodModel displayName property
+				// GoodModel displayName field (LocaText)
 				var goodModelType = assembly.GetType("Eremite.Model.GoodModel");
 				if (goodModelType != null) {
-					_goodModelDisplayNameProperty = goodModelType.GetProperty("displayName", GameReflection.PublicInstance);
+					_recipeGoodModelDisplayNameField = goodModelType.GetField("displayName", GameReflection.PublicInstance);
 				}
 			});
 		}
@@ -3629,8 +3629,8 @@ namespace ATSAccessibility.Reflection {
 				var goodModel = ReflectionHelper.GetField(_goodRefGoodField, producedGood);
 				if (goodModel == null) return null;
 
-				var displayNameObj = ReflectionHelper.GetProp(_goodModelDisplayNameProperty, goodModel);
-				return GameReflection.GetLocaText(displayNameObj);
+				var displayNameLoca = ReflectionHelper.GetField(_recipeGoodModelDisplayNameField, goodModel);
+				return GameReflection.GetLocaText(displayNameLoca);
 			} catch {
 				return null;
 			}
@@ -4094,8 +4094,8 @@ namespace ATSAccessibility.Reflection {
 				var goodModel = getGoodMethod?.Invoke(settings, new object[] { goodName });
 				if (goodModel == null) return goodName;
 
-				var displayNameObj = ReflectionHelper.GetProp(_goodModelDisplayNameProperty, goodModel);
-				return GameReflection.GetLocaText(displayNameObj) ?? goodName;
+				var displayNameLoca = ReflectionHelper.GetField(_recipeGoodModelDisplayNameField, goodModel);
+				return GameReflection.GetLocaText(displayNameLoca) ?? goodName;
 			} catch {
 				return goodName;
 			}

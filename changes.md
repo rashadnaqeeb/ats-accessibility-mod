@@ -13,9 +13,17 @@ Added working priority support across the mod. You can now:
 
 ### New features
 
+- Add offline reflection validation script (validate-reflection.ps1) to check reflected types/members against decompiled game-source
+
 ### Bug fixes
 
+- Fix GoodModel.displayName using GetProperty instead of GetField, causing recipe produced good names to silently fail
+- Fix wiki building category names using wrong accessor for LabelModel.displayName
+- Fix game result screen not showing currency rewards due to renamed ConditionsState and MetaCurrency types
+
 ### Internal
+
+- Remove unused Settings.GetText reflection cache in GamesHistoryReflection
 
 ## v1.1.6
 

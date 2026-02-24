@@ -107,8 +107,6 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _settingsGetBuildingMethod;
 		private static MethodInfo _settingsGetSeasonalEffectMethod;
 		private static MethodInfo _settingsContainsBiomeMethod;
-		private static MethodInfo _settingsGetTextMethod;
-
 		// Model display name methods/properties
 		private static MethodInfo _difficultyRawDisplayNameMethod;
 		private static FieldInfo _biomeDisplayNameField;
@@ -278,7 +276,6 @@ namespace ATSAccessibility.Reflection {
 				_settingsGetBuildingMethod = settingsType.GetMethod("GetBuilding", new[] { typeof(string) });
 				_settingsGetSeasonalEffectMethod = settingsType.GetMethod("GetSeasonalEffect", new[] { typeof(string) });
 				_settingsContainsBiomeMethod = settingsType.GetMethod("ContainsBiome", new[] { typeof(string) });
-				_settingsGetTextMethod = settingsType.GetMethod("GetText", new[] { typeof(string) });
 			}
 		}
 

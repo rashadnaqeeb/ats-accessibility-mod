@@ -825,14 +825,14 @@ namespace ATSAccessibility.Reflection {
 					_stateConditionsProperty = stateServiceType.GetProperty("Conditions", GameReflection.PublicInstance);
 				}
 
-				// GameConditionsState.rewards
-				var conditionsStateType = assembly.GetType("Eremite.Model.State.GameConditionsState");
+				// ConditionsState.rewards
+				var conditionsStateType = assembly.GetType("Eremite.Model.State.ConditionsState");
 				if (conditionsStateType != null) {
 					_conditionsRewardsField = conditionsStateType.GetField("rewards", GameReflection.PublicInstance);
 				}
 
 				// MetaCurrency
-				var metaCurrencyType = assembly.GetType("Eremite.Model.Meta.MetaCurrency");
+				var metaCurrencyType = assembly.GetType("Eremite.Model.MetaCurrency");
 				if (metaCurrencyType != null) {
 					_metaCurrencyNameField = metaCurrencyType.GetField("name", GameReflection.PublicInstance);
 					_metaCurrencyAmountField = metaCurrencyType.GetField("amount", GameReflection.PublicInstance);
