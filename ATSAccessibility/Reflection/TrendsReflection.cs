@@ -49,7 +49,6 @@ namespace ATSAccessibility.Reflection {
 		// GoodModel for display names
 		private static MethodInfo _getGoodMethod = null;
 		private static FieldInfo _goodDisplayNameField = null;
-		private static PropertyInfo _locaTextProperty = null;
 
 		// ========================================
 		// INITIALIZATION
@@ -112,11 +111,6 @@ namespace ATSAccessibility.Reflection {
 					_goodDisplayNameField = goodModelType.GetField("displayName");
 				}
 
-				// LocaText
-				var locaTextType = assembly.GetType("Eremite.Model.LocaText");
-				if (locaTextType != null) {
-					_locaTextProperty = locaTextType.GetProperty("Text");
-				}
 			});
 		}
 

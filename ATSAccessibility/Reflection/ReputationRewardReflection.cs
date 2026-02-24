@@ -51,10 +51,6 @@ namespace ATSAccessibility.Reflection {
 		private static PropertyInfo _bsBlueprintsProperty = null;
 		private static FieldInfo _bbcExtendCostField = null;
 
-		// GoodRef fields (for extend cost)
-		private static FieldInfo _grGoodField = null;
-		private static FieldInfo _grAmountField = null;
-
 		// ReputationRewardsPopup methods (private)
 		private static MethodInfo _rpOnBuildingPickedMethod = null;
 		private static MethodInfo _rpRerollMethod = null;
@@ -158,13 +154,6 @@ namespace ATSAccessibility.Reflection {
 					BindingFlags.Public | BindingFlags.Instance);
 			}
 
-			var goodRefType = assembly.GetType("Eremite.Model.GoodRef");
-			if (goodRefType != null) {
-				_grGoodField = goodRefType.GetField("good",
-					BindingFlags.Public | BindingFlags.Instance);
-				_grAmountField = goodRefType.GetField("amount",
-					BindingFlags.Public | BindingFlags.Instance);
-			}
 		}
 
 		private static void CachePopupTypes(Assembly assembly) {
@@ -449,8 +438,8 @@ namespace ATSAccessibility.Reflection {
 				var extendCost = ReflectionHelper.GetField(_bbcExtendCostField, blueprints);
 				if (extendCost == null) return (0, "Unknown");
 
-				var amount = ReflectionHelper.GetInt(_grAmountField, extendCost);
-				var goodModel = ReflectionHelper.GetField(_grGoodField, extendCost);
+				var amount = ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, extendCost);
+				var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, extendCost);
 				var displayName = goodModel != null ? (GameReflection.GetDisplayName(goodModel) ?? "Unknown") : "Unknown";
 
 				return (amount, displayName);

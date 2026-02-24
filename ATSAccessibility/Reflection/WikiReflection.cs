@@ -459,11 +459,6 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _recipeProductionTimeField;   // float productionTime
 		private static FieldInfo _recipeGradeField;            // RecipeGradeModel grade
 
-		// GoodRef fields
-		private static Type _goodRefType;
-		private static FieldInfo _goodRefGoodField;            // GoodModel good
-		private static FieldInfo _goodRefAmountField;          // int amount
-
 		// GoodsSet fields
 		private static Type _goodsSetType;
 		private static FieldInfo _goodsSetGoodsField;          // GoodRef[] goods
@@ -541,15 +536,6 @@ namespace ATSAccessibility.Reflection {
 				var recipeModelType = assembly.GetType("Eremite.Buildings.RecipeModel");
 				if (recipeModelType != null) {
 					_recipeGradeField = recipeModelType.GetField("grade",
-						BindingFlags.Public | BindingFlags.Instance);
-				}
-
-				// Cache GoodRef type
-				_goodRefType = assembly.GetType("Eremite.Model.GoodRef");
-				if (_goodRefType != null) {
-					_goodRefGoodField = _goodRefType.GetField("good",
-						BindingFlags.Public | BindingFlags.Instance);
-					_goodRefAmountField = _goodRefType.GetField("amount",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
@@ -700,9 +686,9 @@ namespace ATSAccessibility.Reflection {
 			if (goodRef == null) return null;
 			EnsureBuildingTypes();
 
-			if (_goodRefGoodField == null || _goodModelDisplayNameField == null) return null;
+			if (GameReflection.GoodRefGoodField == null || _goodModelDisplayNameField == null) return null;
 
-			var good = ReflectionHelper.GetField(_goodRefGoodField, goodRef);
+			var good = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, goodRef);
 			if (good == null) return null;
 
 			return ReflectionHelper.GetLocaString(_goodModelDisplayNameField, good);
@@ -714,7 +700,7 @@ namespace ATSAccessibility.Reflection {
 		public static int GetGoodRefAmount(object goodRef) {
 			if (goodRef == null) return 0;
 			EnsureBuildingTypes();
-			return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
+			return ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, goodRef);
 		}
 
 		/// <summary>

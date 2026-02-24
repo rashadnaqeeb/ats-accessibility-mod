@@ -661,7 +661,7 @@ namespace ATSAccessibility.Utils {
 				if (production == null) return null;
 
 				// Get good
-				var goodField = TileInfoReflection.GoodRefGoodField ?? production.GetType().GetField("good", GameReflection.PublicInstance);
+				var goodField = GameReflection.GoodRefGoodField ?? production.GetType().GetField("good", GameReflection.PublicInstance);
 				if (goodField == null) return null;
 
 				var good = goodField.GetValue(production);
@@ -675,7 +675,7 @@ namespace ATSAccessibility.Utils {
 				string productName = GameReflection.GetLocaText(displayName);
 
 				// Get amount
-				var amountField = TileInfoReflection.GoodRefAmountField ?? production.GetType().GetField("amount", GameReflection.PublicInstance);
+				var amountField = GameReflection.GoodRefAmountField ?? production.GetType().GetField("amount", GameReflection.PublicInstance);
 				int amount = ReflectionHelper.GetInt(amountField, production);
 
 				if (!string.IsNullOrEmpty(productName)) {

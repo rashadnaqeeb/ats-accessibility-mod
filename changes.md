@@ -24,6 +24,7 @@ Added working priority support across the mod. You can now:
 ### Internal
 
 - Remove unused Settings.GetText reflection cache in GamesHistoryReflection
+- Deduplicate GoodRef and LocaText reflection caches across 8 files into shared GameReflection properties
 
 ## v1.1.6
 

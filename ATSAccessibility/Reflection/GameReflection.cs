@@ -2365,12 +2365,22 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _bmIsActiveField = null;
 		private static PropertyInfo _bmDescriptionProperty = null;
 		private static FieldInfo _bmDescriptionField = null;
-		private static PropertyInfo _locaTextProperty = null;
 		private static FieldInfo _bcmIsOnHUDField = null;
 		private static FieldInfo _bmRequiredGoodsField = null;
+		private static Type _goodRefType = null;
+		private static FieldInfo _goodRefGoodField = null;
 		private static FieldInfo _goodRefAmountField = null;
 		private static PropertyInfo _goodRefDisplayNameProperty = null;
 		private static bool _bmFieldsCached = false;
+
+		// ========================================
+		// SHARED GOODREF PROPERTIES (used by multiple Reflection files)
+		// ========================================
+
+		public static Type GoodRefType { get { EnsureBuildingModelFields(); return _goodRefType; } }
+		public static FieldInfo GoodRefGoodField { get { EnsureBuildingModelFields(); return _goodRefGoodField; } }
+		public static FieldInfo GoodRefAmountField { get { EnsureBuildingModelFields(); return _goodRefAmountField; } }
+		public static PropertyInfo GoodRefDisplayNameProperty { get { EnsureBuildingModelFields(); return _goodRefDisplayNameProperty; } }
 
 		private static void EnsureBuildingTypes() {
 			if (_buildingTypesCached) return;
@@ -2467,12 +2477,14 @@ namespace ATSAccessibility.Reflection {
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
-				// Cache GoodRef fields for building costs
-				var goodRefType = _gameAssembly.GetType("Eremite.Model.GoodRef");
-				if (goodRefType != null) {
-					_goodRefAmountField = goodRefType.GetField("amount",
+				// Cache GoodRef fields (shared across multiple Reflection files)
+				_goodRefType = _gameAssembly.GetType("Eremite.Model.GoodRef");
+				if (_goodRefType != null) {
+					_goodRefGoodField = _goodRefType.GetField("good",
 						BindingFlags.Public | BindingFlags.Instance);
-					_goodRefDisplayNameProperty = goodRefType.GetProperty("DisplayName",
+					_goodRefAmountField = _goodRefType.GetField("amount",
+						BindingFlags.Public | BindingFlags.Instance);
+					_goodRefDisplayNameProperty = _goodRefType.GetProperty("DisplayName",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
@@ -2483,14 +2495,7 @@ namespace ATSAccessibility.Reflection {
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
-				// Cache LocaText.Text property (used by description)
-				var locaTextType = _gameAssembly.GetType("Eremite.Model.LocaText");
-				if (locaTextType != null) {
-					_locaTextProperty = locaTextType.GetProperty("Text",
-						BindingFlags.Public | BindingFlags.Instance);
-				}
-
-				Debug.Log("[ATSAccessibility] Cached BuildingModel field info");
+					Debug.Log("[ATSAccessibility] Cached BuildingModel field info");
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] BuildingModel field caching failed: {ex.Message}");
 			}
@@ -2588,8 +2593,8 @@ namespace ATSAccessibility.Reflection {
 				// Fall back to description field (LocaText)
 				if (_bmDescriptionField != null) {
 					var locaText = _bmDescriptionField.GetValue(buildingModel);
-					if (locaText != null && _locaTextProperty != null) {
-						return _locaTextProperty.GetValue(locaText) as string;
+					if (locaText != null) {
+						return GetLocaText(locaText);
 					}
 				}
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingDescription failed: {ex.Message}"); }

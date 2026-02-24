@@ -106,9 +106,6 @@ namespace ATSAccessibility.Reflection {
 		private static Type _tierStateType;
 
 		// GoodRef for price
-		private static Type _goodRefType;
-		private static FieldInfo _grGoodField;
-		private static FieldInfo _grAmountField;
 		private static MethodInfo _grToGoodMethod;
 
 		// Storage for price checking
@@ -207,11 +204,9 @@ namespace ATSAccessibility.Reflection {
 				_pcmEffectsElementsField = _perkCrafterModelType.GetField("effectsElements", GameReflection.PublicInstance);
 			}
 
-			_goodRefType = assembly.GetType("Eremite.Model.GoodRef");
-			if (_goodRefType != null) {
-				_grGoodField = _goodRefType.GetField("good", GameReflection.PublicInstance);
-				_grAmountField = _goodRefType.GetField("amount", GameReflection.PublicInstance);
-				_grToGoodMethod = _goodRefType.GetMethod("ToGood", GameReflection.PublicInstance);
+			var goodRefType = GameReflection.GoodRefType;
+			if (goodRefType != null) {
+				_grToGoodMethod = goodRefType.GetMethod("ToGood", GameReflection.PublicInstance);
 			}
 		}
 
@@ -255,8 +250,9 @@ namespace ATSAccessibility.Reflection {
 			if (storageType != null) {
 				_storageGetAmountMethod = storageType.GetMethod("GetAmount", new[] { typeof(string) });
 				// IsAvailable takes a GoodRef
-				if (_goodRefType != null) {
-					_storageIsAvailableMethod = storageType.GetMethod("IsAvailable", new[] { _goodRefType });
+				var grType = GameReflection.GoodRefType;
+				if (grType != null) {
+					_storageIsAvailableMethod = storageType.GetMethod("IsAvailable", new[] { grType });
 				}
 			}
 		}
@@ -680,8 +676,8 @@ namespace ATSAccessibility.Reflection {
 			var priceRef = ReflectionHelper.GetField(_pcmPriceField, model);
 			if (priceRef == null) return (0, "Unknown");
 
-			int amount = ReflectionHelper.GetInt(_grAmountField, priceRef);
-			var goodModel = ReflectionHelper.GetField(_grGoodField, priceRef);
+			int amount = ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, priceRef);
+			var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, priceRef);
 			string goodName = goodModel != null ?
 				(GameReflection.GetDisplayName(goodModel) ?? "Unknown") : "Unknown";
 
@@ -698,7 +694,7 @@ namespace ATSAccessibility.Reflection {
 			var priceRef = ReflectionHelper.GetField(_pcmPriceField, model);
 			if (priceRef == null) return 0;
 
-			var goodModel = ReflectionHelper.GetField(_grGoodField, priceRef);
+			var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, priceRef);
 			if (goodModel == null) return 0;
 
 			// Get the good name

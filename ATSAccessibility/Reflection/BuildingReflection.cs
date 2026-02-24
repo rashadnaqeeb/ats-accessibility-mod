@@ -115,8 +115,6 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _gradeModelLevelField = null;
 		// Produced good info (from WorkshopRecipeModel.producedGood)
 		private static FieldInfo _recipeModelProducedGoodField = null;  // GoodRef
-		private static FieldInfo _goodRefAmountField = null;  // GoodRef.amount
-		private static FieldInfo _goodRefGoodField = null;  // GoodRef.good (GoodModel)
 		private static FieldInfo _recipeGoodModelDisplayNameField = null;  // GoodModel.displayName (LocaText)
 		private static bool _recipeModelTypesCached = false;
 
@@ -168,7 +166,6 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _villagerPerkDisplayNameField = null;  // VillagerPerkModel.displayName (LocaText)
 		private static PropertyInfo _effectModelDisplayNameProperty = null;  // EffectModel.DisplayName (string)
 		private static PropertyInfo _buildingPerkDisplayNameProperty = null;  // BuildingPerkModel.DisplayName (string)
-		private static PropertyInfo _locaTextTextProperty = null;  // LocaText.Text (string)
 		private static bool _raceBonusTypesCached = false;
 
 		// ProductionBuilding for profession and workplaces
@@ -538,7 +535,6 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _settingsBlightConfigField = null;  // Settings.blightConfig
 		private static FieldInfo _blightConfigBlightPostFuelField = null;  // BlightConfig.blightPostFuel (GoodRef)
 		private static PropertyInfo _goodRefNameProperty = null;  // GoodRef.Name
-		private static PropertyInfo _goodRefDisplayNameProperty = null;  // GoodRef.DisplayName
 		private static bool _blightConfigTypesCached = false;
 
 		// StorageService Main (for getting fuel amount)
@@ -829,13 +825,6 @@ namespace ATSAccessibility.Reflection {
 					_gradeModelLevelField = gradeModelType.GetField("level", GameReflection.PublicInstance);
 				}
 
-				// GoodRef fields (for produced good info)
-				var goodRefType = assembly.GetType("Eremite.Model.GoodRef");
-				if (goodRefType != null) {
-					_goodRefAmountField = goodRefType.GetField("amount", GameReflection.PublicInstance);
-					_goodRefGoodField = goodRefType.GetField("good", GameReflection.PublicInstance);
-				}
-
 				// GoodModel displayName field (LocaText)
 				var goodModelType = assembly.GetType("Eremite.Model.GoodModel");
 				if (goodModelType != null) {
@@ -1003,11 +992,6 @@ namespace ATSAccessibility.Reflection {
 					_buildingTagDisplayNameField = buildingTagModelType.GetField("displayName", GameReflection.PublicInstance);
 				}
 
-				// LocaText.Text property
-				var locaTextType = assembly.GetType("Eremite.Model.LocaText");
-				if (locaTextType != null) {
-					_locaTextTextProperty = locaTextType.GetProperty("Text", GameReflection.PublicInstance);
-				}
 			});
 		}
 
@@ -1893,11 +1877,10 @@ namespace ATSAccessibility.Reflection {
 					_blightConfigBlightPostFuelField = blightConfigType.GetField("blightPostFuel", GameReflection.PublicInstance);
 				}
 
-				// GoodRef.Name and DisplayName
+				// GoodRef.Name
 				var goodRefType = assembly.GetType("Eremite.Model.GoodRef");
 				if (goodRefType != null) {
 					_goodRefNameProperty = goodRefType.GetProperty("Name", GameReflection.PublicInstance);
-					_goodRefDisplayNameProperty = goodRefType.GetProperty("DisplayName", GameReflection.PublicInstance);
 				}
 
 			});
@@ -3134,7 +3117,7 @@ namespace ATSAccessibility.Reflection {
 			// Try tag's display name first
 			var displayNameLoca = ReflectionHelper.GetField(_buildingTagDisplayNameField, buildingTag);
 			if (displayNameLoca != null) {
-				string displayName = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca);
+				string displayName = GameReflection.GetLocaText(displayNameLoca);
 				if (!string.IsNullOrEmpty(displayName) && !displayName.Contains("Missing key")) {
 					return displayName;
 				}
@@ -3145,7 +3128,7 @@ namespace ATSAccessibility.Reflection {
 			if (effect != null) {
 				var effectDisplayNameLoca = ReflectionHelper.GetField(_villagerPerkDisplayNameField, effect);
 				if (effectDisplayNameLoca != null) {
-					string effectDisplayName = ReflectionHelper.GetPropString(_locaTextTextProperty, effectDisplayNameLoca);
+					string effectDisplayName = GameReflection.GetLocaText(effectDisplayNameLoca);
 					if (!string.IsNullOrEmpty(effectDisplayName) && !effectDisplayName.Contains("Missing key")) {
 						var descProp = effect.GetType().GetProperty("Description", GameReflection.PublicInstance);
 						string desc = descProp?.GetValue(effect) as string;
@@ -3607,7 +3590,7 @@ namespace ATSAccessibility.Reflection {
 				var producedGood = ReflectionHelper.GetField(_recipeModelProducedGoodField, model);
 				if (producedGood == null) return 1;
 
-				return (int?)_goodRefAmountField?.GetValue(producedGood) ?? 1;
+				return (int?)GameReflection.GoodRefAmountField?.GetValue(producedGood) ?? 1;
 			} catch {
 				return 1;
 			}
@@ -3626,7 +3609,7 @@ namespace ATSAccessibility.Reflection {
 				var producedGood = ReflectionHelper.GetField(_recipeModelProducedGoodField, model);
 				if (producedGood == null) return null;
 
-				var goodModel = ReflectionHelper.GetField(_goodRefGoodField, producedGood);
+				var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGood);
 				if (goodModel == null) return null;
 
 				var displayNameLoca = ReflectionHelper.GetField(_recipeGoodModelDisplayNameField, goodModel);
@@ -4822,7 +4805,7 @@ namespace ATSAccessibility.Reflection {
 				// Get display name
 				var displayNameLoca = ReflectionHelper.GetField(_hsrmDisplayNameField, recipeModel);
 				if (displayNameLoca != null) {
-					info.recipeName = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca) ?? modelName;
+					info.recipeName = GameReflection.GetLocaText(displayNameLoca) ?? modelName;
 				} else {
 					info.recipeName = modelName;
 				}
@@ -4830,8 +4813,8 @@ namespace ATSAccessibility.Reflection {
 				// Get good info
 				var goodPerMin = ReflectionHelper.GetField(_hsrmGoodPerMinField, recipeModel);
 				if (goodPerMin != null) {
-					int baseAmount = ReflectionHelper.GetInt(_goodRefAmountField, goodPerMin);
-					info.goodName = ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, goodPerMin) ?? "Unknown";
+					int baseAmount = ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, goodPerMin);
+					info.goodName = ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, goodPerMin) ?? "Unknown";
 
 					// Calculate actual consumption rate (affected by perks)
 					// Formula: baseAmount / sacrificeRate
@@ -4964,7 +4947,7 @@ namespace ATSAccessibility.Reflection {
 					// Get display name
 					var displayNameLoca = ReflectionHelper.GetField(_goodModelDisplayNameField, fuel);
 					if (displayNameLoca != null) {
-						info.displayName = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca) ?? info.name;
+						info.displayName = GameReflection.GetLocaText(displayNameLoca) ?? info.name;
 					} else {
 						info.displayName = info.name;
 					}
@@ -5122,8 +5105,8 @@ namespace ATSAccessibility.Reflection {
 
 				// Get good name and amount from GoodRef
 				string goodName = ReflectionHelper.GetPropString(_goodRefNameProperty, unlockPrice);
-				string displayName = ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, unlockPrice);
-				int amount = ReflectionHelper.GetInt(_goodRefAmountField, unlockPrice);
+				string displayName = ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, unlockPrice);
+				int amount = ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, unlockPrice);
 
 				if (string.IsNullOrEmpty(goodName)) return null;
 				if (string.IsNullOrEmpty(displayName)) displayName = goodName;
@@ -5241,8 +5224,8 @@ namespace ATSAccessibility.Reflection {
 						var requiredGood = ReflectionHelper.GetField(_hnrmRequiredGoodField, recipe);
 						if (requiredGood != null) {
 							info.GoodName = ReflectionHelper.GetPropString(_goodRefNameProperty, requiredGood) ?? "";
-							info.GoodDisplayName = ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, requiredGood) ?? info.GoodName;
-							info.GoodAmount = ReflectionHelper.GetInt(_goodRefAmountField, requiredGood);
+							info.GoodDisplayName = ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, requiredGood) ?? info.GoodName;
+							info.GoodAmount = ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, requiredGood);
 						}
 					}
 
@@ -5252,7 +5235,7 @@ namespace ATSAccessibility.Reflection {
 						info.Grade = ReflectionHelper.GetInt(_rgmLevelField, grade);
 						var descLoca = ReflectionHelper.GetField(_rgmDescriptionField, grade);
 						if (descLoca != null) {
-							info.GradeDescription = ReflectionHelper.GetPropString(_locaTextTextProperty, descLoca) ?? "";
+							info.GradeDescription = GameReflection.GetLocaText(descLoca) ?? "";
 						}
 					}
 
@@ -5570,7 +5553,7 @@ namespace ATSAccessibility.Reflection {
 		public static string GetRelicDecisionLabel(object building, int decisionIndex) {
 			if (!IsRelic(building)) return null;
 			EnsureRelicTypes();
-			EnsureRaceBonusTypes();  // For _locaTextTextProperty
+			EnsureRaceBonusTypes();
 
 			try {
 				var difficulty = ReflectionHelper.GetProp(_relicDifficultyProperty, building);
@@ -5588,7 +5571,7 @@ namespace ATSAccessibility.Reflection {
 				if (label != null) {
 					var displayNameLoca = ReflectionHelper.GetField(_labelModelDisplayNameField, label);
 					if (displayNameLoca != null)
-						labelText = ReflectionHelper.GetPropString(_locaTextTextProperty, displayNameLoca);
+						labelText = GameReflection.GetLocaText(displayNameLoca);
 				}
 
 				// Get decision tag text
@@ -5597,7 +5580,7 @@ namespace ATSAccessibility.Reflection {
 				if (decisionTag != null) {
 					var tagDisplayNameLoca = ReflectionHelper.GetField(_decisionTagDisplayNameField, decisionTag);
 					if (tagDisplayNameLoca != null)
-						tagText = ReflectionHelper.GetPropString(_locaTextTextProperty, tagDisplayNameLoca);
+						tagText = GameReflection.GetLocaText(tagDisplayNameLoca);
 				}
 
 				if (!string.IsNullOrEmpty(tagText) && !string.IsNullOrEmpty(labelText))
@@ -5676,13 +5659,13 @@ namespace ATSAccessibility.Reflection {
 		public static string GetRelicGoodDisplayName(object building, int decisionIndex, int setIndex, int goodIndex) {
 			if (!IsRelic(building)) return null;
 			EnsureRelicTypes();
-			EnsureBlightConfigTypes();  // For _goodRefDisplayNameProperty
+			EnsureBlightConfigTypes();
 
 			try {
 				var goodRef = GetRelicGoodRefObject(building, decisionIndex, setIndex, goodIndex);
 				if (goodRef == null) return null;
 
-				return ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, goodRef);
+				return ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, goodRef);
 			} catch {
 				return null;
 			}
@@ -5712,13 +5695,13 @@ namespace ATSAccessibility.Reflection {
 		public static int GetRelicGoodAmount(object building, int decisionIndex, int setIndex, int goodIndex) {
 			if (!IsRelic(building)) return 0;
 			EnsureRelicTypes();
-			EnsureRecipeModelTypes();  // For _goodRefAmountField
+			EnsureRecipeModelTypes();
 
 			try {
 				var goodRef = GetRelicGoodRefObject(building, decisionIndex, setIndex, goodIndex);
 				if (goodRef == null) return 0;
 
-				return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
+				return ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, goodRef);
 			} catch {
 				return 0;
 			}
@@ -6733,12 +6716,12 @@ namespace ATSAccessibility.Reflection {
 		/// Get the display name of a strider good alternative.
 		/// </summary>
 		public static string GetPortStriderGoodDisplayName(object building, int setIndex, int altIndex) {
-			EnsureBlightConfigTypes();  // For _goodRefDisplayNameProperty
+			EnsureBlightConfigTypes();
 			var goodRef = GetPortStriderGoodRefObject(building, setIndex, altIndex);
 			if (goodRef == null) return null;
 
 			try {
-				return ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, goodRef);
+				return ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, goodRef);
 			} catch {
 				return null;
 			}
@@ -6763,12 +6746,12 @@ namespace ATSAccessibility.Reflection {
 		/// Get the amount of a strider good alternative.
 		/// </summary>
 		public static int GetPortStriderGoodAmount(object building, int setIndex, int altIndex) {
-			EnsureRecipeModelTypes();  // For _goodRefAmountField
+			EnsureRecipeModelTypes();
 			var goodRef = GetPortStriderGoodRefObject(building, setIndex, altIndex);
 			if (goodRef == null) return 0;
 
 			try {
-				return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
+				return ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, goodRef);
 			} catch {
 				return 0;
 			}
@@ -6860,7 +6843,7 @@ namespace ATSAccessibility.Reflection {
 			if (goodRef == null) return null;
 
 			try {
-				return ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, goodRef);
+				return ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, goodRef);
 			} catch {
 				return null;
 			}
@@ -6890,7 +6873,7 @@ namespace ATSAccessibility.Reflection {
 			if (goodRef == null) return 0;
 
 			try {
-				return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
+				return ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, goodRef);
 			} catch {
 				return 0;
 			}
@@ -8789,7 +8772,7 @@ namespace ATSAccessibility.Reflection {
 				var blightPostFuel = ReflectionHelper.GetField(_blightConfigBlightPostFuelField, blightConfig);
 				if (blightPostFuel == null) return null;
 
-				return ReflectionHelper.GetPropString(_goodRefDisplayNameProperty, blightPostFuel);
+				return ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, blightPostFuel);
 			} catch {
 				return null;
 			}

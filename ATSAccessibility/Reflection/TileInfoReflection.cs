@@ -143,8 +143,6 @@ namespace ATSAccessibility.Reflection {
 
 		private static FieldInfo _productionField;
 		private static FieldInfo _extraProductionField;
-		private static FieldInfo _goodRefGoodField;
-		private static FieldInfo _goodRefAmountField;
 		private static PropertyInfo _goodRefChanceDisplayNameProp;
 		private static FieldInfo _goodRefChanceField;
 		private static FieldInfo _goodDisplayNameField;
@@ -152,8 +150,6 @@ namespace ATSAccessibility.Reflection {
 
 		public static FieldInfo ProductionField => _productionField;
 		public static FieldInfo ExtraProductionField => _extraProductionField;
-		public static FieldInfo GoodRefGoodField => _goodRefGoodField;
-		public static FieldInfo GoodRefAmountField => _goodRefAmountField;
 		public static PropertyInfo GoodRefChanceDisplayNameProp => _goodRefChanceDisplayNameProp;
 		public static FieldInfo GoodRefChanceField => _goodRefChanceField;
 		public static FieldInfo GoodDisplayNameField => _goodDisplayNameField;
@@ -165,20 +161,13 @@ namespace ATSAccessibility.Reflection {
 			_productionField = modelType.GetField("production", GameReflection.PublicInstance);
 			_extraProductionField = modelType.GetField("extraProduction", GameReflection.PublicInstance);
 
-			// Cache GoodRef fields if we have a production object
+			// Cache GoodModel.displayName field if we have a production object
 			if (_productionField != null) {
 				var production = _productionField.GetValue(model);
-				if (production != null) {
-					var prodType = production.GetType();
-					_goodRefGoodField = prodType.GetField("good", GameReflection.PublicInstance);
-					_goodRefAmountField = prodType.GetField("amount", GameReflection.PublicInstance);
-
-					// Cache Good fields
-					if (_goodRefGoodField != null) {
-						var good = _goodRefGoodField.GetValue(production);
-						if (good != null) {
-							_goodDisplayNameField = good.GetType().GetField("displayName", GameReflection.PublicInstance);
-						}
+				if (production != null && GameReflection.GoodRefGoodField != null) {
+					var good = GameReflection.GoodRefGoodField.GetValue(production);
+					if (good != null) {
+						_goodDisplayNameField = good.GetType().GetField("displayName", GameReflection.PublicInstance);
 					}
 				}
 			}

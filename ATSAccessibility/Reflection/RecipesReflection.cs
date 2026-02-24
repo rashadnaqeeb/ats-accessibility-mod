@@ -62,10 +62,6 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _recipeProductionTimeField = null;
 		private static FieldInfo _recipeGradeField = null;
 
-		// GoodRef
-		private static FieldInfo _goodRefGoodField = null;
-		private static FieldInfo _goodRefAmountField = null;
-
 		// GoodModel
 		private static FieldInfo _goodDisplayNameField = null;
 		private static PropertyInfo _goodNameProperty = null;
@@ -240,15 +236,6 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		private static void CacheGoodTypes(Assembly assembly) {
-			// GoodRef
-			var goodRefType = assembly.GetType("Eremite.Model.GoodRef");
-			if (goodRefType != null) {
-				_goodRefGoodField = goodRefType.GetField("good",
-					BindingFlags.Public | BindingFlags.Instance);
-				_goodRefAmountField = goodRefType.GetField("amount",
-					BindingFlags.Public | BindingFlags.Instance);
-			}
-
 			// GoodModel
 			var goodModelType = assembly.GetType("Eremite.Model.GoodModel");
 			if (goodModelType != null) {
@@ -449,7 +436,7 @@ namespace ATSAccessibility.Reflection {
 					var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
 					if (producedGoodRef == null) continue;
 
-					var goodModel = ReflectionHelper.GetField(_goodRefGoodField, producedGoodRef);
+					var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGoodRef);
 					if (goodModel == null) continue;
 
 					var goodName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
@@ -535,7 +522,7 @@ namespace ATSAccessibility.Reflection {
 				var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
 				if (producedGoodRef == null) continue;
 
-				var goodModel = ReflectionHelper.GetField(_goodRefGoodField, producedGoodRef);
+				var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGoodRef);
 				if (goodModel == null) continue;
 
 				var goodName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
@@ -666,7 +653,7 @@ namespace ATSAccessibility.Reflection {
 			var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
 			if (producedGoodRef == null) return 0;
 
-			return ReflectionHelper.GetInt(_goodRefAmountField, producedGoodRef);
+			return ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, producedGoodRef);
 		}
 
 		/// <summary>
@@ -678,7 +665,7 @@ namespace ATSAccessibility.Reflection {
 			var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
 			if (producedGoodRef == null) return "Unknown";
 
-			var goodModel = ReflectionHelper.GetField(_goodRefGoodField, producedGoodRef);
+			var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGoodRef);
 			return GetGoodDisplayName(goodModel);
 		}
 
@@ -720,7 +707,7 @@ namespace ATSAccessibility.Reflection {
 		public static string GetGoodRefDisplayName(object goodRef) {
 			if (goodRef == null) return "Unknown";
 
-			var goodModel = ReflectionHelper.GetField(_goodRefGoodField, goodRef);
+			var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, goodRef);
 			return GetGoodDisplayName(goodModel);
 		}
 
@@ -728,7 +715,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get the amount from a GoodRef.
 		/// </summary>
 		public static int GetGoodRefAmount(object goodRef) {
-			return ReflectionHelper.GetInt(_goodRefAmountField, goodRef);
+			return ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, goodRef);
 		}
 
 		// ========================================

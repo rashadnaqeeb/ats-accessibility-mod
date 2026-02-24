@@ -59,10 +59,6 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _bmSeasonsField;
 		private static FieldInfo _scExtendPriceField;
 
-		// GoodRef fields
-		private static FieldInfo _grGoodField;
-		private static FieldInfo _grAmountField;
-
 		// Good struct fields
 		private static FieldInfo _goodNameField;
 		private static FieldInfo _goodAmountField;
@@ -176,12 +172,6 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		private static void CacheGoodTypes(Assembly assembly) {
-			var goodRefType = assembly.GetType("Eremite.Model.GoodRef");
-			if (goodRefType != null) {
-				_grGoodField = goodRefType.GetField("good", GameReflection.PublicInstance);
-				_grAmountField = goodRefType.GetField("amount", GameReflection.PublicInstance);
-			}
-
 			var goodType = assembly.GetType("Eremite.Model.Good");
 			if (goodType != null) {
 				_goodNameField = goodType.GetField("name", GameReflection.PublicInstance);
@@ -467,8 +457,8 @@ namespace ATSAccessibility.Reflection {
 			var extendPrice = ReflectionHelper.GetField(_scExtendPriceField, seasons);
 			if (extendPrice == null) return (0, "Unknown");
 
-			var amount = ReflectionHelper.GetInt(_grAmountField, extendPrice);
-			var goodModel = ReflectionHelper.GetField(_grGoodField, extendPrice);
+			var amount = ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, extendPrice);
+			var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, extendPrice);
 			var displayName = goodModel != null
 				? (GameReflection.GetDisplayName(goodModel) ?? "Unknown")
 				: "Unknown";
