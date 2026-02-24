@@ -1,3 +1,4 @@
+using ATSAccessibility.Core;
 using ATSAccessibility.Reflection;
 using System;
 using System.Collections;
@@ -12,8 +13,6 @@ namespace ATSAccessibility.Utils {
 	/// Handles the animated reveal of rewards by polling until the count stabilizes.
 	/// </summary>
 	public static class MetaRewardsPopupReader {
-		// Scene index for world map (matches AccessibilityCore.SCENE_WORLDMAP)
-		private const int SCENE_WORLDMAP = 3;
 
 		// State tracking
 		private static bool _isPolling = false;
@@ -211,7 +210,7 @@ namespace ATSAccessibility.Utils {
 			}
 
 			// Check if on world map - auto-close to preserve tutorial tooltip accessibility
-			bool isWorldMap = UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP;
+			bool isWorldMap = UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex == SceneConstants.SCENE_WORLDMAP;
 
 			if (isWorldMap) {
 				// Auto-close on world map - don't wait for user input

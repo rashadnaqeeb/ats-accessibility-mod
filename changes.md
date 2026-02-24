@@ -17,12 +17,14 @@ Added working priority support across the mod. You can now:
 
 ### Bug fixes
 
+- Fix TutorialReflection cached tooltip not being cleared on scene change, preventing stale reference
 - Fix GoodModel.displayName using GetProperty instead of GetField, causing recipe produced good names to silently fail
 - Fix wiki building category names using wrong accessor for LabelModel.displayName
 - Fix game result screen not showing currency rewards due to renamed ConditionsState and MetaCurrency types
 
 ### Internal
 
+- Centralize scene index constants into SceneConstants.cs (previously duplicated in AccessibilityCore and MetaRewardsPopupReader)
 - Remove unused Settings.GetText reflection cache in GamesHistoryReflection
 - Deduplicate GoodRef and LocaText reflection caches across 8 files into shared GameReflection properties
 

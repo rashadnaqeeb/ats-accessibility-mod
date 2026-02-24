@@ -10,11 +10,6 @@ using UnityEngine.SceneManagement;
 
 namespace ATSAccessibility.Core {
 	public class AccessibilityCore: MonoBehaviour {
-		// Scene indices from MainController.cs:
-		// 0 = Menu, 1 = Game (settlement), 2 = Transition, 3 = WorldMap, 4 = Intro, 5 = IronmanCutscene, 6 = Credits
-		private const int SCENE_MENU = 0;
-		private const int SCENE_GAME = 1;
-		private const int SCENE_WORLDMAP = 3;
 
 		// Delay for announcements after scene load (ensures UI is fully initialized)
 		private const float ANNOUNCEMENT_DELAY = 0.5f;
@@ -294,7 +289,7 @@ namespace ATSAccessibility.Core {
 			_popupRouter.Register(PaymentsReflection.IsPaymentsPopup, p => paymentsOverlay.Open(p), paymentsOverlay);
 			_popupRouter.Register(IsMetaRewardsOrLevelUpPopup,
 				p => {
-					if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP) {
+					if (SceneManager.GetActiveScene().buildIndex == SceneConstants.SCENE_WORLDMAP) {
 						_tutorialWasActiveBeforePopup = TutorialReflection.IsTooltipVisible();
 						if (_tutorialWasActiveBeforePopup)
 							TutorialReflection.GetTutorialTooltip();
@@ -303,7 +298,7 @@ namespace ATSAccessibility.Core {
 				},
 				p => {
 					metaRewardsOverlay.OnPopupHidden(p);
-					if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP && _tutorialWasActiveBeforePopup) {
+					if (SceneManager.GetActiveScene().buildIndex == SceneConstants.SCENE_WORLDMAP && _tutorialWasActiveBeforePopup) {
 						_tutorialWasActiveBeforePopup = false;
 						_waitingForTutorialTooltip = true;
 					}
@@ -525,17 +520,17 @@ namespace ATSAccessibility.Core {
 			CancelInvoke(nameof(SetupMainMenuNavigation));
 
 			// Clear state when leaving scenes
-			if (scene.buildIndex == SCENE_GAME) {
+			if (scene.buildIndex == SceneConstants.SCENE_GAME) {
 				_announcedGameStart = false;
 				_wasGameActive = false;
 				_mapNavigator?.ClearCursor();  // Clear so it reinitializes on next game
 				WorkerInfoHelper.Reset();
 				StatsReader.ResetSpeciesCycling();
 				AnnouncementHistoryPanel.ClearHistory();
-			} else if (scene.buildIndex == SCENE_MENU) {
+			} else if (scene.buildIndex == SceneConstants.SCENE_MENU) {
 				_announcedMainMenu = false;
 				_cachedMainMenuCanvas = null;
-			} else if (scene.buildIndex == SCENE_WORLDMAP) {
+			} else if (scene.buildIndex == SceneConstants.SCENE_WORLDMAP) {
 				_announcedWorldMap = false;
 				_worldMapNavigator?.Reset();
 			}
@@ -563,6 +558,7 @@ namespace ATSAccessibility.Core {
 			GameReflection.ClearBuildingCreatorInstance();
 			CameraControllerUpdateMovementPatch.ClearTarget();
 			ReputationRewardOverlay.ResetSuppression();
+			TutorialReflection.ClearCachedTooltip();
 
 			// Reset UI navigator state
 			_uiNavigator?.Reset();
@@ -570,14 +566,14 @@ namespace ATSAccessibility.Core {
 		}
 
 		private void ProcessSceneLoad(Scene scene) {
-			if (scene.buildIndex == SCENE_MENU && !_announcedMainMenu) {
+			if (scene.buildIndex == SceneConstants.SCENE_MENU && !_announcedMainMenu) {
 				// Delay announcement to ensure scene is fully loaded
 				Invoke(nameof(AnnounceMainMenu), ANNOUNCEMENT_DELAY);
-			} else if (scene.buildIndex == SCENE_GAME) {
+			} else if (scene.buildIndex == SceneConstants.SCENE_GAME) {
 				// For game scene, we wait for GameController.IsGameActive
 				// This is handled by polling since the controller initializes async
 				_announcedGameStart = false;
-			} else if (scene.buildIndex == SCENE_WORLDMAP) {
+			} else if (scene.buildIndex == SceneConstants.SCENE_WORLDMAP) {
 				// Delay to allow WorldController to initialize
 				_announcedWorldMap = false;
 				Invoke(nameof(SetupWorldMapNavigation), ANNOUNCEMENT_DELAY);
@@ -761,7 +757,7 @@ namespace ATSAccessibility.Core {
 			if (_subscribedToEmbark) return;
 
 			// Only subscribe when on world map scene
-			if (SceneManager.GetActiveScene().buildIndex != SCENE_WORLDMAP) return;
+			if (SceneManager.GetActiveScene().buildIndex != SceneConstants.SCENE_WORLDMAP) return;
 
 			try {
 				// Subscribe to OnFieldPreviewShown (embark screen opened)
@@ -825,7 +821,7 @@ namespace ATSAccessibility.Core {
 			if (_subscribedToCapital) return;
 
 			// Only subscribe when on world map scene
-			if (SceneManager.GetActiveScene().buildIndex != SCENE_WORLDMAP) return;
+			if (SceneManager.GetActiveScene().buildIndex != SceneConstants.SCENE_WORLDMAP) return;
 
 			try {
 				_capitalEnabledSubscription = CapitalReflection.SubscribeToCapitalEnabled(OnCapitalScreenShown);
@@ -903,7 +899,7 @@ namespace ATSAccessibility.Core {
 			if (_uiNavigator != null && !_uiNavigator.HasActivePopup) {
 				// If on menu scene, defer menu setup until user presses a key
 				// This ensures popup close animation is complete and elements are inactive
-				if (SceneManager.GetActiveScene().buildIndex == SCENE_MENU) {
+				if (SceneManager.GetActiveScene().buildIndex == SceneConstants.SCENE_MENU) {
 					Debug.Log("[ATSAccessibility] Popup closed on menu scene, deferring menu setup to next input");
 					_menuPendingSetup = true;
 					// Keep context as Popup so navigation keys work
@@ -911,7 +907,7 @@ namespace ATSAccessibility.Core {
 					// In settlement - return to map navigation
 					_keyboardManager?.SetContext(KeyboardManager.NavigationContext.Map);
 					Debug.Log("[ATSAccessibility] Popup closed in settlement, returning to Map context");
-				} else if (SceneManager.GetActiveScene().buildIndex == SCENE_WORLDMAP) {
+				} else if (SceneManager.GetActiveScene().buildIndex == SceneConstants.SCENE_WORLDMAP) {
 					// If capital overlay is suspended (sub-panel was open), resume it
 					if (_capitalOverlay != null && _capitalOverlay.IsSuspended) {
 						_capitalOverlay.Resume();
@@ -976,7 +972,7 @@ namespace ATSAccessibility.Core {
 				}
 
 				// Abort if we left the world map
-				if (SceneManager.GetActiveScene().buildIndex != SCENE_WORLDMAP)
+				if (SceneManager.GetActiveScene().buildIndex != SceneConstants.SCENE_WORLDMAP)
 					yield break;
 			}
 		}
