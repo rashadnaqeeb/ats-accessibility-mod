@@ -143,6 +143,8 @@ Resources category - Five subcategories:
 
 Buildings category - Eleven subcategories: All, Essential, Gathering, Production, Trade, Housing and Services, Special Buildings, Blight Fighting, Decorations, Ruins, Roads. The "All" subcategory combines everything except Decorations and Roads.
 
+Scanner search - Press Ctrl+F, type what you're looking for, and press Enter. This searches across all categories and creates a temporary Search Results category. Navigate results with the same keys as the regular scanner (PageUp/Down for groups, Alt+PageUp/Down for instances). Results are cleared if you switch categories with Ctrl+PageUp/Down or start a new search with Ctrl+F.
+
 ### Menus
 
 - F1: Info panels (Resources, Villagers, Workers, Stats, Modifiers, Announcements)

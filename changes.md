@@ -12,7 +12,7 @@ Added working priority support across the mod. You can now:
 ## Changes since v1.1.5
 
 ### New features
-- Add Ctrl+F scanner search on the settlement map — searches all categories with priority matching (starts-with > whole-word > substring)
+- Scanner search: Press Ctrl+F, type what you're looking for, and press Enter. This searches across all categories and creates a temporary Search Results category. Navigate results with the same keys as the regular scanner (PageUp/Down for groups, Alt+PageUp/Down for instances). Results are cleared if you switch categories with Ctrl+PageUp/Down or start a new search with Ctrl+F.
 
 ### Bug fixes
 
