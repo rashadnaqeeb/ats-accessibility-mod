@@ -9,12 +9,13 @@
 3. `prompts/code-directory-construction.md` — done (150 index files for 150 source files)
 
 ## Prompts Remaining
-- `prompts/large-file-handling.md` (BuildingReflection.cs 10132 lines, GameReflection.cs 7413 lines)
+- `prompts/large-file-handling.md` — in progress (BuildingReflection split done, GameReflection pending)
 - (subsequent prompts TBD from reading each prompt)
 
 ## Code Index
-- `llm-scratchpad/code-index/` — 150 .md files mirroring ATSAccessibility/ structure
-- Largest files: BuildingReflection.cs (10132 lines), GameReflection.cs (7413 lines)
+- `llm-scratchpad/code-index/` — 153 .md files mirroring ATSAccessibility/ structure (3 new from split)
+- BuildingReflection.cs: 10132 → 6831 lines (extracted HearthReflection, RelicReflection, PortReflection)
+- GameReflection.cs: 7413 lines (split assessment pending)
 
 ## Documentation Created
 - `llm-docs/CLAUDE.md` — overview of llm-docs contents
