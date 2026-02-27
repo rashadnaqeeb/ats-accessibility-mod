@@ -403,7 +403,7 @@ namespace ATSAccessibility.Utils {
 			if (distance == 0) {
 				Speech.Say(suffix != null ? $"at {suffix}{coordsSuffix}" : $"here{coordsSuffix}");
 			} else {
-				string direction = GetDirection(dx, dy);
+				string direction = NavigationUtils.GetDirection(dx, dy);
 				Speech.Say(suffix != null ? $"{distance} {direction} {suffix}{coordsSuffix}" : $"{distance} tiles {direction}{coordsSuffix}");
 			}
 		}
@@ -1063,24 +1063,6 @@ namespace ATSAccessibility.Utils {
 				_ => "items"
 			};
 			Speech.Say($"No {categoryName}");
-		}
-
-		private string GetDirection(int dx, int dy) {
-			if (dx == 0 && dy == 0) return "";
-
-			int absDx = Math.Abs(dx);
-			int absDy = Math.Abs(dy);
-
-			// Only use diagonal if both axes are significant (within 2:1 ratio)
-			bool useNS = absDy > 0 && absDy * 2 >= absDx;
-			bool useEW = absDx > 0 && absDx * 2 >= absDy;
-
-			string ns = useNS ? (dy > 0 ? "north" : "south") : "";
-			string ew = useEW ? (dx > 0 ? "east" : "west") : "";
-
-			if (string.IsNullOrEmpty(ns)) return ew;
-			if (string.IsNullOrEmpty(ew)) return ns;
-			return ns + ew;  // e.g., "northeast"
 		}
 
 		// ========================================

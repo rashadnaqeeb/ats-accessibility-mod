@@ -37,6 +37,7 @@ Added working priority support across the mod. You can now:
 - Consolidate duplicate strider/crew method pairs in PortReflection into unified parameterized API
 - Move shared ToggleBuildingSleep implementation from 4 navigators into BuildingSectionNavigator base class
 - Deduplicate AdjustNodePriority and AdjustConstructionPriority in SettlementKeyHandler via shared helper
+- Remove duplicate GetDirection methods from BlightInfoHelper, RainpunkHelper, EntranceInfoHelper, and MapScanner in favor of NavigationUtils.GetDirection
 
 ## v1.1.6
 

@@ -10,7 +10,9 @@
 
 ## Prompts Remaining
 - `prompts/large-file-handling.md` — done
-- `prompts/input-handling.md` — next
+- `prompts/input-handling.md` — done (no changes needed, system already well-designed)
+- `prompts/string-builder.md` — done (not a string builder mod; ~10% string building, well distributed)
+- `prompts/low-level-cleanup.md` — next
 - (subsequent prompts TBD from reading each prompt)
 
 ## Code Index

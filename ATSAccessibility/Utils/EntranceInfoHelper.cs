@@ -170,25 +170,11 @@ namespace ATSAccessibility.Utils {
 			int dx = approachX - cursorX;
 			int dy = approachY - cursorY;
 			int distance = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
-			string direction = GetDirection(dx, dy);
+			string direction = NavigationUtils.GetDirection(dx, dy);
 			string tileWord = distance == 1 ? "tile" : "tiles";
 			string facing = ApproachDirections[rotation];
 			return $"Entrance {distance} {tileWord} {direction}, facing {facing}";
 		}
 
-		/// <summary>
-		/// Get cardinal/intercardinal direction from delta.
-		/// </summary>
-		private static string GetDirection(int dx, int dy) {
-			if (dx == 0 && dy > 0) return "north";
-			if (dx == 0 && dy < 0) return "south";
-			if (dx > 0 && dy == 0) return "east";
-			if (dx < 0 && dy == 0) return "west";
-			if (dx > 0 && dy > 0) return "northeast";
-			if (dx > 0 && dy < 0) return "southeast";
-			if (dx < 0 && dy > 0) return "northwest";
-			if (dx < 0 && dy < 0) return "southwest";
-			return "unknown";
-		}
 	}
 }

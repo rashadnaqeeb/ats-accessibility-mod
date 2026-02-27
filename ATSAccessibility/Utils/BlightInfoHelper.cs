@@ -149,7 +149,8 @@ namespace ATSAccessibility.Utils {
 				}
 
 				if (nearestName != null) {
-					string direction = GetDirection(nearestDx, nearestDy);
+					string direction = NavigationUtils.GetDirection(nearestDx, nearestDy);
+					if (string.IsNullOrEmpty(direction)) direction = "here";
 					return (nearestName, nearestCysts, nearestDistance, direction);
 				}
 			} catch (Exception ex) {
@@ -157,27 +158,6 @@ namespace ATSAccessibility.Utils {
 			}
 
 			return null;
-		}
-
-		/// <summary>
-		/// Get compass direction from delta coordinates.
-		/// </summary>
-		private static string GetDirection(int dx, int dy) {
-			if (dx == 0 && dy == 0) return "here";
-
-			int absDx = Math.Abs(dx);
-			int absDy = Math.Abs(dy);
-
-			// Only use diagonal if both axes are significant (within 2:1 ratio)
-			bool useNS = absDy > 0 && absDy * 2 >= absDx;
-			bool useEW = absDx > 0 && absDx * 2 >= absDy;
-
-			string ns = useNS ? (dy > 0 ? "north" : "south") : "";
-			string ew = useEW ? (dx > 0 ? "east" : "west") : "";
-
-			if (string.IsNullOrEmpty(ns)) return ew;
-			if (string.IsNullOrEmpty(ew)) return ns;
-			return ns + ew;  // e.g., "northeast"
 		}
 
 		/// <summary>
