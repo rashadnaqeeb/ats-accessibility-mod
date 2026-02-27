@@ -36,6 +36,7 @@ Added working priority support across the mod. You can now:
 - Extract ConstructionReflection.cs from BuildingReflection.cs (construction, placement, range info, lake, supply chain, and building enumeration code)
 - Consolidate duplicate strider/crew method pairs in PortReflection into unified parameterized API
 - Move shared ToggleBuildingSleep implementation from 4 navigators into BuildingSectionNavigator base class
+- Deduplicate AdjustNodePriority and AdjustConstructionPriority in SettlementKeyHandler via shared helper
 
 ## v1.1.6
 

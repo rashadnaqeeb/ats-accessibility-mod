@@ -751,30 +751,25 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		private void AdjustNodePriority(object node, int delta, bool global) {
-			// Always base on focused node's priority (matches game UI behavior)
-			int current = ConstructionReflection.GetResourceNodePriority(node);
-
-			int newPrio = Math.Max(-5, Math.Min(5, current + delta));
-
-			if (newPrio == current) {
-				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
-				return;
-			}
-
-			if (global) {
-				ConstructionReflection.SetGlobalResourceNodePriority(node, newPrio);
-				string nodeName = ConstructionReflection.GetResourceNodeDisplayName(node);
-				Speech.Say($"All {nodeName} set to priority {FormatNodePriority(newPrio)}");
-			} else {
-				ConstructionReflection.SetResourceNodePriority(node, newPrio);
-				Speech.Say($"Priority: {FormatNodePriority(newPrio)}");
-			}
+			AdjustPriority(node, delta, global,
+				ConstructionReflection.GetResourceNodePriority,
+				ConstructionReflection.SetResourceNodePriority,
+				ConstructionReflection.SetGlobalResourceNodePriority,
+				ConstructionReflection.GetResourceNodeDisplayName);
 		}
 
 		private void AdjustConstructionPriority(object building, int delta, bool global) {
-			// Always base on focused building's priority (matches game UI behavior)
-			int current = ConstructionReflection.GetBuildingConstructionPriority(building);
+			AdjustPriority(building, delta, global,
+				ConstructionReflection.GetBuildingConstructionPriority,
+				ConstructionReflection.SetBuildingConstructionPriority,
+				ConstructionReflection.SetGlobalBuildingConstructionPriority,
+				ConstructionReflection.GetBuildingDisplayName);
+		}
 
+		private static void AdjustPriority(object target, int delta, bool global,
+			Func<object, int> getPriority, Func<object, int, bool> setPriority,
+			Func<object, int, bool> setGlobalPriority, Func<object, string> getDisplayName) {
+			int current = getPriority(target);
 			int newPrio = Math.Max(-5, Math.Min(5, current + delta));
 
 			if (newPrio == current) {
@@ -783,11 +778,11 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			if (global) {
-				ConstructionReflection.SetGlobalBuildingConstructionPriority(building, newPrio);
-				string name = ConstructionReflection.GetBuildingDisplayName(building);
+				setGlobalPriority(target, newPrio);
+				string name = getDisplayName(target);
 				Speech.Say($"All {name} set to priority {FormatNodePriority(newPrio)}");
 			} else {
-				ConstructionReflection.SetBuildingConstructionPriority(building, newPrio);
+				setPriority(target, newPrio);
 				Speech.Say($"Priority: {FormatNodePriority(newPrio)}");
 			}
 		}
