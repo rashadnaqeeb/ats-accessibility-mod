@@ -138,7 +138,7 @@ namespace ATSAccessibility.Utils {
 
 		private static Vector2Int? GetBuildingLocation(object building) {
 			if (building == null) return null;
-			var pos = BuildingReflection.GetBuildingGridPosition(building);
+			var pos = ConstructionReflection.GetBuildingGridPosition(building);
 			if (pos == Vector2Int.zero) return null;
 			return pos;
 		}

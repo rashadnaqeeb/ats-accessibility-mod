@@ -34,7 +34,7 @@ namespace ATSAccessibility.Utils {
 			}
 
 			// Check if cursor is on a building with engines
-			var buildingAtCursor = BuildingReflection.GetBuildingAtPosition(cursorX, cursorY);
+			var buildingAtCursor = ConstructionReflection.GetBuildingAtPosition(cursorX, cursorY);
 			if (buildingAtCursor != null) {
 				int engineCount = BuildingReflection.GetEngineCount(buildingAtCursor);
 				if (engineCount > 0 && BuildingReflection.IsRainpunkUnlocked(buildingAtCursor)) {
@@ -55,7 +55,7 @@ namespace ATSAccessibility.Utils {
 				return "Rainpunk not unlocked";
 			}
 
-			var building = BuildingReflection.GetBuildingAtPosition(cursorX, cursorY);
+			var building = ConstructionReflection.GetBuildingAtPosition(cursorX, cursorY);
 			if (building == null) {
 				return "No building";
 			}
@@ -146,7 +146,7 @@ namespace ATSAccessibility.Utils {
 					if (!BuildingReflection.HasRunningEngines(building)) continue;
 
 					// Get position
-					var field = BuildingReflection.GetBuildingGridPosition(building);
+					var field = ConstructionReflection.GetBuildingGridPosition(building);
 
 					int dx = field.x - cursorX;
 					int dy = field.y - cursorY;
@@ -199,7 +199,7 @@ namespace ATSAccessibility.Utils {
 			if (building == null) return "Building";
 
 			try {
-				var model = BuildingReflection.GetBuildingModel(building);
+				var model = ConstructionReflection.GetBuildingModel(building);
 				if (model != null) {
 					string name = GameReflection.GetDisplayName(model);
 					if (!string.IsNullOrEmpty(name))

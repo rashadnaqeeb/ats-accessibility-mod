@@ -4,6 +4,8 @@ Provides reflection-based access to building panel and building internals.
 Follows same patterns as GameReflection.cs — cache reflection metadata, never cache instances.
 Hearth, Relic, and Port detail access split into HearthReflection.cs, RelicReflection.cs, and PortReflection.cs respectively;
 this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and internal accessors used by those files.
+Construction/placement/pick-move/meta-perks/range/lake/supply-chain/enumeration helpers split into ConstructionReflection.cs;
+GoodRef forwarding properties delegate there.
 
 ## class BuildingReflection (line 12)
 
@@ -376,7 +378,7 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - private static FieldInfo _engineStateRequestedLevelField (line 363)
 - private static FieldInfo _engineModelMaxLevelField (line 364)
 - private static FieldInfo _engineModelLevelsField (line 365)  — RainpunkEngineLevel[]
-- private static FieldInfo _engineLevelPerkField (line 366)  — BuildingPerkModel
+- private static FieldInfo _engineLevelPerkField (line 366)
 - private static PropertyInfo _buildingPerkDisplayNameProp (line 367)
 - private static FieldInfo _engineModelUpSoundField (line 368)  — SoundRef
 - private static FieldInfo _engineModelDownSoundField (line 369)  — SoundRef
@@ -476,6 +478,13 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - internal static PropertyInfo EffectModelDisplayNameProperty (line 1314)
 - internal static MethodInfo BuildingIsFinishedMethod (line 1317)
 
+### Properties (public — forwarding to ConstructionReflection, line 6828)
+
+- public static Type GoodRefType (line 6833)  — forwards to ConstructionReflection.GoodRefType
+- public static FieldInfo GoodRefGoodField (line 6835)  — forwards to ConstructionReflection.GoodRefGoodField
+- public static FieldInfo GoodRefAmountField (line 6837)  — forwards to ConstructionReflection.GoodRefAmountField
+- public static PropertyInfo GoodRefDisplayNameProperty (line 6839)  — forwards to ConstructionReflection.GoodRefDisplayNameProperty
+
 ### Methods (internal — for HearthReflection)
 
 - internal static int GetMainStorageAmountInternal(string goodName) (line 1320)  — delegates to GetMainStorageAmount
@@ -510,7 +519,7 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - public static int GetFarmSownFields(object building) (line 1783)
 - public static int GetFarmPlowedFields(object building) (line 1798)
 - public static int GetFarmTotalFields(object building) (line 1813)
-- public static int GetFarmPlacedFieldsCount(object building) (line 1829)  — counts actual placed farmfield buildings in range
+- public static int GetFarmPlacedFieldsCount(object building) (line 1829)  — counts actual placed farmfield buildings in range; uses ConstructionReflection helpers
 - public static bool IsFarmfield(object building) (line 1883)
 - public static bool IsFarmfieldPlowed(object building) (line 1896)
 - public static bool IsFarmfieldSeeded(object building) (line 1914)
@@ -547,6 +556,14 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - public static bool AssignWorkerToSlot(object building, int slotIndex, string raceName) (line 2630)
 - public static bool UnassignWorkerFromSlot(object building, int slotIndex) (line 2668)
 - public static bool IsWorkerSlotEmpty(object building, int slotIndex) (line 2707)
+
+### Methods (private — Worker assignment helpers)
+
+- private static object GetVillagersService() (line 2338)
+- private static object FindRaceModel(string raceName) (line 2413)
+- private static (object characteristic, object tag) FindMatchingCharacteristic(object building, object raceModel) (line 2438)
+- private static string GetBonusTypeFromCharacteristic(object characteristic) (line 2469)
+- private static string GetBonusNameFromCharacteristic(object characteristic, object buildingTag) (line 2525)
 
 ### Methods (public — Recipes)
 
@@ -612,10 +629,18 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - public static bool IsHouseFull(object building) (line 3813)
 - public static bool IsRelic(object building) (line 3834)
 - public static bool IsPort(object building) (line 3852)
+
+### Methods (public — Event subscription)
+
+- public static IDisposable SubscribeToBuildingPanelShown(Action<object> callback) (line 3870)
+- public static IDisposable SubscribeToBuildingPanelClosed(Action<object> callback) (line 3891)
+
+### Methods (public — Decoration / Storage building)
+
 - public static bool IsDecoration(object building) (line 3915)
 - public static bool IsStorage(object building) (line 3932)
 - public static bool AreWorkplacesActive(object building) (line 3947)
-- public static bool ShouldAllowWorkerManagement(object building) (line 3972)
+- public static bool ShouldAllowWorkerManagement(object building) (line 3972)  — delegates to ConstructionReflection.IsBuildingUnfinished, PortReflection, RelicReflection
 
 ### Methods (public — Institution)
 
@@ -627,6 +652,7 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - public static int GetInstitutionAvailableGoodsCount(object building, int recipeIndex) (line 4122)
 - public static string GetInstitutionAvailableGoodName(object building, int recipeIndex, int goodIndex) (line 4148)
 - public static bool ChangeInstitutionIngredient(object building, int recipeIndex, int goodIndex) (line 4177)
+- public static Dictionary<string, int> GetInstitutionStorageGoods(object building) (line 4201)
 - public static int GetInstitutionEffectCount(object building) (line 4219)
 - public static string GetInstitutionEffectName(object building, int effectIndex) (line 4238)
 - public static int GetInstitutionEffectMinWorkers(object building, int effectIndex) (line 4264)
@@ -647,6 +673,11 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - public static bool UseShrineEffect(object building, int tierIndex, int effectIndex) (line 4591)
 - public static object GetShrineChargingLoopSound(object building) (line 4650)
 - public static object GetShrineFinalSound(object building) (line 4660)
+
+### Methods (private — Shrine helpers)
+
+- private static object GetShrineSoundModel(object building, FieldInfo soundField) (line 4666)
+- private static string ExtractSpeciesFromEffect(object effect, Type effectType, string description) (line 4552)
 
 ### Methods (public — Poro)
 
@@ -687,19 +718,38 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - public static string GetCycleAbilityDescription(int index) (line 5284)
 - public static bool UseCycleAbility(int index) (line 5312)
 
+### Methods (internal — Effect model lookup)
+
+- internal static object GetEffectModel(string effectName) (line 5376)
+
 ### Methods (public — Blight / Hydrant)
 
 - public static int GetBlightFreeCysts() (line 5399)
 - public static int GetBlightFuelAmount() (line 5418)
 - public static string GetBlightFuelName() (line 5441)
+
+### Methods (private — Blight / Storage helpers)
+
+- private static string GetBlightFuelNameInternal() (line 5463)
+- private static object GetStorageServiceInternal() (line 5485)
+
+### Methods (public — Water tank)
+
 - public static int GetWaterTankCurrent(object building) (line 5505)
 - public static int GetWaterTankCapacity(object building) (line 5527)
+
+### Methods (private — Water helpers)
+
+- private static object GetWaterModelFromBuilding(object building) (line 5549)
+
+### Methods (public — Rainpunk water / blight progress)
+
 - public static float GetTotalWaterUsePerSecond(object building) (line 5570)
 - public static int GetBlightProgress(object building) (line 5601)
 
 ### Methods (public — Rainpunk engine)
 
-- public static bool IsRainpunkEnabledGlobally() (line 5654)
+- public static bool IsRainpunkEnabledGlobally() (line 5654)  — traverses MetaController.Instance.MetaServices.MetaPerksService
 - public static bool HasRainpunkCapability(object building) (line 5721)
 - public static bool IsRainpunkUnlocked(object building) (line 5742)
 - public static int GetEngineCount(object building) (line 5759)
@@ -717,9 +767,23 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - public static bool CanAffordRainpunkUnlock(object building) (line 6077)
 - public static bool UnlockRainpunk(object building) (line 6088)
 
-### Methods (public — Stored goods)
+### Methods (private — Rainpunk engine helpers)
 
+- private static bool IsWorkshopClass(object building) (line 5643)
+- private static object GetEngineState(object building, int engineIndex) (line 5948)
+- private static object GetEngineModel(object building, int engineIndex) (line 5968)
+- private static void PlayEngineSound(object building, int engineIndex, FieldInfo soundField) (line 6005)
+
+### Methods (private/public — Stored goods)
+
+- private static int GetMainStorageAmount(string goodName) (line 6109)
 - public static int GetStoredGoodAmount(string goodName) (line 6130)  — main storage
+
+### Methods (private — Helpers)
+
+- private static string GetGoodRefDisplayName(object goodRef) (line 6154)
+- private static Dictionary<string, int> GetBuildingStorageGoodsInternal(object storage) (line 6180)
+- private static System.Collections.IList GetCycleAbilitiesList() (line 5212)
 
 ### Methods (public — Building destruction)
 
@@ -736,6 +800,15 @@ this file retains type-check methods (`IsHearth`, `IsRelic`, `IsPort`) and inter
 - public static List<UpgradeLevelInfo> GetUpgradeLevelsInfo(object building) (line 6503)
 - public static bool PurchaseUpgrade(object building, int levelIndex, int perkIndex) (line 6680)  — creates Func<int,Good> delegate via Expression.Lambda
 
+### Methods (private — Upgrade helpers)
+
+- private static GoodsCost? ParseGoodRef(object goodRef) (line 6595)
+- private static string GetPerkDisplayName(object perk) (line 6634)
+- private static string GetPerkDescription(object perk, object building) (line 6650)
+- private static object CreateGoodPickerDelegate(List<GoodsCost> costs, Type goodType, Type funcType) (line 6738)
+- private static List<GoodsCost> GetRequiredGoodsForLevel(object building, int levelIndex) (line 6781)
+- private static string GetRomanNumeral(int number) (line 6816)
+
 ### Methods (public — Diagnostics)
 
-- public static int LogCacheStatus() (line 6827)
+- public static int LogCacheStatus() (line 6841)

@@ -14,8 +14,9 @@
 - (subsequent prompts TBD from reading each prompt)
 
 ## Code Index
-- `llm-scratchpad/code-index/` — 153 .md files mirroring ATSAccessibility/ structure (3 new from BuildingReflection split)
-- BuildingReflection.cs: 10132 → 6831 → 10125 lines (extracted Hearth/Relic/Port, absorbed construction from GameReflection)
+- `llm-scratchpad/code-index/` — 154 .md files mirroring ATSAccessibility/ structure (4 new from splits)
+- BuildingReflection.cs: 10132 → 6831 → 10125 → 6845 lines (extracted Hearth/Relic/Port, absorbed then re-extracted construction)
+- ConstructionReflection.cs: 3313 lines (new — building system, placement, range, lake, supply chain from BuildingReflection)
 - GameReflection.cs: 7413 → 4096 → 3159 lines (construction → BuildingReflection, map/glade/seal → MapReflection)
 - MapReflection.cs: 444 → 1381 lines (absorbed glade info, harvest, seal/guidepost from GameReflection)
 

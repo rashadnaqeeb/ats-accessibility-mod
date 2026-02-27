@@ -53,7 +53,7 @@ namespace ATSAccessibility.Utils {
 			}
 
 			// Check if cursor is on a building with cysts
-			var buildingAtCursor = BuildingReflection.GetBuildingAtPosition(cursorX, cursorY);
+			var buildingAtCursor = ConstructionReflection.GetBuildingAtPosition(cursorX, cursorY);
 			if (buildingAtCursor != null) {
 				int cystsOnBuilding = GetCystsOnBuilding(buildingAtCursor, blightsList);
 				if (cystsOnBuilding > 0) {
@@ -197,7 +197,7 @@ namespace ATSAccessibility.Utils {
 			if (building == null) return "Building";
 
 			try {
-				var model = BuildingReflection.GetBuildingModel(building);
+				var model = ConstructionReflection.GetBuildingModel(building);
 				if (model != null) {
 					string name = GameReflection.GetDisplayName(model);
 					if (!string.IsNullOrEmpty(name))

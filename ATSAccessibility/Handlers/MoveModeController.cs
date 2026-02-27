@@ -61,15 +61,15 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			// Check if building can be moved
-			if (!BuildingReflection.CanMovePlacedBuilding(building)) {
+			if (!ConstructionReflection.CanMovePlacedBuilding(building)) {
 				Speech.Say("Unmovable");
 				Debug.Log($"[ATSAccessibility] Building cannot be moved");
 				return;
 			}
 
 			// Check if player can afford the move
-			if (!BuildingReflection.CanAffordMove(building)) {
-				var costInfo = BuildingReflection.GetMovingCostInfo(building);
+			if (!ConstructionReflection.CanAffordMove(building)) {
+				var costInfo = ConstructionReflection.GetMovingCostInfo(building);
 				string costDesc = costInfo.HasValue ? $"{costInfo.Value.amount} {costInfo.Value.displayName}" : "resources";
 				Speech.Say($"Cannot afford to move, requires {costDesc}");
 				SoundManager.PlayFailed();
@@ -77,26 +77,26 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			// Pay moving cost (resources taken pre-move, refunded on cancel)
-			_pricePaid = BuildingReflection.HasMovingCost(building) && BuildingReflection.PayForMoving(building);
+			_pricePaid = ConstructionReflection.HasMovingCost(building) && ConstructionReflection.PayForMoving(building);
 
 			// Store original state for potential cancellation
-			_originalPosition = BuildingReflection.GetBuildingGridPosition(building);
-			_originalRotation = BuildingReflection.GetBuildingRotation(building);
+			_originalPosition = ConstructionReflection.GetBuildingGridPosition(building);
+			_originalRotation = ConstructionReflection.GetBuildingRotation(building);
 			_currentRotation = _originalRotation;
 
 			_movingBuilding = building;
 			_buildingName = GameReflection.GetDisplayName(building) ?? "Building";
 
 			// Lift building from grid (removes from grid but keeps the object)
-			BuildingReflection.LiftBuilding(building);
+			ConstructionReflection.LiftBuilding(building);
 
 			_isActive = true;
 			SoundManager.PlayBuildingMoveStarted();
 
 			// Get building size for extension announcement
-			var buildingModel = BuildingReflection.GetBuildingModel(building);
+			var buildingModel = ConstructionReflection.GetBuildingModel(building);
 			Vector2Int size = buildingModel != null
-				? BuildingReflection.GetBuildingSize(buildingModel)
+				? ConstructionReflection.GetBuildingSize(buildingModel)
 				: new Vector2Int(1, 1);
 
 			bool isRotated = (_currentRotation % 2) == 1;
@@ -106,7 +106,7 @@ namespace ATSAccessibility.Handlers {
 
 			string costNote = "";
 			if (_pricePaid) {
-				var costInfo = BuildingReflection.GetMovingCostInfo(building);
+				var costInfo = ConstructionReflection.GetMovingCostInfo(building);
 				if (costInfo.HasValue)
 					costNote = $"cost: {costInfo.Value.amount} {costInfo.Value.displayName}, ";
 			}
@@ -124,15 +124,15 @@ namespace ATSAccessibility.Handlers {
 
 			if (cancel) {
 				// Restore original position and rotation
-				BuildingReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+				ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 				if (_currentRotation != _originalRotation) {
-					BuildingReflection.RotateBuilding(_movingBuilding, _originalRotation);
+					ConstructionReflection.RotateBuilding(_movingBuilding, _originalRotation);
 				}
-				BuildingReflection.PlaceBuildingOnGrid(_movingBuilding);
+				ConstructionReflection.PlaceBuildingOnGrid(_movingBuilding);
 
 				// Refund moving cost if it was paid
 				if (_pricePaid) {
-					BuildingReflection.RefundMoving(_movingBuilding);
+					ConstructionReflection.RefundMoving(_movingBuilding);
 					_pricePaid = false;
 				}
 
@@ -146,19 +146,19 @@ namespace ATSAccessibility.Handlers {
 				Vector2Int newPos = new Vector2Int(x, y);
 
 				// Set position to cursor
-				BuildingReflection.SetBuildingPosition(_movingBuilding, newPos);
+				ConstructionReflection.SetBuildingPosition(_movingBuilding, newPos);
 
 				// Check if placement is valid
-				if (!BuildingReflection.CanPlaceBuilding(_movingBuilding)) {
+				if (!ConstructionReflection.CanPlaceBuilding(_movingBuilding)) {
 					// Restore position (building stays lifted for another attempt)
-					BuildingReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+					ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 					Speech.Say("Cannot place here");
 					Debug.Log($"[ATSAccessibility] Cannot place {_buildingName} at ({x}, {y})");
 					return; // Don't exit move mode, let user try another position
 				}
 
 				// Place building on grid at new position
-				BuildingReflection.PlaceBuildingOnGrid(_movingBuilding);
+				ConstructionReflection.PlaceBuildingOnGrid(_movingBuilding);
 
 				SoundManager.PlayBuildingMoveFinished();
 				Speech.Say($"{_buildingName} moved");
@@ -195,13 +195,13 @@ namespace ATSAccessibility.Handlers {
 						int x = _mapNavigator.CursorX;
 						int y = _mapNavigator.CursorY;
 						Vector2Int newPos = new Vector2Int(x, y);
-						BuildingReflection.SetBuildingPosition(_movingBuilding, newPos);
-						if (!BuildingReflection.CanPlaceBuilding(_movingBuilding)) {
-							BuildingReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+						ConstructionReflection.SetBuildingPosition(_movingBuilding, newPos);
+						if (!ConstructionReflection.CanPlaceBuilding(_movingBuilding)) {
+							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 							Speech.Say("Cannot place here");
 						} else {
 							// Valid spot but has cost - restore position and ask for confirm
-							BuildingReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 							_awaitingPlaceConfirm = true;
 							Speech.Say("Space to confirm move");
 						}
@@ -219,12 +219,12 @@ namespace ATSAccessibility.Handlers {
 						int ex = _mapNavigator.CursorX;
 						int ey = _mapNavigator.CursorY;
 						Vector2Int enterPos = new Vector2Int(ex, ey);
-						BuildingReflection.SetBuildingPosition(_movingBuilding, enterPos);
-						if (!BuildingReflection.CanPlaceBuilding(_movingBuilding)) {
-							BuildingReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+						ConstructionReflection.SetBuildingPosition(_movingBuilding, enterPos);
+						if (!ConstructionReflection.CanPlaceBuilding(_movingBuilding)) {
+							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 							Speech.Say("Cannot place here");
 						} else {
-							BuildingReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 							_awaitingPlaceConfirm = true;
 							Speech.Say("Space to confirm move");
 						}
@@ -263,16 +263,16 @@ namespace ATSAccessibility.Handlers {
 				// Building range info for move preview
 				case KeyCode.D: {
 						_awaitingPlaceConfirm = false;
-						var buildingModel = BuildingReflection.GetBuildingModel(_movingBuilding);
+						var buildingModel = ConstructionReflection.GetBuildingModel(_movingBuilding);
 						if (buildingModel != null) {
 							int cursorX = _mapNavigator.CursorX;
 							int cursorY = _mapNavigator.CursorY;
 							Vector2Int cursorPos = new Vector2Int(cursorX, cursorY);
 
 							// Temporarily set position to cursor to test placement
-							BuildingReflection.SetBuildingPosition(_movingBuilding, cursorPos);
-							bool canPlace = BuildingReflection.CanPlaceBuilding(_movingBuilding);
-							BuildingReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							ConstructionReflection.SetBuildingPosition(_movingBuilding, cursorPos);
+							bool canPlace = ConstructionReflection.CanPlaceBuilding(_movingBuilding);
+							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 
 							string preview = RangeInfoHelper.GetBuildingRangePreview(
 								buildingModel, cursorX, cursorY, _currentRotation, canPlace);
@@ -284,17 +284,17 @@ namespace ATSAccessibility.Handlers {
 				// Entrance preview for building being moved
 				case KeyCode.E: {
 						_awaitingPlaceConfirm = false;
-						var buildingModel = BuildingReflection.GetBuildingModel(_movingBuilding);
+						var buildingModel = ConstructionReflection.GetBuildingModel(_movingBuilding);
 						if (buildingModel != null) {
 							int cursorX = _mapNavigator.CursorX;
 							int cursorY = _mapNavigator.CursorY;
 							Vector2Int cursorPos = new Vector2Int(cursorX, cursorY);
 
 							// Temporarily set position to cursor for entrance calculation
-							BuildingReflection.SetBuildingPosition(_movingBuilding, cursorPos);
+							ConstructionReflection.SetBuildingPosition(_movingBuilding, cursorPos);
 							string preview = EntranceInfoHelper.GetEntrancePreview(
 								_movingBuilding, cursorX, cursorY, buildingModel, _currentRotation);
-							BuildingReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 
 							Speech.Say(preview);
 						}
@@ -319,22 +319,22 @@ namespace ATSAccessibility.Handlers {
 			if (_movingBuilding == null) return;
 
 			// Check if building can be rotated
-			var buildingModel = BuildingReflection.GetBuildingModel(_movingBuilding);
-			if (buildingModel != null && !BuildingReflection.CanRotateBuildingModel(buildingModel)) {
+			var buildingModel = ConstructionReflection.GetBuildingModel(_movingBuilding);
+			if (buildingModel != null && !ConstructionReflection.CanRotateBuildingModel(buildingModel)) {
 				Speech.Say("Cannot rotate");
 				return;
 			}
 
 			// Increment rotation
 			_currentRotation = (_currentRotation + (clockwise ? 3 : 1)) % 4;
-			BuildingReflection.RotateBuilding(_movingBuilding, _currentRotation);
+			ConstructionReflection.RotateBuilding(_movingBuilding, _currentRotation);
 			SoundManager.PlayBuildingRotated();
 
 			string direction = GetCardinalDirection(_currentRotation);
 
 			// Get building size and adjust for rotation
 			Vector2Int baseSize = buildingModel != null
-				? BuildingReflection.GetBuildingSize(buildingModel)
+				? ConstructionReflection.GetBuildingSize(buildingModel)
 				: new Vector2Int(1, 1);
 			bool isRotated = (_currentRotation % 2) == 1;
 			int extendEast = (isRotated ? baseSize.y : baseSize.x) - 1;

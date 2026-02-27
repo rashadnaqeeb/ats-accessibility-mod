@@ -37,9 +37,9 @@ namespace ATSAccessibility.Panels {
 
 			string label = _menuLabels[index];
 			string lockSuffix = "";
-			if (index == 2 && !BuildingReflection.AreTradeRoutesUnlocked())
+			if (index == 2 && !ConstructionReflection.AreTradeRoutesUnlocked())
 				lockSuffix = ", locked";
-			else if (index == 4 && !BuildingReflection.IsConsumptionControlUnlocked())
+			else if (index == 4 && !ConstructionReflection.IsConsumptionControlUnlocked())
 				lockSuffix = ", locked";
 
 			return $"{label}{lockSuffix}";
@@ -128,7 +128,7 @@ namespace ATSAccessibility.Panels {
 					if (success) SoundManager.PlayMenuOrders();
 					break;
 				case 2: // Trade Routes
-					if (!BuildingReflection.AreTradeRoutesUnlocked()) {
+					if (!ConstructionReflection.AreTradeRoutesUnlocked()) {
 						Speech.Say("Trade Routes locked. Unlock via meta progression");
 						SoundManager.PlayFailed();
 						return;
@@ -141,7 +141,7 @@ namespace ATSAccessibility.Panels {
 					if (success) SoundManager.PlayMenuRecipes();
 					break;
 				case 4: // Consumption Control
-					if (!BuildingReflection.IsConsumptionControlUnlocked()) {
+					if (!ConstructionReflection.IsConsumptionControlUnlocked()) {
 						Speech.Say("Consumption Control locked. Unlock via meta progression");
 						SoundManager.PlayFailed();
 						return;

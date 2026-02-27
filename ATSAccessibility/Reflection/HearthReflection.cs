@@ -678,7 +678,7 @@ namespace ATSAccessibility.Reflection {
 			BuildingReflection.EnsureHearthBaseType();
 
 			try {
-				var houses = BuildingReflection.GetAllHouses();
+				var houses = ConstructionReflection.GetAllHouses();
 				if (houses == null || _hearthIsInRangeMethod == null) return 0;
 
 				int count = 0;
@@ -715,7 +715,7 @@ namespace ATSAccessibility.Reflection {
 			BuildingReflection.EnsureHearthBaseType();
 
 			try {
-				var institutions = BuildingReflection.GetAllInstitutions();
+				var institutions = ConstructionReflection.GetAllInstitutions();
 				if (institutions == null) return 0;
 
 				int count = 0;
@@ -744,7 +744,7 @@ namespace ATSAccessibility.Reflection {
 			BuildingReflection.EnsureHearthBaseType();
 
 			try {
-				var decorations = BuildingReflection.GetAllDecorations();
+				var decorations = ConstructionReflection.GetAllDecorations();
 				if (decorations == null || _hearthIsInRangeMethod == null) return 0;
 
 				int score = 0;

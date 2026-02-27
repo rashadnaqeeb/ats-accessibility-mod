@@ -278,7 +278,7 @@ namespace ATSAccessibility.Panels {
 			var building = category.Buildings[CurrentIndex];
 
 			// Check if building can still be constructed
-			if (!BuildingReflection.CanConstructBuilding(building.Model)) {
+			if (!ConstructionReflection.CanConstructBuilding(building.Model)) {
 				Speech.Say($"{building.Name} cannot be built, at maximum");
 				return;
 			}
@@ -308,7 +308,7 @@ namespace ATSAccessibility.Panels {
 			_categories.Clear();
 
 			// Get all building categories
-			var allCategories = BuildingReflection.GetBuildingCategories();
+			var allCategories = ConstructionReflection.GetBuildingCategories();
 			if (allCategories == null) {
 				Debug.LogWarning("[ATSAccessibility] Could not get BuildingCategories from Settings");
 				return;
@@ -317,7 +317,7 @@ namespace ATSAccessibility.Panels {
 			// Build category lookup
 			var categoryDict = new Dictionary<object, Category>();
 			foreach (var catModel in allCategories) {
-				if (!BuildingReflection.IsCategoryOnHUD(catModel)) continue;
+				if (!ConstructionReflection.IsCategoryOnHUD(catModel)) continue;
 
 				var name = GameReflection.GetDisplayName(catModel) ?? "Unknown";
 				var order = GameReflection.GetModelOrder(catModel);
@@ -331,7 +331,7 @@ namespace ATSAccessibility.Panels {
 			}
 
 			// Get all building models
-			var allBuildings = BuildingReflection.GetAllBuildingModels();
+			var allBuildings = ConstructionReflection.GetAllBuildingModels();
 			if (allBuildings == null) {
 				Debug.LogWarning("[ATSAccessibility] Could not get BuildingModels from Settings");
 				return;
@@ -341,11 +341,11 @@ namespace ATSAccessibility.Panels {
 			int unlockedCount = 0;
 			foreach (var buildingModel in allBuildings) {
 				// Skip inactive, not in shop, or locked buildings
-				if (!BuildingReflection.IsBuildingActive(buildingModel)) continue;
-				if (!BuildingReflection.IsBuildingInShop(buildingModel)) continue;
-				if (!BuildingReflection.IsBuildingUnlocked(buildingModel)) continue;
+				if (!ConstructionReflection.IsBuildingActive(buildingModel)) continue;
+				if (!ConstructionReflection.IsBuildingInShop(buildingModel)) continue;
+				if (!ConstructionReflection.IsBuildingUnlocked(buildingModel)) continue;
 
-				var category = BuildingReflection.GetBuildingCategory(buildingModel);
+				var category = ConstructionReflection.GetBuildingCategory(buildingModel);
 				if (category == null || !categoryDict.ContainsKey(category)) continue;
 
 				var name = GameReflection.GetDisplayName(buildingModel) ?? GameReflection.GetModelName(buildingModel) ?? "Unknown";
@@ -413,18 +413,18 @@ namespace ATSAccessibility.Panels {
 			var building = category.Buildings[CurrentIndex];
 
 			// Get building size
-			var size = BuildingReflection.GetBuildingSize(building.Model);
+			var size = ConstructionReflection.GetBuildingSize(building.Model);
 			string sizeText = $"{size.x}x{size.y}";
 
 			// Get building costs (includes "not enough" annotations for insufficient goods)
-			string costs = BuildingReflection.GetBuildingCosts(building.Model);
+			string costs = ConstructionReflection.GetBuildingCosts(building.Model);
 			string costsText = !string.IsNullOrEmpty(costs) ? $" {costs}." : "";
 
 			// Get building description
-			string description = BuildingReflection.GetBuildingModelDescription(building.Model) ?? "";
+			string description = ConstructionReflection.GetBuildingModelDescription(building.Model) ?? "";
 
 			// Check if can be constructed
-			bool canConstruct = BuildingReflection.CanConstructBuilding(building.Model);
+			bool canConstruct = ConstructionReflection.CanConstructBuilding(building.Model);
 			string status = canConstruct ? "" : ", at maximum";
 
 			// Format: "Name, size. 5 Planks, not enough, 3 Bricks. Description"
@@ -443,12 +443,12 @@ namespace ATSAccessibility.Panels {
 			if (CurrentIndex < 0 || CurrentIndex >= category.Buildings.Count) return;
 
 			var building = category.Buildings[CurrentIndex];
-			var size = BuildingReflection.GetBuildingSize(building.Model);
+			var size = ConstructionReflection.GetBuildingSize(building.Model);
 			string sizeText = $"{size.x}x{size.y}";
-			string costs = BuildingReflection.GetBuildingCosts(building.Model);
+			string costs = ConstructionReflection.GetBuildingCosts(building.Model);
 			string costsText = !string.IsNullOrEmpty(costs) ? $" {costs}." : "";
-			string description = BuildingReflection.GetBuildingModelDescription(building.Model) ?? "";
-			bool canConstruct = BuildingReflection.CanConstructBuilding(building.Model);
+			string description = ConstructionReflection.GetBuildingModelDescription(building.Model) ?? "";
+			bool canConstruct = ConstructionReflection.CanConstructBuilding(building.Model);
 			string status = canConstruct ? "" : ", at maximum";
 
 			string announcement = $"{category.Name}. {building.Name}{status}, {sizeText}.{costsText} {description}";

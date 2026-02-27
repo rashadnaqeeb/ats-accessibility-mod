@@ -35,7 +35,7 @@ namespace ATSAccessibility.Utils {
 				return "No building";
 			}
 
-			if (BuildingReflection.IsBuildingUnfinished(building)) {
+			if (ConstructionReflection.IsBuildingUnfinished(building)) {
 				return "Under construction";
 			}
 
@@ -242,7 +242,7 @@ namespace ATSAccessibility.Utils {
 				return "No building";
 			}
 
-			if (BuildingReflection.IsBuildingUnfinished(building)) {
+			if (ConstructionReflection.IsBuildingUnfinished(building)) {
 				return "Under construction";
 			}
 
@@ -311,7 +311,7 @@ namespace ATSAccessibility.Utils {
 				return "No building";
 			}
 
-			if (BuildingReflection.IsBuildingUnfinished(building)) {
+			if (ConstructionReflection.IsBuildingUnfinished(building)) {
 				return "Under construction";
 			}
 

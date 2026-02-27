@@ -192,14 +192,14 @@ namespace ATSAccessibility.Handlers {
 				case KeyCode.Space:
 					if (modifiers.Shift) {
 						// Shift+Space: destroy building or remove resource node at cursor
-						var buildingToDestroy = BuildingReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+						var buildingToDestroy = ConstructionReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
 						if (buildingToDestroy != null) {
 							// Building found — existing destroy logic
 							if (!BuildingReflection.CanBeDestroyed(buildingToDestroy)) {
-								string name = GameReflection.GetDisplayName(BuildingReflection.GetBuildingModel(buildingToDestroy));
+								string name = GameReflection.GetDisplayName(ConstructionReflection.GetBuildingModel(buildingToDestroy));
 								Speech.Say($"Cannot destroy {name}");
 							} else {
-								string name = GameReflection.GetDisplayName(BuildingReflection.GetBuildingModel(buildingToDestroy));
+								string name = GameReflection.GetDisplayName(ConstructionReflection.GetBuildingModel(buildingToDestroy));
 								var refundGoods = BuildingReflection.GetDestructionRefund(buildingToDestroy);
 								_confirmationDialog.Show(name, () => {
 									if (BuildingReflection.DestroyBuilding(buildingToDestroy)) {
@@ -213,10 +213,10 @@ namespace ATSAccessibility.Handlers {
 						} else {
 							// No building — check for resource node
 							var objectAtPos = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
-							if (objectAtPos != null && BuildingReflection.IsRemovableResource(objectAtPos)) {
-								string name = BuildingReflection.GetResourceNodeDisplayName(objectAtPos) ?? "Resource";
+							if (objectAtPos != null && ConstructionReflection.IsRemovableResource(objectAtPos)) {
+								string name = ConstructionReflection.GetResourceNodeDisplayName(objectAtPos) ?? "Resource";
 								_confirmationDialog.Show(name, () => {
-									if (BuildingReflection.RemoveResourceNode(objectAtPos)) {
+									if (ConstructionReflection.RemoveResourceNode(objectAtPos)) {
 										SoundManager.PlayResourceRemoved();
 										Speech.Say($"Removed: {name}");
 									} else {
@@ -366,7 +366,7 @@ namespace ATSAccessibility.Handlers {
 						string blightInfo = BlightInfoHelper.GetBlightInfo(_mapNavigator.CursorX, _mapNavigator.CursorY);
 						Speech.Say(blightInfo);
 					} else {
-						var buildingAtCursor = BuildingReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+						var buildingAtCursor = ConstructionReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
 						if (buildingAtCursor != null) {
 							string rangeInfo = RangeInfoHelper.GetBuildingRangeInfo(buildingAtCursor);
 							Speech.Say(rangeInfo);
@@ -427,7 +427,7 @@ namespace ATSAccessibility.Handlers {
 						_infoPanelMenu?.OpenWorkersPanel();
 						return true;
 					}
-					var workerBuilding = BuildingReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+					var workerBuilding = ConstructionReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
 					Speech.Say(WorkerInfoHelper.GetWorkerSummary(workerBuilding));
 					return true;
 
@@ -438,8 +438,8 @@ namespace ATSAccessibility.Handlers {
 						if (plusType == "ResourceDeposit" || plusType == "Lake") {
 							AdjustNodePriority(plusObj, +1, modifiers.Shift);
 						} else {
-							var plusBuilding = BuildingReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
-							if (plusBuilding != null && BuildingReflection.IsBuildingUnfinished(plusBuilding)) {
+							var plusBuilding = ConstructionReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+							if (plusBuilding != null && ConstructionReflection.IsBuildingUnfinished(plusBuilding)) {
 								AdjustConstructionPriority(plusBuilding, +1, modifiers.Shift);
 							} else if (modifiers.Shift) {
 								Speech.Say(WorkerInfoHelper.AddWorker(plusBuilding));
@@ -457,8 +457,8 @@ namespace ATSAccessibility.Handlers {
 						if (minusType == "ResourceDeposit" || minusType == "Lake") {
 							AdjustNodePriority(minusObj, -1, modifiers.Shift);
 						} else {
-							var minusBuilding = BuildingReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
-							if (minusBuilding != null && BuildingReflection.IsBuildingUnfinished(minusBuilding)) {
+							var minusBuilding = ConstructionReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+							if (minusBuilding != null && ConstructionReflection.IsBuildingUnfinished(minusBuilding)) {
 								AdjustConstructionPriority(minusBuilding, -1, modifiers.Shift);
 							} else if (modifiers.Shift) {
 								Speech.Say(WorkerInfoHelper.RemoveWorker(minusBuilding));
@@ -479,14 +479,14 @@ namespace ATSAccessibility.Handlers {
 						return true;
 					}
 					if (objectAtCursor != null && objectAtCursor.GetType().Name == "Lake") {
-						var storedGoods = BuildingReflection.GetLakeStoredGoods(objectAtCursor);
+						var storedGoods = ConstructionReflection.GetLakeStoredGoods(objectAtCursor);
 						if (storedGoods.Count == 0) {
 							Speech.Say("No fish to retrieve");
 							return true;
 						}
 
-						int charges = BuildingReflection.GetLakeChargesLeft(objectAtCursor);
-						string lakeName = BuildingReflection.GetResourceNodeDisplayName(objectAtCursor) ?? "Lake";
+						int charges = ConstructionReflection.GetLakeChargesLeft(objectAtCursor);
+						string lakeName = ConstructionReflection.GetResourceNodeDisplayName(objectAtCursor) ?? "Lake";
 
 						var message = new System.Text.StringBuilder();
 						message.Append($"Retrieve {lakeName}? {charges} charges lost. Stored: ");
@@ -497,7 +497,7 @@ namespace ATSAccessibility.Handlers {
 						message.Append(". Enter to confirm, Escape to cancel");
 
 						_confirmationDialog.ShowMessage(message.ToString(), () => {
-							if (BuildingReflection.ForceDepliteLake(objectAtCursor)) {
+							if (ConstructionReflection.ForceDepliteLake(objectAtCursor)) {
 								SoundManager.PlayPortNetsRetrieved();
 								Speech.Say($"Retrieved: {lakeName}");
 							} else {
@@ -553,7 +553,7 @@ namespace ATSAccessibility.Handlers {
 						_infoPanelMenu?.OpenModifiersPanel();
 						return true;
 					}
-					var building = BuildingReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+					var building = ConstructionReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
 					if (building != null)
 						_moveModeController?.EnterMoveMode(building);
 					else
@@ -675,13 +675,13 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		private void CycleWorkerBuilding(int direction) {
-			var allBuildings = BuildingReflection.GetAllBuildingObjects();
+			var allBuildings = ConstructionReflection.GetAllBuildingObjects();
 
 			var filtered = new List<(object building, string name, Vector2Int pos)>();
 
 			foreach (var building in allBuildings) {
 				if (!BuildingReflection.IsProductionBuilding(building)) continue;
-				if (BuildingReflection.IsBuildingUnfinished(building)) continue;
+				if (ConstructionReflection.IsBuildingUnfinished(building)) continue;
 				if (BuildingReflection.GetMaxWorkers(building) <= 0) continue;
 
 				if (_workerCategoryIndex > 0) {
@@ -691,10 +691,10 @@ namespace ATSAccessibility.Handlers {
 						continue;
 				}
 
-				string name = BuildingReflection.GetBuildingDisplayName(building);
+				string name = ConstructionReflection.GetBuildingDisplayName(building);
 				if (string.IsNullOrEmpty(name)) continue;
 
-				Vector2Int pos = BuildingReflection.GetBuildingPosition(building);
+				Vector2Int pos = ConstructionReflection.GetBuildingPosition(building);
 				if (pos.x < 0 || pos.y < 0) continue;
 
 				filtered.Add((building, name, pos));
@@ -752,7 +752,7 @@ namespace ATSAccessibility.Handlers {
 
 		private void AdjustNodePriority(object node, int delta, bool global) {
 			// Always base on focused node's priority (matches game UI behavior)
-			int current = BuildingReflection.GetResourceNodePriority(node);
+			int current = ConstructionReflection.GetResourceNodePriority(node);
 
 			int newPrio = Math.Max(-5, Math.Min(5, current + delta));
 
@@ -762,18 +762,18 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			if (global) {
-				BuildingReflection.SetGlobalResourceNodePriority(node, newPrio);
-				string nodeName = BuildingReflection.GetResourceNodeDisplayName(node);
+				ConstructionReflection.SetGlobalResourceNodePriority(node, newPrio);
+				string nodeName = ConstructionReflection.GetResourceNodeDisplayName(node);
 				Speech.Say($"All {nodeName} set to priority {FormatNodePriority(newPrio)}");
 			} else {
-				BuildingReflection.SetResourceNodePriority(node, newPrio);
+				ConstructionReflection.SetResourceNodePriority(node, newPrio);
 				Speech.Say($"Priority: {FormatNodePriority(newPrio)}");
 			}
 		}
 
 		private void AdjustConstructionPriority(object building, int delta, bool global) {
 			// Always base on focused building's priority (matches game UI behavior)
-			int current = BuildingReflection.GetBuildingConstructionPriority(building);
+			int current = ConstructionReflection.GetBuildingConstructionPriority(building);
 
 			int newPrio = Math.Max(-5, Math.Min(5, current + delta));
 
@@ -783,11 +783,11 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			if (global) {
-				BuildingReflection.SetGlobalBuildingConstructionPriority(building, newPrio);
-				string name = BuildingReflection.GetBuildingDisplayName(building);
+				ConstructionReflection.SetGlobalBuildingConstructionPriority(building, newPrio);
+				string name = ConstructionReflection.GetBuildingDisplayName(building);
 				Speech.Say($"All {name} set to priority {FormatNodePriority(newPrio)}");
 			} else {
-				BuildingReflection.SetBuildingConstructionPriority(building, newPrio);
+				ConstructionReflection.SetBuildingConstructionPriority(building, newPrio);
 				Speech.Say($"Priority: {FormatNodePriority(newPrio)}");
 			}
 		}

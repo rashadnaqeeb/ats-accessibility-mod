@@ -24,7 +24,7 @@ namespace ATSAccessibility.Utils {
 		/// Find the nearest finished storage building to a position.
 		/// </summary>
 		private static (string name, float distance)? FindNearestStorage(Vector2 position) {
-			var storages = BuildingReflection.GetAllStorageBuildings();
+			var storages = ConstructionReflection.GetAllStorageBuildings();
 			if (storages == null) return null;
 
 			float nearestDist = float.MaxValue;
@@ -34,13 +34,13 @@ namespace ATSAccessibility.Utils {
 				if (storage == null) continue;
 				if (!IsBuildingFinished(storage)) continue;
 
-				var entrance = BuildingReflection.GetBuildingEntranceCenter(storage);
+				var entrance = ConstructionReflection.GetBuildingEntranceCenter(storage);
 				if (!entrance.HasValue) continue;
 
 				float dist = Vector2.Distance(position, entrance.Value);
 				if (dist < nearestDist) {
 					nearestDist = dist;
-					var model = BuildingReflection.GetBuildingModel(storage);
+					var model = ConstructionReflection.GetBuildingModel(storage);
 					nearestName = model != null ? GameReflection.GetDisplayName(model) : "Storage";
 				}
 			}
@@ -54,27 +54,27 @@ namespace ATSAccessibility.Utils {
 		public static string GetBuildingRangeInfo(object building) {
 			if (building == null) return "No building";
 
-			var model = BuildingReflection.GetBuildingModel(building);
+			var model = ConstructionReflection.GetBuildingModel(building);
 			if (model == null) return "Unknown building";
 
-			var center = BuildingReflection.GetBuildingCenter(building);
+			var center = ConstructionReflection.GetBuildingCenter(building);
 			if (!center.HasValue) return "Cannot determine building center";
 
 			Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
 
 			// Check building type and get appropriate info
-			if (BuildingReflection.IsCampModel(model)) {
+			if (ConstructionReflection.IsCampModel(model)) {
 				return GetCampRangeInfo(model, center2D);
-			} else if (BuildingReflection.IsGathererHutModel(model)) {
+			} else if (ConstructionReflection.IsGathererHutModel(model)) {
 				return GetGathererHutRangeInfo(model, center2D);
-			} else if (BuildingReflection.IsFishingHutModel(model)) {
+			} else if (ConstructionReflection.IsFishingHutModel(model)) {
 				return GetFishingHutRangeInfo(model, center2D);
-			} else if (BuildingReflection.IsHearthModel(model)) {
+			} else if (ConstructionReflection.IsHearthModel(model)) {
 				return GetHearthRangeInfo(building);
 			} else if (BuildingReflection.IsFarm(building)) {
 				return GetFarmRangeInfo(building);
 			} else if (BuildingReflection.IsFarmfield(building)) {
-				var fieldPos = BuildingReflection.GetBuildingGridPosition(building);
+				var fieldPos = ConstructionReflection.GetBuildingGridPosition(building);
 				if (fieldPos != Vector2Int.zero) {
 					return GetFarmRangeInfoForTile(fieldPos.x, fieldPos.y);
 				}
@@ -96,33 +96,33 @@ namespace ATSAccessibility.Utils {
 			if (buildingModel == null) return "No building selected";
 
 			// Calculate center based on cursor and size
-			Vector2Int baseSize = BuildingReflection.GetBuildingSize(buildingModel);
+			Vector2Int baseSize = ConstructionReflection.GetBuildingSize(buildingModel);
 			bool isRotated = (rotation % 2) == 1;
 			Vector2Int effectiveSize = isRotated
 				? new Vector2Int(baseSize.y, baseSize.x)
 				: baseSize;
 
-			Vector2 center2D = BuildingReflection.CalculateBuildingCenter(cursorX, cursorY, effectiveSize);
+			Vector2 center2D = ConstructionReflection.CalculateBuildingCenter(cursorX, cursorY, effectiveSize);
 
 			// Check building type and get appropriate info
-			if (BuildingReflection.IsCampModel(buildingModel)) {
+			if (ConstructionReflection.IsCampModel(buildingModel)) {
 				return GetCampRangeInfo(buildingModel, center2D);
-			} else if (BuildingReflection.IsGathererHutModel(buildingModel)) {
+			} else if (ConstructionReflection.IsGathererHutModel(buildingModel)) {
 				return GetGathererHutRangeInfo(buildingModel, center2D);
-			} else if (BuildingReflection.IsFishingHutModel(buildingModel)) {
+			} else if (ConstructionReflection.IsFishingHutModel(buildingModel)) {
 				return GetFishingHutRangeInfo(buildingModel, center2D);
-			} else if (BuildingReflection.IsHearthModel(buildingModel)) {
+			} else if (ConstructionReflection.IsHearthModel(buildingModel)) {
 				// For hearth preview, we can't use IsInRange yet - show base range
-				float range = BuildingReflection.GetEffectiveHearthRange(buildingModel);
+				float range = ConstructionReflection.GetEffectiveHearthRange(buildingModel);
 				return $"Hearth range: {range:F1} tiles";
-			} else if (BuildingReflection.IsFarmModel(buildingModel)) {
+			} else if (ConstructionReflection.IsFarmModel(buildingModel)) {
 				return GetFarmRangePreview(buildingModel, cursorX, cursorY, effectiveSize);
-			} else if (BuildingReflection.IsWorkshopModel(buildingModel)) {
+			} else if (ConstructionReflection.IsWorkshopModel(buildingModel)) {
 				// For workshop preview, show nearby suppliers and storage distance
 				return GetProductionBuildingPreview(buildingModel, cursorX, cursorY);
-			} else if (BuildingReflection.IsHouseModel(buildingModel) ||
-					   BuildingReflection.IsInstitutionModel(buildingModel) ||
-					   BuildingReflection.IsDecorationModel(buildingModel)) {
+			} else if (ConstructionReflection.IsHouseModel(buildingModel) ||
+					   ConstructionReflection.IsInstitutionModel(buildingModel) ||
+					   ConstructionReflection.IsDecorationModel(buildingModel)) {
 				// Houses, Institutions, and Decorations are affected by hearth range
 				return GetPositionHearthConnection(cursorX, cursorY);
 			} else {
@@ -167,7 +167,7 @@ namespace ATSAccessibility.Utils {
 		/// Find placed camps in range that can harvest a natural resource.
 		/// </summary>
 		private static string GetNaturalResourceRangeInfo(object resource) {
-			var field = BuildingReflection.GetResourceField(resource);
+			var field = ConstructionReflection.GetResourceField(resource);
 			if (!field.HasValue) return "No buildings in range";
 
 			// Get the resource's good name for matching against camp recipes
@@ -182,7 +182,7 @@ namespace ATSAccessibility.Utils {
 			if (string.IsNullOrEmpty(refGoodName)) return "No buildings in range";
 
 			// Find all placed camps and check which can harvest this good and are in range
-			var camps = BuildingReflection.GetAllCamps();
+			var camps = ConstructionReflection.GetAllCamps();
 			if (camps == null) return "No buildings in range";
 
 			var matches = new List<(string name, float distance)>();
@@ -191,19 +191,19 @@ namespace ATSAccessibility.Utils {
 				if (camp == null) continue;
 				if (!IsBuildingFinished(camp)) continue;
 
-				var campModel = BuildingReflection.GetBuildingModel(camp);
+				var campModel = ConstructionReflection.GetBuildingModel(camp);
 				if (campModel == null) continue;
 
 				// Check if this camp type can harvest this good
-				var goodNames = BuildingReflection.GetGatheringBuildingGoodNames(campModel);
+				var goodNames = ConstructionReflection.GetGatheringBuildingGoodNames(campModel);
 				if (!goodNames.Contains(refGoodName)) continue;
 
-				var center = BuildingReflection.GetBuildingCenter(camp);
+				var center = ConstructionReflection.GetBuildingCenter(camp);
 				if (!center.HasValue) continue;
 
 				Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
-				float distance = BuildingReflection.CalculateResourceDistance(center2D, field.Value);
-				float maxDistance = BuildingReflection.GetGatheringBuildingMaxDistance(campModel);
+				float distance = ConstructionReflection.CalculateResourceDistance(center2D, field.Value);
+				float maxDistance = ConstructionReflection.GetGatheringBuildingMaxDistance(campModel);
 
 				if (distance < maxDistance) {
 					string name = GameReflection.GetDisplayName(campModel) ?? "Camp";
@@ -218,10 +218,10 @@ namespace ATSAccessibility.Utils {
 		/// Find placed gatherer huts in range that can work a resource deposit.
 		/// </summary>
 		private static string GetDepositRangeInfo(object deposit) {
-			var field = BuildingReflection.GetResourceField(deposit);
+			var field = ConstructionReflection.GetResourceField(deposit);
 			if (!field.HasValue) return "No buildings in range";
 
-			var size = BuildingReflection.GetResourceSize(deposit) ?? Vector2Int.one;
+			var size = ConstructionReflection.GetResourceSize(deposit) ?? Vector2Int.one;
 
 			// Get the deposit model for matching against hut recipes
 			var modelProp = deposit.GetType().GetProperty("Model");
@@ -235,7 +235,7 @@ namespace ATSAccessibility.Utils {
 			string goodName = goodNameProp.GetValue(depositModel) as string;
 			if (string.IsNullOrEmpty(goodName)) return "No buildings in range";
 
-			var huts = BuildingReflection.GetAllGathererHuts();
+			var huts = ConstructionReflection.GetAllGathererHuts();
 			if (huts == null) return "No buildings in range";
 
 			var matches = new List<(string name, float distance)>();
@@ -244,18 +244,18 @@ namespace ATSAccessibility.Utils {
 				if (hut == null) continue;
 				if (!IsBuildingFinished(hut)) continue;
 
-				var hutModel = BuildingReflection.GetBuildingModel(hut);
+				var hutModel = ConstructionReflection.GetBuildingModel(hut);
 				if (hutModel == null) continue;
 
-				var goodNames = BuildingReflection.GetGatheringBuildingGoodNames(hutModel);
+				var goodNames = ConstructionReflection.GetGatheringBuildingGoodNames(hutModel);
 				if (!goodNames.Contains(goodName)) continue;
 
-				var center = BuildingReflection.GetBuildingCenter(hut);
+				var center = ConstructionReflection.GetBuildingCenter(hut);
 				if (!center.HasValue) continue;
 
 				Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
-				float distance = BuildingReflection.CalculateDepositDistance(center2D, field.Value, size);
-				float maxDistance = BuildingReflection.GetGatheringBuildingMaxDistance(hutModel);
+				float distance = ConstructionReflection.CalculateDepositDistance(center2D, field.Value, size);
+				float maxDistance = ConstructionReflection.GetGatheringBuildingMaxDistance(hutModel);
 
 				if (distance < maxDistance) {
 					string name = GameReflection.GetDisplayName(hutModel) ?? "Gatherer Hut";
@@ -270,10 +270,10 @@ namespace ATSAccessibility.Utils {
 		/// Find placed fishing huts in range that can work a lake.
 		/// </summary>
 		private static string GetLakeRangeInfo(object lake) {
-			var field = BuildingReflection.GetResourceField(lake);
+			var field = ConstructionReflection.GetResourceField(lake);
 			if (!field.HasValue) return "No buildings in range";
 
-			var size = BuildingReflection.GetResourceSize(lake) ?? Vector2Int.one;
+			var size = ConstructionReflection.GetResourceSize(lake) ?? Vector2Int.one;
 
 			// LakeModel inherits GoodName from ResourceModel
 			var modelProp = lake.GetType().GetProperty("Model");
@@ -284,7 +284,7 @@ namespace ATSAccessibility.Utils {
 			var goodNameProp = lakeModel.GetType().GetProperty("GoodName");
 			string goodName = goodNameProp?.GetValue(lakeModel) as string;
 
-			var huts = BuildingReflection.GetAllFishingHuts();
+			var huts = ConstructionReflection.GetAllFishingHuts();
 			if (huts == null) return "No buildings in range";
 
 			var matches = new List<(string name, float distance)>();
@@ -293,21 +293,21 @@ namespace ATSAccessibility.Utils {
 				if (hut == null) continue;
 				if (!IsBuildingFinished(hut)) continue;
 
-				var hutModel = BuildingReflection.GetBuildingModel(hut);
+				var hutModel = ConstructionReflection.GetBuildingModel(hut);
 				if (hutModel == null) continue;
 
 				// If we have a good name, check recipe match; otherwise accept all fishing huts
 				if (!string.IsNullOrEmpty(goodName)) {
-					var goodNames = BuildingReflection.GetGatheringBuildingGoodNames(hutModel);
+					var goodNames = ConstructionReflection.GetGatheringBuildingGoodNames(hutModel);
 					if (!goodNames.Contains(goodName)) continue;
 				}
 
-				var center = BuildingReflection.GetBuildingCenter(hut);
+				var center = ConstructionReflection.GetBuildingCenter(hut);
 				if (!center.HasValue) continue;
 
 				Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
-				float distance = BuildingReflection.CalculateDepositDistance(center2D, field.Value, size);
-				float maxDistance = BuildingReflection.GetGatheringBuildingMaxDistance(hutModel);
+				float distance = ConstructionReflection.CalculateDepositDistance(center2D, field.Value, size);
+				float maxDistance = ConstructionReflection.GetGatheringBuildingMaxDistance(hutModel);
 
 				if (distance < maxDistance) {
 					string name = GameReflection.GetDisplayName(hutModel) ?? "Fishing Hut";
@@ -340,23 +340,23 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		private static string GetFarmRangeInfoForTile(int tileX, int tileY) {
 			try {
-				var farms = BuildingReflection.GetAllFarms();
+				var farms = ConstructionReflection.GetAllFarms();
 				if (farms == null) return "No farms in range";
 
 				var matches = new List<(string name, float distance)>();
-				int bonus = BuildingReflection.GetBonusFarmArea();
+				int bonus = ConstructionReflection.GetBonusFarmArea();
 
 				foreach (var farm in farms) {
 					if (farm == null) continue;
 					if (!IsBuildingFinished(farm)) continue;
 
-					var model = BuildingReflection.GetBuildingModel(farm);
+					var model = ConstructionReflection.GetBuildingModel(farm);
 					if (model == null) continue;
 
-					var farmPos = BuildingReflection.GetBuildingGridPosition(farm);
+					var farmPos = ConstructionReflection.GetBuildingGridPosition(farm);
 					if (farmPos == Vector2Int.zero) continue;
 
-					var buildingSize = BuildingReflection.GetBuildingSize(model);
+					var buildingSize = ConstructionReflection.GetBuildingSize(model);
 					Vector2Int baseWorkArea = MapReflection.GetFarmModelWorkArea(model);
 					Vector2Int workArea = new Vector2Int(baseWorkArea.x + bonus, baseWorkArea.y + bonus);
 
@@ -372,7 +372,7 @@ namespace ATSAccessibility.Utils {
 											 tileY >= farmPos.y && tileY < farmPos.y + buildingSize.y;
 						if (!underBuilding) {
 							// Calculate distance from farm center to tile
-							var center = BuildingReflection.GetBuildingCenter(farm);
+							var center = ConstructionReflection.GetBuildingCenter(farm);
 							float distance = 0f;
 							if (center.HasValue) {
 								Vector2 center2D = new Vector2(center.Value.x, center.Value.z);
@@ -402,8 +402,8 @@ namespace ATSAccessibility.Utils {
 		private static string GetGatheringBuildingRangeInfo(
 			object model, Vector2 center2D, object resourceDict,
 			bool isDeposit, string resourceTypeName) {
-			float maxDistance = BuildingReflection.GetGatheringBuildingMaxDistance(model);
-			var goodNames = BuildingReflection.GetGatheringBuildingGoodNames(model);
+			float maxDistance = ConstructionReflection.GetGatheringBuildingMaxDistance(model);
+			var goodNames = ConstructionReflection.GetGatheringBuildingGoodNames(model);
 
 			if (resourceDict == null || goodNames.Count == 0)
 				return $"No {resourceTypeName} available";
@@ -423,19 +423,19 @@ namespace ATSAccessibility.Utils {
 
 		private static string GetCampRangeInfo(object campModel, Vector2 center2D) {
 			return GetGatheringBuildingRangeInfo(
-				campModel, center2D, BuildingReflection.GetAvailableResources(),
+				campModel, center2D, ConstructionReflection.GetAvailableResources(),
 				isDeposit: false, "resources");
 		}
 
 		private static string GetGathererHutRangeInfo(object hutModel, Vector2 center2D) {
 			return GetGatheringBuildingRangeInfo(
-				hutModel, center2D, BuildingReflection.GetAvailableDeposits(),
+				hutModel, center2D, ConstructionReflection.GetAvailableDeposits(),
 				isDeposit: true, "deposits");
 		}
 
 		private static string GetFishingHutRangeInfo(object hutModel, Vector2 center2D) {
 			return GetGatheringBuildingRangeInfo(
-				hutModel, center2D, BuildingReflection.GetAvailableLakes(),
+				hutModel, center2D, ConstructionReflection.GetAvailableLakes(),
 				isDeposit: true, "lakes");
 		}
 
@@ -450,36 +450,36 @@ namespace ATSAccessibility.Utils {
 
 			try {
 				// Count finished houses in range
-				var houses = BuildingReflection.GetAllHouses();
+				var houses = ConstructionReflection.GetAllHouses();
 				if (houses != null) {
 					foreach (var house in houses) {
 						if (house == null) continue;
 
-						if (IsBuildingFinished(house) && BuildingReflection.IsInHearthRange(hearth, house)) {
+						if (IsBuildingFinished(house) && ConstructionReflection.IsInHearthRange(hearth, house)) {
 							housesCount++;
 						}
 					}
 				}
 
 				// Count finished institutions in range
-				var institutions = BuildingReflection.GetAllInstitutions();
+				var institutions = ConstructionReflection.GetAllInstitutions();
 				if (institutions != null) {
 					foreach (var institution in institutions) {
 						if (institution == null) continue;
 
-						if (IsBuildingFinished(institution) && BuildingReflection.IsInHearthRange(hearth, institution)) {
+						if (IsBuildingFinished(institution) && ConstructionReflection.IsInHearthRange(hearth, institution)) {
 							institutionsCount++;
 						}
 					}
 				}
 
 				// Count finished decorations in range
-				var decorations = BuildingReflection.GetAllDecorations();
+				var decorations = ConstructionReflection.GetAllDecorations();
 				if (decorations != null) {
 					foreach (var decoration in decorations) {
 						if (decoration == null) continue;
 
-						if (IsBuildingFinished(decoration) && BuildingReflection.IsInHearthRange(hearth, decoration)) {
+						if (IsBuildingFinished(decoration) && ConstructionReflection.IsInHearthRange(hearth, decoration)) {
 							decorationsCount++;
 						}
 					}
@@ -536,18 +536,18 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		private static int CountFarmfieldsInFarmRange(object farm) {
 			try {
-				var model = BuildingReflection.GetBuildingModel(farm);
+				var model = ConstructionReflection.GetBuildingModel(farm);
 				if (model == null) return 0;
 
 				// Get farm's field position and size
-				var fieldPos = BuildingReflection.GetBuildingGridPosition(farm);
+				var fieldPos = ConstructionReflection.GetBuildingGridPosition(farm);
 				if (fieldPos == Vector2Int.zero) return 0;
 
-				var buildingSize = BuildingReflection.GetBuildingSize(model);
+				var buildingSize = ConstructionReflection.GetBuildingSize(model);
 
 				// Get work area from model + meta bonus
 				Vector2Int baseWorkArea = MapReflection.GetFarmModelWorkArea(model);
-				int bonus = BuildingReflection.GetBonusFarmArea();
+				int bonus = ConstructionReflection.GetBonusFarmArea();
 				Vector2Int workArea = new Vector2Int(baseWorkArea.x + bonus, baseWorkArea.y + bonus);
 
 				// Calculate bounds
@@ -568,7 +568,7 @@ namespace ATSAccessibility.Utils {
 						if (x >= fieldPos.x && x < fieldPos.x + buildingSize.x &&
 							y >= fieldPos.y && y < fieldPos.y + buildingSize.y) continue;
 
-						if (BuildingReflection.HasFarmfieldAt(x, y))
+						if (ConstructionReflection.HasFarmfieldAt(x, y))
 							count++;
 					}
 				}
@@ -591,7 +591,7 @@ namespace ATSAccessibility.Utils {
 					return "Cannot determine farm work area";
 				}
 
-				int bonus = BuildingReflection.GetBonusFarmArea();
+				int bonus = ConstructionReflection.GetBonusFarmArea();
 				Vector2Int workArea = new Vector2Int(baseWorkArea.x + bonus, baseWorkArea.y + bonus);
 
 				// Calculate the area bounds (work area extends around the building)
@@ -624,7 +624,7 @@ namespace ATSAccessibility.Utils {
 						// Check if grass tile using FieldType
 						if (MapReflection.IsFieldGrass(field)) {
 							// Check if there's a finished farmfield at this position
-							if (BuildingReflection.HasFarmfieldAt(x, y)) {
+							if (ConstructionReflection.HasFarmfieldAt(x, y)) {
 								farmfieldCount++;
 							} else {
 								grassCount++;
@@ -658,7 +658,7 @@ namespace ATSAccessibility.Utils {
 
 			try {
 				// Get building's entrance center for distance calculations
-				var entranceCenter = BuildingReflection.GetBuildingEntranceCenter(building);
+				var entranceCenter = ConstructionReflection.GetBuildingEntranceCenter(building);
 				if (!entranceCenter.HasValue) {
 					return "Cannot determine building position";
 				}
@@ -666,7 +666,7 @@ namespace ATSAccessibility.Utils {
 				Vector2 buildingPos = entranceCenter.Value;
 
 				// For placed buildings, get only the allowed inputs from active recipes
-				var allowedInputs = BuildingReflection.GetBuildingRequiredInputs(building);
+				var allowedInputs = ConstructionReflection.GetBuildingRequiredInputs(building);
 				if (allowedInputs.Count > 0) {
 					// Use actual outputs check (what suppliers can really produce)
 					results.Add(FindNearbySuppliers(buildingPos, allowedInputs, building, useActualOutputs: true));
@@ -699,7 +699,7 @@ namespace ATSAccessibility.Utils {
 				return "No inputs required";
 			}
 
-			float localStorageRange = BuildingReflection.GetLocalStorageDistance();
+			float localStorageRange = ConstructionReflection.GetLocalStorageDistance();
 
 			// Cache per-producer data to avoid redundant calculations when a building produces multiple goods
 			// Key: producer object, Value: (name, distance, actual outputs if needed)
@@ -709,13 +709,13 @@ namespace ATSAccessibility.Utils {
 			var nearbySuppliers = new Dictionary<string, (List<string> goods, float minDistance)>();
 
 			foreach (var inputGood in requiredInputs) {
-				var producers = BuildingReflection.GetBuildingsThatProduce(inputGood);
+				var producers = ConstructionReflection.GetBuildingsThatProduce(inputGood);
 				foreach (var producer in producers) {
 					if (excludeBuilding != null && producer == excludeBuilding) continue;
 
 					// Check cache first to avoid redundant distance/name calculations
 					if (!producerCache.TryGetValue(producer, out var cached)) {
-						var producerEntrance = BuildingReflection.GetBuildingEntranceCenter(producer);
+						var producerEntrance = ConstructionReflection.GetBuildingEntranceCenter(producer);
 						if (!producerEntrance.HasValue) continue;
 
 						float dist = Vector2.Distance(buildingPos, producerEntrance.Value);
@@ -723,14 +723,14 @@ namespace ATSAccessibility.Utils {
 						// Skip if outside local storage range
 						if (dist > localStorageRange) continue;
 
-						var producerModel = BuildingReflection.GetBuildingModel(producer);
+						var producerModel = ConstructionReflection.GetBuildingModel(producer);
 						string producerName = producerModel != null
 							? GameReflection.GetDisplayName(producerModel) ?? "Building"
 							: "Building";
 
 						// Get actual outputs once if needed
 						List<string> actualOutputs = useActualOutputs
-							? BuildingReflection.GetBuildingActualOutputs(producer)
+							? ConstructionReflection.GetBuildingActualOutputs(producer)
 							: null;
 
 						cached = (producerName, dist, actualOutputs);
@@ -808,7 +808,7 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		private static string GetPositionHearthConnection(int x, int y) {
 			var position = new Vector2Int(x, y);
-			var hearths = BuildingReflection.GetAllHearths();
+			var hearths = ConstructionReflection.GetAllHearths();
 			if (hearths == null) return "Cannot access hearths";
 
 			var connectedHearths = new List<string>();
@@ -816,15 +816,15 @@ namespace ATSAccessibility.Utils {
 			foreach (var hearth in hearths) {
 				if (hearth == null) continue;
 
-				if (BuildingReflection.IsInHearthRange(hearth, position)) {
+				if (ConstructionReflection.IsInHearthRange(hearth, position)) {
 					// Get hearth's center and calculate distance
-					var hearthCenter = BuildingReflection.GetBuildingCenter(hearth);
+					var hearthCenter = ConstructionReflection.GetBuildingCenter(hearth);
 					if (hearthCenter.HasValue) {
 						Vector2 hearthCenter2D = new Vector2(hearthCenter.Value.x, hearthCenter.Value.z);
 						float distance = Vector2.Distance(hearthCenter2D, new Vector2(x, y));
 
 						// Get hearth name
-						var model = BuildingReflection.GetBuildingModel(hearth);
+						var model = ConstructionReflection.GetBuildingModel(hearth);
 						string hearthName = model != null
 							? GameReflection.GetDisplayName(model) ?? "Hearth"
 							: "Hearth";
@@ -863,22 +863,22 @@ namespace ATSAccessibility.Utils {
 					if (resourceList == null) continue;
 
 					foreach (var resource in resourceList) {
-						var field = BuildingReflection.GetResourceField(resource);
+						var field = ConstructionReflection.GetResourceField(resource);
 						if (!field.HasValue) continue;
 
 						float distance;
 						if (isDeposit) {
 							// Deposits/lakes can be multi-tile, check closest tile
-							var size = BuildingReflection.GetResourceSize(resource) ?? Vector2Int.one;
-							distance = BuildingReflection.CalculateDepositDistance(center2D, field.Value, size);
+							var size = ConstructionReflection.GetResourceSize(resource) ?? Vector2Int.one;
+							distance = ConstructionReflection.CalculateDepositDistance(center2D, field.Value, size);
 						} else {
 							// Natural resources are single-tile
-							distance = BuildingReflection.CalculateResourceDistance(center2D, field.Value);
+							distance = ConstructionReflection.CalculateResourceDistance(center2D, field.Value);
 						}
 
 						if (distance < maxDistance) {
 							// Get the node's display name (e.g., "Lush Tree", "Mushrooms")
-							string nodeName = BuildingReflection.GetResourceNodeDisplayName(resource);
+							string nodeName = ConstructionReflection.GetResourceNodeDisplayName(resource);
 							if (string.IsNullOrEmpty(nodeName)) {
 								// Fallback to good name if display name not available
 								nodeName = GetGoodDisplayName(goodName) ?? goodName;
@@ -915,7 +915,7 @@ namespace ATSAccessibility.Utils {
 
 				// 1. Find nearby suppliers using model's possible inputs
 				// Use all possible inputs (building not configured yet), but check actual outputs of suppliers
-				var possibleInputs = BuildingReflection.GetModelPossibleInputs(buildingModel);
+				var possibleInputs = ConstructionReflection.GetModelPossibleInputs(buildingModel);
 				if (possibleInputs.Count > 0) {
 					results.Add(FindNearbySuppliers(buildingPos, possibleInputs, excludeBuilding: null, useActualOutputs: true));
 				}

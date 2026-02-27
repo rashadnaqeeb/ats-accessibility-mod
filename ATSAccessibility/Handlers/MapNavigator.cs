@@ -303,8 +303,8 @@ namespace ATSAccessibility.Handlers {
 					string objectName = GetObjectName(objectOn);
 					if (!string.IsNullOrEmpty(objectName)) {
 						// Check building state if it's a building
-						if (BuildingReflection.IsBuilding(objectOn)) {
-							if (BuildingReflection.IsBuildingUnfinished(objectOn)) {
+						if (ConstructionReflection.IsBuilding(objectOn)) {
+							if (ConstructionReflection.IsBuildingUnfinished(objectOn)) {
 								objectName += ", under construction";
 							} else if (BuildingReflection.IsRelic(objectOn)) {
 								objectName += ", ruin";
@@ -569,19 +569,19 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			// Check if it's a building
-			if (!BuildingReflection.IsBuilding(objectOn)) {
+			if (!ConstructionReflection.IsBuilding(objectOn)) {
 				Speech.Say("Not a building");
 				return false;
 			}
 
 			// Announce construction progress instead of opening panel for unfinished buildings
-			if (BuildingReflection.IsBuildingUnfinished(objectOn)) {
+			if (ConstructionReflection.IsBuildingUnfinished(objectOn)) {
 				AnnounceConstruction(objectOn);
 				return true;
 			}
 
 			// Try to pick the building (opens its panel)
-			if (BuildingReflection.PickBuilding(objectOn)) {
+			if (ConstructionReflection.PickBuilding(objectOn)) {
 				return true;
 			} else {
 				Speech.Say("Cannot open building");
@@ -590,7 +590,7 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		private void AnnounceConstruction(object building) {
-			float progress = BuildingReflection.GetBuildingProgress(building);
+			float progress = ConstructionReflection.GetBuildingProgress(building);
 			int percent = (int)(progress * 100);
 
 			if (percent > 0) {
@@ -599,7 +599,7 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			// 0% progress - announce remaining materials if any
-			var materials = BuildingReflection.GetConstructionMaterials(building);
+			var materials = ConstructionReflection.GetConstructionMaterials(building);
 			if (materials != null && materials.Count > 0) {
 				var parts = new List<string>();
 				foreach (var (name, delivered, required) in materials) {
@@ -641,25 +641,25 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			// Check if it's a building
-			if (!BuildingReflection.IsBuilding(objectOn)) {
+			if (!ConstructionReflection.IsBuilding(objectOn)) {
 				Speech.Say("Not a building");
 				return;
 			}
 
 			// Check if building type supports rotation
-			if (!BuildingReflection.CanRotateBuilding(objectOn)) {
+			if (!ConstructionReflection.CanRotateBuilding(objectOn)) {
 				Speech.Say("Cannot rotate");
 				return;
 			}
 
 			// Check if building is movable (required for rotation)
-			if (!BuildingReflection.CanMovePlacedBuilding(objectOn)) {
+			if (!ConstructionReflection.CanMovePlacedBuilding(objectOn)) {
 				Speech.Say("Unmovable");
 				return;
 			}
 
 			// Check if rotation would be blocked by obstacles
-			if (!BuildingReflection.CanRotatePlacedBuilding(objectOn)) {
+			if (!ConstructionReflection.CanRotatePlacedBuilding(objectOn)) {
 				Speech.Say("Rotation blocked");
 				return;
 			}
@@ -667,7 +667,7 @@ namespace ATSAccessibility.Handlers {
 			// Rotate the building in the specified direction
 			// Rotation values: 0=N, 1=W, 2=S, 3=E — incrementing is counterclockwise
 			int direction = clockwise ? -1 : 1;
-			int newRotation = BuildingReflection.RotatePlacedBuildingDirection(objectOn, direction);
+			int newRotation = ConstructionReflection.RotatePlacedBuildingDirection(objectOn, direction);
 			if (newRotation >= 0 && newRotation < RotationDirections.Length) {
 				Speech.Say(RotationDirections[newRotation]);
 			} else {

@@ -609,7 +609,7 @@ namespace ATSAccessibility.Utils {
 			// Find all discovered guiding stones and compute their bearing rays
 			var rays = new List<(float ox, float oy, float dx, float dy)>();
 
-			foreach (var building in BuildingReflection.GetAllBuildingObjects()) {
+			foreach (var building in ConstructionReflection.GetAllBuildingObjects()) {
 				var viewField = building.GetType().GetField("view",
 					GameReflection.PublicInstance);
 				if (viewField == null) continue;
@@ -937,7 +937,7 @@ namespace ATSAccessibility.Utils {
 
 						string typeName = MapReflection.GetFieldTypeName(field);
 						if (typeName == "Grass") {
-							if (BuildingReflection.GetBuildingAtPosition(x, y) != null) continue;
+							if (ConstructionReflection.GetBuildingAtPosition(x, y) != null) continue;
 
 							int distance = CalculateDistance(pos, cursorX, cursorY);
 							fertileSoilGroup.Items.Add(new ScannedItem(pos, distance));
@@ -1304,7 +1304,7 @@ namespace ATSAccessibility.Utils {
 						string typeName = MapReflection.GetFieldTypeName(field);
 						if (typeName == "Grass") {
 							// Skip if there's already a building (e.g., farm field) on this tile
-							if (BuildingReflection.GetBuildingAtPosition(x, y) != null) continue;
+							if (ConstructionReflection.GetBuildingAtPosition(x, y) != null) continue;
 
 							int distance = CalculateDistance(pos, cursorX, cursorY);
 							fertileSoilGroup.Items.Add(new ScannedItem(pos, distance));

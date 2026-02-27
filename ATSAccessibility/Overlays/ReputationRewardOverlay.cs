@@ -87,7 +87,7 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			// Add reroll option if unlocked via meta progression
-			if (BuildingReflection.IsBlueprintRerollUnlocked()) {
+			if (ConstructionReflection.IsBlueprintRerollUnlocked()) {
 				var (rerollAmount, rerollGoodName) = ReputationRewardReflection.GetRerollCost();
 				string rerollLabel = ReputationRewardReflection.CanAffordReroll()
 					? $"Reroll, {rerollAmount} {rerollGoodName}"
