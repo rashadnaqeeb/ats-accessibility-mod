@@ -17,7 +17,6 @@ namespace ATSAccessibility.Navigators {
 		private string _buildingName;
 		private string _buildingDescription;
 		private bool _isFinished;
-		private bool _isSleeping;
 		private bool _hasUpgrades;
 
 		// ========================================

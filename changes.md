@@ -35,6 +35,7 @@ Added working priority support across the mod. You can now:
 - Move glade info, location markers, relics highlight, harvest mark/unmark, farm range, and seal/guidepost reflection from GameReflection into MapReflection
 - Extract ConstructionReflection.cs from BuildingReflection.cs (construction, placement, range info, lake, supply chain, and building enumeration code)
 - Consolidate duplicate strider/crew method pairs in PortReflection into unified parameterized API
+- Move shared ToggleBuildingSleep implementation from 4 navigators into BuildingSectionNavigator base class
 
 ## v1.1.6
 

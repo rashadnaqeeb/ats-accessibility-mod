@@ -26,9 +26,6 @@ namespace ATSAccessibility.Navigators {
 
 		private string[] _sectionNames;
 		private SectionType[] _sectionTypes;
-		private bool _isSleeping;
-		private bool _canSleep;
-
 		// Water data
 		private string _waterTypeName;
 		private bool _isRainCatcher;
@@ -139,27 +136,6 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			return false;
-		}
-
-		protected override bool ToggleBuildingSleep() {
-			if (!_canSleep) {
-				Speech.Say("Cannot pause this building");
-				return false;
-			}
-
-			bool wasSleeping = _isSleeping;
-			if (BuildingReflection.ToggleBuildingSleep(_building)) {
-				_isSleeping = !wasSleeping;
-				if (!wasSleeping) {
-					_workersSection.RefreshWorkerIds();
-				}
-				Speech.Say(_isSleeping ? "Paused" : "Active");
-				return true;
-			} else {
-				SoundManager.PlayFailed();
-				Speech.Say("Cannot change building state");
-				return false;
-			}
 		}
 
 		protected override bool PerformSectionAction(int sectionIndex) {

@@ -23,6 +23,8 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		protected object _building;
+		protected bool _isSleeping;
+		protected bool _canSleep;
 
 		// Shared section handlers
 		protected readonly BuildingUpgradesSection _upgradesSection = new BuildingUpgradesSection();
@@ -273,7 +275,26 @@ namespace ATSAccessibility.Navigators {
 		protected virtual void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex) { }
 		protected virtual void AnnounceSubSubItem(int sectionIndex, int itemIndex, int subItemIndex, int subSubItemIndex) { }
 
-		protected virtual bool ToggleBuildingSleep() => false;
+		protected virtual bool ToggleBuildingSleep() {
+			if (!_canSleep) {
+				Speech.Say("Cannot pause this building");
+				return false;
+			}
+
+			bool wasSleeping = _isSleeping;
+			if (BuildingReflection.ToggleBuildingSleep(_building)) {
+				_isSleeping = !wasSleeping;
+				if (!wasSleeping) {
+					_workersSection.RefreshWorkerIds();
+				}
+				Speech.Say(_isSleeping ? "Paused" : "Active");
+				return true;
+			} else {
+				SoundManager.PlayFailed();
+				Speech.Say("Cannot change building state");
+				return false;
+			}
+		}
 		protected virtual bool PerformSectionAction(int sectionIndex) => false;
 		protected virtual bool PerformItemAction(int sectionIndex, int itemIndex) => false;
 		protected virtual bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex) => false;

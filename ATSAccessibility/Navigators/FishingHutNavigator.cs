@@ -28,9 +28,6 @@ namespace ATSAccessibility.Navigators {
 
 		private string[] _sectionNames;
 		private SectionType[] _sectionTypes;
-		private bool _isSleeping;
-		private bool _canSleep;
-
 		// Bait data
 		private int _baitMode;
 		private int _baitCharges;
@@ -131,26 +128,6 @@ namespace ATSAccessibility.Navigators {
 				case SectionType.Upgrades:
 					_upgradesSection.AnnounceItem(itemIndex);
 					break;
-			}
-		}
-
-		protected override bool ToggleBuildingSleep() {
-			if (!_canSleep) {
-				Speech.Say("Cannot pause this building");
-				return false;
-			}
-
-			bool wasSleeping = _isSleeping;
-			if (BuildingReflection.ToggleBuildingSleep(_building)) {
-				_isSleeping = !wasSleeping;
-				if (!wasSleeping) {
-					_workersSection.RefreshWorkerIds();
-				}
-				Speech.Say(_isSleeping ? "Paused" : "Active");
-				return true;
-			} else {
-				Speech.Say("Cannot change building state");
-				return false;
 			}
 		}
 
