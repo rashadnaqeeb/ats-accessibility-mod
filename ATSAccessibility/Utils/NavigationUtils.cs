@@ -40,5 +40,39 @@ namespace ATSAccessibility.Utils {
 			if (string.IsNullOrEmpty(ew)) return ns;
 			return ns + ew;
 		}
+
+		/// <summary>
+		/// Returns a cardinal direction name for a building rotation value (0-3).
+		/// 0=North, 1=West, 2=South, 3=East.
+		/// </summary>
+		public static string GetCardinalDirection(int rotation) {
+			return rotation switch {
+				0 => "North",
+				1 => "West",
+				2 => "South",
+				3 => "East",
+				_ => "Unknown"
+			};
+		}
+
+		/// <summary>
+		/// Returns a readable announcement of how far a building extends from its origin tile.
+		/// </summary>
+		public static string GetExtensionAnnouncement(int east, int north) {
+			if (east == 0 && north == 0) {
+				return "1 tile";
+			}
+
+			var parts = new System.Collections.Generic.List<string>();
+
+			if (east > 0) {
+				parts.Add($"{east} east");
+			}
+			if (north > 0) {
+				parts.Add($"{north} north");
+			}
+
+			return "extends " + string.Join(", ", parts);
+		}
 	}
 }

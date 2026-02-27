@@ -72,7 +72,7 @@ namespace ATSAccessibility.Handlers {
 			Vector2Int size = ConstructionReflection.GetBuildingSize(buildingModel);
 			int extendEast = size.x - 1;
 			int extendNorth = size.y - 1;
-			string extension = GetExtensionAnnouncement(extendEast, extendNorth);
+			string extension = NavigationUtils.GetExtensionAnnouncement(extendEast, extendNorth);
 
 			Speech.Say($"Build mode: {buildingName}, {extension}");
 			Debug.Log($"[ATSAccessibility] Entered build mode for: {buildingName} (size {size.x}x{size.y})");
@@ -182,7 +182,7 @@ namespace ATSAccessibility.Handlers {
 
 			_rotation = (_rotation + (clockwise ? 3 : 1)) % 4;
 			SoundManager.PlayBuildingRotated();
-			string direction = GetCardinalDirection(_rotation);
+			string direction = NavigationUtils.GetCardinalDirection(_rotation);
 
 			// Get building size and adjust for rotation
 			Vector2Int baseSize = ConstructionReflection.GetBuildingSize(_selectedBuildingModel);
@@ -191,32 +191,12 @@ namespace ATSAccessibility.Handlers {
 			int extendNorth = (isRotated ? baseSize.x : baseSize.y) - 1;
 
 			// Build extension announcement
-			string extension = GetExtensionAnnouncement(extendEast, extendNorth);
+			string extension = NavigationUtils.GetExtensionAnnouncement(extendEast, extendNorth);
 
 			Speech.Say($"{direction}, {extension}");
 			Debug.Log($"[ATSAccessibility] Building rotated to {_rotation} ({direction}), extends {extendEast}E {extendNorth}N");
 		}
 
-		/// <summary>
-		/// Get a readable announcement of how far the building extends from cursor.
-		/// </summary>
-		private string GetExtensionAnnouncement(int east, int north) {
-			// Handle 1x1 buildings
-			if (east == 0 && north == 0) {
-				return "1 tile";
-			}
-
-			var parts = new System.Collections.Generic.List<string>();
-
-			if (east > 0) {
-				parts.Add($"{east} east");
-			}
-			if (north > 0) {
-				parts.Add($"{north} north");
-			}
-
-			return "extends " + string.Join(", ", parts);
-		}
 
 		/// <summary>
 		/// Attempt to place the building at the current cursor position.
@@ -328,18 +308,6 @@ namespace ATSAccessibility.Handlers {
 			_buildingMenuPanel?.Toggle();
 		}
 
-		/// <summary>
-		/// Get the cardinal direction name for a rotation value.
-		/// </summary>
-		private string GetCardinalDirection(int rotation) {
-			return rotation switch {
-				0 => "North",
-				1 => "West",
-				2 => "South",
-				3 => "East",
-				_ => "Unknown"
-			};
-		}
 
 		/// <summary>
 		/// Check if the current building can be placed at the cursor position.

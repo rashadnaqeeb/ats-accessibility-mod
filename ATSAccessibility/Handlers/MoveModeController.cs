@@ -102,7 +102,7 @@ namespace ATSAccessibility.Handlers {
 			bool isRotated = (_currentRotation % 2) == 1;
 			int extendEast = (isRotated ? size.y : size.x) - 1;
 			int extendNorth = (isRotated ? size.x : size.y) - 1;
-			string extension = GetExtensionAnnouncement(extendEast, extendNorth);
+			string extension = NavigationUtils.GetExtensionAnnouncement(extendEast, extendNorth);
 
 			string costNote = "";
 			if (_pricePaid) {
@@ -330,7 +330,7 @@ namespace ATSAccessibility.Handlers {
 			ConstructionReflection.RotateBuilding(_movingBuilding, _currentRotation);
 			SoundManager.PlayBuildingRotated();
 
-			string direction = GetCardinalDirection(_currentRotation);
+			string direction = NavigationUtils.GetCardinalDirection(_currentRotation);
 
 			// Get building size and adjust for rotation
 			Vector2Int baseSize = buildingModel != null
@@ -340,43 +340,11 @@ namespace ATSAccessibility.Handlers {
 			int extendEast = (isRotated ? baseSize.y : baseSize.x) - 1;
 			int extendNorth = (isRotated ? baseSize.x : baseSize.y) - 1;
 
-			string extension = GetExtensionAnnouncement(extendEast, extendNorth);
+			string extension = NavigationUtils.GetExtensionAnnouncement(extendEast, extendNorth);
 
 			Speech.Say($"{direction}, {extension}");
 			Debug.Log($"[ATSAccessibility] Building rotated to {_currentRotation} ({direction})");
 		}
 
-		/// <summary>
-		/// Get a readable announcement of how far the building extends from cursor.
-		/// </summary>
-		private string GetExtensionAnnouncement(int east, int north) {
-			if (east == 0 && north == 0) {
-				return "1 tile";
-			}
-
-			var parts = new System.Collections.Generic.List<string>();
-
-			if (east > 0) {
-				parts.Add($"{east} east");
-			}
-			if (north > 0) {
-				parts.Add($"{north} north");
-			}
-
-			return "extends " + string.Join(", ", parts);
-		}
-
-		/// <summary>
-		/// Get the cardinal direction name for a rotation value.
-		/// </summary>
-		private string GetCardinalDirection(int rotation) {
-			return rotation switch {
-				0 => "North",
-				1 => "West",
-				2 => "South",
-				3 => "East",
-				_ => "Unknown"
-			};
-		}
 	}
 }

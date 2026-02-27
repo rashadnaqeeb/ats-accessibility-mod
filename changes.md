@@ -38,6 +38,7 @@ Added working priority support across the mod. You can now:
 - Move shared ToggleBuildingSleep implementation from 4 navigators into BuildingSectionNavigator base class
 - Deduplicate AdjustNodePriority and AdjustConstructionPriority in SettlementKeyHandler via shared helper
 - Remove duplicate GetDirection methods from BlightInfoHelper, RainpunkHelper, EntranceInfoHelper, and MapScanner in favor of NavigationUtils.GetDirection
+- Move shared GetCardinalDirection and GetExtensionAnnouncement from BuildModeController and MoveModeController into NavigationUtils
 
 ## v1.1.6
 
