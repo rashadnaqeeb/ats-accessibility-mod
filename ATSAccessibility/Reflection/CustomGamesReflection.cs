@@ -497,7 +497,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static bool IsCustomGamePopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "CustomGamePopup";
+			EnsureTypes();
+			return _customGamePopupType != null && _customGamePopupType.IsInstanceOfType(popup);
 		}
 
 		/// <summary>

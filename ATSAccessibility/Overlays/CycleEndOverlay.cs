@@ -12,6 +12,9 @@ namespace ATSAccessibility.Overlays {
 	/// Single-level flat list of strings.
 	/// </summary>
 	public class CycleEndOverlay: MenuBase {
+		// Popup type detection
+		private static Type _worldCycleEndPopupType;
+
 		// Data
 		private object _popup;
 		private List<string> _items = new List<string>();
@@ -93,7 +96,9 @@ namespace ATSAccessibility.Overlays {
 
 		public static bool IsWorldCycleEndPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "WorldCycleEndPopup";
+			if (_worldCycleEndPopupType == null)
+				_worldCycleEndPopupType = GameReflection.GameAssembly?.GetType("Eremite.WorldMap.UI.WorldCycleEndPopup");
+			return _worldCycleEndPopupType != null && _worldCycleEndPopupType.IsInstanceOfType(popup);
 		}
 
 		// ========================================

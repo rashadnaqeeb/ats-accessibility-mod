@@ -15,6 +15,9 @@ namespace ATSAccessibility.Overlays {
 		private object _popup;
 		private List<string> _items = new List<string>();
 
+		// Popup type detection
+		private static System.Type _assaultResultPopupType;
+
 		// Cached reflection (popup-specific fields only; shared slot types in PopupReflection)
 		private static bool _typesCached;
 		private static FieldInfo _descField;
@@ -98,7 +101,9 @@ namespace ATSAccessibility.Overlays {
 
 		public static bool IsAssaultResultPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "TraderAssaultResultPopup";
+			if (_assaultResultPopupType == null)
+				_assaultResultPopupType = GameReflection.GameAssembly?.GetType("Eremite.Buildings.UI.Trade.TraderAssaultResultPopup");
+			return _assaultResultPopupType != null && _assaultResultPopupType.IsInstanceOfType(popup);
 		}
 
 		// ========================================

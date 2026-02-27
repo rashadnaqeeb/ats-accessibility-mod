@@ -12,8 +12,9 @@
 - `prompts/large-file-handling.md` — done
 - `prompts/input-handling.md` — done (no changes needed, system already well-designed)
 - `prompts/string-builder.md` — done (not a string builder mod; ~10% string building, well distributed)
-- `prompts/low-level-cleanup.md` — next
-- (subsequent prompts TBD from reading each prompt)
+- `prompts/low-level-cleanup.md` — done (5 commits: PortReflection strider/crew consolidation, ToggleBuildingSleep to base class, SettlementKeyHandler priority dedup, GetDirection dedup across 4 files, BuildMode/MoveMode shared helpers to NavigationUtils)
+- `prompts/high-level-cleanup.md` — in progress
+- `prompts/finalization.md` — next after high-level-cleanup
 
 ## Code Index
 - `llm-scratchpad/code-index/` — 154 .md files mirroring ATSAccessibility/ structure (4 new from splits)

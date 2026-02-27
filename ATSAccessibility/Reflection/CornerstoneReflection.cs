@@ -71,6 +71,10 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _clpFinishTaskMethod;
 		private static MethodInfo _popupHideMethod;
 
+		// Popup type detection
+		private static Type _rewardPickPopupType;
+		private static Type _cornerstonesLimitPickPopupType;
+
 		private static bool _typesCached = false;
 
 		// ========================================
@@ -180,6 +184,9 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		private static void CachePopupTypes(Assembly assembly) {
+			_rewardPickPopupType = assembly.GetType("Eremite.View.HUD.RewardPickPopup");
+			_cornerstonesLimitPickPopupType = assembly.GetType("Eremite.View.Popups.CornerstonesLimitPick.CornerstonesLimitPickPopup");
+
 			var rpType = assembly.GetType("Eremite.View.HUD.RewardPickPopup");
 			if (rpType != null) {
 				_rpOnRewardPickedMethod = rpType.GetMethod("OnRewardPicked",
@@ -230,12 +237,14 @@ namespace ATSAccessibility.Reflection {
 
 		public static bool IsRewardPickPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "RewardPickPopup";
+			EnsureTypesCached();
+			return _rewardPickPopupType != null && _rewardPickPopupType.IsInstanceOfType(popup);
 		}
 
 		public static bool IsCornerstonesLimitPickPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "CornerstonesLimitPickPopup";
+			EnsureTypesCached();
+			return _cornerstonesLimitPickPopupType != null && _cornerstonesLimitPickPopupType.IsInstanceOfType(popup);
 		}
 
 		// ========================================

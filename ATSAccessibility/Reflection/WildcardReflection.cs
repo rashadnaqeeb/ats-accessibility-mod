@@ -66,6 +66,9 @@ namespace ATSAccessibility.Reflection {
 		// WildcardSlot.GetModel (public method)
 		private static MethodInfo _wsGetModelMethod = null;
 
+		// Popup type detection
+		private static Type _wildcardPopupType;
+
 		private static bool _typesCached = false;
 
 		// ========================================
@@ -125,7 +128,8 @@ namespace ATSAccessibility.Reflection {
 
 		private static void CachePopupTypes(Assembly assembly) {
 			// WildcardPopup fields and methods
-			var wildcardPopupType = assembly.GetType("Eremite.View.HUD.WildcardPopup");
+			_wildcardPopupType = assembly.GetType("Eremite.View.HUD.WildcardPopup");
+			var wildcardPopupType = _wildcardPopupType;
 			if (wildcardPopupType != null) {
 				_wpSlotsField = wildcardPopupType.GetField("slots",
 					BindingFlags.NonPublic | BindingFlags.Instance);
@@ -190,7 +194,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static bool IsWildcardPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "WildcardPopup";
+			EnsureTypesCached();
+			return _wildcardPopupType != null && _wildcardPopupType.IsInstanceOfType(popup);
 		}
 
 		// ========================================

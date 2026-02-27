@@ -221,7 +221,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static bool IsDailyChallengePopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "DailyChallengePopup";
+			EnsureTypes();
+			return _dailyChallengePopupType != null && _dailyChallengePopupType.IsInstanceOfType(popup);
 		}
 
 		/// <summary>

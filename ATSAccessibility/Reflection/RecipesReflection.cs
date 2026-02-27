@@ -82,6 +82,9 @@ namespace ATSAccessibility.Reflection {
 		private static PropertyInfo _gsConstructionServiceProperty = null;
 		private static MethodInfo _getShowIndexMethod = null;
 
+		// Popup type detection
+		private static Type _recipesPopupType;
+
 		private static bool _typesCached = false;
 
 		// ========================================
@@ -97,6 +100,7 @@ namespace ATSAccessibility.Reflection {
 				CacheRecipeTypes(assembly);
 				CacheGoodTypes(assembly);
 				CacheBuildingTypes(assembly);
+				_recipesPopupType = assembly.GetType("Eremite.View.Popups.Recipes.RecipesPopup");
 			});
 		}
 
@@ -727,7 +731,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static bool IsRecipesPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "RecipesPopup";
+			EnsureTypesCached();
+			return _recipesPopupType != null && _recipesPopupType.IsInstanceOfType(popup);
 		}
 
 		public static int LogCacheStatus() {

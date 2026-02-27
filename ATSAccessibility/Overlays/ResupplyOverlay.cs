@@ -11,6 +11,9 @@ namespace ATSAccessibility.Overlays {
 	/// a settlement near negative modifiers). Player picks 1 of 3 rewards.
 	/// </summary>
 	public class ResupplyOverlay: MenuBase {
+		// Popup type detection
+		private static System.Type _cycleEffectsPickPopupType;
+
 		// Data
 		private object _popup;
 		private List<string> _items = new List<string>();
@@ -126,7 +129,9 @@ namespace ATSAccessibility.Overlays {
 
 		public static bool IsCycleEffectsPickPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "CycleEffectsPickPopup";
+			if (_cycleEffectsPickPopupType == null)
+				_cycleEffectsPickPopupType = GameReflection.GameAssembly?.GetType("Eremite.View.HUD.CycleEffectsPickPopup");
+			return _cycleEffectsPickPopupType != null && _cycleEffectsPickPopupType.IsInstanceOfType(popup);
 		}
 
 		// ========================================

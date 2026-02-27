@@ -68,6 +68,9 @@ namespace ATSAccessibility.Reflection {
 
 		private static bool _cached = false;
 
+		// Popup type detection
+		private static Type _tradeRoutesPopupType;
+
 		// IGameServices service properties
 		private static PropertyInfo _gsTradeRoutesServiceProperty = null;
 		private static PropertyInfo _gsStateServiceProperty = null;
@@ -176,6 +179,7 @@ namespace ATSAccessibility.Reflection {
 				CacheTradeRoutesServiceMethods(assembly);
 				CacheGoodTypes(assembly);
 				CacheSettingsTypes(assembly);
+				_tradeRoutesPopupType = assembly.GetType("Eremite.View.HUD.TradeRoutes.TradeRoutesPopup");
 			});
 		}
 
@@ -361,7 +365,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static bool IsTradeRoutesPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "TradeRoutesPopup";
+			EnsureCached();
+			return _tradeRoutesPopupType != null && _tradeRoutesPopupType.IsInstanceOfType(popup);
 		}
 
 		// ========================================

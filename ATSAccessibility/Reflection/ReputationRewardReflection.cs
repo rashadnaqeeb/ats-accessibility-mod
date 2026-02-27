@@ -60,6 +60,9 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _ttTextMeshField = null;
 		private static PropertyInfo _tmpTextProperty = null;
 
+		// Popup type detection
+		private static Type _reputationRewardsPopupType;
+
 		private static bool _typesCached = false;
 
 		// ========================================
@@ -157,6 +160,8 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		private static void CachePopupTypes(Assembly assembly) {
+			_reputationRewardsPopupType = assembly.GetType("Eremite.View.HUD.ReputationRewardsPopup");
+
 			var popupType = assembly.GetType("Eremite.View.HUD.ReputationRewardsPopup");
 			if (popupType != null) {
 				_rpOnBuildingPickedMethod = popupType.GetMethod("OnBuildingPicked",
@@ -197,7 +202,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static bool IsReputationRewardsPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "ReputationRewardsPopup";
+			EnsureTypesCached();
+			return _reputationRewardsPopupType != null && _reputationRewardsPopupType.IsInstanceOfType(popup);
 		}
 
 		/// <summary>

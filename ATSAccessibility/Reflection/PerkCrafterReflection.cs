@@ -287,7 +287,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static bool IsPerkCrafterPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "PerkCrafterPopup";
+			EnsureTypesCached();
+			return _popupType != null && _popupType.IsInstanceOfType(popup);
 		}
 
 		/// <summary>

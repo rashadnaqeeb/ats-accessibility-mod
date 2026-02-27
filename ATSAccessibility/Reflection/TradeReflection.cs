@@ -46,6 +46,9 @@ namespace ATSAccessibility.Reflection {
 
 		private static bool _cached = false;
 
+		// Popup type detection
+		private static Type _traderPanelType;
+
 		// IGameServices service properties
 		private static PropertyInfo _gsTradeServiceProperty = null;
 		private static PropertyInfo _gsStorageServiceProperty = null;
@@ -356,8 +359,9 @@ namespace ATSAccessibility.Reflection {
 					_assaultResultPopupRequestedProperty = blackboardServiceType.GetProperty("TraderAssaultResultPopupRequested");
 				}
 
-				// TraderPanel for closing after assault
-				var traderPanelType = assembly.GetType("Eremite.Buildings.UI.Trade.TraderPanel");
+				// TraderPanel for closing after assault and popup detection
+				_traderPanelType = assembly.GetType("Eremite.Buildings.UI.Trade.TraderPanel");
+				var traderPanelType = _traderPanelType;
 				if (traderPanelType != null) {
 					_traderPanelInstanceProperty = traderPanelType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
 					_traderPanelHideMethod = traderPanelType.GetMethod("Hide", BindingFlags.Public | BindingFlags.Instance);
@@ -397,7 +401,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static bool IsTraderPanel(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "TraderPanel";
+			EnsureCached();
+			return _traderPanelType != null && _traderPanelType.IsInstanceOfType(popup);
 		}
 
 		// ========================================

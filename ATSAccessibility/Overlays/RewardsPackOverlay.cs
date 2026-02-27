@@ -11,6 +11,9 @@ namespace ATSAccessibility.Overlays {
 	/// Provides flat list navigation through goods and effects received.
 	/// </summary>
 	public class RewardsPackOverlay: MenuBase {
+		// Popup type detection
+		private static System.Type _rewardsPackPopupType;
+
 		// Data
 		private object _popup;
 		private List<string> _items = new List<string>();
@@ -133,7 +136,9 @@ namespace ATSAccessibility.Overlays {
 
 		public static bool IsRewardsPackPopup(object popup) {
 			if (popup == null) return false;
-			return popup.GetType().Name == "RewardsPackPopup";
+			if (_rewardsPackPopupType == null)
+				_rewardsPackPopupType = GameReflection.GameAssembly?.GetType("Eremite.View.HUD.Rewards.RewardsPackPopup");
+			return _rewardsPackPopupType != null && _rewardsPackPopupType.IsInstanceOfType(popup);
 		}
 
 		// ========================================
