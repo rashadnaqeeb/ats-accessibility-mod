@@ -165,7 +165,7 @@ namespace ATSAccessibility.Handlers {
 
 			if (_rectPhase == RectPhase.Idle) {
 				// Setting first corner - must be on a valid resource
-				if (!GameReflection.HasNaturalResourceAt(cursorPos)) {
+				if (!MapReflection.HasNaturalResourceAt(cursorPos)) {
 					Speech.Say("No tree here");
 					return;
 				}
@@ -186,7 +186,7 @@ namespace ATSAccessibility.Handlers {
 				int maxY = Mathf.Max(_firstCorner.y, cursorPos.y);
 
 				int count = 0;
-				var allPositions = GameReflection.GetAllNaturalResourcePositions();
+				var allPositions = MapReflection.GetAllNaturalResourcePositions();
 				foreach (var pos in allPositions) {
 					if (pos.x < minX || pos.x > maxX || pos.y < minY || pos.y > maxY)
 						continue;
@@ -222,7 +222,7 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			// Must be on a NaturalResource
-			if (!GameReflection.HasNaturalResourceAt(cursorPos)) {
+			if (!MapReflection.HasNaturalResourceAt(cursorPos)) {
 				Speech.Say("No tree here");
 				return;
 			}
@@ -257,7 +257,7 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		private void SelectAllMarked() {
-			var allPositions = GameReflection.GetAllNaturalResourcePositions();
+			var allPositions = MapReflection.GetAllNaturalResourcePositions();
 			int count = 0;
 
 			foreach (var pos in allPositions) {
@@ -283,7 +283,7 @@ namespace ATSAccessibility.Handlers {
 			if (_mode == Mode.Mark) {
 				int gladeEdgeCount = 0;
 				foreach (var pos in _selectedPositions) {
-					if (GameReflection.IsNaturalResourceGladeEdge(pos))
+					if (MapReflection.IsNaturalResourceGladeEdge(pos))
 						gladeEdgeCount++;
 				}
 
@@ -303,7 +303,7 @@ namespace ATSAccessibility.Handlers {
 
 			if (_mode == Mode.Mark) {
 				foreach (var pos in _selectedPositions) {
-					if (GameReflection.MarkNaturalResourceAt(pos))
+					if (MapReflection.MarkNaturalResourceAt(pos))
 						count++;
 				}
 
@@ -311,7 +311,7 @@ namespace ATSAccessibility.Handlers {
 				Speech.Say($"Marked {count} {treeWord}");
 			} else {
 				foreach (var pos in _selectedPositions) {
-					if (GameReflection.UnmarkNaturalResourceAt(pos))
+					if (MapReflection.UnmarkNaturalResourceAt(pos))
 						count++;
 				}
 
@@ -335,9 +335,9 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		private bool IsMarkedAt(Vector2Int pos) {
-			var resource = GameReflection.GetNaturalResourceAt(pos);
+			var resource = MapReflection.GetNaturalResourceAt(pos);
 			if (resource == null) return false;
-			return GameReflection.IsNaturalResourceMarked(resource);
+			return MapReflection.IsNaturalResourceMarked(resource);
 		}
 	}
 }

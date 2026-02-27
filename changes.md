@@ -32,6 +32,7 @@ Added working priority support across the mod. You can now:
 - Extract HearthReflection.cs from BuildingReflection.cs (hearth-specific reflection code)
 - Extract RelicReflection.cs from BuildingReflection.cs (relic/glade-event-specific reflection code)
 - Extract PortReflection.cs from BuildingReflection.cs (port/expedition-specific reflection code)
+- Move glade info, location markers, relics highlight, harvest mark/unmark, farm range, and seal/guidepost reflection from GameReflection into MapReflection
 
 ## v1.1.6
 

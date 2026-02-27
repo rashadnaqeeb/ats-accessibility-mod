@@ -111,7 +111,7 @@ namespace ATSAccessibility.Utils {
 				ClearSacrificeState();
 
 				// Clear highlighted relics tracking
-				GameReflection.ClearHighlightedRelics();
+				MapReflection.ClearHighlightedRelics();
 			} finally {
 				// Clear static instance to prevent stale reference on scene change
 				// Must be in finally to avoid stale reference if cleanup throws
@@ -1033,36 +1033,36 @@ namespace ATSAccessibility.Utils {
 		private IDisposable _relicHighlightSub;
 
 		private void SubscribeToLocateEvents() {
-			_grassLocationSub = GameReflection.SubscribeToGrassLocationRequested(OnGrassLocationRevealed);
+			_grassLocationSub = MapReflection.SubscribeToGrassLocationRequested(OnGrassLocationRevealed);
 			if (_grassLocationSub != null) _subscriptions.Add(_grassLocationSub);
 
-			_springsLocationSub = GameReflection.SubscribeToSpringsLocationRequested(OnSpringsLocationRevealed);
+			_springsLocationSub = MapReflection.SubscribeToSpringsLocationRequested(OnSpringsLocationRevealed);
 			if (_springsLocationSub != null) _subscriptions.Add(_springsLocationSub);
 
-			_relicLocationSub = GameReflection.SubscribeToRelicLocationRequested(OnRelicLocationRevealed);
+			_relicLocationSub = MapReflection.SubscribeToRelicLocationRequested(OnRelicLocationRevealed);
 			if (_relicLocationSub != null) _subscriptions.Add(_relicLocationSub);
 
 			// Subscribe to relic highlight events (Short Range Scanner, etc)
-			_relicHighlightSub = GameReflection.SubscribeToRelicsHighlightRequested(OnRelicHighlighted);
+			_relicHighlightSub = MapReflection.SubscribeToRelicsHighlightRequested(OnRelicHighlighted);
 			if (_relicHighlightSub != null) _subscriptions.Add(_relicHighlightSub);
 		}
 
 		private void OnGrassLocationRevealed() {
 			if (!Plugin.AnnounceLocateMarkers.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Fertile soil location revealed", GetLastRevealedLocation(GameReflection.GetRevealedGrassLocations()));
+			Announce("Fertile soil location revealed", GetLastRevealedLocation(MapReflection.GetRevealedGrassLocations()));
 		}
 
 		private void OnSpringsLocationRevealed() {
 			if (!Plugin.AnnounceLocateMarkers.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Spring location revealed", GetLastRevealedLocation(GameReflection.GetRevealedSpringsLocations()));
+			Announce("Spring location revealed", GetLastRevealedLocation(MapReflection.GetRevealedSpringsLocations()));
 		}
 
 		private void OnRelicLocationRevealed() {
 			if (!Plugin.AnnounceLocateMarkers.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Relic location revealed", GetLastRevealedLocation(GameReflection.GetRevealedRelicLocations()));
+			Announce("Relic location revealed", GetLastRevealedLocation(MapReflection.GetRevealedRelicLocations()));
 		}
 
 		private void OnRelicHighlighted(string relicName, UnityEngine.Vector2Int position) {

@@ -150,7 +150,7 @@ namespace ATSAccessibility.Utils {
 					return GetLakeRangeInfo(objectOn);
 				} else if (typeName == "Field") {
 					// GetObjectOn returns the Field object itself for empty tiles
-					if (GameReflection.IsFieldGrass(objectOn)) {
+					if (MapReflection.IsFieldGrass(objectOn)) {
 						return GetFarmRangeInfoForTile(cursorX, cursorY);
 					}
 					return "No building or resource";
@@ -357,7 +357,7 @@ namespace ATSAccessibility.Utils {
 					if (farmPos == Vector2Int.zero) continue;
 
 					var buildingSize = BuildingReflection.GetBuildingSize(model);
-					Vector2Int baseWorkArea = GameReflection.GetFarmModelWorkArea(model);
+					Vector2Int baseWorkArea = MapReflection.GetFarmModelWorkArea(model);
 					Vector2Int workArea = new Vector2Int(baseWorkArea.x + bonus, baseWorkArea.y + bonus);
 
 					// Calculate work area bounds
@@ -546,7 +546,7 @@ namespace ATSAccessibility.Utils {
 				var buildingSize = BuildingReflection.GetBuildingSize(model);
 
 				// Get work area from model + meta bonus
-				Vector2Int baseWorkArea = GameReflection.GetFarmModelWorkArea(model);
+				Vector2Int baseWorkArea = MapReflection.GetFarmModelWorkArea(model);
 				int bonus = BuildingReflection.GetBonusFarmArea();
 				Vector2Int workArea = new Vector2Int(baseWorkArea.x + bonus, baseWorkArea.y + bonus);
 
@@ -586,7 +586,7 @@ namespace ATSAccessibility.Utils {
 		private static string GetFarmRangePreview(object farmModel, int cursorX, int cursorY, Vector2Int buildingSize) {
 			try {
 				// Get work area from model + meta bonus
-				Vector2Int baseWorkArea = GameReflection.GetFarmModelWorkArea(farmModel);
+				Vector2Int baseWorkArea = MapReflection.GetFarmModelWorkArea(farmModel);
 				if (baseWorkArea == Vector2Int.zero) {
 					return "Cannot determine farm work area";
 				}
@@ -616,13 +616,13 @@ namespace ATSAccessibility.Utils {
 							y >= cursorY && y < cursorY + buildingSize.y) continue;
 
 						// Skip unrevealed glades
-						if (GameReflection.IsInUnrevealedGlade(x, y)) continue;
+						if (MapReflection.IsInUnrevealedGlade(x, y)) continue;
 
 						var field = GameReflection.GetField(x, y);
 						if (field == null) continue;
 
 						// Check if grass tile using FieldType
-						if (GameReflection.IsFieldGrass(field)) {
+						if (MapReflection.IsFieldGrass(field)) {
 							// Check if there's a finished farmfield at this position
 							if (BuildingReflection.HasFarmfieldAt(x, y)) {
 								farmfieldCount++;

@@ -255,8 +255,8 @@ namespace ATSAccessibility.Handlers {
 				if (!wasDiscovered) {
 					// Unrevealed glade - announce based on what info is available
 					string dangerLevel = GetGladeDangerLevel(glade);
-					bool hasDangerousGladeInfo = GameReflection.HasDangerousGladeInfo();
-					bool hasGladeInfo = GameReflection.HasGladeInfo();
+					bool hasDangerousGladeInfo = MapReflection.HasDangerousGladeInfo();
+					bool hasGladeInfo = MapReflection.HasGladeInfo();
 
 					string baseName;
 					if (!hasDangerousGladeInfo) {
@@ -265,7 +265,7 @@ namespace ATSAccessibility.Handlers {
 					} else if (hasGladeInfo) {
 						// Has glade info perk - show type and contents
 						baseName = $"glade-{dangerLevel.ToLower()}";
-						string contents = GameReflection.GetGladeContentsSummary(glade);
+						string contents = MapReflection.GetGladeContentsSummary(glade);
 						if (!string.IsNullOrEmpty(contents))
 							baseName += $": {contents}";
 					} else {
@@ -274,12 +274,12 @@ namespace ATSAccessibility.Handlers {
 					}
 
 					// Add location marker if present
-					string markerType = GameReflection.GetLocationMarkerType(x, y);
+					string markerType = MapReflection.GetLocationMarkerType(x, y);
 					if (!string.IsNullOrEmpty(markerType))
 						baseName = $"{baseName}, {markerType}";
 
 					// Add highlighted relic info if present (from Short Range Scanner, etc)
-					string highlightedRelic = GameReflection.GetHighlightedRelicAt(x, y);
+					string highlightedRelic = MapReflection.GetHighlightedRelicAt(x, y);
 					if (!string.IsNullOrEmpty(highlightedRelic)) {
 						string relicDisplayName = GameReflection.GetRelicDisplayName(highlightedRelic);
 						baseName = $"{baseName}, highlighted: {relicDisplayName}";
@@ -309,7 +309,7 @@ namespace ATSAccessibility.Handlers {
 							} else if (BuildingReflection.IsRelic(objectOn)) {
 								objectName += ", ruin";
 							}
-						} else if (typeName == "NaturalResource" && GameReflection.IsNaturalResourceMarked(objectOn)) {
+						} else if (typeName == "NaturalResource" && MapReflection.IsNaturalResourceMarked(objectOn)) {
 							objectName = "Marked " + objectName;
 						}
 						parts.Add(objectName);

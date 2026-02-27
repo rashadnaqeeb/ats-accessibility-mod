@@ -518,8 +518,8 @@ namespace ATSAccessibility.Utils {
 		private List<ItemGroup> ScanGlades() {
 			var groups = new Dictionary<string, ItemGroup>();
 			GetScanOrigin(out int cursorX, out int cursorY);
-			bool hasGladeInfo = GameReflection.HasGladeInfo();
-			bool hasDangerousGladeInfo = GameReflection.HasDangerousGladeInfo();
+			bool hasGladeInfo = MapReflection.HasGladeInfo();
+			bool hasDangerousGladeInfo = MapReflection.HasDangerousGladeInfo();
 
 			try {
 				var allGlades = GameReflection.GetAllGlades();
@@ -548,7 +548,7 @@ namespace ATSAccessibility.Utils {
 						groupName = "Unknown glade";
 					} else if (hasGladeInfo) {
 						// Has glade info perk - show type and contents
-						string contents = GameReflection.GetGladeContentsSummary(glade);
+						string contents = MapReflection.GetGladeContentsSummary(glade);
 						groupName = $"{dangerLevel} glade: {contents}";
 					} else {
 						// Normal biome without glade info perk - show type only
@@ -594,13 +594,13 @@ namespace ATSAccessibility.Utils {
 			Dictionary<string, ItemGroup> groups,
 			int cursorX, int cursorY) {
 
-			if (!GameReflection.IsSealedBiome()) return;
+			if (!MapReflection.IsSealedBiome()) return;
 
 			// Get seal target for bearing calculation
-			Vector2Int sealField = GameReflection.GetGuidepostTargetField();
+			Vector2Int sealField = MapReflection.GetGuidepostTargetField();
 			if (sealField == default) return;
 
-			Vector2Int sealSize = GameReflection.GetSealSize();
+			Vector2Int sealSize = MapReflection.GetSealSize();
 			if (sealSize == default) return;
 
 			float sealCenterX = sealField.x + sealSize.x / 2f;
@@ -708,12 +708,12 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		private void ScanLocationMarkers(Dictionary<string, ItemGroup> groups, int cursorX, int cursorY) {
 			// Scan location marker types (grass/spring/relic)
-			ScanLocationMarkerType(GameReflection.GetRevealedGrassLocations(), "Grass marker", groups, cursorX, cursorY);
-			ScanLocationMarkerType(GameReflection.GetRevealedSpringsLocations(), "Spring marker", groups, cursorX, cursorY);
-			ScanLocationMarkerType(GameReflection.GetRevealedRelicLocations(), "Relic marker", groups, cursorX, cursorY);
+			ScanLocationMarkerType(MapReflection.GetRevealedGrassLocations(), "Grass marker", groups, cursorX, cursorY);
+			ScanLocationMarkerType(MapReflection.GetRevealedSpringsLocations(), "Spring marker", groups, cursorX, cursorY);
+			ScanLocationMarkerType(MapReflection.GetRevealedRelicLocations(), "Relic marker", groups, cursorX, cursorY);
 
 			// Highlighted relics (from Short Range Scanner, etc)
-			var highlightedRelics = GameReflection.GetHighlightedRelics();
+			var highlightedRelics = MapReflection.GetHighlightedRelics();
 			if (highlightedRelics != null && highlightedRelics.Count > 0) {
 				foreach (var kvp in highlightedRelics) {
 					var pos = kvp.Key;
@@ -816,7 +816,7 @@ namespace ATSAccessibility.Utils {
 						string displayName = MapReflection.GetObjectDisplayName(resource);
 						if (string.IsNullOrEmpty(displayName)) continue;
 
-						bool isMarked = GameReflection.IsNaturalResourceMarked(resource);
+						bool isMarked = MapReflection.IsNaturalResourceMarked(resource);
 						string groupName = isMarked ? $"Marked {displayName}" : displayName;
 
 						int distance = CalculateDistance(pos, cursorX, cursorY);
@@ -1274,7 +1274,7 @@ namespace ATSAccessibility.Utils {
 						string displayName = MapReflection.GetObjectDisplayName(resource);
 						if (string.IsNullOrEmpty(displayName)) continue;
 
-						bool isMarked = GameReflection.IsNaturalResourceMarked(resource);
+						bool isMarked = MapReflection.IsNaturalResourceMarked(resource);
 						string groupName = isMarked ? $"Marked {displayName}" : displayName;
 
 						int distance = CalculateDistance(pos, cursorX, cursorY);

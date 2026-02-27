@@ -9,13 +9,15 @@
 3. `prompts/code-directory-construction.md` — done (150 index files for 150 source files)
 
 ## Prompts Remaining
-- `prompts/large-file-handling.md` — in progress (BuildingReflection split done, GameReflection pending)
+- `prompts/large-file-handling.md` — done
+- `prompts/input-handling.md` — next
 - (subsequent prompts TBD from reading each prompt)
 
 ## Code Index
-- `llm-scratchpad/code-index/` — 153 .md files mirroring ATSAccessibility/ structure (3 new from split)
-- BuildingReflection.cs: 10132 → 6831 lines (extracted HearthReflection, RelicReflection, PortReflection)
-- GameReflection.cs: 7413 lines (split assessment pending)
+- `llm-scratchpad/code-index/` — 153 .md files mirroring ATSAccessibility/ structure (3 new from BuildingReflection split)
+- BuildingReflection.cs: 10132 → 6831 → 10125 lines (extracted Hearth/Relic/Port, absorbed construction from GameReflection)
+- GameReflection.cs: 7413 → 4096 → 3159 lines (construction → BuildingReflection, map/glade/seal → MapReflection)
+- MapReflection.cs: 444 → 1381 lines (absorbed glade info, harvest, seal/guidepost from GameReflection)
 
 ## Documentation Created
 - `llm-docs/CLAUDE.md` — overview of llm-docs contents

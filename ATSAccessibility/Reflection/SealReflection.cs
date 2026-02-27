@@ -229,7 +229,7 @@ namespace ATSAccessibility.Reflection {
 		public static object GetFirstSeal() {
 			EnsureCached();
 			try {
-				var seals = GameReflection.GetSeals();
+				var seals = MapReflection.GetSeals();
 				if (seals == null) return null;
 
 				// Get first value from dictionary
@@ -437,7 +437,7 @@ namespace ATSAccessibility.Reflection {
 			if (_gameSealServiceCompletePartMethod == null) return false;
 
 			try {
-				var gameSealService = GameReflection.GetGameSealService();
+				var gameSealService = MapReflection.GetGameSealService();
 				if (gameSealService == null) return false;
 
 				return ReflectionHelper.InvokeVoid(_gameSealServiceCompletePartMethod, gameSealService, stageState, stageModel, offeringIndex);

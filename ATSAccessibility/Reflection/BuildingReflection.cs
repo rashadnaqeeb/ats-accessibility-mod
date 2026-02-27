@@ -1840,7 +1840,7 @@ namespace ATSAccessibility.Reflection {
 				var buildingSize = GetBuildingSize(model);
 
 				// Get work area from model + meta bonus
-				Vector2Int baseWorkArea = GameReflection.GetFarmModelWorkArea(model);
+				Vector2Int baseWorkArea = MapReflection.GetFarmModelWorkArea(model);
 				int bonus = GetBonusFarmArea();
 				Vector2Int workArea = new Vector2Int(baseWorkArea.x + bonus, baseWorkArea.y + bonus);
 

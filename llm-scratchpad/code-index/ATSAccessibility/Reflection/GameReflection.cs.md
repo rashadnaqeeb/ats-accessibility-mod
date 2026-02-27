@@ -1,6 +1,6 @@
 # GameReflection.cs
 
-Provides reflection-based access to game internals. Central reflection file used by all other reflection classes.
+Provides reflection-based access to game internals. Central reflection file used by all other reflection classes. After extractions to MapReflection.cs and BuildingReflection.cs, this file covers: core service access, tab/toggle systems, time/speed, camera, observable subscriptions, stats services, calendar, game time, mysteries/modifiers, goods/storage, blackboard/popup opening, goods helpers, and effects/cornerstones/perks.
 
 CRITICAL RULES:
 - Cache ONLY reflection metadata (Type, PropertyInfo, MethodInfo) - these survive scene transitions
@@ -19,11 +19,12 @@ CRITICAL RULES:
 
 ### Nested Types
 - public class ActionObserver<T>: IObserver<T> (line 1445)
-  - public void OnNext(T value)
-  - public void OnError(Exception error)
-  - public void OnCompleted()
+  IObserver wrapper that calls an Action for each OnNext. Used by SubscribeToObservable.
+  - public void OnNext(T value) (line 1452)
+  - public void OnError(Exception error) (line 1460)
+  - public void OnCompleted() (line 1464)
 
-### Fields (private static cached — organized by subsystem)
+### Fields (private static cached -- organized by subsystem)
 
 #### Assembly / Core
 - private static Assembly _gameAssembly (line 30)
@@ -67,12 +68,57 @@ CRITICAL RULES:
 - private static PropertyInfo _gcCameraControllerProperty (line 517)
 - private static bool _cameraTypesCached (line 518)
 
-#### GoodRef (shared by multiple reflection files)
-- private static Type _goodRefType (line 2370)
-- private static FieldInfo _goodRefGoodField (line 2371)
-- private static FieldInfo _goodRefAmountField (line 2372)
-- private static PropertyInfo _goodRefDisplayNameProperty (line 2373)
-- private static bool _bmFieldsCached (line 2374)
+#### Map navigation (many service PropertyInfos and MethodInfos)
+- Lines 582-614: _gsMapServiceProperty, _gsGladesServiceProperty, _gsVillagersServiceProperty, _mapGetFieldMethod, _mapGetObjectOnMethod, _gladesGetGladeMethod, _villagersVillagersProperty, _gsResourcesServiceProperty, _gsDepositsServiceProperty, _gsOreServiceProperty, _gsSpringsServiceProperty, _springsRemoveFromGridMethod, _springsReturnOnGridMethod, _gsLakesServiceProperty, _gsBuildingsServiceProperty, _gsConditionsServiceProperty, _conditionsIsBlightActiveMethod, _gsBlightServiceProperty, _blightGetGlobalActiveCystsMethod, _blightGetPredictedPercentageCorruptionMethod, _buildingsBlightsProperty, _buildingsGetMainHearthMethod, _buildingBlightGetActiveCystsMethod, _buildingBlightOwnerProperty, _hearthGetCorruptionRateMethod, _gsGladesProperty, _mapFieldsProperty, _mapWidthField, _mapHeightField, _mapInBoundsMethod, _gsBiomeServiceProperty, _biomeCurrentBiomeProperty, _mapTypesCached
+
+#### Time scale
+- Lines 1220-1224: _gsTimeScaleServiceProperty, _tssIsPausedMethod, _tssPauseMethod, _tssUnpauseMethod, _timeScaleTypesCached
+- private static MethodInfo _tssChangeMethod (line 1280)
+
+#### Calendar
+- Lines 1697-1701: _gsCalendarServiceProperty, _calYearProperty, _calSeasonProperty, _calGetTimeTillNextSeasonMethod, _calendarTypesCached
+
+#### Game time
+- Lines 1808-1810: _gsGameTimeServiceProperty, _gameTimeTimeProperty, _gameTimeTypesCached
+
+#### Mysteries/Modifiers (StateService)
+- Lines 1861-1873: _gsStateServiceProperty, _ssSeasonalEffectsProperty, _seEffectsField, _ssConditionsProperty, _condEarlyEffectsField, _condLateEffectsField, _mysteriesTypesCached, _settingsGetSimpleSeasonalEffectMethod, _settingsGetConditionalSeasonalEffectMethod, _settingsGetEffectMethod, _settingsModelMethodsCached
+
+#### Stats services
+- Lines 1483-1487: _gsReputationServiceProperty, _gsHostilityServiceProperty, _gsResolveServiceProperty, _gsRacesServiceProperty, _statsServiceTypesCached
+
+#### Favoring (race preference)
+- Lines 1572-1577: _rsFavorRaceMethod, _rsStopFavoringMethod, _rsIsFavoredMethod, _rsIsFavoringOnCooldownMethod, _rsGetFavorCooldownLeftMethod, _favoringTypesCached
+
+#### Goods/Storage
+- Lines 2114-2119: _gsStorageServiceProperty, _ssGetStorageMethod, _storageGoodsProperty, _goodsCollectionGoodsField, _settingsGoodsField, _goodsTypesCached
+
+#### GoodRef (forwarded to BuildingReflection)
+- public static Type GoodRefType (line 2341) -- forwards to BuildingReflection.GoodRefType
+- public static FieldInfo GoodRefGoodField (line 2342)
+- public static FieldInfo GoodRefAmountField (line 2343)
+- public static PropertyInfo GoodRefDisplayNameProperty (line 2344)
+
+#### GameBlackboardService
+- Lines 2351-2352: _gsGameBlackboardServiceProperty, _gameBlackboardTypesInitialized
+- private static object _unitDefault (line 2395)
+- private static bool _unitDefaultCached (line 2396)
+
+#### Goods helpers
+- Lines 2659-2660: _settingsGetGoodMethodCached, _settingsGetGoodCached
+- Lines 2742-2743: _settingsGetRelicMethodCached, _settingsGetRelicCached
+- Lines 2791-2793: _settingsGetMetaCurrencyMethodCached, _metaCurrencyModelDisplayNameProperty, _settingsGetMetaCurrencyCached
+
+#### Modifiers panel (Effects, Cornerstones, Perks)
+- Lines 2855-2861: _gsEffectsServiceProperty, _gsPerksServiceProperty, _esGetAllConditionsMethod, _psSortedPerksProperty, _ssCornerstonesProperty, _csActiveCornerstonesField, _modifiersPanelTypesCached
+- Lines 3017-3020: _perkStateNameField, _perkStateStacksField, _perkStateHiddenField, _perkStateFieldsCached
+- Lines 3057-3060: _effectModelIsPerkProperty, _effectModelNameProperty, _effectModelPropsCached
+
+#### BuildingById
+- Lines 912-914: _getBuildingByIdMethod, _hasBuildingByIdMethod, _getBuildingByIdCached
+
+#### Hearth position
+- Lines 1160-1161: _buildingFieldProperty, _hearthsDictProperty
 
 ### Properties (public static, lazy-initialized)
 
@@ -87,21 +133,42 @@ CRITICAL RULES:
 - public static Type ToggleButtonType { get; } (line 466)
 - public static MethodInfo ToggleIsOnMethod { get; } (line 467)
 
-#### GoodRef (shared cached fields for GoodRef struct)
-- public static Type GoodRefType { get; } (line 2380)
-- public static FieldInfo GoodRefGoodField { get; } (line 2381)
-- public static FieldInfo GoodRefAmountField { get; } (line 2382)
-- public static PropertyInfo GoodRefDisplayNameProperty { get; } (line 2383)
-
 ### Internal Members
 - internal static Assembly GameAssembly { get; } (line 108)
   Lazy-initialized access to Assembly-CSharp.
-- internal static bool TryInvokeBoolInternal(MethodInfo method, object instance, object[] args = null) (line 115)
+- internal static bool TryInvokeBoolInternal(MethodInfo, object, object[]) (line 115)
+  Multi-arity InvokeBool dispatcher for WorldMapReflection.
 - internal static void EnsureMetaControllerTypesInternal() (line 122)
 - internal static PropertyInfo MetaControllerInstanceProperty { get; } (line 126)
 - internal static PropertyInfo McMetaServicesProperty { get; } (line 133)
 
 ### Methods
+
+#### Initialization (private)
+- private static void EnsureAssembly() (line 162)
+- private static void EnsureTypes() (line 180)
+  Caches GameController and MainController types.
+- private static void EnsureMetaControllerTypes() (line 479)
+- private static void EnsureGameServicesTypes() (line 520)
+  Caches GameController.Instance, GameServices, ReputationRewardsService.
+- private static void EnsureMapTypes() (line 616)
+  Caches ~30 service properties/methods for map, glades, villagers, blight, biome.
+- private static void EnsureTimeScaleTypes() (line 1226)
+- private static void EnsureCameraTypes() (line 1334)
+- private static void EnsureStatsServiceTypes() (line 1489)
+- private static void EnsureFavoringTypes() (line 1579)
+- private static void EnsureCalendarTypes() (line 1703)
+- private static void EnsureGameTimeTypes() (line 1812)
+- private static void EnsureMysteriesTypes() (line 1875)
+- private static void EnsureSettingsModelMethods() (line 1925)
+- private static void EnsureGoodsTypes() (line 2121)
+- private static void EnsureGameBlackboardTypes() (line 2354)
+- private static void EnsureSettingsGetGood() (line 2662)
+- private static void EnsureSettingsGetRelic() (line 2745)
+- private static void EnsureSettingsGetMetaCurrency() (line 2795)
+- private static void EnsureModifiersPanelTypes() (line 2863)
+- private static void EnsurePerkStateFields(object firstPerk) (line 3022)
+- private static void EnsureEffectModelProps(object effectModel) (line 3062)
 
 #### Core service access
 - public static object GetService(PropertyInfo serviceProperty) (line 62)
@@ -120,11 +187,13 @@ CRITICAL RULES:
 - public static object GetTopActivePopup() (line 298)
   Returns index 0 of PopupsService.activePopups list.
 - public static Type FindTypeByName(string typeName) (line 322)
-  Scans assembly for type by short name (not full name).
+  Scans assembly for type by short name (uses FirstOrDefault).
 - public static Type GetTypeByName(string fullTypeName) (line 338)
-  Gets type by full name — more efficient than FindTypeByName.
+  Gets type by full name -- more efficient than FindTypeByName.
 - public static object GetSettings() (line 347)
   Via MB.Settings (protected static).
+
+#### Tab system
 - public static void EnsureTabTypes() (line 388)
 - public static void EnsureToggleButtonType() (line 444)
 
@@ -143,54 +212,70 @@ CRITICAL RULES:
 - public static object GetDepositsService() (line 850)
 - public static object GetOreService() (line 859)
 - public static object GetSpringsService() (line 868)
-- public static void RemoveSpringsFromGrid() (line 878)
-- public static void ReturnSpringsOnGrid() (line 888)
+- public static bool RemoveSpringsFromGrid() (line 878)
+  Removes free springs from grid for Extractor placement checks.
+- public static bool ReturnSpringsOnGrid() (line 888)
+  Restores springs after placement checks.
 - public static object GetLakesService() (line 898)
 - public static object GetBuildingsService() (line 907)
 - public static object GetBuildingById(int id) (line 920)
+  Lazy-caches HasBuilding/GetBuilding methods from BuildingsService.
 - public static object GetConditionsService() (line 947)
 - public static object GetBiomeService() (line 955)
 - public static object GetCurrentBiome() (line 964)
+
+#### Blight
 - public static bool IsBlightActive() (line 972)
 - public static object GetBlightService() (line 987)
 - public static int GetGlobalActiveCysts() (line 996)
 - public static float GetPredictedCorruptionPercentage() (line 1012)
-- public static IEnumerable GetBuildingsBlights() (line 1028)
+  Returns 0-1 float.
+- public static object GetBuildingsBlights() (line 1028)
 - public static object GetMainHearth() (line 1037)
 - public static int GetBlightActiveCysts(object buildingBlight) (line 1052)
 - public static object GetBlightOwner(object buildingBlight) (line 1066)
 - public static float GetHearthCorruptionRate(object hearth) (line 1080)
+  Returns 0-1 float.
+
+#### Map geometry
 - public static object GetAllGlades() (line 1095)
 - public static int GetMapWidth() (line 1104)
+  Fallback: 70.
 - public static int GetMapHeight() (line 1128)
+  Fallback: 70.
 - public static bool MapInBounds(int x, int y) (line 1152)
 - public static Vector2Int? GetMainHearthPosition() (line 1167)
+  Gets first hearth from BuildingsService.Hearths dictionary.
 
 #### Time / Speed
 - public static object GetTimeScaleService() (line 1265)
 - public static bool IsPaused() (line 1273)
 - public static void SetSpeed(int speedIndex) (line 1285)
+  1=normal, 2=1.5x, 3=2x, 4=3x. Uses Change(float, bool, bool).
 - public static void TogglePause() (line 1310)
 
 #### Camera
 - public static object GetCameraController() (line 1362)
 - public static void SetCameraTarget(Transform target) (line 1383)
+  Uses CameraControllerUpdateMovementPatch.SetTarget for smooth panning.
 
 #### Observable subscriptions
 - public static IDisposable SubscribeToObservable(object observable, Action<object> callback) (line 1398)
-  General helper for subscribing to IObservable<T> via ActionObserver<T>.
+  General helper for subscribing to IObservable<T> via ActionObserver<T>. Searches for Subscribe(IObserver<T>) method.
 
 #### Popup detection
 - public static bool IsWikiPopup(object popup) (line 1477)
   Forwards to WikiReflection.IsWikiPopup.
 
-#### Reputation / Races
+#### Stats services (Reputation, Hostility, Resolve, Races)
 - public static object GetReputationService() (line 1524)
 - public static object GetHostilityService() (line 1540)
 - public static object GetResolveService() (line 1556)
+
+#### Favoring (race preference)
 - public static bool IsFavored(string raceName) (line 1601)
-- public static void FavorRace(string raceName) (line 1616)
-- public static void StopFavoringRace() (line 1633)
+- public static bool FavorRace(string raceName) (line 1616)
+- public static bool StopFavoringRace() (line 1633)
 - public static bool IsFavoringOnCooldown() (line 1650)
 - public static float GetFavorCooldownLeft() (line 1665)
 - public static object GetRacesService() (line 1681)
@@ -199,233 +284,96 @@ CRITICAL RULES:
 - public static object GetCalendarService() (line 1743)
 - public static int GetYear() (line 1758)
 - public static int GetSeason() (line 1773)
+  0=Drizzle, 1=Clearance, 2=Storm.
 - public static float GetTimeTillNextSeason() (line 1792)
-- public static float GetGameTime() (line 1843)
 
-#### State / Seasonal effects
+#### Game time
+- public static float GetGameTime() (line 1843)
+  In-game seconds since settlement start.
+
+#### State / Seasonal effects (Mysteries)
 - public static object GetStateService() (line 1972)
 - public static object GetSeasonalEffectsState() (line 1988)
 - public static IDictionary GetSeasonalEffectsDictionary() (line 2004)
+  Returns Dictionary<string, SeasonalEffectState>.
 - public static object GetConditionsState() (line 2020)
 - public static List<string> GetEarlyEffects() (line 2036)
+  Modifiers applied at embark.
 - public static List<string> GetLateEffects() (line 2052)
+  Modifiers applied at embark.
 - public static object GetSimpleSeasonalEffectModel(string name) (line 2067)
 - public static object GetConditionalSeasonalEffectModel(string name) (line 2082)
 - public static object GetEffectModel(string name) (line 2098)
+  Used for world modifiers.
 
 #### Storage / Goods
 - public static object GetStorageService() (line 2177)
 - public static object GetMainStorage() (line 2192)
 - public static Dictionary<string, int> GetAllStoredGoods() (line 2208)
+  Only includes goods with amount > 0.
 - public static Array GetAllGoodModels() (line 2239)
+  From Settings.Goods.
 - public static object GetGoodCategory(object goodModel) (line 2254)
 - public static string GetDisplayName(object model) (line 2270)
+  Works for GoodModel or GoodCategoryModel via displayName.Text.
 - public static string GetModelName(object model) (line 2294)
+  SO.Name property.
 - public static int GetModelOrder(object model) (line 2309)
+  The `order` field, used for sorting.
 - public static bool IsGoodActive(object goodModel) (line 2325)
 
-#### Building construction system
-- public static void ClearBuildingCreatorInstance() (line 2357)
-- public static Array GetAllBuildingModels() (line 2509)
-- public static Array GetBuildingCategories() (line 2524)
-- public static object GetBuildingCategory(object buildingModel) (line 2539)
-- public static bool IsBuildingInShop(object buildingModel) (line 2553)
-- public static Vector2Int GetBuildingSize(object buildingModel) (line 2568)
-- public static string GetBuildingDescription(object buildingModel) (line 2583)
-- public static List<(string name, int required, int available)> GetBuildingCosts(object buildingModel) (line 2608)
-- public static bool IsBuildingActive(object buildingModel) (line 2661)
-- public static bool IsCategoryOnHUD(object categoryModel) (line 2676)
-- public static object GetGameContentService() (line 2691)
-- public static object GetConstructionService() (line 2706)
-- public static bool IsBuildingUnlocked(object buildingModel) (line 2721)
-- public static bool CanConstructBuilding(object buildingModel) (line 2737)
-- public static object CreateBuilding(object buildingModel, int rotation = 0) (line 2754)
-- public static bool CanPlaceBuilding(object building) (line 2832)
-- public static void SetBuildingPosition(object building, Vector2Int gridPos) (line 2848)
-- public static void RotateBuilding(object building, int rotation) (line 2864)
-- public static int GetBuildingRotation(object building) (line 2878)
-- public static void FinalizeBuildingPlacement(object building) (line 2893)
-- public static void RemoveBuilding(object building, bool refund = true) (line 2907)
-- public static object GetBuildingAtPosition(int x, int y) (line 2922)
-- public static bool IsBuildingUnfinished(object building) (line 2938)
-- public static float GetBuildingProgress(object building) (line 3021)
-- public static List<(string name, int delivered, int required)> GetConstructionMaterials(object building) (line 3043)
-- public static bool IsBuilding(object obj) (line 3100)
-- public static bool IsRemovableResource(object obj) (line 3112)
-- public static void RemoveResourceNode(object resource) (line 3122)
-- public static bool IsRelic(object building) (line 3155)
-- public static void PickBuilding(object building) (line 3187)
-- public static Vector2Int? GetBuildingEntranceTile(object building) (line 3296)
-- public static bool GetBuildingShouldShowEntrance(object building) (line 3320)
-- public static bool CanRotateBuilding(object building) (line 3338)
-- public static bool CanRotateBuildingModel(object buildingModel) (line 3357)
-- public static bool CanMovePlacedBuilding(object building) (line 3375)
-- public static bool HasMovingCost(object building) (line 3412)
-- public static bool CanAffordMove(object building) (line 3432)
-- public static (string displayName, int amount)? GetMovingCostInfo(object building) (line 3453)
-- public static void PayForMoving(object building) (line 3485)
-- public static void RefundMoving(object building) (line 3530)
-- public static bool CanRotatePlacedBuilding(object building) (line 3568)
-- public static int RotatePlacedBuilding(object building) (line 3596)
-  Returns new rotation int.
-- public static int RotatePlacedBuildingDirection(object building, int direction) (line 3654)
-  Returns new rotation int.
-- public static Vector2Int GetBuildingGridPosition(object building) (line 3718)
-- public static object GetBuildingModel(object building) (line 3745)
-- public static void LiftBuilding(object building) (line 3768)
-- public static void PlaceBuildingOnGrid(object building) (line 3797)
+#### GoodRef (forwarding to BuildingReflection)
+- public static Type GoodRefType { get; } (line 2341)
+- public static FieldInfo GoodRefGoodField { get; } (line 2342)
+- public static FieldInfo GoodRefAmountField { get; } (line 2343)
+- public static PropertyInfo GoodRefDisplayNameProperty { get; } (line 2344)
 
-#### Blackboard / HUD
-- public static object GetGameBlackboardService() (line 3857)
-- public static object GetUnitDefault() (line 3877)
-- public static void InvokeSubjectOnNext(object blackboardService, string subjectPropertyName, object parameter) (line 3921)
-- public static void OpenRecipesPopup() (line 3956)
-- public static void OpenOrdersPopup() (line 3989)
-- public static void OpenTradeRoutesPopup() (line 4002)
-- public static void OpenConsumptionPopup() (line 4015)
-- public static void OpenPaymentsPopup() (line 4028)
-- public static void OpenTrendsPopup() (line 4041)
-- public static bool AreTradeRoutesUnlocked() (line 4094)
-- public static bool IsConsumptionControlUnlocked() (line 4114)
-- public static bool IsBlueprintRerollUnlocked() (line 4166)
-- public static int GetBonusFarmArea() (line 4189)
-- public static void OpenTraderPanel() (line 4212)
-- public static string GetGoodDisplayName(string goodName) (line 4319)
-- public static string GetGoodDescription(string goodName) (line 4343)
-- public static Dictionary<string, int> GetStorageGoods() (line 4369)
-- public static string GetRelicDisplayName(string relicModelName) (line 4402)
-- public static string GetMetaCurrencyDisplayName(string currencyName) (line 4459)
+#### Blackboard / Popup opening
+- public static object GetGameBlackboardService() (line 2381)
+- public static object GetUnitDefault() (line 2401)
+  Gets UniRx.Unit.Default; safe to cache permanently.
+- public static bool InvokeSubjectOnNext(object blackboardService, string subjectPropertyName, object parameter) (line 2445)
+  Helper to invoke OnNext on a UniRx Subject property.
+- public static bool OpenRecipesPopup() (line 2480)
+  Creates RecipesPopupRequest(true) and fires RecipesPopupRequested.
+- public static bool OpenOrdersPopup() (line 2513)
+- public static bool OpenTradeRoutesPopup() (line 2526)
+- public static bool OpenConsumptionPopup() (line 2539)
+- public static bool OpenPaymentsPopup() (line 2552)
+- public static bool OpenTrendsPopup() (line 2565)
+- public static bool OpenTraderPanel() (line 2580)
+  Opens TraderPanel.Instance.Show(currentVisit, true). Complex: finds TraderPanel type, gets current visit from TradeService, calls Show.
+
+#### Goods helpers
+- public static string GetGoodDisplayName(string goodName) (line 2687)
+  Looks up GoodModel from Settings.GetGood, returns displayName.
+- public static string GetGoodDescription(string goodName) (line 2711)
+  Returns full description with rich text stripped.
+- public static Dictionary<string, int> GetStorageGoods() (line 2737)
+  Alias for GetAllStoredGoods().
+- public static string GetRelicDisplayName(string relicModelName) (line 2770)
+  Looks up relic model from Settings.GetRelic.
+- public static string GetMetaCurrencyDisplayName(string currencyName) (line 2827)
+  Looks up MetaCurrencyModel from Settings.GetMetaCurrency.
 
 #### Effects / Cornerstones / Perks
-- public static object GetEffectsService() (line 4554)
-- public static object GetPerksService() (line 4569)
-- public static object GetCornerstonesState() (line 4584)
-- public static IEnumerable GetAllConditions() (line 4601)
-- public static List<string> GetActiveCornerstones() (line 4618)
-- public static IList GetSortedPerks() (line 4635)
-- public static (string name, int stacks, bool hidden) GetPerkInfo(object perkState) (line 4674)
-- public static bool GetEffectIsPerk(object effectModel) (line 4713)
-- public static string GetEffectName(object effectModel) (line 4728)
-- public static object GetSeasonalEffectWrappedEffect(object seasonalEffectModel) (line 4744)
-- public static string GetSeasonalEffectWrappedEffectName(object seasonalEffectModel) (line 4763)
-- public static int GetSeasonalEffectHostilityLevel(object seasonalEffectModel) (line 4773)
+- public static object GetEffectsService() (line 2922)
+- public static object GetPerksService() (line 2937)
+- public static object GetCornerstonesState() (line 2952)
+- public static IEnumerable GetAllConditions() (line 2969)
+  Via EffectsService.GetAllConditions(). Includes biome effects, difficulty modifiers, embark effects, event effects.
+- public static List<string> GetActiveCornerstones() (line 2986)
+  List of active cornerstone effect names.
+- public static IList GetSortedPerks() (line 3003)
+  List of PerkState objects with name, stacks, hidden fields.
+- public static (string name, int stacks, bool hidden) GetPerkInfo(object perkState) (line 3042)
+- public static bool GetEffectIsPerk(object effectModel) (line 3081)
+- public static string GetEffectName(object effectModel) (line 3096)
+- public static object GetSeasonalEffectWrappedEffect(object seasonalEffectModel) (line 3112)
+  Only SimpleSeasonalEffectModel has an "effect" field.
+- public static string GetSeasonalEffectWrappedEffectName(object seasonalEffectModel) (line 3131)
+- public static int GetSeasonalEffectHostilityLevel(object seasonalEffectModel) (line 3141)
 
-#### Building model type checks
-- public static bool IsCampModel(object buildingModel) (line 4924)
-- public static bool IsGathererHutModel(object buildingModel) (line 4933)
-- public static bool IsFishingHutModel(object buildingModel) (line 4942)
-- public static bool IsHearthModel(object buildingModel) (line 4951)
-- public static bool IsWorkshopModel(object buildingModel) (line 4960)
-- public static bool IsFarmModel(object buildingModel) (line 4969)
-- public static bool IsFarmfield(object obj) (line 4978)
-- public static bool HasFarmfieldAt(int x, int y) (line 4988)
-- public static bool IsHouseModel(object buildingModel) (line 5049)
-- public static bool IsInstitutionModel(object buildingModel) (line 5058)
-- public static bool IsDecorationModel(object buildingModel) (line 5066)
-
-#### Building model stats
-- public static float GetGatheringBuildingMaxDistance(object buildingModel) (line 5075)
-- public static float GetHearthBaseRange(object buildingModel) (line 5099)
-- public static float GetEffectiveHearthRange(object buildingModel) (line 5117)
-- public static List<string> GetGatheringBuildingGoodNames(object buildingModel) (line 5140)
-
-#### Resources / Deposits / Lakes
-- public static IEnumerable GetAvailableResources() (line 5184)
-- public static IEnumerable GetAvailableDeposits() (line 5201)
-- public static IEnumerable GetAvailableLakes() (line 5218)
-- public static string GetResourceNodeDisplayName(object resource) (line 5235)
-- public static int GetLakeChargesLeft(object lake) (line 5270)
-- public static List<(string name, int amount)> GetLakeStoredGoods(object lake) (line 5289)
-- public static void ForceDepliteLake(object lake) (line 5324)
-- public static int GetResourceNodePriority(object node) (line 5342)
-- public static void SetResourceNodePriority(object node, int priority) (line 5365)
-- public static void SetGlobalResourceNodePriority(object node, int priority) (line 5391)
-
-#### Construction priorities
-- public static int GetBuildingConstructionPriority(object building) (line 5421)
-- public static void SetBuildingConstructionPriority(object building, int priority) (line 5441)
-- public static void SetGlobalBuildingConstructionPriority(object building, int priority) (line 5462)
-
-#### Geometry helpers
-- public static Vector3? GetBuildingCenter(object building) (line 5483)
-- public static Vector2Int? GetResourceField(object resource) (line 5501)
-- public static Vector2Int? GetResourceSize(object resource) (line 5519)
-- public static IEnumerable GetAllHearths() (line 5537)
-- public static IEnumerable GetAllHouses() (line 5559)
-- public static IEnumerable GetAllInstitutions() (line 5576)
-- public static IEnumerable GetAllDecorations() (line 5593)
-- public static bool IsHouseBuilding(object building) (line 5610)
-- public static bool IsInHearthRange(object hearth, Vector2Int position) (line 5618)
-- public static bool IsInHearthRange(object hearth, object building) (line 5639)
-- public static float CalculateResourceDistance(Vector2 buildingCenter2D, Vector2Int resourceField) (line 5689)
-- public static float CalculateDepositDistance(Vector2 buildingCenter2D, Vector2Int depositField, Vector2Int depositSize) (line 5699)
-- public static Vector2 CalculateBuildingCenter(int cursorX, int cursorY, Vector2Int size) (line 5719)
-- public static Vector2? GetBuildingEntranceCenter(object building) (line 5734)
-- public static IEnumerable GetAllStorageBuildings() (line 5752)
-- public static IEnumerable GetAllFarms() (line 5769)
-- public static IEnumerable GetAllCamps() (line 5786)
-- public static IEnumerable GetAllGathererHuts() (line 5803)
-- public static IEnumerable GetAllFishingHuts() (line 5820)
-- public static float GetLocalStorageDistance() (line 5838)
-
-#### Building supply chain analysis
-- public static bool IsBuildingSourceOf(object building, string goodName) (line 5865)
-- public static List<string> GetBuildingRequiredInputs(object building) (line 5906)
-- public static List<string> GetModelPossibleInputs(object buildingModel) (line 5992)
-- public static List<object> GetBuildingsThatProduce(string goodName) (line 6056)
-- public static bool IsProductionBuilding(object building) (line 6095)
-- public static List<string> GetBuildingActualOutputs(object building) (line 6109)
-
-#### Effects state
-- public static object GetEffectsState() (line 6461)
-
-#### Glade info
-- public static bool HasGladeInfo() (line 6477)
-- public static bool HasDangerousGladeInfo() (line 6495)
-- public static List<Vector2Int> GetRevealedGrassLocations() (line 6512)
-- public static List<Vector2Int> GetRevealedSpringsLocations() (line 6527)
-- public static List<Vector2Int> GetRevealedRelicLocations() (line 6542)
-- public static int GetLocationMarkerType(int x, int y) (line 6558)
-- public static string GetGladeContentsSummary(object glade) (line 6607)
-
-#### Location marker subscriptions
-- public static IDisposable SubscribeToGrassLocationRequested(Action callback) (line 6693)
-- public static IDisposable SubscribeToSpringsLocationRequested(Action callback) (line 6713)
-- public static IDisposable SubscribeToRelicLocationRequested(Action callback) (line 6733)
-
-#### Relics
-- public static object GetRelicsService() (line 6800)
-- public static IDisposable SubscribeToRelicsHighlightRequested(Action<string, Vector2Int> callback) (line 6816)
-- public static Dictionary<Vector2Int, string> GetHighlightedRelics() (line 6863)
-- public static string GetHighlightedRelicAt(int x, int y) (line 6871)
-- public static void ClearHighlightedRelics() (line 6881)
-
-#### Natural resource markers
-- public static bool IsNaturalResourceMarked(object resource) (line 6911)
-- public static object GetNaturalResourceAt(Vector2Int pos) (line 6969)
-- public static bool HasNaturalResourceAt(Vector2Int pos) (line 6990)
-- public static void MarkNaturalResourceAt(Vector2Int pos) (line 6998)
-- public static void UnmarkNaturalResourceAt(Vector2Int pos) (line 7017)
-- public static bool IsNaturalResourceGladeEdge(Vector2Int pos) (line 7035)
-- public static List<Vector2Int> GetAllNaturalResourcePositions() (line 7056)
-
-#### Farm / Field helpers
-- public static Vector2Int GetFarmModelWorkArea(object farmModel) (line 7109)
-- public static bool IsFieldGrass(object field) (line 7128)
-- public static bool IsInUnrevealedGlade(int x, int y) (line 7148)
-
-#### Seal
-- public static object GetGameSealService() (line 7241)
-- public static bool IsSealedBiome() (line 7249)
-- public static Vector2Int GetSealField() (line 7260)
-- public static IDictionary GetSeals() (line 7278)
-- public static Vector2Int GetSealSize() (line 7295)
-- public static Vector2Int GetGuidepostTargetField() (line 7320)
-
-#### All buildings list
-- public static List<object> GetAllBuildingObjects() (line 7353)
-- public static Vector2Int GetBuildingPosition(object building) (line 7385)
-- public static string GetBuildingDisplayName(object building) (line 7405)
-
-#### Cache
-- public static int LogCacheStatus() (line 7409)
+#### Cache diagnostics
+- public static int LogCacheStatus() (line 3155)
+  Delegates to ReflectionValidator.TriggerAndValidate.

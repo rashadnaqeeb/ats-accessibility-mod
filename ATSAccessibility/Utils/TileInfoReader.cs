@@ -172,7 +172,7 @@ namespace ATSAccessibility.Utils {
 		private static string GetGuidepostDirection(object building) {
 			try {
 				// First check if we're in a sealed biome
-				if (!GameReflection.IsSealedBiome()) return null;
+				if (!MapReflection.IsSealedBiome()) return null;
 
 				// Get the building's view field (Decoration has public "view" field)
 				var viewField = building.GetType().GetField("view", GameReflection.PublicInstance);
@@ -192,11 +192,11 @@ namespace ATSAccessibility.Utils {
 				if (!(positionObj is Vector3 position)) return null;
 
 				// Get seal target field
-				Vector2Int sealField = GameReflection.GetGuidepostTargetField();
+				Vector2Int sealField = MapReflection.GetGuidepostTargetField();
 				if (sealField == default) return null;
 
 				// Get seal size for center calculation
-				Vector2Int sealSize = GameReflection.GetSealSize();
+				Vector2Int sealSize = MapReflection.GetSealSize();
 				if (sealSize == default) return null;
 
 				// Calculate seal center (same as game's GetCenter method)

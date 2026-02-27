@@ -474,7 +474,7 @@ namespace ATSAccessibility.Handlers {
 				case KeyCode.KeypadEnter:
 					var objectAtCursor = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
 					if (objectAtCursor != null && objectAtCursor.GetType().Name == "NaturalResource") {
-						bool isMarked = GameReflection.IsNaturalResourceMarked(objectAtCursor);
+						bool isMarked = MapReflection.IsNaturalResourceMarked(objectAtCursor);
 						_harvestMarkHandler.EnterMode(isMarked);
 						return true;
 					}
@@ -732,18 +732,18 @@ namespace ATSAccessibility.Handlers {
 
 		private void ToggleTreeMark() {
 			var pos = new Vector2Int(_mapNavigator.CursorX, _mapNavigator.CursorY);
-			var resource = GameReflection.GetNaturalResourceAt(pos);
+			var resource = MapReflection.GetNaturalResourceAt(pos);
 			if (resource == null) {
 				Speech.Say("No tree here");
 				return;
 			}
 
-			if (GameReflection.IsNaturalResourceMarked(resource)) {
-				GameReflection.UnmarkNaturalResourceAt(pos);
+			if (MapReflection.IsNaturalResourceMarked(resource)) {
+				MapReflection.UnmarkNaturalResourceAt(pos);
 				Speech.Say("Unmarked");
 			} else {
-				GameReflection.MarkNaturalResourceAt(pos);
-				if (GameReflection.IsNaturalResourceGladeEdge(pos))
+				MapReflection.MarkNaturalResourceAt(pos);
+				if (MapReflection.IsNaturalResourceGladeEdge(pos))
 					Speech.Say("Marked, glade edge");
 				else
 					Speech.Say("Marked");
