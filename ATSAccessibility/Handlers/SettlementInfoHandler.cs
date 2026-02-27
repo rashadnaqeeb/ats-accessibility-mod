@@ -10,7 +10,22 @@ namespace ATSAccessibility.Handlers {
 	/// Registered above menus/overlays so these work even inside popups
 	/// without interfering with typeahead search.
 	/// </summary>
-	public class SettlementInfoHandler: IKeyHandler {
+	public class SettlementInfoHandler: IKeyHandler, IHelpProvider {
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			new HelpEntry("Alt+S", "Settlement summary"),
+			new HelpEntry("Alt+V", "Species resolve"),
+			new HelpEntry("Alt+O", "Tracked orders"),
+		};
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Filter;
+		public string HelpContextName => null;
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
+
 		public bool IsActive => GameReflection.GetIsGameActive();
 
 		public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {

@@ -1,3 +1,4 @@
+using ATSAccessibility.Panels;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -43,6 +44,12 @@ namespace ATSAccessibility.Core {
 		// Handler chain in priority order
 		private readonly List<IKeyHandler> _handlers = new List<IKeyHandler>();
 
+		/// <summary>Ordered handler list for help collection.</summary>
+		public IReadOnlyList<IKeyHandler> Handlers => _handlers;
+
+		// Help overlay for F12
+		private HelpOverlay _helpOverlay;
+
 		/// <summary>
 		/// Register a key handler. Handlers are processed in registration order.
 		/// </summary>
@@ -51,6 +58,13 @@ namespace ATSAccessibility.Core {
 				_handlers.Add(handler);
 				Debug.Log($"[ATSAccessibility] Registered key handler: {handler.GetType().Name}");
 			}
+		}
+
+		/// <summary>
+		/// Set the help overlay reference for F12 interception.
+		/// </summary>
+		public void SetHelpOverlay(HelpOverlay overlay) {
+			_helpOverlay = overlay;
 		}
 
 		/// <summary>
@@ -72,6 +86,17 @@ namespace ATSAccessibility.Core {
 			// and would cause handlers to react to bare Alt/Ctrl/Shift key-down events
 			if (IsModifierKey(keyCode))
 				return;
+
+			// F12: toggle context-sensitive help overlay
+			if (keyCode == KeyCode.F12 && _helpOverlay != null) {
+				if (_helpOverlay.IsOpen) {
+					_helpOverlay.Close();
+				} else {
+					var (name, entries) = HelpCollector.Collect(_handlers);
+					_helpOverlay.ShowHelp(name, entries);
+				}
+				return;
+			}
 
 			foreach (var handler in _handlers) {
 				if (handler.IsActive && handler.ProcessKey(keyCode, modifiers)) {

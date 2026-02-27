@@ -83,6 +83,14 @@ namespace ATSAccessibility.Overlays {
 			_operations.Clear();
 		}
 
+		private static readonly List<HelpEntry> _trendsHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("Left/Right", "Navigate goods"),
+			new HelpEntry("1", "10 second time frame"),
+			new HelpEntry("2", "1 minute time frame"),
+			new HelpEntry("3", "5 minute time frame"),
+		};
+		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _trendsHelpEntries;
+
 		// ========================================
 		// SPECIAL KEY HANDLING
 		// ========================================

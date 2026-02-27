@@ -9,7 +9,7 @@ namespace ATSAccessibility.Handlers {
 	/// Handles keyboard-based tree marking/unmarking with rectangle and single selection modes.
 	/// Active only when in mark/unmark mode (entered via Enter on NaturalResource).
 	/// </summary>
-	public class HarvestMarkHandler: IKeyHandler {
+	public class HarvestMarkHandler: IKeyHandler, IHelpProvider {
 		private enum Mode { None, Mark, Unmark }
 		private enum SelMode { Rectangle, Single }
 		private enum RectPhase { Idle, WaitingForSecond }
@@ -22,6 +22,27 @@ namespace ATSAccessibility.Handlers {
 		private bool _awaitingGladeConfirm = false;
 
 		private readonly MapNavigator _mapNavigator;
+
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			new HelpEntry("Space", "Select/deselect"),
+			new HelpEntry("Tab", "Toggle selection mode"),
+			new HelpEntry("Enter", "Commit selection"),
+			new HelpEntry("Escape", "Cancel"),
+			new HelpEntry("C", "Select all marked (unmark mode)"),
+		};
+
+		private static readonly List<string> _passthroughKeys = new List<string> {
+			"Arrows", "Ctrl+Arrows", "PageUp/Down", "Alt+PageUp/Down", "Home", "End", "K", "I", "B",
+		};
+
+		public HelpBehavior HelpBehavior => HelpBehavior.SelectivePassthrough;
+		public string HelpContextName => "Tree Marking";
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => _passthroughKeys;
 
 		public bool IsActive => _mode != Mode.None;
 

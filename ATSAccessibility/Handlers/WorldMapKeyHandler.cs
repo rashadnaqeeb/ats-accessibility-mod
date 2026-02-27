@@ -2,6 +2,7 @@ using ATSAccessibility.Overlays;
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility.Handlers {
@@ -9,7 +10,7 @@ namespace ATSAccessibility.Handlers {
 	/// Handles keyboard input for world map hex grid navigation.
 	/// This is the fallback handler when no popups/menus are open on the world map.
 	/// </summary>
-	public class WorldMapKeyHandler: IKeyHandler {
+	public class WorldMapKeyHandler: IKeyHandler, IHelpProvider {
 		private readonly WorldMapNavigator _worldMapNavigator;
 		private readonly WorldMapScanner _worldMapScanner;
 		private WorldTutorialsOverlay _tutorialsOverlay;
@@ -25,6 +26,31 @@ namespace ATSAccessibility.Handlers {
 		public void SetTutorialsOverlay(WorldTutorialsOverlay overlay) {
 			_tutorialsOverlay = overlay;
 		}
+
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			new HelpEntry("I", "Tooltip info"),
+			new HelpEntry("D", "Embark status and distance"),
+			new HelpEntry("M", "Effects panel"),
+			new HelpEntry("L", "Level info"),
+			new HelpEntry("R", "Meta resources"),
+			new HelpEntry("S", "Seal info"),
+			new HelpEntry("T", "Cycle info"),
+			new HelpEntry("E", "Open cycle end"),
+			new HelpEntry("F1", "Tutorials"),
+			new HelpEntry("PageUp/Down", "Scanner type"),
+			new HelpEntry("Alt+PageUp/Down", "Scanner item"),
+			new HelpEntry("Home", "Jump to scanner item"),
+			new HelpEntry("End", "Scanner direction"),
+		};
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;
+		public string HelpContextName => "World Map";
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		/// <summary>
 		/// Active when the world map is displayed.

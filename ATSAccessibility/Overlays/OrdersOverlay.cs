@@ -118,6 +118,11 @@ namespace ATSAccessibility.Overlays {
 		// Escape passes to game to close popup (OnPopupHidden will close our overlay)
 		protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
 
+		private static readonly List<HelpEntry> _ordersHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("T", "Toggle tracking"),
+		};
+		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _ordersHelpEntries;
+
 		protected override void OnClosed() {
 			_items.Clear();
 		}

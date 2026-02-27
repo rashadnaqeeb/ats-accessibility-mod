@@ -2,6 +2,7 @@ using ATSAccessibility.Panels;
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility.Handlers {
@@ -9,7 +10,7 @@ namespace ATSAccessibility.Handlers {
 	/// Controls building placement mode: rotation, placement, and removal.
 	/// Works with MapNavigator for cursor position.
 	/// </summary>
-	public class BuildModeController: IKeyHandler {
+	public class BuildModeController: IKeyHandler, IHelpProvider {
 		private bool _isActive = false;
 		private object _selectedBuildingModel = null;
 		private string _selectedBuildingName = null;
@@ -20,6 +21,27 @@ namespace ATSAccessibility.Handlers {
 
 		// Reference to building menu for returning
 		private readonly BuildingMenuPanel _buildingMenuPanel;
+
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			new HelpEntry("R", "Rotate clockwise"),
+			new HelpEntry("Shift+R", "Rotate counter-clockwise"),
+			new HelpEntry("Space", "Place building"),
+			new HelpEntry("Shift+Space", "Remove unfinished building"),
+			new HelpEntry("Enter", "Place and exit"),
+			new HelpEntry("Escape", "Exit build mode"),
+			new HelpEntry("Tab", "Return to menu"),
+			new HelpEntry("E", "Entrance preview"),
+			new HelpEntry("D", "Range preview"),
+		};
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Filter;
+		public string HelpContextName => "Build Mode";
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		/// <summary>
 		/// Whether build mode is currently active.

@@ -107,6 +107,9 @@ namespace ATSAccessibility.Core {
 		// Tutorial tooltip handler for tutorial text navigation
 		private TutorialTooltipHandler _tutorialTooltipHandler;
 
+		// Help overlay for F12 context-sensitive help
+		private HelpOverlay _helpOverlay;
+
 		// Capital screen overlay for Smoldering City (referenced by capital event callbacks)
 		private CapitalOverlay _capitalOverlay;
 		private IDisposable _capitalEnabledSubscription;
@@ -246,6 +249,10 @@ namespace ATSAccessibility.Core {
 			// Initialize world tutorials overlay for world map tutorial selection
 			_worldTutorialsOverlay = new WorldTutorialsOverlay();
 
+			// Initialize help overlay for F12 context-sensitive help
+			_helpOverlay = new HelpOverlay();
+			_keyboardManager.SetHelpOverlay(_helpOverlay);
+
 			// Initialize popup router (deeds overlay needed for fallback logic)
 			_popupRouter = new PopupRouter(deedsOverlay, _uiNavigator, _keyboardManager);
 
@@ -322,6 +329,7 @@ namespace ATSAccessibility.Core {
 			worldMapHandler.SetTutorialsOverlay(_worldTutorialsOverlay);
 
 			// Register key handlers in priority order (highest priority first)
+			_keyboardManager.RegisterHandler(_helpOverlay);  // Help overlay (F12, when open captures all keys)
 			_keyboardManager.RegisterHandler(_tutorialTooltipHandler);  // Tutorial tooltip (blocks input during tutorial)
 			_keyboardManager.RegisterHandler(_confirmationDialog);  // Confirmation dialog (blocks all input when active)
 			_keyboardManager.RegisterHandler(metaRewardsOverlay);  // Meta rewards/level-up popup (above game result so player can close it first)

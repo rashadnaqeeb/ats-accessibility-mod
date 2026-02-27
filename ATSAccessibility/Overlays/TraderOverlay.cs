@@ -149,6 +149,13 @@ namespace ATSAccessibility.Overlays {
 			return Level > 0 ? EscapeAction.GoBack : EscapeAction.PassThrough;
 		}
 
+		private static readonly List<HelpEntry> _traderHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("Left/Right", "Switch Sell/Buy tab"),
+			new HelpEntry("Alt+B", "Trade balance"),
+			new HelpEntry("Alt+A", "Accept trade"),
+		};
+		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _traderHelpEntries;
+
 		protected override void OnGoBack() {
 			if (_branch == Branch.Perks) {
 				RefreshMainMenu();

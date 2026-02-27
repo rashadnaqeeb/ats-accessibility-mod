@@ -1,6 +1,7 @@
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility.Navigators {
@@ -202,6 +203,16 @@ namespace ATSAccessibility.Navigators {
 			}
 			return null;
 		}
+
+		// ========================================
+		// IHELPPROVIDER OVERRIDE
+		// ========================================
+
+		private static readonly List<HelpEntry> _buildingHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("Alt+Space", "Pause/unpause"),
+		};
+
+		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _buildingHelpEntries;
 
 		protected override string GetOpenAnnouncement() {
 			string buildingName = BuildingReflection.GetBuildingName(_building) ?? "Building";

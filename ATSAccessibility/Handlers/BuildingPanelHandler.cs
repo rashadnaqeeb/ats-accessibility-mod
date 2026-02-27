@@ -3,6 +3,7 @@ using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility.Handlers {
@@ -11,7 +12,7 @@ namespace ATSAccessibility.Handlers {
 	/// Subscribes to building panel open/close events and routes keyboard input
 	/// to the appropriate building-specific navigator.
 	/// </summary>
-	public class BuildingPanelHandler: IKeyHandler {
+	public class BuildingPanelHandler: IKeyHandler, IHelpProvider {
 		// ========================================
 		// DEPENDENCIES
 		// ========================================
@@ -52,6 +53,21 @@ namespace ATSAccessibility.Handlers {
 		private WaterNavigator _waterNavigator;
 		private HydrantNavigator _hydrantNavigator;
 		private FarmfieldNavigator _farmfieldNavigator;
+
+		// ========================================
+		// IHELPPROVIDER (delegates to current navigator)
+		// ========================================
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;
+		public string HelpContextName => "Building";
+
+		public IReadOnlyList<HelpEntry> GetHelpEntries() {
+			if (_currentNavigator is IHelpProvider provider)
+				return provider.GetHelpEntries();
+			return null;
+		}
+
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		// ========================================
 		// IKEYHANDLER IMPLEMENTATION

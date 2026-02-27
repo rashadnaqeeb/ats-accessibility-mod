@@ -119,6 +119,11 @@ namespace ATSAccessibility.Overlays {
 			return null;
 		}
 
+		private static readonly List<HelpEntry> _recipesHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("Ctrl+T", "Toggle show all"),
+		};
+		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _recipesHelpEntries;
+
 		// ========================================
 		// SEARCH
 		// ========================================

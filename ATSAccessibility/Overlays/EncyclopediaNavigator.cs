@@ -14,7 +14,7 @@ namespace ATSAccessibility.Overlays {
 	/// fundamentally different content types, and the Content panel uses a text
 	/// reader rather than item navigation — neither maps to MenuBase's level model.
 	/// </summary>
-	public class EncyclopediaNavigator: IKeyHandler, ISearchable {
+	public class EncyclopediaNavigator: IKeyHandler, ISearchable, IHelpProvider {
 		public enum WikiPanel { Categories = 0, Articles = 1, Content = 2 }
 
 		private object _wikiPopup;
@@ -37,6 +37,17 @@ namespace ATSAccessibility.Overlays {
 
 		// Type-ahead search for article navigation
 		private readonly TypeAheadSearch _search = new TypeAheadSearch();
+
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry>();
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;
+		public string HelpContextName => "Encyclopedia";
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		/// <summary>
 		/// Whether this handler is currently active (IKeyHandler).

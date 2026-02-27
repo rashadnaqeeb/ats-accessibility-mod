@@ -13,7 +13,7 @@ namespace ATSAccessibility.Overlays {
 	/// Handles UI navigation within popups/menus.
 	/// Uses panel-based hierarchy: Left/Right switches panels, Up/Down cycles elements.
 	/// </summary>
-	public class UINavigator: IKeyHandler, ISearchable {
+	public class UINavigator: IKeyHandler, ISearchable, IHelpProvider {
 		// MonoBehaviour reference for starting coroutines
 		private MonoBehaviour _coroutineRunner;
 
@@ -75,6 +75,20 @@ namespace ATSAccessibility.Overlays {
 		/// Whether currently editing a text field.
 		/// </summary>
 		public bool IsEditingTextField => _isEditingTextField;
+
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			new HelpEntry("+/-", "Adjust slider"),
+			new HelpEntry("Shift+/-", "Larger increment"),
+		};
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;
+		public string HelpContextName => "Popup";
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		/// <summary>
 		/// Whether this handler is currently active (IKeyHandler).

@@ -1,4 +1,5 @@
 using ATSAccessibility.Utils;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility.Core {
@@ -11,7 +12,7 @@ namespace ATSAccessibility.Core {
 	/// Navigation levels use a flat index array (_indices[level]).
 	/// Level 0 is always the root. Subclasses define what each level means.
 	/// </summary>
-	public abstract class MenuBase: ISearchable, IKeyHandler {
+	public abstract class MenuBase: ISearchable, IKeyHandler, IHelpProvider {
 		// ========================================
 		// ENUMS
 		// ========================================
@@ -222,6 +223,18 @@ namespace ATSAccessibility.Core {
 
 			_isOpen = true;
 			OnAnyMenuOpened?.Invoke();
+			OpenCore();
+		}
+
+		/// <summary>Open without firing OnAnyMenuOpened. Used by HelpOverlay to avoid cancelling active modes.</summary>
+		protected void OpenSilently() {
+			if (_isOpen) return;
+
+			_isOpen = true;
+			OpenCore();
+		}
+
+		private void OpenCore() {
 			_level = 0;
 			for (int i = 0; i < _indices.Length; i++)
 				_indices[i] = 0;
@@ -406,6 +419,23 @@ namespace ATSAccessibility.Core {
 					return true;
 			}
 		}
+
+		// ========================================
+		// IHELPPROVIDER (default implementation)
+		// ========================================
+
+		private static readonly List<HelpEntry> _menuBaseHelpEntries = new List<HelpEntry> {
+			new HelpEntry("+/-", "Adjust value"),
+			new HelpEntry("Shift+/-", "Larger increment"),
+		};
+
+		/// <summary>Standard MenuBase help entries. Subclasses can call this to include base entries.</summary>
+		protected static IReadOnlyList<HelpEntry> MenuBaseHelpEntries => _menuBaseHelpEntries;
+
+		public virtual HelpBehavior HelpBehavior => HelpBehavior.Terminator;
+		public virtual string HelpContextName => OverlayName;
+		public virtual IReadOnlyList<HelpEntry> GetHelpEntries() => _menuBaseHelpEntries;
+		public virtual IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		// ========================================
 		// ISEARCHABLE (explicit interface)

@@ -10,10 +10,21 @@ namespace ATSAccessibility.Panels {
 	/// Speech-only confirmation dialog handler.
 	/// Blocks all input while active, confirms with Enter, cancels with Escape.
 	/// </summary>
-	public class ConfirmationDialog: IKeyHandler {
+	public class ConfirmationDialog: IKeyHandler, IHelpProvider {
 		private bool _isOpen;
 		private Action _onConfirm;
 		private string _itemName;
+
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry>();
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;
+		public string HelpContextName => "Confirmation";
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		public bool IsActive => _isOpen;
 

@@ -1,6 +1,7 @@
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility.Handlers {
@@ -8,7 +9,7 @@ namespace ATSAccessibility.Handlers {
 	/// Controls building move mode: relocating existing buildings.
 	/// Works with MapNavigator for cursor position.
 	/// </summary>
-	public class MoveModeController: IKeyHandler {
+	public class MoveModeController: IKeyHandler, IHelpProvider {
 		private bool _isActive = false;
 		private object _movingBuilding = null;
 		private string _buildingName = null;
@@ -20,6 +21,25 @@ namespace ATSAccessibility.Handlers {
 
 		// Reference to map navigator for cursor position
 		private readonly MapNavigator _mapNavigator;
+
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			new HelpEntry("R", "Rotate clockwise"),
+			new HelpEntry("Shift+R", "Rotate counter-clockwise"),
+			new HelpEntry("Space", "Place building"),
+			new HelpEntry("Enter", "Place building"),
+			new HelpEntry("Escape", "Cancel move"),
+			new HelpEntry("D", "Range preview"),
+			new HelpEntry("E", "Entrance preview"),
+		};
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Filter;
+		public string HelpContextName => "Move Mode";
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		/// <summary>
 		/// Whether move mode is currently active.

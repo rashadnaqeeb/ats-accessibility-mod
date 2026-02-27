@@ -2495,7 +2495,7 @@ namespace ATSAccessibility.Reflection {
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
-					Debug.Log("[ATSAccessibility] Cached BuildingModel field info");
+				Debug.Log("[ATSAccessibility] Cached BuildingModel field info");
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] BuildingModel field caching failed: {ex.Message}");
 			}

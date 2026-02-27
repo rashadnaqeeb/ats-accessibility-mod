@@ -1,6 +1,7 @@
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ATSAccessibility.Handlers {
@@ -9,7 +10,23 @@ namespace ATSAccessibility.Handlers {
 	/// Registered above menus/overlays so these work even inside popups
 	/// without interfering with typeahead search.
 	/// </summary>
-	public class WorldMapInfoHandler: IKeyHandler {
+	public class WorldMapInfoHandler: IKeyHandler, IHelpProvider {
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			new HelpEntry("Alt+L", "Level info"),
+			new HelpEntry("Alt+R", "Meta resources"),
+			new HelpEntry("Alt+S", "Seal info"),
+			new HelpEntry("Alt+T", "Cycle info"),
+		};
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Filter;
+		public string HelpContextName => null;
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
+
 		public bool IsActive => WorldMapReflection.IsWorldMapActive();
 
 		public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {

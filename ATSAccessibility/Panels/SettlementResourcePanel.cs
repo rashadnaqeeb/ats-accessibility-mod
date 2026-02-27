@@ -196,6 +196,11 @@ namespace ATSAccessibility.Panels {
 			return null;
 		}
 
+		private static readonly List<HelpEntry> _resourceHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("Alt+I", "Resource description"),
+		};
+		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _resourceHelpEntries;
+
 		protected override string GetOpenAnnouncement() {
 			if (_categories.Count == 0) return EmptyMessage;
 			return GetLabel(0);

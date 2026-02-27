@@ -151,6 +151,11 @@ namespace ATSAccessibility.Overlays {
 			AdjustSlider(dir * multiplier);
 		}
 
+		private static readonly List<HelpEntry> _customGamesHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("Tab", "Cycle modifier category"),
+		};
+		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _customGamesHelpEntries;
+
 		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
 			if (_isEditingSeed) {
 				if (keyCode == KeyCode.Escape || keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter) {

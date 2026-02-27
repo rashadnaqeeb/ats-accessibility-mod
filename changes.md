@@ -13,6 +13,7 @@ Added working priority support across the mod. You can now:
 
 ### New features
 
+- Add F12 context-sensitive help overlay showing all available keybindings for the current screen
 - Add offline reflection validation script (validate-reflection.ps1) to check reflected types/members against decompiled game-source
 
 ### Bug fixes

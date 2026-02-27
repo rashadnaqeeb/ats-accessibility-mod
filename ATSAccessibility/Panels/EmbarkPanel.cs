@@ -160,6 +160,11 @@ namespace ATSAccessibility.Panels {
 			Speech.Say("Embark panel closed");
 		}
 
+		private static readonly List<HelpEntry> _embarkHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("Tab", "Cycle modifier category"),
+		};
+		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _embarkHelpEntries;
+
 		// ========================================
 		// SEARCH (ISearchable via MenuBase)
 		// ========================================

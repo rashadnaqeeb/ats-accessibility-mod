@@ -12,7 +12,7 @@ namespace ATSAccessibility.Handlers {
 	/// Handles keyboard input for settlement map navigation.
 	/// This is the fallback handler when no popups/menus are open during gameplay.
 	/// </summary>
-	public class SettlementKeyHandler: IKeyHandler {
+	public class SettlementKeyHandler: IKeyHandler, IHelpProvider {
 		private readonly MapNavigator _mapNavigator;
 		private readonly MapScanner _mapScanner;
 		private readonly InfoPanelMenu _infoPanelMenu;
@@ -72,6 +72,70 @@ namespace ATSAccessibility.Handlers {
 			_confirmationDialog = confirmationDialog;
 			_harvestMarkHandler = harvestMarkHandler;
 		}
+
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			new HelpEntry("Ctrl+Arrows", "Skip to next change"),
+			new HelpEntry("K", "Announce position"),
+			new HelpEntry("Alt+K", "Toggle coordinates"),
+			new HelpEntry("I", "Tile info"),
+			new HelpEntry("Space", "Pause/unpause"),
+			new HelpEntry("1-4", "Game speed"),
+			new HelpEntry("S", "Quick summary"),
+			new HelpEntry("V", "Species resolve"),
+			new HelpEntry("T", "Time summary"),
+			new HelpEntry("O", "Tracked orders"),
+			new HelpEntry("M", "Move building"),
+			new HelpEntry("R", "Rotate building"),
+			new HelpEntry("Shift+R", "Rotate counter-clockwise"),
+			new HelpEntry("Shift+Space", "Destroy building or remove resource"),
+			new HelpEntry("E", "Entrance info"),
+			new HelpEntry("W", "Worker summary"),
+			new HelpEntry("+/-", "Cycle race or adjust priority"),
+			new HelpEntry("Shift+/-", "Add/remove worker or global priority"),
+			new HelpEntry("Period/Comma", "Cycle worker buildings"),
+			new HelpEntry("Shift+Period/Comma", "Cycle worker category"),
+			new HelpEntry("Backspace", "Toggle tree mark"),
+			new HelpEntry("D", "Range info"),
+			new HelpEntry("Alt+D", "Blight info"),
+			new HelpEntry("P", "Rainpunk info"),
+			new HelpEntry("Shift+P", "Stop engines"),
+			new HelpEntry("Shift+B", "Set bookmark"),
+			new HelpEntry("B", "Jump to bookmark"),
+			new HelpEntry("Alt+B", "Direction to bookmark"),
+			new HelpEntry("Ctrl+0-9", "Set numbered bookmark"),
+			new HelpEntry("Shift+0-9", "Jump to numbered bookmark"),
+			new HelpEntry("Alt+0-9", "Direction to numbered bookmark"),
+			new HelpEntry("Alt+H", "Reset cursor to hearth"),
+			new HelpEntry("Shift+N", "Jump to latest event"),
+			new HelpEntry("Alt+N", "Announcement history"),
+			new HelpEntry("Ctrl+PageUp/Down", "Scanner category"),
+			new HelpEntry("Shift+PageUp/Down", "Scanner subcategory"),
+			new HelpEntry("PageUp/Down", "Scanner group"),
+			new HelpEntry("Alt+PageUp/Down", "Scanner item"),
+			new HelpEntry("Home", "Jump to scanner item"),
+			new HelpEntry("Alt+Home", "Toggle scanner auto-move"),
+			new HelpEntry("End", "Scanner distance"),
+			new HelpEntry("Alt+I", "Scanner item info"),
+			new HelpEntry("Ctrl+F", "Scanner search"),
+			new HelpEntry("F1", "Info panels"),
+			new HelpEntry("F2", "Quick access menu"),
+			new HelpEntry("F3", "Rewards panel"),
+			new HelpEntry("Tab", "Building menu"),
+			new HelpEntry("Shift+S", "Stats panel"),
+			new HelpEntry("Shift+V", "Villagers panel"),
+			new HelpEntry("Shift+W", "Workers panel"),
+			new HelpEntry("Shift+M", "Modifiers panel"),
+			new HelpEntry("Shift+O", "Open orders popup"),
+		};
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;
+		public string HelpContextName => "Settlement Map";
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		/// <summary>
 		/// Active when the settlement game is running.
@@ -369,41 +433,41 @@ namespace ATSAccessibility.Handlers {
 
 				case KeyCode.Equals:
 				case KeyCode.KeypadPlus: {
-					var plusObj = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
-					string plusType = plusObj?.GetType().Name;
-					if (plusType == "ResourceDeposit" || plusType == "Lake") {
-						AdjustNodePriority(plusObj, +1, modifiers.Shift);
-					} else {
-						var plusBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
-						if (plusBuilding != null && GameReflection.IsBuildingUnfinished(plusBuilding)) {
-							AdjustConstructionPriority(plusBuilding, +1, modifiers.Shift);
-						} else if (modifiers.Shift) {
-							Speech.Say(WorkerInfoHelper.AddWorker(plusBuilding));
+						var plusObj = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
+						string plusType = plusObj?.GetType().Name;
+						if (plusType == "ResourceDeposit" || plusType == "Lake") {
+							AdjustNodePriority(plusObj, +1, modifiers.Shift);
 						} else {
-							Speech.Say(WorkerInfoHelper.CycleRace(1));
+							var plusBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+							if (plusBuilding != null && GameReflection.IsBuildingUnfinished(plusBuilding)) {
+								AdjustConstructionPriority(plusBuilding, +1, modifiers.Shift);
+							} else if (modifiers.Shift) {
+								Speech.Say(WorkerInfoHelper.AddWorker(plusBuilding));
+							} else {
+								Speech.Say(WorkerInfoHelper.CycleRace(1));
+							}
 						}
+						return true;
 					}
-					return true;
-				}
 
 				case KeyCode.Minus:
 				case KeyCode.KeypadMinus: {
-					var minusObj = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
-					string minusType = minusObj?.GetType().Name;
-					if (minusType == "ResourceDeposit" || minusType == "Lake") {
-						AdjustNodePriority(minusObj, -1, modifiers.Shift);
-					} else {
-						var minusBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
-						if (minusBuilding != null && GameReflection.IsBuildingUnfinished(minusBuilding)) {
-							AdjustConstructionPriority(minusBuilding, -1, modifiers.Shift);
-						} else if (modifiers.Shift) {
-							Speech.Say(WorkerInfoHelper.RemoveWorker(minusBuilding));
+						var minusObj = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
+						string minusType = minusObj?.GetType().Name;
+						if (minusType == "ResourceDeposit" || minusType == "Lake") {
+							AdjustNodePriority(minusObj, -1, modifiers.Shift);
 						} else {
-							Speech.Say(WorkerInfoHelper.CycleRace(-1));
+							var minusBuilding = GameReflection.GetBuildingAtPosition(_mapNavigator.CursorX, _mapNavigator.CursorY);
+							if (minusBuilding != null && GameReflection.IsBuildingUnfinished(minusBuilding)) {
+								AdjustConstructionPriority(minusBuilding, -1, modifiers.Shift);
+							} else if (modifiers.Shift) {
+								Speech.Say(WorkerInfoHelper.RemoveWorker(minusBuilding));
+							} else {
+								Speech.Say(WorkerInfoHelper.CycleRace(-1));
+							}
 						}
+						return true;
 					}
-					return true;
-				}
 
 				// Building activation, harvest mark, or lake retrieve
 				case KeyCode.Return:

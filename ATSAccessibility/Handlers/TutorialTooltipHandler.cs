@@ -16,7 +16,7 @@ namespace ATSAccessibility.Handlers {
 	/// - Disengaged when Enter pressed with no continue button (lets player act)
 	/// - Re-engages when text changes
 	/// </summary>
-	public class TutorialTooltipHandler: IKeyHandler {
+	public class TutorialTooltipHandler: IKeyHandler, IHelpProvider {
 		// Reference to UINavigator to check if a popup is blocking
 		private readonly UINavigator _uiNavigator;
 
@@ -64,6 +64,19 @@ namespace ATSAccessibility.Handlers {
             // Tutorial 4: The Cycle
             { 340, "It is almost upon us, so no caravans are allowed to embark. Press E to finish the cycle." }, // CyclePreFinish
         };
+
+		// ========================================
+		// IHELPPROVIDER
+		// ========================================
+
+		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			new HelpEntry("Arrows", "Re-read text"),
+		};
+
+		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;
+		public string HelpContextName => "Tutorial";
+		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
+		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
 		// ========================================
 		// IKeyHandler Implementation
