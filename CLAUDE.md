@@ -1,15 +1,19 @@
 # CLAUDE.md
 
-BepInEx accessibility mod for "Against the Storm" - screen reader support via Tolk. Uses Harmony patching and reflection.
+BepInEx 5 accessibility mod for "Against the Storm" (roguelite city-builder by Eremite Games) — screen reader support via Tolk. Uses HarmonyX patching and reflection against `Assembly-CSharp.dll` (namespace `Eremite`).
+
+## Game Overview
+
+Against the Storm is a roguelite city-builder. Players act as a Viceroy building settlements on a rectangular tile grid, managing resources, buildings, workers (7 species), and recipes. The win condition is filling the Reputation bar before Impatience fills. Each year has 3 seasons (Drizzle, Clearance, Storm). The overworld is a hex-grid World Map centered on the Smoldering City, with meta-progression via Seals, Deeds, and Capital upgrades. The game is fundamentally mouse-driven with no native screen reader or keyboard navigation support — this mod provides both. See `llm-docs/` for detailed game mechanics and API reference.
 
 ## Build & Deploy
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\Users\rasha\Documents\ATS-Accessibility-Mod\build.ps1"                          # Release build + deploy to game folder
-powershell -ExecutionPolicy Bypass -File "C:\Users\rasha\Documents\ATS-Accessibility-Mod\build.ps1" -Configuration Debug     # Debug build + deploy
+powershell -ExecutionPolicy Bypass -File build.ps1                          # Release build + deploy to game folder
+powershell -ExecutionPolicy Bypass -File build.ps1 -Configuration Debug     # Debug build + deploy
 ```
 
-**Note**: The path must be quoted and `-ExecutionPolicy Bypass` is required when running from bash.
+**Note**: Run from the repo root. `-ExecutionPolicy Bypass` is required when running from bash.
 
 For release packaging, see `RELEASE-INSTRUCTIONS.md`.
 
@@ -21,7 +25,8 @@ For release packaging, see `RELEASE-INSTRUCTIONS.md`.
 
 - **Source**: `ATSAccessibility/`
 - **Game reference**: `game-source/` (read-only decompiled)
-- **Debug log**: `C:\Users\rasha\AppData\LocalLow\Eremite Games\Against the Storm\Player.log` - check first for `[ATSAccessibility]` output
+- **Debug log**: `%USERPROFILE%\AppData\LocalLow\Eremite Games\Against the Storm\Player.log` - check first for `[ATSAccessibility]` output
+- **Game API reference**: `llm-docs/game-api-reference.md` — reflected game types, services, and members
 
 ## Code Organization
 
@@ -29,28 +34,28 @@ The codebase is organized into subdirectories by responsibility:
 
 ```
 ATSAccessibility/
-├── Core/           (9 files)  - Entry point, managers, base classes, interfaces
-├── Overlays/       (36 files) - Game popup navigation (*Overlay.cs, UINavigator, EncyclopediaNavigator)
-├── Reflection/     (40 files) - Game API access via reflection (*Reflection.cs, ReflectionHelper)
-├── Handlers/       (10 files) - Key handlers, mode controllers (*Handler.cs, *Controller.cs, MapNavigator)
-├── Navigators/     (17 files) - Building navigators + BuildingSectionNavigator base class
-├── Utils/          (19 files) - Utilities, formatters, readers, scanners, helpers
-├── Panels/         (14 files) - Information panels and menu hubs (*Panel.cs, MenuHub)
+├── Core/        - Entry point, managers, base classes, interfaces
+├── Overlays/    - Game popup navigation (*Overlay.cs, UINavigator, EncyclopediaNavigator)
+├── Reflection/  - Game API access via reflection (*Reflection.cs, ReflectionHelper)
+├── Handlers/    - Key handlers, mode controllers (*Handler.cs, *Controller.cs, MapNavigator)
+├── Navigators/  - Building navigators + BuildingSectionNavigator base class
+├── Utils/       - Utilities, formatters, readers, scanners, helpers
+├── Panels/      - Information panels and menu hubs (*Panel.cs, MenuHub)
 ```
 
-**Core/** (`ATSAccessibility.Core`): Entry point (`Plugin.cs`, `AccessibilityCore.cs`), managers (`KeyboardManager.cs`, `PopupRouter.cs`), base classes (`MenuBase.cs`), interfaces (`IKeyHandler.cs`, `IBuildingNavigator.cs`), input handling (`InputPatches.cs`, `InputBlocker.cs`).
+**Core/** (`ATSAccessibility.Core`): Entry point (`Plugin.cs`, `AccessibilityCore.cs`), managers (`KeyboardManager.cs`, `PopupRouter.cs`), base classes (`MenuBase.cs`), interfaces (`IKeyHandler.cs`, `IBuildingNavigator.cs`, `IHelpProvider.cs`), input handling (`InputPatches.cs`, `InputBlocker.cs`), help system (`HelpCollector.cs`), scene constants (`SceneConstants.cs`).
 
 **Reflection/** (`ATSAccessibility.Reflection`): Game API access — one `*Reflection.cs` per game system. Core access via `GameReflection.cs`. All use `ReflectionHelper` for null-safe field/property/method access.
 
-**Overlays/** (`ATSAccessibility.Overlays`): Popup navigation — one `*Overlay.cs` per game popup. All extend `MenuBase`.
+**Overlays/** (`ATSAccessibility.Overlays`): Popup navigation — one `*Overlay.cs` per game popup. Most extend `MenuBase`; `UINavigator`, `EncyclopediaNavigator`, and `MetaRewardsOverlay` implement `IKeyHandler` directly.
 
-**Handlers/** (`ATSAccessibility.Handlers`): Key handlers and mode controllers. `MapNavigator.cs` and `WorldMapNavigator.cs` handle map-level navigation.
+**Handlers/** (`ATSAccessibility.Handlers`): Key handlers and mode controllers. `MapNavigator.cs` and `WorldMapNavigator.cs` handle map-level navigation. `TutorialTooltipHandler.cs` auto-announces tutorial tooltips.
 
 **Navigators/** (`ATSAccessibility.Navigators`): Building navigators — one per building type. All extend `BuildingSectionNavigator` (also in this directory). Includes shared helpers `BuildingWorkerSection.cs` and `BuildingUpgradesSection.cs`.
 
 **Utils/** (`ATSAccessibility.Utils`): `Speech.cs`, `SoundManager.cs`, `EventAnnouncer.cs`, `TypeAheadSearch.cs`, `*Helper.cs`, `*Reader.cs`, `*Scanner.cs`, `FormattingUtils.cs`, `NavigationUtils.cs`.
 
-**Panels/** (`ATSAccessibility.Panels`): Information panels (`*Panel.cs`), `MenuHub.cs`, `ConfirmationDialog.cs`.
+**Panels/** (`ATSAccessibility.Panels`): Information panels (`*Panel.cs`), `MenuHub.cs`, `ConfirmationDialog.cs`, `HelpOverlay.cs` (F12 context-sensitive help).
 
 ---
 
@@ -198,7 +203,7 @@ int count = ReflectionHelper.GetPropInt(_countProp, instance);
 **ReflectionHelper accessor families** (all null-safe, return sensible defaults on failure):
 - **Fields**: `GetField`, `GetBool`, `GetInt`, `GetFloat`, `GetString`, `GetEnum`, `SetField`
 - **Properties**: `GetProp`, `GetPropBool`, `GetPropInt`, `GetPropFloat`, `GetPropString`
-- **Methods**: `Invoke`, `InvokeBool`, `InvokeInt`, `InvokeFloat`, `InvokeString`, `InvokeVoid` (each with 0–3 arg overloads)
+- **Methods**: `Invoke`, `InvokeBool`, `InvokeInt`, `InvokeFloat`, `InvokeString`, `InvokeVoid` (`Invoke`/`InvokeVoid` have 0–3 arg overloads; others have fewer)
 - **Collections**: `GetList`, `IterateKeys`, `DictGet`, `DictGetInt`
 - **Localization**: `GetLocaString` (combines `GetField` + `GameReflection.GetLocaText`)
 
