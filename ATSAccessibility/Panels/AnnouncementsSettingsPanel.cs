@@ -21,12 +21,6 @@ namespace ATSAccessibility.Panels {
 		// BRIDGE
 		// ========================================
 
-		/// <summary>
-		/// Bridge for InfoPanelMenu which calls ProcessKeyEvent(KeyCode).
-		/// </summary>
-		public bool ProcessKeyEvent(KeyCode keyCode) =>
-			ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
-
 		// ========================================
 		// MENUBASE ABSTRACTS
 		// ========================================

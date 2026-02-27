@@ -41,6 +41,11 @@ Added working priority support across the mod. You can now:
 - Move shared GetCardinalDirection and GetExtensionAnnouncement from BuildModeController and MoveModeController into NavigationUtils
 - Add Reset() methods to BuildModeController, MoveModeController, and TutorialTooltipHandler; call them on scene unload to prevent stale state between sessions
 - Replace 15 string-based popup type checks (GetType().Name == "X") with cached Type.IsInstanceOfType for earlier breakage detection on game updates
+- Extract duplicate Space/Enter placement confirm logic in MoveModeController into shared TryConfirmPlacement method
+- Move duplicate FormatTimeLeft from PortNavigator and RelicNavigator into FormattingUtils.FormatTimeRemaining
+- Move duplicate CleanupName from ProductionNavigator and FishingHutNavigator into FormattingUtils.CleanupRecipeName
+- Move duplicate ProcessKeyEvent bridge from 6 panels into MenuBase
+- Move duplicate worker sub-item action pattern from 8 navigators into BuildingSectionNavigator.PerformWorkerSubItemAction
 
 ## v1.1.6
 

@@ -127,6 +127,28 @@ namespace ATSAccessibility.Handlers {
 			_awaitingPlaceConfirm = false;
 		}
 
+		private void TryConfirmPlacement() {
+			if (_awaitingPlaceConfirm) {
+				_awaitingPlaceConfirm = false;
+				ExitMoveMode(false); // Confirmed placement
+			} else if (_pricePaid) {
+				int x = _mapNavigator.CursorX;
+				int y = _mapNavigator.CursorY;
+				Vector2Int newPos = new Vector2Int(x, y);
+				ConstructionReflection.SetBuildingPosition(_movingBuilding, newPos);
+				if (!ConstructionReflection.CanPlaceBuilding(_movingBuilding)) {
+					ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+					Speech.Say("Cannot place here");
+				} else {
+					ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
+					_awaitingPlaceConfirm = true;
+					Speech.Say("Space to confirm move");
+				}
+			} else {
+				ExitMoveMode(false); // Free move, no confirm needed
+			}
+		}
+
 		/// <summary>
 		/// Exit move mode, either placing at new position or cancelling.
 		/// </summary>
@@ -199,50 +221,9 @@ namespace ATSAccessibility.Handlers {
 					return true;
 
 				case KeyCode.Space:
-					if (_awaitingPlaceConfirm) {
-						_awaitingPlaceConfirm = false;
-						ExitMoveMode(false); // Confirmed placement
-					} else if (_pricePaid) {
-						// Check placement validity first
-						int x = _mapNavigator.CursorX;
-						int y = _mapNavigator.CursorY;
-						Vector2Int newPos = new Vector2Int(x, y);
-						ConstructionReflection.SetBuildingPosition(_movingBuilding, newPos);
-						if (!ConstructionReflection.CanPlaceBuilding(_movingBuilding)) {
-							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-							Speech.Say("Cannot place here");
-						} else {
-							// Valid spot but has cost - restore position and ask for confirm
-							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-							_awaitingPlaceConfirm = true;
-							Speech.Say("Space to confirm move");
-						}
-					} else {
-						ExitMoveMode(false); // Free move, no confirm needed
-					}
-					return true;
-
 				case KeyCode.Return:
 				case KeyCode.KeypadEnter:
-					if (_awaitingPlaceConfirm) {
-						_awaitingPlaceConfirm = false;
-						ExitMoveMode(false); // Confirmed placement
-					} else if (_pricePaid) {
-						int ex = _mapNavigator.CursorX;
-						int ey = _mapNavigator.CursorY;
-						Vector2Int enterPos = new Vector2Int(ex, ey);
-						ConstructionReflection.SetBuildingPosition(_movingBuilding, enterPos);
-						if (!ConstructionReflection.CanPlaceBuilding(_movingBuilding)) {
-							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-							Speech.Say("Cannot place here");
-						} else {
-							ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-							_awaitingPlaceConfirm = true;
-							Speech.Say("Space to confirm move");
-						}
-					} else {
-						ExitMoveMode(false); // Free move, no confirm needed
-					}
+					TryConfirmPlacement();
 					return true;
 
 				case KeyCode.Escape:

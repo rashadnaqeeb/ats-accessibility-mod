@@ -201,11 +201,7 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			if (_sectionTypes[sectionIndex] == SectionType.Workers) {
-				if (_workersSection.PerformSubItemAction(itemIndex, subItemIndex)) {
-					_navigationLevel = 1;
-					return true;
-				}
-				return false;
+				return PerformWorkerSubItemAction(itemIndex, subItemIndex);
 			}
 			return false;
 		}

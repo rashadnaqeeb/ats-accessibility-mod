@@ -298,6 +298,17 @@ namespace ATSAccessibility.Navigators {
 		protected virtual bool PerformSectionAction(int sectionIndex) => false;
 		protected virtual bool PerformItemAction(int sectionIndex, int itemIndex) => false;
 		protected virtual bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex) => false;
+
+		/// <summary>
+		/// Handle worker sub-item action (assign/unassign) and reset navigation level on success.
+		/// </summary>
+		protected bool PerformWorkerSubItemAction(int itemIndex, int subItemIndex) {
+			if (_workersSection.PerformSubItemAction(itemIndex, subItemIndex)) {
+				_navigationLevel = 1;
+				return true;
+			}
+			return false;
+		}
 		protected virtual bool PerformSubSubItemAction(int sectionIndex, int itemIndex, int subItemIndex, int subSubItemIndex) => false;
 
 		protected virtual string GetNoSubItemsMessage(int sectionIndex, int itemIndex) => null;

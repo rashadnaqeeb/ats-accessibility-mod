@@ -263,11 +263,7 @@ namespace ATSAccessibility.Navigators {
 
 			switch (_sectionTypes[sectionIndex]) {
 				case SectionType.Workers:
-					if (_workersSection.PerformSubItemAction(itemIndex, subItemIndex)) {
-						_navigationLevel = 1;
-						return true;
-					}
-					return false;
+					return PerformWorkerSubItemAction(itemIndex, subItemIndex);
 				case SectionType.Goods:
 					return PerformGoodsSubItemAction(itemIndex, subItemIndex);
 				case SectionType.Upgrades:
@@ -771,19 +767,7 @@ namespace ATSAccessibility.Navigators {
 			return $"{percentage}%";
 		}
 
-		private string FormatTimeLeft() {
-			int seconds = Mathf.RoundToInt(_timeLeft);
-			if (seconds <= 0)
-				return "almost done";
-			if (seconds < 60)
-				return $"{seconds} seconds remaining";
-
-			int minutes = seconds / 60;
-			int remainingSecs = seconds % 60;
-			if (remainingSecs > 0)
-				return $"{minutes} minutes {remainingSecs} seconds remaining";
-			return $"{minutes} minutes remaining";
-		}
+		private string FormatTimeLeft() => FormattingUtils.FormatTimeRemaining(_timeLeft);
 
 		// ========================================
 		// REWARDS SECTION (Phase 4)

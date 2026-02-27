@@ -212,18 +212,7 @@ namespace ATSAccessibility.Navigators {
 			return $"{minutes} minutes";
 		}
 
-		private string FormatTimeLeft() {
-			int seconds = Mathf.RoundToInt(_timeLeft);
-			if (seconds <= 0)
-				return "almost done";
-			if (seconds < 60)
-				return $"{seconds} seconds remaining";
-			int minutes = seconds / 60;
-			int remainingSecs = seconds % 60;
-			if (remainingSecs > 0)
-				return $"{minutes} minutes {remainingSecs} seconds remaining";
-			return $"{minutes} minutes remaining";
-		}
+		private string FormatTimeLeft() => FormattingUtils.FormatTimeRemaining(_timeLeft);
 
 		protected override void AnnounceItem(int sectionIndex, int itemIndex) {
 			if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
@@ -291,11 +280,7 @@ namespace ATSAccessibility.Navigators {
 				return PerformRequirementSubItemAction(itemIndex, subItemIndex);
 			}
 			if (_sectionTypes[sectionIndex] == SectionType.Workers) {
-				if (_workersSection.PerformSubItemAction(itemIndex, subItemIndex)) {
-					_navigationLevel = 1;
-					return true;
-				}
-				return false;
+				return PerformWorkerSubItemAction(itemIndex, subItemIndex);
 			}
 			if (_sectionTypes[sectionIndex] == SectionType.Upgrades) {
 				return _upgradesSection.PerformSubItemAction(itemIndex, subItemIndex);

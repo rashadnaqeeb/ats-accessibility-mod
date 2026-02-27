@@ -225,12 +225,6 @@ namespace ATSAccessibility.Panels {
 			Speech.Say($"{OverlayName} closed");
 		}
 
-		/// <summary>
-		/// Bridge for InfoPanelMenu which calls ProcessKeyEvent(KeyCode).
-		/// </summary>
-		public bool ProcessKeyEvent(KeyCode keyCode) =>
-			ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
-
 		// ========================================
 		// CROSS-CATEGORY ITEM NAVIGATION
 		// ========================================

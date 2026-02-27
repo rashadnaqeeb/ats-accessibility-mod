@@ -56,14 +56,6 @@ namespace ATSAccessibility.Panels {
 		// PUBLIC API
 		// ========================================
 
-		/// <summary>
-		/// Bridge for InfoPanelMenu which calls ProcessKeyEvent(KeyCode).
-		/// </summary>
-		public bool ProcessKeyEvent(KeyCode keyCode) {
-			if (!IsOpen) return false;
-			return ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
-		}
-
 		// ========================================
 		// MENUBASE ABSTRACT IMPLEMENTATIONS
 		// ========================================

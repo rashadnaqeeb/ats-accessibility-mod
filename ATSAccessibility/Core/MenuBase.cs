@@ -420,6 +420,14 @@ namespace ATSAccessibility.Core {
 			}
 		}
 
+		/// <summary>
+		/// Convenience bridge for callers that only pass a KeyCode without modifiers.
+		/// </summary>
+		public bool ProcessKeyEvent(KeyCode keyCode) {
+			if (!IsOpen) return false;
+			return ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
+		}
+
 		// ========================================
 		// IHELPPROVIDER (default implementation)
 		// ========================================

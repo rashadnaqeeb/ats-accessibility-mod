@@ -173,11 +173,7 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			if (_sectionTypes[sectionIndex] == SectionType.Workers) {
-				if (_workersSection.PerformSubItemAction(itemIndex, subItemIndex)) {
-					_navigationLevel = 1;
-					return true;
-				}
-				return false;
+				return PerformWorkerSubItemAction(itemIndex, subItemIndex);
 			}
 
 			if (_sectionTypes[sectionIndex] == SectionType.Upgrades) {
@@ -399,18 +395,7 @@ namespace ATSAccessibility.Navigators {
 			}
 		}
 
-		private string CleanupName(string name) {
-			if (string.IsNullOrEmpty(name)) return name;
-
-			string display = name;
-			display = display.Replace("_Recipe_", ": ");
-			display = display.Replace("Recipe_", "");
-			display = display.Replace("[Mat Processed]", "");
-			display = display.Replace("[Mat Raw]", "");
-			display = display.Replace("_", " ");
-
-			return display.Trim();
-		}
+		private string CleanupName(string name) => FormattingUtils.CleanupRecipeName(name);
 
 	}
 }

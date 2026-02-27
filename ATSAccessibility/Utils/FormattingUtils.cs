@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using UnityEngine;
 
 namespace ATSAccessibility.Utils {
 	/// <summary>
@@ -16,6 +17,38 @@ namespace ATSAccessibility.Utils {
 			if (ts.TotalHours >= 1)
 				return string.Format("{0}:{1:D2}:{2:D2}", (int)ts.TotalHours, ts.Minutes, ts.Seconds);
 			return string.Format("{0}:{1:D2}", (int)ts.TotalMinutes, ts.Seconds);
+		}
+
+		/// <summary>
+		/// Format remaining time as a human-readable string (e.g. "2 minutes 30 seconds remaining").
+		/// </summary>
+		public static string FormatTimeRemaining(float timeLeft) {
+			int seconds = Mathf.RoundToInt(timeLeft);
+			if (seconds <= 0)
+				return "almost done";
+			if (seconds < 60)
+				return $"{seconds} seconds remaining";
+			int minutes = seconds / 60;
+			int remainingSecs = seconds % 60;
+			if (remainingSecs > 0)
+				return $"{minutes} minutes {remainingSecs} seconds remaining";
+			return $"{minutes} minutes remaining";
+		}
+
+		/// <summary>
+		/// Clean up internal recipe names for display (e.g. "_Recipe_Planks" → ": Planks").
+		/// </summary>
+		public static string CleanupRecipeName(string name) {
+			if (string.IsNullOrEmpty(name)) return name;
+
+			string display = name;
+			display = display.Replace("_Recipe_", ": ");
+			display = display.Replace("Recipe_", "");
+			display = display.Replace("[Mat Processed]", "");
+			display = display.Replace("[Mat Raw]", "");
+			display = display.Replace("_", " ");
+
+			return display.Trim();
 		}
 
 		/// <summary>
