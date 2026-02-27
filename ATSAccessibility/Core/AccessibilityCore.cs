@@ -1,4 +1,4 @@
-using ATSAccessibility.Panels;
+﻿using ATSAccessibility.Panels;
 using ATSAccessibility.Handlers;
 using ATSAccessibility.Overlays;
 using ATSAccessibility.Utils;
@@ -563,7 +563,7 @@ namespace ATSAccessibility.Core {
 
 			// Clear static state that could become stale across scenes
 			TradeReflection.ClearCurrentPanel();
-			GameReflection.ClearBuildingCreatorInstance();
+			BuildingReflection.ClearBuildingCreatorInstance();
 			CameraControllerUpdateMovementPatch.ClearTarget();
 			ReputationRewardOverlay.ResetSuppression();
 			TutorialReflection.ClearCachedTooltip();

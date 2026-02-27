@@ -1,4 +1,4 @@
-using ATSAccessibility.Reflection;
+﻿using ATSAccessibility.Reflection;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -233,8 +233,8 @@ namespace ATSAccessibility.Utils {
 					parts.Add(guidepostInfo);
 
 				// Construction priority for buildings under construction
-				if (GameReflection.IsBuildingUnfinished(building)) {
-					int constructionPrio = GameReflection.GetBuildingConstructionPriority(building);
+				if (BuildingReflection.IsBuildingUnfinished(building)) {
+					int constructionPrio = BuildingReflection.GetBuildingConstructionPriority(building);
 					if (constructionPrio != 0) {
 						parts.Add($"Priority: {FormatNodePriority(constructionPrio)}");
 					}
@@ -381,7 +381,7 @@ namespace ATSAccessibility.Utils {
 				}
 
 				// Priority (only if non-default)
-				int depositPrio = GameReflection.GetResourceNodePriority(deposit);
+				int depositPrio = BuildingReflection.GetResourceNodePriority(deposit);
 				if (depositPrio != 0) {
 					parts.Add($"Priority: {FormatNodePriority(depositPrio)}");
 				}
@@ -595,7 +595,7 @@ namespace ATSAccessibility.Utils {
 				}
 
 				// Priority (only if non-default)
-				int lakePrio = GameReflection.GetResourceNodePriority(lake);
+				int lakePrio = BuildingReflection.GetResourceNodePriority(lake);
 				if (lakePrio != 0) {
 					parts.Add($"Priority: {FormatNodePriority(lakePrio)}");
 				}

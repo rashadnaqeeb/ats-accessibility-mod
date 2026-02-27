@@ -1,4 +1,4 @@
-using ATSAccessibility.Reflection;
+﻿using ATSAccessibility.Reflection;
 using UnityEngine;
 
 namespace ATSAccessibility.Utils {
@@ -26,7 +26,7 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static string GetEntranceInfo(int cursorX, int cursorY) {
 			var objectOn = GameReflection.GetObjectOn(cursorX, cursorY);
-			bool onBuilding = objectOn != null && objectOn.GetType().Name != "Field" && GameReflection.IsBuilding(objectOn);
+			bool onBuilding = objectOn != null && objectOn.GetType().Name != "Field" && BuildingReflection.IsBuilding(objectOn);
 
 			if (onBuilding && TryGetApproachTile(objectOn, out int approachX, out int approachY, out int rotation)) {
 				return FormatEntrance(cursorX, cursorY, approachX, approachY, rotation);
@@ -49,14 +49,14 @@ namespace ATSAccessibility.Utils {
 		public static string GetEntrancePreview(object building, int cursorX, int cursorY, object buildingModel, int rotation) {
 			if (building == null) return "No entrance";
 
-			if (!GameReflection.GetBuildingShouldShowEntrance(building))
+			if (!BuildingReflection.GetBuildingShouldShowEntrance(building))
 				return "No entrance";
 
-			var entranceTile = GameReflection.GetBuildingEntranceTile(building);
+			var entranceTile = BuildingReflection.GetBuildingEntranceTile(building);
 			if (!entranceTile.HasValue)
 				return "No entrance";
 
-			int buildingRotation = GameReflection.GetBuildingRotation(building);
+			int buildingRotation = BuildingReflection.GetBuildingRotation(building);
 			if (buildingRotation < 0 || buildingRotation > 3)
 				return "No entrance";
 
@@ -86,7 +86,7 @@ namespace ATSAccessibility.Utils {
 		private static bool IsInsideFootprint(int tileX, int tileY, int cursorX, int cursorY, object buildingModel, int rotation) {
 			if (buildingModel == null) return false;
 
-			Vector2Int baseSize = GameReflection.GetBuildingSize(buildingModel);
+			Vector2Int baseSize = BuildingReflection.GetBuildingSize(buildingModel);
 			bool isRotated = (rotation % 2) == 1;
 			int sizeX = isRotated ? baseSize.y : baseSize.x;
 			int sizeY = isRotated ? baseSize.x : baseSize.y;
@@ -103,14 +103,14 @@ namespace ATSAccessibility.Utils {
 			approachY = 0;
 			rotation = -1;
 
-			if (!GameReflection.GetBuildingShouldShowEntrance(building))
+			if (!BuildingReflection.GetBuildingShouldShowEntrance(building))
 				return false;
 
-			var entranceTile = GameReflection.GetBuildingEntranceTile(building);
+			var entranceTile = BuildingReflection.GetBuildingEntranceTile(building);
 			if (!entranceTile.HasValue)
 				return false;
 
-			rotation = GameReflection.GetBuildingRotation(building);
+			rotation = BuildingReflection.GetBuildingRotation(building);
 			if (rotation < 0 || rotation > 3)
 				return false;
 
@@ -148,7 +148,7 @@ namespace ATSAccessibility.Utils {
 				if (!GameReflection.MapInBounds(nx, ny)) continue;
 
 				var neighbor = GameReflection.GetObjectOn(nx, ny);
-				if (neighbor == null || neighbor.GetType().Name == "Field" || !GameReflection.IsBuilding(neighbor))
+				if (neighbor == null || neighbor.GetType().Name == "Field" || !BuildingReflection.IsBuilding(neighbor))
 					continue;
 
 				if (TryGetApproachTile(neighbor, out int ax, out int ay, out int _)) {

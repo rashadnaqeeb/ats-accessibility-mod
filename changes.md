@@ -26,6 +26,7 @@ Added working priority support across the mod. You can now:
 ### Internal
 
 - Centralize scene index constants into SceneConstants.cs (previously duplicated in AccessibilityCore and MetaRewardsPopupReader)
+- Move building construction, placement, range info, supply chain, and priority reflection code from GameReflection into BuildingReflection
 - Remove unused Settings.GetText reflection cache in GamesHistoryReflection
 - Deduplicate GoodRef and LocaText reflection caches across 8 files into shared GameReflection properties
 - Extract HearthReflection.cs from BuildingReflection.cs (hearth-specific reflection code)

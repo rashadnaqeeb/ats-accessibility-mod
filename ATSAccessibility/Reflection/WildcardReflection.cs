@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -223,12 +223,12 @@ namespace ATSAccessibility.Reflection {
 					if (buildingModel == null) continue;
 
 					// CanBePicked: NOT already unlocked in game AND IS unlocked in meta
-					if (GameReflection.IsBuildingUnlocked(buildingModel)) continue;
+					if (BuildingReflection.IsBuildingUnlocked(buildingModel)) continue;
 					if (!IsMetaUnlocked(buildingModel)) continue;
 
 					var displayName = GameReflection.GetDisplayName(buildingModel) ??
 									  GameReflection.GetModelName(buildingModel) ?? "Unknown";
-					var category = GameReflection.GetBuildingCategory(buildingModel);
+					var category = BuildingReflection.GetBuildingCategory(buildingModel);
 					var categoryName = category != null ? (GameReflection.GetDisplayName(category) ?? "Other") : "Other";
 					var categoryOrder = category != null ? GameReflection.GetModelOrder(category) : 999;
 					var buildingOrder = GameReflection.GetModelOrder(buildingModel);

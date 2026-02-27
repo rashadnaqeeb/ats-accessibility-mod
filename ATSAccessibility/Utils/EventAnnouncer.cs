@@ -1,4 +1,4 @@
-using ATSAccessibility.Panels;
+﻿using ATSAccessibility.Panels;
 using ATSAccessibility.Overlays;
 using ATSAccessibility.Core;
 using ATSAccessibility.Reflection;
@@ -138,7 +138,7 @@ namespace ATSAccessibility.Utils {
 
 		private static Vector2Int? GetBuildingLocation(object building) {
 			if (building == null) return null;
-			var pos = GameReflection.GetBuildingGridPosition(building);
+			var pos = BuildingReflection.GetBuildingGridPosition(building);
 			if (pos == Vector2Int.zero) return null;
 			return pos;
 		}

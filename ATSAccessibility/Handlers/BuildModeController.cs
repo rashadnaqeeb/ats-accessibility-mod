@@ -1,4 +1,4 @@
-using ATSAccessibility.Panels;
+﻿using ATSAccessibility.Panels;
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
@@ -69,7 +69,7 @@ namespace ATSAccessibility.Handlers {
 			_isActive = true;
 
 			// Get building size for initial announcement
-			Vector2Int size = GameReflection.GetBuildingSize(buildingModel);
+			Vector2Int size = BuildingReflection.GetBuildingSize(buildingModel);
 			int extendEast = size.x - 1;
 			int extendNorth = size.y - 1;
 			string extension = GetExtensionAnnouncement(extendEast, extendNorth);
@@ -131,16 +131,16 @@ namespace ATSAccessibility.Handlers {
 				// Entrance preview for building about to be placed
 				case KeyCode.E:
 					if (_selectedBuildingModel != null) {
-						var building = GameReflection.CreateBuilding(_selectedBuildingModel, _rotation);
+						var building = BuildingReflection.CreateBuilding(_selectedBuildingModel, _rotation);
 						if (building != null) {
-							GameReflection.SetBuildingPosition(building,
+							BuildingReflection.SetBuildingPosition(building,
 								new Vector2Int(_mapNavigator.CursorX, _mapNavigator.CursorY));
 							// Apply visual rotation so entrance Transform is positioned correctly
-							GameReflection.RotateBuilding(building, _rotation);
+							BuildingReflection.RotateBuilding(building, _rotation);
 							string preview = EntranceInfoHelper.GetEntrancePreview(
 								building, _mapNavigator.CursorX, _mapNavigator.CursorY,
 								_selectedBuildingModel, _rotation);
-							GameReflection.RemoveBuilding(building, false);
+							BuildingReflection.RemoveBuilding(building, false);
 							Speech.Say(preview);
 						}
 					}
@@ -175,7 +175,7 @@ namespace ATSAccessibility.Handlers {
 		/// </summary>
 		private void RotateBuilding(bool clockwise) {
 			// Check if the building model allows rotation
-			if (!GameReflection.CanRotateBuildingModel(_selectedBuildingModel)) {
+			if (!BuildingReflection.CanRotateBuildingModel(_selectedBuildingModel)) {
 				Speech.Say("Cannot rotate");
 				return;
 			}
@@ -185,7 +185,7 @@ namespace ATSAccessibility.Handlers {
 			string direction = GetCardinalDirection(_rotation);
 
 			// Get building size and adjust for rotation
-			Vector2Int baseSize = GameReflection.GetBuildingSize(_selectedBuildingModel);
+			Vector2Int baseSize = BuildingReflection.GetBuildingSize(_selectedBuildingModel);
 			bool isRotated = (_rotation % 2) == 1;
 			int extendEast = (isRotated ? baseSize.y : baseSize.x) - 1;
 			int extendNorth = (isRotated ? baseSize.x : baseSize.y) - 1;
@@ -228,7 +228,7 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			// Check if we can still construct this building type
-			if (!GameReflection.CanConstructBuilding(_selectedBuildingModel)) {
+			if (!BuildingReflection.CanConstructBuilding(_selectedBuildingModel)) {
 				Speech.Say($"{_selectedBuildingName} at maximum, cannot place more");
 				return;
 			}
@@ -238,7 +238,7 @@ namespace ATSAccessibility.Handlers {
 			int y = _mapNavigator.CursorY;
 
 			// Create the building at the cursor position
-			var building = GameReflection.CreateBuilding(_selectedBuildingModel, _rotation);
+			var building = BuildingReflection.CreateBuilding(_selectedBuildingModel, _rotation);
 			if (building == null) {
 				Speech.Say("Failed to create building");
 				Debug.LogError("[ATSAccessibility] Failed to create building instance");
@@ -246,7 +246,7 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			// Set position
-			GameReflection.SetBuildingPosition(building, new Vector2Int(x, y));
+			BuildingReflection.SetBuildingPosition(building, new Vector2Int(x, y));
 
 			// Extractors need springs removed from the grid before placement check,
 			// otherwise IsFieldEmpty fails because the spring occupies the grid
@@ -256,16 +256,16 @@ namespace ATSAccessibility.Handlers {
 
 			try {
 				// Check if placement is valid
-				if (!GameReflection.CanPlaceBuilding(building)) {
+				if (!BuildingReflection.CanPlaceBuilding(building)) {
 					// Remove the building since we can't place it
-					GameReflection.RemoveBuilding(building, false);
+					BuildingReflection.RemoveBuilding(building, false);
 					Speech.Say("Cannot place here");
 					Debug.Log($"[ATSAccessibility] Cannot place {_selectedBuildingName} at ({x}, {y})");
 					return;
 				}
 
 				// Finalize placement
-				GameReflection.FinalizeBuildingPlacement(building);
+				BuildingReflection.FinalizeBuildingPlacement(building);
 			} finally {
 				if (isExtractor)
 					GameReflection.ReturnSpringsOnGrid();
@@ -275,7 +275,7 @@ namespace ATSAccessibility.Handlers {
 			Debug.Log($"[ATSAccessibility] Placed {_selectedBuildingName} at ({x}, {y}) rotation {_rotation}");
 
 			// Check if we can build more
-			if (!GameReflection.CanConstructBuilding(_selectedBuildingModel)) {
+			if (!BuildingReflection.CanConstructBuilding(_selectedBuildingModel)) {
 				Speech.Say($"Maximum {_selectedBuildingName} reached");
 				ExitBuildMode();
 			}
@@ -294,14 +294,14 @@ namespace ATSAccessibility.Handlers {
 			int y = _mapNavigator.CursorY;
 
 			// Check if there's a building at cursor
-			var building = GameReflection.GetBuildingAtPosition(x, y);
+			var building = BuildingReflection.GetBuildingAtPosition(x, y);
 			if (building == null) {
 				Speech.Say("No building here");
 				return;
 			}
 
 			// Check if it's unfinished (under construction)
-			if (!GameReflection.IsBuildingUnfinished(building)) {
+			if (!BuildingReflection.IsBuildingUnfinished(building)) {
 				Speech.Say("Building already complete, use game controls to remove");
 				return;
 			}
@@ -310,7 +310,7 @@ namespace ATSAccessibility.Handlers {
 			string buildingName = GameReflection.GetDisplayName(building) ?? "Building";
 
 			// Remove with refund
-			GameReflection.RemoveBuilding(building, true);
+			BuildingReflection.RemoveBuilding(building, true);
 
 			Speech.Say($"{buildingName} removed");
 			Debug.Log($"[ATSAccessibility] Removed building at ({x}, {y})");
@@ -350,16 +350,16 @@ namespace ATSAccessibility.Handlers {
 				return false;
 
 			// Check if we can still construct this building type
-			if (!GameReflection.CanConstructBuilding(_selectedBuildingModel))
+			if (!BuildingReflection.CanConstructBuilding(_selectedBuildingModel))
 				return false;
 
 			// Create a temporary building to test placement
-			var building = GameReflection.CreateBuilding(_selectedBuildingModel, _rotation);
+			var building = BuildingReflection.CreateBuilding(_selectedBuildingModel, _rotation);
 			if (building == null)
 				return false;
 
 			// Set position
-			GameReflection.SetBuildingPosition(building, new Vector2Int(_mapNavigator.CursorX, _mapNavigator.CursorY));
+			BuildingReflection.SetBuildingPosition(building, new Vector2Int(_mapNavigator.CursorX, _mapNavigator.CursorY));
 
 			// Extractors need springs removed from the grid before placement check
 			bool isExtractor = BuildingReflection.IsExtractorModel(_selectedBuildingModel);
@@ -367,13 +367,13 @@ namespace ATSAccessibility.Handlers {
 				GameReflection.RemoveSpringsFromGrid();
 
 			// Check if placement is valid
-			bool canPlace = GameReflection.CanPlaceBuilding(building);
+			bool canPlace = BuildingReflection.CanPlaceBuilding(building);
 
 			if (isExtractor)
 				GameReflection.ReturnSpringsOnGrid();
 
 			// Remove the temporary building (no refund)
-			GameReflection.RemoveBuilding(building, false);
+			BuildingReflection.RemoveBuilding(building, false);
 
 			return canPlace;
 		}

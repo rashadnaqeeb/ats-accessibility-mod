@@ -1,4 +1,4 @@
-using ATSAccessibility.Reflection;
+﻿using ATSAccessibility.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -35,7 +35,7 @@ namespace ATSAccessibility.Utils {
 				return "No building";
 			}
 
-			if (GameReflection.IsBuildingUnfinished(building)) {
+			if (BuildingReflection.IsBuildingUnfinished(building)) {
 				return "Under construction";
 			}
 
@@ -242,7 +242,7 @@ namespace ATSAccessibility.Utils {
 				return "No building";
 			}
 
-			if (GameReflection.IsBuildingUnfinished(building)) {
+			if (BuildingReflection.IsBuildingUnfinished(building)) {
 				return "Under construction";
 			}
 
@@ -311,7 +311,7 @@ namespace ATSAccessibility.Utils {
 				return "No building";
 			}
 
-			if (GameReflection.IsBuildingUnfinished(building)) {
+			if (BuildingReflection.IsBuildingUnfinished(building)) {
 				return "Under construction";
 			}
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -678,7 +678,7 @@ namespace ATSAccessibility.Reflection {
 			BuildingReflection.EnsureHearthBaseType();
 
 			try {
-				var houses = GameReflection.GetAllHouses();
+				var houses = BuildingReflection.GetAllHouses();
 				if (houses == null || _hearthIsInRangeMethod == null) return 0;
 
 				int count = 0;
@@ -715,7 +715,7 @@ namespace ATSAccessibility.Reflection {
 			BuildingReflection.EnsureHearthBaseType();
 
 			try {
-				var institutions = GameReflection.GetAllInstitutions();
+				var institutions = BuildingReflection.GetAllInstitutions();
 				if (institutions == null) return 0;
 
 				int count = 0;
@@ -744,7 +744,7 @@ namespace ATSAccessibility.Reflection {
 			BuildingReflection.EnsureHearthBaseType();
 
 			try {
-				var decorations = GameReflection.GetAllDecorations();
+				var decorations = BuildingReflection.GetAllDecorations();
 				if (decorations == null || _hearthIsInRangeMethod == null) return 0;
 
 				int score = 0;
