@@ -46,6 +46,9 @@ Added working priority support across the mod. You can now:
 - Move duplicate CleanupName from ProductionNavigator and FishingHutNavigator into FormattingUtils.CleanupRecipeName
 - Move duplicate ProcessKeyEvent bridge from 6 panels into MenuBase
 - Move duplicate worker sub-item action pattern from 8 navigators into BuildingSectionNavigator.PerformWorkerSubItemAction
+- Extract InstitutionReflection.cs from BuildingReflection.cs (institution/tavern/temple-specific reflection code)
+- Extract ShrineReflection.cs from BuildingReflection.cs (shrine/beacon-tower-specific reflection code)
+- Extract PoroReflection.cs from BuildingReflection.cs (poro companion creature-specific reflection code)
 
 ## v1.1.6
 

@@ -151,7 +151,7 @@ namespace ATSAccessibility.Navigators {
 		protected override void AnnounceSubItem(int sectionIndex, int itemIndex, int subItemIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Services && itemIndex < _services.Count) {
 				var service = _services[itemIndex];
-				string goodName = BuildingReflection.GetInstitutionAvailableGoodName(_building, service.RecipeIndex, subItemIndex);
+				string goodName = InstitutionReflection.GetAvailableGoodName(_building, service.RecipeIndex, subItemIndex);
 				Speech.Say($"Option {subItemIndex + 1}: {goodName ?? "Unknown"}");
 			} else if (_sectionTypes[sectionIndex] == SectionType.Workers) {
 				_workersSection.AnnounceSubItem(itemIndex, subItemIndex);
@@ -163,8 +163,8 @@ namespace ATSAccessibility.Navigators {
 		protected override bool PerformSubItemAction(int sectionIndex, int itemIndex, int subItemIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Services && itemIndex < _services.Count) {
 				var service = _services[itemIndex];
-				if (BuildingReflection.ChangeInstitutionIngredient(_building, service.RecipeIndex, subItemIndex)) {
-					string goodName = BuildingReflection.GetInstitutionAvailableGoodName(_building, service.RecipeIndex, subItemIndex);
+				if (InstitutionReflection.ChangeIngredient(_building, service.RecipeIndex, subItemIndex)) {
+					string goodName = InstitutionReflection.GetAvailableGoodName(_building, service.RecipeIndex, subItemIndex);
 					Speech.Say($"Changed to {goodName ?? "Unknown"}");
 					RefreshServiceData();  // Refresh to update current good
 					return true;
@@ -192,7 +192,7 @@ namespace ATSAccessibility.Navigators {
 		protected override void RefreshData() {
 			_isSleeping = BuildingReflection.IsBuildingSleeping(_building);
 			_canSleep = BuildingReflection.CanBuildingSleep(_building);
-			_effectCount = BuildingReflection.GetInstitutionEffectCount(_building);
+			_effectCount = InstitutionReflection.GetEffectCount(_building);
 
 			RefreshServiceData();
 			RefreshStorageData();
@@ -217,14 +217,14 @@ namespace ATSAccessibility.Navigators {
 		private void RefreshServiceData() {
 			_services.Clear();
 
-			int recipeCount = BuildingReflection.GetInstitutionRecipeCount(_building);
+			int recipeCount = InstitutionReflection.GetRecipeCount(_building);
 			for (int i = 0; i < recipeCount; i++) {
 				var service = new ServiceInfo {
 					RecipeIndex = i,
-					ServedNeedName = BuildingReflection.GetInstitutionServedNeedName(_building, i),
-					ConsumesGood = BuildingReflection.IsInstitutionRecipeGoodConsumed(_building, i),
-					CurrentGoodName = BuildingReflection.GetInstitutionCurrentGoodName(_building, i),
-					AvailableGoodsCount = BuildingReflection.GetInstitutionAvailableGoodsCount(_building, i)
+					ServedNeedName = InstitutionReflection.GetServedNeedName(_building, i),
+					ConsumesGood = InstitutionReflection.IsRecipeGoodConsumed(_building, i),
+					CurrentGoodName = InstitutionReflection.GetCurrentGoodName(_building, i),
+					AvailableGoodsCount = InstitutionReflection.GetAvailableGoodsCount(_building, i)
 				};
 				_services.Add(service);
 			}
@@ -233,7 +233,7 @@ namespace ATSAccessibility.Navigators {
 		private void RefreshStorageData() {
 			_storageGoods.Clear();
 
-			var storageGoods = BuildingReflection.GetInstitutionStorageGoods(_building);
+			var storageGoods = InstitutionReflection.GetStorageGoods(_building);
 			foreach (var kvp in storageGoods) {
 				string displayName = GameReflection.GetGoodDisplayName(kvp.Key) ?? kvp.Key;
 				_storageGoods.Add((kvp.Key, displayName, kvp.Value));
@@ -288,10 +288,10 @@ namespace ATSAccessibility.Navigators {
 		private void AnnounceEffectItem(int itemIndex) {
 			if (itemIndex >= _effectCount) return;
 
-			string name = BuildingReflection.GetInstitutionEffectName(_building, itemIndex);
-			int minWorkers = BuildingReflection.GetInstitutionEffectMinWorkers(_building, itemIndex);
-			bool isActive = BuildingReflection.IsInstitutionEffectActive(_building, itemIndex);
-			string description = BuildingReflection.GetInstitutionEffectDescription(_building, itemIndex);
+			string name = InstitutionReflection.GetEffectName(_building, itemIndex);
+			int minWorkers = InstitutionReflection.GetEffectMinWorkers(_building, itemIndex);
+			bool isActive = InstitutionReflection.IsEffectActive(_building, itemIndex);
+			string description = InstitutionReflection.GetEffectDescription(_building, itemIndex);
 
 			string activation = isActive ? "active" : $"requires {minWorkers} workers";
 

@@ -300,7 +300,7 @@ namespace ATSAccessibility.Reflection {
 
 			EnsureHearthBaseFields();
 			BuildingReflection.EnsureHouseTypes();
-			BuildingReflection.EnsureInstitutionTypes();
+			InstitutionReflection.EnsureTypes();
 			BuildingReflection.EnsureDecorationType();
 
 			ReflectionHelper.InitCache("HearthReflection.HubTier", assembly => {

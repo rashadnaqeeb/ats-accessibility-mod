@@ -149,7 +149,7 @@ namespace ATSAccessibility.Navigators {
 
 				// Remaining sub-items are good options
 				if (need.AvailableGoodsCount > 1 && subIndex < need.AvailableGoodsCount) {
-					string goodName = BuildingReflection.GetPoroNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
+					string goodName = PoroReflection.GetNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
 					Speech.Say($"Change to {goodName ?? "Unknown"}");
 				}
 			} else if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather) {
@@ -165,7 +165,7 @@ namespace ATSAccessibility.Navigators {
 				// First sub-item is Feed action (if available)
 				if (need.CanFulfill) {
 					if (subIndex == 0) {
-						if (BuildingReflection.FulfillPoroNeed(_building, need.NeedIndex)) {
+						if (PoroReflection.FulfillNeed(_building, need.NeedIndex)) {
 							Speech.Say("Fed successfully");
 							RefreshNeedData();
 							return true;
@@ -179,15 +179,15 @@ namespace ATSAccessibility.Navigators {
 
 				// Remaining sub-items are good options
 				if (need.AvailableGoodsCount > 1 && subIndex < need.AvailableGoodsCount) {
-					if (BuildingReflection.ChangePoroNeedGood(_building, need.NeedIndex, subIndex)) {
-						string goodName = BuildingReflection.GetPoroNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
+					if (PoroReflection.ChangeNeedGood(_building, need.NeedIndex, subIndex)) {
+						string goodName = PoroReflection.GetNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
 						Speech.Say($"Changed to {goodName ?? "Unknown"}");
 						RefreshNeedData();
 						return true;
 					}
 				}
 			} else if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather) {
-				if (BuildingReflection.GatherPoroProducts(_building)) {
+				if (PoroReflection.GatherProducts(_building)) {
 					Speech.Say($"Collected {_productAmount} {_productName ?? "products"}");
 					RefreshProductData();
 					return true;
@@ -222,32 +222,32 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private void RefreshHappinessData() {
-			_happiness = BuildingReflection.GetPoroHappiness(_building);
-			_productionProgress = BuildingReflection.GetPoroProductionProgress(_building);
+			_happiness = PoroReflection.GetHappiness(_building);
+			_productionProgress = PoroReflection.GetProductionProgress(_building);
 		}
 
 		private void RefreshNeedData() {
 			_needs.Clear();
 
-			int needCount = BuildingReflection.GetPoroNeedCount(_building);
+			int needCount = PoroReflection.GetNeedCount(_building);
 			for (int i = 0; i < needCount; i++) {
 				var need = new NeedInfo {
 					NeedIndex = i,
-					NeedName = BuildingReflection.GetPoroNeedName(_building, i),
-					Level = BuildingReflection.GetPoroNeedLevel(_building, i),
-					CurrentGoodName = BuildingReflection.GetPoroNeedCurrentGoodName(_building, i),
-					AvailableGoodsCount = BuildingReflection.GetPoroNeedAvailableGoodsCount(_building, i),
-					CanFulfill = BuildingReflection.CanFulfillPoroNeed(_building, i)
+					NeedName = PoroReflection.GetNeedName(_building, i),
+					Level = PoroReflection.GetNeedLevel(_building, i),
+					CurrentGoodName = PoroReflection.GetNeedCurrentGoodName(_building, i),
+					AvailableGoodsCount = PoroReflection.GetNeedAvailableGoodsCount(_building, i),
+					CanFulfill = PoroReflection.CanFulfillNeed(_building, i)
 				};
 				_needs.Add(need);
 			}
 		}
 
 		private void RefreshProductData() {
-			_productName = BuildingReflection.GetPoroProductName(_building);
-			_productAmount = BuildingReflection.GetPoroProductAmount(_building);
-			_maxProducts = BuildingReflection.GetPoroMaxProducts(_building);
-			_canGather = BuildingReflection.CanGatherPoroProducts(_building);
+			_productName = PoroReflection.GetProductName(_building);
+			_productAmount = PoroReflection.GetProductAmount(_building);
+			_maxProducts = PoroReflection.GetMaxProducts(_building);
+			_canGather = PoroReflection.CanGatherProducts(_building);
 		}
 
 		private void BuildSections() {

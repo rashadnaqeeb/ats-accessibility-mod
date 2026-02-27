@@ -106,8 +106,8 @@ namespace ATSAccessibility.Navigators {
 				var tier = _effectTiers[itemIndex];
 				if (subItemIndex < tier.DrawableEffectIndices.Count) {
 					int actualEffectIndex = tier.DrawableEffectIndices[subItemIndex];
-					string effectName = BuildingReflection.GetShrineTierEffectName(_building, tier.TierIndex, actualEffectIndex);
-					string description = BuildingReflection.GetShrineTierEffectDescription(_building, tier.TierIndex, actualEffectIndex);
+					string effectName = ShrineReflection.GetTierEffectName(_building, tier.TierIndex, actualEffectIndex);
+					string description = ShrineReflection.GetTierEffectDescription(_building, tier.TierIndex, actualEffectIndex);
 
 					if (!string.IsNullOrEmpty(description))
 						Speech.Say($"{effectName ?? "Unknown effect"}: {description}");
@@ -149,7 +149,7 @@ namespace ATSAccessibility.Navigators {
 				int actualEffectIndex = tier.DrawableEffectIndices[subItemIndex];
 
 				// Play charging loop sound (or fallback) and await confirmation
-				var loopSound = BuildingReflection.GetShrineChargingLoopSound(_building);
+				var loopSound = ShrineReflection.GetChargingLoopSound(_building);
 				if (loopSound != null)
 					SoundManager.PlaySoundEffect(loopSound);
 				else
@@ -189,19 +189,19 @@ namespace ATSAccessibility.Navigators {
 		private void RefreshEffectData() {
 			_effectTiers.Clear();
 
-			int tierCount = BuildingReflection.GetShrineEffectTierCount(_building);
+			int tierCount = ShrineReflection.GetEffectTierCount(_building);
 			for (int i = 0; i < tierCount; i++) {
 				var tier = new EffectTierInfo {
 					TierIndex = i,
-					Label = BuildingReflection.GetShrineTierLabel(_building, i),
-					ChargesLeft = BuildingReflection.GetShrineTierChargesLeft(_building, i),
-					MaxCharges = BuildingReflection.GetShrineTierMaxCharges(_building, i)
+					Label = ShrineReflection.GetTierLabel(_building, i),
+					ChargesLeft = ShrineReflection.GetTierChargesLeft(_building, i),
+					MaxCharges = ShrineReflection.GetTierMaxCharges(_building, i)
 				};
 
 				// Only include effects that can be drawn (visible to sighted players)
-				int effectCount = BuildingReflection.GetShrineTierEffectCount(_building, i);
+				int effectCount = ShrineReflection.GetTierEffectCount(_building, i);
 				for (int j = 0; j < effectCount; j++) {
-					if (BuildingReflection.CanShrineTierEffectBeDrawn(_building, i, j)) {
+					if (ShrineReflection.CanTierEffectBeDrawn(_building, i, j)) {
 						tier.DrawableEffectIndices.Add(j);
 					}
 				}
@@ -242,15 +242,15 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private void DoUseEffect(int tierIndex, int effectIndex) {
-			if (BuildingReflection.UseShrineEffect(_building, tierIndex, effectIndex)) {
+			if (ShrineReflection.UseEffect(_building, tierIndex, effectIndex)) {
 				// Play final sound on success (or fallback)
-				var finalSound = BuildingReflection.GetShrineFinalSound(_building);
+				var finalSound = ShrineReflection.GetFinalSound(_building);
 				if (finalSound != null)
 					SoundManager.PlaySoundEffect(finalSound);
 				else
 					SoundManager.PlayButtonClick();
 
-				string effectName = BuildingReflection.GetShrineTierEffectName(_building, tierIndex, effectIndex);
+				string effectName = ShrineReflection.GetTierEffectName(_building, tierIndex, effectIndex);
 				Speech.Say($"Used {effectName ?? "effect"}");
 				RefreshEffectData();  // Refresh to update charges and drawable effects
 			} else {
