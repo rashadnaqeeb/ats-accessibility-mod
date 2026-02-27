@@ -79,6 +79,17 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		/// <summary>
+		/// Silently clear all state without sounds or speech.
+		/// Called on scene unload when game objects may be destroyed.
+		/// </summary>
+		public void Reset() {
+			_isActive = false;
+			_selectedBuildingModel = null;
+			_selectedBuildingName = null;
+			_rotation = 0;
+		}
+
+		/// <summary>
 		/// Exit build mode and clean up.
 		/// </summary>
 		public void ExitBuildMode(bool queue = false) {

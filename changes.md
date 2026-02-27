@@ -39,6 +39,7 @@ Added working priority support across the mod. You can now:
 - Deduplicate AdjustNodePriority and AdjustConstructionPriority in SettlementKeyHandler via shared helper
 - Remove duplicate GetDirection methods from BlightInfoHelper, RainpunkHelper, EntranceInfoHelper, and MapScanner in favor of NavigationUtils.GetDirection
 - Move shared GetCardinalDirection and GetExtensionAnnouncement from BuildModeController and MoveModeController into NavigationUtils
+- Add Reset() methods to BuildModeController, MoveModeController, and TutorialTooltipHandler; call them on scene unload to prevent stale state between sessions
 
 ## v1.1.6
 

@@ -34,6 +34,20 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		/// <summary>
+		/// Clear all state. Called on scene unload to prevent stale flags
+		/// from blocking input in the next session.
+		/// </summary>
+		public void Reset() {
+			_isVisible = false;
+			_wasVisible = false;
+			_lastText = null;
+			_lastAnnouncedText = null;
+			_isEngaged = false;
+			_lastPhase = -1;
+			_forceEngaged = false;
+		}
+
+		/// <summary>
 		/// Force the handler to engage and capture keys.
 		/// Called externally when we detect the tooltip via polling.
 		/// Sets _forceEngaged flag to prevent CheckForTextChanges from disengaging.

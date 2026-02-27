@@ -531,6 +531,9 @@ namespace ATSAccessibility.Core {
 			if (scene.buildIndex == SceneConstants.SCENE_GAME) {
 				_announcedGameStart = false;
 				_wasGameActive = false;
+				_buildModeController?.Reset();
+				_moveModeController?.Reset();
+				_tutorialTooltipHandler?.Reset();
 				_mapNavigator?.ClearCursor();  // Clear so it reinitializes on next game
 				WorkerInfoHelper.Reset();
 				StatsReader.ResetSpeciesCycling();

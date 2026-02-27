@@ -116,6 +116,18 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		/// <summary>
+		/// Silently clear all state without sounds, speech, or grid operations.
+		/// Called on scene unload when game objects may be destroyed.
+		/// </summary>
+		public void Reset() {
+			_isActive = false;
+			_movingBuilding = null;
+			_buildingName = null;
+			_pricePaid = false;
+			_awaitingPlaceConfirm = false;
+		}
+
+		/// <summary>
 		/// Exit move mode, either placing at new position or cancelling.
 		/// </summary>
 		/// <param name="cancel">True to restore original position, false to place at cursor.</param>
