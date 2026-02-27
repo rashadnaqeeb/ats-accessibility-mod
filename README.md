@@ -4,12 +4,7 @@ A BepInEx mod adding screen reader support to Against the Storm via Tolk.
 
 **The game and its DLCs are fully playable with this mod.** All core gameplay mechanics are accessible.
 
-If this is your first time playing, there is another file included with this mod named tutorial.HTML. It will guide you in detail through the first tutorial mission. I highly recommend you read it as it will explain what keyboard commands you need as you need them. The remainder of this Read me is meant as a quick reference list in case you forget a hotkey.
-
-### Known Limitations
-
-**Implemented but needs testing** (may have bugs):
-- World Events
+If this is your first time playing, there is another file included with this mod named tutorial.HTML. It will guide you in detail through the first tutorial mission. I highly recommend you read it as it will explain what keyboard commands you need as you need them. The remainder of this Read me is meant as a quick reference list in case you forget a hotkey. You can also press f12 at any time from within the game to get a list of hotkeys you can use at any given moment.
 
 ## Installation
 

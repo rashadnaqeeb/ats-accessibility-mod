@@ -4,7 +4,7 @@ This guide walks you through the first tutorial mission using the ATS Accessibil
 
 If you're feeling confused about why certain things are happening, this guide attempts to answer those questions. Skip around using heading navigation if you're already familiar with some concepts.
 
-Before you begin, familiarize yourself with the basic navigation model: Arrow keys move through menus, Enter/Right drills into a submenu, Left/Escape backs out.
+Before you begin, familiarize yourself with the basic navigation model: Arrow keys move through menus, Enter/Right drills into a submenu, Left/Escape backs out. F12 at any time gives you a list of available hotkeys for the screen your on, useful if you're completely lost.
 
 ## Starting the Tutorial
 
@@ -123,7 +123,7 @@ To assign workers without opening the building panel:
 * Press + or - to cycle through available species
 * Press Shift++ or Shift+- to add or remove a worker
 
-Tip: Beavers are ideal for the Woodcutters' Camp because they have the Woodworking specialization, giving them a chance for bonus wood. 
+Tip: Beavers are ideal for the Woodcutters' Camp because they have the Woodworking specialization, giving them a chance for bonus wood.
 
 ## Your First Orders
 
@@ -362,7 +362,7 @@ Glade Events have threat timers (active effects) that start when you open the Gl
 
 The threat here: after the timer expires, 3 random villagers die to magic missiles. This is unavoidable in the tutorial.
 
-&nbsp;Note: ShrineMissle is an internal game typo, not a mod bug.
+ Note: ShrineMissle is an internal game typo, not a mod bug.
 
 #### Swapping Required Goods
 
