@@ -34,6 +34,7 @@ Added working priority support across the mod. You can now:
 - Extract PortReflection.cs from BuildingReflection.cs (port/expedition-specific reflection code)
 - Move glade info, location markers, relics highlight, harvest mark/unmark, farm range, and seal/guidepost reflection from GameReflection into MapReflection
 - Extract ConstructionReflection.cs from BuildingReflection.cs (construction, placement, range info, lake, supply chain, and building enumeration code)
+- Consolidate duplicate strider/crew method pairs in PortReflection into unified parameterized API
 
 ## v1.1.6
 

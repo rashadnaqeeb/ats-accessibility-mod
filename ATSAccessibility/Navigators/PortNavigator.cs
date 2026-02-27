@@ -480,7 +480,7 @@ namespace ATSAccessibility.Navigators {
 
 		private void RefreshGoodsSets() {
 			// Strider goods
-			_striderSetCount = PortReflection.GetPortStriderGoodSetCount(_building);
+			_striderSetCount = PortReflection.GetPortGoodSetCount(_building, true);
 			if (_striderSetCount > 0) {
 				_striderSets = new GoodsSetData[_striderSetCount];
 				for (int i = 0; i < _striderSetCount; i++) {
@@ -491,7 +491,7 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			// Crew goods
-			_crewSetCount = PortReflection.GetPortCrewGoodSetCount(_building);
+			_crewSetCount = PortReflection.GetPortGoodSetCount(_building, false);
 			if (_crewSetCount > 0) {
 				_crewSets = new GoodsSetData[_crewSetCount];
 				for (int i = 0; i < _crewSetCount; i++) {
@@ -503,27 +503,17 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private GoodsSetData FetchGoodsSetData(bool isStrider, int setIndex) {
-			int altCount = isStrider
-				? PortReflection.GetPortStriderAlternativeCount(_building, setIndex)
-				: PortReflection.GetPortCrewAlternativeCount(_building, setIndex);
-			int pickedIndex = isStrider
-				? PortReflection.GetPortStriderPickedIndex(_building, setIndex)
-				: PortReflection.GetPortCrewPickedIndex(_building, setIndex);
+			int altCount = PortReflection.GetPortAlternativeCount(_building, setIndex, isStrider);
+			int pickedIndex = PortReflection.GetPortPickedIndex(_building, setIndex, isStrider);
 
 			var displayNames = new string[altCount];
 			var names = new string[altCount];
 			var amounts = new int[altCount];
 
 			for (int j = 0; j < altCount; j++) {
-				if (isStrider) {
-					displayNames[j] = PortReflection.GetPortStriderGoodDisplayName(_building, setIndex, j) ?? "Unknown";
-					names[j] = PortReflection.GetPortStriderGoodName(_building, setIndex, j);
-					amounts[j] = PortReflection.GetPortStriderGoodAmount(_building, setIndex, j);
-				} else {
-					displayNames[j] = PortReflection.GetPortCrewGoodDisplayName(_building, setIndex, j) ?? "Unknown";
-					names[j] = PortReflection.GetPortCrewGoodName(_building, setIndex, j);
-					amounts[j] = PortReflection.GetPortCrewGoodAmount(_building, setIndex, j);
-				}
+				displayNames[j] = PortReflection.GetPortGoodDisplayName(_building, setIndex, j, isStrider) ?? "Unknown";
+				names[j] = PortReflection.GetPortGoodName(_building, setIndex, j, isStrider);
+				amounts[j] = PortReflection.GetPortGoodAmount(_building, setIndex, j, isStrider);
 			}
 
 			return new GoodsSetData {
@@ -541,47 +531,30 @@ namespace ATSAccessibility.Navigators {
 
 		private void RefreshDeliveryItems() {
 			var items = new List<DeliveryItem>();
-
-			// Gather picked strider goods
-			int striderCount = PortReflection.GetPortStriderGoodSetCount(_building);
-			for (int i = 0; i < striderCount; i++) {
-				int pickedIndex = PortReflection.GetPortStriderPickedIndex(_building, i);
-				string name = PortReflection.GetPortStriderGoodName(_building, i, pickedIndex);
-				string displayName = PortReflection.GetPortStriderGoodDisplayName(_building, i, pickedIndex) ?? "Unknown";
-				int amount = PortReflection.GetPortStriderGoodAmount(_building, i, pickedIndex);
-				int delivered = !string.IsNullOrEmpty(name)
-					? PortReflection.GetPortGoodDeliveredAmount(_building, name)
-					: 0;
-
-				items.Add(new DeliveryItem {
-					displayName = displayName,
-					name = name,
-					delivered = delivered,
-					needed = amount
-				});
-			}
-
-			// Gather picked crew goods
-			int crewCount = PortReflection.GetPortCrewGoodSetCount(_building);
-			for (int i = 0; i < crewCount; i++) {
-				int pickedIndex = PortReflection.GetPortCrewPickedIndex(_building, i);
-				string name = PortReflection.GetPortCrewGoodName(_building, i, pickedIndex);
-				string displayName = PortReflection.GetPortCrewGoodDisplayName(_building, i, pickedIndex) ?? "Unknown";
-				int amount = PortReflection.GetPortCrewGoodAmount(_building, i, pickedIndex);
-				int delivered = !string.IsNullOrEmpty(name)
-					? PortReflection.GetPortGoodDeliveredAmount(_building, name)
-					: 0;
-
-				items.Add(new DeliveryItem {
-					displayName = displayName,
-					name = name,
-					delivered = delivered,
-					needed = amount
-				});
-			}
-
+			GatherDeliveryGoods(items, true);
+			GatherDeliveryGoods(items, false);
 			_deliveryItems = items.ToArray();
 			_deliveryItemCount = items.Count;
+		}
+
+		private void GatherDeliveryGoods(List<DeliveryItem> items, bool isStrider) {
+			int count = PortReflection.GetPortGoodSetCount(_building, isStrider);
+			for (int i = 0; i < count; i++) {
+				int pickedIndex = PortReflection.GetPortPickedIndex(_building, i, isStrider);
+				string name = PortReflection.GetPortGoodName(_building, i, pickedIndex, isStrider);
+				string displayName = PortReflection.GetPortGoodDisplayName(_building, i, pickedIndex, isStrider) ?? "Unknown";
+				int amount = PortReflection.GetPortGoodAmount(_building, i, pickedIndex, isStrider);
+				int delivered = !string.IsNullOrEmpty(name)
+					? PortReflection.GetPortGoodDeliveredAmount(_building, name)
+					: 0;
+
+				items.Add(new DeliveryItem {
+					displayName = displayName,
+					name = name,
+					delivered = delivered,
+					needed = amount
+				});
+			}
 		}
 
 		// ========================================
@@ -694,9 +667,7 @@ namespace ATSAccessibility.Navigators {
 			var set = sets[localIndex];
 			if (subItemIndex < 0 || subItemIndex >= set.alternativeCount) return false;
 
-			bool success = isStrider
-				? PortReflection.SetPortStriderPickedIndex(_building, localIndex, subItemIndex)
-				: PortReflection.SetPortCrewPickedIndex(_building, localIndex, subItemIndex);
+			bool success = PortReflection.SetPortPickedIndex(_building, localIndex, subItemIndex, isStrider);
 
 			if (success) {
 				sets[localIndex].pickedIndex = subItemIndex;

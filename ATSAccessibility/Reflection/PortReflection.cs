@@ -414,10 +414,14 @@ namespace ATSAccessibility.Reflection {
 			}
 		}
 
+		// ========================================
+		// STRIDER / CREW GOODS (unified API)
+		// ========================================
+
 		/// <summary>
-		/// Get the number of strider goods sets in the current expedition.
+		/// Get the number of goods sets for strider or crew in the current expedition.
 		/// </summary>
-		public static int GetPortStriderGoodSetCount(object building) {
+		public static int GetPortGoodSetCount(object building, bool isStrider) {
 			if (!BuildingReflection.IsPort(building)) return 0;
 
 			EnsurePortTypes();
@@ -425,7 +429,8 @@ namespace ATSAccessibility.Reflection {
 				var expedition = ReflectionHelper.Invoke(_portGetCurrentExpeditionMethod, building);
 				if (expedition == null) return 0;
 
-				var goodsSets = _portExpedStriderGoodsField?.GetValue(expedition) as Array;
+				var goodsField = isStrider ? _portExpedStriderGoodsField : _portExpedCrewGoodsField;
+				var goodsSets = goodsField?.GetValue(expedition) as Array;
 				return goodsSets?.Length ?? 0;
 			} catch {
 				return 0;
@@ -433,10 +438,10 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get the number of alternatives in a strider goods set.
+		/// Get the number of alternatives in a goods set.
 		/// </summary>
-		public static int GetPortStriderAlternativeCount(object building, int setIndex) {
-			var goodsSet = GetPortStriderGoodsSetObject(building, setIndex);
+		public static int GetPortAlternativeCount(object building, int setIndex, bool isStrider) {
+			var goodsSet = GetGoodsSetObject(building, setIndex, isStrider);
 			if (goodsSet == null) return 0;
 
 			try {
@@ -448,10 +453,10 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get the display name of a strider good alternative.
+		/// Get the display name of a good alternative.
 		/// </summary>
-		public static string GetPortStriderGoodDisplayName(object building, int setIndex, int altIndex) {
-			var goodRef = GetPortStriderGoodRefObject(building, setIndex, altIndex);
+		public static string GetPortGoodDisplayName(object building, int setIndex, int altIndex, bool isStrider) {
+			var goodRef = GetGoodRefObject(building, setIndex, altIndex, isStrider);
 			if (goodRef == null) return null;
 
 			try {
@@ -462,10 +467,10 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get the internal name of a strider good alternative.
+		/// Get the internal name of a good alternative.
 		/// </summary>
-		public static string GetPortStriderGoodName(object building, int setIndex, int altIndex) {
-			var goodRef = GetPortStriderGoodRefObject(building, setIndex, altIndex);
+		public static string GetPortGoodName(object building, int setIndex, int altIndex, bool isStrider) {
+			var goodRef = GetGoodRefObject(building, setIndex, altIndex, isStrider);
 			if (goodRef == null) return null;
 
 			try {
@@ -476,10 +481,10 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get the amount of a strider good alternative.
+		/// Get the amount of a good alternative.
 		/// </summary>
-		public static int GetPortStriderGoodAmount(object building, int setIndex, int altIndex) {
-			var goodRef = GetPortStriderGoodRefObject(building, setIndex, altIndex);
+		public static int GetPortGoodAmount(object building, int setIndex, int altIndex, bool isStrider) {
+			var goodRef = GetGoodRefObject(building, setIndex, altIndex, isStrider);
 			if (goodRef == null) return 0;
 
 			try {
@@ -490,9 +495,9 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get the picked index for a strider goods set.
+		/// Get the picked index for a goods set.
 		/// </summary>
-		public static int GetPortStriderPickedIndex(object building, int setIndex) {
+		public static int GetPortPickedIndex(object building, int setIndex, bool isStrider) {
 			if (!BuildingReflection.IsPort(building)) return 0;
 
 			EnsurePortTypes();
@@ -500,7 +505,8 @@ namespace ATSAccessibility.Reflection {
 				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return 0;
 
-				var pickedGoods = ReflectionHelper.GetField(_portStateStriderPickedGoodsField, state);
+				var pickedField = isStrider ? _portStateStriderPickedGoodsField : _portStateCrewPickedGoodsField;
+				var pickedGoods = ReflectionHelper.GetField(pickedField, state);
 				if (pickedGoods == null) return 0;
 
 				var list = pickedGoods as System.Collections.IList;
@@ -513,9 +519,9 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Set the picked index for a strider goods set.
+		/// Set the picked index for a goods set.
 		/// </summary>
-		public static bool SetPortStriderPickedIndex(object building, int setIndex, int altIndex) {
+		public static bool SetPortPickedIndex(object building, int setIndex, int altIndex, bool isStrider) {
 			if (!BuildingReflection.IsPort(building)) return false;
 
 			EnsurePortTypes();
@@ -523,7 +529,8 @@ namespace ATSAccessibility.Reflection {
 				var state = ReflectionHelper.GetField(_portStateField, building);
 				if (state == null) return false;
 
-				var pickedGoods = ReflectionHelper.GetField(_portStateStriderPickedGoodsField, state);
+				var pickedField = isStrider ? _portStateStriderPickedGoodsField : _portStateCrewPickedGoodsField;
+				var pickedGoods = ReflectionHelper.GetField(pickedField, state);
 				if (pickedGoods == null) return false;
 
 				var list = pickedGoods as System.Collections.IList;
@@ -536,127 +543,9 @@ namespace ATSAccessibility.Reflection {
 			}
 		}
 
-		/// <summary>
-		/// Get the number of crew goods sets in the current expedition.
-		/// </summary>
-		public static int GetPortCrewGoodSetCount(object building) {
-			if (!BuildingReflection.IsPort(building)) return 0;
-
-			EnsurePortTypes();
-			try {
-				var expedition = ReflectionHelper.Invoke(_portGetCurrentExpeditionMethod, building);
-				if (expedition == null) return 0;
-
-				var goodsSets = _portExpedCrewGoodsField?.GetValue(expedition) as Array;
-				return goodsSets?.Length ?? 0;
-			} catch {
-				return 0;
-			}
-		}
-
-		/// <summary>
-		/// Get the number of alternatives in a crew goods set.
-		/// </summary>
-		public static int GetPortCrewAlternativeCount(object building, int setIndex) {
-			var goodsSet = GetPortCrewGoodsSetObject(building, setIndex);
-			if (goodsSet == null) return 0;
-
-			try {
-				var goods = BuildingReflection.GoodsSetGoodsField?.GetValue(goodsSet) as Array;
-				return goods?.Length ?? 0;
-			} catch {
-				return 0;
-			}
-		}
-
-		/// <summary>
-		/// Get the display name of a crew good alternative.
-		/// </summary>
-		public static string GetPortCrewGoodDisplayName(object building, int setIndex, int altIndex) {
-			var goodRef = GetPortCrewGoodRefObject(building, setIndex, altIndex);
-			if (goodRef == null) return null;
-
-			try {
-				return ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, goodRef);
-			} catch {
-				return null;
-			}
-		}
-
-		/// <summary>
-		/// Get the internal name of a crew good alternative.
-		/// </summary>
-		public static string GetPortCrewGoodName(object building, int setIndex, int altIndex) {
-			var goodRef = GetPortCrewGoodRefObject(building, setIndex, altIndex);
-			if (goodRef == null) return null;
-
-			try {
-				return ReflectionHelper.GetPropString(BuildingReflection.GoodRefNameProperty, goodRef);
-			} catch {
-				return null;
-			}
-		}
-
-		/// <summary>
-		/// Get the amount of a crew good alternative.
-		/// </summary>
-		public static int GetPortCrewGoodAmount(object building, int setIndex, int altIndex) {
-			var goodRef = GetPortCrewGoodRefObject(building, setIndex, altIndex);
-			if (goodRef == null) return 0;
-
-			try {
-				return ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, goodRef);
-			} catch {
-				return 0;
-			}
-		}
-
-		/// <summary>
-		/// Get the picked index for a crew goods set.
-		/// </summary>
-		public static int GetPortCrewPickedIndex(object building, int setIndex) {
-			if (!BuildingReflection.IsPort(building)) return 0;
-
-			EnsurePortTypes();
-			try {
-				var state = ReflectionHelper.GetField(_portStateField, building);
-				if (state == null) return 0;
-
-				var pickedGoods = ReflectionHelper.GetField(_portStateCrewPickedGoodsField, state);
-				if (pickedGoods == null) return 0;
-
-				var list = pickedGoods as System.Collections.IList;
-				if (list == null || setIndex < 0 || setIndex >= list.Count) return 0;
-
-				return (int)list[setIndex];
-			} catch {
-				return 0;
-			}
-		}
-
-		/// <summary>
-		/// Set the picked index for a crew goods set.
-		/// </summary>
-		public static bool SetPortCrewPickedIndex(object building, int setIndex, int altIndex) {
-			if (!BuildingReflection.IsPort(building)) return false;
-
-			EnsurePortTypes();
-			try {
-				var state = ReflectionHelper.GetField(_portStateField, building);
-				if (state == null) return false;
-
-				var pickedGoods = ReflectionHelper.GetField(_portStateCrewPickedGoodsField, state);
-				if (pickedGoods == null) return false;
-
-				var list = pickedGoods as System.Collections.IList;
-				if (list == null || setIndex < 0 || setIndex >= list.Count) return false;
-
-				list[setIndex] = altIndex;
-				return true;
-			} catch {
-				return false;
-			}
-		}
+		// ========================================
+		// EXPEDITION GOODS & CATEGORIES
+		// ========================================
 
 		/// <summary>
 		/// Get the delivered amount of a good in the port's expedition goods collection.
@@ -684,88 +573,21 @@ namespace ATSAccessibility.Reflection {
 		/// Returns display names.
 		/// </summary>
 		public static List<string> GetPortAvailableCategories(object building) {
-			if (!BuildingReflection.IsPort(building)) return new List<string>();
-
-			EnsurePortTypes();
-			try {
-				var expedModel = ReflectionHelper.Invoke(_portGetCurrentExpeditionModelMethod, building);
-				if (expedModel == null) return new List<string>();
-
-				var blueprints = ReflectionHelper.GetField(_portExpedModelBlueprintsField, expedModel);
-				if (blueprints == null) return new List<string>();
-
-				var buildingsArray = _buildingsDropTableBuildingsField?.GetValue(blueprints) as Array;
-				if (buildingsArray == null) return new List<string>();
-
-				var categories = new HashSet<string>();
-				var result = new List<string>();
-
-				for (int i = 0; i < buildingsArray.Length; i++) {
-					var entity = buildingsArray.GetValue(i);
-					if (entity == null) continue;
-
-					var buildingModel = ReflectionHelper.GetField(_buildingTableEntityBuildingField, entity);
-					if (buildingModel == null) continue;
-
-					var category = ReflectionHelper.GetField(_buildingModelCategoryField, buildingModel);
-					if (category == null) continue;
-
-					var displayNameField = category.GetType().GetField("displayName", GameReflection.PublicInstance);
-					var displayNameObj = displayNameField?.GetValue(category);
-					string displayName = GameReflection.GetLocaText(displayNameObj);
-					if (!string.IsNullOrEmpty(displayName) && categories.Add(displayName)) {
-						result.Add(displayName);
-					}
-				}
-
-				return result;
-			} catch {
-				return new List<string>();
-			}
+			return GetPortCategoryNames(building, category => {
+				var displayNameField = category.GetType().GetField("displayName", GameReflection.PublicInstance);
+				var displayNameObj = displayNameField?.GetValue(category);
+				return GameReflection.GetLocaText(displayNameObj);
+			});
 		}
 
 		/// <summary>
 		/// Get available building category internal names from the expedition blueprints drop table.
 		/// </summary>
 		public static List<string> GetPortCategoryInternalNames(object building) {
-			if (!BuildingReflection.IsPort(building)) return new List<string>();
-
-			EnsurePortTypes();
-			try {
-				var expedModel = ReflectionHelper.Invoke(_portGetCurrentExpeditionModelMethod, building);
-				if (expedModel == null) return new List<string>();
-
-				var blueprints = ReflectionHelper.GetField(_portExpedModelBlueprintsField, expedModel);
-				if (blueprints == null) return new List<string>();
-
-				var buildingsArray = _buildingsDropTableBuildingsField?.GetValue(blueprints) as Array;
-				if (buildingsArray == null) return new List<string>();
-
-				var categories = new HashSet<string>();
-				var result = new List<string>();
-
-				for (int i = 0; i < buildingsArray.Length; i++) {
-					var entity = buildingsArray.GetValue(i);
-					if (entity == null) continue;
-
-					var buildingModel = ReflectionHelper.GetField(_buildingTableEntityBuildingField, entity);
-					if (buildingModel == null) continue;
-
-					var category = ReflectionHelper.GetField(_buildingModelCategoryField, buildingModel);
-					if (category == null) continue;
-
-					// SO.Name property gives internal name
-					var nameProp = category.GetType().GetProperty("Name", GameReflection.PublicInstance);
-					string name = nameProp?.GetValue(category) as string;
-					if (!string.IsNullOrEmpty(name) && categories.Add(name)) {
-						result.Add(name);
-					}
-				}
-
-				return result;
-			} catch {
-				return new List<string>();
-			}
+			return GetPortCategoryNames(building, category => {
+				var nameProp = category.GetType().GetProperty("Name", GameReflection.PublicInstance);
+				return nameProp?.GetValue(category) as string;
+			});
 		}
 
 		/// <summary>
@@ -859,9 +681,11 @@ namespace ATSAccessibility.Reflection {
 			}
 		}
 
-		// ---- Port helper methods ----
+		// ========================================
+		// PRIVATE HELPERS
+		// ========================================
 
-		private static object GetPortStriderGoodsSetObject(object building, int setIndex) {
+		private static object GetGoodsSetObject(object building, int setIndex, bool isStrider) {
 			if (!BuildingReflection.IsPort(building)) return null;
 
 			EnsurePortTypes();
@@ -869,7 +693,8 @@ namespace ATSAccessibility.Reflection {
 				var expedition = ReflectionHelper.Invoke(_portGetCurrentExpeditionMethod, building);
 				if (expedition == null) return null;
 
-				var goodsSets = _portExpedStriderGoodsField?.GetValue(expedition) as Array;
+				var goodsField = isStrider ? _portExpedStriderGoodsField : _portExpedCrewGoodsField;
+				var goodsSets = goodsField?.GetValue(expedition) as Array;
 				if (goodsSets == null || setIndex < 0 || setIndex >= goodsSets.Length) return null;
 
 				return goodsSets.GetValue(setIndex);
@@ -878,8 +703,8 @@ namespace ATSAccessibility.Reflection {
 			}
 		}
 
-		private static object GetPortStriderGoodRefObject(object building, int setIndex, int altIndex) {
-			var goodsSet = GetPortStriderGoodsSetObject(building, setIndex);
+		private static object GetGoodRefObject(object building, int setIndex, int altIndex, bool isStrider) {
+			var goodsSet = GetGoodsSetObject(building, setIndex, isStrider);
 			if (goodsSet == null) return null;
 
 			try {
@@ -892,34 +717,42 @@ namespace ATSAccessibility.Reflection {
 			}
 		}
 
-		private static object GetPortCrewGoodsSetObject(object building, int setIndex) {
-			if (!BuildingReflection.IsPort(building)) return null;
+		private static List<string> GetPortCategoryNames(object building, Func<object, string> extractName) {
+			if (!BuildingReflection.IsPort(building)) return new List<string>();
 
 			EnsurePortTypes();
 			try {
-				var expedition = ReflectionHelper.Invoke(_portGetCurrentExpeditionMethod, building);
-				if (expedition == null) return null;
+				var expedModel = ReflectionHelper.Invoke(_portGetCurrentExpeditionModelMethod, building);
+				if (expedModel == null) return new List<string>();
 
-				var goodsSets = _portExpedCrewGoodsField?.GetValue(expedition) as Array;
-				if (goodsSets == null || setIndex < 0 || setIndex >= goodsSets.Length) return null;
+				var blueprints = ReflectionHelper.GetField(_portExpedModelBlueprintsField, expedModel);
+				if (blueprints == null) return new List<string>();
 
-				return goodsSets.GetValue(setIndex);
+				var buildingsArray = _buildingsDropTableBuildingsField?.GetValue(blueprints) as Array;
+				if (buildingsArray == null) return new List<string>();
+
+				var categories = new HashSet<string>();
+				var result = new List<string>();
+
+				for (int i = 0; i < buildingsArray.Length; i++) {
+					var entity = buildingsArray.GetValue(i);
+					if (entity == null) continue;
+
+					var buildingModel = ReflectionHelper.GetField(_buildingTableEntityBuildingField, entity);
+					if (buildingModel == null) continue;
+
+					var category = ReflectionHelper.GetField(_buildingModelCategoryField, buildingModel);
+					if (category == null) continue;
+
+					string name = extractName(category);
+					if (!string.IsNullOrEmpty(name) && categories.Add(name)) {
+						result.Add(name);
+					}
+				}
+
+				return result;
 			} catch {
-				return null;
-			}
-		}
-
-		private static object GetPortCrewGoodRefObject(object building, int setIndex, int altIndex) {
-			var goodsSet = GetPortCrewGoodsSetObject(building, setIndex);
-			if (goodsSet == null) return null;
-
-			try {
-				var goods = BuildingReflection.GoodsSetGoodsField?.GetValue(goodsSet) as Array;
-				if (goods == null || altIndex < 0 || altIndex >= goods.Length) return null;
-
-				return goods.GetValue(altIndex);
-			} catch {
-				return null;
+				return new List<string>();
 			}
 		}
 	}
