@@ -6,10 +6,15 @@
 ## Prompts Completed
 1. `prompts/sanity-checks-setup.md` — done
 2. `prompts/information-gathering-and-checking.md` — done
+3. `prompts/code-directory-construction.md` — done (150 index files for 150 source files)
 
 ## Prompts Remaining
-- `prompts/code-directory-construction.md`
+- `prompts/large-file-handling.md` (BuildingReflection.cs 10132 lines, GameReflection.cs 7413 lines)
 - (subsequent prompts TBD from reading each prompt)
+
+## Code Index
+- `llm-scratchpad/code-index/` — 150 .md files mirroring ATSAccessibility/ structure
+- Largest files: BuildingReflection.cs (10132 lines), GameReflection.cs (7413 lines)
 
 ## Documentation Created
 - `llm-docs/CLAUDE.md` — overview of llm-docs contents

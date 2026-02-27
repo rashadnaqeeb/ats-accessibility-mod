@@ -1,0 +1,113 @@
+# AccessibilityCore.cs
+
+Central MonoBehaviour for the mod. Wires together all subsystems: key handlers, popup routing,
+scene lifecycle, event subscriptions. Created once by Plugin.Awake() on a DontDestroyOnLoad GameObject.
+
+## class AccessibilityCore: MonoBehaviour (line 12)
+
+### Fields
+- private const float ANNOUNCEMENT_DELAY (line 15)
+- private bool _speechInitialized (line 18)
+- private bool _announcedMainMenu (line 19)
+- private bool _announcedGameStart (line 20)
+- private bool _wasGameActive (line 21)
+- private float _pollTimer (line 24)
+  - Polling for game state (fallback since GameController initializes async)
+- private const float POLL_INTERVAL (line 25)
+- private UINavigator _uiNavigator (line 28)
+- private KeyboardManager _keyboardManager (line 29)
+- private MapNavigator _mapNavigator (line 32)
+- private IDisposable _popupShownSubscription (line 35)
+- private IDisposable _popupHiddenSubscription (line 36)
+- private bool _subscribedToPopups (line 37)
+- private EncyclopediaNavigator _encyclopediaNavigator (line 40)
+- private MapScanner _mapScanner (line 43)
+- private StatsPanel _statsPanel (line 46)
+- private MysteriesPanel _mysteriesPanel (line 49)
+- private SettlementResourcePanel _settlementResourcePanel (line 52)
+- private VillagersPanel _villagersPanel (line 55)
+- private WorkersPanel _workersPanel (line 58)
+- private InfoPanelMenu _infoPanelMenu (line 61)
+- private MenuHub _menuHub (line 64)
+- private RewardsPanel _rewardsPanel (line 67)
+- private BuildingMenuPanel _buildingMenuPanel (line 70)
+- private BuildModeController _buildModeController (line 73)
+- private MoveModeController _moveModeController (line 76)
+- private WorldMapNavigator _worldMapNavigator (line 79)
+- private WorldMapScanner _worldMapScanner (line 80)
+- private bool _announcedWorldMap (line 81)
+- private EmbarkPanel _embarkPanel (line 84)
+- private IDisposable _embarkShownSubscription (line 85)
+- private IDisposable _embarkClosedSubscription (line 86)
+- private bool _subscribedToEmbark (line 87)
+- private BuildingPanelHandler _buildingPanelHandler (line 90)
+- private AnnouncementsSettingsPanel _announcementsPanel (line 93)
+- private EventAnnouncer _eventAnnouncer (line 96)
+- private AnnouncementHistoryPanel _announcementHistoryPanel (line 99)
+- private ConfirmationDialog _confirmationDialog (line 102)
+- private PopupRouter _popupRouter (line 105)
+- private TutorialTooltipHandler _tutorialTooltipHandler (line 108)
+- private HelpOverlay _helpOverlay (line 111)
+- private CapitalOverlay _capitalOverlay (line 114)
+  - Capital screen overlay for Smoldering City (referenced by capital event callbacks)
+- private IDisposable _capitalEnabledSubscription (line 115)
+- private IDisposable _capitalClosedSubscription (line 116)
+- private bool _subscribedToCapital (line 117)
+- private WorldTutorialsOverlay _worldTutorialsOverlay (line 120)
+- private bool _menuPendingSetup (line 123)
+  - Deferred menu rebuild (wait for user input after popup closes)
+- private GameObject _cachedMainMenuCanvas (line 126)
+  - Cached main menu canvas (cleared on scene unload)
+- private bool _waitingForTutorialTooltip (line 940)
+  - Track if we should poll for tutorial tooltip after MetaRewardsPopup
+- private bool _tutorialWasActiveBeforePopup (line 942)
+  - Track if tutorial was active when MetaRewardsPopup opened
+
+### Methods
+- private void Start() (line 128)
+  - Initializes all subsystems, creates all overlays as locals, registers all popup routes and key handlers in priority order, then calls CheckCurrentScene().
+- private void ValidateReflectionCaches() (line 393)
+  - Calls LogCacheStatus() on every Reflection class and logs total missing field count.
+- private void OnDestroy() (line 439)
+  - Unsubscribes scene events, disposes subscriptions, shuts down Speech, clears MenuBase static state.
+- private void Update() (line 456)
+  - Drives EventAnnouncer queue, TutorialTooltipHandler text checks, and periodic polling for game state + subscription attempts.
+- private void OnGUI() (line 493)
+  - Captures key events via Unity's OnGUI. Handles deferred menu rebuild on first key press, then delegates to KeyboardManager.
+- private void CheckCurrentScene() (line 510)
+  - Called on Start() to handle the case where the mod is loaded mid-game.
+- private void OnSceneLoaded(Scene scene, LoadSceneMode mode) (line 517)
+- private void OnSceneUnloaded(Scene scene) (line 522)
+  - Clears per-scene state, disposes all subscriptions, closes overlays, resets navigators.
+- private void ProcessSceneLoad(Scene scene) (line 576)
+  - Dispatches to AnnounceMainMenu / SetupWorldMapNavigation based on scene index.
+- private void AnnounceMainMenu() (line 591)
+  - Guard-checks _announcedMainMenu, speaks "Main menu", then defers SetupMainMenuNavigation().
+- private void SetupMainMenuNavigation() (line 606)
+  - Finds main menu Canvas by name or button count heuristic, caches it, and hands it to UINavigator.
+- private void SetupWorldMapNavigation() (line 659)
+  - Waits for WorldMapReflection.IsWorldMapActive(), announces "World map", sets WorldMap context. Retries via Invoke if not ready.
+- private void PollGameState() (line 678)
+  - Detects game-active transitions. On entry: announces "Game started", sets Map context. On exit: resets context.
+- private void TrySubscribeToPopups() (line 715)
+  - Subscribes to PopupsService.AnyPopupShown / AnyPopupHidden via reflection. Called periodically until successful.
+- private void DisposePopupSubscriptions() (line 748)
+- private void TrySubscribeToEmbark() (line 764)
+  - Subscribes to EmbarkReflection.OnFieldPreviewShown / Closed. World map only.
+- private void DisposeEmbarkSubscriptions() (line 789)
+- private void OnEmbarkScreenShown(object worldField) (line 803)
+- private void OnEmbarkScreenClosed(object worldField) (line 812)
+- private void TrySubscribeToCapital() (line 828)
+  - Subscribes to CapitalReflection.OnCapitalEnabled / OnCapitalClosed. World map only.
+- private void DisposeCapitalSubscriptions() (line 850)
+- private void CloseAllOverlays() (line 865)
+  - Calls PopupRouter.CloseAll() plus capital and world-tutorials overlays.
+- private void OnCapitalScreenShown(object _) (line 874)
+- private void OnCapitalScreenClosed(object _) (line 882)
+- private void OnPopupShown(object popup) (line 893)
+- private void OnPopupHidden(object popup) (line 902)
+  - After routing, handles context restoration: defers menu setup on menu scene, returns to Map/WorldMap/None otherwise. Also handles tutorial tooltip poll after MetaRewardsPopup.
+- private static bool IsMetaRewardsOrLevelUpPopup(object popup) (line 947)
+  - Checks popup GameObject name for "MetaRewards" or "MetaLevelUp" strings.
+- private IEnumerator PollForWorldTutorialTooltip() (line 962)
+  - Polls up to 10 seconds (0.25s intervals) for tutorial tooltip to become visible after MetaRewardsPopup closes on world map.
