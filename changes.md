@@ -28,6 +28,9 @@ Added working priority support across the mod. You can now:
 - Centralize scene index constants into SceneConstants.cs (previously duplicated in AccessibilityCore and MetaRewardsPopupReader)
 - Remove unused Settings.GetText reflection cache in GamesHistoryReflection
 - Deduplicate GoodRef and LocaText reflection caches across 8 files into shared GameReflection properties
+- Extract HearthReflection.cs from BuildingReflection.cs (hearth-specific reflection code)
+- Extract RelicReflection.cs from BuildingReflection.cs (relic/glade-event-specific reflection code)
+- Extract PortReflection.cs from BuildingReflection.cs (port/expedition-specific reflection code)
 
 ## v1.1.6
 

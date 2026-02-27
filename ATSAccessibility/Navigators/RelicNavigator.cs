@@ -62,10 +62,10 @@ namespace ATSAccessibility.Navigators {
 		private int _goodsSetCount;
 
 		// Effects for current decision
-		private BuildingReflection.RelicEffectInfo[] _workingEffects;
-		private BuildingReflection.RelicEffectInfo[] _activeEffects;
-		private BuildingReflection.RelicEffectInfo[] _dynamicEffects;  // Current tier effects
-		private BuildingReflection.RelicEffectInfo[] _nextTierEffects;  // Next tier effects (preview)
+		private RelicReflection.RelicEffectInfo[] _workingEffects;
+		private RelicReflection.RelicEffectInfo[] _activeEffects;
+		private RelicReflection.RelicEffectInfo[] _dynamicEffects;  // Current tier effects
+		private RelicReflection.RelicEffectInfo[] _nextTierEffects;  // Next tier effects (preview)
 		private bool _areEffectsPermanent;
 
 		// Dynamic effects (escalating over time)
@@ -76,7 +76,7 @@ namespace ATSAccessibility.Navigators {
 		private bool _isLastTierReached;
 
 		// Rewards for current decision
-		private BuildingReflection.RelicRewardInfo[] _rewards;
+		private RelicReflection.RelicRewardInfo[] _rewards;
 		private bool _hasRewards;
 
 		// Status/action data
@@ -104,7 +104,7 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		public RelicNavigator() {
-			_workersSection.GetWorkerIdsFunc = BuildingReflection.GetRelicWorkerIds;
+			_workersSection.GetWorkerIdsFunc = RelicReflection.GetRelicWorkerIds;
 		}
 
 		protected override string[] GetSections() {
@@ -309,7 +309,7 @@ namespace ATSAccessibility.Navigators {
 
 			switch (_sectionTypes[sectionIndex]) {
 				case SectionType.Decisions:
-					return BuildingReflection.GetRelicDecisionLabel(_building, itemIndex);
+					return RelicReflection.GetRelicDecisionLabel(_building, itemIndex);
 				case SectionType.Requirements:
 					if (itemIndex >= 0 && itemIndex < _goodsSetCount) {
 						int picked = _goodsSets[itemIndex].pickedIndex;
@@ -329,29 +329,29 @@ namespace ATSAccessibility.Navigators {
 		protected override void RefreshData() {
 			_buildingName = BuildingReflection.GetBuildingName(_building) ?? "Relic";
 			_buildingDescription = BuildingReflection.GetBuildingDescription(_building);
-			_threatLevel = BuildingReflection.GetRelicDangerLevel(_building) ?? "None";
+			_threatLevel = RelicReflection.GetRelicDangerLevel(_building) ?? "None";
 
 			// Phase flags
-			_investigationStarted = BuildingReflection.IsRelicInvestigationStarted(_building);
-			_investigationFinished = BuildingReflection.IsRelicInvestigationFinished(_building);
-			_progress = BuildingReflection.GetRelicProgress(_building);
-			_timeLeft = BuildingReflection.GetRelicTimeLeft(_building);
+			_investigationStarted = RelicReflection.IsRelicInvestigationStarted(_building);
+			_investigationFinished = RelicReflection.IsRelicInvestigationFinished(_building);
+			_progress = RelicReflection.GetRelicProgress(_building);
+			_timeLeft = RelicReflection.GetRelicTimeLeft(_building);
 
 			// Decision metadata
-			_hasMultipleDecisions = BuildingReflection.RelicHasMultipleDecisions(_building);
-			_decisionCount = BuildingReflection.GetRelicDecisionCount(_building);
-			_selectedDecisionIndex = BuildingReflection.GetRelicDecisionIndex(_building);
+			_hasMultipleDecisions = RelicReflection.RelicHasMultipleDecisions(_building);
+			_decisionCount = RelicReflection.GetRelicDecisionCount(_building);
+			_selectedDecisionIndex = RelicReflection.GetRelicDecisionIndex(_building);
 
 			// Model properties
-			_hasAnyWorkplace = BuildingReflection.RelicHasAnyWorkplace(_building);
-			_areEffectsPermanent = BuildingReflection.RelicAreEffectsPermanent(_building);
+			_hasAnyWorkplace = RelicReflection.RelicHasAnyWorkplace(_building);
+			_areEffectsPermanent = RelicReflection.RelicAreEffectsPermanent(_building);
 
 			// Dynamic effects (escalating over time)
-			_hasDynamicEffects = BuildingReflection.RelicHasDynamicEffects(_building);
-			_currentEffectTier = BuildingReflection.GetRelicCurrentEffectTier(_building);
-			_totalEffectTiers = BuildingReflection.GetRelicEffectTierCount(_building);
-			_timeToNextTier = BuildingReflection.GetRelicTimeToNextEffectTier(_building);
-			_isLastTierReached = BuildingReflection.RelicIsLastEffectTierReached(_building);
+			_hasDynamicEffects = RelicReflection.RelicHasDynamicEffects(_building);
+			_currentEffectTier = RelicReflection.GetRelicCurrentEffectTier(_building);
+			_totalEffectTiers = RelicReflection.GetRelicEffectTierCount(_building);
+			_timeToNextTier = RelicReflection.GetRelicTimeToNextEffectTier(_building);
+			_isLastTierReached = RelicReflection.RelicIsLastEffectTierReached(_building);
 
 			// Decision-dependent data
 			RefreshDecisionDetails();
@@ -489,7 +489,7 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private void RefreshDecisionDetails() {
-			int safeDecision = BuildingReflection.GetRelicSafeDecisionIndex(_building);
+			int safeDecision = RelicReflection.GetRelicSafeDecisionIndex(_building);
 
 			// Requirements
 			RefreshGoodsSets(safeDecision);
@@ -497,23 +497,23 @@ namespace ATSAccessibility.Navigators {
 			// Effects
 			// Working effects shown in Phase A (preview) and Phase B (active), not in Phase C
 			_workingEffects = !_investigationFinished
-				? BuildingReflection.GetRelicWorkingEffects(_building)
+				? RelicReflection.GetRelicWorkingEffects(_building)
 				: null;
 
 			// Active effects only used when NOT using dynamic effects (mutually exclusive)
 			_activeEffects = !_hasDynamicEffects
-				? BuildingReflection.GetRelicActiveEffects(_building)
+				? RelicReflection.GetRelicActiveEffects(_building)
 				: null;
 
-			_dynamicEffects = BuildingReflection.GetRelicCurrentDynamicEffects(_building);
-			_nextTierEffects = BuildingReflection.GetRelicNextDynamicEffects(_building);
+			_dynamicEffects = RelicReflection.GetRelicCurrentDynamicEffects(_building);
+			_nextTierEffects = RelicReflection.GetRelicNextDynamicEffects(_building);
 
 			// Rewards
 			RefreshRewards(safeDecision);
 		}
 
 		private void RefreshGoodsSets(int decisionIndex) {
-			_goodsSetCount = BuildingReflection.GetRelicGoodsSetCount(_building, decisionIndex);
+			_goodsSetCount = RelicReflection.GetRelicGoodsSetCount(_building, decisionIndex);
 			if (_goodsSetCount == 0) {
 				_goodsSets = null;
 				return;
@@ -521,17 +521,17 @@ namespace ATSAccessibility.Navigators {
 
 			_goodsSets = new GoodsSetData[_goodsSetCount];
 			for (int i = 0; i < _goodsSetCount; i++) {
-				int altCount = BuildingReflection.GetRelicGoodsAlternativeCount(_building, decisionIndex, i);
-				int pickedIndex = BuildingReflection.GetRelicPickedGoodIndex(_building, decisionIndex, i);
+				int altCount = RelicReflection.GetRelicGoodsAlternativeCount(_building, decisionIndex, i);
+				int pickedIndex = RelicReflection.GetRelicPickedGoodIndex(_building, decisionIndex, i);
 
 				var names = new string[altCount];
 				var displayNames = new string[altCount];
 				var amounts = new int[altCount];
 
 				for (int j = 0; j < altCount; j++) {
-					names[j] = BuildingReflection.GetRelicGoodName(_building, decisionIndex, i, j);
-					displayNames[j] = BuildingReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, j) ?? "Unknown";
-					amounts[j] = BuildingReflection.GetRelicGoodAmount(_building, decisionIndex, i, j);
+					names[j] = RelicReflection.GetRelicGoodName(_building, decisionIndex, i, j);
+					displayNames[j] = RelicReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, j) ?? "Unknown";
+					amounts[j] = RelicReflection.GetRelicGoodAmount(_building, decisionIndex, i, j);
 				}
 
 				_goodsSets[i] = new GoodsSetData {
@@ -545,11 +545,11 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private void RefreshRewards(int decisionIndex) {
-			bool hasDynamic = BuildingReflection.RelicHasDynamicRewards(_building);
-			bool hasDecisionRewards = BuildingReflection.RelicHasDecisionRewards(_building);
+			bool hasDynamic = RelicReflection.RelicHasDynamicRewards(_building);
+			bool hasDecisionRewards = RelicReflection.RelicHasDecisionRewards(_building);
 
 			if (hasDynamic || hasDecisionRewards) {
-				_rewards = BuildingReflection.GetRelicDecisionRewards(_building, decisionIndex);
+				_rewards = RelicReflection.GetRelicDecisionRewards(_building, decisionIndex);
 				_hasRewards = _rewards != null && _rewards.Length > 0;
 			} else {
 				_rewards = null;
@@ -559,9 +559,9 @@ namespace ATSAccessibility.Navigators {
 
 		private void RefreshStatusData() {
 			if (!_investigationStarted && !_investigationFinished) {
-				_canStart = BuildingReflection.RelicCanStart(_building, out _startBlockingReason);
+				_canStart = RelicReflection.RelicCanStart(_building, out _startBlockingReason);
 			}
-			_canCancel = BuildingReflection.RelicCanCancel(_building);
+			_canCancel = RelicReflection.RelicCanCancel(_building);
 		}
 
 		/// <summary>
@@ -569,15 +569,15 @@ namespace ATSAccessibility.Navigators {
 		/// while the game is unpaused. Called before announcing Status and Effects sections.
 		/// </summary>
 		private void RefreshLiveData() {
-			_progress = BuildingReflection.GetRelicProgress(_building);
-			_timeLeft = BuildingReflection.GetRelicTimeLeft(_building);
+			_progress = RelicReflection.GetRelicProgress(_building);
+			_timeLeft = RelicReflection.GetRelicTimeLeft(_building);
 
 			if (_hasDynamicEffects) {
-				_currentEffectTier = BuildingReflection.GetRelicCurrentEffectTier(_building);
-				_timeToNextTier = BuildingReflection.GetRelicTimeToNextEffectTier(_building);
-				_isLastTierReached = BuildingReflection.RelicIsLastEffectTierReached(_building);
-				_dynamicEffects = BuildingReflection.GetRelicCurrentDynamicEffects(_building);
-				_nextTierEffects = BuildingReflection.GetRelicNextDynamicEffects(_building);
+				_currentEffectTier = RelicReflection.GetRelicCurrentEffectTier(_building);
+				_timeToNextTier = RelicReflection.GetRelicTimeToNextEffectTier(_building);
+				_isLastTierReached = RelicReflection.RelicIsLastEffectTierReached(_building);
+				_dynamicEffects = RelicReflection.GetRelicCurrentDynamicEffects(_building);
+				_nextTierEffects = RelicReflection.GetRelicNextDynamicEffects(_building);
 			}
 		}
 
@@ -588,8 +588,8 @@ namespace ATSAccessibility.Navigators {
 		private void AnnounceDecisionItem(int itemIndex) {
 			if (itemIndex < 0 || itemIndex >= _decisionCount) return;
 
-			string label = BuildingReflection.GetRelicDecisionLabel(_building, itemIndex) ?? $"Decision {itemIndex + 1}";
-			float workTime = BuildingReflection.GetRelicDecisionWorkingTime(_building, itemIndex);
+			string label = RelicReflection.GetRelicDecisionLabel(_building, itemIndex) ?? $"Decision {itemIndex + 1}";
+			float workTime = RelicReflection.GetRelicDecisionWorkingTime(_building, itemIndex);
 
 			string announcement = label;
 			if (workTime > 0f)
@@ -619,23 +619,23 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private string GetDecisionRequirementsSummary(int decisionIndex) {
-			int setCount = BuildingReflection.GetRelicGoodsSetCount(_building, decisionIndex);
+			int setCount = RelicReflection.GetRelicGoodsSetCount(_building, decisionIndex);
 			if (setCount == 0) return null;
 
 			var parts = new List<string>();
 			for (int i = 0; i < setCount; i++) {
-				int altCount = BuildingReflection.GetRelicGoodsAlternativeCount(_building, decisionIndex, i);
+				int altCount = RelicReflection.GetRelicGoodsAlternativeCount(_building, decisionIndex, i);
 				if (altCount == 0) continue;
 
 				if (altCount == 1) {
-					string name = BuildingReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, 0) ?? "Unknown";
-					int amount = BuildingReflection.GetRelicGoodAmount(_building, decisionIndex, i, 0);
+					string name = RelicReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, 0) ?? "Unknown";
+					int amount = RelicReflection.GetRelicGoodAmount(_building, decisionIndex, i, 0);
 					parts.Add($"{name} {amount}");
 				} else {
 					var alts = new List<string>();
 					for (int j = 0; j < altCount; j++) {
-						string name = BuildingReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, j) ?? "Unknown";
-						int amount = BuildingReflection.GetRelicGoodAmount(_building, decisionIndex, i, j);
+						string name = RelicReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, j) ?? "Unknown";
+						int amount = RelicReflection.GetRelicGoodAmount(_building, decisionIndex, i, j);
 						alts.Add($"{name} {amount}");
 					}
 					parts.Add(string.Join(" or ", alts));
@@ -659,7 +659,7 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private string GetDecisionRewardsSummary(int decisionIndex) {
-			var rewards = BuildingReflection.GetRelicDecisionRewards(_building, decisionIndex);
+			var rewards = RelicReflection.GetRelicDecisionRewards(_building, decisionIndex);
 			if (rewards == null || rewards.Length == 0) return null;
 
 			var parts = new List<string>();
@@ -671,9 +671,9 @@ namespace ATSAccessibility.Navigators {
 		private bool PerformDecisionAction(int itemIndex) {
 			if (itemIndex < 0 || itemIndex >= _decisionCount) return false;
 
-			if (BuildingReflection.SetRelicDecisionIndex(_building, itemIndex)) {
+			if (RelicReflection.SetRelicDecisionIndex(_building, itemIndex)) {
 				_selectedDecisionIndex = itemIndex;
-				string label = BuildingReflection.GetRelicDecisionLabel(_building, itemIndex) ?? $"Decision {itemIndex + 1}";
+				string label = RelicReflection.GetRelicDecisionLabel(_building, itemIndex) ?? $"Decision {itemIndex + 1}";
 				Speech.Say($"Selected: {label}");
 				SoundManager.PlayButtonClick();
 
@@ -706,7 +706,7 @@ namespace ATSAccessibility.Navigators {
 			if (_investigationStarted) {
 				// Phase B: show delivery progress
 				string goodName = set.goodNames[pickedIndex];
-				int delivered = BuildingReflection.GetRelicDeliveredAmount(_building, goodName);
+				int delivered = RelicReflection.GetRelicDeliveredAmount(_building, goodName);
 				string announcement = $"{displayName}: {delivered} of {amount} delivered";
 				Speech.Say(announcement);
 			} else {
@@ -744,8 +744,8 @@ namespace ATSAccessibility.Navigators {
 			var set = _goodsSets[itemIndex];
 			if (subItemIndex < 0 || subItemIndex >= set.alternativeCount) return false;
 
-			int safeDecision = BuildingReflection.GetRelicSafeDecisionIndex(_building);
-			if (BuildingReflection.SetRelicPickedGoodIndex(_building, safeDecision, itemIndex, subItemIndex)) {
+			int safeDecision = RelicReflection.GetRelicSafeDecisionIndex(_building);
+			if (RelicReflection.SetRelicPickedGoodIndex(_building, safeDecision, itemIndex, subItemIndex)) {
 				_goodsSets[itemIndex].pickedIndex = subItemIndex;
 				string displayName = set.goodDisplayNames[subItemIndex];
 				Speech.Say($"Picked: {displayName}");
@@ -810,7 +810,7 @@ namespace ATSAccessibility.Navigators {
 			return false;
 		}
 
-		private BuildingReflection.RelicEffectInfo? GetEffectAtIndex(int itemIndex) {
+		private RelicReflection.RelicEffectInfo? GetEffectAtIndex(int itemIndex) {
 			int workingCount = _workingEffects?.Length ?? 0;
 			int activeCount = _activeEffects?.Length ?? 0;
 			int dynamicCount = _dynamicEffects?.Length ?? 0;
@@ -890,12 +890,12 @@ namespace ATSAccessibility.Navigators {
 				return true;
 			}
 
-			if (BuildingReflection.RelicStartInvestigation(_building)) {
+			if (RelicReflection.RelicStartInvestigation(_building)) {
 				Speech.Say("Investigation started");
 				SoundManager.PlayButtonClick();
-				var startSound = BuildingReflection.GetRelicInvestigationStartSoundModel(_building);
+				var startSound = RelicReflection.GetRelicInvestigationStartSoundModel(_building);
 				SoundManager.PlaySoundEffect(startSound);
-				if (BuildingReflection.RelicHasWorkingEffects(_building))
+				if (RelicReflection.RelicHasWorkingEffects(_building))
 					SoundManager.PlayRelicStartWithWorkingEffects();
 
 				_investigationStarted = true;
@@ -914,10 +914,10 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private bool PerformCancelAction() {
-			if (BuildingReflection.RelicCancelInvestigation(_building)) {
+			if (RelicReflection.RelicCancelInvestigation(_building)) {
 				Speech.Say("Investigation cancelled");
 				SoundManager.PlayButtonClick();
-				if (BuildingReflection.RelicHasWorkingEffects(_building))
+				if (RelicReflection.RelicHasWorkingEffects(_building))
 					SoundManager.PlayRelicStopWithWorkingEffects();
 
 				// Refresh to transition back to Phase A
@@ -952,8 +952,8 @@ namespace ATSAccessibility.Navigators {
 
 			if (!_investigationFinished) return;
 
-			_storageItems = BuildingReflection.GetRelicRewardStorageItems(_building);
-			_storageTotalSum = BuildingReflection.GetRelicRewardStorageFullSum(_building);
+			_storageItems = RelicReflection.GetRelicRewardStorageItems(_building);
+			_storageTotalSum = RelicReflection.GetRelicRewardStorageFullSum(_building);
 		}
 
 		private void AnnounceStorageItem(int itemIndex) {

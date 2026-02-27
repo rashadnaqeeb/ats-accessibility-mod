@@ -38,29 +38,29 @@ namespace ATSAccessibility.Navigators {
 		private bool _isFireOut;
 
 		// Upgrades data
-		private List<BuildingReflection.HearthUpgradeInfo> _upgradeInfo = new List<BuildingReflection.HearthUpgradeInfo>();
+		private List<HearthReflection.HearthUpgradeInfo> _upgradeInfo = new List<HearthReflection.HearthUpgradeInfo>();
 
 		// Blight data
 		private float _corruptionRate;
 
 		// Sacrifice data
 		private List<object> _sacrificeRecipes = new List<object>();
-		private List<BuildingReflection.SacrificeRecipeInfo> _sacrificeInfo = new List<BuildingReflection.SacrificeRecipeInfo>();
+		private List<HearthReflection.SacrificeRecipeInfo> _sacrificeInfo = new List<HearthReflection.SacrificeRecipeInfo>();
 
 		// Fuel data
-		private List<BuildingReflection.FuelInfo> _fuelTypes = new List<BuildingReflection.FuelInfo>();
+		private List<HearthReflection.FuelInfo> _fuelTypes = new List<HearthReflection.FuelInfo>();
 
 		// Services data (The Commons)
 		private bool _servicesMetaUnlocked = false;
 		private bool _servicesSettlementUnlocked = false;
-		private List<BuildingReflection.HearthServiceInfo> _serviceRecipes = new List<BuildingReflection.HearthServiceInfo>();
+		private List<HearthReflection.HearthServiceInfo> _serviceRecipes = new List<HearthReflection.HearthServiceInfo>();
 
 		// ========================================
 		// BASE CLASS IMPLEMENTATION
 		// ========================================
 
 		public HearthNavigator() {
-			_workersSection.GetWorkerIdsFunc = BuildingReflection.GetHearthWorkerIds;
+			_workersSection.GetWorkerIdsFunc = HearthReflection.GetHearthWorkerIds;
 		}
 
 		protected override string NavigatorName => "HearthNavigator";
@@ -172,15 +172,15 @@ namespace ATSAccessibility.Navigators {
 
 			// Services unlock action
 			if (_sectionTypes[sectionIndex] == SectionType.Services && !_servicesSettlementUnlocked && itemIndex == 0) {
-				if (!BuildingReflection.CanAffordHearthServicesUnlock(_building)) {
+				if (!HearthReflection.CanAffordHearthServicesUnlock(_building)) {
 					Speech.Say("Not enough resources");
 					SoundManager.PlayFailed();
 					return false;
 				}
 
-				if (BuildingReflection.UnlockHearthServices(_building)) {
+				if (HearthReflection.UnlockHearthServices(_building)) {
 					_servicesSettlementUnlocked = true;
-					_serviceRecipes = BuildingReflection.GetHearthServiceRecipes(_building);
+					_serviceRecipes = HearthReflection.GetHearthServiceRecipes(_building);
 					SoundManager.PlayButtonClick();
 					Speech.Say("The Commons unlocked");
 					return true;
@@ -227,33 +227,33 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		protected override void RefreshData() {
-			_isMainHearth = BuildingReflection.IsMainHearth(_building);
+			_isMainHearth = HearthReflection.IsMainHearth(_building);
 
 			// Fire data
-			_fuelLevel = BuildingReflection.GetHearthFireLevel(_building);
-			_fuelTimeRemaining = BuildingReflection.GetHearthFuelTimeRemaining(_building);
-			_isFireLow = BuildingReflection.IsHearthFireLow(_building);
-			_isFireOut = BuildingReflection.IsHearthFireOut(_building);
+			_fuelLevel = HearthReflection.GetHearthFireLevel(_building);
+			_fuelTimeRemaining = HearthReflection.GetHearthFuelTimeRemaining(_building);
+			_isFireLow = HearthReflection.IsHearthFireLow(_building);
+			_isFireOut = HearthReflection.IsHearthFireOut(_building);
 
 			// Upgrades data
-			_upgradeInfo = BuildingReflection.GetHearthUpgradeInfo(_building);
+			_upgradeInfo = HearthReflection.GetHearthUpgradeInfo(_building);
 
 			// Blight data
-			_corruptionRate = BuildingReflection.GetHearthCorruptionRate(_building);
+			_corruptionRate = HearthReflection.GetHearthCorruptionRate(_building);
 
 			// Sacrifice data
-			_sacrificeRecipes = BuildingReflection.GetHearthSacrificeRecipes(_building);
+			_sacrificeRecipes = HearthReflection.GetHearthSacrificeRecipes(_building);
 			RefreshSacrificeInfo();
 
 			// Fuel data
-			_fuelTypes = BuildingReflection.GetAllFuelTypes();
+			_fuelTypes = HearthReflection.GetAllFuelTypes();
 
 			// Services data (The Commons)
-			_servicesMetaUnlocked = BuildingReflection.AreHearthServicesMetaUnlocked();
+			_servicesMetaUnlocked = HearthReflection.AreHearthServicesMetaUnlocked();
 			if (_servicesMetaUnlocked) {
-				_servicesSettlementUnlocked = BuildingReflection.AreHearthServicesEnabled(_building);
+				_servicesSettlementUnlocked = HearthReflection.AreHearthServicesEnabled(_building);
 				if (_servicesSettlementUnlocked) {
-					_serviceRecipes = BuildingReflection.GetHearthServiceRecipes(_building);
+					_serviceRecipes = HearthReflection.GetHearthServiceRecipes(_building);
 				}
 			}
 
@@ -363,7 +363,7 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			// Refresh upgrade info to get current state
-			_upgradeInfo = BuildingReflection.GetHearthUpgradeInfo(_building);
+			_upgradeInfo = HearthReflection.GetHearthUpgradeInfo(_building);
 			if (itemIndex >= _upgradeInfo.Count) {
 				Speech.Say("Invalid upgrade");
 				return;
@@ -437,7 +437,7 @@ namespace ATSAccessibility.Navigators {
 		private void RefreshSacrificeInfo() {
 			_sacrificeInfo.Clear();
 			foreach (var recipe in _sacrificeRecipes) {
-				var info = BuildingReflection.GetSacrificeRecipeInfo(_building, recipe);
+				var info = HearthReflection.GetSacrificeRecipeInfo(_building, recipe);
 				_sacrificeInfo.Add(info);
 			}
 		}
@@ -450,7 +450,7 @@ namespace ATSAccessibility.Navigators {
 
 			// Refresh the info for this recipe to get current state
 			if (recipeIndex < _sacrificeRecipes.Count) {
-				_sacrificeInfo[recipeIndex] = BuildingReflection.GetSacrificeRecipeInfo(_building, _sacrificeRecipes[recipeIndex]);
+				_sacrificeInfo[recipeIndex] = HearthReflection.GetSacrificeRecipeInfo(_building, _sacrificeRecipes[recipeIndex]);
 			}
 
 			var info = _sacrificeInfo[recipeIndex];
@@ -487,7 +487,7 @@ namespace ATSAccessibility.Navigators {
 				return;
 
 			// Refresh info to get current state
-			_sacrificeInfo[recipeIndex] = BuildingReflection.GetSacrificeRecipeInfo(_building, _sacrificeRecipes[recipeIndex]);
+			_sacrificeInfo[recipeIndex] = HearthReflection.GetSacrificeRecipeInfo(_building, _sacrificeRecipes[recipeIndex]);
 			var info = _sacrificeInfo[recipeIndex];
 			var recipeState = _sacrificeRecipes[recipeIndex];
 
@@ -516,7 +516,7 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			// Apply the change
-			if (BuildingReflection.SetHearthSacrificeLevel(_building, recipeState, newLevel)) {
+			if (HearthReflection.SetHearthSacrificeLevel(_building, recipeState, newLevel)) {
 				if (newLevel == 0) {
 					SoundManager.PlayButtonClick();
 					Speech.Say("Off");
@@ -551,9 +551,9 @@ namespace ATSAccessibility.Navigators {
 		private void AnnounceServiceItem(int itemIndex) {
 			if (!_servicesSettlementUnlocked) {
 				// Unlock option
-				var price = BuildingReflection.GetHearthServicesUnlockPrice(_building);
+				var price = HearthReflection.GetHearthServicesUnlockPrice(_building);
 				if (price != null) {
-					bool canAfford = BuildingReflection.CanAffordHearthServicesUnlock(_building);
+					bool canAfford = HearthReflection.CanAffordHearthServicesUnlock(_building);
 					string affordText = canAfford ? "" : ", not enough resources";
 					Speech.Say($"Locked, costs {price.Value.amount} {price.Value.displayName}{affordText}");
 				} else {
@@ -598,7 +598,7 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			// Refresh the fuel state
-			_fuelTypes = BuildingReflection.GetAllFuelTypes();
+			_fuelTypes = HearthReflection.GetAllFuelTypes();
 
 			var fuel = _fuelTypes[subItemIndex];
 			string status = fuel.isEnabled ? "Enabled" : "Disabled";
@@ -615,10 +615,10 @@ namespace ATSAccessibility.Navigators {
 			var fuel = _fuelTypes[subItemIndex];
 			bool newState = !fuel.isEnabled;
 
-			if (BuildingReflection.SetFuelEnabled(fuel.name, newState)) {
+			if (HearthReflection.SetFuelEnabled(fuel.name, newState)) {
 				SoundManager.PlayButtonClick();
 				Speech.Say(newState ? "Enabled" : "Disabled");
-				_fuelTypes = BuildingReflection.GetAllFuelTypes();
+				_fuelTypes = HearthReflection.GetAllFuelTypes();
 				return true;
 			} else {
 				SoundManager.PlayFailed();
@@ -632,7 +632,7 @@ namespace ATSAccessibility.Navigators {
 				return;
 
 			var fuel = _fuelTypes[subItemIndex];
-			int currentPrio = BuildingReflection.GetFuelPriority(fuel.name);
+			int currentPrio = HearthReflection.GetFuelPriority(fuel.name);
 			int newPrio = Mathf.Clamp(currentPrio + delta, 0, 3);
 
 			if (newPrio == currentPrio) {
@@ -640,9 +640,9 @@ namespace ATSAccessibility.Navigators {
 				return;
 			}
 
-			BuildingReflection.SetFuelPriority(fuel.name, newPrio);
+			HearthReflection.SetFuelPriority(fuel.name, newPrio);
 			Speech.Say($"Priority: {FormatPriority(newPrio)}");
-			_fuelTypes = BuildingReflection.GetAllFuelTypes();
+			_fuelTypes = HearthReflection.GetAllFuelTypes();
 		}
 
 		private string FormatPriority(int priority) {

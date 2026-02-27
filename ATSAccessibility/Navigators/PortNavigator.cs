@@ -166,7 +166,7 @@ namespace ATSAccessibility.Navigators {
 					Speech.Say($"Status: In progress, {FormatProgress()}, {FormatTimeLeft()}");
 					break;
 				case SectionType.Confirm:
-					if (BuildingReflection.IsPortBlockedByUnpickedCategory(_building))
+					if (PortReflection.IsPortBlockedByUnpickedCategory(_building))
 						Speech.Say("Confirm, pick a category first");
 					else
 						Speech.Say("Confirm Expedition");
@@ -288,7 +288,7 @@ namespace ATSAccessibility.Navigators {
 					return;
 				}
 
-				if (BuildingReflection.PortChangeLevel(_building, newLevel)) {
+				if (PortReflection.PortChangeLevel(_building, newLevel)) {
 					SoundManager.PlayButtonClick();
 					RefreshData();
 					Speech.Say($"Level {_expeditionLevel} of {_maxLevel}, duration {FormatDuration(_duration)}");
@@ -352,22 +352,22 @@ namespace ATSAccessibility.Navigators {
 
 		protected override void RefreshData() {
 			// Phase detection
-			_wasDecisionMade = BuildingReflection.WasPortDecisionMade(_building);
-			_expeditionStarted = BuildingReflection.IsPortExpeditionStarted(_building);
-			_rewardsWaiting = BuildingReflection.ArePortRewardsWaiting(_building);
+			_wasDecisionMade = PortReflection.WasPortDecisionMade(_building);
+			_expeditionStarted = PortReflection.IsPortExpeditionStarted(_building);
+			_rewardsWaiting = PortReflection.ArePortRewardsWaiting(_building);
 
 			// Info
-			_expeditionLevel = BuildingReflection.GetPortExpeditionLevel(_building);
-			_maxLevel = BuildingReflection.GetPortMaxLevel(_building);
-			_duration = BuildingReflection.GetPortDuration(_building);
+			_expeditionLevel = PortReflection.GetPortExpeditionLevel(_building);
+			_maxLevel = PortReflection.GetPortMaxLevel(_building);
+			_duration = PortReflection.GetPortDuration(_building);
 
 			// Status (Phase 3)
-			_progress = BuildingReflection.GetPortProgress(_building);
-			_timeLeft = BuildingReflection.GetPortTimeLeft(_building);
+			_progress = PortReflection.GetPortProgress(_building);
+			_timeLeft = PortReflection.GetPortTimeLeft(_building);
 
 			// Rewards (Phase 4)
-			_blueprintReward = BuildingReflection.GetPortBlueprintReward(_building);
-			_perkReward = BuildingReflection.GetPortPerkReward(_building);
+			_blueprintReward = PortReflection.GetPortBlueprintReward(_building);
+			_perkReward = PortReflection.GetPortPerkReward(_building);
 
 			// Goods and categories (Phase 1)
 			if (!_wasDecisionMade) {
@@ -480,7 +480,7 @@ namespace ATSAccessibility.Navigators {
 
 		private void RefreshGoodsSets() {
 			// Strider goods
-			_striderSetCount = BuildingReflection.GetPortStriderGoodSetCount(_building);
+			_striderSetCount = PortReflection.GetPortStriderGoodSetCount(_building);
 			if (_striderSetCount > 0) {
 				_striderSets = new GoodsSetData[_striderSetCount];
 				for (int i = 0; i < _striderSetCount; i++) {
@@ -491,7 +491,7 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			// Crew goods
-			_crewSetCount = BuildingReflection.GetPortCrewGoodSetCount(_building);
+			_crewSetCount = PortReflection.GetPortCrewGoodSetCount(_building);
 			if (_crewSetCount > 0) {
 				_crewSets = new GoodsSetData[_crewSetCount];
 				for (int i = 0; i < _crewSetCount; i++) {
@@ -504,11 +504,11 @@ namespace ATSAccessibility.Navigators {
 
 		private GoodsSetData FetchGoodsSetData(bool isStrider, int setIndex) {
 			int altCount = isStrider
-				? BuildingReflection.GetPortStriderAlternativeCount(_building, setIndex)
-				: BuildingReflection.GetPortCrewAlternativeCount(_building, setIndex);
+				? PortReflection.GetPortStriderAlternativeCount(_building, setIndex)
+				: PortReflection.GetPortCrewAlternativeCount(_building, setIndex);
 			int pickedIndex = isStrider
-				? BuildingReflection.GetPortStriderPickedIndex(_building, setIndex)
-				: BuildingReflection.GetPortCrewPickedIndex(_building, setIndex);
+				? PortReflection.GetPortStriderPickedIndex(_building, setIndex)
+				: PortReflection.GetPortCrewPickedIndex(_building, setIndex);
 
 			var displayNames = new string[altCount];
 			var names = new string[altCount];
@@ -516,13 +516,13 @@ namespace ATSAccessibility.Navigators {
 
 			for (int j = 0; j < altCount; j++) {
 				if (isStrider) {
-					displayNames[j] = BuildingReflection.GetPortStriderGoodDisplayName(_building, setIndex, j) ?? "Unknown";
-					names[j] = BuildingReflection.GetPortStriderGoodName(_building, setIndex, j);
-					amounts[j] = BuildingReflection.GetPortStriderGoodAmount(_building, setIndex, j);
+					displayNames[j] = PortReflection.GetPortStriderGoodDisplayName(_building, setIndex, j) ?? "Unknown";
+					names[j] = PortReflection.GetPortStriderGoodName(_building, setIndex, j);
+					amounts[j] = PortReflection.GetPortStriderGoodAmount(_building, setIndex, j);
 				} else {
-					displayNames[j] = BuildingReflection.GetPortCrewGoodDisplayName(_building, setIndex, j) ?? "Unknown";
-					names[j] = BuildingReflection.GetPortCrewGoodName(_building, setIndex, j);
-					amounts[j] = BuildingReflection.GetPortCrewGoodAmount(_building, setIndex, j);
+					displayNames[j] = PortReflection.GetPortCrewGoodDisplayName(_building, setIndex, j) ?? "Unknown";
+					names[j] = PortReflection.GetPortCrewGoodName(_building, setIndex, j);
+					amounts[j] = PortReflection.GetPortCrewGoodAmount(_building, setIndex, j);
 				}
 			}
 
@@ -543,14 +543,14 @@ namespace ATSAccessibility.Navigators {
 			var items = new List<DeliveryItem>();
 
 			// Gather picked strider goods
-			int striderCount = BuildingReflection.GetPortStriderGoodSetCount(_building);
+			int striderCount = PortReflection.GetPortStriderGoodSetCount(_building);
 			for (int i = 0; i < striderCount; i++) {
-				int pickedIndex = BuildingReflection.GetPortStriderPickedIndex(_building, i);
-				string name = BuildingReflection.GetPortStriderGoodName(_building, i, pickedIndex);
-				string displayName = BuildingReflection.GetPortStriderGoodDisplayName(_building, i, pickedIndex) ?? "Unknown";
-				int amount = BuildingReflection.GetPortStriderGoodAmount(_building, i, pickedIndex);
+				int pickedIndex = PortReflection.GetPortStriderPickedIndex(_building, i);
+				string name = PortReflection.GetPortStriderGoodName(_building, i, pickedIndex);
+				string displayName = PortReflection.GetPortStriderGoodDisplayName(_building, i, pickedIndex) ?? "Unknown";
+				int amount = PortReflection.GetPortStriderGoodAmount(_building, i, pickedIndex);
 				int delivered = !string.IsNullOrEmpty(name)
-					? BuildingReflection.GetPortGoodDeliveredAmount(_building, name)
+					? PortReflection.GetPortGoodDeliveredAmount(_building, name)
 					: 0;
 
 				items.Add(new DeliveryItem {
@@ -562,14 +562,14 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			// Gather picked crew goods
-			int crewCount = BuildingReflection.GetPortCrewGoodSetCount(_building);
+			int crewCount = PortReflection.GetPortCrewGoodSetCount(_building);
 			for (int i = 0; i < crewCount; i++) {
-				int pickedIndex = BuildingReflection.GetPortCrewPickedIndex(_building, i);
-				string name = BuildingReflection.GetPortCrewGoodName(_building, i, pickedIndex);
-				string displayName = BuildingReflection.GetPortCrewGoodDisplayName(_building, i, pickedIndex) ?? "Unknown";
-				int amount = BuildingReflection.GetPortCrewGoodAmount(_building, i, pickedIndex);
+				int pickedIndex = PortReflection.GetPortCrewPickedIndex(_building, i);
+				string name = PortReflection.GetPortCrewGoodName(_building, i, pickedIndex);
+				string displayName = PortReflection.GetPortCrewGoodDisplayName(_building, i, pickedIndex) ?? "Unknown";
+				int amount = PortReflection.GetPortCrewGoodAmount(_building, i, pickedIndex);
 				int delivered = !string.IsNullOrEmpty(name)
-					? BuildingReflection.GetPortGoodDeliveredAmount(_building, name)
+					? PortReflection.GetPortGoodDeliveredAmount(_building, name)
 					: 0;
 
 				items.Add(new DeliveryItem {
@@ -589,11 +589,11 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private void RefreshCategories() {
-			_hasBlueprintReward = BuildingReflection.PortHasBlueprintReward(_building);
+			_hasBlueprintReward = PortReflection.PortHasBlueprintReward(_building);
 			if (_hasBlueprintReward) {
-				_categoryDisplayNames = BuildingReflection.GetPortAvailableCategories(_building);
-				_categoryInternalNames = BuildingReflection.GetPortCategoryInternalNames(_building);
-				_pickedCategory = BuildingReflection.GetPortPickedCategory(_building);
+				_categoryDisplayNames = PortReflection.GetPortAvailableCategories(_building);
+				_categoryInternalNames = PortReflection.GetPortCategoryInternalNames(_building);
+				_pickedCategory = PortReflection.GetPortPickedCategory(_building);
 			} else {
 				_categoryDisplayNames = null;
 				_categoryInternalNames = null;
@@ -606,7 +606,7 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private void RefreshRewardChances() {
-			_rewardChances = BuildingReflection.GetPortRewardChances(_building);
+			_rewardChances = PortReflection.GetPortRewardChances(_building);
 		}
 
 		// ========================================
@@ -695,8 +695,8 @@ namespace ATSAccessibility.Navigators {
 			if (subItemIndex < 0 || subItemIndex >= set.alternativeCount) return false;
 
 			bool success = isStrider
-				? BuildingReflection.SetPortStriderPickedIndex(_building, localIndex, subItemIndex)
-				: BuildingReflection.SetPortCrewPickedIndex(_building, localIndex, subItemIndex);
+				? PortReflection.SetPortStriderPickedIndex(_building, localIndex, subItemIndex)
+				: PortReflection.SetPortCrewPickedIndex(_building, localIndex, subItemIndex);
 
 			if (success) {
 				sets[localIndex].pickedIndex = subItemIndex;
@@ -755,7 +755,7 @@ namespace ATSAccessibility.Navigators {
 				return false;
 
 			string internalName = _categoryInternalNames[itemIndex];
-			if (BuildingReflection.SetPortPickedCategory(_building, internalName)) {
+			if (PortReflection.SetPortPickedCategory(_building, internalName)) {
 				_pickedCategory = internalName;
 				string displayName = _categoryDisplayNames[itemIndex];
 				Speech.Say($"Picked: {displayName}");
@@ -852,13 +852,13 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private bool PerformConfirmAction() {
-			if (BuildingReflection.IsPortBlockedByUnpickedCategory(_building)) {
+			if (PortReflection.IsPortBlockedByUnpickedCategory(_building)) {
 				Speech.Say("Pick a category first");
 				SoundManager.PlayFailed();
 				return true;
 			}
 
-			if (BuildingReflection.PortLockDecision(_building)) {
+			if (PortReflection.PortLockDecision(_building)) {
 				Speech.Say("Expedition confirmed");
 				SoundManager.PlayPortStartClick();
 				RefreshData();
@@ -874,7 +874,7 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private bool PerformCancelAction() {
-			if (BuildingReflection.PortCancelDecision(_building)) {
+			if (PortReflection.PortCancelDecision(_building)) {
 				Speech.Say("Expedition cancelled");
 				SoundManager.PlayPortCancelClick();
 				RefreshData();
@@ -890,7 +890,7 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private bool PerformAcceptRewardsAction() {
-			if (BuildingReflection.PortAcceptRewards(_building)) {
+			if (PortReflection.PortAcceptRewards(_building)) {
 				Speech.Say("Rewards accepted");
 				SoundManager.PlayPortRewardsClick();
 				RefreshData();
