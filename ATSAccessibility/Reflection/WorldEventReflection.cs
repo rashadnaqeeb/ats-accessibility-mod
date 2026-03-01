@@ -37,6 +37,7 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _modelCanExecuteMethod;                 // CanExecute(int)
 		private static MethodInfo _modelGetExecutionBlockReasonMethod;    // GetExecutionBlockReason(int)
 		private static MethodInfo _modelExecuteDecisionMethod;            // ExecuteDecision(WorldEventState, int)
+		private static MethodInfo _modelGetResultDescriptionMethod;      // GetResultDescriptionForOption(int)
 
 
 		// ========================================
@@ -159,6 +160,16 @@ namespace ATSAccessibility.Reflection {
 			return ReflectionHelper.InvokeVoid(_modelExecuteDecisionMethod, model, state, index);
 		}
 
+		/// <summary>
+		/// Get the result description for a specific option (reward text).
+		/// </summary>
+		public static string GetResultDescription(object model, int index) {
+			if (model == null) return null;
+			EnsureCached();
+			if (index < 0 || index >= GetOptionCount(model)) return null;
+			return ReflectionHelper.InvokeString(_modelGetResultDescriptionMethod, model, index);
+		}
+
 		// ========================================
 		// REFLECTION CACHING
 		// ========================================
@@ -201,6 +212,9 @@ namespace ATSAccessibility.Reflection {
 						GameReflection.PublicInstance,
 						null, new[] { typeof(int) }, null);
 					_modelGetExecutionBlockReasonMethod = modelType.GetMethod("GetExecutionBlockReason",
+						GameReflection.PublicInstance,
+						null, new[] { typeof(int) }, null);
+					_modelGetResultDescriptionMethod = modelType.GetMethod("GetResultDescriptionForOption",
 						GameReflection.PublicInstance,
 						null, new[] { typeof(int) }, null);
 

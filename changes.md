@@ -15,6 +15,9 @@ Added working priority support across the mod. You can now:
 
 ### Bug fixes
 
+- Fix world event popup not closing after selecting a decision, leaving the handler stuck consuming all keys
+- Announce reward/result description when selecting a world event decision
+
 ### Internal
 
 ## v1.2

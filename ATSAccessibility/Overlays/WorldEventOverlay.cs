@@ -23,6 +23,7 @@ namespace ATSAccessibility.Overlays {
 		private List<ListItem> _items = new List<ListItem>();
 
 		// Cached instance data (extracted from popup on open)
+		private object _popup;
 		private object _model;
 		private object _state;
 
@@ -106,6 +107,7 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		protected override void StorePopup(object popup) {
+			_popup = popup;
 			var worldEvent = WorldEventReflection.GetWorldEvent(popup);
 			_model = WorldEventReflection.GetModel(worldEvent);
 			_state = WorldEventReflection.GetState(worldEvent);
@@ -113,6 +115,7 @@ namespace ATSAccessibility.Overlays {
 
 		protected override void OnClosed() {
 			_items.Clear();
+			_popup = null;
 			_model = null;
 			_state = null;
 		}
@@ -133,9 +136,18 @@ namespace ATSAccessibility.Overlays {
 				return;
 			}
 
+			// Play sound and get result text before ExecuteDecision — some event types
+			// (e.g. GameEffectWorldEventLogic) trigger a game load synchronously during
+			// execution, which tears down the world map scene and its SoundsManager.
+			string result = WorldEventReflection.GetResultDescription(_model, index);
+			SoundManager.PlayButtonClick();
+			Speech.Say(!string.IsNullOrEmpty(result) ? result : "Selected");
+
 			if (WorldEventReflection.ExecuteDecision(_model, _state, index)) {
-				SoundManager.PlayButtonClick();
-				// Game will close the popup on success
+				// Hide the popup — mirrors WorldEventPopup.ExecuteDecisionAsync which
+				// calls Hide() after ExecuteDecision succeeds. Without this, the popup
+				// stays open and our handler keeps consuming keys.
+				PopupReflection.HidePopup(_popup);
 			} else {
 				Speech.Say("Failed to execute");
 				SoundManager.PlayFailed();
