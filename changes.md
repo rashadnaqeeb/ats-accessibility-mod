@@ -9,16 +9,20 @@ Added working priority support across the mod. You can now:
 - The priority in which hearth fuels are consumed (+ and - on the fuel name from within hearth/fire/fuel).
 - The priority that resource deposits are harvested and new buildings are constructed. + and - to adjust the single deposit under the cursor, Shift + and - to adjust every item of that same type simultaneously.
 
-## Changes since v1.2
+## Changes since v1.2.1
 
 ### New features
 
 ### Bug fixes
 
+### Internal
+
+## v1.2.1
+
+### Bug fixes
+
 - Fix world event popup not closing after selecting a decision, leaving the handler stuck consuming all keys
 - Announce reward/result description when selecting a world event decision
-
-### Internal
 
 ## v1.2
 
