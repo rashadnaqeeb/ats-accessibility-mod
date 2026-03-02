@@ -436,8 +436,13 @@ namespace ATSAccessibility.Handlers {
 
 			// Min difficulty
 			var difficulty = WorldMapReflection.WorldMapGetMinDifficultyName(_cursorPos);
-			if (!string.IsNullOrEmpty(difficulty))
-				parts.Add($"{difficulty} difficulty");
+			if (!string.IsNullOrEmpty(difficulty)) {
+				int penalty = WorldMapReflection.WorldMapGetDifficultyPreparationPenalty(_cursorPos);
+				if (penalty != 0)
+					parts.Add($"{difficulty} difficulty, {penalty} preparation {(penalty == 1 || penalty == -1 ? "point" : "points")}");
+				else
+					parts.Add($"{difficulty} difficulty");
+			}
 
 			// Field effects (biome + modifiers)
 			var effects = WorldMapReflection.WorldMapGetFieldEffects(_cursorPos);

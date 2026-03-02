@@ -978,10 +978,6 @@ namespace ATSAccessibility.Panels {
 					}
 				}
 
-				int penalty = EmbarkReflection.GetDifficultyPreparationPenalty(diff);
-				if (penalty != 0)
-					details.Add($"Preparation points: {penalty}");
-
 				float rewardsMult = EmbarkReflection.GetDifficultyRewardsMultiplier(diff);
 				if (rewardsMult > 0)
 					details.Add($"Rewards multiplier: {rewardsMult:P0}");
