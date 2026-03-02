@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 
 namespace ATSAccessibility.Core {
-	[BepInPlugin("com.accessibility.ats", "ATS Accessibility", "1.2.1")]
+	[BepInPlugin("com.accessibility.ats", "ATS Accessibility", "1.2.2")]
 	public class Plugin: BaseUnityPlugin {
 		[DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
 		private static extern bool SetDllDirectory(string lpPathName);

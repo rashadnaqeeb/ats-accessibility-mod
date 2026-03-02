@@ -9,15 +9,19 @@ Added working priority support across the mod. You can now:
 - The priority in which hearth fuels are consumed (+ and - on the fuel name from within hearth/fire/fuel).
 - The priority that resource deposits are harvested and new buildings are constructed. + and - to adjust the single deposit under the cursor, Shift + and - to adjust every item of that same type simultaneously.
 
-## Changes since v1.2.1
+## Changes since v1.2.2
 
 ### New features
 
 ### Bug fixes
 
-- Move preparation points penalty from embark difficulty details to world map tile tooltip where it's more accurate
-
 ### Internal
+
+## v1.2.2
+
+### Bug fixes
+
+- Move preparation points penalty from embark difficulty details to world map tile tooltip where it's more accurate
 
 ## v1.2.1
 
