@@ -235,6 +235,9 @@ namespace ATSAccessibility.Utils {
 			string goodName = goodNameProp.GetValue(depositModel) as string;
 			if (string.IsNullOrEmpty(goodName)) return "No buildings in range";
 
+			// Get the deposit's minimum grade requirement
+			int depositMinGrade = ConstructionReflection.GetResourceMinGradeLevel(deposit);
+
 			var huts = ConstructionReflection.GetAllGathererHuts();
 			if (huts == null) return "No buildings in range";
 
@@ -249,6 +252,13 @@ namespace ATSAccessibility.Utils {
 
 				var goodNames = ConstructionReflection.GetGatheringBuildingGoodNames(hutModel);
 				if (!goodNames.Contains(goodName)) continue;
+
+				// Check if the hut's recipe grade is high enough for this deposit
+				if (depositMinGrade >= 0) {
+					var gradeLevels = ConstructionReflection.GetGatheringBuildingGradeLevels(hutModel);
+					int hutGrade;
+					if (gradeLevels.TryGetValue(goodName, out hutGrade) && hutGrade < depositMinGrade) continue;
+				}
 
 				var center = ConstructionReflection.GetBuildingCenter(hut);
 				if (!center.HasValue) continue;
@@ -284,6 +294,9 @@ namespace ATSAccessibility.Utils {
 			var goodNameProp = lakeModel.GetType().GetProperty("GoodName");
 			string goodName = goodNameProp?.GetValue(lakeModel) as string;
 
+			// Get the lake's minimum grade requirement
+			int lakeMinGrade = ConstructionReflection.GetResourceMinGradeLevel(lake);
+
 			var huts = ConstructionReflection.GetAllFishingHuts();
 			if (huts == null) return "No buildings in range";
 
@@ -300,6 +313,13 @@ namespace ATSAccessibility.Utils {
 				if (!string.IsNullOrEmpty(goodName)) {
 					var goodNames = ConstructionReflection.GetGatheringBuildingGoodNames(hutModel);
 					if (!goodNames.Contains(goodName)) continue;
+
+					// Check if the hut's recipe grade is high enough for this lake
+					if (lakeMinGrade >= 0) {
+						var gradeLevels = ConstructionReflection.GetGatheringBuildingGradeLevels(hutModel);
+						int hutGrade;
+						if (gradeLevels.TryGetValue(goodName, out hutGrade) && hutGrade < lakeMinGrade) continue;
+					}
 				}
 
 				var center = ConstructionReflection.GetBuildingCenter(hut);
@@ -408,7 +428,12 @@ namespace ATSAccessibility.Utils {
 			if (resourceDict == null || goodNames.Count == 0)
 				return $"No {resourceTypeName} available";
 
-			var nodeInfo = CountResourcesByNodeName(resourceDict, goodNames, center2D, maxDistance, isDeposit);
+			// For deposits/lakes, get grade levels to filter out resources the building can't harvest
+			Dictionary<string, int> gradeLevels = isDeposit
+				? ConstructionReflection.GetGatheringBuildingGradeLevels(model)
+				: null;
+
+			var nodeInfo = CountResourcesByNodeName(resourceDict, goodNames, center2D, maxDistance, isDeposit, gradeLevels);
 
 			if (nodeInfo.Count == 0)
 				return $"No {resourceTypeName} in range";
@@ -844,9 +869,12 @@ namespace ATSAccessibility.Utils {
 		/// <summary>
 		/// Count resources in range grouped by their node display name.
 		/// Returns a dictionary of node name -> (count, closest distance).
+		/// When gradeLevels is provided, filters out deposits/lakes whose minGradeToCollect
+		/// exceeds the building's recipe grade for that good.
 		/// </summary>
 		private static Dictionary<string, (int count, float closestDistance)> CountResourcesByNodeName(
-			object resourceDict, List<string> goodNames, Vector2 center2D, float maxDistance, bool isDeposit) {
+			object resourceDict, List<string> goodNames, Vector2 center2D, float maxDistance, bool isDeposit,
+			Dictionary<string, int> gradeLevels = null) {
 			var result = new Dictionary<string, (int count, float closestDistance)>();
 
 			if (resourceDict == null) return result;
@@ -859,10 +887,22 @@ namespace ATSAccessibility.Utils {
 				foreach (var goodName in goodNames) {
 					if (!dict.Contains(goodName)) continue;
 
+					// Get the building's recipe grade level for this good (if grade filtering is active)
+					int recipeGradeLevel = -1;
+					if (gradeLevels != null) {
+						gradeLevels.TryGetValue(goodName, out recipeGradeLevel);
+					}
+
 					var resourceList = dict[goodName] as IEnumerable;
 					if (resourceList == null) continue;
 
 					foreach (var resource in resourceList) {
+						// Filter by grade: skip deposits/lakes the building can't harvest
+						if (gradeLevels != null) {
+							int minGrade = ConstructionReflection.GetResourceMinGradeLevel(resource);
+							if (minGrade >= 0 && recipeGradeLevel < minGrade) continue;
+						}
+
 						var field = ConstructionReflection.GetResourceField(resource);
 						if (!field.HasValue) continue;
 

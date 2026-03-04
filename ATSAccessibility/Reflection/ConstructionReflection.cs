@@ -1665,6 +1665,11 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _fishingHutRecipeRefGoodField = null;
 		private static FieldInfo _goodRefNameField = null;
 
+		// Cached fields for grade filtering (deposits/lakes require minimum recipe grade)
+		private static FieldInfo _recipeGradeField = null;
+		private static FieldInfo _gradeLevelField = null;
+		private static FieldInfo _resourceMinGradeField = null;
+
 		// Cached properties for services
 		private static PropertyInfo _resourcesAvailableProperty = null;
 		private static PropertyInfo _depositsAvailableProperty = null;
@@ -1727,6 +1732,22 @@ namespace ATSAccessibility.Reflection {
 				var fishingHutRecipeType = GameReflection.GameAssembly.GetType("Eremite.Buildings.FishingHutRecipeModel");
 				if (fishingHutRecipeType != null) {
 					_fishingHutRecipeRefGoodField = fishingHutRecipeType.GetField("refGood", GameReflection.PublicInstance);
+				}
+
+				// Cache grade fields for deposit/lake filtering
+				var recipeModelType = GameReflection.GameAssembly.GetType("Eremite.Buildings.RecipeModel");
+				if (recipeModelType != null) {
+					_recipeGradeField = recipeModelType.GetField("grade", GameReflection.PublicInstance);
+				}
+
+				var gradeModelType = GameReflection.GameAssembly.GetType("Eremite.Buildings.RecipeGradeModel");
+				if (gradeModelType != null) {
+					_gradeLevelField = gradeModelType.GetField("level", GameReflection.PublicInstance);
+				}
+
+				var resourceModelType = GameReflection.GameAssembly.GetType("Eremite.Model.ResourceModel");
+				if (resourceModelType != null) {
+					_resourceMinGradeField = resourceModelType.GetField("minGradeToCollect", GameReflection.PublicInstance);
 				}
 
 				// Cache GoodRef Name field (note: we use property getter in GetGatheringBuildingGoodNames, not field)
@@ -2019,6 +2040,83 @@ namespace ATSAccessibility.Reflection {
 			}
 
 			return goodNames;
+		}
+
+		/// <summary>
+		/// Get recipe grade levels for a gathering building (GathererHut or FishingHut).
+		/// Returns a dictionary mapping good name to the recipe's grade level.
+		/// Used to filter deposits/lakes that require a higher grade than the building can provide.
+		/// </summary>
+		public static Dictionary<string, int> GetGatheringBuildingGradeLevels(object buildingModel) {
+			var gradeLevels = new Dictionary<string, int>();
+			if (buildingModel == null) return gradeLevels;
+			EnsureRangeInfoTypes();
+
+			if (_recipeGradeField == null || _gradeLevelField == null) return gradeLevels;
+
+			try {
+				Array recipes = null;
+				FieldInfo refGoodField = null;
+
+				if (IsGathererHutModel(buildingModel)) {
+					recipes = _gathererHutRecipesField?.GetValue(buildingModel) as Array;
+					refGoodField = _gathererHutRecipeRefGoodField;
+				} else if (IsFishingHutModel(buildingModel)) {
+					recipes = _fishingHutRecipesField?.GetValue(buildingModel) as Array;
+					refGoodField = _fishingHutRecipeRefGoodField;
+				}
+
+				if (recipes == null || refGoodField == null) return gradeLevels;
+
+				foreach (var recipe in recipes) {
+					var refGood = refGoodField.GetValue(recipe);
+					if (refGood == null) continue;
+
+					var nameProp = refGood.GetType().GetProperty("Name", GameReflection.PublicInstance);
+					var name = nameProp?.GetValue(refGood) as string;
+					if (string.IsNullOrEmpty(name)) continue;
+
+					var grade = _recipeGradeField.GetValue(recipe);
+					if (grade == null) continue;
+
+					var levelObj = _gradeLevelField.GetValue(grade);
+					if (levelObj is int level && !gradeLevels.ContainsKey(name)) {
+						gradeLevels[name] = level;
+					}
+				}
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetGatheringBuildingGradeLevels failed: {ex.Message}");
+			}
+
+			return gradeLevels;
+		}
+
+		/// <summary>
+		/// Get the minGradeToCollect level from a deposit or lake's model.
+		/// Returns -1 if not available (meaning no grade restriction).
+		/// </summary>
+		public static int GetResourceMinGradeLevel(object resource) {
+			if (resource == null) return -1;
+			EnsureRangeInfoTypes();
+
+			if (_resourceMinGradeField == null || _gradeLevelField == null) return -1;
+
+			try {
+				var modelProp = resource.GetType().GetProperty("Model");
+				if (modelProp == null) return -1;
+				var model = modelProp.GetValue(resource);
+				if (model == null) return -1;
+
+				var minGrade = _resourceMinGradeField.GetValue(model);
+				if (minGrade == null) return -1;
+
+				var levelObj = _gradeLevelField.GetValue(minGrade);
+				if (levelObj is int level) return level;
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetResourceMinGradeLevel failed: {ex.Message}");
+			}
+
+			return -1;
 		}
 
 		/// <summary>

@@ -15,6 +15,8 @@ Added working priority support across the mod. You can now:
 
 ### Bug fixes
 
+- Range finder (D key) now filters deposits and lakes by recipe grade, so small gathering camps and fishing huts no longer report nodes they can't harvest
+
 ### Internal
 
 ## v1.2.2
