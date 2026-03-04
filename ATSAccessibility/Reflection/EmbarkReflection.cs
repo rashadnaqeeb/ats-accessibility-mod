@@ -914,6 +914,12 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
+		/// Get the cached min difficulty penalty for embark points.
+		/// This is negative (e.g., -1) when difficulty reduces points.
+		/// </summary>
+		public static int GetMinDifficultyPenalty() => _cachedMinDifficultyPenalty;
+
+		/// <summary>
 		/// Get total preparation points available (base + bonus).
 		/// Uses the min difficulty penalty (cached on panel open), matching the game's behavior
 		/// where base points are calculated from the minimum required difficulty, not selected difficulty.

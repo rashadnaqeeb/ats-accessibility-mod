@@ -713,13 +713,23 @@ namespace ATSAccessibility.Panels {
 				});
 			}
 
-			// Embark points - use min difficulty penalty (matches game behavior)
-			int totalPoints = EmbarkReflection.GetTotalPreparationPoints();
+			// Embark points - show breakdown: raw base, difficulty penalty, bonus
+			int rawBase = EmbarkReflection.GetBasePreparationPoints();
+			int penalty = EmbarkReflection.GetMinDifficultyPenalty();
 			int bonusPoints = EmbarkReflection.GetBonusPreparationPoints();
-			int basePoints = totalPoints - bonusPoints;
+			int totalPoints = EmbarkReflection.GetTotalPreparationPoints();
+			var pointsParts = new System.Collections.Generic.List<string>();
+			pointsParts.Add($"{rawBase} base");
+			if (penalty != 0)
+				pointsParts.Add($"{penalty} difficulty");
+			if (bonusPoints != 0)
+				pointsParts.Add($"{bonusPoints} bonus");
+			string pointsValue = pointsParts.Count > 1
+				? $"{totalPoints}, {string.Join(", ", pointsParts)}"
+				: totalPoints.ToString();
 			_categories.Add(new Category {
 				Name = "Embark Points",
-				Value = $"{basePoints} base, {bonusPoints} bonus"
+				Value = pointsValue
 			});
 
 			if (_categories.Count > 0) {
