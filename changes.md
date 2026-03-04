@@ -2,16 +2,20 @@
 
 
 
-## Changes since v1.2.2
+## Changes since v1.2.3
 
 ### New features
 
 ### Bug fixes
 
+### Internal
+
+## v1.2.3
+
+### Bug fixes
+
 * Range finder (D key) now filters deposits and lakes by recipe grade, so small gathering camps and fishing huts no longer report nodes they can't harvest
 * Embark Points in mission info now shows full breakdown (base, difficulty penalty, bonus) and omits zero values
-
-### Internal
 
 ## v1.2.2
 
