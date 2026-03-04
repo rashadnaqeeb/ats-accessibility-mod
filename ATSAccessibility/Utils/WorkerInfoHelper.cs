@@ -1,4 +1,4 @@
-﻿using ATSAccessibility.Reflection;
+using ATSAccessibility.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;

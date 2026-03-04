@@ -1,4 +1,4 @@
-﻿using ATSAccessibility.Reflection;
+using ATSAccessibility.Reflection;
 using System;
 using System.Collections;
 using System.Collections.Generic;

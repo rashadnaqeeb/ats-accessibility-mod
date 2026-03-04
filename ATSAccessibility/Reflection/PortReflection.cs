@@ -25,7 +25,7 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _portGetCurrentExpeditionMethod = null;  // Port.GetCurrentExpedition()
 		private static MethodInfo _portGetPickedStriderGoodMethod = null;  // Port.GetPickedStriderGood(int)
 		private static MethodInfo _portGetPickedCrewGoodMethod = null;  // Port.GetPickedCrewGood(int)
-		// Port action methods
+																		// Port action methods
 		private static MethodInfo _portWasDecisionMadeMethod = null;  // Port.WasDecisionMade()
 		private static MethodInfo _portLockDecisionMethod = null;  // Port.LockDecision()
 		private static MethodInfo _portCancelDecisionMethod = null;  // Port.CancelDecision()
@@ -35,7 +35,7 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _portIsBlockedByUnpickedCategoryMethod = null;  // Port.IsBlockedByUnpickedCategory()
 		private static MethodInfo _portGetCurrentExpeditionModelMethod = null;  // Port.GetCurrentExpeditionModel()
 		private static MethodInfo _portCalculateDurationMethod = null;  // Port.CalculateDuration()
-		// PortState fields
+																		// PortState fields
 		private static FieldInfo _portStateExpeditionLevelField = null;  // PortState.expeditionLevel
 		private static FieldInfo _portStateAreRewardsWaitingField = null;  // PortState.areRewardsWaiting
 		private static FieldInfo _portStateBlueprintRewardField = null;  // PortState.blueprintReward
@@ -46,22 +46,22 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _portStatePickedCategoryField = null;  // PortState.pickedCategory
 		private static FieldInfo _portStateStriderPickedGoodsField = null;  // PortState.striderPickedGoods (List<int>)
 		private static FieldInfo _portStateCrewPickedGoodsField = null;  // PortState.crewPickedGoods (List<int>)
-		// PortExpeditionModel fields
+																		 // PortExpeditionModel fields
 		private static FieldInfo _portExpedModelMaxLevelField = null;  // PortExpeditionModel.maxLevel
 		private static FieldInfo _portExpedModelBlueprintsField = null;  // PortExpeditionModel.blueprints
 		private static FieldInfo _portExpedModelChancesField = null;  // PortExpeditionModel.chances (PortRewardChance[])
-		// PortExpedition fields
+																	  // PortExpedition fields
 		private static FieldInfo _portExpedStriderGoodsField = null;  // PortExpedition.striderGoods (GoodsSet[])
 		private static FieldInfo _portExpedCrewGoodsField = null;  // PortExpedition.crewGoods (GoodsSet[])
 		private static FieldInfo _portExpedChancesField = null;  // PortExpedition.chances (List<PortRewardChance>)
-		// PortRewardChance fields
+																 // PortRewardChance fields
 		private static FieldInfo _portRewardChanceRarityField = null;  // PortRewardChance.rarity
 		private static FieldInfo _portRewardChanceChanceField = null;  // PortRewardChance.chance
-		// BuildingsDropTable / category
+																	   // BuildingsDropTable / category
 		private static FieldInfo _buildingsDropTableBuildingsField = null;  // BuildingsDropTable.buildings
 		private static FieldInfo _buildingTableEntityBuildingField = null;  // BuildingTableEntity.building
 		private static FieldInfo _buildingModelCategoryField = null;  // BuildingModel.category
-		// LimitedGoodsCollection
+																	  // LimitedGoodsCollection
 		private static MethodInfo _limitedGoodsGetFullAmountMethod = null;  // LimitedGoodsCollection.GetFullAmount(string)
 
 		private static bool _portTypesCached = false;

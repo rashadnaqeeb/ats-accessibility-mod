@@ -1,4 +1,4 @@
-﻿using ATSAccessibility.Reflection;
+using ATSAccessibility.Reflection;
 using UnityEngine;
 
 namespace ATSAccessibility.Utils {

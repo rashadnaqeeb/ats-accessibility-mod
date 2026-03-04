@@ -1,4 +1,4 @@
-﻿using ATSAccessibility.Handlers;
+using ATSAccessibility.Handlers;
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;

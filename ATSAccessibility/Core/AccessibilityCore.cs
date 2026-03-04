@@ -1,4 +1,4 @@
-﻿using ATSAccessibility.Panels;
+using ATSAccessibility.Panels;
 using ATSAccessibility.Handlers;
 using ATSAccessibility.Overlays;
 using ATSAccessibility.Utils;
