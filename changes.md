@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.2.3
+## Changes since v1.2.4
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.2.4
 
 ### New features
 
@@ -11,8 +19,6 @@
 ### Bug fixes
 
 * Archaeologist's Office now appears in Special Buildings instead of Decorations in the scanner
-
-### Internal
 
 ## v1.2.3
 
