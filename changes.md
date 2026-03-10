@@ -6,7 +6,7 @@
 
 ### New features
 
-* Relic navigator shows embedded order objectives (e.g., cursed glade events)
+* Relic "Start Investigation" now shows order objective progress when blocked (e.g., cursed glade events)
 
 ### Bug fixes
 

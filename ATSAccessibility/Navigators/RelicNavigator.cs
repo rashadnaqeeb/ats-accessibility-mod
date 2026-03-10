@@ -26,8 +26,7 @@ namespace ATSAccessibility.Navigators {
 			Workers,
 			Storage,
 			Upgrades,
-			Cancel,
-			Order
+			Cancel
 		}
 
 		// ========================================
@@ -86,10 +85,6 @@ namespace ATSAccessibility.Navigators {
 		private bool _canCancel;
 		private bool _hasAnyWorkplace;
 
-		// Order data (embedded order objectives)
-		private bool _hasOrder;
-		private string[] _orderObjectives;
-
 		// Storage data (Phase C rewards)
 		private List<(string goodName, string displayName, int amount)> _storageItems = new List<(string, string, int)>();
 		private int _storageTotalSum;
@@ -137,8 +132,6 @@ namespace ATSAccessibility.Navigators {
 					return _storageItems.Count;
 				case SectionType.Upgrades:
 					return _upgradesSection.GetItemCount();
-				case SectionType.Order:
-					return _orderObjectives?.Length ?? 0;
 				default:
 					return 0;
 			}
@@ -247,9 +240,6 @@ namespace ATSAccessibility.Navigators {
 				case SectionType.Upgrades:
 					_upgradesSection.AnnounceItem(itemIndex);
 					break;
-				case SectionType.Order:
-					AnnounceOrderItem(itemIndex);
-					break;
 			}
 		}
 
@@ -316,10 +306,6 @@ namespace ATSAccessibility.Navigators {
 					if (itemIndex >= 0 && itemIndex < _storageItems.Count)
 						return _storageItems[itemIndex].displayName;
 					return null;
-				case SectionType.Order:
-					if (_orderObjectives != null && itemIndex >= 0 && itemIndex < _orderObjectives.Length)
-						return _orderObjectives[itemIndex];
-					return null;
 				default:
 					return null;
 			}
@@ -358,9 +344,6 @@ namespace ATSAccessibility.Navigators {
 			// Storage data (Phase C)
 			RefreshStorageData();
 
-			// Order data (Phase A only)
-			RefreshOrderData();
-
 			// Status/actions
 			RefreshStatusData();
 
@@ -388,8 +371,6 @@ namespace ATSAccessibility.Navigators {
 			_isLastTierReached = false;
 			_rewards = null;
 			_hasRewards = false;
-			_hasOrder = false;
-			_orderObjectives = null;
 			_storageItems.Clear();
 			_storageTotalSum = 0;
 			ClearUpgradesSection();
@@ -472,11 +453,6 @@ namespace ATSAccessibility.Navigators {
 				if (_hasRewards) {
 					sectionNames.Add("Preview Rewards");
 					sectionTypes.Add(SectionType.Rewards);
-				}
-
-				if (_hasOrder && _orderObjectives != null && _orderObjectives.Length > 0) {
-					sectionNames.Add("Order");
-					sectionTypes.Add(SectionType.Order);
 				}
 
 				sectionNames.Add("Start Investigation");
@@ -949,30 +925,6 @@ namespace ATSAccessibility.Navigators {
 		private int GetStatusItemCount() {
 			// Status is now section-level only (no items to drill into)
 			return 0;
-		}
-
-		// ========================================
-		// ORDER SECTION (Phase A)
-		// ========================================
-
-		private void RefreshOrderData() {
-			_hasOrder = false;
-			_orderObjectives = null;
-
-			// Only show in Phase A (not started, not finished)
-			if (_investigationStarted || _investigationFinished) return;
-
-			_hasOrder = RelicReflection.RelicHasOrder(_building);
-			if (!_hasOrder) return;
-
-			var objectives = RelicReflection.GetRelicOrderObjectiveTexts(_building);
-			if (objectives != null && objectives.Count > 0)
-				_orderObjectives = objectives.ToArray();
-		}
-
-		private void AnnounceOrderItem(int itemIndex) {
-			if (_orderObjectives == null || itemIndex < 0 || itemIndex >= _orderObjectives.Length) return;
-			Speech.Say(_orderObjectives[itemIndex]);
 		}
 
 		// ========================================
