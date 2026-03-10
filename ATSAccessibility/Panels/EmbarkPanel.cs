@@ -649,6 +649,11 @@ namespace ATSAccessibility.Panels {
 			if (!string.IsNullOrEmpty(biomeDescription))
 				biomeDetails.Add(biomeDescription.TrimEnd('.'));
 
+			// Add soil grade (fertility)
+			var soilGrade = WorldMapReflection.WorldMapGetBiomeSoilGrade(fieldPos);
+			if (!string.IsNullOrEmpty(soilGrade))
+				biomeDetails.Add($"Soil: {soilGrade}");
+
 			// Add resource nodes
 			if (biomeDeposits.Count > 0)
 				biomeDetails.Add($"Deposits: {string.Join(", ", biomeDeposits)}");

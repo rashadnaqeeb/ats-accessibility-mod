@@ -142,6 +142,7 @@ namespace ATSAccessibility.Reflection {
 		// BiomeModel fields (accessed frequently)
 		private static FieldInfo _biomeDisplayNameField = null;
 		private static FieldInfo _biomeDescriptionField = null;
+		private static FieldInfo _biomeSoilGradeField = null;
 		private static FieldInfo _biomeEffectsField = null;
 		private static FieldInfo _biomeWantedGoodsField = null;
 		private static MethodInfo _biomeGetDepositsGoodsMethod = null;
@@ -287,6 +288,8 @@ namespace ATSAccessibility.Reflection {
 					_biomeDisplayNameField = biomeModelType.GetField("displayName",
 						BindingFlags.Public | BindingFlags.Instance);
 					_biomeDescriptionField = biomeModelType.GetField("description",
+						BindingFlags.Public | BindingFlags.Instance);
+					_biomeSoilGradeField = biomeModelType.GetField("soilGrade",
 						BindingFlags.Public | BindingFlags.Instance);
 					_biomeEffectsField = biomeModelType.GetField("effects",
 						BindingFlags.Public | BindingFlags.Instance);
@@ -1591,6 +1594,29 @@ namespace ATSAccessibility.Reflection {
 				return GameReflection.GetLocaText(description);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] WorldMapGetBiomeDescription failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the biome soil grade (fertility) for a world map position.
+		/// </summary>
+		public static string WorldMapGetBiomeSoilGrade(Vector3Int cubicPos) {
+			EnsureWorldMapTypes();
+			var wms = GetWorldMapService();
+			if (wms == null || _wmsGetFieldMethod == null) return null;
+
+			try {
+				var field = _wmsGetFieldMethod.Invoke(wms, new object[] { cubicPos });
+				if (field == null) return null;
+
+				var biome = _worldFieldBiomeProperty?.GetValue(field);
+				if (biome == null) return null;
+
+				var soilGrade = _biomeSoilGradeField?.GetValue(biome);
+				return GameReflection.GetLocaText(soilGrade);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] WorldMapGetBiomeSoilGrade failed: {ex.Message}");
 				return null;
 			}
 		}

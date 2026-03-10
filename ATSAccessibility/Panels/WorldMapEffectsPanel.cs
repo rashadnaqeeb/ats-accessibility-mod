@@ -128,7 +128,11 @@ namespace ATSAccessibility.Panels {
 			var biomeDescription = WorldMapReflection.WorldMapGetBiomeDescription(_tilePos);
 
 			if (!string.IsNullOrEmpty(biomeName)) {
-				_items.Add((biomeName, biomeDescription ?? ""));
+				var fullDescription = biomeDescription ?? "";
+				var soilGrade = WorldMapReflection.WorldMapGetBiomeSoilGrade(_tilePos);
+				if (!string.IsNullOrEmpty(soilGrade))
+					fullDescription += (fullDescription.Length > 0 ? " " : "") + "Soil: " + soilGrade;
+				_items.Add((biomeName, fullDescription));
 			}
 
 			// Add field effects
