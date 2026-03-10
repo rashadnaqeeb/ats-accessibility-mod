@@ -1136,9 +1136,12 @@ namespace ATSAccessibility.Utils {
 			if (typeName == null) return SubcategoryNames.Length - 1; // Default to last (Roads)
 
 			if (BuildingTypeToSubcategory.TryGetValue(typeName, out int index)) {
-				// Interactive decorations (showPanel = true) belong in Special Buildings, not Decorations
-				if (index == 8 && BuildingReflection.IsInteractiveDecoration(building))
-					return 6;
+				// Archaeologist's Office is a Decoration subclass but functions as a special building
+				if (index == 8) {
+					var modelName = BuildingReflection.GetBuildingModelName(building);
+					if (modelName != null && modelName.Contains("Arch Office"))
+						return 6;
+				}
 				return index;
 			}
 

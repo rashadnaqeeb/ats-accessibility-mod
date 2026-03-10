@@ -10,7 +10,7 @@
 
 ### Bug fixes
 
-* Interactive decorations (e.g., Archaeologist's Office) now appear in Special Buildings instead of Decorations in the scanner
+* Archaeologist's Office now appears in Special Buildings instead of Decorations in the scanner
 
 ### Internal
 
