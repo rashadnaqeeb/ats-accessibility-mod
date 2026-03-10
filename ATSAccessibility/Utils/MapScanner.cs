@@ -1139,7 +1139,7 @@ namespace ATSAccessibility.Utils {
 				// Archaeologist's Office is a Decoration subclass but functions as a special building
 				if (index == 8) {
 					var modelName = BuildingReflection.GetBuildingModelName(building);
-					if (modelName != null && modelName.Contains("Arch Office"))
+					if (modelName == "Archeology office")
 						return 6;
 				}
 				return index;

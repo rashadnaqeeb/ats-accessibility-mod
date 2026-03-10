@@ -1314,7 +1314,7 @@ namespace ATSAccessibility.Reflection {
 
 		/// <summary>
 		/// Get the internal model name (asset name) of a building.
-		/// This is the non-localized identifier from BuildingModel.Name (e.g., "Arch Office").
+		/// This is the non-localized identifier from BuildingModel.Name (e.g., "Archeology office").
 		/// </summary>
 		public static string GetBuildingModelName(object building) {
 			if (building == null) return null;
