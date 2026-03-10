@@ -6,7 +6,7 @@
 
 ### New features
 
-* Relic "Start Investigation" now shows order objective progress when blocked (e.g., cursed glade events)
+* Relic "Start Investigation" now shows order objective progress when an order is the blocker (e.g., cursed woodlands ghost events)
 
 ### Bug fixes
 
