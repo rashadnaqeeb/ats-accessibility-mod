@@ -33,6 +33,9 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _relicHasAnyWorkplaceMethod = null;  // Relic.HasAnyWorkplace()
 		private static MethodInfo _relicHasOrderMethod = null;  // Relic.HasOrder()
 		private static MethodInfo _relicIsOrderCompletedMethod = null;  // Relic.IsOrderCompleted()
+		private static FieldInfo _relicStateOrderField = null;        // RelicState.order (OrderState)
+		private static FieldInfo _relicModelOrderModelField = null;    // RelicModel.orderModel (OrderModel)
+		private static MethodInfo _relicCanCompleteOrderMethod = null; // Relic.CanCompleteOrder()
 		private static MethodInfo _relicGetWorkingEffectsMethod = null;  // Relic.GetWorkingEffects()
 		private static MethodInfo _relicGetSafeDecisionIndexMethod = null;  // Relic.GetSafeDecisionIndex()
 		private static MethodInfo _relicIsLastDynamicEffectReachedMethod = null;  // Relic.IsLastDynamicEffectReached()
@@ -118,6 +121,7 @@ namespace ATSAccessibility.Reflection {
 					_relicGetSafeDecisionIndexMethod = relicType.GetMethod("GetSafeDecisionIndex", GameReflection.PublicInstance);
 					_relicIsLastDynamicEffectReachedMethod = relicType.GetMethod("IsLastDynamicEffectReached", GameReflection.PublicInstance);
 					_relicGetCurrentDynamicEffectsMethod = relicType.GetMethod("GetCurrentDynamicEffects", GameReflection.PublicInstance);
+					_relicCanCompleteOrderMethod = relicType.GetMethod("CanCompleteOrder", GameReflection.PublicInstance);
 				}
 
 				var relicStateType = assembly.GetType("Eremite.Buildings.RelicState");
@@ -135,6 +139,7 @@ namespace ATSAccessibility.Reflection {
 					_relicStateCurrentDynamicRewardField = relicStateType.GetField("currentDynamicReward", GameReflection.PublicInstance);
 					_relicStateCurrentDynamicEffectField = relicStateType.GetField("currentDynamicEffect", GameReflection.PublicInstance);
 					_relicStateNextDynamicEffectChangeField = relicStateType.GetField("nextDynamicEffectChange", GameReflection.PublicInstance);
+					_relicStateOrderField = relicStateType.GetField("order", GameReflection.PublicInstance);
 				}
 
 				var relicModelType = assembly.GetType("Eremite.Buildings.RelicModel");
@@ -151,6 +156,7 @@ namespace ATSAccessibility.Reflection {
 					_relicModelDangerLevelField = relicModelType.GetField("dangerLevel", GameReflection.PublicInstance);
 					_relicModelHasDynamicEffectsField = relicModelType.GetField("hasDynamicEffects", GameReflection.PublicInstance);
 					_relicModelEffectsTiersField = relicModelType.GetField("effectsTiers", GameReflection.PublicInstance);
+					_relicModelOrderModelField = relicModelType.GetField("orderModel", GameReflection.PublicInstance);
 				}
 
 				// RelicDifficulty fields
@@ -820,7 +826,11 @@ namespace ATSAccessibility.Reflection {
 				if (hasOrder) {
 					bool orderCompleted = ReflectionHelper.InvokeBool(_relicIsOrderCompletedMethod, building);
 					if (!orderCompleted) {
-						blockingReason = "Complete the order first";
+						var objectives = GetRelicOrderObjectiveTexts(building);
+						if (objectives != null && objectives.Count > 0)
+							blockingReason = "Complete order: " + string.Join(", ", objectives);
+						else
+							blockingReason = "Complete the order first";
 						return false;
 					}
 				}
@@ -830,6 +840,80 @@ namespace ATSAccessibility.Reflection {
 				blockingReason = $"Error: {ex.Message}";
 				return false;
 			}
+		}
+
+		/// <summary>
+		/// Check if the relic has an embedded order requirement.
+		/// </summary>
+		public static bool RelicHasOrder(object building) {
+			if (!BuildingReflection.IsRelic(building)) return false;
+			EnsureRelicBaseFields();
+			return ReflectionHelper.InvokeBool(_relicHasOrderMethod, building);
+		}
+
+		/// <summary>
+		/// Get the OrderState from the relic's state (tracks objective progress).
+		/// </summary>
+		public static object GetRelicOrderState(object building) {
+			if (!BuildingReflection.IsRelic(building)) return null;
+			EnsureRelicBaseFields();
+
+			try {
+				var state = ReflectionHelper.GetField(_relicStateField, building);
+				if (state == null) return null;
+				return ReflectionHelper.GetField(_relicStateOrderField, state);
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the OrderModel from the relic's model.
+		/// </summary>
+		public static object GetRelicOrderModel(object building) {
+			if (!BuildingReflection.IsRelic(building)) return null;
+			EnsureRelicBaseFields();
+
+			try {
+				var model = ReflectionHelper.GetField(_relicModelField, building);
+				if (model == null) return null;
+				return ReflectionHelper.GetField(_relicModelOrderModelField, model);
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get formatted objective texts for the relic's embedded order.
+		/// Shows progress like "Deliver 5/10 Lumber" since OrderState tracks progress from spawn.
+		/// Falls back to GetPickObjectiveTexts if orderState is null.
+		/// </summary>
+		public static List<string> GetRelicOrderObjectiveTexts(object building) {
+			if (!BuildingReflection.IsRelic(building)) return null;
+			EnsureRelicBaseFields();
+
+			try {
+				var orderModel = GetRelicOrderModel(building);
+				if (orderModel == null) return null;
+
+				var orderState = GetRelicOrderState(building);
+				if (orderState != null)
+					return OrdersReflection.GetObjectiveTexts(orderModel, orderState);
+
+				// Fallback: show totals only (no progress tracking)
+				return OrdersReflection.GetPickObjectiveTexts(orderModel, 0);
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Check if the relic's order can be completed (all objectives met).
+		/// </summary>
+		public static bool RelicCanCompleteOrder(object building) {
+			if (!BuildingReflection.IsRelic(building)) return false;
+			EnsureRelicBaseFields();
+			return ReflectionHelper.InvokeBool(_relicCanCompleteOrderMethod, building);
 		}
 
 		/// <summary>

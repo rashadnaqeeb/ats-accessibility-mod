@@ -6,6 +6,8 @@
 
 ### New features
 
+* Relic navigator shows embedded order objectives (e.g., cursed glade events)
+
 ### Bug fixes
 
 * Interactive decorations (e.g., Archaeologist's Office) now appear in Special Buildings instead of Decorations in the scanner
