@@ -1136,6 +1136,9 @@ namespace ATSAccessibility.Utils {
 			if (typeName == null) return SubcategoryNames.Length - 1; // Default to last (Roads)
 
 			if (BuildingTypeToSubcategory.TryGetValue(typeName, out int index)) {
+				// Interactive decorations (showPanel = true) belong in Special Buildings, not Decorations
+				if (index == 8 && BuildingReflection.IsInteractiveDecoration(building))
+					return 6;
 				return index;
 			}
 

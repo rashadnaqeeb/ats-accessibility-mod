@@ -215,6 +215,8 @@ namespace ATSAccessibility.Reflection {
 
 		// Decoration-specific
 		private static Type _decorationType = null;
+		private static FieldInfo _decorationModelField = null;  // Decoration.model (DecorationModel)
+		private static FieldInfo _decorationShowPanelField = null;  // DecorationModel.showPanel (bool)
 		private static bool _decorationTypesCached = false;
 
 		// Storage-specific (main storage building)
@@ -917,6 +919,13 @@ namespace ATSAccessibility.Reflection {
 
 			ReflectionHelper.InitCache("BuildingReflection.Decoration", assembly => {
 				_decorationType = assembly.GetType("Eremite.Buildings.Decoration");
+				if (_decorationType != null) {
+					_decorationModelField = _decorationType.GetField("model", GameReflection.PublicInstance);
+				}
+				var decorationModelType = assembly.GetType("Eremite.Buildings.DecorationModel");
+				if (decorationModelType != null) {
+					_decorationShowPanelField = decorationModelType.GetField("showPanel", GameReflection.PublicInstance);
+				}
 			});
 		}
 
@@ -3731,6 +3740,19 @@ namespace ATSAccessibility.Reflection {
 			if (_decorationType == null) return false;
 
 			return _decorationType.IsInstanceOfType(building);
+		}
+
+		/// <summary>
+		/// Check if a Decoration has showPanel = true (interactive, not purely cosmetic).
+		/// </summary>
+		public static bool IsInteractiveDecoration(object building) {
+			if (!IsDecoration(building)) return false;
+			if (_decorationModelField == null || _decorationShowPanelField == null) return false;
+
+			var model = _decorationModelField.GetValue(building);
+			if (model == null) return false;
+
+			return ReflectionHelper.GetBool(_decorationShowPanelField, model);
 		}
 
 		// ========================================
