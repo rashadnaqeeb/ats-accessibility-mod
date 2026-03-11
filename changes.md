@@ -10,6 +10,8 @@
 
 ### Bug fixes
 
+* Soil values are now read for biomes on the world map in their info panels
+
 ### Internal
 
 * Extract version string into Plugin.ModVersion constant (was hardcoded as "1.2.3", corrected to "1.2.4")
