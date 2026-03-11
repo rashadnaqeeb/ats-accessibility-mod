@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.2.4
+## Changes since v1.2.5
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.2.5
 
 ### New features
 
