@@ -20,6 +20,8 @@ namespace ATSAccessibility.Utils {
 			_checked = true;
 			_result = null;
 
+			UnityEngine.Debug.Log($"[ATSAccessibility] Update check starting (current version: {currentVersion})");
+
 			var thread = new Thread(() => {
 				try {
 					var request = (HttpWebRequest)WebRequest.Create(API_URL);
@@ -32,6 +34,7 @@ namespace ATSAccessibility.Utils {
 						var match = TagRegex.Match(json);
 						if (match.Success) {
 							string latestVersion = match.Groups[1].Value;
+							UnityEngine.Debug.Log($"[ATSAccessibility] Latest release version: {latestVersion}");
 							if (latestVersion == currentVersion)
 								_result = "up-to-date";
 							else

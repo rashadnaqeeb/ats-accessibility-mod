@@ -121,6 +121,8 @@ namespace ATSAccessibility.Core {
 
 		// Update checker state
 		private bool _updateCheckHandled = false;
+		private float _updateCheckDelay = 0f;
+		private const float UPDATE_CHECK_ANNOUNCE_DELAY = 3f;
 
 		// Deferred menu rebuild (wait for user input after popup closes)
 		private bool _menuPendingSetup = false;
@@ -463,9 +465,12 @@ namespace ATSAccessibility.Core {
 			// Check for tutorial tooltip text changes (auto-announce)
 			_tutorialTooltipHandler?.CheckForTextChanges();
 
-			// Poll for update check result
-			if (!_updateCheckHandled && UpdateChecker.TryAnnounceResult())
-				_updateCheckHandled = true;
+			// Poll for update check result (delayed so menu setup speech finishes first)
+			if (!_updateCheckHandled) {
+				_updateCheckDelay += Time.unscaledDeltaTime;
+				if (_updateCheckDelay >= UPDATE_CHECK_ANNOUNCE_DELAY && UpdateChecker.TryAnnounceResult())
+					_updateCheckHandled = true;
+			}
 
 			// Polling for game state changes (settlement entry)
 			// Use unscaledDeltaTime so it works even when game is paused
@@ -610,6 +615,7 @@ namespace ATSAccessibility.Core {
 				if (Plugin.CheckForUpdates.Value) {
 					UpdateChecker.Check(Plugin.ModVersion);
 					_updateCheckHandled = false;
+					_updateCheckDelay = 0f;
 				}
 
 				// Set up main menu navigation after a short delay (let UI initialize)
