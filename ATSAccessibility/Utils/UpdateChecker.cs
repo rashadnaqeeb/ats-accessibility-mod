@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace ATSAccessibility.Utils {
 	public static class UpdateChecker {
-		private static readonly string RELEASES_URL = "https://github.com/rashadnaqeeb/ats-accessibility-mod/releases";
+		private static readonly string RELEASES_URL = "https://github.com/rashadnaqeeb/ats-accessibility-mod/releases/latest";
 		private static readonly string API_URL = "https://api.github.com/repos/rashadnaqeeb/ats-accessibility-mod/releases/latest";
 		private static readonly Regex TagRegex = new Regex(@"""tag_name""\s*:\s*""v?([^""]+)""", RegexOptions.Compiled);
 

@@ -6,7 +6,7 @@
 
 ### New features
 
-* Check for mod updates on game launch; announces if up to date or opens GitHub releases page if an update is available (configurable via General > CheckForUpdates)
+* Check for mod updates on game launch; announces if up to date or opens the latest GitHub release page if an update is available
 
 ### Bug fixes
 
