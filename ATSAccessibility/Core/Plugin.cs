@@ -8,8 +8,9 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 
 namespace ATSAccessibility.Core {
-	[BepInPlugin("com.accessibility.ats", "ATS Accessibility", "1.2.3")]
+	[BepInPlugin("com.accessibility.ats", "ATS Accessibility", ModVersion)]
 	public class Plugin: BaseUnityPlugin {
+		public const string ModVersion = "1.2.4";
 		[DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
 		private static extern bool SetDllDirectory(string lpPathName);
 
@@ -81,6 +82,9 @@ namespace ATSAccessibility.Core {
 
 		// Navigation
 		public static ConfigEntry<bool> AnnounceCoordinates;
+
+		// Updates
+		public static ConfigEntry<bool> CheckForUpdates;
 
 		private void Awake() {
 			try {
@@ -210,6 +214,10 @@ namespace ATSAccessibility.Core {
 			// Navigation
 			AnnounceCoordinates = Config.Bind("Navigation", "IncludeCoordinates", false,
 				"Append hearth-relative coordinates to tile announcements");
+
+			// Updates
+			CheckForUpdates = Config.Bind("General", "CheckForUpdates", true,
+				"Check for mod updates on game launch");
 
 			Logger.LogInfo("Announcement config entries initialized");
 		}

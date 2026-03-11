@@ -22,28 +22,34 @@ release-package/
 
 ## Creating a Release
 
-1. **Build the mod**:
+1. **Update the version number** in `ATSAccessibility/Core/Plugin.cs`:
+   Change the `ModVersion` constant to the new version. The `BepInPlugin` attribute and the update checker both read from this single constant.
+   ```csharp
+   public const string ModVersion = "X.X.X";
+   ```
+
+2. **Build the mod**:
    ```bash
    dotnet build ATSAccessibility/ATSAccessibility.csproj
    ```
 
-2. **Copy built DLL to release-package**:
+3. **Copy built DLL to release-package**:
    ```bash
    cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/ATSAccessibility/bin/Debug/net472/ATSAccessibility.dll" "C:/Users/rasha/Documents/ATS-Accessibility-Mod/release-package/BepInEx/plugins/ATSAccessibility/"
    ```
 
-3. **Copy README.md and LICENSE to release-package**:
+4. **Copy README.md and LICENSE to release-package**:
    ```bash
    cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/README.md" "C:/Users/rasha/Documents/ATS-Accessibility-Mod/release-package/"
    cp "C:/Users/rasha/Documents/ATS-Accessibility-Mod/LICENSE" "C:/Users/rasha/Documents/ATS-Accessibility-Mod/release-package/LICENSE.txt"
    ```
 
-4. **Create the zip** (use PowerShell on Windows):
+5. **Create the zip** (use PowerShell on Windows):
    ```bash
    cd "C:/Users/rasha/Documents/ATS-Accessibility-Mod/release-package" && powershell -Command "Compress-Archive -Path * -DestinationPath '../ATSAccessibility-vX.X.X-with-BepInEx.zip' -Force"
    ```
 
-5. **Tag and publish the release**:
+6. **Tag and publish the release**:
    ```bash
    git tag vX.X.X
    git push origin vX.X.X
@@ -52,7 +58,7 @@ release-package/
    Creating the tag locally before pushing ensures it exists in both the local repo and on GitHub. Do not use `gh release create` with `--target` alone, as that only creates the tag on the remote.
    Use the `--notes` flag with release notes derived from the "Changes since" section in `changes.md`, formatted to match the style of previous GitHub releases (see any prior release for the template with installation instructions, known limitations, etc.). Do not pass `changes.md` directly as `--notes-file` since it now contains the full project history.
 
-6. **Update changes.md** for the next cycle:
+7. **Update changes.md** for the next cycle:
    In `changes.md`, rename the `## Changes since vX.X.X` section to `## vX.X.X` and add a new empty `## Changes since vX.X.X` section above it with empty `### New features`, `### Bug fixes`, and `### Internal` subsections.
 
 ## Source Locations

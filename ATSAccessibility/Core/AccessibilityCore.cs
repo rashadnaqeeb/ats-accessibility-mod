@@ -119,6 +119,9 @@ namespace ATSAccessibility.Core {
 		// World tutorials overlay for tutorial selection on world map (not popup-routed)
 		private WorldTutorialsOverlay _worldTutorialsOverlay;
 
+		// Update checker state
+		private bool _updateCheckHandled = false;
+
 		// Deferred menu rebuild (wait for user input after popup closes)
 		private bool _menuPendingSetup = false;
 
@@ -460,6 +463,10 @@ namespace ATSAccessibility.Core {
 			// Check for tutorial tooltip text changes (auto-announce)
 			_tutorialTooltipHandler?.CheckForTextChanges();
 
+			// Poll for update check result
+			if (!_updateCheckHandled && UpdateChecker.TryAnnounceResult())
+				_updateCheckHandled = true;
+
 			// Polling for game state changes (settlement entry)
 			// Use unscaledDeltaTime so it works even when game is paused
 			_pollTimer += Time.unscaledDeltaTime;
@@ -598,6 +605,12 @@ namespace ATSAccessibility.Core {
 				Speech.Say("Main menu");
 				_announcedMainMenu = true;
 				Debug.Log("[ATSAccessibility] Announced: Main menu");
+
+				// Check for mod updates
+				if (Plugin.CheckForUpdates.Value) {
+					UpdateChecker.Check(Plugin.ModVersion);
+					_updateCheckHandled = false;
+				}
 
 				// Set up main menu navigation after a short delay (let UI initialize)
 				Invoke(nameof(SetupMainMenuNavigation), ANNOUNCEMENT_DELAY);

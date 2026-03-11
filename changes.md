@@ -6,9 +6,13 @@
 
 ### New features
 
+* Check for mod updates on game launch; announces if up to date or opens GitHub releases page if an update is available (configurable via General > CheckForUpdates)
+
 ### Bug fixes
 
 ### Internal
+
+* Extract version string into Plugin.ModVersion constant (was hardcoded as "1.2.3", corrected to "1.2.4")
 
 ## v1.2.4
 
