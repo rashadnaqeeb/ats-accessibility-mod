@@ -236,7 +236,7 @@ Press F3 to pick your new Blueprints. Select the Small Foragers' Camp (and the S
 
 #### Finding Vegetable Deposits
 
-Press Ctrl+PageUp/Down to switch to the Resources category. Use Shift+PageUp/Down to reach Collected Resources. Navigate until you find Vegetables deposits, then press Home to move your cursor there.
+Press Ctrl+PageUp/Down to switch to the Resources category. Use Shift+PageUp/Down to reach Nodes Small. Navigate until you find Vegetables deposits, then press Home to move your cursor there.
 
 #### Placing the Foragers' Camp
 
