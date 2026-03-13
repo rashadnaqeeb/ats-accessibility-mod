@@ -8,6 +8,7 @@
 
 ### Bug fixes
 - Fix farm range preview showing fertile soil in unrevealed glades when pressing D during placement
+- Fix glade events with order requirements (e.g. ghost decorations) always blocking investigation start even when objectives are met
 
 ### Internal
 

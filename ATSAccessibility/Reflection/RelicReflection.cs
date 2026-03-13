@@ -821,11 +821,12 @@ namespace ATSAccessibility.Reflection {
 					}
 				}
 
-				// Order check
+				// Order check - use CanCompleteOrder (objectives met?) not IsOrderCompleted
+				// (formally completed flag, only set when StartInvestigation calls CompleteOrder)
 				bool hasOrder = ReflectionHelper.InvokeBool(_relicHasOrderMethod, building);
 				if (hasOrder) {
-					bool orderCompleted = ReflectionHelper.InvokeBool(_relicIsOrderCompletedMethod, building);
-					if (!orderCompleted) {
+					bool canComplete = ReflectionHelper.InvokeBool(_relicCanCompleteOrderMethod, building);
+					if (!canComplete) {
 						var objectives = GetRelicOrderObjectiveTexts(building);
 						if (objectives != null && objectives.Count > 0)
 							blockingReason = "Complete order: " + string.Join(", ", objectives);
