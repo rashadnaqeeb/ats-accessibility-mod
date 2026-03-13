@@ -1188,25 +1188,10 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static bool IsInUnrevealedGlade(int x, int y) {
 			try {
-				var gladesService = GameReflection.GetGladesService();
-				if (gladesService == null) return false;
+				var glade = GameReflection.GetGlade(x, y);
+				if (glade == null) return false;
 
-				var isGladeMethod = gladesService.GetType().GetMethod("IsGlade", GameReflection.PublicInstance);
-				if (isGladeMethod != null) {
-					var position = new Vector2Int(x, y);
-					bool isGlade = (bool)isGladeMethod.Invoke(gladesService, new object[] { position });
-					if (!isGlade) return false;
-
-					// Get the glade and check if it's revealed
-					var glade = GameReflection.GetGlade(x, y);
-					if (glade == null) return true;  // Assume unrevealed if can't get glade
-
-					var isDiscoveredProp = glade.GetType().GetProperty("IsDiscovered", GameReflection.PublicInstance);
-					if (isDiscoveredProp != null) {
-						bool isDiscovered = (bool)isDiscoveredProp.GetValue(glade);
-						return !isDiscovered;
-					}
-				}
+				return !GetGladeWasDiscovered(glade);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] IsInUnrevealedGlade failed: {ex.Message}");
 			}

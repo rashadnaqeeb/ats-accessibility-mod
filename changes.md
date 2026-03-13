@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Fix farm range preview showing fertile soil in unrevealed glades when pressing D during placement
 
 ### Internal
 
