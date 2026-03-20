@@ -9,6 +9,7 @@
 - Add Biome Resources category to modifiers panel (Shift+M): shows soil grade, deposits, and resources from trees
 - Add dynamic state info to modifiers panel: mystery stack counts, cornerstone stacks, hook progress (e.g. "7/15"), and retroactive previews (e.g. "Gained so far: 50 wood")
 - Add warehouse storage reserve (minimum) support: view and adjust per-good reserves with +/- keys (Shift for ±10) in the Goods section
+- Add hint to trade route offers about using plus/minus to adjust level
 
 ### Bug fixes
 

@@ -453,6 +453,9 @@ namespace ATSAccessibility.Overlays {
 				baseLabel += ", available";
 			}
 
+			if (!offer.Accepted && offer.MaxMultiplier > 1)
+				baseLabel += ". Press plus and minus to adjust level";
+
 			return baseLabel;
 		}
 
