@@ -3150,6 +3150,187 @@ namespace ATSAccessibility.Reflection {
 
 
 
+		// ========================================
+		// HOOKED EFFECTS (Dynamic State Preview)
+		// ========================================
+
+		private static PropertyInfo _ssHookedEffectsProperty = null;
+		private static FieldInfo _heActiveEffectsField = null;
+		private static FieldInfo _hesModelField = null;
+		private static FieldInfo _hesIsRemovalHookField = null;
+		private static FieldInfo _hemHasDynamicStatePreviewField = null;
+		private static MethodInfo _hemGetDynamicStatePreviewMethod = null;
+		private static FieldInfo _hemHasRemovalDynamicStatePreviewField = null;
+		private static MethodInfo _hemGetRemovalDynamicStatePreviewMethod = null;
+		private static FieldInfo _cemHasNestedStatePreviewField = null;
+		private static MethodInfo _cemGetNestedEffectForStatePreviewMethod = null;
+		private static MethodInfo _emGetTooltipFootnoteMethod = null;
+		private static bool _hookedEffectsTypesCached = false;
+
+		private static void EnsureHookedEffectsTypes() {
+			if (_hookedEffectsTypesCached) return;
+			EnsureGameServicesTypes();
+
+			if (_gameAssembly == null) {
+				_hookedEffectsTypesCached = true;
+				return;
+			}
+
+			try {
+				// IStateService.HookedEffects property
+				var stateServiceType = _gameAssembly.GetType("Eremite.Services.IStateService");
+				if (stateServiceType != null) {
+					_ssHookedEffectsProperty = stateServiceType.GetProperty("HookedEffects",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				// GameHookedEffectsState.activeEffects field
+				var hookedEffectsStateType = _gameAssembly.GetType("Eremite.Model.Effects.GameHookedEffectsState");
+				if (hookedEffectsStateType != null) {
+					_heActiveEffectsField = hookedEffectsStateType.GetField("activeEffects",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				// HookedEffectState fields
+				var hookedEffectStateType = _gameAssembly.GetType("Eremite.Model.Effects.HookedEffectState");
+				if (hookedEffectStateType != null) {
+					_hesModelField = hookedEffectStateType.GetField("model",
+						BindingFlags.Public | BindingFlags.Instance);
+					_hesIsRemovalHookField = hookedEffectStateType.GetField("isRemovalHook",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				// HookedEffectModel fields and methods
+				var hookedEffectModelType = _gameAssembly.GetType("Eremite.Model.Effects.HookedEffectModel");
+				if (hookedEffectModelType != null) {
+					_hemHasDynamicStatePreviewField = hookedEffectModelType.GetField("hasDynamicStatePreview",
+						BindingFlags.Public | BindingFlags.Instance);
+					_hemGetDynamicStatePreviewMethod = hookedEffectModelType.GetMethod("GetDynamicStatePreview",
+						BindingFlags.Public | BindingFlags.Instance);
+					_hemHasRemovalDynamicStatePreviewField = hookedEffectModelType.GetField("hasRemovalDynamicStatePreview",
+						BindingFlags.Public | BindingFlags.Instance);
+					_hemGetRemovalDynamicStatePreviewMethod = hookedEffectModelType.GetMethod("GetRemovalDynamicStatePreview",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				// CompositeEffectModel fields and methods
+				var compositeEffectModelType = _gameAssembly.GetType("Eremite.Model.Effects.CompositeEffectModel");
+				if (compositeEffectModelType != null) {
+					_cemHasNestedStatePreviewField = compositeEffectModelType.GetField("hasNestedStatePreview",
+						BindingFlags.Public | BindingFlags.Instance);
+					_cemGetNestedEffectForStatePreviewMethod = compositeEffectModelType.GetMethod("GetNestedEffectForStatePreview",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				// EffectModel.GetTooltipFootnote method
+				var effectModelType = _gameAssembly.GetType("Eremite.Model.EffectModel");
+				if (effectModelType != null) {
+					_emGetTooltipFootnoteMethod = effectModelType.GetMethod("GetTooltipFootnote",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				Debug.Log("[ATSAccessibility] Cached hooked effects types");
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] Hooked effects type caching failed: {ex.Message}");
+			}
+
+			_hookedEffectsTypesCached = true;
+		}
+
+		/// <summary>
+		/// Get the active hooked effects list from StateService.HookedEffects.activeEffects.
+		/// </summary>
+		public static System.Collections.IList GetHookedEffectsActiveList() {
+			EnsureHookedEffectsTypes();
+			var stateService = GetStateService();
+			if (stateService == null) return null;
+
+			try {
+				var hookedEffectsState = _ssHookedEffectsProperty?.GetValue(stateService);
+				if (hookedEffectsState == null) return null;
+				return _heActiveEffectsField?.GetValue(hookedEffectsState) as System.Collections.IList;
+			} catch {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the dynamic state preview text for a hooked or composite effect model.
+		/// Finds matching HookedEffectState(s) from activeEffects and calls
+		/// GetDynamicStatePreview / GetRemovalDynamicStatePreview.
+		/// Returns combined preview text, or null if none available.
+		/// </summary>
+		public static string GetHookedEffectDynamicPreview(object effectModel, string effectName) {
+			if (effectModel == null || string.IsNullOrEmpty(effectName)) return null;
+			EnsureHookedEffectsTypes();
+
+			try {
+				// Handle CompositeEffectModel with nested state preview
+				object hookedModel = effectModel;
+				string lookupName = effectName;
+
+				bool hasNested = (bool?)_cemHasNestedStatePreviewField?.GetValue(effectModel) ?? false;
+				if (hasNested && _cemGetNestedEffectForStatePreviewMethod != null) {
+					var nestedEffect = _cemGetNestedEffectForStatePreviewMethod.Invoke(effectModel, null);
+					if (nestedEffect != null) {
+						hookedModel = nestedEffect;
+						lookupName = GetEffectName(nestedEffect) ?? effectName;
+					}
+				}
+
+				// Check if the model is a HookedEffectModel
+				bool hasDynamic = (bool?)_hemHasDynamicStatePreviewField?.GetValue(hookedModel) ?? false;
+				bool hasRemovalDynamic = (bool?)_hemHasRemovalDynamicStatePreviewField?.GetValue(hookedModel) ?? false;
+				if (!hasDynamic && !hasRemovalDynamic) return null;
+
+				// Get matching states from activeEffects
+				var activeList = GetHookedEffectsActiveList();
+				if (activeList == null) return null;
+
+				var parts = new List<string>();
+
+				foreach (var state in activeList) {
+					if (state == null) continue;
+
+					string stateModel = _hesModelField?.GetValue(state) as string;
+					if (stateModel != lookupName) continue;
+
+					bool isRemoval = (bool?)_hesIsRemovalHookField?.GetValue(state) ?? false;
+
+					if (!isRemoval && hasDynamic && _hemGetDynamicStatePreviewMethod != null) {
+						var preview = _hemGetDynamicStatePreviewMethod.Invoke(hookedModel, new[] { state }) as string;
+						if (!string.IsNullOrEmpty(preview))
+							parts.Add(preview);
+					} else if (isRemoval && hasRemovalDynamic && _hemGetRemovalDynamicStatePreviewMethod != null) {
+						var preview = _hemGetRemovalDynamicStatePreviewMethod.Invoke(hookedModel, new[] { state }) as string;
+						if (!string.IsNullOrEmpty(preview))
+							parts.Add(preview);
+					}
+				}
+
+				return parts.Count > 0 ? string.Join(". ", parts) : null;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetHookedEffectDynamicPreview failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the tooltip footnote text for an effect model (retroactive preview).
+		/// Returns null if no footnote available.
+		/// </summary>
+		public static string GetEffectTooltipFootnote(object effectModel) {
+			if (effectModel == null) return null;
+			EnsureHookedEffectsTypes();
+
+			try {
+				if (_emGetTooltipFootnoteMethod == null) return null;
+				return _emGetTooltipFootnoteMethod.Invoke(effectModel, null) as string;
+			} catch {
+				return null;
+			}
+		}
+
 		public static int LogCacheStatus() {
 			return ReflectionValidator.TriggerAndValidate(typeof(GameReflection), "GameReflection");
 		}

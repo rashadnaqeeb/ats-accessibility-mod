@@ -38,7 +38,8 @@ namespace ATSAccessibility.Panels {
 			public bool IsConditional { get; set; }
 			public string ConditionText { get; set; }
 			public ItemType Type { get; set; } = ItemType.Mystery;
-			public int Stacks { get; set; } = 1;  // For perks
+			public int Stacks { get; set; } = 1;  // For perks and mysteries
+			public string StatusText { get; set; }
 		}
 
 		/// <summary>
@@ -57,6 +58,7 @@ namespace ATSAccessibility.Panels {
 		private static FieldInfo _sesSeasonField = null;
 		private static FieldInfo _sesIsActiveField = null;
 		private static FieldInfo _sesIsPositiveField = null;
+		private static FieldInfo _sesStacksField = null;
 		private static bool _sesFieldsCached = false;
 
 		// Cached reflection for EffectModel DisplayName/Description (for modifiers)
@@ -307,9 +309,10 @@ namespace ATSAccessibility.Panels {
 
 			switch (item.Type) {
 				case ItemType.Mystery:
-					// Mysteries format: "Active/Inactive, Name, Season. Description Condition"
+					// Mysteries format: "Active/Inactive, Name [xN], Season. Description Condition"
 					string status = item.IsActive ? "Active" : "Inactive";
-					parts.Add($"{status}, {item.Name}, {item.Season}.");
+					string mysteryName = item.Stacks > 1 ? $"{item.Name} x{item.Stacks}" : item.Name;
+					parts.Add($"{status}, {mysteryName}, {item.Season}.");
 
 					if (!string.IsNullOrEmpty(item.Description))
 						parts.Add(item.Description);
@@ -320,15 +323,24 @@ namespace ATSAccessibility.Panels {
 					break;
 
 				case ItemType.Effect:
-				case ItemType.Cornerstone:
-					// Effects/Cornerstones format: "Name. Description"
+					// Effects format: "Name. Description [StatusText]"
 					parts.Add(item.Name + ".");
 					if (!string.IsNullOrEmpty(item.Description))
 						parts.Add(item.Description);
 					break;
 
+				case ItemType.Cornerstone:
+					// Cornerstones format: "Name [xN]. Description [StatusText]"
+					if (item.Stacks > 1)
+						parts.Add($"{item.Name} x{item.Stacks}.");
+					else
+						parts.Add(item.Name + ".");
+					if (!string.IsNullOrEmpty(item.Description))
+						parts.Add(item.Description);
+					break;
+
 				case ItemType.Perk:
-					// Perks format: "Name x3. Description" or "Name. Description" if stacks=1
+					// Perks format: "Name x3. Description [StatusText]" or "Name. Description" if stacks=1
 					if (item.Stacks > 1)
 						parts.Add($"{item.Name} x{item.Stacks}.");
 					else
@@ -343,6 +355,10 @@ namespace ATSAccessibility.Panels {
 					parts.Add(item.Name);
 					break;
 			}
+
+			// Append dynamic state text (hook progress, retroactive preview) for non-biome items
+			if (item.Type != ItemType.BiomeResource && !string.IsNullOrEmpty(item.StatusText))
+				parts.Add(item.StatusText);
 
 			return string.Join(" ", parts);
 		}
@@ -498,10 +514,26 @@ namespace ATSAccessibility.Panels {
 
 			EnsureModelFields();
 
+			// Build a lookup from perk name → stacks for cornerstones
+			var stacksLookup = new Dictionary<string, int>();
+			var sortedPerks = GameReflection.GetSortedPerks();
+			if (sortedPerks != null) {
+				foreach (var perkState in sortedPerks) {
+					if (perkState == null) continue;
+					var (name, stacks, _) = GameReflection.GetPerkInfo(perkState);
+					if (!string.IsNullOrEmpty(name) && stacks > 1)
+						stacksLookup[name] = stacks;
+				}
+			}
+
 			foreach (var effectName in cornerstones) {
 				if (string.IsNullOrEmpty(effectName)) continue;
 
-				var item = CreateCornerstoneItem(effectName);
+				int stacks = 1;
+				stacksLookup.TryGetValue(effectName, out int s);
+				if (s > 1) stacks = s;
+
+				var item = CreateCornerstoneItem(effectName, stacks);
 				if (item != null)
 					items.Add(item);
 			}
@@ -572,6 +604,8 @@ namespace ATSAccessibility.Panels {
 						BindingFlags.Public | BindingFlags.Instance);
 					_sesIsPositiveField = sesType.GetField("isPositive",
 						BindingFlags.Public | BindingFlags.Instance);
+					_sesStacksField = sesType.GetField("stacks",
+						BindingFlags.Public | BindingFlags.Instance);
 
 					Debug.Log("[ATSAccessibility] Cached SeasonalEffectState fields");
 				}
@@ -640,6 +674,7 @@ namespace ATSAccessibility.Panels {
 				object seasonEnum = _sesSeasonField?.GetValue(state);
 				bool isPositive = (bool)(_sesIsPositiveField?.GetValue(state) ?? false);
 				bool isActive = GetIsActive(state);
+				int stacks = (int?)_sesStacksField?.GetValue(state) ?? 1;
 
 				// Convert season enum to string
 				string season = seasonEnum?.ToString() ?? "";
@@ -689,7 +724,8 @@ namespace ATSAccessibility.Panels {
 					IsPositive = isPositive,
 					IsActive = isActive,
 					IsConditional = isConditional,
-					ConditionText = conditionText
+					ConditionText = conditionText,
+					Stacks = stacks
 				};
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] CreateMysteryItem failed: {ex.Message}");
@@ -785,6 +821,25 @@ namespace ATSAccessibility.Panels {
 		}
 
 		/// <summary>
+		/// Get dynamic state text for an effect model (hook progress + tooltip footnote).
+		/// </summary>
+		private string GetEffectStatusText(object effectModel, string effectName) {
+			if (effectModel == null) return null;
+
+			var parts = new List<string>();
+
+			string dynamicPreview = GameReflection.GetHookedEffectDynamicPreview(effectModel, effectName);
+			if (!string.IsNullOrEmpty(dynamicPreview))
+				parts.Add(dynamicPreview);
+
+			string footnote = GameReflection.GetEffectTooltipFootnote(effectModel);
+			if (!string.IsNullOrEmpty(footnote))
+				parts.Add(footnote);
+
+			return parts.Count > 0 ? string.Join(". ", parts) : null;
+		}
+
+		/// <summary>
 		/// Create a MysteryItem from an EffectModel object (for effects from GetAllConditions).
 		/// </summary>
 		private MysteryItem CreateEffectItem(object effectModel) {
@@ -810,11 +865,14 @@ namespace ATSAccessibility.Panels {
 					if (string.IsNullOrEmpty(displayName)) return null;
 				}
 
+				string internalName = GameReflection.GetEffectName(effectModel);
+
 				return new MysteryItem {
 					Name = displayName,
 					Description = description,
 					Type = ItemType.Effect,
-					IsActive = true
+					IsActive = true,
+					StatusText = GetEffectStatusText(effectModel, internalName)
 				};
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] CreateEffectItem failed: {ex.Message}");
@@ -825,7 +883,7 @@ namespace ATSAccessibility.Panels {
 		/// <summary>
 		/// Create a MysteryItem from a cornerstone effect name.
 		/// </summary>
-		private MysteryItem CreateCornerstoneItem(string effectName) {
+		private MysteryItem CreateCornerstoneItem(string effectName, int stacks) {
 			if (string.IsNullOrEmpty(effectName)) return null;
 
 			try {
@@ -850,7 +908,9 @@ namespace ATSAccessibility.Panels {
 					Name = displayName,
 					Description = description,
 					Type = ItemType.Cornerstone,
-					IsActive = true
+					IsActive = true,
+					Stacks = stacks,
+					StatusText = GetEffectStatusText(model, effectName)
 				};
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] CreateCornerstoneItem failed: {ex.Message}");
@@ -887,7 +947,8 @@ namespace ATSAccessibility.Panels {
 					Description = description,
 					Type = ItemType.Perk,
 					Stacks = stacks,
-					IsActive = true
+					IsActive = true,
+					StatusText = GetEffectStatusText(model, effectName)
 				};
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] CreatePerkItem failed: {ex.Message}");
