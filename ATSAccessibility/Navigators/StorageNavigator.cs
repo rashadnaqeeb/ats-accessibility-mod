@@ -1,5 +1,7 @@
 using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
+using ATSAccessibility.Core;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -28,7 +30,13 @@ namespace ATSAccessibility.Navigators {
 		private SectionType[] _sectionTypes;
 
 		// Goods data (from global storage)
-		private List<(string goodName, string displayName, int amount)> _goods = new List<(string, string, int)>();
+		private class GoodData {
+			public string GoodName;
+			public string DisplayName;
+			public int Amount;
+			public int Reserve;
+		}
+		private List<GoodData> _goods = new List<GoodData>();
 
 		// Abilities data
 		private int _abilityCount;
@@ -156,11 +164,16 @@ namespace ATSAccessibility.Navigators {
 			var storageGoods = GameReflection.GetStorageGoods();
 			foreach (var kvp in storageGoods) {
 				string displayName = GameReflection.GetGoodDisplayName(kvp.Key) ?? kvp.Key;
-				_goods.Add((kvp.Key, displayName, kvp.Value));
+				_goods.Add(new GoodData {
+					GoodName = kvp.Key,
+					DisplayName = displayName,
+					Amount = kvp.Value,
+					Reserve = RecipesReflection.GetStorageReserve(kvp.Key)
+				});
 			}
 
 			// Sort by display name for easier navigation
-			_goods.Sort((a, b) => string.Compare(a.displayName, b.displayName));
+			_goods.Sort((a, b) => string.Compare(a.DisplayName, b.DisplayName));
 		}
 
 		private void RefreshAbilityData() {
@@ -212,7 +225,10 @@ namespace ATSAccessibility.Navigators {
 
 			if (itemIndex < _goods.Count) {
 				var good = _goods[itemIndex];
-				Speech.Say($"{good.displayName}: {good.amount}");
+				string text = $"{good.DisplayName}: {good.Amount}";
+				if (good.Reserve > 0)
+					text += $", reserve {good.Reserve}";
+				Speech.Say(text);
 			}
 		}
 
@@ -283,6 +299,31 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		// ========================================
+		// GOODS ADJUSTMENT (+/- RESERVE)
+		// ========================================
+
+		protected override void AdjustItemValue(int sectionIndex, int itemIndex, int delta, KeyboardManager.KeyModifiers modifiers) {
+			if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
+				return;
+
+			if (_sectionTypes[sectionIndex] != SectionType.Goods)
+				return;
+
+			if (itemIndex >= _goods.Count)
+				return;
+
+			var good = _goods[itemIndex];
+			int adjustedDelta = delta * (modifiers.Shift ? 10 : 1);
+			int newReserve = Math.Max(0, good.Reserve + adjustedDelta);
+
+			RecipesReflection.SetStorageReserve(good.GoodName, newReserve);
+			good.Reserve = newReserve;
+
+			SoundManager.PlayButtonClick();
+			Speech.Say(newReserve > 0 ? $"Reserve {newReserve}" : "No reserve");
+		}
+
+		// ========================================
 		// SEARCH NAME METHODS
 		// ========================================
 
@@ -298,7 +339,7 @@ namespace ATSAccessibility.Navigators {
 
 			switch (_sectionTypes[sectionIndex]) {
 				case SectionType.Goods:
-					return itemIndex < _goods.Count ? _goods[itemIndex].displayName : null;
+					return itemIndex < _goods.Count ? _goods[itemIndex].DisplayName : null;
 				case SectionType.Workers:
 					return _workersSection.GetItemName(itemIndex);
 				case SectionType.Abilities:

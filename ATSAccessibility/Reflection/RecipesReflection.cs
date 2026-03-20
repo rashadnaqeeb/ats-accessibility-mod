@@ -25,6 +25,11 @@ namespace ATSAccessibility.Reflection {
 		private static PropertyInfo _gsStorageServiceProperty = null;
 		private static MethodInfo _getAmountMethod = null;
 
+		// StoragePrefsService
+		private static PropertyInfo _gsStoragePrefsServiceProperty = null;
+		private static MethodInfo _getLimitMethod = null;
+		private static MethodInfo _setLimitMethod = null;
+
 		// BuildingsService
 		private static PropertyInfo _gsBuildingsServiceProperty = null;
 		private static PropertyInfo _workshopsDictProperty = null;
@@ -135,6 +140,17 @@ namespace ATSAccessibility.Reflection {
 			if (storageServiceType != null) {
 				_getAmountMethod = storageServiceType.GetMethod("GetAmount",
 					new[] { typeof(string) });
+			}
+
+			// StoragePrefsService
+			_gsStoragePrefsServiceProperty = gameServicesType?.GetProperty("StoragePrefsService",
+				BindingFlags.Public | BindingFlags.Instance);
+			var storagePrefsServiceType = assembly.GetType("Eremite.Services.IStoragePrefsService");
+			if (storagePrefsServiceType != null) {
+				_getLimitMethod = storagePrefsServiceType.GetMethod("GetLimit",
+					new[] { typeof(string) });
+				_setLimitMethod = storagePrefsServiceType.GetMethod("SetLimit",
+					new[] { typeof(string), typeof(int) });
 			}
 
 			// BuildingsService dictionaries
@@ -283,6 +299,7 @@ namespace ATSAccessibility.Reflection {
 
 		private static object GetWorkshopsService() => GetGameService(_gsWorkshopsServiceProperty);
 		private static object GetStorageService() => GetGameService(_gsStorageServiceProperty);
+		private static object GetStoragePrefsService() => GetGameService(_gsStoragePrefsServiceProperty);
 		private static object GetBuildingsService() => GetGameService(_gsBuildingsServiceProperty);
 		private static object GetGameContentService() => GetGameService(_gsGameContentServiceProperty);
 		private static object GetRecipesService() => GetGameService(_gsRecipesServiceProperty);
@@ -327,6 +344,28 @@ namespace ATSAccessibility.Reflection {
 		public static int GetStorageAmount(string goodName) {
 			var storageService = GetStorageService();
 			return ReflectionHelper.InvokeInt(_getAmountMethod, storageService, goodName);
+		}
+
+		// ========================================
+		// STORAGE RESERVE (MINIMUM) ACCESS
+		// ========================================
+
+		/// <summary>
+		/// Get the storage reserve (minimum) for a good.
+		/// Returns 0 if no reserve is set.
+		/// </summary>
+		public static int GetStorageReserve(string goodName) {
+			var storagePrefsService = GetStoragePrefsService();
+			return ReflectionHelper.InvokeInt(_getLimitMethod, storagePrefsService, goodName);
+		}
+
+		/// <summary>
+		/// Set the storage reserve (minimum) for a good.
+		/// Setting to 0 removes the reserve.
+		/// </summary>
+		public static bool SetStorageReserve(string goodName, int amount) {
+			var storagePrefsService = GetStoragePrefsService();
+			return ReflectionHelper.InvokeVoid(_setLimitMethod, storagePrefsService, goodName, amount);
 		}
 
 		// ========================================
