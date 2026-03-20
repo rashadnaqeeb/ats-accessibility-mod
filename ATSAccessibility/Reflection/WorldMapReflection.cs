@@ -1700,6 +1700,90 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
+		/// Get the display name from a BiomeModel object.
+		/// </summary>
+		public static string GetBiomeName(object biome) {
+			EnsureWorldMapTypes();
+			if (biome == null || _biomeDisplayNameField == null) return null;
+
+			try {
+				var displayName = _biomeDisplayNameField.GetValue(biome);
+				return GameReflection.GetLocaText(displayName);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetBiomeName failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the soil grade string from a BiomeModel object.
+		/// </summary>
+		public static string GetBiomeSoilGrade(object biome) {
+			EnsureWorldMapTypes();
+			if (biome == null || _biomeSoilGradeField == null) return null;
+
+			try {
+				var soilGrade = _biomeSoilGradeField.GetValue(biome);
+				return GameReflection.GetLocaText(soilGrade);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetBiomeSoilGrade failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the deposit good names from a BiomeModel object.
+		/// </summary>
+		public static List<string> GetBiomeDepositsGoods(object biome) {
+			EnsureWorldMapTypes();
+			if (biome == null || _biomeGetDepositsGoodsMethod == null) return null;
+
+			try {
+				var goods = _biomeGetDepositsGoodsMethod.Invoke(biome, null) as System.Collections.IEnumerable;
+				if (goods == null) return null;
+
+				var result = new List<string>();
+				foreach (var good in goods) {
+					if (good == null) continue;
+					var displayName = _goodDisplayNameField?.GetValue(good);
+					var text = GameReflection.GetLocaText(displayName);
+					if (!string.IsNullOrEmpty(text))
+						result.Add(text);
+				}
+				return result;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetBiomeDepositsGoods failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get the tree/natural resource good names from a BiomeModel object.
+		/// </summary>
+		public static List<string> GetBiomeTreesGoods(object biome) {
+			EnsureWorldMapTypes();
+			if (biome == null || _biomeGetTreesGoodsMethod == null) return null;
+
+			try {
+				var goods = _biomeGetTreesGoodsMethod.Invoke(biome, null) as System.Collections.IEnumerable;
+				if (goods == null) return null;
+
+				var result = new List<string>();
+				foreach (var good in goods) {
+					if (good == null) continue;
+					var displayName = _goodDisplayNameField?.GetValue(good);
+					var text = GameReflection.GetLocaText(displayName);
+					if (!string.IsNullOrEmpty(text))
+						result.Add(text);
+				}
+				return result;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetBiomeTreesGoods failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Get field effects with their descriptions for a world map position.
 		/// Returns list of (name, description) tuples, sorted with negative effects first.
 		/// </summary>

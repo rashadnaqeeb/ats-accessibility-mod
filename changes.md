@@ -6,6 +6,7 @@
 
 ### New features
 - Add settlement name support on embark screen: view, edit, and randomize the settlement name before embarking
+- Add Biome Resources category to modifiers panel (Shift+M): shows soil grade, deposits, and resources from trees
 
 ### Bug fixes
 

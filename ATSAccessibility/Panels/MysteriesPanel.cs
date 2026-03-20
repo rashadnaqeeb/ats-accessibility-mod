@@ -10,7 +10,7 @@ using UnityEngine;
 namespace ATSAccessibility.Panels {
 	/// <summary>
 	/// Virtual speech panel for settlement modifiers.
-	/// Five categories: Positive Mysteries, Negative Mysteries, Effects, Cornerstones, Perks.
+	/// Six categories: Biome Resources, Positive Mysteries, Negative Mysteries, Effects, Cornerstones, Perks.
 	/// Level 0 = categories, Level 1 = items within a category.
 	/// Cross-category item navigation flows between categories on Up/Down at boundaries.
 	/// </summary>
@@ -19,10 +19,11 @@ namespace ATSAccessibility.Panels {
 		/// The type of item in a category, used for formatting announcements.
 		/// </summary>
 		private enum ItemType {
-			Mystery,      // Seasonal effects with active/inactive status
-			Effect,       // Biome/difficulty/embark effects
-			Cornerstone,  // Active cornerstones
-			Perk          // Perks with stacks
+			Mystery,        // Seasonal effects with active/inactive status
+			Effect,         // Biome/difficulty/embark effects
+			Cornerstone,    // Active cornerstones
+			Perk,           // Perks with stacks
+			BiomeResource   // Biome resource info (soil, deposits, trees)
 		}
 
 		/// <summary>
@@ -121,12 +122,19 @@ namespace ATSAccessibility.Panels {
 		protected override void RefreshData() {
 			_categories.Clear();
 
+			// Category 1: Biome Resources (soil, deposits, trees)
+			_categories.Add(new Category {
+				Name = "Biome Resources",
+				Type = ItemType.BiomeResource,
+				Items = GetBiomeResourceItems()
+			});
+
 			// Build exclusion sets for perks category
 			var mysteryNames = new HashSet<string>();
 			var cornerstoneNames = new HashSet<string>();
 			var effectNames = new HashSet<string>();
 
-			// Category 1-2: Get all mysteries split by positive/negative
+			// Category 2-3: Get all mysteries split by positive/negative
 			// Also collects mystery model names AND wrapped effect names for exclusion
 			var (positiveMysteries, negativeMysteries) = GetMysteriesByType(mysteryNames);
 
@@ -142,7 +150,7 @@ namespace ATSAccessibility.Panels {
 				Items = negativeMysteries
 			});
 
-			// Category 3: Effects (biome, difficulty, embark, events)
+			// Category 4: Effects (biome, difficulty, embark, events)
 			// Excludes IsPerk=true effects (those show under Perks)
 			// Also collects effect names for exclusion from perks
 			_categories.Add(new Category {
@@ -151,7 +159,7 @@ namespace ATSAccessibility.Panels {
 				Items = GetActiveEffects(effectNames)
 			});
 
-			// Category 4: Cornerstones
+			// Category 5: Cornerstones
 			// Also collect cornerstone names for exclusion from perks
 			var cornerstones = GameReflection.GetActiveCornerstones();
 			if (cornerstones != null) {
@@ -167,14 +175,14 @@ namespace ATSAccessibility.Panels {
 				Items = GetCornerstoneItems(cornerstones)
 			});
 
-			// Category 5: Perks (exclude mysteries + cornerstones + effects)
+			// Category 6: Perks (exclude mysteries + cornerstones + effects)
 			_categories.Add(new Category {
 				Name = "Perks",
 				Type = ItemType.Perk,
 				Items = GetActivePerks(mysteryNames, cornerstoneNames, effectNames)
 			});
 
-			Debug.Log($"[ATSAccessibility] Modifiers panel refreshed: PosMyst={_categories[0].Items.Count}, NegMyst={_categories[1].Items.Count}, Effects={_categories[2].Items.Count}, Cornerstones={_categories[3].Items.Count}, Perks={_categories[4].Items.Count}");
+			Debug.Log($"[ATSAccessibility] Modifiers panel refreshed: BiomeRes={_categories[0].Items.Count}, PosMyst={_categories[1].Items.Count}, NegMyst={_categories[2].Items.Count}, Effects={_categories[3].Items.Count}, Cornerstones={_categories[4].Items.Count}, Perks={_categories[5].Items.Count}");
 		}
 
 		protected override EnterAction OnEnter(int index) {
@@ -329,9 +337,62 @@ namespace ATSAccessibility.Panels {
 					if (!string.IsNullOrEmpty(item.Description))
 						parts.Add(item.Description);
 					break;
+
+				case ItemType.BiomeResource:
+					// Biome resources: just the name (already formatted with label and values)
+					parts.Add(item.Name);
+					break;
 			}
 
 			return string.Join(" ", parts);
+		}
+
+		// ========================================
+		// BIOME RESOURCE DATA
+		// ========================================
+
+		/// <summary>
+		/// Get biome resource items: soil grade, deposits, and resources from trees.
+		/// </summary>
+		private List<MysteryItem> GetBiomeResourceItems() {
+			var items = new List<MysteryItem>();
+
+			var biome = GameReflection.GetCurrentBiome();
+			if (biome == null) return items;
+
+			string biomeName = WorldMapReflection.GetBiomeName(biome);
+
+			// Soil grade
+			string soilGrade = WorldMapReflection.GetBiomeSoilGrade(biome);
+			if (!string.IsNullOrEmpty(soilGrade)) {
+				items.Add(new MysteryItem {
+					Name = $"Soil: {soilGrade}",
+					Type = ItemType.BiomeResource
+				});
+			}
+
+			// Deposits
+			var deposits = WorldMapReflection.GetBiomeDepositsGoods(biome);
+			if (deposits != null && deposits.Count > 0) {
+				items.Add(new MysteryItem {
+					Name = $"Deposits: {string.Join(", ", deposits)}",
+					Type = ItemType.BiomeResource
+				});
+			}
+
+			// Resources from trees
+			var treeGoods = WorldMapReflection.GetBiomeTreesGoods(biome);
+			if (treeGoods != null && treeGoods.Count > 0) {
+				items.Add(new MysteryItem {
+					Name = $"Resources from trees: {string.Join(", ", treeGoods)}",
+					Type = ItemType.BiomeResource
+				});
+			}
+
+			if (items.Count > 0 && !string.IsNullOrEmpty(biomeName))
+				Debug.Log($"[ATSAccessibility] Biome resources loaded for {biomeName}: {items.Count} items");
+
+			return items;
 		}
 
 		// ========================================
