@@ -762,6 +762,165 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		// ========================================
+		// RECIPE COMPARISON
+		// ========================================
+
+		public enum RecipeCompareStatus { New, Better, Same, Worse }
+
+		public class RecipeComparison {
+			public string GoodDisplayName;
+			public int GradeLevel; // star level of this recipe
+			public RecipeCompareStatus Status;
+			public int LevelDifference; // targetLevel - ownedLevel (only meaningful for Better)
+		}
+
+		/// <summary>
+		/// Compare each recipe of a candidate building against the player's owned workshops.
+		/// Returns per-recipe comparison status (new, better, already unlocked).
+		/// Returns empty list if the building has no recipes.
+		/// </summary>
+		public static List<RecipeComparison> GetRecipeComparisons(string buildingName) {
+			EnsureTypesCached();
+			var result = new List<RecipeComparison>();
+
+			if (string.IsNullOrEmpty(buildingName)) return result;
+
+			var recipesService = GetRecipesService();
+			if (recipesService == null) return result;
+
+			// Get recipes for the candidate building
+			var candidateRecipeNames = GetRecipesForBuilding(buildingName, recipesService);
+			if (candidateRecipeNames == null || candidateRecipeNames.Count == 0) return result;
+
+			// Collect owned workshop models (same logic as game's CacheOwnedWorkshops)
+			var ownedWorkshopNames = CollectOwnedWorkshopNames();
+
+			foreach (var recipeName in candidateRecipeNames) {
+				var recipeModel = GetWorkshopRecipeModel(recipeName);
+				if (recipeModel == null) continue;
+
+				// Get produced good internal name
+				var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
+				if (producedGoodRef == null) continue;
+
+				var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGoodRef);
+				if (goodModel == null) continue;
+
+				var goodInternalName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
+				if (string.IsNullOrEmpty(goodInternalName)) continue;
+
+				// Get target grade level
+				int targetLevel = GetRecipeGradeLevel(recipeModel);
+
+				// Find best owned grade for this good
+				int? bestOwnedLevel = GetBestOwnedGradeLevel(goodInternalName, ownedWorkshopNames, recipesService);
+
+				var comparison = new RecipeComparison {
+					GoodDisplayName = GetGoodDisplayName(goodModel),
+					GradeLevel = targetLevel
+				};
+
+				if (bestOwnedLevel == null) {
+					comparison.Status = RecipeCompareStatus.New;
+				} else if (bestOwnedLevel.Value < targetLevel) {
+					comparison.Status = RecipeCompareStatus.Better;
+					comparison.LevelDifference = targetLevel - bestOwnedLevel.Value;
+				} else if (bestOwnedLevel.Value > targetLevel) {
+					comparison.Status = RecipeCompareStatus.Worse;
+					comparison.LevelDifference = targetLevel - bestOwnedLevel.Value;
+				} else {
+					comparison.Status = RecipeCompareStatus.Same;
+				}
+
+				result.Add(comparison);
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Collect internal names of all owned workshop models
+		/// (unlocked from settings + built but not unlocked from BuildingsService).
+		/// </summary>
+		private static List<string> CollectOwnedWorkshopNames() {
+			var names = new List<string>();
+			var settings = GetSettings();
+			var gameContentService = GetGameContentService();
+
+			// Settings.workshops where IsUnlocked
+			if (settings != null) {
+				var workshops = ReflectionHelper.GetField(_settingsWorkshopsField, settings) as Array;
+				if (workshops != null) {
+					foreach (var workshopModel in workshops) {
+						if (workshopModel == null) continue;
+						if (IsBuildingUnlocked(workshopModel, gameContentService)) {
+							var name = ReflectionHelper.GetPropString(_buildingNameProperty, workshopModel);
+							if (!string.IsNullOrEmpty(name))
+								names.Add(name);
+						}
+					}
+				}
+			}
+
+			// BuildingsService.Workshops values where NOT unlocked (built but not in settings unlock list)
+			var buildingsService = GetBuildingsService();
+			if (buildingsService != null) {
+				var workshopsDict = ReflectionHelper.GetProp(_workshopsDictProperty, buildingsService);
+				if (workshopsDict != null) {
+					var valuesProperty = workshopsDict.GetType().GetProperty("Values");
+					var values = valuesProperty?.GetValue(workshopsDict) as IEnumerable;
+					if (values != null) {
+						foreach (var workshop in values) {
+							if (workshop == null) continue;
+							var model = ReflectionHelper.GetProp(_workshopBaseModelProperty, workshop);
+							if (model == null) continue;
+							if (!IsBuildingUnlocked(model, gameContentService)) {
+								var name = ReflectionHelper.GetPropString(_buildingNameProperty, model);
+								if (!string.IsNullOrEmpty(name) && !names.Contains(name))
+									names.Add(name);
+							}
+						}
+					}
+				}
+			}
+
+			return names;
+		}
+
+		/// <summary>
+		/// Find the best owned grade level for a produced good across all owned workshops.
+		/// Returns null if no owned workshop produces this good.
+		/// </summary>
+		private static int? GetBestOwnedGradeLevel(string goodName, List<string> ownedWorkshopNames, object recipesService) {
+			int? bestLevel = null;
+
+			foreach (var workshopName in ownedWorkshopNames) {
+				var recipeNames = GetRecipesForBuilding(workshopName, recipesService);
+				if (recipeNames == null) continue;
+
+				foreach (var recipeName in recipeNames) {
+					var recipeModel = GetWorkshopRecipeModel(recipeName);
+					if (recipeModel == null) continue;
+
+					var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
+					if (producedGoodRef == null) continue;
+
+					var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGoodRef);
+					if (goodModel == null) continue;
+
+					var recipeGoodName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
+					if (recipeGoodName != goodName) continue;
+
+					int level = GetRecipeGradeLevel(recipeModel);
+					if (bestLevel == null || level > bestLevel.Value)
+						bestLevel = level;
+				}
+			}
+
+			return bestLevel;
+		}
+
+		// ========================================
 		// POPUP DETECTION
 		// ========================================
 

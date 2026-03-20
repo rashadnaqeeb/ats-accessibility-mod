@@ -60,9 +60,7 @@ namespace ATSAccessibility.Overlays {
 			var options = ReputationRewardReflection.GetCurrentOptions();
 			if (options != null) {
 				foreach (var option in options) {
-					string label = !string.IsNullOrEmpty(option.Description)
-						? $"{option.DisplayName}. {option.Description}"
-						: option.DisplayName;
+					string label = BuildBuildingLabel(option);
 
 					_items.Add(new NavItem {
 						Type = ItemType.Building,
@@ -226,6 +224,41 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 		// HELPERS
 		// ========================================
+
+		private string BuildBuildingLabel(ReputationRewardReflection.RewardOption option) {
+			// Try to get per-recipe comparison info
+			var comparisons = RecipesReflection.GetRecipeComparisons(option.InternalName);
+
+			if (comparisons != null && comparisons.Count > 0) {
+				// Build label with per-recipe status
+				var parts = new System.Text.StringBuilder(option.DisplayName);
+				foreach (var comp in comparisons) {
+					parts.Append(". ");
+					parts.Append(comp.GoodDisplayName);
+					parts.Append($", {comp.GradeLevel} star, ");
+					switch (comp.Status) {
+						case RecipesReflection.RecipeCompareStatus.New:
+							parts.Append("new recipe");
+							break;
+						case RecipesReflection.RecipeCompareStatus.Better:
+							parts.Append($"plus {comp.LevelDifference} better");
+							break;
+						case RecipesReflection.RecipeCompareStatus.Worse:
+							parts.Append($"{comp.LevelDifference} worse");
+							break;
+						case RecipesReflection.RecipeCompareStatus.Same:
+							parts.Append("already unlocked");
+							break;
+					}
+				}
+				return parts.ToString();
+			}
+
+			// Non-workshop building: use existing description
+			return !string.IsNullOrEmpty(option.Description)
+				? $"{option.DisplayName}. {option.Description}"
+				: option.DisplayName;
+		}
 
 		private int CountBuildings() {
 			int count = 0;
