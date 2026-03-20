@@ -4,6 +4,7 @@ using ATSAccessibility.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using UnityEngine;
 
 namespace ATSAccessibility.Panels {
@@ -44,12 +45,18 @@ namespace ATSAccessibility.Panels {
 
 		// Top menu
 		private readonly string[] _topMenuItems = {
+			"Settlement Name",
+			"Randomize Name",
 			"Mission Info",
 			"Caravans",
 			"Spend Embark Points",
 			"Difficulty",
 			"Embark"
 		};
+
+		// Name editing state
+		private StringBuilder _nameBuffer;
+		private bool _nameEditing;
 
 		// Current section
 		private EmbarkSection _currentSection = EmbarkSection.TopMenu;
@@ -73,8 +80,13 @@ namespace ATSAccessibility.Panels {
 		}
 
 		protected override string GetLabel(int index) {
-			if (Level == 0 && index >= 0 && index < _topMenuItems.Length)
+			if (Level == 0 && index >= 0 && index < _topMenuItems.Length) {
+				if (index == 0) {
+					var name = EmbarkReflection.GetSettlementName();
+					return $"Settlement Name, {name ?? "Unknown"}";
+				}
 				return _topMenuItems[index];
+			}
 			return null;
 		}
 
@@ -84,7 +96,9 @@ namespace ATSAccessibility.Panels {
 
 		protected override EnterAction OnEnter(int index) {
 			if (Level == 0) {
-				if (index == 4) return EnterAction.Action;  // Embark
+				if (index == 0) return EnterAction.Action;  // Settlement Name edit
+				if (index == 1) return EnterAction.Action;  // Randomize Name
+				if (index == 6) return EnterAction.Action;  // Embark
 				return EnterAction.DrillDown;
 			}
 			return EnterAction.None;
@@ -95,13 +109,16 @@ namespace ATSAccessibility.Panels {
 		// ========================================
 
 		protected override bool CanDrillDown(int index) {
-			if (Level == 0) return index != 4;
+			if (Level == 0) return index >= 2 && index <= 5;  // Only drill into sections, not name/randomize/embark
 			return false;
 		}
 
 		protected override void OnAction(int index) {
-			if (Level == 0 && index == 4)
-				TriggerEmbark();
+			if (Level == 0) {
+				if (index == 0) OpenNameEdit();
+				else if (index == 1) RandomizeName();
+				else if (index == 6) TriggerEmbark();
+			}
 		}
 
 		protected override void OnDrillDown(int index) {
@@ -111,19 +128,19 @@ namespace ATSAccessibility.Panels {
 				_sectionFocusOnDetails = false;
 
 				switch (index) {
-					case 0:
+					case 2:
 						_currentSection = EmbarkSection.MissionInfo;
 						BuildMissionInfoCategories();
 						break;
-					case 1:
+					case 3:
 						_currentSection = EmbarkSection.Caravans;
 						BuildCaravanCategories();
 						break;
-					case 2:
+					case 4:
 						_currentSection = EmbarkSection.SpendPoints;
 						BuildSpendPointsCategories();
 						break;
-					case 3:
+					case 5:
 						_currentSection = EmbarkSection.Difficulty;
 						BuildDifficultyCategories();
 						break;
@@ -143,9 +160,8 @@ namespace ATSAccessibility.Panels {
 		}
 
 		protected override string GetOpenAnnouncement() {
-			if (_topMenuItems.Length > 0)
-				return $"Embark screen. {_topMenuItems[0]}";
-			return "Embark screen";
+			var name = EmbarkReflection.GetSettlementName();
+			return $"Embark screen. Settlement Name, {name ?? "Unknown"}";
 		}
 
 		protected override void OnOpened() {
@@ -156,6 +172,7 @@ namespace ATSAccessibility.Panels {
 			_currentField = null;
 			_cachedFieldPos = Vector3Int.zero;
 			_categories.Clear();
+			_nameEditing = false;
 			EmbarkReflection.ClearInstanceCaches();
 			Speech.Say("Embark panel closed");
 		}
@@ -230,6 +247,8 @@ namespace ATSAccessibility.Panels {
 		// ========================================
 
 		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			if (Level == 2)
+				return ProcessNameEditKey(keyCode, modifiers);
 			if (Level >= 1)
 				return HandleSectionKey(keyCode, modifiers);
 			return null;  // Let MenuBase handle Level 0
@@ -622,6 +641,92 @@ namespace ATSAccessibility.Panels {
 
 			var item = category.DataList[_sectionDetailIndex];
 			ToggleBonus(category.Name, item);
+		}
+
+		// ========================================
+		// NAME EDITING (Level 2)
+		// ========================================
+
+		private void OpenNameEdit() {
+			var currentName = EmbarkReflection.GetSettlementName() ?? "";
+			_nameBuffer = new StringBuilder(currentName);
+			SetLevel(2);
+			_nameEditing = true;
+
+			Speech.Say($"Editing name: {currentName}. Type to replace, Enter to confirm");
+		}
+
+		private bool ProcessNameEditKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			switch (keyCode) {
+				case KeyCode.Return:
+				case KeyCode.KeypadEnter:
+					ConfirmNameEdit();
+					return true;
+
+				case KeyCode.Escape:
+					CancelNameEdit();
+					InputBlocker.BlockCancelOnce = true;
+					return true;
+
+				case KeyCode.Backspace:
+					if (_nameBuffer.Length > 0) {
+						_nameBuffer.Remove(_nameBuffer.Length - 1, 1);
+						Speech.Say(_nameBuffer.Length > 0 ? _nameBuffer.ToString() : "Empty");
+					}
+					return true;
+
+				default:
+					if (keyCode >= KeyCode.A && keyCode <= KeyCode.Z) {
+						char c = modifiers.Shift ?
+							(char)('A' + (keyCode - KeyCode.A)) :
+							(char)('a' + (keyCode - KeyCode.A));
+
+						if (_nameEditing) {
+							_nameBuffer.Clear();
+							_nameEditing = false;
+						}
+
+						_nameBuffer.Append(c);
+						Speech.Say(_nameBuffer.ToString());
+						return true;
+					} else if (keyCode == KeyCode.Space) {
+						_nameBuffer.Append(' ');
+						Speech.Say(_nameBuffer.ToString());
+						return true;
+					}
+					// Consume all other keys while editing
+					return true;
+			}
+		}
+
+		private void ConfirmNameEdit() {
+			if (_nameBuffer.Length > 0) {
+				EmbarkReflection.SetCustomSettlementName(_nameBuffer.ToString());
+				SoundManager.PlayButtonClick();
+				Speech.Say($"Name set to {_nameBuffer}");
+			} else {
+				Speech.Say("Name unchanged");
+			}
+
+			SetLevel(0);
+			_nameEditing = false;
+		}
+
+		private void CancelNameEdit() {
+			Speech.Say("Cancelled");
+			SetLevel(0);
+			_nameEditing = false;
+		}
+
+		private void RandomizeName() {
+			var newName = EmbarkReflection.RandomizeSettlementName();
+			if (newName != null) {
+				SoundManager.PlayButtonClick();
+				Speech.Say(newName);
+			} else {
+				SoundManager.PlayFailed();
+				Speech.Say("Cannot randomize");
+			}
 		}
 
 		// ========================================

@@ -90,6 +90,17 @@ namespace ATSAccessibility.Reflection {
 		// Settings.difficulties array
 		private static FieldInfo _settingsDifficultiesField = null;
 
+		// TownNamePanel for settlement name
+		private static Type _townNamePanelType = null;
+		private static FieldInfo _tnpCurrentField = null;
+		private static FieldInfo _tnpIsStaticField = null;
+		private static MethodInfo _tnpRandomizeMethod = null;
+		private static MethodInfo _tnpSetUpValueMethod = null;
+
+		// TextsService for resolving localization keys
+		private static PropertyInfo _textsServiceProperty = null;
+		private static MethodInfo _tsGetLocaTextMethod = null;
+
 		// EmbarkDifficultyPicker for setting difficulty
 		private static Type _embarkDifficultyPickerType = null;
 		private static MethodInfo _edpSetDifficultyMethod = null;
@@ -119,6 +130,9 @@ namespace ATSAccessibility.Reflection {
 		// Cached EmbarkDifficultyPicker - expensive FindObjectOfType call
 		private static object _cachedDifficultyPicker = null;
 
+		// Cached TownNamePanel - expensive FindObjectOfType call
+		private static object _cachedTownNamePanel = null;
+
 		// Cached min difficulty penalty for the field (game uses min difficulty, not selected)
 		private static int _cachedMinDifficultyPenalty = 0;
 
@@ -136,6 +150,7 @@ namespace ATSAccessibility.Reflection {
 				CacheCaravanTypes(assembly);
 				CacheConditionPickTypes(assembly);
 				CacheWorldBlackboardTypes(assembly);
+				CacheTownNameTypes(assembly);
 				CacheDifficultyTypes(assembly);
 				CacheSettingsTypes(assembly);
 			});
@@ -291,6 +306,35 @@ namespace ATSAccessibility.Reflection {
 			}
 		}
 
+		private static void CacheTownNameTypes(Assembly gameAssembly) {
+			_townNamePanelType = gameAssembly.GetType("Eremite.WorldMap.UI.TownNamePanel");
+			if (_townNamePanelType != null) {
+				_tnpCurrentField = _townNamePanelType.GetField("current",
+					BindingFlags.NonPublic | BindingFlags.Instance);
+				_tnpIsStaticField = _townNamePanelType.GetField("isStatic",
+					BindingFlags.NonPublic | BindingFlags.Instance);
+				_tnpRandomizeMethod = _townNamePanelType.GetMethod("Randomize",
+					BindingFlags.NonPublic | BindingFlags.Instance);
+				_tnpSetUpValueMethod = _townNamePanelType.GetMethod("SetUpValue",
+					BindingFlags.NonPublic | BindingFlags.Instance);
+
+				Debug.Log("[ATSAccessibility] Cached TownNamePanel types");
+			}
+
+			// TextsService for resolving localization keys (town names are loca keys when static)
+			var appServicesType = gameAssembly.GetType("Eremite.Services.AppServices");
+			if (appServicesType != null) {
+				_textsServiceProperty = appServicesType.GetProperty("TextsService",
+					BindingFlags.Public | BindingFlags.Instance);
+			}
+
+			var textsServiceType = gameAssembly.GetType("Eremite.Services.ITextsService");
+			if (textsServiceType != null) {
+				_tsGetLocaTextMethod = textsServiceType.GetMethod("GetLocaText",
+					new Type[] { typeof(string) });
+			}
+		}
+
 		private static void CacheDifficultyTypes(Assembly gameAssembly) {
 			_difficultyModelType = gameAssembly.GetType("Eremite.Model.DifficultyModel");
 			if (_difficultyModelType != null) {
@@ -374,6 +418,7 @@ namespace ATSAccessibility.Reflection {
 		/// <param name="fieldPos">Field position to cache min difficulty penalty for</param>
 		public static void CacheInstancesOnOpen(Vector3Int fieldPos) {
 			_cachedDifficultyPicker = FindEmbarkDifficultyPickerInternal();
+			_cachedTownNamePanel = FindTownNamePanelInternal();
 
 			// Cache the min difficulty penalty - game uses min difficulty for points calculation,
 			// not the currently selected difficulty
@@ -391,6 +436,7 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static void ClearInstanceCaches() {
 			_cachedDifficultyPicker = null;
+			_cachedTownNamePanel = null;
 			_cachedMinDifficultyPenalty = 0;
 			Debug.Log("[ATSAccessibility] EmbarkReflection: Cleared instance caches");
 		}
@@ -1596,6 +1642,130 @@ namespace ATSAccessibility.Reflection {
 			if (observable == null) return null;
 
 			return GameReflection.SubscribeToObservable(observable, callback);
+		}
+
+		// ========================================
+		// SETTLEMENT NAME (TownNamePanel)
+		// ========================================
+
+		/// <summary>
+		/// Find TownNamePanel via FindObjectOfType (internal, for caching).
+		/// </summary>
+		private static object FindTownNamePanelInternal() {
+			EnsureTypes();
+			if (_townNamePanelType == null) return null;
+
+			try {
+				var findMethod = typeof(UnityEngine.Object).GetMethod("FindObjectOfType",
+					BindingFlags.Public | BindingFlags.Static,
+					null,
+					new Type[] { typeof(Type) },
+					null);
+				return findMethod?.Invoke(null, new object[] { _townNamePanelType });
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] FindTownNamePanel failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get TownNamePanel instance (uses cache, falls back to FindObjectOfType).
+		/// </summary>
+		private static object FindTownNamePanel() {
+			if (_cachedTownNamePanel != null) {
+				var unityObj = _cachedTownNamePanel as UnityEngine.Object;
+				if (unityObj != null && unityObj != null)
+					return _cachedTownNamePanel;
+				else
+					_cachedTownNamePanel = null;
+			}
+			return FindTownNamePanelInternal();
+		}
+
+		/// <summary>
+		/// Resolve a localization key to display text via TextsService.GetLocaText().
+		/// Returns the key itself if resolution fails.
+		/// </summary>
+		private static string ResolveLocaKey(string key) {
+			if (string.IsNullOrEmpty(key)) return key;
+
+			try {
+				var appServices = GameReflection.GetAppServices();
+				if (appServices == null) return key;
+
+				var textsService = ReflectionHelper.GetProp(_textsServiceProperty, appServices);
+				if (textsService == null) return key;
+
+				var result = ReflectionHelper.InvokeString(_tsGetLocaTextMethod, textsService, key);
+				return !string.IsNullOrEmpty(result) ? result : key;
+			} catch {
+				return key;
+			}
+		}
+
+		/// <summary>
+		/// Get the display-ready settlement name (resolves loca key if static).
+		/// </summary>
+		public static string GetSettlementName() {
+			EnsureTypes();
+			var panel = FindTownNamePanel();
+			if (panel == null) return null;
+
+			string current = ReflectionHelper.GetString(_tnpCurrentField, panel);
+			if (string.IsNullOrEmpty(current)) return null;
+
+			bool isStatic = ReflectionHelper.GetBool(_tnpIsStaticField, panel);
+			return isStatic ? ResolveLocaKey(current) : current;
+		}
+
+		/// <summary>
+		/// Get the raw settlement name field (loca key or custom string).
+		/// </summary>
+		public static string GetSettlementNameRaw() {
+			EnsureTypes();
+			var panel = FindTownNamePanel();
+			if (panel == null) return null;
+			return ReflectionHelper.GetString(_tnpCurrentField, panel);
+		}
+
+		/// <summary>
+		/// Check if the settlement name is a static (localized) name.
+		/// </summary>
+		public static bool IsSettlementNameStatic() {
+			EnsureTypes();
+			var panel = FindTownNamePanel();
+			if (panel == null) return false;
+			return ReflectionHelper.GetBool(_tnpIsStaticField, panel);
+		}
+
+		/// <summary>
+		/// Randomize the settlement name via TownNamePanel.Randomize().
+		/// Returns the new display name, or null on failure.
+		/// </summary>
+		public static string RandomizeSettlementName() {
+			EnsureTypes();
+			var panel = FindTownNamePanel();
+			if (panel == null) return null;
+
+			if (!ReflectionHelper.InvokeVoid(_tnpRandomizeMethod, panel))
+				return null;
+
+			return GetSettlementName();
+		}
+
+		/// <summary>
+		/// Set a custom settlement name. Sets current = name, isStatic = false,
+		/// and calls SetUpValue() to sync the game's input field.
+		/// </summary>
+		public static bool SetCustomSettlementName(string name) {
+			EnsureTypes();
+			var panel = FindTownNamePanel();
+			if (panel == null) return false;
+
+			ReflectionHelper.SetField(_tnpCurrentField, panel, name);
+			ReflectionHelper.SetField(_tnpIsStaticField, panel, false);
+			ReflectionHelper.InvokeVoid(_tnpSetUpValueMethod, panel);
+			return true;
 		}
 
 		// ========================================
