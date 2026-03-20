@@ -250,6 +250,8 @@ namespace ATSAccessibility.Overlays {
 							parts.Append("already unlocked");
 							break;
 					}
+					if (!comp.CanProduce)
+						parts.Append(", cannot produce");
 				}
 				return parts.ToString();
 			}

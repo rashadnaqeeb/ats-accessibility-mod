@@ -87,6 +87,10 @@ namespace ATSAccessibility.Reflection {
 		private static PropertyInfo _gsConstructionServiceProperty = null;
 		private static MethodInfo _getShowIndexMethod = null;
 
+		// BiomeModel (for producibility check)
+		private static MethodInfo _biomeGetDepositsGoodsMethod = null;
+		private static MethodInfo _biomeGetTreesGoodsMethod = null;
+
 		// Popup type detection
 		private static Type _recipesPopupType;
 
@@ -105,7 +109,8 @@ namespace ATSAccessibility.Reflection {
 				CacheRecipeTypes(assembly);
 				CacheGoodTypes(assembly);
 				CacheBuildingTypes(assembly);
-				_recipesPopupType = assembly.GetType("Eremite.View.Popups.Recipes.RecipesPopup");
+				CacheBiomeTypes(assembly);
+			_recipesPopupType = assembly.GetType("Eremite.View.Popups.Recipes.RecipesPopup");
 			});
 		}
 
@@ -284,6 +289,16 @@ namespace ATSAccessibility.Reflection {
 				_buildingNameProperty = buildingModelType.GetProperty("Name",
 					BindingFlags.Public | BindingFlags.Instance);
 				_hasAccessToMethod = buildingModelType.GetMethod("HasAccessTo",
+					BindingFlags.Public | BindingFlags.Instance);
+			}
+		}
+
+		private static void CacheBiomeTypes(Assembly assembly) {
+			var biomeModelType = assembly.GetType("Eremite.WorldMap.BiomeModel");
+			if (biomeModelType != null) {
+				_biomeGetDepositsGoodsMethod = biomeModelType.GetMethod("GetDepositsGoods",
+					BindingFlags.Public | BindingFlags.Instance);
+				_biomeGetTreesGoodsMethod = biomeModelType.GetMethod("GetTreesGoods",
 					BindingFlags.Public | BindingFlags.Instance);
 			}
 		}
@@ -772,11 +787,13 @@ namespace ATSAccessibility.Reflection {
 			public int GradeLevel; // star level of this recipe
 			public RecipeCompareStatus Status;
 			public int LevelDifference; // targetLevel - ownedLevel (only meaningful for Better)
+			public bool CanProduce; // whether the recipe's ingredients are obtainable on this map
 		}
 
 		/// <summary>
 		/// Compare each recipe of a candidate building against the player's owned workshops.
-		/// Returns per-recipe comparison status (new, better, already unlocked).
+		/// Returns per-recipe comparison status (new, better, already unlocked)
+		/// and whether each recipe can be produced on the current map.
 		/// Returns empty list if the building has no recipes.
 		/// </summary>
 		public static List<RecipeComparison> GetRecipeComparisons(string buildingName) {
@@ -794,6 +811,13 @@ namespace ATSAccessibility.Reflection {
 
 			// Collect owned workshop models (same logic as game's CacheOwnedWorkshops)
 			var ownedWorkshopNames = CollectOwnedWorkshopNames();
+
+			// Build set of all obtainable goods on this map (for producibility check)
+			// Include the candidate building itself since the player is about to pick it
+			var workshopNamesWithCandidate = new List<string>(ownedWorkshopNames);
+			if (!workshopNamesWithCandidate.Contains(buildingName))
+				workshopNamesWithCandidate.Add(buildingName);
+			var obtainableGoods = BuildObtainableGoods(workshopNamesWithCandidate, recipesService);
 
 			foreach (var recipeName in candidateRecipeNames) {
 				var recipeModel = GetWorkshopRecipeModel(recipeName);
@@ -815,9 +839,13 @@ namespace ATSAccessibility.Reflection {
 				// Find best owned grade for this good
 				int? bestOwnedLevel = GetBestOwnedGradeLevel(goodInternalName, ownedWorkshopNames, recipesService);
 
+				// Check if recipe can be produced on this map
+				bool canProduce = CanProduceRecipe(recipeModel, obtainableGoods);
+
 				var comparison = new RecipeComparison {
 					GoodDisplayName = GetGoodDisplayName(goodModel),
-					GradeLevel = targetLevel
+					GradeLevel = targetLevel,
+					CanProduce = canProduce
 				};
 
 				if (bestOwnedLevel == null) {
@@ -836,6 +864,165 @@ namespace ATSAccessibility.Reflection {
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// Check if a specific recipe can be produced given a set of obtainable goods.
+		/// Returns true if every ingredient slot has at least one obtainable good.
+		/// </summary>
+		private static bool CanProduceRecipe(object recipeModel, HashSet<string> obtainableGoods) {
+			var requiredGoods = ReflectionHelper.GetField(_recipeRequiredGoodsField, recipeModel) as Array;
+			if (requiredGoods == null || requiredGoods.Length == 0) return true; // No ingredients needed
+
+			foreach (var goodsSet in requiredGoods) {
+				if (goodsSet == null) continue;
+
+				var goods = ReflectionHelper.GetField(_goodsSetGoodsField, goodsSet) as Array;
+				if (goods == null || goods.Length == 0) continue; // Empty slot, skip
+
+				// Check if at least one good in this slot is obtainable
+				bool slotSatisfied = false;
+				foreach (var goodRef in goods) {
+					if (goodRef == null) continue;
+					var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, goodRef);
+					if (goodModel == null) continue;
+					var goodName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
+					if (!string.IsNullOrEmpty(goodName) && obtainableGoods.Contains(goodName)) {
+						slotSatisfied = true;
+						break;
+					}
+				}
+
+				if (!slotSatisfied) return false;
+			}
+
+			return true;
+		}
+
+		/// <summary>
+		/// Build the set of all goods obtainable on the current map, considering biome resources
+		/// and all recipes from the given workshops. Uses a fixed-point algorithm:
+		/// start with biome resources, then iteratively add outputs of recipes whose
+		/// ingredients are all obtainable, until no new goods are added.
+		/// </summary>
+		private static HashSet<string> BuildObtainableGoods(List<string> workshopNames, object recipesService) {
+			var obtainable = new HashSet<string>();
+
+			// Step 1: Seed with biome resources (raw materials from deposits + trees)
+			var biome = GameReflection.GetCurrentBiome();
+			if (biome != null) {
+				CollectBiomeResourceNames(biome, obtainable);
+			}
+
+			// Step 2: Collect all recipes from the given workshops
+			// Each entry: (output good name, list of ingredient slots where each slot is a list of good names)
+			var allRecipes = new List<KeyValuePair<string, List<List<string>>>>();
+			foreach (var workshopName in workshopNames) {
+				var recipeNames = GetRecipesForBuilding(workshopName, recipesService);
+				if (recipeNames == null) continue;
+
+				foreach (var recipeName in recipeNames) {
+					var recipeModel = GetWorkshopRecipeModel(recipeName);
+					if (recipeModel == null) continue;
+
+					var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
+					if (producedGoodRef == null) continue;
+					var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGoodRef);
+					if (goodModel == null) continue;
+					var outputName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
+					if (string.IsNullOrEmpty(outputName)) continue;
+
+					var slots = GetIngredientSlotGoodNames(recipeModel);
+					allRecipes.Add(new KeyValuePair<string, List<List<string>>>(outputName, slots));
+				}
+			}
+
+			// Step 3: Fixed-point expansion — keep adding producible outputs until stable
+			bool changed = true;
+			while (changed) {
+				changed = false;
+				foreach (var recipe in allRecipes) {
+					if (obtainable.Contains(recipe.Key)) continue;
+
+					bool canProduce = true;
+					foreach (var slot in recipe.Value) {
+						bool slotSatisfied = false;
+						foreach (var goodName in slot) {
+							if (obtainable.Contains(goodName)) {
+								slotSatisfied = true;
+								break;
+							}
+						}
+						if (!slotSatisfied) {
+							canProduce = false;
+							break;
+						}
+					}
+
+					if (canProduce) {
+						obtainable.Add(recipe.Key);
+						changed = true;
+					}
+				}
+			}
+
+			return obtainable;
+		}
+
+		/// <summary>
+		/// Get the internal good names for each ingredient slot in a recipe.
+		/// Returns a list of slots, where each slot is a list of alternative good names.
+		/// </summary>
+		private static List<List<string>> GetIngredientSlotGoodNames(object recipeModel) {
+			var result = new List<List<string>>();
+			var requiredGoods = ReflectionHelper.GetField(_recipeRequiredGoodsField, recipeModel) as Array;
+			if (requiredGoods == null) return result;
+
+			foreach (var goodsSet in requiredGoods) {
+				if (goodsSet == null) continue;
+				var goods = ReflectionHelper.GetField(_goodsSetGoodsField, goodsSet) as Array;
+				if (goods == null || goods.Length == 0) continue;
+
+				var slotNames = new List<string>();
+				foreach (var goodRef in goods) {
+					if (goodRef == null) continue;
+					var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, goodRef);
+					if (goodModel == null) continue;
+					var goodName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
+					if (!string.IsNullOrEmpty(goodName))
+						slotNames.Add(goodName);
+				}
+
+				if (slotNames.Count > 0)
+					result.Add(slotNames);
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Collect internal names of all biome resources (deposits + trees) into the given set.
+		/// </summary>
+		private static void CollectBiomeResourceNames(object biome, HashSet<string> names) {
+			CollectGoodNamesFromEnumerable(
+				_biomeGetDepositsGoodsMethod != null ? _biomeGetDepositsGoodsMethod.Invoke(biome, null) as IEnumerable : null,
+				names);
+			CollectGoodNamesFromEnumerable(
+				_biomeGetTreesGoodsMethod != null ? _biomeGetTreesGoodsMethod.Invoke(biome, null) as IEnumerable : null,
+				names);
+		}
+
+		/// <summary>
+		/// Extract internal good names from an IEnumerable of GoodModel objects.
+		/// </summary>
+		private static void CollectGoodNamesFromEnumerable(IEnumerable goods, HashSet<string> names) {
+			if (goods == null) return;
+			foreach (var goodModel in goods) {
+				if (goodModel == null) continue;
+				var name = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
+				if (!string.IsNullOrEmpty(name))
+					names.Add(name);
+			}
 		}
 
 		/// <summary>
