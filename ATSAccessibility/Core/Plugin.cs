@@ -35,6 +35,7 @@ namespace ATSAccessibility.Core {
 		public static ConfigEntry<bool> AnnounceHearthIgnited;
 		public static ConfigEntry<bool> AnnounceHearthCorrupted;
 		public static ConfigEntry<bool> AnnounceSacrificeStopped;
+		public static ConfigEntry<bool> AnnounceBuildingIdle;
 
 		// Exploration
 		public static ConfigEntry<bool> AnnounceGladeRevealed;
@@ -111,6 +112,7 @@ namespace ATSAccessibility.Core {
 
 				// Register manual patches that need runtime type resolution
 				EventAnnouncer.RegisterSacrificeStoppedPatch(harmony);
+				EventAnnouncer.RegisterBuildingIdlePatch(harmony);
 
 				Logger.LogInfo("Harmony patches applied");
 
@@ -144,6 +146,8 @@ namespace ATSAccessibility.Core {
 				"HearthCorrupted", true, "Announce when hearth is corrupted");
 			AnnounceSacrificeStopped = Config.Bind("Announcements.Buildings",
 				"SacrificeStopped", true, "Announce when hearth sacrifice stops (ran out of goods)");
+			AnnounceBuildingIdle = Config.Bind("Announcements.Buildings",
+				"BuildingIdle", true, "Announce when a production building becomes idle (excludes buildings with game alerts)");
 
 			// Exploration
 			AnnounceGladeRevealed = Config.Bind("Announcements.Exploration",

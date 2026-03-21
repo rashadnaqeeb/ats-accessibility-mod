@@ -90,6 +90,7 @@ namespace ATSAccessibility.Panels {
 			_items.Add(new SettingItem { Label = "Hearth ignited", ConfigEntry = Plugin.AnnounceHearthIgnited });
 			_items.Add(new SettingItem { Label = "Hearth corrupted", ConfigEntry = Plugin.AnnounceHearthCorrupted });
 			_items.Add(new SettingItem { Label = "Sacrifice stopped", ConfigEntry = Plugin.AnnounceSacrificeStopped });
+			_items.Add(new SettingItem { Label = "Building idle", ConfigEntry = Plugin.AnnounceBuildingIdle });
 
 			// Exploration
 			_items.Add(new SettingItem { Label = "Glade revealed", ConfigEntry = Plugin.AnnounceGladeRevealed });

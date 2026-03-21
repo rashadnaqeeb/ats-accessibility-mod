@@ -110,6 +110,9 @@ namespace ATSAccessibility.Utils {
 				// Clear sacrifice tracking state
 				ClearSacrificeState();
 
+				// Clear building idle tracking state
+				ClearBuildingIdleState();
+
 				// Clear highlighted relics tracking
 				MapReflection.ClearHighlightedRelics();
 			} finally {
@@ -1286,6 +1289,119 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static void ClearSacrificeState() {
 			_hearthSacrificeStates.Clear();
+		}
+
+		// ========================================
+		// BUILDING IDLE (Harmony Patch)
+		// ========================================
+		//
+		// Detects when production buildings become idle (all workers idle).
+		// Excludes building types that have dedicated game monitors (Camp, Mine,
+		// FishingHut, GathererHut, Farm) which already generate their own alerts.
+
+		private static Dictionary<int, bool> _buildingIdleStates = new Dictionary<int, bool>();
+		private static HashSet<Type> _monitoredBuildingTypes;
+		private static PropertyInfo _isIdleProp;
+		private static PropertyInfo _displayNameProp;
+
+		/// <summary>
+		/// Register the Harmony patch for ProductionBuilding.UpdateIdleStatus.
+		/// Called from Plugin after Harmony.PatchAll().
+		/// </summary>
+		public static void RegisterBuildingIdlePatch(Harmony harmony) {
+			try {
+				var assembly = GameReflection.GameAssembly;
+				if (assembly == null) {
+					Debug.LogWarning("[ATSAccessibility] Cannot register building idle patch - game assembly not found");
+					return;
+				}
+
+				var productionBuildingType = assembly.GetType("Eremite.Buildings.ProductionBuilding");
+				if (productionBuildingType == null) {
+					Debug.LogWarning("[ATSAccessibility] Cannot register building idle patch - ProductionBuilding type not found");
+					return;
+				}
+
+				var targetMethod = productionBuildingType.GetMethod("UpdateIdleStatus", BindingFlags.NonPublic | BindingFlags.Instance);
+				if (targetMethod == null) {
+					Debug.LogWarning("[ATSAccessibility] Cannot register building idle patch - UpdateIdleStatus method not found");
+					return;
+				}
+
+				// Cache IsIdle and DisplayName properties
+				_isIdleProp = productionBuildingType.GetProperty("IsIdle", BindingFlags.Public | BindingFlags.Instance);
+				_displayNameProp = productionBuildingType.GetProperty("DisplayName", BindingFlags.Public | BindingFlags.Instance);
+
+				// Cache monitored building types (these have game monitors that already alert on idle)
+				_monitoredBuildingTypes = new HashSet<Type>();
+				string[] monitoredTypeNames = {
+					"Eremite.Buildings.Camp",
+					"Eremite.Buildings.Mine",
+					"Eremite.Buildings.FishingHut",
+					"Eremite.Buildings.GathererHut",
+					"Eremite.Buildings.Farm"
+				};
+				foreach (var typeName in monitoredTypeNames) {
+					var type = assembly.GetType(typeName);
+					if (type != null) _monitoredBuildingTypes.Add(type);
+				}
+
+				var postfixMethod = typeof(EventAnnouncer).GetMethod(nameof(UpdateIdleStatusPostfix), BindingFlags.Static | BindingFlags.NonPublic);
+				if (postfixMethod == null) {
+					Debug.LogWarning("[ATSAccessibility] Cannot register building idle patch - postfix method not found");
+					return;
+				}
+
+				harmony.Patch(targetMethod, postfix: new HarmonyMethod(postfixMethod));
+				Debug.Log("[ATSAccessibility] Registered ProductionBuilding.UpdateIdleStatus patch for building idle announcements");
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] Failed to register building idle patch: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// Postfix for ProductionBuilding.UpdateIdleStatus().
+		/// Announces when a building becomes idle (transitions from not-idle to idle).
+		/// Excludes building types with dedicated game monitors.
+		/// </summary>
+		private static void UpdateIdleStatusPostfix(object __instance) {
+			try {
+				if (!Plugin.AnnounceBuildingIdle.Value) return;
+				if (_isIdleProp == null || _monitoredBuildingTypes == null) return;
+
+				// Skip building types that have dedicated game monitors
+				if (_monitoredBuildingTypes.Contains(__instance.GetType())) return;
+
+				int key = __instance.GetHashCode();
+				bool isIdle = (bool)_isIdleProp.GetValue(__instance);
+
+				// Check for false → true transition
+				if (_buildingIdleStates.TryGetValue(key, out bool wasIdle)) {
+					if (!wasIdle && isIdle) {
+						if (_instance != null && !_instance.IsInGracePeriod()) {
+							string name = _displayNameProp?.GetValue(__instance) as string ?? "Building";
+							_instance.Announce($"{name} idle", GetBuildingLocation(__instance));
+						}
+					}
+				}
+
+				_buildingIdleStates[key] = isIdle;
+
+				// Cleanup old entries if too many (prevents memory leak)
+				if (_buildingIdleStates.Count > 50) {
+					_buildingIdleStates.Clear();
+					_buildingIdleStates[key] = isIdle;
+				}
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] UpdateIdleStatusPostfix error: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// Clear building idle tracking state. Called on dispose.
+		/// </summary>
+		public static void ClearBuildingIdleState() {
+			_buildingIdleStates.Clear();
 		}
 	}
 }
