@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.2.6
+## Changes since v1.3
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.3
 
 ### New features
 - Add settlement name support on embark screen: view, edit, and randomize the settlement name before embarking
