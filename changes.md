@@ -16,6 +16,7 @@
 - Add building idle announcement for workshops and other unmonitored production buildings
 
 ### Bug fixes
+- Fix hooked effect dynamic preview (e.g. hook progress, retroactive gains) not showing for non-composite effects like Woodcutter's Song
 
 ### Internal
 

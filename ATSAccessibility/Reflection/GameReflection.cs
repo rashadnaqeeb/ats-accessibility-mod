@@ -3162,8 +3162,10 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _hemGetDynamicStatePreviewMethod = null;
 		private static FieldInfo _hemHasRemovalDynamicStatePreviewField = null;
 		private static MethodInfo _hemGetRemovalDynamicStatePreviewMethod = null;
+		private static Type _compositeEffectModelType = null;
 		private static FieldInfo _cemHasNestedStatePreviewField = null;
 		private static MethodInfo _cemGetNestedEffectForStatePreviewMethod = null;
+		private static Type _hookedEffectModelType = null;
 		private static MethodInfo _emGetTooltipFootnoteMethod = null;
 		private static bool _hookedEffectsTypesCached = false;
 
@@ -3201,24 +3203,24 @@ namespace ATSAccessibility.Reflection {
 				}
 
 				// HookedEffectModel fields and methods
-				var hookedEffectModelType = _gameAssembly.GetType("Eremite.Model.Effects.HookedEffectModel");
-				if (hookedEffectModelType != null) {
-					_hemHasDynamicStatePreviewField = hookedEffectModelType.GetField("hasDynamicStatePreview",
+				_hookedEffectModelType = _gameAssembly.GetType("Eremite.Model.Effects.HookedEffectModel");
+				if (_hookedEffectModelType != null) {
+					_hemHasDynamicStatePreviewField = _hookedEffectModelType.GetField("hasDynamicStatePreview",
 						BindingFlags.Public | BindingFlags.Instance);
-					_hemGetDynamicStatePreviewMethod = hookedEffectModelType.GetMethod("GetDynamicStatePreview",
+					_hemGetDynamicStatePreviewMethod = _hookedEffectModelType.GetMethod("GetDynamicStatePreview",
 						BindingFlags.Public | BindingFlags.Instance);
-					_hemHasRemovalDynamicStatePreviewField = hookedEffectModelType.GetField("hasRemovalDynamicStatePreview",
+					_hemHasRemovalDynamicStatePreviewField = _hookedEffectModelType.GetField("hasRemovalDynamicStatePreview",
 						BindingFlags.Public | BindingFlags.Instance);
-					_hemGetRemovalDynamicStatePreviewMethod = hookedEffectModelType.GetMethod("GetRemovalDynamicStatePreview",
+					_hemGetRemovalDynamicStatePreviewMethod = _hookedEffectModelType.GetMethod("GetRemovalDynamicStatePreview",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
 				// CompositeEffectModel fields and methods
-				var compositeEffectModelType = _gameAssembly.GetType("Eremite.Model.Effects.CompositeEffectModel");
-				if (compositeEffectModelType != null) {
-					_cemHasNestedStatePreviewField = compositeEffectModelType.GetField("hasNestedStatePreview",
+				_compositeEffectModelType = _gameAssembly.GetType("Eremite.Model.Effects.CompositeEffectModel");
+				if (_compositeEffectModelType != null) {
+					_cemHasNestedStatePreviewField = _compositeEffectModelType.GetField("hasNestedStatePreview",
 						BindingFlags.Public | BindingFlags.Instance);
-					_cemGetNestedEffectForStatePreviewMethod = compositeEffectModelType.GetMethod("GetNestedEffectForStatePreview",
+					_cemGetNestedEffectForStatePreviewMethod = _compositeEffectModelType.GetMethod("GetNestedEffectForStatePreview",
 						BindingFlags.Public | BindingFlags.Instance);
 				}
 
@@ -3269,16 +3271,21 @@ namespace ATSAccessibility.Reflection {
 				object hookedModel = effectModel;
 				string lookupName = effectName;
 
-				bool hasNested = (bool?)_cemHasNestedStatePreviewField?.GetValue(effectModel) ?? false;
-				if (hasNested && _cemGetNestedEffectForStatePreviewMethod != null) {
-					var nestedEffect = _cemGetNestedEffectForStatePreviewMethod.Invoke(effectModel, null);
-					if (nestedEffect != null) {
-						hookedModel = nestedEffect;
-						lookupName = GetEffectName(nestedEffect) ?? effectName;
+				if (_compositeEffectModelType != null && _compositeEffectModelType.IsInstanceOfType(effectModel)) {
+					bool hasNested = (bool?)_cemHasNestedStatePreviewField?.GetValue(effectModel) ?? false;
+					if (hasNested && _cemGetNestedEffectForStatePreviewMethod != null) {
+						var nestedEffect = _cemGetNestedEffectForStatePreviewMethod.Invoke(effectModel, null);
+						if (nestedEffect != null) {
+							hookedModel = nestedEffect;
+							lookupName = GetEffectName(nestedEffect) ?? effectName;
+						}
 					}
 				}
 
 				// Check if the model is a HookedEffectModel
+				if (_hookedEffectModelType == null || !_hookedEffectModelType.IsInstanceOfType(hookedModel))
+					return null;
+
 				bool hasDynamic = (bool?)_hemHasDynamicStatePreviewField?.GetValue(hookedModel) ?? false;
 				bool hasRemovalDynamic = (bool?)_hemHasRemovalDynamicStatePreviewField?.GetValue(hookedModel) ?? false;
 				if (!hasDynamic && !hasRemovalDynamic) return null;
