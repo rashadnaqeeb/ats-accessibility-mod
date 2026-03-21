@@ -87,6 +87,7 @@ namespace ATSAccessibility.Handlers {
 			new HelpEntry("S", "Quick summary"),
 			new HelpEntry("V", "Species resolve"),
 			new HelpEntry("T", "Time summary"),
+			new HelpEntry("Shift+T", "Open trends popup"),
 			new HelpEntry("O", "Tracked orders"),
 			new HelpEntry("M", "Move building"),
 			new HelpEntry("R", "Rotate building"),
@@ -300,6 +301,10 @@ namespace ATSAccessibility.Handlers {
 					StatsReader.AnnounceNextSpeciesResolve();
 					return true;
 				case KeyCode.T:
+					if (modifiers.Shift) {
+						GameReflection.OpenTrendsPopup();
+						return true;
+					}
 					StatsReader.AnnounceTimeSummary();
 					return true;
 

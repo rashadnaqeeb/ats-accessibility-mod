@@ -12,6 +12,7 @@
 - Add hint to trade route offers about using plus/minus to adjust level
 - Add per-recipe comparison status to blueprint selection: each recipe shows new, upgrade level, or already unlocked
 - Add recipe producibility check to blueprint selection: recipes that cannot be produced on the current map (no obtainable ingredients for a slot) are marked "cannot produce"
+- Add Shift+T shortcut to open the trends popup from the settlement map
 
 ### Bug fixes
 
