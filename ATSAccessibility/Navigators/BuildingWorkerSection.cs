@@ -2,12 +2,14 @@ using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ATSAccessibility.Navigators {
 	/// <summary>
 	/// Shared handler for building worker section.
 	/// Any building navigator can use this to handle the Workers section.
 	/// Provides slot listing, race-based assignment, sub-item navigation, and refresh logic.
+	/// Loose automatons are appended after worker slots as read-only items.
 	/// </summary>
 	public class BuildingWorkerSection {
 		// ========================================
@@ -28,6 +30,7 @@ namespace ATSAccessibility.Navigators {
 		private object _building;
 		private int[] _workerIds;
 		private int _maxWorkers;
+		private List<int> _looseAutomatonIds = new List<int>();
 		private List<(string raceName, int freeCount)> _availableRaces = new List<(string, int)>();
 		private bool _racesRefreshed;
 
@@ -58,6 +61,7 @@ namespace ATSAccessibility.Navigators {
 			_workerIds = GetWorkerIdsFunc(building);
 			_maxWorkers = _workerIds?.Length ?? 0;
 			_racesRefreshed = false;
+			RefreshLooseAutomatons();
 			RefreshAvailableRaces();
 		}
 
@@ -68,6 +72,7 @@ namespace ATSAccessibility.Navigators {
 			_building = null;
 			_workerIds = null;
 			_maxWorkers = 0;
+			_looseAutomatonIds.Clear();
 			_availableRaces.Clear();
 			_racesRefreshed = false;
 		}
@@ -84,17 +89,21 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		/// <summary>
-		/// Get the number of worker slots (items at Level 1 navigation).
+		/// Get the number of items (worker slots + loose automatons).
 		/// </summary>
 		public int GetItemCount() {
-			return _maxWorkers;
+			return _maxWorkers + _looseAutomatonIds.Count;
 		}
 
 		/// <summary>
 		/// Get the number of sub-items for a worker slot (races + optional unassign).
+		/// Returns 0 for automaton-occupied slots and loose automaton items.
 		/// </summary>
 		public int GetSubItemCount(int workerIndex) {
+			// Loose automatons and automaton-occupied slots have no sub-items
+			if (workerIndex >= _maxWorkers) return 0;
 			if (!IsValidWorkerIndex(workerIndex)) return 0;
+			if (IsAutomatonSlot(workerIndex)) return 0;
 
 			RefreshAvailableRaces();
 
@@ -107,12 +116,29 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		/// <summary>
-		/// Announce a worker slot. Force-refreshes race data for current info.
+		/// Announce a worker slot or loose automaton.
 		/// </summary>
 		public void AnnounceItem(int itemIndex) {
 			// Force-refresh races on each slot announcement for current data
 			RefreshAvailableRaces(force: true);
 
+			// Loose automaton item
+			if (itemIndex >= _maxWorkers) {
+				int looseIndex = itemIndex - _maxWorkers;
+				if (looseIndex >= 0 && looseIndex < _looseAutomatonIds.Count) {
+					int id = _looseAutomatonIds[looseIndex];
+					var actor = AutomatonReflection.GetAutomaton(id);
+					string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
+					string label = displayName != null ? $"{displayName} automaton" : "Automaton";
+					string task = BuildingReflection.GetActorTaskDescription(actor);
+					Speech.Say(!string.IsNullOrEmpty(task) ? $"{label}, {task}" : label);
+				} else {
+					Speech.Say("Invalid automaton");
+				}
+				return;
+			}
+
+			// Worker slot
 			if (!IsValidWorkerIndex(itemIndex)) {
 				Speech.Say("Invalid worker slot");
 				return;
@@ -172,7 +198,16 @@ namespace ATSAccessibility.Navigators {
 		/// Returns true if action was performed (caller should set _navigationLevel = 1).
 		/// </summary>
 		public bool PerformSubItemAction(int workerIndex, int subItemIndex) {
+			// Block interaction for loose automatons and automaton-occupied slots
+			if (workerIndex >= _maxWorkers) {
+				Speech.Say("Automaton, cannot reassign");
+				return false;
+			}
 			if (!IsValidWorkerIndex(workerIndex)) return false;
+			if (IsAutomatonSlot(workerIndex)) {
+				Speech.Say("Automaton, cannot reassign");
+				return false;
+			}
 
 			bool slotOccupied = !BuildingReflection.IsWorkerSlotEmpty(_building, workerIndex);
 			int raceOffset = slotOccupied ? 1 : 0;
@@ -235,9 +270,21 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		/// <summary>
-		/// Get the searchable name for a worker slot (item level).
+		/// Get the searchable name for a worker slot or loose automaton (item level).
 		/// </summary>
 		public string GetItemName(int itemIndex) {
+			// Loose automaton
+			if (itemIndex >= _maxWorkers) {
+				int looseIndex = itemIndex - _maxWorkers;
+				if (looseIndex >= 0 && looseIndex < _looseAutomatonIds.Count) {
+					var actor = AutomatonReflection.GetAutomaton(_looseAutomatonIds[looseIndex]);
+					string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
+					return displayName != null ? $"{displayName} automaton" : "Automaton";
+				}
+				return null;
+			}
+
+			// Worker slot
 			if (!IsValidWorkerIndex(itemIndex))
 				return null;
 
@@ -275,12 +322,13 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		/// <summary>
-		/// Re-fetch worker IDs using the configured delegate.
+		/// Re-fetch worker IDs and loose automaton IDs using the configured delegate.
 		/// </summary>
 		public void RefreshWorkerIds() {
 			if (_building == null) return;
 			_workerIds = GetWorkerIdsFunc(_building);
 			_maxWorkers = _workerIds?.Length ?? 0;
+			RefreshLooseAutomatons();
 		}
 
 		/// <summary>
@@ -295,6 +343,31 @@ namespace ATSAccessibility.Navigators {
 
 		private bool IsValidWorkerIndex(int index) {
 			return _workerIds != null && index >= 0 && index < _workerIds.Length;
+		}
+
+		/// <summary>
+		/// Check if a worker slot is occupied by an automaton.
+		/// </summary>
+		private bool IsAutomatonSlot(int workerIndex) {
+			if (!IsValidWorkerIndex(workerIndex)) return false;
+			int workerId = _workerIds[workerIndex];
+			if (workerId <= 0) return false;
+			var actor = BuildingReflection.GetActor(workerId);
+			return AutomatonReflection.IsAutomaton(actor);
+		}
+
+		/// <summary>
+		/// Refresh the list of live loose automaton IDs for the current building.
+		/// </summary>
+		private void RefreshLooseAutomatons() {
+			_looseAutomatonIds.Clear();
+			if (_building == null) return;
+			var ids = AutomatonReflection.GetLooseAutomatonIds(_building);
+			foreach (var id in ids) {
+				if (AutomatonReflection.IsAlive(id)) {
+					_looseAutomatonIds.Add(id);
+				}
+			}
 		}
 	}
 }

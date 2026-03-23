@@ -53,11 +53,12 @@ namespace ATSAccessibility.Utils {
 			}
 
 			int currentWorkers = BuildingReflection.GetWorkerCount(building);
+			string looseInfo = FormatLooseAutomatons(building);
 
 			// Special case for Hearth - show firekeeper effect for assigned race only
 			if (BuildingReflection.IsHearth(building)) {
 				if (currentWorkers == 0) {
-					return $"0/{maxWorkers}";
+					return $"0/{maxWorkers}{looseInfo}";
 				}
 
 				// Get the assigned worker's race and their firekeeper effect
@@ -67,27 +68,27 @@ namespace ATSAccessibility.Utils {
 					// Use GetRaceBonusForBuilding - same path as worker menu
 					string effect = BuildingReflection.GetRaceBonusForBuilding(building, raceName);
 					if (!string.IsNullOrEmpty(effect)) {
-						return $"{currentWorkers}/{maxWorkers}: {raceName}, {effect}";
+						return $"{currentWorkers}/{maxWorkers}: {raceName}, {effect}{looseInfo}";
 					}
-					return $"{currentWorkers}/{maxWorkers}: {raceName}";
+					return $"{currentWorkers}/{maxWorkers}: {raceName}{looseInfo}";
 				}
-				return $"{currentWorkers}/{maxWorkers}";
+				return $"{currentWorkers}/{maxWorkers}{looseInfo}";
 			}
 
 			if (currentWorkers == 0) {
-				return $"0/{maxWorkers}{FormatSpecialtyInfo(building)}";
+				return $"0/{maxWorkers}{FormatSpecialtyInfo(building)}{looseInfo}";
 			}
 
 			// Count workers by race
 			var raceCounts = GetWorkerRaceCounts(building);
 			if (raceCounts.Count == 0) {
-				return $"{currentWorkers}/{maxWorkers}{FormatSpecialtyInfo(building)}";
+				return $"{currentWorkers}/{maxWorkers}{FormatSpecialtyInfo(building)}{looseInfo}";
 			}
 
 			// Format: "3/3: 2 beavers, 1 harpy, Woodworking Efficiency (Beavers)"
 			var raceStrings = raceCounts.Select(rc =>
 				$"{rc.count} {Pluralize(rc.raceName.ToLowerInvariant(), rc.count)}");
-			return $"{currentWorkers}/{maxWorkers}: {string.Join(", ", raceStrings)}{FormatSpecialtyInfo(building)}";
+			return $"{currentWorkers}/{maxWorkers}: {string.Join(", ", raceStrings)}{FormatSpecialtyInfo(building)}{looseInfo}";
 		}
 
 		/// <summary>
@@ -128,7 +129,35 @@ namespace ATSAccessibility.Utils {
 		}
 
 		/// <summary>
+		/// Format loose automaton info for appending to worker summary.
+		/// Returns ", 1 hauler automaton" or empty string if none.
+		/// </summary>
+		private static string FormatLooseAutomatons(object building) {
+			var looseIds = AutomatonReflection.GetLooseAutomatonIds(building);
+			if (looseIds.Count == 0) return "";
+
+			var counts = new Dictionary<string, int>();
+			foreach (var id in looseIds) {
+				if (!AutomatonReflection.IsAlive(id)) continue;
+				var actor = AutomatonReflection.GetAutomaton(id);
+				string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
+				string key = displayName != null ? $"{displayName.ToLowerInvariant()} automaton" : "automaton";
+				if (counts.ContainsKey(key))
+					counts[key]++;
+				else
+					counts[key] = 1;
+			}
+
+			if (counts.Count == 0) return "";
+
+			var parts = counts.Select(kv =>
+				$"{kv.Value} {Pluralize(kv.Key, kv.Value)}");
+			return $", {string.Join(", ", parts)}";
+		}
+
+		/// <summary>
 		/// Count workers by race for a building.
+		/// Automatons in worker slots are grouped by display name with " automaton" suffix.
 		/// </summary>
 		private static List<(string raceName, int count)> GetWorkerRaceCounts(object building) {
 			var counts = new Dictionary<string, int>();
@@ -137,26 +166,23 @@ namespace ATSAccessibility.Utils {
 			foreach (var workerId in workerIds) {
 				if (workerId <= 0) continue;
 
-				string race = GetWorkerRace(workerId);
-				if (string.IsNullOrEmpty(race)) race = "Unknown";
+				var actor = BuildingReflection.GetActor(workerId);
+				string key;
+				if (AutomatonReflection.IsAutomaton(actor)) {
+					string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
+					key = displayName != null ? $"{displayName.ToLowerInvariant()} automaton" : "automaton";
+				} else {
+					key = BuildingReflection.GetActorRace(actor);
+					if (string.IsNullOrEmpty(key)) key = "Unknown";
+				}
 
-				if (counts.ContainsKey(race))
-					counts[race]++;
+				if (counts.ContainsKey(key))
+					counts[key]++;
 				else
-					counts[race] = 1;
+					counts[key] = 1;
 			}
 
 			return counts.Select(kv => (kv.Key, kv.Value)).ToList();
-		}
-
-		/// <summary>
-		/// Get the race of a worker by ID.
-		/// </summary>
-		private static string GetWorkerRace(int workerId) {
-			if (workerId <= 0) return null;
-
-			var actor = BuildingReflection.GetActor(workerId);
-			return BuildingReflection.GetActorRace(actor);
 		}
 
 		/// <summary>
@@ -336,9 +362,13 @@ namespace ATSAccessibility.Utils {
 				if (workerIds[i] <= 0) continue;
 
 				var actor = BuildingReflection.GetActor(workerIds[i]);
+
+				// Skip automaton-occupied slots — cannot reassign via VillagersService
+				if (AutomatonReflection.IsAutomaton(actor)) continue;
+
 				string name = BuildingReflection.GetActorName(actor);
 
-				// Track first occupied slot as fallback
+				// Track last occupied non-automaton slot as fallback (bottom-up scan, set once)
 				if (fallbackSlot < 0) {
 					fallbackSlot = i;
 					fallbackName = name;

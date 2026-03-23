@@ -5,6 +5,7 @@
 ## Changes since v1.3
 
 ### New features
+- Add automaton awareness: worker summaries (W key) and building navigator now show automatons in worker slots and loose automatons attached to buildings
 
 ### Bug fixes
 - Fix rainpunk water use showing "None" when water storage is empty instead of showing the requested consumption rate

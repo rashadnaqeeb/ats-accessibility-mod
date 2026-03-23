@@ -431,6 +431,7 @@ namespace ATSAccessibility.Core {
 				totalMissing += TutorialReflection.LogCacheStatus();
 				totalMissing += GamesHistoryReflection.LogCacheStatus();
 				totalMissing += DailyExpeditionReflection.LogCacheStatus();
+				totalMissing += AutomatonReflection.LogCacheStatus();
 
 				if (totalMissing == 0)
 					Debug.Log("[ATSAccessibility] Reflection validation: All fields cached successfully");

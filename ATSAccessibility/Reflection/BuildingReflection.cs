@@ -2136,7 +2136,7 @@ namespace ATSAccessibility.Reflection {
 
 		/// <summary>
 		/// Get a formatted description of a worker for announcement.
-		/// Returns "Name, Race, Task" with available parts.
+		/// For villagers: "Name, Race, Task". For automatons: "DisplayName automaton, Task".
 		/// </summary>
 		public static string GetWorkerDescription(int workerId) {
 			if (workerId <= 0) return null;
@@ -2144,6 +2144,15 @@ namespace ATSAccessibility.Reflection {
 			var actor = GetActor(workerId);
 			if (actor == null) return null;
 
+			// Automaton branch: display name + "automaton" suffix + task
+			if (AutomatonReflection.IsAutomaton(actor)) {
+				string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
+				string label = displayName != null ? $"{displayName} automaton" : "Automaton";
+				string automatonTask = GetActorTaskDescription(actor);
+				return !string.IsNullOrEmpty(automatonTask) ? $"{label}, {automatonTask}" : label;
+			}
+
+			// Villager path: name + race + task
 			string name = GetActorName(actor) ?? "Unknown";
 			string race = GetActorRace(actor);
 			string task = GetActorTaskDescription(actor);
@@ -2507,6 +2516,13 @@ namespace ATSAccessibility.Reflection {
 				int workerId = workerIds[slotIndex];
 				if (workerId <= 0) {
 					Debug.Log("[ATSAccessibility] UnassignWorkerFromSlot: Slot is already empty");
+					return false;
+				}
+
+				// Automatons cannot be unassigned via VillagersService
+				var slotActor = GetActor(workerId);
+				if (slotActor != null && AutomatonReflection.IsAutomaton(slotActor)) {
+					Debug.Log("[ATSAccessibility] UnassignWorkerFromSlot: Skipping automaton-occupied slot");
 					return false;
 				}
 
