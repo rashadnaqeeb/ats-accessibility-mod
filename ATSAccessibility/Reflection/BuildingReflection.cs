@@ -307,6 +307,7 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _workshopModelField = null;  // Workshop.model
 		private static FieldInfo _wmRainpunkField = null;  // WorkshopModel.rainpunk
 		private static FieldInfo _brpEnginesField = null;  // BuildingRainpunkModel.engines
+		private static FieldInfo _brpWaterField = null;  // BuildingRainpunkModel.water
 		private static FieldInfo _engineStateIndexField = null;  // RainpunkEngineState.index
 		private static FieldInfo _engineStateLevelField = null;  // RainpunkEngineState.level
 		private static FieldInfo _engineStateRequestedLevelField = null;  // RainpunkEngineState.requestedLevel
@@ -1190,9 +1191,10 @@ namespace ATSAccessibility.Reflection {
 					_wmRainpunkField = workshopModelType.GetField("rainpunk", GameReflection.PublicInstance);
 				}
 
-				// BuildingRainpunkModel.engines field
+				// BuildingRainpunkModel fields
 				if (_buildingRainpunkModelType != null) {
 					_brpEnginesField = _buildingRainpunkModelType.GetField("engines", GameReflection.PublicInstance);
+					_brpWaterField = _buildingRainpunkModelType.GetField("water", GameReflection.PublicInstance);
 				}
 
 				// RainpunkEngineState fields
@@ -3848,25 +3850,6 @@ namespace ATSAccessibility.Reflection {
 			return _rainCatcherType.IsInstanceOfType(building);
 		}
 
-		/// <summary>
-		/// Get the current water type name for a RainCatcher.
-		/// </summary>
-		public static string GetRainCatcherWaterTypeName(object building) {
-			if (!IsRainCatcher(building)) return null;
-
-			EnsureRainCatcherTypes();
-			EnsureWaterModelTypes();
-
-			try {
-				var waterModel = ReflectionHelper.Invoke(_rainCatcherGetCurrentWaterTypeMethod, building);
-				if (waterModel == null) return null;
-
-				return ReflectionHelper.GetLocaString(_waterModelDisplayNameField, waterModel);
-			} catch {
-				return null;
-			}
-		}
-
 		// ========================================
 		// PUBLIC API - EXTRACTOR
 		// ========================================
@@ -3895,25 +3878,6 @@ namespace ATSAccessibility.Reflection {
 			if (_extractorModelType == null) return false;
 
 			return _extractorModelType.IsInstanceOfType(buildingModel);
-		}
-
-		/// <summary>
-		/// Get the water type name for an Extractor.
-		/// </summary>
-		public static string GetExtractorWaterTypeName(object building) {
-			if (!IsExtractor(building)) return null;
-
-			EnsureExtractorTypes();
-			EnsureWaterModelTypes();
-
-			try {
-				var waterModel = ReflectionHelper.Invoke(_extractorGetWaterTypeMethod, building);
-				if (waterModel == null) return null;
-
-				return ReflectionHelper.GetLocaString(_waterModelDisplayNameField, waterModel);
-			} catch {
-				return null;
-			}
 		}
 
 		/// <summary>
@@ -4311,7 +4275,7 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get the WaterModel from a RainCatcher or Extractor building.
+		/// Get the WaterModel from a RainCatcher, Extractor, or Workshop building.
 		/// </summary>
 		private static object GetWaterModelFromBuilding(object building) {
 			if (building == null) return null;
@@ -4323,6 +4287,13 @@ namespace ATSAccessibility.Reflection {
 				} else if (IsExtractor(building)) {
 					EnsureExtractorTypes();
 					return ReflectionHelper.Invoke(_extractorGetWaterTypeMethod, building);
+				} else if (IsWorkshopClass(building)) {
+					EnsureRainpunkEngineTypes();
+					var model = ReflectionHelper.GetField(_workshopModelField, building);
+					if (model == null) return null;
+					var rainpunkModel = ReflectionHelper.GetField(_wmRainpunkField, model);
+					if (rainpunkModel == null) return null;
+					return ReflectionHelper.GetField(_brpWaterField, rainpunkModel);
 				}
 			} catch {
 				// Fall through
@@ -4332,7 +4303,19 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get total water consumption per second for all active engines.
+		/// Get the water type name for any water-using building (workshop, RainCatcher, Extractor).
+		/// </summary>
+		public static string GetWaterTypeName(object building) {
+			EnsureWaterModelTypes();
+
+			var waterModel = GetWaterModelFromBuilding(building);
+			if (waterModel == null) return null;
+
+			return ReflectionHelper.GetLocaString(_waterModelDisplayNameField, waterModel);
+		}
+
+		/// <summary>
+		/// Get total water consumption per second based on requested engine levels.
 		/// </summary>
 		public static float GetTotalWaterUsePerSecond(object building) {
 			if (!IsWorkshopClass(building)) return 0f;
@@ -4345,7 +4328,7 @@ namespace ATSAccessibility.Reflection {
 				float totalUse = 0f;
 
 				for (int i = 0; i < engineCount; i++) {
-					int currentLevel = GetEngineCurrentLevel(building, i);
+					int currentLevel = GetEngineRequestedLevel(building, i);
 					if (currentLevel <= 0) continue;
 
 					var engineModel = GetEngineModel(building, i);

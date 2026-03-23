@@ -167,10 +167,9 @@ namespace ATSAccessibility.Navigators {
 			_isRainCatcher = BuildingReflection.IsRainCatcher(_building);
 			_isExtractor = BuildingReflection.IsExtractor(_building);
 
-			if (_isRainCatcher) {
-				_waterTypeName = BuildingReflection.GetRainCatcherWaterTypeName(_building);
-			} else if (_isExtractor) {
-				_waterTypeName = BuildingReflection.GetExtractorWaterTypeName(_building);
+			_waterTypeName = BuildingReflection.GetWaterTypeName(_building);
+
+			if (_isExtractor) {
 				_productionTime = BuildingReflection.GetExtractorProductionTime(_building);
 				_producedAmount = BuildingReflection.GetExtractorProducedAmount(_building);
 			}

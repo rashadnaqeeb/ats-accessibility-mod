@@ -898,7 +898,9 @@ namespace ATSAccessibility.Navigators {
 			if (itemIndex == RAINPUNK_ITEM_WATER_STORED) {
 				int current = BuildingReflection.GetWaterTankCurrent(_building);
 				int capacity = BuildingReflection.GetWaterTankCapacity(_building);
-				Speech.Say($"Water stored: {current} of {capacity}");
+				string waterType = BuildingReflection.GetWaterTypeName(_building);
+				string typeLabel = waterType != null ? $" ({waterType})" : "";
+				Speech.Say($"Water stored: {current} of {capacity}{typeLabel}");
 			} else if (itemIndex == RAINPUNK_ITEM_WATER_USE) {
 				float usePerSec = BuildingReflection.GetTotalWaterUsePerSecond(_building);
 				float usePerMin = usePerSec * 60f;

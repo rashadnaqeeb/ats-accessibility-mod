@@ -7,6 +7,8 @@
 ### New features
 
 ### Bug fixes
+- Fix rainpunk water use showing "None" when water storage is empty instead of showing the requested consumption rate
+- Fix rainpunk water stored showing 0 of 0 for workshops; append water type name (e.g. "Water stored: 5 of 50 (Clearance Water)")
 
 ### Internal
 
