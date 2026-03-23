@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.3
+## Changes since v1.3.1
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.3.1
 
 ### New features
 - Add Shift+W in blueprint pick popups (reputation reward and wildcard) to open the encyclopedia article for the focused building
