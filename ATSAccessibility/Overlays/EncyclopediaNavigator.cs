@@ -38,6 +38,9 @@ namespace ATSAccessibility.Overlays {
 		// Type-ahead search for article navigation
 		private readonly TypeAheadSearch _search = new TypeAheadSearch();
 
+		// Pending building for auto-navigation when opened via Shift+W
+		private object _pendingBuildingModel;
+
 		// ========================================
 		// IHELPPROVIDER
 		// ========================================
@@ -102,6 +105,14 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		/// <summary>
+		/// Set a pending building model so that when the encyclopedia opens,
+		/// it auto-navigates to that building's article content.
+		/// </summary>
+		public void SetPendingBuilding(object buildingModel) {
+			_pendingBuildingModel = buildingModel;
+		}
+
+		/// <summary>
 		/// Called when a WikiPopup is shown.
 		/// </summary>
 		public void OnWikiPopupShown(object popup) {
@@ -112,8 +123,13 @@ namespace ATSAccessibility.Overlays {
 			_contentLineIndex = 0;
 
 			RebuildCategories();
-			AnnounceCurrentPanel();
-			AnnounceCurrentElement();
+
+			if (_pendingBuildingModel != null) {
+				NavigateToPendingBuilding();
+			} else {
+				AnnounceCurrentPanel();
+				AnnounceCurrentElement();
+			}
 		}
 
 		/// <summary>
@@ -125,7 +141,81 @@ namespace ATSAccessibility.Overlays {
 			_articleSlots.Clear();
 			_contentLines.Clear();
 			_currentCategoryPanel = null;
+			_pendingBuildingModel = null;
 			_search.Clear();
+		}
+
+		/// <summary>
+		/// Auto-navigate to the pending building's article content.
+		/// Called when the encyclopedia was opened via Shift+W from a blueprint overlay.
+		/// </summary>
+		private void NavigateToPendingBuilding() {
+			var targetModel = _pendingBuildingModel;
+			_pendingBuildingModel = null;
+
+			// Get the current panel (should be Buildings panel, set by the game before popup shown)
+			var currentPanel = WikiReflection.GetCurrentWikiPanel(_wikiPopup);
+			if (currentPanel == null) {
+				Debug.LogWarning("[ATSAccessibility] NavigateToPendingBuilding: no current panel");
+				AnnounceCurrentPanel();
+				AnnounceCurrentElement();
+				return;
+			}
+
+			_currentCategoryPanel = currentPanel;
+
+			// Get all slots from the panel directly — don't filter by activeInHierarchy
+			// because the popup animation may not have fully activated the hierarchy yet
+			var allSlots = WikiReflection.GetPanelSlots(currentPanel);
+			if (allSlots == null || allSlots.Count == 0) {
+				Debug.LogWarning("[ATSAccessibility] NavigateToPendingBuilding: no slots in panel");
+				AnnounceCurrentPanel();
+				AnnounceCurrentElement();
+				return;
+			}
+
+			// Build article slot list using activeSelf instead of activeInHierarchy
+			_articleSlots.Clear();
+			foreach (var slot in allSlots) {
+				if (slot == null) continue;
+				var comp = slot as Component;
+				if (comp != null && comp.gameObject.activeSelf) {
+					_articleSlots.Add(slot);
+				}
+			}
+
+			// Advance to Articles panel
+			_currentPanel = WikiPanel.Articles;
+			_articleIndex = 0;
+
+			// Find the matching building slot
+			int matchIndex = -1;
+			for (int i = 0; i < _articleSlots.Count; i++) {
+				if (!WikiReflection.IsWikiBuildingSlot(_articleSlots[i])) continue;
+				var slotModel = WikiReflection.GetBuildingModelFromSlot(_articleSlots[i]);
+				if (slotModel == targetModel) {
+					matchIndex = i;
+					break;
+				}
+			}
+
+			if (matchIndex < 0) {
+				Debug.LogWarning($"[ATSAccessibility] NavigateToPendingBuilding: building not found in {_articleSlots.Count} slots");
+				// Fall back to normal announcement
+				AnnounceCurrentPanel();
+				AnnounceCurrentElement();
+				return;
+			}
+
+			// Select the building article
+			_articleIndex = matchIndex;
+			WikiReflection.ClickWikiButton(_articleSlots[matchIndex]);
+
+			// Advance to Content panel
+			_currentPanel = WikiPanel.Content;
+			_contentLineIndex = 0;
+			RebuildContent();
+			AnnounceCurrentElement();
 		}
 
 		// ========================================

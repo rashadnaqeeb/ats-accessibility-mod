@@ -1482,5 +1482,42 @@ namespace ATSAccessibility.Reflection {
 		public static int LogCacheStatus() {
 			return ReflectionValidator.TriggerAndValidate(typeof(WikiReflection), "WikiReflection");
 		}
+
+		// ========================================
+		// ENCYCLOPEDIA NAVIGATION
+		// ========================================
+
+		private static PropertyInfo _blackboardServiceProperty;
+		private static bool _blackboardServiceCached;
+
+		private static void EnsureBlackboardService() {
+			if (_blackboardServiceCached) return;
+			_blackboardServiceCached = true;
+
+			ReflectionHelper.InitCache("WikiReflection.BlackboardService", assembly => {
+				var servicesType = assembly.GetType("Eremite.Services.IServices");
+				if (servicesType != null) {
+					_blackboardServiceProperty = servicesType.GetProperty("BlackboardService",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+			});
+		}
+
+		/// <summary>
+		/// Open the encyclopedia to a specific building by firing
+		/// BlackboardService.OnBuildingPreviewRequested.OnNext(buildingModel).
+		/// </summary>
+		public static bool OpenBuildingInEncyclopedia(object buildingModel) {
+			if (buildingModel == null) return false;
+			EnsureBlackboardService();
+
+			var appServices = GameReflection.GetAppServices();
+			if (appServices == null || _blackboardServiceProperty == null) return false;
+
+			var blackboardService = ReflectionHelper.GetProp(_blackboardServiceProperty, appServices);
+			if (blackboardService == null) return false;
+
+			return GameReflection.InvokeSubjectOnNext(blackboardService, "OnBuildingPreviewRequested", buildingModel);
+		}
 	}
 }

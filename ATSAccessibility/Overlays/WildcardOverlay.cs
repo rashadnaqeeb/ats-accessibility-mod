@@ -42,6 +42,13 @@ namespace ATSAccessibility.Overlays {
 		private int _picksRequired;
 		private HashSet<object> _selectedModels = new HashSet<object>();
 
+		// Encyclopedia navigation
+		private EncyclopediaNavigator _encyclopediaNavigator;
+
+		public void SetEncyclopediaNavigator(EncyclopediaNavigator navigator) {
+			_encyclopediaNavigator = navigator;
+		}
+
 		// ========================================
 		// MENUBASE OVERRIDES
 		// ========================================
@@ -155,6 +162,22 @@ namespace ATSAccessibility.Overlays {
 		protected override void OnSpace(int index) {
 			if (Level == 1)
 				ToggleCurrentBuilding();
+		}
+
+		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			// Shift+W: Open encyclopedia for focused building
+			if (keyCode == KeyCode.W && modifiers.Shift && Level == 1 && _encyclopediaNavigator != null) {
+				if (_categories.Count > 0 && _indices[0] >= 0 && _indices[0] < _categories.Count) {
+					var category = _categories[_indices[0]];
+					if (CurrentIndex >= 0 && CurrentIndex < category.Buildings.Count) {
+						var model = category.Buildings[CurrentIndex].Model;
+						_encyclopediaNavigator.SetPendingBuilding(model);
+						WikiReflection.OpenBuildingInEncyclopedia(model);
+						return true;
+					}
+				}
+			}
+			return null;
 		}
 
 		// ========================================

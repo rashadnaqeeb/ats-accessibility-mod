@@ -24,12 +24,19 @@ namespace ATSAccessibility.Overlays {
 		private object _popup;
 		private List<NavItem> _items = new List<NavItem>();
 
+		// Encyclopedia navigation
+		private EncyclopediaNavigator _encyclopediaNavigator;
+
 		// Flag to suppress EventAnnouncer's "New blueprint available" when we announce description
 		public static bool SuppressBlueprintAnnouncement { get; private set; }
 
 		/// <summary>Defensive reset for scene transitions.</summary>
 		public static void ResetSuppression() {
 			SuppressBlueprintAnnouncement = false;
+		}
+
+		public void SetEncyclopediaNavigator(EncyclopediaNavigator navigator) {
+			_encyclopediaNavigator = navigator;
 		}
 
 		// ========================================
@@ -121,6 +128,19 @@ namespace ATSAccessibility.Overlays {
 
 		// Escape passes to game to close popup (OnPopupHidden will close our overlay)
 		protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
+
+		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			// Shift+W: Open encyclopedia for focused building
+			if (keyCode == KeyCode.W && modifiers.Shift && _encyclopediaNavigator != null) {
+				if (CurrentIndex >= 0 && CurrentIndex < _items.Count && _items[CurrentIndex].Type == ItemType.Building) {
+					var model = _items[CurrentIndex].Model;
+					_encyclopediaNavigator.SetPendingBuilding(model);
+					WikiReflection.OpenBuildingInEncyclopedia(model);
+					return true;
+				}
+			}
+			return null;
+		}
 
 		protected override void StorePopup(object popup) {
 			_popup = popup;

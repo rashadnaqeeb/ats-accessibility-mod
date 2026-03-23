@@ -213,7 +213,9 @@ namespace ATSAccessibility.Core {
 			// Initialize overlays as local variables (popup-routed via PopupRouter)
 			var recipesOverlay = new RecipesOverlay();
 			var wildcardOverlay = new WildcardOverlay();
+			wildcardOverlay.SetEncyclopediaNavigator(_encyclopediaNavigator);
 			var reputationRewardOverlay = new ReputationRewardOverlay();
+			reputationRewardOverlay.SetEncyclopediaNavigator(_encyclopediaNavigator);
 			var cornerstoneOverlay = new CornerstoneOverlay();
 			var cornerstoneLimitOverlay = new CornerstoneLimitOverlay();
 			var newcomersOverlay = new NewcomersOverlay();

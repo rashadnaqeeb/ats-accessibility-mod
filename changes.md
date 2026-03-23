@@ -5,6 +5,7 @@
 ## Changes since v1.3
 
 ### New features
+- Add Shift+W in blueprint pick popups (reputation reward and wildcard) to open the encyclopedia article for the focused building
 - Add automaton awareness: worker summaries (W key) and building navigator now show automatons in worker slots and loose automatons attached to buildings
 
 ### Bug fixes
