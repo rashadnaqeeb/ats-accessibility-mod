@@ -2,17 +2,21 @@
 
 
 
-## Changes since v1.3.1
+## Changes since v1.3.2
 
 ### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.3.2
 
 ### Bug fixes
 - Fix Cornerstone Forge shard check always reporting 0 (wrong namespace for Storage type in reflection)
 - Fix Cornerstone Forge negative effect selection corrupting tier indices and breaking the building
 - Fix crafted cornerstones showing as internal names (e.g. CHE_233) in the modifiers panel
 - Fix crafted cornerstones including a stale negative effect when user didn't select one
-
-### Internal
 
 ## v1.3.1
 
