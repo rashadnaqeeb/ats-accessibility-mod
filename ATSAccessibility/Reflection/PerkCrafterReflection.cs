@@ -246,7 +246,7 @@ namespace ATSAccessibility.Reflection {
 				_ssMainProperty = storageServiceType.GetProperty("Main", GameReflection.PublicInstance);
 			}
 
-			var storageType = assembly.GetType("Eremite.Services.Storage");
+			var storageType = assembly.GetType("Eremite.Buildings.Storage");
 			if (storageType != null) {
 				_storageGetAmountMethod = storageType.GetMethod("GetAmount", new[] { typeof(string) });
 				// IsAvailable takes a GoodRef

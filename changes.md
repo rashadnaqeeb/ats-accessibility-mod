@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Fix Cornerstone Forge shard check always reporting 0 (wrong namespace for Storage type in reflection)
 
 ### Internal
 
