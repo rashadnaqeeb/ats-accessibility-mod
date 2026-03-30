@@ -2090,10 +2090,16 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get Effect model by name from Settings.
-		/// Used for world modifiers.
+		/// Get Effect model by name. Tries GameModelService first (which includes
+		/// dynamically crafted effects like Cornerstone Forge perks), then falls
+		/// back to Settings for non-game contexts.
 		/// </summary>
 		public static object GetEffectModel(string name) {
+			// Try GameModelService first (handles dynamic + static effects)
+			var result = BuildingReflection.GetEffectModel(name);
+			if (result != null) return result;
+
+			// Fall back to Settings (for meta/world contexts where GameServices unavailable)
 			EnsureSettingsModelMethods();
 			var settings = GetSettings();
 			if (settings == null || _settingsGetEffectMethod == null) return null;
