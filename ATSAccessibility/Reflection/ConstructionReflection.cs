@@ -875,7 +875,8 @@ namespace ATSAccessibility.Reflection {
 				Debug.Log("[ATSAccessibility] Picked building successfully");
 				return true;
 			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] PickBuilding failed: {ex.Message}");
+				var inner = ex is TargetInvocationException ? ex.InnerException : ex;
+				Debug.LogError($"[ATSAccessibility] PickBuilding failed: {inner?.Message ?? ex.Message}\n{inner?.StackTrace ?? ex.StackTrace}");
 				return false;
 			}
 		}

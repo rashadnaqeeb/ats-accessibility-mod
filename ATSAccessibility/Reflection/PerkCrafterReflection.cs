@@ -104,6 +104,11 @@ namespace ATSAccessibility.Reflection {
 
 		// TierState
 		private static Type _tierStateType;
+		private static FieldInfo _tsTierIndexField;
+		private static FieldInfo _tsSetIndexField;
+
+		// PerkCraftingState.isHookLink
+		private static FieldInfo _pcsIsHookLinkField;
 
 		// GoodRef for price
 		private static MethodInfo _grToGoodMethod;
@@ -194,6 +199,14 @@ namespace ATSAccessibility.Reflection {
 			}
 
 			_tierStateType = assembly.GetType("Eremite.Model.Effects.TierState");
+			if (_tierStateType != null) {
+				_tsTierIndexField = _tierStateType.GetField("tierIndex", GameReflection.PublicInstance);
+				_tsSetIndexField = _tierStateType.GetField("setIndex", GameReflection.PublicInstance);
+			}
+
+			if (_perkCraftingStateType != null) {
+				_pcsIsHookLinkField = _perkCraftingStateType.GetField("isHookLink", GameReflection.PublicInstance);
+			}
 		}
 
 		private static void CacheModelTypes(Assembly assembly) {
@@ -756,20 +769,132 @@ namespace ATSAccessibility.Reflection {
 
 		/// <summary>
 		/// Select a negative effect option (or clear selection if null).
+		/// The game's ChangeNegative mutates tier indices before RebuildResult,
+		/// so we must handle failures by rolling back the tier bump.
 		/// </summary>
 		public static bool SelectNegative(EffectOption option) {
 			var crafter = GetPerkCrafter();
 			if (crafter == null || _pcChangeNegativeMethod == null) return false;
 
-			// If option is null, we need to clear the selection
-			// This is done by calling ChangeNegative with a non-existent index
-			// The game handles this by setting pickedNegative to -1
-			if (option == null) {
+			// Snapshot whether a negative was picked before, so we know if
+			// ChangeNegative will trigger a tier bump via ChangeLinkResult
+			bool wasPicked = ReflectionHelper.InvokeBool(_pcIsNegativePickedMethod, crafter);
+
+			// For "None" (clear selection), pass null to ChangeNegative.
+			// Array.IndexOf(null) returns -1, which deselects properly
+			// and triggers the tier decrement if one was previously picked.
+			var tierState = option?.TierState;
+			bool success = ReflectionHelper.InvokeVoid(_pcChangeNegativeMethod, crafter, tierState);
+
+			if (!success) {
+				// ChangeNegative partially mutated state (set pickedNegative and
+				// bumped tier indices) then crashed in RebuildResult.
+				// Roll back the tier bump if one occurred.
+				bool isPicked = ReflectionHelper.InvokeBool(_pcIsNegativePickedMethod, crafter);
+				if (wasPicked != isPicked) {
+					// ChangeLinkResult ran — reverse the tier adjustment
+					int reverseChange = isPicked ? -1 : 1;
+					RollbackTierBump(reverseChange);
+				}
+				// Also restore pickedNegative to its pre-call state
 				var craftingState = GetCraftingState();
-				return ReflectionHelper.SetField(_pcsPickedNegativeField, craftingState, -1);
+				if (wasPicked) {
+					// Can't restore the exact old index, but -1 is safer than
+					// a partially-set value that may not match the tier state
+				}
+				ReflectionHelper.SetField(_pcsPickedNegativeField, craftingState, -1);
 			}
 
-			return ReflectionHelper.InvokeVoid(_pcChangeNegativeMethod, crafter, option.TierState);
+			return success;
+		}
+
+		/// <summary>
+		/// Reverse a tier bump on hooks or positive effects (depending on isHookLink).
+		/// Called when ChangeNegative partially succeeds then fails in RebuildResult.
+		/// </summary>
+		private static void RollbackTierBump(int change) {
+			var craftingState = GetCraftingState();
+			if (craftingState == null) return;
+
+			bool isHookLink = ReflectionHelper.GetBool(_pcsIsHookLinkField, craftingState);
+			var field = isHookLink ? _pcsHooksField : _pcsPositiveEffectsField;
+			var tierStates = ReflectionHelper.GetField(field, craftingState) as Array;
+			if (tierStates == null || _tsTierIndexField == null) return;
+
+			for (int i = 0; i < tierStates.Length; i++) {
+				var ts = tierStates.GetValue(i);
+				if (ts == null) continue;
+				int tierIndex = ReflectionHelper.GetInt(_tsTierIndexField, ts);
+				ReflectionHelper.SetField(_tsTierIndexField, ts, tierIndex + change);
+			}
+
+			Debug.Log($"[ATSAccessibility] Rolled back tier bump (change={change}, isHookLink={isHookLink}, count={tierStates.Length})");
+		}
+
+		/// <summary>
+		/// Repair any out-of-bounds tier indices in the current crafting state.
+		/// This can happen if a previous ChangeNegative partially succeeded
+		/// (bumped tiers) then crashed in RebuildResult, or if the user's save
+		/// was persisted with corrupted state.
+		/// </summary>
+		public static void RepairTierIndices() {
+			EnsureTypesCached();
+			var craftingState = GetCraftingState();
+			if (craftingState == null) return;
+
+			var model = GetModel();
+			if (model == null || _pcmEffectsElementsField == null) return;
+
+			var elements = ReflectionHelper.GetField(_pcmEffectsElementsField, model);
+			if (elements == null) return;
+
+			int repaired = 0;
+			repaired += RepairTierArray(
+				ReflectionHelper.GetField(_pcsHooksField, craftingState) as Array,
+				ReflectionHelper.GetField(_cecHooksSetsField, elements) as Array);
+			repaired += RepairTierArray(
+				ReflectionHelper.GetField(_pcsPositiveEffectsField, craftingState) as Array,
+				ReflectionHelper.GetField(_cecEffectsSetsField, elements) as Array);
+			repaired += RepairTierArray(
+				ReflectionHelper.GetField(_pcsNegativeEffectsField, craftingState) as Array,
+				ReflectionHelper.GetField(_cecEffectsSetsField, elements) as Array);
+
+			if (repaired > 0)
+				Debug.Log($"[ATSAccessibility] Repaired {repaired} out-of-bounds tier indices in Cornerstone Forge");
+		}
+
+		private static int RepairTierArray(Array tierStates, Array sets) {
+			if (tierStates == null || sets == null || _tsTierIndexField == null || _tsSetIndexField == null)
+				return 0;
+
+			int repaired = 0;
+			for (int i = 0; i < tierStates.Length; i++) {
+				var ts = tierStates.GetValue(i);
+				if (ts == null) continue;
+
+				int setIndex = ReflectionHelper.GetInt(_tsSetIndexField, ts);
+				int tierIndex = ReflectionHelper.GetInt(_tsTierIndexField, ts);
+
+				if (setIndex < 0 || setIndex >= sets.Length) continue;
+				var set = sets.GetValue(setIndex);
+				if (set == null) continue;
+
+				// Get tiers array length from the set (HookTierSet.tiers or EffectTierSet.tiers)
+				var tiersField = set.GetType().GetField("tiers", GameReflection.PublicInstance);
+				if (tiersField == null) continue;
+				var tiers = tiersField.GetValue(set) as Array;
+				if (tiers == null || tiers.Length == 0) continue;
+
+				int maxIndex = tiers.Length - 1;
+				if (tierIndex > maxIndex) {
+					ReflectionHelper.SetField(_tsTierIndexField, ts, maxIndex);
+					repaired++;
+				} else if (tierIndex < 0) {
+					ReflectionHelper.SetField(_tsTierIndexField, ts, 0);
+					repaired++;
+				}
+			}
+			return repaired;
 		}
 
 		// ========================================

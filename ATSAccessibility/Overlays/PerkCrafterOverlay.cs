@@ -71,6 +71,8 @@ namespace ATSAccessibility.Overlays {
 			if (_isFinishedMode) {
 				_craftedPerks = PerkCrafterReflection.GetCraftedPerks();
 			} else {
+				// Repair any corrupted tier indices before reading options
+				PerkCrafterReflection.RepairTierIndices();
 				_hookOptions = PerkCrafterReflection.GetHookOptions();
 				_positiveOptions = PerkCrafterReflection.GetPositiveOptions();
 				_negativeOptions = PerkCrafterReflection.GetNegativeOptions();

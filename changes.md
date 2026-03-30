@@ -8,6 +8,7 @@
 
 ### Bug fixes
 - Fix Cornerstone Forge shard check always reporting 0 (wrong namespace for Storage type in reflection)
+- Fix Cornerstone Forge negative effect selection corrupting tier indices and breaking the building
 
 ### Internal
 
