@@ -486,6 +486,11 @@ namespace ATSAccessibility.Overlays {
 				return;
 			}
 
+			// Force the model to rebuild from current state before crafting.
+			// The model may be stale from a saved session (e.g. with a negative
+			// that was since deselected) if the user didn't change any selections.
+			PerkCrafterReflection.ForceRebuildResult();
+
 			if (PerkCrafterReflection.PerformCraft()) {
 				SoundManager.PlayButtonClick();
 				RefreshData();

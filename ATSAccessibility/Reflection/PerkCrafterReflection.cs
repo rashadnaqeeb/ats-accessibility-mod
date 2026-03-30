@@ -768,6 +768,27 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
+		/// Force a RebuildResult() by calling ChangePositive with the current value.
+		/// This ensures the model matches the current crafting state (pickedNeg, etc.)
+		/// without changing any selections. Needed because the model is only rebuilt
+		/// when a Change* method is called, and a stale model from save may have
+		/// outdated description/effects.
+		/// </summary>
+		public static void ForceRebuildResult() {
+			EnsureTypesCached();
+			var crafter = GetPerkCrafter();
+			if (crafter == null || _pcChangePositiveMethod == null) return;
+
+			var craftingState = GetCraftingState();
+			if (craftingState == null) return;
+
+			var pickedPositive = ReflectionHelper.Invoke(_pcsGetPickedPositiveMethod, craftingState);
+			if (pickedPositive == null) return;
+
+			ReflectionHelper.InvokeVoid(_pcChangePositiveMethod, crafter, pickedPositive);
+		}
+
+		/// <summary>
 		/// Select a negative effect option (or clear selection if null).
 		/// The game's ChangeNegative mutates tier indices before RebuildResult,
 		/// so we must handle failures by rolling back the tier bump.
