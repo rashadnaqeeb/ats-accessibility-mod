@@ -80,6 +80,11 @@ namespace ATSAccessibility.Reflection {
 		// Cache for LocaText.Text property
 		private static PropertyInfo _locaTextTextProperty;
 
+		// TextsService for resolving localization keys
+		private static PropertyInfo _textsServiceProperty = null;
+		private static MethodInfo _tsGetLocaTextMethod = null;
+		private static bool _textsServiceCached = false;
+
 		/// <summary>
 		/// Extract the Text string from a LocaText object.
 		/// Handles null checks and caches the property info.
@@ -96,6 +101,48 @@ namespace ATSAccessibility.Reflection {
 				return _locaTextTextProperty?.GetValue(locaText) as string;
 			} catch {
 				return null;
+			}
+		}
+
+		/// <summary>
+		/// Resolve a localization key to display text via TextsService.GetLocaText().
+		/// Returns the key itself if resolution fails.
+		/// </summary>
+		public static string ResolveLocaKey(string key) {
+			if (string.IsNullOrEmpty(key)) return key;
+
+			EnsureTextsServiceCached();
+
+			try {
+				var appServices = GetAppServices();
+				if (appServices == null) return key;
+
+				var textsService = ReflectionHelper.GetProp(_textsServiceProperty, appServices);
+				if (textsService == null) return key;
+
+				var result = ReflectionHelper.InvokeString(_tsGetLocaTextMethod, textsService, key);
+				return !string.IsNullOrEmpty(result) ? result : key;
+			} catch {
+				return key;
+			}
+		}
+
+		private static void EnsureTextsServiceCached() {
+			if (_textsServiceCached) return;
+			_textsServiceCached = true;
+			EnsureAssembly();
+			if (_gameAssembly == null) return;
+
+			var appServicesType = _gameAssembly.GetType("Eremite.Services.AppServices");
+			if (appServicesType != null) {
+				_textsServiceProperty = appServicesType.GetProperty("TextsService",
+					BindingFlags.Public | BindingFlags.Instance);
+			}
+
+			var textsServiceType = _gameAssembly.GetType("Eremite.Services.ITextsService");
+			if (textsServiceType != null) {
+				_tsGetLocaTextMethod = textsServiceType.GetMethod("GetLocaText",
+					new Type[] { typeof(string) });
 			}
 		}
 

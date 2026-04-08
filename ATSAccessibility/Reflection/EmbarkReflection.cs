@@ -97,9 +97,6 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _tnpRandomizeMethod = null;
 		private static MethodInfo _tnpSetUpValueMethod = null;
 
-		// TextsService for resolving localization keys
-		private static PropertyInfo _textsServiceProperty = null;
-		private static MethodInfo _tsGetLocaTextMethod = null;
 
 		// EmbarkDifficultyPicker for setting difficulty
 		private static Type _embarkDifficultyPickerType = null;
@@ -321,18 +318,6 @@ namespace ATSAccessibility.Reflection {
 				Debug.Log("[ATSAccessibility] Cached TownNamePanel types");
 			}
 
-			// TextsService for resolving localization keys (town names are loca keys when static)
-			var appServicesType = gameAssembly.GetType("Eremite.Services.AppServices");
-			if (appServicesType != null) {
-				_textsServiceProperty = appServicesType.GetProperty("TextsService",
-					BindingFlags.Public | BindingFlags.Instance);
-			}
-
-			var textsServiceType = gameAssembly.GetType("Eremite.Services.ITextsService");
-			if (textsServiceType != null) {
-				_tsGetLocaTextMethod = textsServiceType.GetMethod("GetLocaText",
-					new Type[] { typeof(string) });
-			}
 		}
 
 		private static void CacheDifficultyTypes(Assembly gameAssembly) {
@@ -1683,27 +1668,6 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Resolve a localization key to display text via TextsService.GetLocaText().
-		/// Returns the key itself if resolution fails.
-		/// </summary>
-		private static string ResolveLocaKey(string key) {
-			if (string.IsNullOrEmpty(key)) return key;
-
-			try {
-				var appServices = GameReflection.GetAppServices();
-				if (appServices == null) return key;
-
-				var textsService = ReflectionHelper.GetProp(_textsServiceProperty, appServices);
-				if (textsService == null) return key;
-
-				var result = ReflectionHelper.InvokeString(_tsGetLocaTextMethod, textsService, key);
-				return !string.IsNullOrEmpty(result) ? result : key;
-			} catch {
-				return key;
-			}
-		}
-
-		/// <summary>
 		/// Get the display-ready settlement name (resolves loca key if static).
 		/// </summary>
 		public static string GetSettlementName() {
@@ -1715,7 +1679,7 @@ namespace ATSAccessibility.Reflection {
 			if (string.IsNullOrEmpty(current)) return null;
 
 			bool isStatic = ReflectionHelper.GetBool(_tnpIsStaticField, panel);
-			return isStatic ? ResolveLocaKey(current) : current;
+			return isStatic ? GameReflection.ResolveLocaKey(current) : current;
 		}
 
 		/// <summary>

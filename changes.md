@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Fix villager death/leave announcements showing raw localization keys (e.g. "Effect RelicRitual Name") instead of resolved text
 
 ### Internal
 

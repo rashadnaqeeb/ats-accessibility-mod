@@ -521,10 +521,7 @@ namespace ATSAccessibility.Utils {
 
 				string reason = "";
 				if (!string.IsNullOrEmpty(reasonKey)) {
-					// Extract readable text from key (e.g., "Villagers_LeaveReason_LowResolve" -> "Low Resolve")
-					reason = reasonKey.Replace("Villagers_LeaveReason_", "")
-									  .Replace("Villagers_DeathReason_", "")
-									  .Replace("_", " ");
+					reason = GameReflection.ResolveLocaKey(reasonKey);
 				}
 
 				string message;
