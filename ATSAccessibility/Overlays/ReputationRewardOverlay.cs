@@ -139,6 +139,16 @@ namespace ATSAccessibility.Overlays {
 					return true;
 				}
 			}
+
+			// Alt+M: Read construction material costs for focused building
+			if (keyCode == KeyCode.M && modifiers.Alt) {
+				if (CurrentIndex >= 0 && CurrentIndex < _items.Count && _items[CurrentIndex].Type == ItemType.Building) {
+					string costs = ConstructionReflection.GetBuildingCosts(_items[CurrentIndex].Model);
+					Speech.Say(!string.IsNullOrEmpty(costs) ? costs : "No construction costs");
+				}
+				return true;
+			}
+
 			return null;
 		}
 
