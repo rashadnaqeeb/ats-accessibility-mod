@@ -251,6 +251,13 @@ When you've hit your perk limit and must remove one to accept a new cornerstone:
 - Space: Select/deselect a perk for removal
 - Enter: Confirm removal of the selected perk
 
+### Reputation Reward Overlay
+
+When you earn a reputation milestone, this overlay lets you pick a new building blueprint.
+
+- Alt+M: Read construction material costs for the focused building, including "not enough" if you lack materials.
+- Shift+W: Open the encyclopedia entry for the focused building.
+
 ### Hearth
 
 Open a hearth building (Ancient Hearth or Small Hearth) with Enter. Sections:

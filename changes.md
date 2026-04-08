@@ -7,6 +7,7 @@
 ### New features
 - Announce "Unmovable" in build menu for buildings that cannot be moved after placement
 - Add Alt+M in reputation reward overlay to read construction material costs (with "not enough" indicators)
+- Add F12 help entries for reputation reward overlay (Alt+M, Shift+W)
 
 ### Bug fixes
 - Fix villager death/leave announcements showing raw localization keys (e.g. "Effect RelicRitual Name") instead of resolved text

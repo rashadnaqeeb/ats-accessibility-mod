@@ -126,6 +126,17 @@ namespace ATSAccessibility.Overlays {
 			}
 		}
 
+		// ========================================
+		// IHELPPROVIDER OVERRIDE
+		// ========================================
+
+		private static readonly List<HelpEntry> _rewardHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("Alt+M", "Read material costs"),
+			new HelpEntry("Shift+W", "Open encyclopedia"),
+		};
+
+		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _rewardHelpEntries;
+
 		// Escape passes to game to close popup (OnPopupHidden will close our overlay)
 		protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
 
