@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.3.2
+## Changes since v1.3.3
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.3.3
 
 ### New features
 - Add ingredient mode (Tab) and chain navigation (Right arrow at recipe level) to recipes overlay for following production chains
