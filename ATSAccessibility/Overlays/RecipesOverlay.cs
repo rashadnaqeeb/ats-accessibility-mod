@@ -17,6 +17,15 @@ namespace ATSAccessibility.Overlays {
 		// Data
 		private List<RecipesReflection.GoodInfo> _goods;
 		private bool _showAllGoods;  // false = unlocked buildings only, true = include locked buildings
+		private bool _ingredientMode;  // false = producers (default), true = ingredients
+
+		// Level 2: related goods for chain navigation
+		private struct RelatedGoodItem {
+			public string InternalName;
+			public string DisplayName;
+			public int Amount;
+		}
+		private List<RelatedGoodItem> _relatedGoods;
 
 		// ========================================
 		// MENUBASE OVERRIDES
@@ -29,6 +38,7 @@ namespace ATSAccessibility.Overlays {
 			switch (Level) {
 				case 0: return _goods?.Count ?? 0;
 				case 1: return GetCurrentGood()?.Recipes.Count ?? 0;
+				case 2: return _relatedGoods?.Count ?? 0;
 				default: return 0;
 			}
 		}
@@ -57,14 +67,27 @@ namespace ATSAccessibility.Overlays {
 						? (recipe.IsActive ? "active" : "inactive")
 						: "not built";
 
+					if (_ingredientMode) {
+						string outputName = RecipesReflection.GetRecipeOutputName(recipe.RecipeModel);
+						int outputAmount = RecipesReflection.GetRecipeOutputAmount(recipe.RecipeModel);
+						return $"{workshopPart}, produces {outputName} x {outputAmount}{stars}, {status}";
+					}
+
 					return $"{workshopPart}{stars}, {status}";
+
+				case 2:
+					if (_relatedGoods == null || index < 0 || index >= _relatedGoods.Count) return null;
+					var related = _relatedGoods[index];
+					return $"{related.DisplayName} x {related.Amount}";
 
 				default: return null;
 			}
 		}
 
 		protected override void RefreshData() {
-			_goods = RecipesReflection.GetAllGoods(_showAllGoods);
+			_goods = _ingredientMode
+				? RecipesReflection.GetAllGoodsAsIngredients(_showAllGoods)
+				: RecipesReflection.GetAllGoods(_showAllGoods);
 		}
 
 		protected override EnterAction OnEnter(int index) {
@@ -79,6 +102,10 @@ namespace ATSAccessibility.Overlays {
 
 				case 1:
 					return EnterAction.Action;
+
+				case 2:
+					JumpToGood(index);
+					return EnterAction.None;
 
 				default:
 					return EnterAction.None;
@@ -100,6 +127,18 @@ namespace ATSAccessibility.Overlays {
 				AdjustLimit(dir * (modifiers.Shift ? 10 : 1));
 		}
 
+		protected override bool CanDrillDown(int index) {
+			if (Level == 0) return base.CanDrillDown(index);
+			// Allow Right arrow at Level 1 to drill to related goods
+			if (Level == 1) return true;
+			return false;
+		}
+
+		protected override void OnDrillDown(int index) {
+			if (Level == 1)
+				PopulateRelatedGoods(index);
+		}
+
 		// ========================================
 		// SPECIAL KEYS
 		// ========================================
@@ -107,6 +146,17 @@ namespace ATSAccessibility.Overlays {
 		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
 			if (modifiers.Control && keyCode == KeyCode.T) {
 				ToggleShowAll();
+				return true;
+			}
+
+			if (keyCode == KeyCode.Tab) {
+				ToggleIngredientMode();
+				return true;
+			}
+
+			// Right arrow at Level 2 = jump (same as Enter)
+			if (keyCode == KeyCode.RightArrow && Level == 2 && _relatedGoods != null && _relatedGoods.Count > 0) {
+				JumpToGood(CurrentIndex);
 				return true;
 			}
 
@@ -120,6 +170,7 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		private static readonly List<HelpEntry> _recipesHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
+			new HelpEntry("Tab", "Toggle producers/ingredients mode"),
 			new HelpEntry("Ctrl+T", "Toggle show all"),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _recipesHelpEntries;
@@ -142,19 +193,22 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		protected override string GetOpenAnnouncement() {
-			var modeLabel = _showAllGoods ? "Showing all recipes" : "Showing available recipes";
+			var viewLabel = _ingredientMode ? "Ingredients mode" : "Producers mode";
+			var filterLabel = _showAllGoods ? "showing all" : "showing available";
 
 			if (_goods == null || _goods.Count == 0)
-				return $"{modeLabel}. {EmptyMessage}";
+				return $"{viewLabel}, {filterLabel}. {EmptyMessage}";
 
 			var good = _goods[0];
 			var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
-			return $"{modeLabel}. {good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}";
+			return $"{viewLabel}, {filterLabel}. {good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}";
 		}
 
 		protected override void OnClosed() {
 			_goods?.Clear();
 			_goods = null;
+			_relatedGoods?.Clear();
+			_relatedGoods = null;
 		}
 
 		// ========================================
@@ -223,6 +277,9 @@ namespace ATSAccessibility.Overlays {
 			SetLevel(0);
 			_indices[0] = 0;
 			_indices[1] = 0;
+			_indices[2] = 0;
+			_relatedGoods?.Clear();
+			_relatedGoods = null;
 
 			var modeLabel = _showAllGoods ? "Showing all recipes" : "Showing available recipes";
 
@@ -268,7 +325,9 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			var good = GetCurrentGood();
-			string outputName = good?.DisplayName ?? RecipesReflection.GetRecipeOutputName(recipe.RecipeModel);
+			string outputName = _ingredientMode
+				? RecipesReflection.GetRecipeOutputName(recipe.RecipeModel)
+				: (good?.DisplayName ?? RecipesReflection.GetRecipeOutputName(recipe.RecipeModel));
 			int outputAmount = RecipesReflection.GetRecipeOutputAmount(recipe.RecipeModel);
 			float productionTime = RecipesReflection.GetRecipeProductionTime(recipe.RecipeModel);
 			int gradeLevel = RecipesReflection.GetRecipeGradeLevel(recipe.RecipeModel);
@@ -280,6 +339,109 @@ namespace ATSAccessibility.Overlays {
 			string stars = gradeLevel == 1 ? " 1 star." : $" {gradeLevel} stars.";
 
 			Speech.Say($"{outputName} x {outputAmount}: {inputs} {time}{stars}");
+		}
+
+		// ========================================
+		// INGREDIENT MODE
+		// ========================================
+
+		private void ToggleIngredientMode() {
+			_ingredientMode = !_ingredientMode;
+			RefreshData();
+
+			SetLevel(0);
+			_indices[0] = 0;
+			_indices[1] = 0;
+			_indices[2] = 0;
+			_relatedGoods?.Clear();
+			_relatedGoods = null;
+
+			var viewLabel = _ingredientMode ? "Ingredients mode" : "Producers mode";
+
+			if (_goods != null && _goods.Count > 0) {
+				var good = _goods[0];
+				var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
+				Speech.Say($"{viewLabel}. {good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}");
+			} else {
+				Speech.Say($"{viewLabel}. No goods available");
+			}
+		}
+
+		// ========================================
+		// CHAIN NAVIGATION
+		// ========================================
+
+		private void PopulateRelatedGoods(int recipeIndex) {
+			_relatedGoods = new List<RelatedGoodItem>();
+
+			var good = GetCurrentGood();
+			if (good == null || recipeIndex < 0 || recipeIndex >= good.Recipes.Count) return;
+
+			var recipe = good.Recipes[recipeIndex];
+			var seen = new HashSet<string>();
+
+			if (_ingredientMode) {
+				// In ingredient mode, show the output product
+				var outputName = RecipesReflection.GetRecipeOutputInternalName(recipe.RecipeModel);
+				var outputDisplayName = RecipesReflection.GetRecipeOutputName(recipe.RecipeModel);
+				int outputAmount = RecipesReflection.GetRecipeOutputAmount(recipe.RecipeModel);
+				if (!string.IsNullOrEmpty(outputName) && seen.Add(outputName)) {
+					_relatedGoods.Add(new RelatedGoodItem {
+						InternalName = outputName,
+						DisplayName = outputDisplayName,
+						Amount = outputAmount
+					});
+				}
+			} else {
+				// In producers mode, show the input ingredients (flattened, deduplicated)
+				var requiredGoods = RecipesReflection.GetRecipeRequiredGoods(recipe.RecipeModel);
+				if (requiredGoods != null) {
+					foreach (var goodsSet in requiredGoods) {
+						if (goodsSet == null) continue;
+						var goods = RecipesReflection.GetGoodsSetGoods(goodsSet);
+						if (goods == null) continue;
+						foreach (var goodRef in goods) {
+							if (goodRef == null) continue;
+							var internalName = RecipesReflection.GetGoodRefInternalName(goodRef);
+							if (string.IsNullOrEmpty(internalName) || !seen.Add(internalName)) continue;
+							_relatedGoods.Add(new RelatedGoodItem {
+								InternalName = internalName,
+								DisplayName = RecipesReflection.GetGoodRefDisplayName(goodRef),
+								Amount = RecipesReflection.GetGoodRefAmount(goodRef)
+							});
+						}
+					}
+				}
+			}
+		}
+
+		private void JumpToGood(int index) {
+			if (_relatedGoods == null || index < 0 || index >= _relatedGoods.Count) return;
+
+			var target = _relatedGoods[index];
+
+			// Find the target good in the Level 0 list
+			int targetIndex = -1;
+			if (_goods != null) {
+				for (int i = 0; i < _goods.Count; i++) {
+					if (_goods[i].Name == target.InternalName) {
+						targetIndex = i;
+						break;
+					}
+				}
+			}
+
+			if (targetIndex < 0) {
+				Speech.Say($"{target.DisplayName}, end of chain, no recipes available");
+				SoundManager.PlayFailed();
+				return;
+			}
+
+			_relatedGoods?.Clear();
+			_relatedGoods = null;
+			SetLevel(0);
+			_indices[0] = targetIndex;
+			AnnounceCurrentItem();
 		}
 	}
 }

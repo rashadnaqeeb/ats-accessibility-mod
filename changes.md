@@ -5,6 +5,7 @@
 ## Changes since v1.3.2
 
 ### New features
+- Add ingredient mode (Tab) and chain navigation (Right arrow at recipe level) to recipes overlay for following production chains
 - Announce "Unmovable" in build menu for buildings that cannot be moved after placement
 - Add Alt+M in reputation reward overlay to read construction material costs (with "not enough" indicators)
 - Add F12 help entries for reputation reward overlay (Alt+M, Shift+W)

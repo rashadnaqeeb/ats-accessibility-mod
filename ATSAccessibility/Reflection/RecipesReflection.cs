@@ -1108,6 +1108,94 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		// ========================================
+		// INGREDIENT MODE
+		// ========================================
+
+		/// <summary>
+		/// Get all goods that are consumed as ingredients, organized by ingredient good.
+		/// Each GoodInfo represents an ingredient, with Recipes listing every recipe that uses it.
+		/// </summary>
+		public static List<GoodInfo> GetAllGoodsAsIngredients(bool showAll) {
+			EnsureTypesCached();
+
+			// Get all goods in producer mode to harvest all recipes
+			var producerGoods = GetAllGoods(showAll);
+			if (producerGoods == null) return new List<GoodInfo>();
+
+			var result = new Dictionary<string, GoodInfo>();
+			var seenRecipes = new Dictionary<string, HashSet<string>>(); // ingredientName -> set of recipe workshop+model keys
+
+			foreach (var producerGood in producerGoods) {
+				foreach (var recipe in producerGood.Recipes) {
+					var requiredGoods = GetRecipeRequiredGoods(recipe.RecipeModel);
+					if (requiredGoods == null) continue;
+
+					// Build a unique key for this recipe instance
+					var workshopName = ReflectionHelper.GetPropString(_buildingNameProperty, recipe.WorkshopModel) ?? "";
+					var recipeKey = workshopName + ":" + (recipe.RecipeState?.GetHashCode().ToString() ?? recipe.RecipeModel.GetHashCode().ToString());
+
+					foreach (var goodsSet in requiredGoods) {
+						if (goodsSet == null) continue;
+						var goods = GetGoodsSetGoods(goodsSet);
+						if (goods == null) continue;
+
+						foreach (var goodRef in goods) {
+							if (goodRef == null) continue;
+							var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, goodRef);
+							if (goodModel == null) continue;
+
+							var ingredientName = ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
+							if (string.IsNullOrEmpty(ingredientName)) continue;
+
+							// Deduplicate: same recipe shouldn't appear twice for the same ingredient
+							if (!seenRecipes.TryGetValue(ingredientName, out var seen)) {
+								seen = new HashSet<string>();
+								seenRecipes[ingredientName] = seen;
+							}
+							if (!seen.Add(recipeKey)) continue;
+
+							if (!result.TryGetValue(ingredientName, out var ingredientInfo)) {
+								ingredientInfo = new GoodInfo {
+									Name = ingredientName,
+									DisplayName = GetGoodDisplayName(goodModel),
+									StorageAmount = GetStorageAmount(ingredientName),
+									Limit = GetGlobalLimit(ingredientName)
+								};
+								result[ingredientName] = ingredientInfo;
+							}
+
+							ingredientInfo.Recipes.Add(recipe);
+						}
+					}
+				}
+			}
+
+			var list = new List<GoodInfo>(result.Values);
+			list.Sort((a, b) => string.Compare(a.DisplayName, b.DisplayName, StringComparison.OrdinalIgnoreCase));
+			return list;
+		}
+
+		/// <summary>
+		/// Get the internal name of the produced good from a recipe model.
+		/// </summary>
+		public static string GetRecipeOutputInternalName(object recipeModel) {
+			if (recipeModel == null) return null;
+			var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
+			if (producedGoodRef == null) return null;
+			return GetGoodRefInternalName(producedGoodRef);
+		}
+
+		/// <summary>
+		/// Get the internal name from a GoodRef.
+		/// </summary>
+		public static string GetGoodRefInternalName(object goodRef) {
+			if (goodRef == null) return null;
+			var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, goodRef);
+			if (goodModel == null) return null;
+			return ReflectionHelper.GetPropString(_goodNameProperty, goodModel);
+		}
+
+		// ========================================
 		// POPUP DETECTION
 		// ========================================
 
