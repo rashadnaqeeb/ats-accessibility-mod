@@ -5,6 +5,7 @@
 ## Changes since v1.3.2
 
 ### New features
+- Announce "Unmovable" in build menu for buildings that cannot be moved after placement
 
 ### Bug fixes
 - Fix villager death/leave announcements showing raw localization keys (e.g. "Effect RelicRitual Name") instead of resolved text

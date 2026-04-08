@@ -427,8 +427,12 @@ namespace ATSAccessibility.Panels {
 			bool canConstruct = ConstructionReflection.CanConstructBuilding(building.Model);
 			string status = canConstruct ? "" : ", at maximum";
 
-			// Format: "Name, size. 5 Planks, not enough, 3 Bricks. Description"
-			string announcement = $"{building.Name}{status}, {sizeText}.{costsText} {description}";
+			// Check movability
+			bool movable = WikiReflection.GetBuildingMovable(building.Model);
+			string movableText = movable ? "" : " Unmovable.";
+
+			// Format: "Name, size. 5 Planks, not enough, 3 Bricks. Unmovable. Description"
+			string announcement = $"{building.Name}{status}, {sizeText}.{costsText}{movableText} {description}";
 			Speech.Say(announcement);
 			Debug.Log($"[ATSAccessibility] Building: {building.Name}{status}, {sizeText}");
 		}
@@ -450,8 +454,10 @@ namespace ATSAccessibility.Panels {
 			string description = ConstructionReflection.GetBuildingModelDescription(building.Model) ?? "";
 			bool canConstruct = ConstructionReflection.CanConstructBuilding(building.Model);
 			string status = canConstruct ? "" : ", at maximum";
+			bool movable = WikiReflection.GetBuildingMovable(building.Model);
+			string movableText = movable ? "" : " Unmovable.";
 
-			string announcement = $"{category.Name}. {building.Name}{status}, {sizeText}.{costsText} {description}";
+			string announcement = $"{category.Name}. {building.Name}{status}, {sizeText}.{costsText}{movableText} {description}";
 			Speech.Say(announcement);
 			Debug.Log($"[ATSAccessibility] Building (cross-category): {category.Name} > {building.Name}{status}, {sizeText}");
 		}
