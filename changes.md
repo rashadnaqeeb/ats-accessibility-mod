@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.3.3
+## Changes since v1.3.4
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.3.4
 
 ### New features
 - Add effect and good descriptions to embarkation bonus announcements (spend embark points section)
