@@ -269,10 +269,12 @@ namespace ATSAccessibility.Utils {
 					Speech.Say($"{categoryName}, none");
 				} else {
 					var currentGroup = _cachedGroups[_currentGroupIndex];
+					var item = currentGroup.Items[_currentItemIndex];
 					int itemNum = _currentItemIndex + 1;
 					int itemTotal = currentGroup.Items.Count;
+					string itemSuffix = GetGladeItemSuffix(item);
 					// Intentional: "X of Y" position context is useful for scanner navigation
-					Speech.Say($"{categoryName}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+					Speech.Say($"{categoryName}, {currentGroup.TypeName}, {itemNum} of {itemTotal}{itemSuffix}");
 				}
 			}
 
@@ -517,7 +519,8 @@ namespace ATSAccessibility.Utils {
 			}
 		}
 
-		private const int MAX_CUTTING_DISTANCE = 15;
+		// Safety cap to avoid BFS running across entire map for unreachable glades
+		private const int MAX_CUTTING_DISTANCE = 50;
 
 		private List<ItemGroup> ScanGlades() {
 			var groups = new Dictionary<string, ItemGroup>();
@@ -1118,22 +1121,26 @@ namespace ATSAccessibility.Utils {
 			int itemNum = _currentItemIndex + 1;
 			int itemTotal = currentGroup.Items.Count;
 			var item = currentGroup.Items[_currentItemIndex];
-
-			// Build per-item suffix for glade details (contents + cutting depth)
-			string itemSuffix = "";
-			if (item.ContentsSummary != null || item.CuttingDepth > 0) {
-				var parts = new List<string>();
-				if (item.ContentsSummary != null)
-					parts.Add(item.ContentsSummary);
-				if (item.CuttingDepth > MAX_CUTTING_DISTANCE)
-					parts.Add($"{MAX_CUTTING_DISTANCE}+ deep");
-				else if (item.CuttingDepth > 0)
-					parts.Add($"{item.CuttingDepth} deep");
-				itemSuffix = ", " + string.Join(", ", parts);
-			}
+			string itemSuffix = GetGladeItemSuffix(item);
 
 			// Intentional: "X of Y" position context is useful for scanner navigation
 			Speech.Say($"{currentGroup.TypeName}, {itemNum} of {itemTotal}{itemSuffix}");
+		}
+
+		/// <summary>
+		/// Build per-item suffix for glade details (contents + cutting depth).
+		/// Returns empty string for non-glade items.
+		/// </summary>
+		private static string GetGladeItemSuffix(ScannedItem item) {
+			if (item.ContentsSummary == null && item.CuttingDepth <= 0)
+				return "";
+
+			var parts = new List<string>();
+			if (item.ContentsSummary != null)
+				parts.Add(item.ContentsSummary);
+			if (item.CuttingDepth > 0)
+				parts.Add($"{item.CuttingDepth} deep");
+			return ", " + string.Join(", ", parts);
 		}
 
 		private void AutoMoveCursorSilent() {
