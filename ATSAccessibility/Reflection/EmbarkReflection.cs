@@ -745,6 +745,21 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
+		/// Get description for an effect from Settings.
+		/// </summary>
+		public static string GetEffectDescription(string effectName) {
+			if (string.IsNullOrEmpty(effectName)) return null;
+
+			var settings = GameReflection.GetSettings();
+			if (settings == null) return null;
+
+			var effectModel = ReflectionHelper.Invoke(_settingsGetEffectMethod, settings, effectName);
+			if (effectModel == null) return null;
+
+			return ReflectionHelper.GetPropString(BuildingReflection.EffectModelDescriptionProperty, effectModel);
+		}
+
+		/// <summary>
 		/// Get display name for a good from Settings.
 		/// </summary>
 		public static string GetGoodDisplayName(string goodName) {

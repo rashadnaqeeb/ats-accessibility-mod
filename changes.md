@@ -5,6 +5,9 @@
 ## Changes since v1.3.3
 
 ### New features
+- Add effect and good descriptions to embarkation bonus announcements (spend embark points section)
+- Include seal fragment requirements in world map brief announcement when moving over seal tiles
+- Add scanner auto-move to world map (Alt+Home to toggle, shared setting with in-game map)
 
 ### Bug fixes
 

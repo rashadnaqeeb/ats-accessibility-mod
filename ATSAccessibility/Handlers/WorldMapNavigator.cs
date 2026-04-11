@@ -120,6 +120,7 @@ namespace ATSAccessibility.Handlers {
 
 		/// <summary>
 		/// Set cursor to a specific position (used by scanner).
+		/// Does not announce - caller handles announcement.
 		/// </summary>
 		public void SetCursorPosition(Vector3Int pos) {
 			if (!WorldMapReflection.WorldMapInBounds(pos)) {
@@ -129,7 +130,6 @@ namespace ATSAccessibility.Handlers {
 			_cursorPos = pos;
 			SyncCameraToTile();
 			CacheTileInfo();
-			AnnounceTile();
 		}
 
 		/// <summary>
@@ -229,12 +229,14 @@ namespace ATSAccessibility.Handlers {
 			// Handle unexplored tiles with special visibility rules
 			if (!isRevealed) {
 				if (hasSeal) {
-					// Seals visible through fog - show seal type only
+					// Seals visible through fog - show seal info
 					_cachedTileType = TileType.Seal;
 					var sealName = WorldMapReflection.WorldMapGetSealName(_cursorPos);
-					_cachedBriefInfo = !string.IsNullOrEmpty(sealName)
-						? $"Unexplored, Seal: {sealName}"
-						: "Unexplored, Seal";
+					var (_, _, minFragments, _, _, _) = WorldMapReflection.WorldMapGetSealInfo(_cursorPos);
+					string sealLabel = !string.IsNullOrEmpty(sealName) ? $"Seal: {sealName}" : "Seal";
+					if (minFragments > 0)
+						sealLabel += $", {minFragments} fragments";
+					_cachedBriefInfo = $"Unexplored, {sealLabel}";
 				} else if (hasModifier) {
 					// Modifier visible as "?" - don't identify it
 					_cachedTileType = TileType.Unexplored;
@@ -271,7 +273,11 @@ namespace ATSAccessibility.Handlers {
 			} else if (hasSeal) {
 				_cachedTileType = TileType.Seal;
 				var sealName = WorldMapReflection.WorldMapGetSealName(_cursorPos);
-				tileType = !string.IsNullOrEmpty(sealName) ? $"Seal: {sealName}" : "Seal";
+				var (_, _, minFragments, _, _, _) = WorldMapReflection.WorldMapGetSealInfo(_cursorPos);
+				string sealLabel = !string.IsNullOrEmpty(sealName) ? $"Seal: {sealName}" : "Seal";
+				if (minFragments > 0)
+					sealLabel += $", {minFragments} fragments";
+				tileType = sealLabel;
 			} else if (hasModifier) {
 				_cachedTileType = TileType.Modifier;
 				var modifierName = WorldMapReflection.WorldMapGetModifierName(_cursorPos);

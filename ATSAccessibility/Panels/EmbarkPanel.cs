@@ -951,8 +951,12 @@ namespace ATSAccessibility.Panels {
 			foreach (var effect in effectsAvailable) {
 				string name = EmbarkReflection.GetConditionPickName(effect);
 				string displayName = EmbarkReflection.GetEffectDisplayName(name);
+				string description = EmbarkReflection.GetEffectDescription(name);
 				int cost = EmbarkReflection.GetConditionPickCost(effect);
-				effectDetails.Add($"{displayName}, {cost} points");
+				string detail = $"{displayName}, {cost} points";
+				if (!string.IsNullOrEmpty(description))
+					detail += $". {description}";
+				effectDetails.Add(detail);
 				effectDataList.Add(effect);
 			}
 
@@ -971,9 +975,13 @@ namespace ATSAccessibility.Panels {
 			foreach (var good in goodsAvailable) {
 				string name = EmbarkReflection.GetGoodPickName(good);
 				string displayName = EmbarkReflection.GetGoodDisplayName(name);
+				string description = GameReflection.GetGoodDescription(name);
 				int amount = EmbarkReflection.GetGoodPickAmount(good);
 				int cost = EmbarkReflection.GetGoodPickCost(good);
-				goodDetails.Add($"{amount} {displayName}, {cost} points");
+				string detail = $"{amount} {displayName}, {cost} points";
+				if (!string.IsNullOrEmpty(description))
+					detail += $". {description}";
+				goodDetails.Add(detail);
 				goodDataList.Add(good);
 			}
 
@@ -996,8 +1004,12 @@ namespace ATSAccessibility.Panels {
 			foreach (var effect in effectsPicked) {
 				string name = EmbarkReflection.GetConditionPickName(effect);
 				string displayName = EmbarkReflection.GetEffectDisplayName(name);
+				string description = EmbarkReflection.GetEffectDescription(name);
 				int cost = EmbarkReflection.GetConditionPickCost(effect);
-				spentDetails.Add($"{displayName}, {cost} points");
+				string detail = $"{displayName}, {cost} points";
+				if (!string.IsNullOrEmpty(description))
+					detail += $". {description}";
+				spentDetails.Add(detail);
 				spentDataList.Add(effect);
 			}
 
@@ -1006,9 +1018,13 @@ namespace ATSAccessibility.Panels {
 			foreach (var good in goodsPicked) {
 				string name = EmbarkReflection.GetGoodPickName(good);
 				string displayName = EmbarkReflection.GetGoodDisplayName(name);
+				string description = GameReflection.GetGoodDescription(name);
 				int amount = EmbarkReflection.GetGoodPickAmount(good);
 				int cost = EmbarkReflection.GetGoodPickCost(good);
-				spentDetails.Add($"{amount} {displayName}, {cost} points");
+				string detail = $"{amount} {displayName}, {cost} points";
+				if (!string.IsNullOrEmpty(description))
+					detail += $". {description}";
+				spentDetails.Add(detail);
 				spentDataList.Add(good);
 			}
 

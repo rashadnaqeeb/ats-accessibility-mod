@@ -1,3 +1,4 @@
+using ATSAccessibility.Core;
 using ATSAccessibility.Handlers;
 using ATSAccessibility.Reflection;
 using System;
@@ -94,6 +95,7 @@ namespace ATSAccessibility.Utils {
 			_currentItemIndex = 0;
 
 			AnnounceTypeChange();
+			AutoMoveCursorSilent();
 		}
 
 		/// <summary>
@@ -107,6 +109,7 @@ namespace ATSAccessibility.Utils {
 
 			_currentItemIndex = NavigationUtils.WrapIndex(_currentItemIndex, direction, _cachedItems.Count);
 			AnnounceItem();
+			AutoMoveCursorSilent();
 		}
 
 		/// <summary>
@@ -149,6 +152,15 @@ namespace ATSAccessibility.Utils {
 			_navigator.SetCursorPosition(item.Position);
 
 			Speech.Say($"Moved to {item.Name}");
+		}
+
+		private void AutoMoveCursorSilent() {
+			if (!Plugin.ScannerAutoMove.Value) return;
+			if (_cachedItems.Count == 0) return;
+			if (_currentItemIndex < 0 || _currentItemIndex >= _cachedItems.Count) return;
+
+			var item = _cachedItems[_currentItemIndex];
+			_navigator.SetCursorPosition(item.Position);
 		}
 
 		// ========================================
