@@ -38,6 +38,8 @@ namespace ATSAccessibility.Utils {
 		public class ScannedItem {
 			public Vector2Int Position;
 			public int Distance;  // Manhattan distance from cursor at scan time
+			public int CuttingDepth;  // Trees to cut from cleared area to reach this glade (0 = N/A)
+			public string ContentsSummary;  // Glade contents (e.g. "2 deposits, 1 relic"), null for non-glade items
 
 			public ScannedItem(Vector2Int position, int distance) {
 				Position = position;
@@ -515,6 +517,8 @@ namespace ATSAccessibility.Utils {
 			}
 		}
 
+		private const int MAX_CUTTING_DISTANCE = 15;
+
 		private List<ItemGroup> ScanGlades() {
 			var groups = new Dictionary<string, ItemGroup>();
 			GetScanOrigin(out int cursorX, out int cursorY);
@@ -529,37 +533,45 @@ namespace ATSAccessibility.Utils {
 				var gladesList = allGlades as IEnumerable;
 				if (gladesList == null) return new List<ItemGroup>();
 
-				// Collect unrevealed glades for seal candidate check
+				// Collect unrevealed glades and build tile-to-glade index for BFS
 				var unrevealedGlades = new List<(object glade, Vector2Int firstField)>();
+				var tileToGladeIndex = new Dictionary<Vector2Int, int>();
 
 				foreach (var glade in gladesList) {
 					if (glade == null) continue;
-
-					// Check if glade is unrevealed (only show unrevealed glades)
 					if (MapReflection.GetGladeWasDiscovered(glade)) continue;
+
+					Vector2Int position = MapReflection.GetGladeFirstField(glade);
+					if (position.x < 0 || position.y < 0) continue;
+
+					int gladeIndex = unrevealedGlades.Count;
+					unrevealedGlades.Add((glade, position));
+
+					// Map each glade's border tiles to this glade index
+					var fields = MapReflection.GetGladeFields(glade);
+					if (fields != null) {
+						foreach (var field in fields) {
+							tileToGladeIndex[(Vector2Int)field] = gladeIndex;
+						}
+					}
+				}
+
+				// Compute cutting distance from cleared area to each glade via BFS
+				var cuttingDistances = ComputeCuttingDistances(unrevealedGlades, tileToGladeIndex);
+
+				for (int i = 0; i < unrevealedGlades.Count; i++) {
+					var (glade, position) = unrevealedGlades[i];
 
 					// Get danger level for grouping
 					string dangerLevel = GetGladeDangerLevel(glade);
 
-					// Build group name based on what info is available
+					// Build group name based on glade type only
 					string groupName;
 					if (!hasDangerousGladeInfo) {
-						// Cursed Royal Woodlands: ALL glade markers are hidden
 						groupName = "Unknown glade";
-					} else if (hasGladeInfo) {
-						// Has glade info perk - show type and contents
-						string contents = MapReflection.GetGladeContentsSummary(glade);
-						groupName = $"{dangerLevel} glade: {contents}";
 					} else {
-						// Normal biome without glade info perk - show type only
 						groupName = $"{dangerLevel} glade";
 					}
-
-					// Get position (first field in glade)
-					Vector2Int position = MapReflection.GetGladeFirstField(glade);
-					if (position.x < 0 || position.y < 0) continue;
-
-					unrevealedGlades.Add((glade, position));
 
 					int distance = CalculateDistance(position, cursorX, cursorY);
 
@@ -568,7 +580,12 @@ namespace ATSAccessibility.Utils {
 						groups[groupName] = group;
 					}
 
-					group.Items.Add(new ScannedItem(position, distance));
+					var item = new ScannedItem(position, distance);
+					if (cuttingDistances.TryGetValue(i, out int depth))
+						item.CuttingDepth = depth;
+					if (hasGladeInfo)
+						item.ContentsSummary = MapReflection.GetGladeContentsSummary(glade);
+					group.Items.Add(item);
 				}
 
 				// Add location marker groups (grass/spring markers)
@@ -582,6 +599,95 @@ namespace ATSAccessibility.Utils {
 
 			return FinalizeGroups(groups);
 		}
+
+		/// <summary>
+		/// BFS from the cleared area frontier through tree tiles to find the minimum number
+		/// of trees to cut to reach each unrevealed glade. Returns a dictionary mapping
+		/// glade index (into unrevealedGlades list) to cutting distance.
+		///
+		/// Depth semantics: depth = total trees to cut to open the glade via this path.
+		/// - Available tree adjacent to glade tile: 1 (cut it, glade opens)
+		/// - Non-available tree at BFS depth D adjacent to glade tile: D (cut D trees in sequence)
+		/// </summary>
+		private static Dictionary<int, int> ComputeCuttingDistances(
+			List<(object glade, Vector2Int firstField)> unrevealedGlades,
+			Dictionary<Vector2Int, int> tileToGladeIndex) {
+
+			var result = new Dictionary<int, int>();
+			if (unrevealedGlades.Count == 0) return result;
+
+			var (allTrees, availableTrees) = MapReflection.GetTreePositionsByAvailability();
+			if (allTrees.Count == 0) return result;
+
+			int gladesRemaining = unrevealedGlades.Count;
+
+			// Phase 1: Check available trees directly adjacent to glade tiles (distance = 1)
+			// Also identify frontier available trees that border the forest
+			var visited = new HashSet<Vector2Int>();
+			var queue = new Queue<(Vector2Int pos, int depth)>();
+
+			foreach (var treePos in availableTrees) {
+				bool isFrontier = false;
+				for (int d = 0; d < 4; d++) {
+					var neighbor = treePos + Directions4[d];
+					if (tileToGladeIndex.TryGetValue(neighbor, out int gladeIdx)) {
+						if (!result.ContainsKey(gladeIdx)) {
+							result[gladeIdx] = 1;
+							gladesRemaining--;
+							if (gladesRemaining == 0) return result;
+						}
+						isFrontier = true;
+					} else if (allTrees.Contains(neighbor) && !availableTrees.Contains(neighbor)) {
+						isFrontier = true;
+					}
+				}
+
+				if (isFrontier) {
+					visited.Add(treePos);
+					// Seed BFS with non-available neighbors at depth 2
+					// (1 for the frontier tree + 1 for the neighbor)
+					for (int d = 0; d < 4; d++) {
+						var neighbor = treePos + Directions4[d];
+						if (allTrees.Contains(neighbor) && !availableTrees.Contains(neighbor) && visited.Add(neighbor)) {
+							queue.Enqueue((neighbor, 2));
+						}
+					}
+				}
+			}
+
+			// Phase 2: BFS through non-available trees
+			while (queue.Count > 0 && gladesRemaining > 0) {
+				var (pos, depth) = queue.Dequeue();
+
+				// Check if any neighbor is a glade tile
+				for (int d = 0; d < 4; d++) {
+					var neighbor = pos + Directions4[d];
+					if (tileToGladeIndex.TryGetValue(neighbor, out int gladeIdx)) {
+						if (!result.ContainsKey(gladeIdx)) {
+							result[gladeIdx] = depth;
+							gladesRemaining--;
+							if (gladesRemaining == 0) return result;
+						}
+					}
+				}
+
+				if (depth >= MAX_CUTTING_DISTANCE) continue;
+
+				// Expand to neighboring non-available trees
+				for (int d = 0; d < 4; d++) {
+					var neighbor = pos + Directions4[d];
+					if (allTrees.Contains(neighbor) && !availableTrees.Contains(neighbor) && visited.Add(neighbor)) {
+						queue.Enqueue((neighbor, depth + 1));
+					}
+				}
+			}
+
+			return result;
+		}
+
+		private static readonly Vector2Int[] Directions4 = new Vector2Int[] {
+			Vector2Int.left, Vector2Int.right, Vector2Int.down, Vector2Int.up
+		};
 
 		/// <summary>
 		/// Find unrevealed glades that are seal candidates based on discovered guiding stone bearings.
@@ -1011,8 +1117,23 @@ namespace ATSAccessibility.Utils {
 
 			int itemNum = _currentItemIndex + 1;
 			int itemTotal = currentGroup.Items.Count;
+			var item = currentGroup.Items[_currentItemIndex];
+
+			// Build per-item suffix for glade details (contents + cutting depth)
+			string itemSuffix = "";
+			if (item.ContentsSummary != null || item.CuttingDepth > 0) {
+				var parts = new List<string>();
+				if (item.ContentsSummary != null)
+					parts.Add(item.ContentsSummary);
+				if (item.CuttingDepth > MAX_CUTTING_DISTANCE)
+					parts.Add($"{MAX_CUTTING_DISTANCE}+ deep");
+				else if (item.CuttingDepth > 0)
+					parts.Add($"{item.CuttingDepth} deep");
+				itemSuffix = ", " + string.Join(", ", parts);
+			}
+
 			// Intentional: "X of Y" position context is useful for scanner navigation
-			Speech.Say($"{currentGroup.TypeName}, {itemNum} of {itemTotal}");
+			Speech.Say($"{currentGroup.TypeName}, {itemNum} of {itemTotal}{itemSuffix}");
 		}
 
 		private void AutoMoveCursorSilent() {

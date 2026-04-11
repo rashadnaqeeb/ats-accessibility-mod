@@ -969,6 +969,7 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _naturalResourceMarkMethod = null;
 		private static MethodInfo _naturalResourceUnmarkMethod = null;
 		private static FieldInfo _nrsIsGladeEdgeField = null;
+		private static FieldInfo _nrsIsAvailableField = null;
 		private static PropertyInfo _resourcesNaturalResourcesProperty = null;
 		private static bool _harvestReflectionCached = false;
 
@@ -981,11 +982,12 @@ namespace ATSAccessibility.Reflection {
 				_naturalResourceMarkMethod = resourceType.GetMethod("Mark", GameReflection.PublicInstance);
 				_naturalResourceUnmarkMethod = resourceType.GetMethod("Unmark", GameReflection.PublicInstance);
 
-				// Get isGladeEdge from State type (already cached _naturalResourceStateProperty)
+				// Get isGladeEdge and isAvailable from State type (already cached _naturalResourceStateProperty)
 				EnsureNaturalResourceMarkedCache(resource);
 				if (_naturalResourceStateProperty != null) {
 					var stateType = _naturalResourceStateProperty.PropertyType;
 					_nrsIsGladeEdgeField = stateType.GetField("isGladeEdge", GameReflection.PublicInstance);
+					_nrsIsAvailableField = stateType.GetField("isAvailable", GameReflection.PublicInstance);
 				}
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] EnsureHarvestReflectionCache failed: {ex.Message}");
@@ -1091,6 +1093,26 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
+		/// Check if a NaturalResource at the given position is available (in the cleared/accessible area).
+		/// </summary>
+		public static bool IsNaturalResourceAvailable(Vector2Int pos) {
+			var resource = GetNaturalResourceAt(pos);
+			if (resource == null) return false;
+
+			EnsureNaturalResourceMarkedCache(resource);
+			EnsureHarvestReflectionCache(resource);
+			if (_naturalResourceStateProperty == null || _nrsIsAvailableField == null) return false;
+
+			try {
+				var state = _naturalResourceStateProperty.GetValue(resource);
+				if (state == null) return false;
+				return (bool)_nrsIsAvailableField.GetValue(state);
+			} catch {
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// Get all NaturalResource positions on the map.
 		/// Returns empty list if not in game.
 		/// </summary>
@@ -1114,6 +1136,53 @@ namespace ATSAccessibility.Reflection {
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// Get all tree positions partitioned by availability.
+		/// Returns (allTreePositions, availableTreePositions) in a single pass over the dictionary.
+		/// </summary>
+		public static (HashSet<Vector2Int> allTrees, HashSet<Vector2Int> availableTrees) GetTreePositionsByAvailability() {
+			var allTrees = new HashSet<Vector2Int>();
+			var availableTrees = new HashSet<Vector2Int>();
+
+			var resourcesService = GameReflection.GetResourcesService();
+			if (resourcesService == null) return (allTrees, availableTrees);
+
+			EnsureResourcesNaturalResourcesProperty(resourcesService);
+			if (_resourcesNaturalResourcesProperty == null) return (allTrees, availableTrees);
+
+			try {
+				var dict = _resourcesNaturalResourcesProperty.GetValue(resourcesService) as IDictionary;
+				if (dict == null) return (allTrees, availableTrees);
+
+				bool cacheInitialized = false;
+
+				foreach (DictionaryEntry entry in dict) {
+					var pos = (Vector2Int)entry.Key;
+					var resource = entry.Value;
+					allTrees.Add(pos);
+
+					if (!cacheInitialized && resource != null) {
+						EnsureNaturalResourceMarkedCache(resource);
+						EnsureHarvestReflectionCache(resource);
+						cacheInitialized = true;
+					}
+
+					if (_naturalResourceStateProperty == null || _nrsIsAvailableField == null) continue;
+
+					var state = _naturalResourceStateProperty.GetValue(resource);
+					if (state == null) continue;
+
+					if ((bool)_nrsIsAvailableField.GetValue(state)) {
+						availableTrees.Add(pos);
+					}
+				}
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetTreePositionsByAvailability failed: {ex.Message}");
+			}
+
+			return (allTrees, availableTrees);
 		}
 
 		// ========================================

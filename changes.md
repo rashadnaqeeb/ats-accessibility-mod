@@ -8,6 +8,7 @@
 - Add effect and good descriptions to embarkation bonus announcements (spend embark points section)
 - Include seal fragment requirements in world map brief announcement when moving over seal tiles
 - Add scanner auto-move to world map (Alt+Home to toggle, shared setting with in-game map)
+- Add cutting distance to scanner glade entries (e.g. "Small glade, 3 deep") showing how many trees to cut from the cleared area to reach each glade
 
 ### Bug fixes
 
