@@ -493,7 +493,7 @@ namespace ATSAccessibility.Handlers {
 
 		private string BuildOutOfReachTooltip() {
 			var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos);
-			var prefix = !string.IsNullOrEmpty(biome) ? Strings.Get("handler.worldmap.biome_prefix", biome) + " " : "";
+			var prefix = !string.IsNullOrEmpty(biome) ? Strings.Get("handler.worldmap.biome_prefix", biome) : "";
 
 			// For tiles with no path, the brief info already says "Out of reach"
 			if (!WorldMapReflection.WorldMapHasAnyPathTo(_cursorPos))

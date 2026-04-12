@@ -27,15 +27,15 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
-			new HelpEntry("R", "Rotate clockwise"),
-			new HelpEntry("Shift+R", "Rotate counter-clockwise"),
-			new HelpEntry("Space", "Place building"),
-			new HelpEntry("Shift+Space", "Remove unfinished building"),
-			new HelpEntry("Enter", "Place and exit"),
-			new HelpEntry("Escape", "Exit build mode"),
-			new HelpEntry("Tab", "Return to menu"),
-			new HelpEntry("E", "Entrance preview"),
-			new HelpEntry("D", "Range preview"),
+			new HelpEntry("R", Strings.Get("handler.build_mode.help.rotate_cw")),
+			new HelpEntry("Shift+R", Strings.Get("handler.build_mode.help.rotate_ccw")),
+			new HelpEntry("Space", Strings.Get("handler.build_mode.help.place_building")),
+			new HelpEntry("Shift+Space", Strings.Get("handler.build_mode.help.remove_unfinished")),
+			new HelpEntry("Enter", Strings.Get("handler.build_mode.help.place_and_exit")),
+			new HelpEntry("Escape", Strings.Get("handler.build_mode.help.exit")),
+			new HelpEntry("Tab", Strings.Get("handler.build_mode.help.return_menu")),
+			new HelpEntry("E", Strings.Get("handler.build_mode.help.entrance_preview")),
+			new HelpEntry("D", Strings.Get("handler.build_mode.help.range_preview")),
 		};
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Filter;

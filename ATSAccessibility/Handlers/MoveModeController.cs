@@ -27,13 +27,13 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
-			new HelpEntry("R", "Rotate clockwise"),
-			new HelpEntry("Shift+R", "Rotate counter-clockwise"),
-			new HelpEntry("Space", "Place building"),
-			new HelpEntry("Enter", "Place building"),
-			new HelpEntry("Escape", "Cancel move"),
-			new HelpEntry("D", "Range preview"),
-			new HelpEntry("E", "Entrance preview"),
+			new HelpEntry("R", Strings.Get("handler.move_mode.help.rotate_cw")),
+			new HelpEntry("Shift+R", Strings.Get("handler.move_mode.help.rotate_ccw")),
+			new HelpEntry("Space", Strings.Get("handler.move_mode.help.place_building_space")),
+			new HelpEntry("Enter", Strings.Get("handler.move_mode.help.place_building_enter")),
+			new HelpEntry("Escape", Strings.Get("handler.move_mode.help.cancel")),
+			new HelpEntry("D", Strings.Get("handler.move_mode.help.range_preview")),
+			new HelpEntry("E", Strings.Get("handler.move_mode.help.entrance_preview")),
 		};
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Filter;
@@ -108,7 +108,7 @@ namespace ATSAccessibility.Handlers {
 			if (_pricePaid) {
 				var costInfo = ConstructionReflection.GetMovingCostInfo(building);
 				if (costInfo.HasValue)
-					costNote = Strings.Get("handler.movemode.cost_prefix", costInfo.Value.amount, costInfo.Value.displayName) + " ";
+					costNote = Strings.Get("handler.movemode.cost_prefix", costInfo.Value.amount, costInfo.Value.displayName);
 			}
 
 			Speech.Say(Strings.Get("handler.movemode.entered", costNote, extension));

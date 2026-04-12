@@ -28,11 +28,11 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
-			new HelpEntry("Space", "Select/deselect"),
-			new HelpEntry("Tab", "Toggle selection mode"),
-			new HelpEntry("Enter", "Commit selection"),
-			new HelpEntry("Escape", "Cancel"),
-			new HelpEntry("C", "Select all marked (unmark mode)"),
+			new HelpEntry("Space", Strings.Get("handler.harvest_mark.help.select_deselect")),
+			new HelpEntry("Tab", Strings.Get("handler.harvest_mark.help.toggle_mode")),
+			new HelpEntry("Enter", Strings.Get("handler.harvest_mark.help.commit")),
+			new HelpEntry("Escape", Strings.Get("handler.harvest_mark.help.cancel")),
+			new HelpEntry("C", Strings.Get("handler.harvest_mark.help.select_all_marked")),
 		};
 
 		private static readonly List<string> _passthroughKeys = new List<string> {

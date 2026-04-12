@@ -119,7 +119,7 @@ namespace ATSAccessibility.Overlays {
 		protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
 
 		private static readonly List<HelpEntry> _ordersHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("T", "Toggle tracking"),
+			new HelpEntry("T", Strings.Get("overlay.orders.help.toggle_track")),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _ordersHelpEntries;
 

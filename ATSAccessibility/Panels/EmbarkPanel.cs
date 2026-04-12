@@ -178,7 +178,7 @@ namespace ATSAccessibility.Panels {
 		}
 
 		private static readonly List<HelpEntry> _embarkHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Tab", Strings.Get("common.cycle_modifier_category")),
+			new HelpEntry("Tab", Strings.Get("panel.embark.help.cycle_modifier_category")),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _embarkHelpEntries;
 

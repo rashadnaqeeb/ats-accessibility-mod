@@ -113,7 +113,7 @@ namespace ATSAccessibility.Overlays {
 		protected override EscapeAction OnEscape() => EscapeAction.PassThrough;
 
 		private static readonly List<HelpEntry> _orderPickHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("S", "Check storage"),
+			new HelpEntry("S", Strings.Get("overlay.order_pick.help.check_storage")),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _orderPickHelpEntries;
 

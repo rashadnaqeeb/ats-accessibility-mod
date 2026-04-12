@@ -171,7 +171,7 @@ namespace ATSAccessibility.Panels {
 		protected override void OnClosed() {
 			_categories.Clear();
 			InputBlocker.BlockCancelOnce = true;
-			Speech.Say(Strings.Get("common.closed", OverlayName));
+			Speech.Say(Strings.Get("common.closed"));
 		}
 
 		// ========================================

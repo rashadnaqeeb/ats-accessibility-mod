@@ -157,7 +157,7 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		private static readonly List<HelpEntry> _customGamesHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Tab", "Cycle modifier category"),
+			new HelpEntry("Tab", Strings.Get("overlay.custom_games.help.cycle_category")),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _customGamesHelpEntries;
 

@@ -433,8 +433,8 @@ namespace ATSAccessibility.Core {
 		// ========================================
 
 		private static readonly List<HelpEntry> _menuBaseHelpEntries = new List<HelpEntry> {
-			new HelpEntry("+/-", "Adjust value"),
-			new HelpEntry("Shift+/-", "Larger increment"),
+			new HelpEntry("+/-", Strings.Get("menu.base.help.adjust_value")),
+			new HelpEntry("Shift+/-", Strings.Get("menu.base.help.larger_increment")),
 		};
 
 		/// <summary>Standard MenuBase help entries. Subclasses can call this to include base entries.</summary>

@@ -84,7 +84,7 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
-			new HelpEntry("Arrows", "Re-read text"),
+			new HelpEntry("Arrows", Strings.Get("handler.tutorial_tooltip.help.reread_text")),
 		};
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;

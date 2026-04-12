@@ -617,7 +617,7 @@ namespace ATSAccessibility.Core {
 			if (_announcedMainMenu) return;
 
 			if (_speechInitialized && Speech.IsAvailable) {
-				Speech.Say("Main menu");
+				Speech.Say(Strings.Get("core.main_menu"));
 				_announcedMainMenu = true;
 				Debug.Log("[ATSAccessibility] Announced: Main menu");
 
@@ -696,7 +696,7 @@ namespace ATSAccessibility.Core {
 				_keyboardManager?.SetContext(KeyboardManager.NavigationContext.WorldMap);
 
 				if (_speechInitialized && Speech.IsAvailable) {
-					Speech.Say("World map", interrupt: false);  // Queue to avoid interrupting other speech
+					Speech.Say(Strings.Get("core.world_map"), interrupt: false);  // Queue to avoid interrupting other speech
 					_announcedWorldMap = true;
 					Debug.Log("[ATSAccessibility] Announced: World map");
 				}
@@ -716,7 +716,7 @@ namespace ATSAccessibility.Core {
 				_wasGameActive = true;
 
 				if (!_announcedGameStart && _speechInitialized && Speech.IsAvailable) {
-					Speech.Say("Game started");
+					Speech.Say(Strings.Get("core.game_started"));
 					_announcedGameStart = true;
 					Debug.Log("[ATSAccessibility] Announced: Game started");
 				}

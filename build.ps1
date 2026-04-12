@@ -7,6 +7,14 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+# Validate localization strings before building (missing keys, arity mismatches).
+Write-Host "Validating localization strings..." -ForegroundColor Cyan
+& "$ScriptDir\ATSAccessibility\Tools\ValidateStrings.ps1" -Root "$ScriptDir\ATSAccessibility"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "String validation failed" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
 # Build the project
 Write-Host "Building ATSAccessibility ($Configuration)..." -ForegroundColor Cyan
 dotnet build "$ScriptDir\ATSAccessibility\ATSAccessibility.csproj" -c $Configuration -p:GamePath="$GamePath"

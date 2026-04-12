@@ -94,9 +94,15 @@ namespace ATSAccessibility.Utils {
 		}
 
 		/// <summary>
-		/// Pick between singular and plural keys based on count. English-only plural rule
-		/// (n == 1 → one, else other). Languages with more plural forms need their own
-		/// rule; most mod announcements won't need plurals so this simple helper is enough.
+		/// Pick between singular and plural keys based on count.
+		///
+		/// **English-only plural rule** (`n == 1 → one`, else `other`). This method is NOT
+		/// safe to use once a non-English language table is added — Russian, Polish, Arabic,
+		/// and many other languages have 3–6 plural forms and will produce grammatically
+		/// wrong output under this rule. Before shipping a second language, extend this
+		/// to consult a per-language plural resolver (CLDR rules are the standard).
+		///
+		/// Currently has zero call sites, so left in place as a guardrail comment.
 		/// </summary>
 		public static string Plural(int count, string oneKey, string otherKey, params object[] args) {
 			string key = count == 1 ? oneKey : otherKey;
@@ -156,6 +162,7 @@ namespace ATSAccessibility.Utils {
 						case 'n': sb.Append('\n'); break;
 						case 't': sb.Append('\t'); break;
 						case 'r': sb.Append('\r'); break;
+						case 's': sb.Append(' '); break;  // visible marker for significant trailing spaces (editor-trim-safe)
 						case '\\': sb.Append('\\'); break;
 						case '=': sb.Append('='); break;
 						default: sb.Append(next); break;

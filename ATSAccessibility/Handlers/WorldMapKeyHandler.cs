@@ -32,20 +32,20 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
-			new HelpEntry("I", "Tooltip info"),
-			new HelpEntry("D", "Embark status and distance"),
-			new HelpEntry("M", "Effects panel"),
-			new HelpEntry("L", "Level info"),
-			new HelpEntry("R", "Meta resources"),
-			new HelpEntry("S", "Seal info"),
-			new HelpEntry("T", "Cycle info"),
-			new HelpEntry("E", "Open cycle end"),
-			new HelpEntry("F1", "Tutorials"),
-			new HelpEntry("PageUp/Down", "Scanner type"),
-			new HelpEntry("Alt+PageUp/Down", "Scanner item"),
-			new HelpEntry("Home", "Jump to scanner item"),
-			new HelpEntry("Alt+Home", "Toggle scanner auto-move"),
-			new HelpEntry("End", "Scanner direction"),
+			new HelpEntry("I", Strings.Get("handler.worldmap_key.help.tooltip_info")),
+			new HelpEntry("D", Strings.Get("handler.worldmap_key.help.embark_distance")),
+			new HelpEntry("M", Strings.Get("handler.worldmap_key.help.effects_panel")),
+			new HelpEntry("L", Strings.Get("handler.worldmap_key.help.level_info")),
+			new HelpEntry("R", Strings.Get("handler.worldmap_key.help.meta_resources")),
+			new HelpEntry("S", Strings.Get("handler.worldmap_key.help.seal_info")),
+			new HelpEntry("T", Strings.Get("handler.worldmap_key.help.cycle_info")),
+			new HelpEntry("E", Strings.Get("handler.worldmap_key.help.cycle_end")),
+			new HelpEntry("F1", Strings.Get("handler.worldmap_key.help.tutorials")),
+			new HelpEntry("PageUp/Down", Strings.Get("handler.worldmap_key.help.scanner_type")),
+			new HelpEntry("Alt+PageUp/Down", Strings.Get("handler.worldmap_key.help.scanner_item")),
+			new HelpEntry("Home", Strings.Get("handler.worldmap_key.help.scanner_jump")),
+			new HelpEntry("Alt+Home", Strings.Get("handler.worldmap_key.help.scanner_automove")),
+			new HelpEntry("End", Strings.Get("handler.worldmap_key.help.scanner_direction")),
 		};
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;

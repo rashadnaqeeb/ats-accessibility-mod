@@ -131,8 +131,8 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		private static readonly List<HelpEntry> _rewardHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Alt+M", "Read material costs"),
-			new HelpEntry("Shift+W", "Open encyclopedia"),
+			new HelpEntry("Alt+M", Strings.Get("overlay.rep_reward.help.read_costs")),
+			new HelpEntry("Shift+W", Strings.Get("overlay.rep_reward.help.open_wiki")),
 		};
 
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _rewardHelpEntries;

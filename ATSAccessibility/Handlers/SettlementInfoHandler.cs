@@ -16,9 +16,9 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
-			new HelpEntry("Alt+S", "Settlement summary"),
-			new HelpEntry("Alt+V", "Species resolve"),
-			new HelpEntry("Alt+O", "Tracked orders"),
+			new HelpEntry("Alt+S", Strings.Get("handler.settlement_info.help.settlement_summary")),
+			new HelpEntry("Alt+V", Strings.Get("handler.settlement_info.help.species_resolve")),
+			new HelpEntry("Alt+O", Strings.Get("handler.settlement_info.help.tracked_orders")),
 		};
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Filter;

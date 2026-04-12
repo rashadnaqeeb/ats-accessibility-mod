@@ -19,6 +19,12 @@
 - Migrated remaining user-facing strings in `Reflection/` to the localization table (`reflection.*` keys)
 - Migrated remaining `Panels/` files to the localization table (`panel.*` keys)
 - Localization dedupe pass: consolidated 443 per-subsystem keys with byte-identical values into 159 shared `common.*` keys in `en.properties` (e.g. `common.unknown`, `common.cancelled`, `common.locked`, direction/season names).
+- Migrated all 117 `HelpEntry` description literals (F12 help overlay) to the localization table across `Handlers/`, `Overlays/`, `Navigators/`, `Panels/`, and `Core/MenuBase`, wiring the 14 pre-existing orphan help keys to their call sites.
+- Migrated remaining `Core/` announcements (`Speech.Say("Main menu" / "World map" / "Game started")`) and defensive fallback literals in `BlackMarketReflection` to the localization table (`core.*` keys and `common.unknown*`).
+- Moved trailing-space concatenations out of code and into template values via a new `\s` escape in `Strings` (editor-trim-safe), so translators control inter-phrase spacing.
+- Fixed arity bug in `WorkersPanel.OnClosed` that passed an unused arg to the zero-placeholder `common.closed` template.
+- Added `Tools/ValidateStrings.ps1` and wired it into `build.ps1` to validate every `Strings.Get` / `Strings.Plural` call site against `en.properties` for missing keys and placeholder/arg arity mismatches before `dotnet build` runs.
+- Documented `Strings.Plural` as English-only (`n == 1 → one` / `other`) so it isn't used as-is once a second-language table ships.
 
 ## v1.3.4
 

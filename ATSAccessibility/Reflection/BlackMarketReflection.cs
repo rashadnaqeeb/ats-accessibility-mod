@@ -364,11 +364,11 @@ namespace ATSAccessibility.Reflection {
 						// Get ratings
 						int buyRatingInt = ReflectionHelper.GetEnum(_bmosBuyRatingField, offer);
 						info.BuyRating = buyRatingInt >= 0 && buyRatingInt < _ratingLabelKeys.Length
-							? Strings.Get(_ratingLabelKeys[buyRatingInt]) : "unknown";
+							? Strings.Get(_ratingLabelKeys[buyRatingInt]) : Strings.Get("common.unknown_lower");
 
 						int creditRatingInt = ReflectionHelper.GetEnum(_bmosCreditRatingField, offer);
 						info.CreditRating = creditRatingInt >= 0 && creditRatingInt < _ratingLabelKeys.Length
-							? Strings.Get(_ratingLabelKeys[creditRatingInt]) : "unknown";
+							? Strings.Get(_ratingLabelKeys[creditRatingInt]) : Strings.Get("common.unknown_lower");
 
 						// Get time left
 						info.TimeLeft = ReflectionHelper.InvokeFloat(_bmGetTimeLeftForMethod, blackMarket, offer);
@@ -420,7 +420,7 @@ namespace ATSAccessibility.Reflection {
 				year += totalSeasons / 3;
 				season = totalSeasons % 3;
 
-				string seasonName = season >= 0 && season < _seasonNameKeys.Length ? Strings.Get(_seasonNameKeys[season]) : "Unknown";
+				string seasonName = season >= 0 && season < _seasonNameKeys.Length ? Strings.Get(_seasonNameKeys[season]) : Strings.Get("common.unknown");
 				string yearRoman = FormattingUtils.YearToRoman(year);
 
 				return Strings.Get("reflection.blackmarket.payment_terms", yearRoman, seasonName);
