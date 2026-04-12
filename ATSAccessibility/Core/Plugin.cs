@@ -87,6 +87,9 @@ namespace ATSAccessibility.Core {
 		// Updates
 		public static ConfigEntry<bool> CheckForUpdates;
 
+		// Localization override (for translation testing)
+		public static ConfigEntry<string> ForceLanguage;
+
 		private void Awake() {
 			try {
 				// CRITICAL: Set DLL directory FIRST before any other code
@@ -222,6 +225,12 @@ namespace ATSAccessibility.Core {
 			// Updates
 			CheckForUpdates = Config.Bind("General", "CheckForUpdates", true,
 				"Check for mod updates on game launch");
+
+			// Localization
+			ForceLanguage = Config.Bind("Localization", "ForceLanguage", "",
+				"For translation testing: override the language code used to select a mod string table " +
+				"(e.g. 'ru', 'de'). Leave empty to follow the game's current language. The game's own UI " +
+				"is unaffected; this only swaps the mod's Strings/<code>.properties table.");
 
 			Logger.LogInfo("Announcement config entries initialized");
 		}

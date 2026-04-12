@@ -45,10 +45,13 @@ namespace ATSAccessibility.Utils {
 
 		/// <summary>
 		/// Switch to the game's current language if a matching table ships with the mod.
+		/// Honours the <c>Plugin.ForceLanguage</c> config override when set (used for
+		/// translation testing without relying on the game's language setting).
 		/// Safe to call repeatedly; no-op if the language hasn't changed.
 		/// </summary>
 		public static void ApplyGameLanguage() {
-			string code = LocalizationReflection.GetCurrentLocaCode();
+			string forced = ATSAccessibility.Core.Plugin.ForceLanguage?.Value;
+			string code = !string.IsNullOrEmpty(forced) ? forced : LocalizationReflection.GetCurrentLocaCode();
 			if (string.IsNullOrEmpty(code) || code == _activeLanguage) return;
 
 			var table = LoadTable(code);
