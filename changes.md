@@ -5,6 +5,7 @@
 ## Changes since v1.3.4
 
 ### New features
+- Mine building panel now announces underlying ore type and currently-available charges as a new top section above Status
 
 ### Bug fixes
 - Scanner now announces underlying ore type and remaining charges when hovering a mine

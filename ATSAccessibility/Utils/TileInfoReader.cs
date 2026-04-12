@@ -282,7 +282,7 @@ namespace ATSAccessibility.Utils {
 		/// charges at the mine's upgrade level. Matches what the sighted mine panel shows
 		/// (Mine.GetChargesLeft/GetMaxCharges).
 		/// </summary>
-		private static string GetMineOreInfo(object mine) {
+		public static string GetMineOreInfo(object mine) {
 			try {
 				TileInfoReflection.EnsureMineOreCache();
 

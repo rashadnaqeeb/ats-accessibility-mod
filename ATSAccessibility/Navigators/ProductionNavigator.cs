@@ -16,6 +16,7 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private enum SectionType {
+			Ore,      // Mine-only: underlying ore + charges (top section)
 			Status,   // Active/Paused toggle at top
 			Workers,
 			Recipes,
@@ -56,6 +57,10 @@ namespace ATSAccessibility.Navigators {
 		private int _campMode = 0;
 		private string[] _campModeNames;
 
+		// Mine-specific data
+		private bool _isMine = false;
+		private string _oreInfo;
+
 		// Rainpunk data
 		private bool _hasRainpunk = false;
 		private bool _rainpunkUnlocked = false;
@@ -90,6 +95,8 @@ namespace ATSAccessibility.Navigators {
 				return 0;
 
 			switch (_sectionTypes[sectionIndex]) {
+				case SectionType.Ore:
+					return 0;  // No items, section announces ore info directly
 				case SectionType.Status:
 					return 0;  // No items, just section-level toggle
 				case SectionType.Workers:
@@ -154,6 +161,11 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		protected override void AnnounceSection(int sectionIndex) {
+			if (_sectionTypes[sectionIndex] == SectionType.Ore) {
+				Speech.Say(_oreInfo);
+				return;
+			}
+
 			if (_sectionTypes[sectionIndex] == SectionType.Status) {
 				string status = _isSleeping ? "Paused" : "Active";
 				Speech.Say($"Status: {status}");
@@ -315,6 +327,8 @@ namespace ATSAccessibility.Navigators {
 			_canSleep = BuildingReflection.CanBuildingSleep(_building);
 			_isCamp = BuildingReflection.IsCamp(_building);  // Camp buildings have simple recipes
 			_isFarm = BuildingReflection.IsFarm(_building);
+			_isMine = _building?.GetType().Name == "Mine";
+			_oreInfo = _isMine ? TileInfoReader.GetMineOreInfo(_building) : null;
 
 			// Cache recipe data
 			RefreshRecipes();
@@ -345,7 +359,13 @@ namespace ATSAccessibility.Navigators {
 			var sectionNames = new List<string>();
 			var sectionTypes = new List<SectionType>();
 
-			// Always have Status section at top (announced dynamically as "Status: Active/Paused")
+			// Mine-only: show underlying ore + charges at the very top
+			if (_isMine && !string.IsNullOrEmpty(_oreInfo)) {
+				sectionNames.Add("Ore");
+				sectionTypes.Add(SectionType.Ore);
+			}
+
+			// Always have Status section (announced dynamically as "Status: Active/Paused")
 			sectionNames.Add("Status");
 			sectionTypes.Add(SectionType.Status);
 
@@ -411,6 +431,8 @@ namespace ATSAccessibility.Navigators {
 			_hasInputStorage = false;
 			_hasOutputStorage = false;
 			_isFarm = false;
+			_isMine = false;
+			_oreInfo = null;
 			_farmSownFields = 0;
 			_farmPlowedFields = 0;
 			_farmTotalFields = 0;
