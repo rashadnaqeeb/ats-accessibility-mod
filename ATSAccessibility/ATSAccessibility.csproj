@@ -66,4 +66,9 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Embedded localization tables. Resource name is ATSAccessibility.Strings.<Language>.properties -->
+    <EmbeddedResource Include="Strings\*.properties" />
+  </ItemGroup>
+
 </Project>

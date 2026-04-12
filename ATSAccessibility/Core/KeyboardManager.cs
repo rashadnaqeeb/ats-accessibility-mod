@@ -92,8 +92,8 @@ namespace ATSAccessibility.Core {
 				if (_helpOverlay.IsOpen) {
 					_helpOverlay.Close();
 				} else {
-					var (name, entries) = HelpCollector.Collect(_handlers);
-					_helpOverlay.ShowHelp(name, entries);
+					var (_, entries) = HelpCollector.Collect(_handlers);
+					_helpOverlay.ShowHelp(entries);
 				}
 				return;
 			}

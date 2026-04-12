@@ -11,6 +11,7 @@
 - Scanner now announces underlying ore type and remaining charges when hovering a mine
 
 ### Internal
+- Localization groundwork: add `Utils/Strings.cs` + `LocalizationReflection.cs` + embedded `Strings/English.properties` table. Detects game language via `TextsService.CurrentLocaCode` and falls back to English. Migrated `ConfirmationDialog`, `HelpOverlay`, and `WorkersPanel` as proof-of-concept; remaining files still use English literals.
 
 ## v1.3.4
 

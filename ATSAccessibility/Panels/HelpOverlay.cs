@@ -8,17 +8,21 @@ namespace ATSAccessibility.Panels {
 	/// Opened via F12, shows all key bindings available in the current context.
 	/// </summary>
 	public class HelpOverlay: MenuBase {
-		private string _contextName = "Help";
 		private List<HelpEntry> _entries = new List<HelpEntry>();
 
-		protected override string OverlayName => _contextName;
-		protected override string EmptyMessage => "No keys available";
+		protected override string OverlayName => Strings.Get("panel.help.title");
+		protected override string EmptyMessage => Strings.Get("panel.help.empty");
+
+		protected override string GetOpenAnnouncement() {
+			// Open with just the overlay name — no first-entry prefix or active-handler name.
+			return OverlayName;
+		}
 
 		protected override int GetItemCount() => _entries.Count;
 
 		protected override string GetLabel(int index) {
 			if (index < 0 || index >= _entries.Count) return null;
-			return $"{_entries[index].KeyName}: {_entries[index].Description}";
+			return Strings.Get("panel.help.entry", _entries[index].KeyName, _entries[index].Description);
 		}
 
 		protected override void RefreshData() {
@@ -28,7 +32,7 @@ namespace ATSAccessibility.Panels {
 		protected override EnterAction OnEnter(int index) => EnterAction.None;
 
 		protected override void OnClosed() {
-			Speech.Say("Closed");
+			Speech.Say(Strings.Get("panel.help.closed"));
 		}
 
 		protected override EscapeAction OnEscape() {
@@ -38,12 +42,11 @@ namespace ATSAccessibility.Panels {
 		}
 
 		/// <summary>
-		/// Show the help overlay with the given context name and entries.
-		/// Uses OpenSilently to avoid firing OnAnyMenuOpened, which would
-		/// cancel active modes like tree marking, build mode, and move mode.
+		/// Show the help overlay with the given entries. Uses OpenSilently to avoid
+		/// firing OnAnyMenuOpened, which would cancel active modes like tree marking,
+		/// build mode, and move mode.
 		/// </summary>
-		public void ShowHelp(string contextName, List<HelpEntry> entries) {
-			_contextName = contextName ?? "Help";
+		public void ShowHelp(List<HelpEntry> entries) {
 			_entries = entries ?? new List<HelpEntry>();
 			OpenSilently();
 		}

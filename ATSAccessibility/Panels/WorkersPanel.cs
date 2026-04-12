@@ -41,8 +41,8 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Workers panel";
-		protected override string EmptyMessage => "No workers present";
+		protected override string OverlayName => Strings.Get("panel.workers.title");
+		protected override string EmptyMessage => Strings.Get("panel.workers.empty");
 
 		protected override int GetItemCount() {
 			if (Level == 0)
@@ -64,7 +64,7 @@ namespace ATSAccessibility.Panels {
 			if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count) {
 				var items = _categories[_currentCategoryIndex].Items;
 				if (index >= 0 && index < items.Count)
-					return $"{items[index].Name}, {items[index].Count}";
+					return Strings.Get("panel.workers.item", items[index].Name, items[index].Count);
 			}
 			return null;
 		}
@@ -121,7 +121,7 @@ namespace ATSAccessibility.Panels {
 			// Build "All" category
 			if (allProfessions.Count > 0) {
 				var allCategory = new WorkerCategory {
-					Name = "All",
+					Name = Strings.Get("panel.workers.all_category"),
 					RaceName = null,
 					Items = BuildSortedItems(allProfessions)
 				};
@@ -149,7 +149,7 @@ namespace ATSAccessibility.Panels {
 					&& _categories[_currentCategoryIndex].Items.Count > 0)
 					return EnterAction.DrillDown;
 
-				Speech.Say("No items in this category");
+				Speech.Say(Strings.Get("common.empty_category"));
 				return EnterAction.None;
 			}
 			return EnterAction.None;
@@ -171,7 +171,7 @@ namespace ATSAccessibility.Panels {
 		protected override void OnClosed() {
 			_categories.Clear();
 			InputBlocker.BlockCancelOnce = true;
-			Speech.Say($"{OverlayName} closed");
+			Speech.Say(Strings.Get("common.closed", OverlayName));
 		}
 
 		// ========================================

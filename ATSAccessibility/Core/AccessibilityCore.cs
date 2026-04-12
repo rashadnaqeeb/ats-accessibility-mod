@@ -140,6 +140,11 @@ namespace ATSAccessibility.Core {
 			// Initialize speech (Tolk)
 			_speechInitialized = Speech.Initialize();
 
+			// Load localized strings (fallback/English). The game's language isn't known
+			// this early; Strings.ApplyGameLanguage() switches to the user's language
+			// later once TextsService is available (see Update()).
+			Strings.Initialize();
+
 			// Initialize UI navigation
 			_uiNavigator = new UINavigator(this);
 			_keyboardManager = new KeyboardManager();
@@ -531,6 +536,8 @@ namespace ATSAccessibility.Core {
 
 		private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
 			Debug.Log($"[ATSAccessibility] Scene loaded: {scene.name} (index: {scene.buildIndex})");
+			// Re-check game language — it may have been set by the player between scenes.
+			Strings.ApplyGameLanguage();
 			ProcessSceneLoad(scene);
 		}
 

@@ -40,20 +40,23 @@ namespace ATSAccessibility.Panels {
 			_onConfirm = onConfirm;
 
 			var message = new StringBuilder();
-			message.Append($"Destroy {itemName}?");
+			message.Append(Strings.Get("dialog.confirm.destroy", itemName));
 
 			// Add refund information if available
 			if (refundGoods != null && refundGoods.Count > 0) {
-				message.Append(" Refund: ");
+				message.Append(' ');
+				message.Append(Strings.Get("dialog.confirm.refund_prefix"));
+				message.Append(' ');
 				for (int i = 0; i < refundGoods.Count; i++) {
 					var (name, amount) = refundGoods[i];
 					if (i > 0) message.Append(", ");
-					message.Append($"{amount} {name}");
+					message.Append(Strings.Get("dialog.confirm.refund_item", amount, name));
 				}
 				message.Append(".");
 			}
 
-			message.Append(" Enter to confirm, Escape to cancel");
+			message.Append(' ');
+			message.Append(Strings.Get("dialog.confirm.instructions"));
 			Speech.Say(message.ToString());
 		}
 
@@ -78,7 +81,7 @@ namespace ATSAccessibility.Panels {
 					return true;
 
 				case KeyCode.Escape:
-					Speech.Say("Cancelled");
+					Speech.Say(Strings.Get("dialog.confirm.cancelled"));
 					Close();
 					return true;
 
