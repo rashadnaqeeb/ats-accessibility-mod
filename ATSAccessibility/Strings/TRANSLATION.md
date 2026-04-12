@@ -57,13 +57,43 @@ sighted player (or with a wiki, forum, etc.) will get confused. Before
 translating a string containing any of the terms below, look up how the
 game's own translation renders it and copy that. Don't freestyle.
 
-**How to look up the game's rendering**: the game stores its localized strings
-in Unity TextAssets under `Against the Storm_Data/StreamingAssets/aa/…` (the
-Addressables bundles). A drop-in override path also exists at
-`Against the Storm_Data/Texts/<code>.json` — if present, that file lists every
-text key and its translated value and is the easiest to grep. If the user
-hasn't enabled overrides, dumping the bundle is the only option (AssetRipper,
-AssetStudio, or Unity's own Addressables tooling).
+### How to look up the game's rendering
+
+The game stores its localized strings in Unity TextAssets addressed as
+`Texts/<code>` inside the Addressables bundles. Extracting them from the
+bundles directly is possible (AssetStudio / AssetRipper) but annoying — the
+mod ships a runtime dumper that uses the game's own `Resources.Load` path to
+write each language's JSON to disk.
+
+**Procedure:**
+
+1. In the mod's BepInEx config (`BepInEx/config/com.accessibility.ats.cfg`),
+   under `[Localization]`, set `DumpGameLocalization = true`.
+2. Launch the game and wait for the main menu to announce. The mod writes
+   `<code>.json` for every ships-with-game language to
+   `%USERPROFILE%\Documents\ATSAccessibility-Locas\` and speaks a confirmation
+   through Tolk. Each file is ~1–2 MB of `{"key":"translated value", …}` JSON.
+3. Close the game, set `DumpGameLocalization = false` (the dumper is idempotent
+   per launch, but leaving it true is noise).
+4. Grep / jq the JSON for brand terms in both `en.json` (to find the key) and
+   `<target>.json` (to read that key's translation). Example, finding the
+   Russian rendering of "Hearth":
+
+   ```powershell
+   # 1. Find the key whose English value is "Hearth"
+   jq -r 'to_entries[] | select(.value == "Hearth") | .key' `
+     $env:USERPROFILE\Documents\ATSAccessibility-Locas\en.json
+
+   # 2. Read that key's value in ru.json
+   jq -r '."<key-from-step-1>"' `
+     $env:USERPROFILE\Documents\ATSAccessibility-Locas\ru.json
+   ```
+
+   Or without jq: open both JSONs in an editor, grep for the English term in
+   `en.json` to get its key, then grep that key in `<target>.json`.
+
+5. Use the translated term consistently when your mod string value contains
+   that noun. Don't invent a new rendering.
 
 ### Mechanics / meta terms
 

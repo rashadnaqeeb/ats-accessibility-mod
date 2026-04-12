@@ -89,6 +89,7 @@ namespace ATSAccessibility.Core {
 
 		// Localization override (for translation testing)
 		public static ConfigEntry<string> ForceLanguage;
+		public static ConfigEntry<bool> DumpGameLocalization;
 
 		private void Awake() {
 			try {
@@ -231,6 +232,12 @@ namespace ATSAccessibility.Core {
 				"For translation testing: override the language code used to select a mod string table " +
 				"(e.g. 'ru', 'de'). Leave empty to follow the game's current language. The game's own UI " +
 				"is unaffected; this only swaps the mod's Strings/<code>.properties table.");
+
+			DumpGameLocalization = Config.Bind("Localization", "DumpGameLocalization", false,
+				"Dev tool: on next launch, write every game language's loca JSON to " +
+				"Documents/ATSAccessibility-Locas/<code>.json so a translator can grep the " +
+				"game's own rendering of brand terms (Viceroy, Hearth, etc.) in their target " +
+				"language. Turn off after dumping. See Strings/TRANSLATION.md for the procedure.");
 
 			Logger.LogInfo("Announcement config entries initialized");
 		}

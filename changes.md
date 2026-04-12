@@ -26,6 +26,7 @@
 - Added `Tools/ValidateStrings.ps1` and wired it into `build.ps1` to validate every `Strings.Get` / `Strings.Plural` call site against `en.properties` for missing keys and placeholder/arg arity mismatches before `dotnet build` runs.
 - Documented `Strings.Plural` as English-only (`n == 1 → one` / `other`) so it isn't used as-is once a second-language table ships.
 - Translation-readiness pass: added `Strings/TRANSLATION.md` (ships-with-game language list, glossary of brand-critical terms, tone guide, file-format cheatsheet), `Tools/ValidateTranslation.ps1` (key-set / placeholder-drift checker for translation files), a `[Localization] ForceLanguage` BepInEx config so translators can smoke-test a new table without changing the game's UI language, and disambiguating context comments on the new F12 help-overlay key block in `en.properties`.
+- Added `Utils/LocaDumper` and a `[Localization] DumpGameLocalization` config flag so a translator can write every game language's canonical loca JSON to `Documents/ATSAccessibility-Locas/` in one launch, then grep the game's own rendering of brand terms (Viceroy, Hearth, species names…) when translating the mod.
 
 ## v1.3.4
 

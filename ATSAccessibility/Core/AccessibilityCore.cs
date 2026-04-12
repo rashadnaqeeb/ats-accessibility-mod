@@ -621,6 +621,12 @@ namespace ATSAccessibility.Core {
 				_announcedMainMenu = true;
 				Debug.Log("[ATSAccessibility] Announced: Main menu");
 
+				// Dev: dump the game's own loca tables if the config flag is set.
+				// One-shot per launch; translator is expected to flip the flag back off.
+				if (Plugin.DumpGameLocalization.Value) {
+					LocaDumper.DumpAll();
+				}
+
 				// Check for mod updates
 				if (Plugin.CheckForUpdates.Value) {
 					UpdateChecker.Check(Plugin.ModVersion);
