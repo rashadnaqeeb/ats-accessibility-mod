@@ -9,6 +9,9 @@
 
 ### Bug fixes
 - Scanner now announces underlying ore type and remaining charges when hovering a mine
+- Fixed English leaks in French speech for cornerstone / port rarity names, payment-due season and auto-payment labels, rewards-panel next-cornerstone season, mysteries-panel per-mystery season, season-changed event announcements, racial bonus type ("Comfort"/"Efficiency") and 8-point compass directions; producers now emit loca keys or enum ints that resolve at the speech site.
+- Fixed relic threat-level leak: `RelicReflection.GetRelicDangerLevel` and `WikiReflection.GetRelicDangerLevel` were returning the raw `DangerLevel` enum name (e.g. "Dangerous") directly into the relic navigator "Threat level" line and the encyclopedia relic entry; now resolve through `common.danger_{none,negative,dangerous,forbidden}`.
+- Dropped the invariant-`Name` SO-asset fallback in `StatsReader.GetResolveModifiers` effect-name extraction (would have leaked an English identifier for any effect with a null `displayName` LocaText); falls straight through to `common.unknown_effect`.
 
 ### Internal
 - Trade Routes offer blocked-reason lines now localize correctly: `TradeRoutesReflection.GetBlockedReason` returns a new `BlockedReason` enum (was a pre-resolved string that the overlay compared against the English literal `"not enough fuel"`, silently skipping the fuel-specific formatting in any non-English language). Overlay formats the enum via `FormatBlockedReason`. Dropped the now-unused `reflection.traderoutes.not_enough_fuel` key.

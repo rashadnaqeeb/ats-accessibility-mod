@@ -865,7 +865,7 @@ namespace ATSAccessibility.Reflection {
 				var goodPerMin = ReflectionHelper.GetField(_hsrmGoodPerMinField, recipeModel);
 				if (goodPerMin != null) {
 					int baseAmount = ReflectionHelper.GetInt(GameReflection.GoodRefAmountField, goodPerMin);
-					info.goodName = ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, goodPerMin) ?? "Unknown";
+					info.goodName = ReflectionHelper.GetPropString(GameReflection.GoodRefDisplayNameProperty, goodPerMin);
 
 					// Calculate actual consumption rate (affected by perks)
 					// Formula: baseAmount / sacrificeRate

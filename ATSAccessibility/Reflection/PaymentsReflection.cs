@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -88,11 +89,19 @@ namespace ATSAccessibility.Reflection {
 		private static Type _paymentStateType = null;
 		private static Type _gameDateType = null;
 
-		// Season names
-		private static readonly string[] _seasonNames = { "Drizzle", "Clearance", "Storm" };
+		// Season names (lookup keys for Strings.Get — resolved at call time)
+		private static readonly string[] _seasonNameKeys = {
+			"common.season_drizzle",
+			"common.season_clearance",
+			"common.season_storm",
+		};
 
-		// Auto-payment labels
-		private static readonly string[] _autoPaymentLabels = { "none", "instant", "last minute" };
+		// Auto-payment labels (lookup keys for Strings.Get — resolved at call time)
+		private static readonly string[] _autoPaymentLabelKeys = {
+			"reflection.payments.auto_none",
+			"reflection.payments.auto_instant",
+			"reflection.payments.auto_end",
+		};
 
 		// ========================================
 		// INITIALIZATION
@@ -284,8 +293,8 @@ namespace ATSAccessibility.Reflection {
 
 						var seasonObj = _gdSeasonField?.GetValue(dueDate);
 						int seasonInt = seasonObj != null ? (int)seasonObj : 0;
-						info.DueSeason = seasonInt >= 0 && seasonInt < _seasonNames.Length
-							? _seasonNames[seasonInt] : "Unknown";
+						info.DueSeason = seasonInt >= 0 && seasonInt < _seasonNameKeys.Length
+							? Strings.Get(_seasonNameKeys[seasonInt]) : Strings.Get("common.unknown");
 
 						// Get time remaining
 						if (calendarService != null) {
@@ -384,9 +393,9 @@ namespace ATSAccessibility.Reflection {
 		/// Get the display label for an auto-payment type.
 		/// </summary>
 		public static string GetAutoPaymentLabel(int type) {
-			if (type >= 0 && type < _autoPaymentLabels.Length)
-				return _autoPaymentLabels[type];
-			return "unknown";
+			if (type >= 0 && type < _autoPaymentLabelKeys.Length)
+				return Strings.Get(_autoPaymentLabelKeys[type]);
+			return Strings.Get("common.unknown");
 		}
 
 		// ========================================

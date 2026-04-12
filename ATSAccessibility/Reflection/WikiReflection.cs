@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Reflection;
@@ -1186,12 +1187,16 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get the danger level from a RelicModel as a string.
+		/// Get the localized danger level from a RelicModel (DangerLevel enum).
 		/// </summary>
 		public static string GetRelicDangerLevel(object relicModel) {
 			if (relicModel == null) return null;
 			EnsureRelicTypes();
-			return ReflectionHelper.GetField(_relicDangerLevelField, relicModel)?.ToString();
+			var dangerLevel = ReflectionHelper.GetField(_relicDangerLevelField, relicModel);
+			if (dangerLevel == null) return null;
+			int idx = Convert.ToInt32(dangerLevel);
+			if (idx < 0 || idx >= RelicReflection._dangerLevelKeys.Length) return null;
+			return Strings.Get(RelicReflection._dangerLevelKeys[idx]);
 		}
 
 		/// <summary>

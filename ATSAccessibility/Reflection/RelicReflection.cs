@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -221,9 +222,16 @@ namespace ATSAccessibility.Reflection {
 		// PUBLIC API - RELIC
 		// ========================================
 
+		// DangerLevel enum: None=0, Negative=1, Dangerous=2, Forbidden=3
+		internal static readonly string[] _dangerLevelKeys = {
+			"common.danger_none",
+			"common.danger_negative",
+			"common.danger_dangerous",
+			"common.danger_forbidden",
+		};
+
 		/// <summary>
-		/// Get the danger level of a relic as a display string.
-		/// Returns "None", "Negative", "Dangerous", or "Forbidden".
+		/// Get the localized danger level of a relic (DangerLevel enum).
 		/// </summary>
 		public static string GetRelicDangerLevel(object building) {
 			if (!BuildingReflection.IsRelic(building)) return null;
@@ -237,8 +245,9 @@ namespace ATSAccessibility.Reflection {
 				var dangerLevel = ReflectionHelper.GetField(_relicModelDangerLevelField, model);
 				if (dangerLevel == null) return null;
 
-				// DangerLevel is an enum: None=0, Negative=1, Dangerous=2, Forbidden=3
-				return dangerLevel.ToString();
+				int idx = Convert.ToInt32(dangerLevel);
+				if (idx < 0 || idx >= _dangerLevelKeys.Length) return null;
+				return Strings.Get(_dangerLevelKeys[idx]);
 			} catch {
 				return null;
 			}

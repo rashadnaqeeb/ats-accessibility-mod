@@ -446,11 +446,9 @@ namespace ATSAccessibility.Utils {
 					if (effectModel != null && count > 0) {
 						// Get effect name
 						var displayNameField = effectModel.GetType().GetField("displayName", GameReflection.PublicInstance);
-						var nameProp = effectModel.GetType().GetProperty("Name");
 
 						var locaText = displayNameField?.GetValue(effectModel);
 						string name = GameReflection.GetLocaText(locaText)
-							?? nameProp?.GetValue(effectModel)?.ToString()
 							?? Strings.Get("common.unknown_effect");
 
 						// Get per-villager resolve value

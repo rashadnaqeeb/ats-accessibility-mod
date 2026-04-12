@@ -2309,19 +2309,19 @@ namespace ATSAccessibility.Reflection {
 			var effect = ReflectionHelper.GetField(_raceCharacteristicEffectField, characteristic);
 			if (effect != null) {
 				string typeName = effect.GetType().Name;
-				return typeName.Contains("Resolve") ? "Comfort" : "Efficiency";
+				return Strings.Get(typeName.Contains("Resolve") ? "reflection.building.bonus_comfort" : "reflection.building.bonus_efficiency");
 			}
 
 			var buildingPerk = ReflectionHelper.GetField(_raceCharacteristicBuildingPerkField, characteristic);
 			if (buildingPerk != null) {
 				string typeName = buildingPerk.GetType().Name;
-				return typeName.Contains("Resolve") ? "Comfort" : "Efficiency";
+				return Strings.Get(typeName.Contains("Resolve") ? "reflection.building.bonus_comfort" : "reflection.building.bonus_efficiency");
 			}
 
 			var globalEffect = ReflectionHelper.GetField(_raceCharacteristicGlobalEffectField, characteristic);
 			if (globalEffect != null) {
 				string typeName = globalEffect.GetType().Name;
-				return typeName.Contains("Resolve") ? "Comfort" : "Efficiency";
+				return Strings.Get(typeName.Contains("Resolve") ? "reflection.building.bonus_comfort" : "reflection.building.bonus_efficiency");
 			}
 
 			return null;

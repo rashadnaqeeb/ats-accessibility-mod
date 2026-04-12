@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -259,9 +260,19 @@ namespace ATSAccessibility.Reflection {
 			return ReflectionHelper.GetPropString(_emDescriptionProperty, effectModel);
 		}
 
+		// EffectRarity enum: None=0, Common=1, Uncommon=2, Rare=3, Epic=4, Legendary=5, Mythic=6
+		internal static readonly string[] _rarityKeys = {
+			"common.rarity_none", "common.rarity_common", "common.rarity_uncommon",
+			"common.rarity_rare", "common.rarity_epic", "common.rarity_legendary",
+			"common.rarity_mythic",
+		};
+
 		private static string GetEffectRarity(object effectModel) {
 			var rarity = ReflectionHelper.GetField(_emRarityField, effectModel);
-			return rarity?.ToString() ?? "Unknown";
+			if (rarity == null) return Strings.Get("common.unknown");
+			int idx = Convert.ToInt32(rarity);
+			if (idx < 0 || idx >= _rarityKeys.Length) return Strings.Get("common.unknown");
+			return Strings.Get(_rarityKeys[idx]);
 		}
 
 		private static bool GetEffectIsEthereal(object effectModel) {

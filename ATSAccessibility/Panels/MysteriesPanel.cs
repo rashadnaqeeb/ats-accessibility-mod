@@ -61,6 +61,13 @@ namespace ATSAccessibility.Panels {
 		private static FieldInfo _sesStacksField = null;
 		private static bool _sesFieldsCached = false;
 
+		// Season names (lookup keys for Strings.Get — resolved at call time)
+		private static readonly string[] _seasonNameKeys = {
+			"common.season_drizzle",
+			"common.season_clearance",
+			"common.season_storm",
+		};
+
 		// Cached reflection for EffectModel DisplayName/Description (for modifiers)
 		private static PropertyInfo _effectDisplayNameProperty = null;
 		private static PropertyInfo _effectDescriptionProperty = null;
@@ -680,8 +687,13 @@ namespace ATSAccessibility.Panels {
 				bool isActive = GetIsActive(state);
 				int stacks = (int?)_sesStacksField?.GetValue(state) ?? 1;
 
-				// Convert season enum to string
-				string season = seasonEnum?.ToString() ?? "";
+				// Convert season enum to localized string
+				string season = "";
+				if (seasonEnum != null) {
+					int seasonInt = Convert.ToInt32(seasonEnum);
+					if (seasonInt >= 0 && seasonInt < _seasonNameKeys.Length)
+						season = Strings.Get(_seasonNameKeys[seasonInt]);
+				}
 
 				// Try simple model first, then conditional
 				object model = GameReflection.GetSimpleSeasonalEffectModel(modelName);

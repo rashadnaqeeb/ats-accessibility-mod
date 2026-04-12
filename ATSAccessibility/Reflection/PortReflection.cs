@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -669,7 +670,15 @@ namespace ATSAccessibility.Reflection {
 					var rarityObj = ReflectionHelper.GetField(_portRewardChanceRarityField, chance);
 					int chanceValue = ReflectionHelper.GetInt(_portRewardChanceChanceField, chance);
 
-					string rarityName = rarityObj?.ToString() ?? "Unknown";
+					string rarityName;
+					if (rarityObj == null) {
+						rarityName = Strings.Get("common.unknown");
+					} else {
+						int idx = Convert.ToInt32(rarityObj);
+						rarityName = (idx >= 0 && idx < CornerstoneReflection._rarityKeys.Length)
+							? Strings.Get(CornerstoneReflection._rarityKeys[idx])
+							: Strings.Get("common.unknown");
+					}
 					if (chanceValue > 0) {
 						result.Add((rarityName, chanceValue));
 					}

@@ -453,7 +453,7 @@ namespace ATSAccessibility.Navigators {
 
 			// Use good name as primary identifier
 			string name = info.goodName;
-			if (string.IsNullOrEmpty(name) || name == "Unknown") {
+			if (string.IsNullOrEmpty(name)) {
 				name = info.recipeName;
 			}
 

@@ -156,14 +156,14 @@ namespace ATSAccessibility.Utils {
 			angle = ((angle % 360f) + 360f) % 360f;
 
 			// 8-point compass with 45° segments centered on each direction
-			if (angle >= 337.5f || angle < 22.5f) return "North";
-			if (angle >= 22.5f && angle < 67.5f) return "Northeast";
-			if (angle >= 67.5f && angle < 112.5f) return "East";
-			if (angle >= 112.5f && angle < 157.5f) return "Southeast";
-			if (angle >= 157.5f && angle < 202.5f) return "South";
-			if (angle >= 202.5f && angle < 247.5f) return "Southwest";
-			if (angle >= 247.5f && angle < 292.5f) return "West";
-			return "Northwest";
+			if (angle >= 337.5f || angle < 22.5f) return Strings.Get("util.tile.compass_north");
+			if (angle >= 22.5f && angle < 67.5f) return Strings.Get("util.tile.compass_northeast");
+			if (angle >= 67.5f && angle < 112.5f) return Strings.Get("util.tile.compass_east");
+			if (angle >= 112.5f && angle < 157.5f) return Strings.Get("util.tile.compass_southeast");
+			if (angle >= 157.5f && angle < 202.5f) return Strings.Get("util.tile.compass_south");
+			if (angle >= 202.5f && angle < 247.5f) return Strings.Get("util.tile.compass_southwest");
+			if (angle >= 247.5f && angle < 292.5f) return Strings.Get("util.tile.compass_west");
+			return Strings.Get("util.tile.compass_northwest");
 		}
 
 		/// <summary>

@@ -403,10 +403,20 @@ namespace ATSAccessibility.Utils {
 			}
 		}
 
+		// Season names (lookup keys for Strings.Get — resolved at call time)
+		private static readonly string[] _seasonNameKeys = {
+			"common.season_drizzle",
+			"common.season_clearance",
+			"common.season_storm",
+		};
+
 		private void OnSeasonChanged(object season) {
 			if (IsInGracePeriod()) return;
 
-			string seasonName = season?.ToString() ?? "Unknown";
+			int seasonInt = season != null ? Convert.ToInt32(season) : -1;
+			string seasonName = (seasonInt >= 0 && seasonInt < _seasonNameKeys.Length)
+				? Strings.Get(_seasonNameKeys[seasonInt])
+				: Strings.Get("common.unknown");
 
 			// Announce season change if enabled
 			if (Plugin.AnnounceSeasonChanged.Value) {
@@ -415,14 +425,15 @@ namespace ATSAccessibility.Utils {
 
 			// Check for Sealed Forest plague events
 			if (Plugin.AnnouncePlagueEvents.Value) {
-				AnnouncePlagueEvent(seasonName);
+				AnnouncePlagueEvent(seasonInt);
 			}
 		}
 
 		/// <summary>
 		/// Announce plague activation/end for Sealed Forest biome.
+		/// Season int follows the game enum: Drizzle=0, Clearance=1, Storm=2.
 		/// </summary>
-		private void AnnouncePlagueEvent(string seasonName) {
+		private void AnnouncePlagueEvent(int seasonInt) {
 			// Check if we're in Sealed Forest (seals exist)
 			var seal = SealReflection.GetFirstSeal();
 			if (seal == null) return;
@@ -430,7 +441,7 @@ namespace ATSAccessibility.Utils {
 			// Don't announce if seal is already completed
 			if (SealReflection.IsSealCompleted(seal)) return;
 
-			if (seasonName == "Storm") {
+			if (seasonInt == 2) {
 				// Plague activates when Storm starts
 				var sealGameState = SealReflection.GetSealGameState();
 				if (sealGameState == null) return;
@@ -449,7 +460,7 @@ namespace ATSAccessibility.Utils {
 					Announce(Strings.Get("util.event.plague_activated_with_description", displayName, description));
 				else
 					Announce(Strings.Get("util.event.plague_activated", displayName));
-			} else if (seasonName == "Drizzle") {
+			} else if (seasonInt == 0) {
 				// Plague ends when Drizzle starts
 				Announce(Strings.Get("util.event.plague_ended"));
 			}

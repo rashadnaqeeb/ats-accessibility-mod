@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Reflection;
@@ -413,7 +414,12 @@ namespace ATSAccessibility.Reflection {
 			return null;
 		}
 
-		private static readonly string[] SeasonNames = { "Drizzle", "Clearance", "Storm" };
+		// Season names (lookup keys for Strings.Get — resolved at call time)
+		private static readonly string[] SeasonNameKeys = {
+			"common.season_drizzle",
+			"common.season_clearance",
+			"common.season_storm",
+		};
 
 		/// <summary>
 		/// Get the next cornerstone reward date.
@@ -477,8 +483,8 @@ namespace ATSAccessibility.Reflection {
 					}
 				}
 
-				if (found && bestSeason >= 0 && bestSeason < SeasonNames.Length) {
-					return (SeasonNames[bestSeason], bestYear);
+				if (found && bestSeason >= 0 && bestSeason < SeasonNameKeys.Length) {
+					return (Strings.Get(SeasonNameKeys[bestSeason]), bestYear);
 				}
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetNextCornerstoneDate failed: {ex.Message}");

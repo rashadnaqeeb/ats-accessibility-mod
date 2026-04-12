@@ -598,7 +598,7 @@ namespace ATSAccessibility.Reflection {
 				}
 
 				// Fallback: Get fuel from config if service call returned empty
-				if (string.IsNullOrEmpty(info.FuelName) || info.FuelName == "Unknown") {
+				if (string.IsNullOrEmpty(info.FuelName)) {
 					info.FuelName = GetFuelGoodName();
 					int baseFuel = ReflectionHelper.GetInt(_offerFuelField, offer);
 					info.FuelAmount = baseFuel * info.Multiplier;
@@ -826,7 +826,7 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		private static string GetGoodDisplayName(string goodName) {
-			if (string.IsNullOrEmpty(goodName)) return "Unknown";
+			if (string.IsNullOrEmpty(goodName)) return "";
 
 			var settings = GameReflection.GetSettings();
 			var goodModel = ReflectionHelper.Invoke(_getGoodMethod, settings, goodName);
