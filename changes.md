@@ -28,6 +28,7 @@
 - Translation-readiness pass: added `Strings/TRANSLATION.md` (ships-with-game language list, glossary of brand-critical terms, tone guide, file-format cheatsheet), `Tools/ValidateTranslation.ps1` (key-set / placeholder-drift checker for translation files), a `[Localization] ForceLanguage` BepInEx config so translators can smoke-test a new table without changing the game's UI language, and disambiguating context comments on the new F12 help-overlay key block in `en.properties`.
 - Added `Utils/LocaDumper` and a `[Localization] DumpGameLocalization` config flag so a translator can write every game language's canonical loca JSON to `Documents/ATSAccessibility-Locas/` in one launch, then grep the game's own rendering of brand terms (Viceroy, Hearth, species names…) when translating the mod.
 - Rewrote `Strings/TRANSLATION.md` for LLM-agent use: expanded glossary with missing brand terms (Amber, Ironman, Newcomer, Order, Perk, Mystery, Queen, Trade Route, Biome, Cyst, Capital), added a concrete 3-phase orchestration (resolve glossary once, fan out 7 deterministic scope-based chunks to subagents, reassemble and validate), trimmed user-facing and justification content that wasn't useful to a translator.
+- Pruned `Strings/TRANSLATION.md` Phase 2/3 procedural detail (chunk extraction, subagent dispatch, reassembly) — TRANSLATION.md now describes *what* each phase produces; the *how* belongs to the orchestrator invoking it.
 
 ## v1.3.4
 

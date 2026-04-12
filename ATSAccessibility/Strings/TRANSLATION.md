@@ -88,32 +88,30 @@ scopes into the following seven chunks. Sizes are approximate key counts.
 | 6 | `overlay.*` A–O (`altar` through `orders`, alphabetical by second-level scope)          |   332 |
 | 7 | `overlay.*` P–W (`payments` through `world_tutorials`)                                  |   317 |
 
-Dispatch one subagent per chunk. Each subagent receives:
+Dispatch one subagent per chunk with the locked glossary from Phase 1, the
+**Tone**, **Plural forms**, **Do NOT translate**, and **File format**
+sections below, and its chunk. Keys, comments, blank lines, placeholders,
+and escapes are preserved byte-for-byte; only values are translated.
+Subagents must not invent glossary renderings — any brand term the glossary
+didn't cover is flagged, not guessed.
 
-- The locked glossary from Phase 1.
-- The **Tone**, **Plural forms**, **Do NOT translate**, and **File format**
-  sections below, verbatim.
-- Only its chunk of `en.properties` — extracted by prefix match, not by line
-  range.
-- Instruction to return the translated chunk with keys, comments, blank
-  lines, and `{0}`/`{1}` placeholders unchanged.
-
-Subagents must not invent glossary renderings. If a chunk contains a
-brand-critical term that Phase 1 did not cover, the subagent returns the
-chunk with that string flagged rather than guessing.
+The mechanics of splitting, dispatching, and collecting results — and how
+the orchestrator handles unresolved-term flags — live in the `translate`
+skill (`.claude/skills/translate/SKILL.md`).
 
 ### Phase 3 — reassemble and validate (main agent)
 
-Concatenate the seven chunks in `en.properties`'s original order, write the
-result to `<code>.properties`, then run:
+Reassemble the translated chunks into `<code>.properties` preserving
+`en.properties`'s original line order, then run:
 
 ```powershell
 Tools\ValidateTranslation.ps1 -Language <code>
 ```
 
 It reports missing keys, extra keys, placeholder drift, and values still
-identical to English. Spot-fix drift; escalate glossary gaps back to Phase 1
-if the validator surfaces untranslated brand terms.
+identical to English. Fix drift in place; escalate back to Phase 1 only for
+brand-critical terms still rendered in English (most unchanged values are
+legitimate — numbers, proper nouns, intentional English retentions).
 
 ## Glossary — brand-critical terms
 
