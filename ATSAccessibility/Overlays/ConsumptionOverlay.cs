@@ -198,13 +198,11 @@ namespace ATSAccessibility.Overlays {
 				ConsumptionReflection.SetAllRawFoodPermission(setTo);
 			} else if (cat.IsRace) {
 				// Toggle all needs for this race: if not all prohibited, prohibit; otherwise permit
-				string status = ConsumptionReflection.GetRaceNeedsStatus(cat.Race);
-				setTo = (status == "all prohibited");
+				setTo = ConsumptionReflection.GetRaceNeedsStatus(cat.Race) == ConsumptionStatus.AllProhibited;
 				ConsumptionReflection.SetAllNeedsPermissionForRace(cat.Race, setTo);
 			} else {
 				// Toggle all needs in category: if not all prohibited, prohibit; otherwise permit
-				string status = ConsumptionReflection.GetCategoryStatus(cat.Category, false);
-				setTo = (status == "all prohibited");
+				setTo = ConsumptionReflection.GetCategoryStatus(cat.Category, false) == ConsumptionStatus.AllProhibited;
 				ConsumptionReflection.SetAllNeedsPermissionForCategory(cat.Category, setTo);
 			}
 
@@ -233,8 +231,7 @@ namespace ATSAccessibility.Overlays {
 			} else {
 				// Blanket toggle for a need (all races)
 				var need = _items[CurrentIndex];
-				string status = ConsumptionReflection.GetNeedStatus(need);
-				setTo = (status == "all prohibited");
+				setTo = ConsumptionReflection.GetNeedStatus(need) == ConsumptionStatus.AllProhibited;
 				ConsumptionReflection.SetNeedBlanketPermission(need, setTo);
 			}
 
@@ -269,12 +266,21 @@ namespace ATSAccessibility.Overlays {
 			var cat = _categories[index];
 
 			if (cat.IsRace) {
-				string status = ConsumptionReflection.GetRaceNeedsStatus(cat.Race);
-				return Strings.Get("overlay.consumption.category_row", cat.Name, status);
+				var status = ConsumptionReflection.GetRaceNeedsStatus(cat.Race);
+				return Strings.Get("overlay.consumption.category_row", cat.Name, FormatStatus(status));
 			}
 
-			string catStatus = ConsumptionReflection.GetCategoryStatus(cat.Category, cat.IsRawFood);
-			return Strings.Get("overlay.consumption.category_row", cat.Name, catStatus);
+			var catStatus = ConsumptionReflection.GetCategoryStatus(cat.Category, cat.IsRawFood);
+			return Strings.Get("overlay.consumption.category_row", cat.Name, FormatStatus(catStatus));
+		}
+
+		private static string FormatStatus(ConsumptionStatus status) {
+			switch (status) {
+				case ConsumptionStatus.AllPermitted: return Strings.Get("overlay.consumption.status.all_permitted");
+				case ConsumptionStatus.AllProhibited: return Strings.Get("overlay.consumption.status.all_prohibited");
+				case ConsumptionStatus.Mixed: return Strings.Get("overlay.consumption.status.mixed");
+				default: return Strings.Get("overlay.consumption.status.unknown");
+			}
 		}
 
 		private string GetItemAnnouncement(int index) {
@@ -288,8 +294,8 @@ namespace ATSAccessibility.Overlays {
 				return Strings.Get("overlay.consumption.item_row", name, Strings.Get(permitted ? "overlay.consumption.status.permitted" : "overlay.consumption.status.prohibited"));
 			} else {
 				var need = _items[index];
-				string status = ConsumptionReflection.GetNeedStatus(need);
-				return Strings.Get("overlay.consumption.item_row", name, status);
+				var status = ConsumptionReflection.GetNeedStatus(need);
+				return Strings.Get("overlay.consumption.item_row", name, FormatStatus(status));
 			}
 		}
 

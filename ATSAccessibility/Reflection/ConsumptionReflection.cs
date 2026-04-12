@@ -11,6 +11,13 @@ namespace ATSAccessibility.Reflection {
 	/// - Cache ONLY reflection metadata (Type, PropertyInfo, MethodInfo) - these survive scene transitions
 	/// - NEVER cache instance references (services, controllers) - they are destroyed on scene change
 	/// </summary>
+	public enum ConsumptionStatus {
+		AllPermitted,
+		AllProhibited,
+		Mixed,
+		Unknown
+	}
+
 	public static class ConsumptionReflection {
 		// ========================================
 		// CACHED REFLECTION METADATA
@@ -614,17 +621,16 @@ namespace ATSAccessibility.Reflection {
 
 		/// <summary>
 		/// Get the summary status for a need category.
-		/// Returns "all permitted", "all prohibited", or "mixed".
 		/// </summary>
-		public static string GetCategoryStatus(object category, bool isRawFood) {
+		public static ConsumptionStatus GetCategoryStatus(object category, bool isRawFood) {
 			if (isRawFood) {
-				if (IsAllRawFoodPermitted()) return "all permitted";
-				if (IsAllRawFoodProhibited()) return "all prohibited";
-				return "mixed";
+				if (IsAllRawFoodPermitted()) return ConsumptionStatus.AllPermitted;
+				if (IsAllRawFoodProhibited()) return ConsumptionStatus.AllProhibited;
+				return ConsumptionStatus.Mixed;
 			}
 
 			var needs = GetNeedsForCategory(category);
-			if (needs.Count == 0) return "all permitted";
+			if (needs.Count == 0) return ConsumptionStatus.AllPermitted;
 
 			bool anyPermitted = false;
 			bool anyProhibited = false;
@@ -640,23 +646,21 @@ namespace ATSAccessibility.Reflection {
 					anyProhibited = true;
 				}
 
-				if (anyPermitted && anyProhibited) return "mixed";
+				if (anyPermitted && anyProhibited) return ConsumptionStatus.Mixed;
 			}
 
-			if (anyPermitted && !anyProhibited) return "all permitted";
-			if (anyProhibited && !anyPermitted) return "all prohibited";
-			return "mixed";
+			if (anyPermitted && !anyProhibited) return ConsumptionStatus.AllPermitted;
+			if (anyProhibited && !anyPermitted) return ConsumptionStatus.AllProhibited;
+			return ConsumptionStatus.Mixed;
 		}
 
 		/// <summary>
-		/// Get the status string for a need item.
-		/// For raw food: "permitted" or "prohibited".
-		/// For needs: "all permitted", "all prohibited", or "mixed".
+		/// Get the status for a need item (blanket permission across all races).
 		/// </summary>
-		public static string GetNeedStatus(object need) {
-			if (IsNeedBlanketPermitted(need)) return "all permitted";
-			if (IsNeedBlanketProhibited(need)) return "all prohibited";
-			return "mixed";
+		public static ConsumptionStatus GetNeedStatus(object need) {
+			if (IsNeedBlanketPermitted(need)) return ConsumptionStatus.AllPermitted;
+			if (IsNeedBlanketProhibited(need)) return ConsumptionStatus.AllProhibited;
+			return ConsumptionStatus.Mixed;
 		}
 
 		/// <summary>
@@ -688,14 +692,13 @@ namespace ATSAccessibility.Reflection {
 
 		/// <summary>
 		/// Get the permission status for all prohibitable needs for a specific race.
-		/// Returns "all permitted", "all prohibited", or "mixed".
 		/// </summary>
-		public static string GetRaceNeedsStatus(object race) {
+		public static ConsumptionStatus GetRaceNeedsStatus(object race) {
 			EnsureCached();
-			if (race == null) return "unknown";
+			if (race == null) return ConsumptionStatus.Unknown;
 
 			var allNeeds = GetAllNeeds();
-			if (allNeeds == null) return "unknown";
+			if (allNeeds == null) return ConsumptionStatus.Unknown;
 
 			bool anyPermitted = false;
 			bool anyProhibited = false;
@@ -709,12 +712,12 @@ namespace ATSAccessibility.Reflection {
 				else
 					anyProhibited = true;
 
-				if (anyPermitted && anyProhibited) return "mixed";
+				if (anyPermitted && anyProhibited) return ConsumptionStatus.Mixed;
 			}
 
-			if (anyPermitted && !anyProhibited) return "all permitted";
-			if (anyProhibited && !anyPermitted) return "all prohibited";
-			return "mixed";
+			if (anyPermitted && !anyProhibited) return ConsumptionStatus.AllPermitted;
+			if (anyProhibited && !anyPermitted) return ConsumptionStatus.AllProhibited;
+			return ConsumptionStatus.Mixed;
 		}
 
 		/// <summary>
