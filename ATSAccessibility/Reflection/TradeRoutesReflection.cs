@@ -47,7 +47,15 @@ namespace ATSAccessibility.Reflection {
 			public int MaxMultiplier;      // Max amount (5)
 			public bool Accepted;
 			public bool CanAccept;
-			public string BlockedReason;   // "not enough goods", "not enough fuel", "route limit reached", "already accepted"
+			public BlockedReason BlockedReason;
+		}
+
+		public enum BlockedReason {
+			None,
+			AlreadyAccepted,
+			LimitReached,
+			NotEnoughGoods,
+			NotEnoughFuel
 		}
 
 		public struct RouteInfo {
@@ -650,12 +658,12 @@ namespace ATSAccessibility.Reflection {
 			return GetGoodDisplayName(name ?? Strings.Get("reflection.traderoutes.provisions"));
 		}
 
-		private static string GetBlockedReason(object service, object offer, bool accepted) {
-			if (accepted) return Strings.Get("reflection.traderoutes.already_accepted");
-			if (HasReachedLimit()) return Strings.Get("reflection.traderoutes.limit_reached");
-			if (!HaveEnoughGoods(service, offer)) return Strings.Get("reflection.traderoutes.not_enough_goods");
-			if (!HaveEnoughFuel(service, offer)) return Strings.Get("reflection.traderoutes.not_enough_fuel");
-			return null;
+		private static BlockedReason GetBlockedReason(object service, object offer, bool accepted) {
+			if (accepted) return BlockedReason.AlreadyAccepted;
+			if (HasReachedLimit()) return BlockedReason.LimitReached;
+			if (!HaveEnoughGoods(service, offer)) return BlockedReason.NotEnoughGoods;
+			if (!HaveEnoughFuel(service, offer)) return BlockedReason.NotEnoughFuel;
+			return BlockedReason.None;
 		}
 
 		private static bool CanAccept(object service, object offer) {

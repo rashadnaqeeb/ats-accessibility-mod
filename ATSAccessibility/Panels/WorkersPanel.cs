@@ -258,10 +258,10 @@ namespace ATSAccessibility.Panels {
 						_professionDisplayNameField = professionModel.GetType().GetField("displayName", GameReflection.PublicInstance);
 
 					var locaText = _professionDisplayNameField?.GetValue(professionModel);
-					return GameReflection.GetLocaText(locaText) ?? "Worker";
+					return GameReflection.GetLocaText(locaText) ?? Strings.Get("common.worker");
 				}
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] WorkersPanel.GetVillagerProfession failed: {ex.Message}"); }
-			return "Worker";
+			return Strings.Get("common.worker");
 		}
 
 		private static string GetRaceDisplayName(string raceName) {

@@ -444,10 +444,8 @@ namespace ATSAccessibility.Overlays {
 
 			if (offer.Accepted) {
 				baseLabel += Strings.Get("overlay.trade_routes.offer.accepted");
-			} else if (!string.IsNullOrEmpty(offer.BlockedReason)) {
-				string reason = offer.BlockedReason;
-				if (reason == "not enough fuel")
-					reason = Strings.Get("overlay.trade_routes.offer.not_enough_fuel", offer.FuelName);
+			} else if (offer.BlockedReason != TradeRoutesReflection.BlockedReason.None) {
+				string reason = FormatBlockedReason(offer.BlockedReason, offer.FuelName);
 				baseLabel += Strings.Get("overlay.trade_routes.offer.blocked", reason);
 			} else {
 				baseLabel += Strings.Get("overlay.trade_routes.offer.available");
@@ -457,6 +455,16 @@ namespace ATSAccessibility.Overlays {
 				baseLabel += Strings.Get("overlay.trade_routes.offer.adjust_hint");
 
 			return baseLabel;
+		}
+
+		private static string FormatBlockedReason(TradeRoutesReflection.BlockedReason reason, string fuelName) {
+			switch (reason) {
+				case TradeRoutesReflection.BlockedReason.AlreadyAccepted: return Strings.Get("reflection.traderoutes.already_accepted");
+				case TradeRoutesReflection.BlockedReason.LimitReached: return Strings.Get("reflection.traderoutes.limit_reached");
+				case TradeRoutesReflection.BlockedReason.NotEnoughGoods: return Strings.Get("reflection.traderoutes.not_enough_goods");
+				case TradeRoutesReflection.BlockedReason.NotEnoughFuel: return Strings.Get("overlay.trade_routes.offer.not_enough_fuel", fuelName);
+				default: return "";
+			}
 		}
 
 		private void ActivateTownOffersItem() {
@@ -510,7 +518,9 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			if (!offer.CanAccept) {
-				Speech.Say(offer.BlockedReason ?? Strings.Get("overlay.trade_routes.offer.cannot"));
+				Speech.Say(offer.BlockedReason != TradeRoutesReflection.BlockedReason.None
+					? FormatBlockedReason(offer.BlockedReason, offer.FuelName)
+					: Strings.Get("overlay.trade_routes.offer.cannot"));
 				SoundManager.PlayFailed();
 				return;
 			}

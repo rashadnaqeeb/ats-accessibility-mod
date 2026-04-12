@@ -38,8 +38,10 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get the raw type name of a field (e.g., "Grass", "Sand").
-		/// Returns displayName if available, falls back to name, then ToString.
+		/// Get the raw (language-invariant) type name of a field (e.g., "Grass", "Sand").
+		/// Uses the model's `name` property — which is the stable identifier — rather than
+		/// `displayName`, which the game localizes and would break equality comparisons
+		/// on non-English game languages.
 		/// </summary>
 		public static string GetFieldTypeName(object field) {
 			if (field == null) return null;
@@ -51,15 +53,6 @@ namespace ATSAccessibility.Reflection {
 				if (typeValue == null) return null;
 
 				var typeType = typeValue.GetType();
-
-				var displayNameProp = typeType.GetProperty("displayName");
-				if (displayNameProp != null) {
-					var displayName = displayNameProp.GetValue(typeValue);
-					if (displayName != null) {
-						string text = displayName.ToString();
-						if (!string.IsNullOrEmpty(text)) return text;
-					}
-				}
 
 				var nameProp = typeType.GetProperty("name");
 				if (nameProp != null) {
