@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System.Collections.Generic;
 
 namespace ATSAccessibility.Core {
@@ -6,12 +7,20 @@ namespace ATSAccessibility.Core {
 	/// </summary>
 	public struct HelpEntry {
 		public string KeyName;
-		public string Description;
+		public string DescriptionText;
+		public string DescriptionKey;
 
 		public HelpEntry(string keyName, string description) {
 			KeyName = keyName;
-			Description = description;
+			DescriptionText = description;
+			DescriptionKey = null;
 		}
+
+		public static HelpEntry Loca(string keyName, string descriptionKey) =>
+			new HelpEntry { KeyName = keyName, DescriptionKey = descriptionKey };
+
+		public string Description =>
+			DescriptionKey != null ? Strings.Get(DescriptionKey) : DescriptionText;
 	}
 
 	/// <summary>

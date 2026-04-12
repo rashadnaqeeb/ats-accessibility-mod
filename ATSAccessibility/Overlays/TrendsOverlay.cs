@@ -84,10 +84,10 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		private static readonly List<HelpEntry> _trendsHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Left/Right", Strings.Get("overlay.trends.help.goods")),
-			new HelpEntry("1", Strings.Get("overlay.trends.help.10sec")),
-			new HelpEntry("2", Strings.Get("overlay.trends.help.1min")),
-			new HelpEntry("3", Strings.Get("overlay.trends.help.5min")),
+			HelpEntry.Loca("Left/Right", "overlay.trends.help.goods"),
+			HelpEntry.Loca("1", "overlay.trends.help.10sec"),
+			HelpEntry.Loca("2", "overlay.trends.help.1min"),
+			HelpEntry.Loca("3", "overlay.trends.help.5min"),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _trendsHelpEntries;
 

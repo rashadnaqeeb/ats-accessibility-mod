@@ -199,7 +199,7 @@ namespace ATSAccessibility.Panels {
 		}
 
 		private static readonly List<HelpEntry> _resourceHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Alt+I", Strings.Get("panel.settlement_resource.help.alt_i")),
+			HelpEntry.Loca("Alt+I", "panel.settlement_resource.help.alt_i"),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _resourceHelpEntries;
 

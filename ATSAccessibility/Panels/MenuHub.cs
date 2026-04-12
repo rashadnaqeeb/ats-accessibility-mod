@@ -10,14 +10,14 @@ namespace ATSAccessibility.Panels {
 	/// Isolated in a single file for easy removal if needed.
 	/// </summary>
 	public class MenuHub: MenuBase {
-		private static readonly string[] _menuLabels = {
-			Strings.Get("common.recipes"),
-			Strings.Get("common.orders"),
-			Strings.Get("common.trade_routes"),
-			Strings.Get("common.payments"),
-			Strings.Get("panel.menu_hub.menu.consumption_control"),
-			Strings.Get("common.trends"),
-			Strings.Get("common.trader")
+		private static readonly string[] _menuLabelKeys = {
+			"common.recipes",
+			"common.orders",
+			"common.trade_routes",
+			"common.payments",
+			"panel.menu_hub.menu.consumption_control",
+			"common.trends",
+			"common.trader"
 		};
 
 		// Flag to suppress "Closed" speech when closing to open a popup
@@ -30,12 +30,12 @@ namespace ATSAccessibility.Panels {
 		protected override string OverlayName => Strings.Get("panel.menu_hub.title");
 		protected override string EmptyMessage => "";
 
-		protected override int GetItemCount() => _menuLabels.Length;
+		protected override int GetItemCount() => _menuLabelKeys.Length;
 
 		protected override string GetLabel(int index) {
-			if (index < 0 || index >= _menuLabels.Length) return null;
+			if (index < 0 || index >= _menuLabelKeys.Length) return null;
 
-			string label = _menuLabels[index];
+			string label = Strings.Get(_menuLabelKeys[index]);
 			string lockSuffix = "";
 			if (index == 2 && !ConstructionReflection.AreTradeRoutesUnlocked())
 				lockSuffix = Strings.Get("common.suffix_locked");
@@ -46,8 +46,8 @@ namespace ATSAccessibility.Panels {
 		}
 
 		protected override string GetSearchName(int index) {
-			if (index < 0 || index >= _menuLabels.Length) return null;
-			return _menuLabels[index];
+			if (index < 0 || index >= _menuLabelKeys.Length) return null;
+			return Strings.Get(_menuLabelKeys[index]);
 		}
 
 		protected override void RefreshData() { } // Static list, nothing to refresh
@@ -55,7 +55,7 @@ namespace ATSAccessibility.Panels {
 		protected override EnterAction OnEnter(int index) => EnterAction.Action;
 
 		protected override void OnAction(int index) {
-			if (index < 0 || index >= _menuLabels.Length) return;
+			if (index < 0 || index >= _menuLabelKeys.Length) return;
 			OpenSelectedMenu(index);
 		}
 
@@ -113,7 +113,7 @@ namespace ATSAccessibility.Panels {
 		// ========================================
 
 		private void OpenSelectedMenu(int index) {
-			string menuName = _menuLabels[index];
+			string menuName = Strings.Get(_menuLabelKeys[index]);
 			Debug.Log($"[ATSAccessibility] Opening {menuName} from Menu Hub");
 
 			bool success = false;

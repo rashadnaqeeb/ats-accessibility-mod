@@ -170,8 +170,8 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		private static readonly List<HelpEntry> _recipesHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Tab", Strings.Get("overlay.recipes.help.toggle_mode")),
-			new HelpEntry("Ctrl+T", Strings.Get("overlay.recipes.help.toggle_show_all")),
+			HelpEntry.Loca("Tab", "overlay.recipes.help.toggle_mode"),
+			HelpEntry.Loca("Ctrl+T", "overlay.recipes.help.toggle_show_all"),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _recipesHelpEntries;
 

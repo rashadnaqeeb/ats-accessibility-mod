@@ -32,20 +32,20 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
-			new HelpEntry("I", Strings.Get("handler.worldmap_key.help.tooltip_info")),
-			new HelpEntry("D", Strings.Get("handler.worldmap_key.help.embark_distance")),
-			new HelpEntry("M", Strings.Get("handler.worldmap_key.help.effects_panel")),
-			new HelpEntry("L", Strings.Get("handler.worldmap_key.help.level_info")),
-			new HelpEntry("R", Strings.Get("handler.worldmap_key.help.meta_resources")),
-			new HelpEntry("S", Strings.Get("handler.worldmap_key.help.seal_info")),
-			new HelpEntry("T", Strings.Get("handler.worldmap_key.help.cycle_info")),
-			new HelpEntry("E", Strings.Get("handler.worldmap_key.help.cycle_end")),
-			new HelpEntry("F1", Strings.Get("handler.worldmap_key.help.tutorials")),
-			new HelpEntry("PageUp/Down", Strings.Get("handler.worldmap_key.help.scanner_type")),
-			new HelpEntry("Alt+PageUp/Down", Strings.Get("handler.worldmap_key.help.scanner_item")),
-			new HelpEntry("Home", Strings.Get("handler.worldmap_key.help.scanner_jump")),
-			new HelpEntry("Alt+Home", Strings.Get("handler.worldmap_key.help.scanner_automove")),
-			new HelpEntry("End", Strings.Get("handler.worldmap_key.help.scanner_direction")),
+			HelpEntry.Loca("I", "handler.worldmap_key.help.tooltip_info"),
+			HelpEntry.Loca("D", "handler.worldmap_key.help.embark_distance"),
+			HelpEntry.Loca("M", "handler.worldmap_key.help.effects_panel"),
+			HelpEntry.Loca("L", "handler.worldmap_key.help.level_info"),
+			HelpEntry.Loca("R", "handler.worldmap_key.help.meta_resources"),
+			HelpEntry.Loca("S", "handler.worldmap_key.help.seal_info"),
+			HelpEntry.Loca("T", "handler.worldmap_key.help.cycle_info"),
+			HelpEntry.Loca("E", "handler.worldmap_key.help.cycle_end"),
+			HelpEntry.Loca("F1", "handler.worldmap_key.help.tutorials"),
+			HelpEntry.Loca("PageUp/Down", "handler.worldmap_key.help.scanner_type"),
+			HelpEntry.Loca("Alt+PageUp/Down", "handler.worldmap_key.help.scanner_item"),
+			HelpEntry.Loca("Home", "handler.worldmap_key.help.scanner_jump"),
+			HelpEntry.Loca("Alt+Home", "handler.worldmap_key.help.scanner_automove"),
+			HelpEntry.Loca("End", "handler.worldmap_key.help.scanner_direction"),
 		};
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;

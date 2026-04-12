@@ -16,10 +16,10 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
-			new HelpEntry("Alt+L", Strings.Get("handler.worldmap_info.help.level_info")),
-			new HelpEntry("Alt+R", Strings.Get("handler.worldmap_info.help.meta_resources")),
-			new HelpEntry("Alt+S", Strings.Get("handler.worldmap_info.help.seal_info")),
-			new HelpEntry("Alt+T", Strings.Get("handler.worldmap_info.help.cycle_info")),
+			HelpEntry.Loca("Alt+L", "handler.worldmap_info.help.level_info"),
+			HelpEntry.Loca("Alt+R", "handler.worldmap_info.help.meta_resources"),
+			HelpEntry.Loca("Alt+S", "handler.worldmap_info.help.seal_info"),
+			HelpEntry.Loca("Alt+T", "handler.worldmap_info.help.cycle_info"),
 		};
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Filter;

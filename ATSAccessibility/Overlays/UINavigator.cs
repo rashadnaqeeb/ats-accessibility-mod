@@ -81,8 +81,8 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
-			new HelpEntry("+/-", Strings.Get("overlay.ui.help.slider")),
-			new HelpEntry("Shift+/-", Strings.Get("overlay.ui.help.slider_big")),
+			HelpEntry.Loca("+/-", "overlay.ui.help.slider"),
+			HelpEntry.Loca("Shift+/-", "overlay.ui.help.slider_big"),
 		};
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;

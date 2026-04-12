@@ -11,6 +11,7 @@
 - Scanner now announces underlying ore type and remaining charges when hovering a mine
 
 ### Internal
+- F1 / F2 / F12 menus now render in the active language: switched all `HelpEntry` descriptions and the `InfoPanelMenu` / `MenuHub` / `RewardsPanel` label arrays from class-load-time `Strings.Get("…")` resolution to lazy key-based resolution (`HelpEntry.Loca(keyName, locaKey)` + `_menuLabelKeys`), so non-English tables applied after class load now take effect. Updated `ValidateStrings` to recognise `HelpEntry.Loca` call sites.
 - Localization groundwork: add `Utils/Strings.cs` + `LocalizationReflection.cs` + embedded `Strings/English.properties` table. Detects game language via `TextsService.CurrentLocaCode` and falls back to English. Migrated `ConfirmationDialog`, `HelpOverlay`, and `WorkersPanel` as proof-of-concept; remaining files still use English literals.
 - Migrated `Overlays/` English literals to the localization table (`overlay.*` keys)
 - Migrated `Navigators/` English literals to the localization table (`nav.*` keys)

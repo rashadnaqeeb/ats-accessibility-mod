@@ -110,14 +110,14 @@ namespace ATSAccessibility.Panels {
 		}
 
 		// Search uses short names, not full labels
-		private static readonly string[] _searchNames = {
-			Strings.Get("panel.rewards.blueprints"),
-			Strings.Get("common.cornerstones"),
-			Strings.Get("common.newcomers")
+		private static readonly string[] _searchNameKeys = {
+			"panel.rewards.blueprints",
+			"common.cornerstones",
+			"common.newcomers"
 		};
 
 		protected override string GetSearchName(int index) {
-			return index >= 0 && index < _searchNames.Length ? _searchNames[index] : null;
+			return index >= 0 && index < _searchNameKeys.Length ? Strings.Get(_searchNameKeys[index]) : null;
 		}
 
 		// ========================================

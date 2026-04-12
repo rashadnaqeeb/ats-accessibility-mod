@@ -150,9 +150,9 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		private static readonly List<HelpEntry> _traderHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Left/Right", Strings.Get("overlay.trader.help.tab")),
-			new HelpEntry("Alt+B", Strings.Get("overlay.trader.help.balance")),
-			new HelpEntry("Alt+A", Strings.Get("overlay.trader.help.accept")),
+			HelpEntry.Loca("Left/Right", "overlay.trader.help.tab"),
+			HelpEntry.Loca("Alt+B", "overlay.trader.help.balance"),
+			HelpEntry.Loca("Alt+A", "overlay.trader.help.accept"),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _traderHelpEntries;
 

@@ -211,7 +211,7 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private static readonly List<HelpEntry> _buildingHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Alt+Space", Strings.Get("nav.building_section.help.pause_unpause")),
+			HelpEntry.Loca("Alt+Space", "nav.building_section.help.pause_unpause"),
 		};
 
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _buildingHelpEntries;

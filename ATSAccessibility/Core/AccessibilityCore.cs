@@ -531,6 +531,7 @@ namespace ATSAccessibility.Core {
 			Scene activeScene = SceneManager.GetActiveScene();
 			Debug.Log($"[ATSAccessibility] Current scene: {activeScene.name} (index: {activeScene.buildIndex})");
 
+			Strings.ApplyGameLanguage();
 			ProcessSceneLoad(activeScene);
 		}
 
@@ -617,6 +618,9 @@ namespace ATSAccessibility.Core {
 			if (_announcedMainMenu) return;
 
 			if (_speechInitialized && Speech.IsAvailable) {
+				// Services are reliably up by now; retry language selection in case
+				// CheckCurrentScene ran too early to read TextsService.CurrentLocaCode.
+				Strings.ApplyGameLanguage();
 				Speech.Say(Strings.Get("core.main_menu"));
 				_announcedMainMenu = true;
 				Debug.Log("[ATSAccessibility] Announced: Main menu");

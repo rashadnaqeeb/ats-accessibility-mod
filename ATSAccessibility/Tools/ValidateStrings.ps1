@@ -65,6 +65,7 @@ $csFiles = Get-ChildItem -Path $Root -Recurse -Filter *.cs -File |
 # quoted strings and nested parens.
 $getPattern  = [regex]'Strings\.Get\s*\(\s*"((?:[^"\\]|\\.)*)"\s*(,|\))'
 $pluralPattern = [regex]'Strings\.Plural\s*\(\s*[^,]+,\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"\s*(,|\))'
+$locaPattern = [regex]'HelpEntry\.Loca\s*\(\s*"(?:[^"\\]|\\.)*"\s*,\s*"((?:[^"\\]|\\.)*)"\s*\)'
 
 function Count-Args([string]$text, [int]$startIndex) {
     # Given the source text and the index of a ',' or ')' right after the literal,
@@ -119,6 +120,15 @@ foreach ($file in $csFiles) {
         if ($argCount -ne $required) {
             $line = ($text.Substring(0, $m.Index) -split "`n").Count
             $errors += "ARITY: '$key' template expects $required args, call has $argCount at $($file.FullName):$line"
+        }
+    }
+
+    foreach ($m in $locaPattern.Matches($text)) {
+        $key = $m.Groups[1].Value
+        $referenced[$key] = $true
+        if (-not $keys.ContainsKey($key)) {
+            $line = ($text.Substring(0, $m.Index) -split "`n").Count
+            $errors += "MISSING KEY (HelpEntry.Loca): '$key' at $($file.FullName):$line"
         }
     }
 

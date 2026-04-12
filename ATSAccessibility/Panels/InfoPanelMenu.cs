@@ -17,13 +17,13 @@ namespace ATSAccessibility.Panels {
 			Announcements
 		}
 
-		private static readonly string[] _menuLabels = {
-			Strings.Get("common.resources"),
-			Strings.Get("common.villagers"),
-			Strings.Get("common.workers"),
-			Strings.Get("panel.info.menu.stats"),
-			Strings.Get("common.modifiers"),
-			Strings.Get("panel.info.menu.announcements")
+		private static readonly string[] _menuLabelKeys = {
+			"common.resources",
+			"common.villagers",
+			"common.workers",
+			"panel.info.menu.stats",
+			"common.modifiers",
+			"panel.info.menu.announcements"
 		};
 
 		private readonly StatsPanel _statsPanel;
@@ -59,11 +59,11 @@ namespace ATSAccessibility.Panels {
 		protected override string OverlayName => Strings.Get("panel.info.title");
 		protected override string EmptyMessage => "";
 
-		protected override int GetItemCount() => _menuLabels.Length;
+		protected override int GetItemCount() => _menuLabelKeys.Length;
 
 		protected override string GetLabel(int index) {
-			if (index < 0 || index >= _menuLabels.Length) return null;
-			return _menuLabels[index];
+			if (index < 0 || index >= _menuLabelKeys.Length) return null;
+			return Strings.Get(_menuLabelKeys[index]);
 		}
 
 		protected override void RefreshData() { } // Static list
@@ -147,8 +147,8 @@ namespace ATSAccessibility.Panels {
 				return null; // Suppress - the child panel will announce
 			}
 
-			if (_menuLabels.Length > 0)
-				return Strings.Get("panel.info.open", OverlayName, _menuLabels[0]);
+			if (_menuLabelKeys.Length > 0)
+				return Strings.Get("panel.info.open", OverlayName, Strings.Get(_menuLabelKeys[0]));
 			return OverlayName;
 		}
 
