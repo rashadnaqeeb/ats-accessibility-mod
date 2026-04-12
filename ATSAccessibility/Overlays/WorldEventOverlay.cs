@@ -31,7 +31,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "World Event";
+		protected override string OverlayName => Strings.Get("common.world_event");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() => _items.Count;
@@ -52,13 +52,12 @@ namespace ATSAccessibility.Overlays {
 			_items.Clear();
 
 			// [0] Header: event name and description
-			string eventName = WorldEventReflection.GetEventName(_model) ?? "World Event";
+			string eventName = WorldEventReflection.GetEventName(_model) ?? Strings.Get("common.world_event");
 			string eventDesc = WorldEventReflection.GetEventDescription(_model);
 
-			string headerText = eventName;
-			if (!string.IsNullOrEmpty(eventDesc)) {
-				headerText += ". " + eventDesc;
-			}
+			string headerText = !string.IsNullOrEmpty(eventDesc)
+				? Strings.Get("overlay.world_event.header.with_desc", eventName, eventDesc)
+				: eventName;
 
 			_items.Add(new ListItem {
 				Type = ItemType.Header,
@@ -128,9 +127,9 @@ namespace ATSAccessibility.Overlays {
 			if (!WorldEventReflection.CanExecuteOption(_model, index)) {
 				string blockReason = WorldEventReflection.GetExecutionBlockReason(_model, index);
 				if (!string.IsNullOrEmpty(blockReason)) {
-					Speech.Say($"Cannot select. {blockReason}");
+					Speech.Say(Strings.Get("overlay.world_event.cannot_with_reason", blockReason));
 				} else {
-					Speech.Say("Cannot select");
+					Speech.Say(Strings.Get("common.cannot_select"));
 				}
 				SoundManager.PlayFailed();
 				return;
@@ -141,7 +140,7 @@ namespace ATSAccessibility.Overlays {
 			// execution, which tears down the world map scene and its SoundsManager.
 			string result = WorldEventReflection.GetResultDescription(_model, index);
 			SoundManager.PlayButtonClick();
-			Speech.Say(!string.IsNullOrEmpty(result) ? result : "Selected");
+			Speech.Say(!string.IsNullOrEmpty(result) ? result : Strings.Get("common.selected"));
 
 			if (WorldEventReflection.ExecuteDecision(_model, _state, index)) {
 				// Hide the popup — mirrors WorldEventPopup.ExecuteDecisionAsync which
@@ -149,7 +148,7 @@ namespace ATSAccessibility.Overlays {
 				// stays open and our handler keeps consuming keys.
 				PopupReflection.HidePopup(_popup);
 			} else {
-				Speech.Say("Failed to execute");
+				Speech.Say(Strings.Get("overlay.world_event.failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -159,15 +158,15 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		private string BuildOptionText(int index) {
-			string desc = WorldEventReflection.GetOptionDescription(_model, index) ?? $"Option {index + 1}";
+			string desc = WorldEventReflection.GetOptionDescription(_model, index) ?? Strings.Get("overlay.world_event.option.fallback", index + 1);
 			bool canExecute = WorldEventReflection.CanExecuteOption(_model, index);
 
 			if (!canExecute) {
 				string blockReason = WorldEventReflection.GetExecutionBlockReason(_model, index);
 				if (!string.IsNullOrEmpty(blockReason)) {
-					return $"{desc}, disabled, {blockReason}";
+					return Strings.Get("overlay.world_event.option.disabled.with_reason", desc, blockReason);
 				}
-				return $"{desc}, disabled";
+				return Strings.Get("overlay.world_event.option.disabled", desc);
 			}
 
 			return desc;

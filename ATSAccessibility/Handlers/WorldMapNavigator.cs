@@ -23,14 +23,14 @@ namespace ATSAccessibility.Handlers {
             new Vector3Int(-1, 1, 0)    // 5: W  (A)
         };
 
-		private static readonly string[] DirectionNames = new string[]
+		private static string[] DirectionNames => new string[]
 		{
-			"northwest",
-			"northeast",
-			"east",
-			"southeast",
-			"southwest",
-			"west"
+			Strings.Get("common.northwest_lower"),
+			Strings.Get("common.northeast_lower"),
+			Strings.Get("common.east_lower"),
+			Strings.Get("common.southeast_lower"),
+			Strings.Get("common.southwest_lower"),
+			Strings.Get("common.west_lower"),
 		};
 
 		// Current cursor position in cubic coordinates
@@ -74,7 +74,7 @@ namespace ATSAccessibility.Handlers {
 			// Check if in bounds
 			if (!WorldMapReflection.WorldMapInBounds(newPos)) {
 				Debug.Log($"[ATSAccessibility] WorldMapNavigator: edge of map at {newPos}");
-				Speech.Say("Edge of map");
+				Speech.Say(Strings.Get("handler.worldmap.edge_of_map"));
 				return;
 			}
 
@@ -156,11 +156,11 @@ namespace ATSAccessibility.Handlers {
 
 			// Embark status
 			if (!WorldMapReflection.WorldMapIsRevealed(_cursorPos))
-				parts.Add("Unexplored");
+				parts.Add(Strings.Get("common.unexplored"));
 			else if (WorldMapReflection.WorldMapCanBePicked(_cursorPos))
-				parts.Add("Can embark");
+				parts.Add(Strings.Get("handler.worldmap.can_embark"));
 			else if (!WorldMapReflection.WorldMapHasAnyPathTo(_cursorPos))
-				parts.Add("Out of reach");
+				parts.Add(Strings.Get("handler.worldmap.out_of_reach"));
 			else
 				parts.Add(GetUnpickableReason());
 
@@ -170,17 +170,17 @@ namespace ATSAccessibility.Handlers {
 			// Embark range from that starting point
 			var range = WorldMapReflection.GetEmbarkRange(lastTownPos);
 			if (range >= 0)
-				parts.Add($"Range: {range}");
+				parts.Add(Strings.Get("handler.worldmap.range", range));
 
 			// Distance and direction to embark point
 			if (_cursorPos == lastTownPos) {
-				var townLabel = !string.IsNullOrEmpty(lastTownName) ? lastTownName : "Capital";
-				parts.Add($"At {townLabel}");
+				var townLabel = !string.IsNullOrEmpty(lastTownName) ? lastTownName : Strings.Get("common.capital");
+				parts.Add(Strings.Get("handler.worldmap.at_town", townLabel));
 			} else {
 				var distance = GetHexDistance(_cursorPos, lastTownPos);
 				var direction = GetDirectionTo(_cursorPos, lastTownPos);
-				var townLabel = !string.IsNullOrEmpty(lastTownName) ? lastTownName : "Capital";
-				parts.Add($"{townLabel}: {distance} {direction}");
+				var townLabel = !string.IsNullOrEmpty(lastTownName) ? lastTownName : Strings.Get("common.capital");
+				parts.Add(Strings.Get("handler.worldmap.distance_to", townLabel, distance, direction));
 			}
 
 			Speech.Say(string.Join(", ", parts));
@@ -200,7 +200,7 @@ namespace ATSAccessibility.Handlers {
 		/// </summary>
 		public void OpenEffectsPanel() {
 			if (_cachedTileType == TileType.Capital || _cachedTileType == TileType.City) {
-				Speech.Say("No effects panel for this tile");
+				Speech.Say(Strings.Get("handler.worldmap.no_effects_panel"));
 				return;
 			}
 			_effectsPanel.Open(_cursorPos);
@@ -233,28 +233,28 @@ namespace ATSAccessibility.Handlers {
 					_cachedTileType = TileType.Seal;
 					var sealName = WorldMapReflection.WorldMapGetSealName(_cursorPos);
 					var (_, _, minFragments, _, _, _) = WorldMapReflection.WorldMapGetSealInfo(_cursorPos);
-					string sealLabel = !string.IsNullOrEmpty(sealName) ? $"Seal: {sealName}" : "Seal";
+					string sealLabel = !string.IsNullOrEmpty(sealName) ? Strings.Get("handler.worldmap.seal_with_name", sealName) : Strings.Get("common.seal");
 					if (minFragments > 0)
-						sealLabel += $", {minFragments} fragments";
-					_cachedBriefInfo = $"Unexplored, {sealLabel}";
+						sealLabel = Strings.Get("handler.worldmap.seal_fragments", sealLabel, minFragments);
+					_cachedBriefInfo = Strings.Get("handler.worldmap.unexplored_seal", sealLabel);
 				} else if (hasModifier) {
 					// Modifier visible as "?" - don't identify it
 					_cachedTileType = TileType.Unexplored;
-					_cachedBriefInfo = "Unexplored, unknown modifier";
+					_cachedBriefInfo = Strings.Get("handler.worldmap.unexplored_modifier");
 				} else if (hasEvent) {
 					// Event visible as "?" - don't identify it
 					_cachedTileType = TileType.Unexplored;
-					_cachedBriefInfo = "Unexplored, unknown event";
+					_cachedBriefInfo = Strings.Get("handler.worldmap.unexplored_event");
 				} else {
 					// Plain unexplored
 					_cachedTileType = TileType.Unexplored;
-					_cachedBriefInfo = "Unexplored";
+					_cachedBriefInfo = Strings.Get("common.unexplored");
 				}
 				return;
 			}
 
 			// Get biome for revealed tiles
-			var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos) ?? "Unknown biome";
+			var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos) ?? Strings.Get("handler.worldmap.unknown_biome");
 
 			// Check tile type once with short-circuit evaluation
 			bool isCapital = WorldMapReflection.WorldMapIsCapital(_cursorPos);
@@ -265,30 +265,30 @@ namespace ATSAccessibility.Handlers {
 
 			if (isCapital) {
 				_cachedTileType = TileType.Capital;
-				tileType = "Capital";
+				tileType = Strings.Get("common.capital");
 			} else if (isCity) {
 				_cachedTileType = TileType.City;
 				var cityName = WorldMapReflection.WorldMapGetCityName(_cursorPos);
-				tileType = !string.IsNullOrEmpty(cityName) ? cityName : "City";
+				tileType = !string.IsNullOrEmpty(cityName) ? cityName : Strings.Get("handler.worldmap.city_fallback");
 			} else if (hasSeal) {
 				_cachedTileType = TileType.Seal;
 				var sealName = WorldMapReflection.WorldMapGetSealName(_cursorPos);
 				var (_, _, minFragments, _, _, _) = WorldMapReflection.WorldMapGetSealInfo(_cursorPos);
-				string sealLabel = !string.IsNullOrEmpty(sealName) ? $"Seal: {sealName}" : "Seal";
+				string sealLabel = !string.IsNullOrEmpty(sealName) ? Strings.Get("handler.worldmap.seal_with_name", sealName) : Strings.Get("common.seal");
 				if (minFragments > 0)
-					sealLabel += $", {minFragments} fragments";
+					sealLabel = Strings.Get("handler.worldmap.seal_fragments", sealLabel, minFragments);
 				tileType = sealLabel;
 			} else if (hasModifier) {
 				_cachedTileType = TileType.Modifier;
 				var modifierName = WorldMapReflection.WorldMapGetModifierName(_cursorPos);
-				tileType = !string.IsNullOrEmpty(modifierName) ? modifierName : "Modifier";
+				tileType = !string.IsNullOrEmpty(modifierName) ? modifierName : Strings.Get("common.modifier");
 			} else if (hasEvent) {
 				_cachedTileType = TileType.Event;
 				var eventName = WorldMapReflection.WorldMapGetEventName(_cursorPos);
-				tileType = !string.IsNullOrEmpty(eventName) ? $"Event: {eventName}" : "Event";
+				tileType = !string.IsNullOrEmpty(eventName) ? Strings.Get("handler.worldmap.event_with_name", eventName) : Strings.Get("common.event");
 			} else if (!WorldMapReflection.WorldMapHasAnyPathTo(_cursorPos)) {
 				_cachedTileType = TileType.OutOfReach;
-				tileType = "Out of reach";
+				tileType = Strings.Get("handler.worldmap.out_of_reach");
 			} else if (WorldMapReflection.WorldMapCanBePicked(_cursorPos)) {
 				_cachedTileType = TileType.PlayableField;
 			} else {
@@ -297,7 +297,7 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			// Brief info
-			_cachedBriefInfo = string.IsNullOrEmpty(tileType) ? biome : $"{biome}, {tileType}";
+			_cachedBriefInfo = string.IsNullOrEmpty(tileType) ? biome : Strings.Get("handler.worldmap.brief_with_type", biome, tileType);
 		}
 
 		/// <summary>
@@ -308,7 +308,7 @@ namespace ATSAccessibility.Handlers {
 		private string BuildTooltip() {
 			// Unexplored tiles with no special features (or unexplored modifiers/events)
 			if (_cachedTileType == TileType.Unexplored)
-				return "Unexplored";
+				return Strings.Get("common.unexplored");
 
 			// Capital/City tiles - show city tooltip
 			if (_cachedTileType == TileType.Capital || _cachedTileType == TileType.City)
@@ -345,9 +345,9 @@ namespace ATSAccessibility.Handlers {
 			if (!string.IsNullOrEmpty(cityName))
 				parts.Add(cityName);
 			else if (WorldMapReflection.WorldMapIsCapital(_cursorPos))
-				parts.Add("Smoldering City");
+				parts.Add(Strings.Get("handler.worldmap.smoldering_city"));
 			else
-				parts.Add("City");
+				parts.Add(Strings.Get("handler.worldmap.city_fallback"));
 
 			// Biome
 			var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos);
@@ -357,7 +357,7 @@ namespace ATSAccessibility.Handlers {
 			// Wanted goods (if trade routes enabled)
 			var wantedGoods = WorldMapReflection.WorldMapGetWantedGoods(_cursorPos);
 			if (wantedGoods != null && wantedGoods.Length > 0)
-				parts.Add($"Wants: {string.Join(", ", wantedGoods)}");
+				parts.Add(Strings.Get("handler.worldmap.city_wants", string.Join(", ", wantedGoods)));
 
 			return string.Join(", ", parts);
 		}
@@ -374,25 +374,25 @@ namespace ATSAccessibility.Handlers {
 			if (!string.IsNullOrEmpty(sealName))
 				parts.Add(sealName);
 			else
-				parts.Add("Seal");
+				parts.Add(Strings.Get("common.seal"));
 
 			// Difficulty and requirements
 			if (!string.IsNullOrEmpty(difficultyName))
-				parts.Add($"{difficultyName} difficulty");
+				parts.Add(Strings.Get("handler.worldmap.seal_difficulty", difficultyName));
 
 			if (minFragments > 0)
-				parts.Add($"Requires {minFragments} seal fragments");
+				parts.Add(Strings.Get("handler.worldmap.seal_requires", minFragments));
 
 			// Rewards
 			if (rewardsPercent > 0)
-				parts.Add($"Bonus: {rewardsPercent}% of cycle rewards");
+				parts.Add(Strings.Get("handler.worldmap.seal_bonus_percent", rewardsPercent));
 
 			if (bonusYears > 0)
-				parts.Add($"{bonusYears} bonus years per cycle");
+				parts.Add(Strings.Get("handler.worldmap.seal_bonus_years", bonusYears));
 
 			// Completion status
 			if (isCompleted)
-				parts.Add("Completed");
+				parts.Add(Strings.Get("handler.worldmap.seal_completed"));
 
 			return string.Join(", ", parts);
 		}
@@ -411,7 +411,7 @@ namespace ATSAccessibility.Handlers {
 
 			// Label (effect type)
 			if (!string.IsNullOrEmpty(labelName))
-				parts.Add($"({labelName})");
+				parts.Add(Strings.Get("handler.worldmap.modifier_label", labelName));
 
 			// Description
 			if (!string.IsNullOrEmpty(description))
@@ -426,11 +426,11 @@ namespace ATSAccessibility.Handlers {
 		private string BuildEventTooltip() {
 			// Check if event is reachable
 			if (!WorldMapReflection.WorldMapCanReachEvent(_cursorPos)) {
-				return "Event unreachable";
+				return Strings.Get("handler.worldmap.event_unreachable");
 			}
 
 			var eventName = WorldMapReflection.WorldMapGetEventName(_cursorPos);
-			return !string.IsNullOrEmpty(eventName) ? eventName : "Event";
+			return !string.IsNullOrEmpty(eventName) ? eventName : Strings.Get("common.event");
 		}
 
 		/// <summary>
@@ -445,25 +445,25 @@ namespace ATSAccessibility.Handlers {
 			if (!string.IsNullOrEmpty(difficulty)) {
 				int penalty = WorldMapReflection.WorldMapGetDifficultyPreparationPenalty(_cursorPos);
 				if (penalty != 0)
-					parts.Add($"{difficulty} difficulty, {penalty} preparation {(penalty == 1 || penalty == -1 ? "point" : "points")}");
+					parts.Add(Strings.Get("handler.worldmap.difficulty_with_penalty", difficulty, penalty, penalty == 1 || penalty == -1 ? Strings.Get("handler.worldmap.prep_point") : Strings.Get("handler.worldmap.prep_points")));
 				else
-					parts.Add($"{difficulty} difficulty");
+					parts.Add(Strings.Get("handler.worldmap.difficulty_only", difficulty));
 			}
 
 			// Field effects (biome + modifiers)
 			var effects = WorldMapReflection.WorldMapGetFieldEffects(_cursorPos);
 			if (effects != null && effects.Length > 0)
-				parts.Add($"Effects: {string.Join(", ", effects)}");
+				parts.Add(Strings.Get("handler.worldmap.effects", string.Join(", ", effects)));
 
 			// Seal fragments to win
 			var fragments = WorldMapReflection.WorldMapGetSealFragmentsForWin(_cursorPos);
 			if (fragments > 0)
-				parts.Add($"{fragments} seal fragments to win");
+				parts.Add(Strings.Get("handler.worldmap.fragments_to_win", fragments));
 
 			// Meta currencies (rewards)
 			var currencies = WorldMapReflection.WorldMapGetMetaCurrencies(_cursorPos);
 			if (currencies != null && currencies.Length > 0)
-				parts.Add($"Rewards: {string.Join(", ", currencies)}");
+				parts.Add(Strings.Get("handler.worldmap.rewards", string.Join(", ", currencies)));
 
 			return string.Join(", ", parts);
 		}
@@ -479,28 +479,28 @@ namespace ATSAccessibility.Handlers {
 			var reasons = new List<string>();
 
 			if (WorldMapReflection.HasPlayedFinalGame())
-				reasons.Add("Seal already attempted");
+				reasons.Add(Strings.Get("handler.worldmap.reason_seal_attempted"));
 
 			var (current, required) = WorldMapReflection.GetSealFragmentStatus(_cursorPos);
 			if (required >= 0 && current < required)
-				reasons.Add($"Need {required} seal fragments, have {current}");
+				reasons.Add(Strings.Get("handler.worldmap.reason_need_fragments", required, current));
 
 			if (WorldMapReflection.IsStormAboutToCome())
-				reasons.Add("Blightstorm approaching");
+				reasons.Add(Strings.Get("handler.worldmap.reason_blightstorm"));
 
-			return reasons.Count > 0 ? string.Join(", ", reasons) : "Unavailable";
+			return reasons.Count > 0 ? string.Join(", ", reasons) : Strings.Get("handler.worldmap.reason_unavailable");
 		}
 
 		private string BuildOutOfReachTooltip() {
 			var biome = WorldMapReflection.WorldMapGetBiomeName(_cursorPos);
-			var prefix = !string.IsNullOrEmpty(biome) ? $"{biome}, " : "";
+			var prefix = !string.IsNullOrEmpty(biome) ? Strings.Get("handler.worldmap.biome_prefix", biome) + " " : "";
 
 			// For tiles with no path, the brief info already says "Out of reach"
 			if (!WorldMapReflection.WorldMapHasAnyPathTo(_cursorPos))
-				return $"{prefix}out of reach";
+				return Strings.Get("handler.worldmap.out_of_reach_tooltip", prefix);
 
 			// For tiles that have a path but can't be picked, show specific reasons
-			return $"{prefix}{GetUnpickableReason().ToLower()}";
+			return Strings.Get("handler.worldmap.out_of_reach_reason", prefix, GetUnpickableReason().ToLower());
 		}
 
 		/// <summary>
@@ -546,9 +546,9 @@ namespace ATSAccessibility.Handlers {
 			//                      south = x and y both positive, z negative
 			if (absX * 2 >= absY && absY * 2 >= absX) {
 				if (z > 0 && x < 0 && y < 0)
-					return "north";
+					return Strings.Get("common.north_lower");
 				if (z < 0 && x > 0 && y > 0)
-					return "south";
+					return Strings.Get("common.south_lower");
 			}
 
 			// Fall back to hex direction matching

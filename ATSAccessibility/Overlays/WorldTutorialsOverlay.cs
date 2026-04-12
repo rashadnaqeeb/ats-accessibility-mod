@@ -18,8 +18,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Tutorials";
-		protected override string EmptyMessage => "No tutorials available";
+		protected override string OverlayName => Strings.Get("overlay.world_tutorials.title");
+		protected override string EmptyMessage => Strings.Get("overlay.world_tutorials.empty");
 
 		protected override int GetItemCount() => _tutorials.Count;
 
@@ -30,12 +30,12 @@ namespace ATSAccessibility.Overlays {
 			var status = "";
 
 			if (!tutorial.IsUnlocked) {
-				status = ", locked";
+				status = Strings.Get("common.suffix_locked");
 			} else if (tutorial.IsCompleted) {
-				status = ", completed";
+				status = Strings.Get("overlay.world_tutorials.suffix.completed");
 			}
 
-			return $"{tutorial.DisplayName}{status}";
+			return Strings.Get("overlay.world_tutorials.row", tutorial.DisplayName, status);
 		}
 
 		protected override void RefreshData() {
@@ -52,9 +52,9 @@ namespace ATSAccessibility.Overlays {
 			if (!tutorial.IsUnlocked) {
 				var reason = tutorial.LockedReason;
 				if (!string.IsNullOrEmpty(reason)) {
-					Speech.Say($"Locked. {reason}");
+					Speech.Say(Strings.Get("overlay.world_tutorials.locked.with_reason", reason));
 				} else {
-					Speech.Say("Locked");
+					Speech.Say(Strings.Get("common.locked"));
 				}
 				SoundManager.PlayFailed();
 				return;
@@ -64,7 +64,7 @@ namespace ATSAccessibility.Overlays {
 				SoundManager.PlayButtonClick();
 				// Game will show confirmation popup, then start tutorial if confirmed
 			} else {
-				Speech.Say("Could not start tutorial");
+				Speech.Say(Strings.Get("overlay.world_tutorials.start_failed"));
 				SoundManager.PlayFailed();
 			}
 		}

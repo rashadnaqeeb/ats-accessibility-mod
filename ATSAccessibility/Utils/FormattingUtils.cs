@@ -25,14 +25,14 @@ namespace ATSAccessibility.Utils {
 		public static string FormatTimeRemaining(float timeLeft) {
 			int seconds = Mathf.RoundToInt(timeLeft);
 			if (seconds <= 0)
-				return "almost done";
+				return Strings.Get("util.formatting.almost_done");
 			if (seconds < 60)
-				return $"{seconds} seconds remaining";
+				return Strings.Get("util.formatting.seconds_remaining", seconds);
 			int minutes = seconds / 60;
 			int remainingSecs = seconds % 60;
 			if (remainingSecs > 0)
-				return $"{minutes} minutes {remainingSecs} seconds remaining";
-			return $"{minutes} minutes remaining";
+				return Strings.Get("util.formatting.minutes_seconds_remaining", minutes, remainingSecs);
+			return Strings.Get("util.formatting.minutes_remaining", minutes);
 		}
 
 		/// <summary>

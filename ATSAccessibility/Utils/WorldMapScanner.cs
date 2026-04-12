@@ -57,14 +57,14 @@ namespace ATSAccessibility.Utils {
             new Vector3Int(-1, 1, 0)    // 5: W
         };
 
-		private static readonly string[] DirectionNames = new string[]
+		private static readonly string[] DirectionNameKeys = new string[]
 		{
-			"northwest",
-			"northeast",
-			"east",
-			"southeast",
-			"southwest",
-			"west"
+			"common.northwest_lower",
+			"common.northeast_lower",
+			"common.east_lower",
+			"common.southeast_lower",
+			"common.southwest_lower",
+			"common.west_lower"
 		};
 
 		private static int CompareByDistance(ScannedItem a, ScannedItem b) {
@@ -132,10 +132,10 @@ namespace ATSAccessibility.Utils {
 			int distance = GetHexDistance(cursorPos, item.Position);
 
 			if (distance == 0) {
-				Speech.Say("here");
+				Speech.Say(Strings.Get("common.here_lower"));
 			} else {
 				string direction = GetDirectionTo(cursorPos, item.Position);
-				Speech.Say($"{distance} tiles {direction}");
+				Speech.Say(Strings.Get("util.worldmap_scanner.tiles_direction", distance, direction));
 			}
 		}
 
@@ -151,7 +151,7 @@ namespace ATSAccessibility.Utils {
 			var item = _cachedItems[_currentItemIndex];
 			_navigator.SetCursorPosition(item.Position);
 
-			Speech.Say($"Moved to {item.Name}");
+			Speech.Say(Strings.Get("util.worldmap_scanner.moved_to", item.Name));
 		}
 
 		private void AutoMoveCursorSilent() {
@@ -189,7 +189,7 @@ namespace ATSAccessibility.Utils {
 			switch (_currentType) {
 				case ScanType.RevealedModifier:
 					if (isRevealed && WorldMapReflection.WorldMapHasModifier(pos)) {
-						string name = WorldMapReflection.WorldMapGetModifierName(pos) ?? "Modifier";
+						string name = WorldMapReflection.WorldMapGetModifierName(pos) ?? Strings.Get("common.modifier");
 						int dist = GetHexDistance(cursorPos, pos);
 						return new ScannedItem(pos, dist, name);
 					}
@@ -198,13 +198,13 @@ namespace ATSAccessibility.Utils {
 				case ScanType.UnknownModifier:
 					if (!isRevealed && WorldMapReflection.WorldMapHasModifier(pos)) {
 						int dist = GetHexDistance(cursorPos, pos);
-						return new ScannedItem(pos, dist, "Unknown modifier");
+						return new ScannedItem(pos, dist, Strings.Get("util.worldmap_scanner.unknown_modifier"));
 					}
 					break;
 
 				case ScanType.RevealedEvent:
 					if (isRevealed && WorldMapReflection.WorldMapHasEvent(pos)) {
-						string name = WorldMapReflection.WorldMapGetEventName(pos) ?? "Event";
+						string name = WorldMapReflection.WorldMapGetEventName(pos) ?? Strings.Get("common.event");
 						int dist = GetHexDistance(cursorPos, pos);
 						return new ScannedItem(pos, dist, name);
 					}
@@ -213,13 +213,13 @@ namespace ATSAccessibility.Utils {
 				case ScanType.UnknownEvent:
 					if (!isRevealed && WorldMapReflection.WorldMapHasEvent(pos)) {
 						int dist = GetHexDistance(cursorPos, pos);
-						return new ScannedItem(pos, dist, "Unknown event");
+						return new ScannedItem(pos, dist, Strings.Get("util.worldmap_scanner.unknown_event"));
 					}
 					break;
 
 				case ScanType.Seal:
 					if (WorldMapReflection.WorldMapHasSeal(pos)) {
-						string name = WorldMapReflection.WorldMapGetSealName(pos) ?? "Seal";
+						string name = WorldMapReflection.WorldMapGetSealName(pos) ?? Strings.Get("common.seal");
 						int dist = GetHexDistance(cursorPos, pos);
 						return new ScannedItem(pos, dist, name);
 					}
@@ -228,14 +228,14 @@ namespace ATSAccessibility.Utils {
 				case ScanType.Settlement:
 					// Player cities (not capital)
 					if (WorldMapReflection.WorldMapIsCity(pos) && !WorldMapReflection.WorldMapIsCapital(pos)) {
-						string name = WorldMapReflection.WorldMapGetCityName(pos) ?? "Settlement";
+						string name = WorldMapReflection.WorldMapGetCityName(pos) ?? Strings.Get("util.worldmap_scanner.settlement");
 						int dist = GetHexDistance(cursorPos, pos);
 						return new ScannedItem(pos, dist, name);
 					}
 					// Capital - only include once at origin (0,0,0) to avoid duplicates
 					if (pos == Vector3Int.zero && WorldMapReflection.WorldMapIsCapital(pos)) {
 						int dist = GetHexDistance(cursorPos, pos);
-						return new ScannedItem(pos, dist, "Capital");
+						return new ScannedItem(pos, dist, Strings.Get("common.capital"));
 					}
 					break;
 			}
@@ -251,13 +251,13 @@ namespace ATSAccessibility.Utils {
 			string typeName = GetTypeName(_currentType);
 
 			if (_cachedItems.Count == 0) {
-				Speech.Say($"No {typeName}s");
+				Speech.Say(Strings.Get("util.worldmap_scanner.no_type", typeName));
 			} else {
 				var item = _cachedItems[_currentItemIndex];
 				int itemNum = _currentItemIndex + 1;
 				int total = _cachedItems.Count;
 				// Intentional: "X of Y" position context is useful for scanner navigation
-				Speech.Say($"{typeName}, {item.Name}, {itemNum} of {total}");
+				Speech.Say(Strings.Get("util.worldmap_scanner.type_change", typeName, item.Name, itemNum, total));
 			}
 		}
 
@@ -271,23 +271,23 @@ namespace ATSAccessibility.Utils {
 			int itemNum = _currentItemIndex + 1;
 			int total = _cachedItems.Count;
 			// Intentional: "X of Y" position context is useful for scanner navigation
-			Speech.Say($"{item.Name}, {itemNum} of {total}");
+			Speech.Say(Strings.Get("util.worldmap_scanner.item", item.Name, itemNum, total));
 		}
 
 		private void AnnounceEmpty() {
 			string typeName = GetTypeName(_currentType);
-			Speech.Say($"No {typeName}s");
+			Speech.Say(Strings.Get("util.worldmap_scanner.no_type", typeName));
 		}
 
 		private string GetTypeName(ScanType type) {
 			return type switch {
-				ScanType.RevealedModifier => "revealed modifier",
-				ScanType.UnknownModifier => "unknown modifier",
-				ScanType.RevealedEvent => "revealed event",
-				ScanType.UnknownEvent => "unknown event",
-				ScanType.Seal => "seal",
-				ScanType.Settlement => "settlement",
-				_ => "item"
+				ScanType.RevealedModifier => Strings.Get("util.worldmap_scanner.type_revealed_modifier"),
+				ScanType.UnknownModifier => Strings.Get("util.worldmap_scanner.type_unknown_modifier"),
+				ScanType.RevealedEvent => Strings.Get("util.worldmap_scanner.type_revealed_event"),
+				ScanType.UnknownEvent => Strings.Get("util.worldmap_scanner.type_unknown_event"),
+				ScanType.Seal => Strings.Get("util.worldmap_scanner.type_seal"),
+				ScanType.Settlement => Strings.Get("util.worldmap_scanner.type_settlement"),
+				_ => Strings.Get("util.worldmap_scanner.type_item")
 			};
 		}
 
@@ -315,9 +315,9 @@ namespace ATSAccessibility.Utils {
 			//                      south = x and y both positive, z negative
 			if (absX * 2 >= absY && absY * 2 >= absX) {
 				if (z > 0 && x < 0 && y < 0)
-					return "north";
+					return Strings.Get("common.north_lower");
 				if (z < 0 && x > 0 && y > 0)
-					return "south";
+					return Strings.Get("common.south_lower");
 			}
 
 			// Fall back to hex direction matching
@@ -333,7 +333,7 @@ namespace ATSAccessibility.Utils {
 				}
 			}
 
-			return DirectionNames[bestIndex];
+			return Strings.Get(DirectionNameKeys[bestIndex]);
 		}
 	}
 }

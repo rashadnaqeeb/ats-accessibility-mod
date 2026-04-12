@@ -352,7 +352,7 @@ namespace ATSAccessibility.Utils {
 				string value = dropdown.options[dropdown.value].text;
 				string label = FindLabelFromParent(element.transform);
 				if (!string.IsNullOrEmpty(label)) {
-					return $"{label}: {value}";
+					return Strings.Get("util.ui_element.dropdown_with_label", label, value);
 				}
 				return value;
 			}
@@ -379,7 +379,7 @@ namespace ATSAccessibility.Utils {
 				if (innerText.Equals("Pick", StringComparison.OrdinalIgnoreCase)) {
 					string context = TryGetPickButtonContext(element.gameObject);
 					if (!string.IsNullOrEmpty(context)) {
-						return $"Pick {context}";
+						return Strings.Get("util.ui_element.pick_context", context);
 					}
 				}
 
@@ -537,26 +537,26 @@ namespace ATSAccessibility.Utils {
 			if (element is Button) {
 				// Check if this Button is wrapped by a ToggleButton (game's custom toggle)
 				if (FindToggleButton(element) != null)
-					return "checkbox";
-				return "button";
+					return Strings.Get("util.ui_element.checkbox");
+				return Strings.Get("util.ui_element.button");
 			}
 
 			if (element is Toggle toggle) {
 				if (toggle.group != null)
-					return "radio button";
-				return "checkbox";
+					return Strings.Get("util.ui_element.radio_button");
+				return Strings.Get("util.ui_element.checkbox");
 			}
 
 			if (element is Slider)
-				return "slider";
+				return Strings.Get("util.ui_element.slider");
 
 			if (element is TMP_Dropdown || element is Dropdown)
-				return "dropdown";
+				return Strings.Get("util.ui_element.dropdown");
 
 			if (element is TMP_InputField || element is InputField)
-				return "text field";
+				return Strings.Get("util.ui_element.text_field");
 
-			return "control";
+			return Strings.Get("util.ui_element.control");
 		}
 
 		/// <summary>
@@ -564,20 +564,20 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static string GetElementState(Selectable element) {
 			if (element is Toggle toggle) {
-				return toggle.isOn ? "checked" : "unchecked";
+				return toggle.isOn ? Strings.Get("common.checked") : Strings.Get("common.unchecked");
 			}
 
 			if (element is Button) {
 				var toggleButton = FindToggleButton(element);
 				if (toggleButton != null) {
 					bool? state = GetToggleButtonState(toggleButton);
-					if (state.HasValue) return state.Value ? "checked" : "unchecked";
+					if (state.HasValue) return state.Value ? Strings.Get("common.checked") : Strings.Get("common.unchecked");
 				}
 			}
 
 			if (element is Slider slider) {
 				int percent = Mathf.RoundToInt(slider.normalizedValue * 100);
-				return $"{percent} percent";
+				return Strings.Get("util.ui_element.percent", percent);
 			}
 
 			return null;

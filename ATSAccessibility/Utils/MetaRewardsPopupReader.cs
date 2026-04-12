@@ -53,7 +53,7 @@ namespace ATSAccessibility.Utils {
 			// Handle Enter to close popup (when ready)
 			if (keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter) {
 				if (_isPolling) {
-					Speech.Say("Please wait for rewards");
+					Speech.Say(Strings.Get("util.meta_rewards.please_wait"));
 					return true;
 				}
 
@@ -72,7 +72,7 @@ namespace ATSAccessibility.Utils {
 			}
 
 			if (_isPolling) {
-				Speech.Say("Please wait for rewards");
+				Speech.Say(Strings.Get("util.meta_rewards.please_wait"));
 				return true;
 			}
 
@@ -155,7 +155,7 @@ namespace ATSAccessibility.Utils {
 				else if (name == "GainedExp")
 					gainedExp = value;
 				else if (name == "Exp" && text.gameObject.activeInHierarchy)
-					expProgress = $"Experience {value}";
+					expProgress = Strings.Get("util.meta_rewards.experience", value);
 			}
 
 			// Collect level/exp info but don't announce yet - wait for rewards
@@ -206,7 +206,7 @@ namespace ATSAccessibility.Utils {
 
 			// Add rewards
 			if (rewardNames.Count > 0) {
-				fullAnnouncement.Add($"Rewards: {string.Join(", ", rewardNames)}");
+				fullAnnouncement.Add(Strings.Get("util.meta_rewards.rewards", string.Join(", ", rewardNames)));
 			}
 
 			// Check if on world map - auto-close to preserve tutorial tooltip accessibility
@@ -226,7 +226,7 @@ namespace ATSAccessibility.Utils {
 				ClosePopup(popup);
 			} else {
 				// Normal behavior - wait for user to close
-				fullAnnouncement.Add("Press enter or escape to close");
+				fullAnnouncement.Add(Strings.Get("util.meta_rewards.press_to_close"));
 
 				_cachedAnnouncement = string.Join(". ", fullAnnouncement);
 				_isPolling = false;
@@ -322,7 +322,7 @@ namespace ATSAccessibility.Utils {
 								rewardNames.Add(amountText.text);
 							} else {
 								// If no text, just indicate there's an upgrade unlock
-								rewardNames.Add("Upgrade Unlocked");
+								rewardNames.Add(Strings.Get("util.meta_rewards.upgrade_unlocked"));
 							}
 						}
 					}

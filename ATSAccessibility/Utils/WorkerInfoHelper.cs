@@ -32,24 +32,24 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static string GetWorkerSummary(object building) {
 			if (building == null) {
-				return "No building";
+				return Strings.Get("common.no_building");
 			}
 
 			if (ConstructionReflection.IsBuildingUnfinished(building)) {
-				return "Under construction";
+				return Strings.Get("util.worker_info.under_construction");
 			}
 
 			if (!BuildingReflection.IsProductionBuilding(building)) {
-				return "No worker slots";
+				return Strings.Get("util.worker_info.no_worker_slots");
 			}
 
 			int maxWorkers = BuildingReflection.GetMaxWorkers(building);
 			if (maxWorkers == 0) {
-				return "No worker slots";
+				return Strings.Get("util.worker_info.no_worker_slots");
 			}
 
 			if (!BuildingReflection.ShouldAllowWorkerManagement(building)) {
-				return "Workers not needed";
+				return Strings.Get("util.worker_info.workers_not_needed");
 			}
 
 			int currentWorkers = BuildingReflection.GetWorkerCount(building);
@@ -58,7 +58,7 @@ namespace ATSAccessibility.Utils {
 			// Special case for Hearth - show firekeeper effect for assigned race only
 			if (BuildingReflection.IsHearth(building)) {
 				if (currentWorkers == 0) {
-					return $"0/{maxWorkers}{looseInfo}";
+					return Strings.Get("util.worker_info.hearth_zero", maxWorkers, looseInfo);
 				}
 
 				// Get the assigned worker's race and their firekeeper effect
@@ -68,27 +68,27 @@ namespace ATSAccessibility.Utils {
 					// Use GetRaceBonusForBuilding - same path as worker menu
 					string effect = BuildingReflection.GetRaceBonusForBuilding(building, raceName);
 					if (!string.IsNullOrEmpty(effect)) {
-						return $"{currentWorkers}/{maxWorkers}: {raceName}, {effect}{looseInfo}";
+						return Strings.Get("util.worker_info.hearth_with_effect", currentWorkers, maxWorkers, raceName, effect, looseInfo);
 					}
-					return $"{currentWorkers}/{maxWorkers}: {raceName}{looseInfo}";
+					return Strings.Get("util.worker_info.hearth_no_effect", currentWorkers, maxWorkers, raceName, looseInfo);
 				}
-				return $"{currentWorkers}/{maxWorkers}{looseInfo}";
+				return Strings.Get("util.worker_info.hearth_plain", currentWorkers, maxWorkers, looseInfo);
 			}
 
 			if (currentWorkers == 0) {
-				return $"0/{maxWorkers}{FormatSpecialtyInfo(building)}{looseInfo}";
+				return Strings.Get("util.worker_info.empty", maxWorkers, FormatSpecialtyInfo(building), looseInfo);
 			}
 
 			// Count workers by race
 			var raceCounts = GetWorkerRaceCounts(building);
 			if (raceCounts.Count == 0) {
-				return $"{currentWorkers}/{maxWorkers}{FormatSpecialtyInfo(building)}{looseInfo}";
+				return Strings.Get("util.worker_info.no_races", currentWorkers, maxWorkers, FormatSpecialtyInfo(building), looseInfo);
 			}
 
 			// Format: "3/3: 2 beavers, 1 harpy, Woodworking Efficiency (Beavers)"
 			var raceStrings = raceCounts.Select(rc =>
-				$"{rc.count} {Pluralize(rc.raceName.ToLowerInvariant(), rc.count)}");
-			return $"{currentWorkers}/{maxWorkers}: {string.Join(", ", raceStrings)}{FormatSpecialtyInfo(building)}{looseInfo}";
+				Strings.Get("util.worker_info.race_count", rc.count, Pluralize(rc.raceName.ToLowerInvariant(), rc.count)));
+			return Strings.Get("util.worker_info.with_workers", currentWorkers, maxWorkers, string.Join(", ", raceStrings), FormatSpecialtyInfo(building), looseInfo);
 		}
 
 		/// <summary>
@@ -125,7 +125,7 @@ namespace ATSAccessibility.Utils {
 				return "";
 			}
 			string typeStr = !string.IsNullOrEmpty(bonusType) ? $" {bonusType}" : "";
-			return $", {specialty}{typeStr} ({string.Join(", ", matchingRaces)})";
+			return Strings.Get("util.worker_info.specialty", specialty, typeStr, string.Join(", ", matchingRaces));
 		}
 
 		/// <summary>
@@ -141,7 +141,7 @@ namespace ATSAccessibility.Utils {
 				if (!AutomatonReflection.IsAlive(id)) continue;
 				var actor = AutomatonReflection.GetAutomaton(id);
 				string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
-				string key = displayName != null ? $"{displayName.ToLowerInvariant()} automaton" : "automaton";
+				string key = displayName != null ? Strings.Get("util.worker_info.auto_named", displayName.ToLowerInvariant()) : Strings.Get("util.worker_info.auto_unnamed");
 				if (counts.ContainsKey(key))
 					counts[key]++;
 				else
@@ -151,8 +151,8 @@ namespace ATSAccessibility.Utils {
 			if (counts.Count == 0) return "";
 
 			var parts = counts.Select(kv =>
-				$"{kv.Value} {Pluralize(kv.Key, kv.Value)}");
-			return $", {string.Join(", ", parts)}";
+				Strings.Get("util.worker_info.auto_count", kv.Value, Pluralize(kv.Key, kv.Value)));
+			return Strings.Get("util.worker_info.loose_suffix", string.Join(", ", parts));
 		}
 
 		/// <summary>
@@ -170,10 +170,10 @@ namespace ATSAccessibility.Utils {
 				string key;
 				if (AutomatonReflection.IsAutomaton(actor)) {
 					string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
-					key = displayName != null ? $"{displayName.ToLowerInvariant()} automaton" : "automaton";
+					key = displayName != null ? Strings.Get("util.worker_info.auto_named", displayName.ToLowerInvariant()) : Strings.Get("util.worker_info.auto_unnamed");
 				} else {
 					key = BuildingReflection.GetActorRace(actor);
-					if (string.IsNullOrEmpty(key)) key = "Unknown";
+					if (string.IsNullOrEmpty(key)) key = Strings.Get("common.unknown");
 				}
 
 				if (counts.ContainsKey(key))
@@ -206,12 +206,12 @@ namespace ATSAccessibility.Utils {
 			RefreshRacesIfNeeded();
 
 			if (_cachedRaces.Count == 0) {
-				return "No free workers";
+				return Strings.Get("common.no_free_workers");
 			}
 
 			_selectedRaceIndex = NavigationUtils.WrapIndex(_selectedRaceIndex, direction, _cachedRaces.Count);
 			var selected = _cachedRaces[_selectedRaceIndex];
-			return $"{selected.raceName}, {selected.freeCount} free";
+			return Strings.Get("util.worker_info.race_free", selected.raceName, selected.freeCount);
 		}
 
 		/// <summary>
@@ -265,19 +265,19 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static string AddWorker(object building) {
 			if (building == null) {
-				return "No building";
+				return Strings.Get("common.no_building");
 			}
 
 			if (ConstructionReflection.IsBuildingUnfinished(building)) {
-				return "Under construction";
+				return Strings.Get("util.worker_info.under_construction");
 			}
 
 			if (!BuildingReflection.IsProductionBuilding(building)) {
-				return "No worker slots";
+				return Strings.Get("util.worker_info.no_worker_slots");
 			}
 
 			if (!BuildingReflection.ShouldAllowWorkerManagement(building)) {
-				return "Workers not needed";
+				return Strings.Get("util.worker_info.workers_not_needed");
 			}
 
 			// Find first empty slot
@@ -291,7 +291,7 @@ namespace ATSAccessibility.Utils {
 			}
 
 			if (emptySlot < 0) {
-				return "Building full";
+				return Strings.Get("util.worker_info.building_full");
 			}
 
 			// Refresh race list and get selected race
@@ -299,19 +299,19 @@ namespace ATSAccessibility.Utils {
 			string raceName = GetSelectedRace();
 
 			if (string.IsNullOrEmpty(raceName)) {
-				return "No free workers";
+				return Strings.Get("common.no_free_workers");
 			}
 
 			// Check if this race has free workers
 			int freeCount = BuildingReflection.GetFreeWorkerCount(raceName);
 			if (freeCount <= 0) {
-				return $"No free {raceName.ToLowerInvariant()}s";
+				return Strings.Get("util.worker_info.no_free_race", raceName.ToLowerInvariant());
 			}
 
 			// Assign the worker
 			bool success = BuildingReflection.AssignWorkerToSlot(building, emptySlot, raceName);
 			if (!success) {
-				return "Assignment failed";
+				return Strings.Get("util.worker_info.assignment_failed");
 			}
 
 			// Force cache refresh on next query
@@ -321,11 +321,11 @@ namespace ATSAccessibility.Utils {
 			var newWorkerIds = BuildingReflection.GetWorkerIds(building);
 			if (emptySlot < newWorkerIds.Length && newWorkerIds[emptySlot] > 0) {
 				var actor = BuildingReflection.GetActor(newWorkerIds[emptySlot]);
-				string workerName = BuildingReflection.GetActorName(actor) ?? "Worker";
-				return $"Assigned: {workerName}, {raceName}";
+				string workerName = BuildingReflection.GetActorName(actor) ?? Strings.Get("common.worker");
+				return Strings.Get("util.worker_info.assigned_with_race", workerName, raceName);
 			}
 
-			return $"Assigned: {raceName}";
+			return Strings.Get("util.worker_info.assigned_race_only", raceName);
 		}
 
 		/// <summary>
@@ -334,19 +334,19 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static string RemoveWorker(object building) {
 			if (building == null) {
-				return "No building";
+				return Strings.Get("common.no_building");
 			}
 
 			if (ConstructionReflection.IsBuildingUnfinished(building)) {
-				return "Under construction";
+				return Strings.Get("util.worker_info.under_construction");
 			}
 
 			if (!BuildingReflection.IsProductionBuilding(building)) {
-				return "No worker slots";
+				return Strings.Get("util.worker_info.no_worker_slots");
 			}
 
 			if (!BuildingReflection.ShouldAllowWorkerManagement(building)) {
-				return "Workers not needed";
+				return Strings.Get("util.worker_info.workers_not_needed");
 			}
 
 			var workerIds = BuildingReflection.GetWorkerIds(building);
@@ -391,19 +391,19 @@ namespace ATSAccessibility.Utils {
 			}
 
 			if (slotToRemove < 0) {
-				return "No workers";
+				return Strings.Get("util.worker_info.no_workers");
 			}
 
 			// Unassign the worker
 			bool success = BuildingReflection.UnassignWorkerFromSlot(building, slotToRemove);
 			if (!success) {
-				return "Removal failed";
+				return Strings.Get("common.removal_failed");
 			}
 
 			// Force cache refresh on next query
 			_lastRaceRefreshTime = 0f;
 
-			return $"Removed: {workerName ?? "Worker"}";
+			return Strings.Get("util.worker_info.removed", workerName ?? Strings.Get("common.worker"));
 		}
 	}
 }

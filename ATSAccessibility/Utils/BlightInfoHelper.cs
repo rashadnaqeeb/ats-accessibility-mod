@@ -33,12 +33,12 @@ namespace ATSAccessibility.Utils {
 		public static string GetBlightInfo(int cursorX, int cursorY) {
 			// Check if blight is active in this settlement
 			if (!GameReflection.IsBlightActive()) {
-				return "No blight";
+				return Strings.Get("util.blight.no_blight");
 			}
 
 			int globalCysts = GameReflection.GetGlobalActiveCysts();
 			if (globalCysts == 0) {
-				return "No cysts";
+				return Strings.Get("util.blight.no_cysts");
 			}
 
 			// Get blights list once for both checks
@@ -57,7 +57,8 @@ namespace ATSAccessibility.Utils {
 			if (buildingAtCursor != null) {
 				int cystsOnBuilding = GetCystsOnBuilding(buildingAtCursor, blightsList);
 				if (cystsOnBuilding > 0) {
-					return $"{cystsOnBuilding} {(cystsOnBuilding == 1 ? "cyst" : "cysts")}";
+					string cystWord = cystsOnBuilding == 1 ? Strings.Get("util.blight.cyst") : Strings.Get("util.blight.cysts");
+					return Strings.Get("util.blight.cysts_on_building", cystsOnBuilding, cystWord);
 				}
 			}
 
@@ -65,7 +66,9 @@ namespace ATSAccessibility.Utils {
 			var nearest = FindNearestBlightedBuilding(cursorX, cursorY, blightsList);
 			if (nearest.HasValue) {
 				string globalStats = FormatGlobalStats(globalCysts);
-				return $"{nearest.Value.buildingName}, {nearest.Value.cysts} {(nearest.Value.cysts == 1 ? "cyst" : "cysts")}, {nearest.Value.distance} {(nearest.Value.distance == 1 ? "tile" : "tiles")} {nearest.Value.direction}. {globalStats}";
+				string cystWord = nearest.Value.cysts == 1 ? Strings.Get("util.blight.cyst") : Strings.Get("util.blight.cysts");
+				string tileWord = nearest.Value.distance == 1 ? Strings.Get("common.tile") : Strings.Get("common.tiles");
+				return Strings.Get("util.blight.nearest", nearest.Value.buildingName, nearest.Value.cysts, cystWord, nearest.Value.distance, tileWord, nearest.Value.direction, globalStats);
 			}
 
 			// Fallback: just show global stats
@@ -150,7 +153,7 @@ namespace ATSAccessibility.Utils {
 
 				if (nearestName != null) {
 					string direction = NavigationUtils.GetDirection(nearestDx, nearestDy);
-					if (string.IsNullOrEmpty(direction)) direction = "here";
+					if (string.IsNullOrEmpty(direction)) direction = Strings.Get("common.here_lower");
 					return (nearestName, nearestCysts, nearestDistance, direction);
 				}
 			} catch (Exception ex) {
@@ -167,14 +170,14 @@ namespace ATSAccessibility.Utils {
 			float corruptionRate = GameReflection.GetPredictedCorruptionPercentage();
 			int corruptionPercent = Mathf.RoundToInt(corruptionRate * 100f);
 
-			return $"{globalCysts} total, {corruptionPercent}% corruption";
+			return Strings.Get("util.blight.global_stats", globalCysts, corruptionPercent);
 		}
 
 		/// <summary>
 		/// Get display name for a building.
 		/// </summary>
 		private static string GetBuildingDisplayName(object building) {
-			if (building == null) return "Building";
+			if (building == null) return Strings.Get("common.building");
 
 			try {
 				var model = ConstructionReflection.GetBuildingModel(building);
@@ -187,7 +190,7 @@ namespace ATSAccessibility.Utils {
 				Debug.LogWarning($"[ATSAccessibility] GetBuildingDisplayName failed: {ex.Message}");
 			}
 
-			return "Building";
+			return Strings.Get("common.building");
 		}
 	}
 }

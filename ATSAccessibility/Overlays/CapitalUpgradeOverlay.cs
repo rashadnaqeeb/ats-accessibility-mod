@@ -23,8 +23,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Capital Upgrades";
-		protected override string EmptyMessage => "No structures available";
+		protected override string OverlayName => Strings.Get("overlay.capital_upgrade.title");
+		protected override string EmptyMessage => Strings.Get("overlay.capital_upgrade.empty");
 
 		protected override int GetItemCount() {
 			switch (Level) {
@@ -72,7 +72,7 @@ namespace ATSAccessibility.Overlays {
 					if (index < 0 || index >= _structures.Count) return EnterAction.None;
 					var upgrades = CapitalUpgradeReflection.GetUpgrades(_structures[index].StructureObj);
 					if (upgrades.Count == 0) {
-						Speech.Say("No upgrades");
+						Speech.Say(Strings.Get("common.no_upgrades"));
 						return EnterAction.None;
 					}
 					_upgrades = upgrades;
@@ -98,7 +98,7 @@ namespace ATSAccessibility.Overlays {
 					if (index < 0 || index >= _structures.Count) return false;
 					var upgrades = CapitalUpgradeReflection.GetUpgrades(_structures[index].StructureObj);
 					if (upgrades.Count == 0) {
-						Speech.Say("No upgrades");
+						Speech.Say(Strings.Get("common.no_upgrades"));
 						return false;
 					}
 					_upgrades = upgrades;
@@ -109,7 +109,7 @@ namespace ATSAccessibility.Overlays {
 					if (index < 0 || index >= _upgrades.Count) return false;
 					var rewards = CapitalUpgradeReflection.GetRewards(_upgrades[index].UpgradeObj);
 					if (rewards.Count == 0) {
-						Speech.Say("No rewards");
+						Speech.Say(Strings.Get("common.no_rewards"));
 						return false;
 					}
 					_rewards = rewards;
@@ -180,7 +180,7 @@ namespace ATSAccessibility.Overlays {
 			if (_indices[0] < 0 || _indices[0] >= _structures.Count) return;
 
 			var structure = _structures[_indices[0]];
-			Speech.Say($"{structure.Name}, {structure.UnlockedCount} of {structure.TotalUpgrades}");
+			Speech.Say(Strings.Get("overlay.capital_upgrade.structure", structure.Name, structure.UnlockedCount, structure.TotalUpgrades));
 		}
 
 		private void AnnounceUpgrade() {
@@ -191,23 +191,23 @@ namespace ATSAccessibility.Overlays {
 
 			switch (upgrade.Status) {
 				case CapitalUpgradeReflection.UpgradeStatus.Unlocked:
-					Speech.Say($"{upgrade.Name}, level {level}, unlocked");
+					Speech.Say(Strings.Get("overlay.capital_upgrade.upgrade.unlocked", upgrade.Name, level));
 					break;
 
 				case CapitalUpgradeReflection.UpgradeStatus.Buyable:
-					Speech.Say($"{upgrade.Name}, level {level}, {upgrade.PriceText}");
+					Speech.Say(Strings.Get("overlay.capital_upgrade.upgrade.buyable", upgrade.Name, level, upgrade.PriceText));
 					break;
 
 				case CapitalUpgradeReflection.UpgradeStatus.TooExpensive:
-					Speech.Say($"{upgrade.Name}, level {level}, {upgrade.PriceText}, can't afford");
+					Speech.Say(Strings.Get("overlay.capital_upgrade.upgrade.too_expensive", upgrade.Name, level, upgrade.PriceText));
 					break;
 
 				case CapitalUpgradeReflection.UpgradeStatus.LevelRequired:
-					Speech.Say($"{upgrade.Name}, level {level}, requires player level {upgrade.RequiredLevel}");
+					Speech.Say(Strings.Get("overlay.capital_upgrade.upgrade.level_required", upgrade.Name, level, upgrade.RequiredLevel));
 					break;
 
 				case CapitalUpgradeReflection.UpgradeStatus.Locked:
-					Speech.Say($"{upgrade.Name}, level {level}, locked");
+					Speech.Say(Strings.Get("overlay.capital_upgrade.upgrade.locked", upgrade.Name, level));
 					break;
 			}
 		}
@@ -220,9 +220,9 @@ namespace ATSAccessibility.Overlays {
 			string totalSuffix = _indices[2] == 0 ? GetRewardTotalSuffix(reward.Description, level) : "";
 
 			if (!string.IsNullOrEmpty(reward.Description))
-				Speech.Say($"{reward.Name}, {reward.Description}{totalSuffix}");
+				Speech.Say(Strings.Get("overlay.capital_upgrade.reward.with_desc", reward.Name, reward.Description, totalSuffix));
 			else
-				Speech.Say($"{reward.Name}{totalSuffix}");
+				Speech.Say(Strings.Get("overlay.capital_upgrade.reward.simple", reward.Name, totalSuffix));
 		}
 
 		// ========================================
@@ -238,28 +238,28 @@ namespace ATSAccessibility.Overlays {
 				case CapitalUpgradeReflection.UpgradeStatus.Buyable:
 					if (CapitalUpgradeReflection.BuyUpgrade(upgrade.UpgradeObj)) {
 						SoundManager.PlayCapitalUpgradeBought();
-						Speech.Say($"Purchased {upgrade.Name}");
+						Speech.Say(Strings.Get("overlay.capital_upgrade.purchased", upgrade.Name));
 						// Refresh upgrades list to reflect new state
 						RefreshCurrentUpgrades();
 					} else {
 						SoundManager.PlayFailed();
-						Speech.Say("Purchase failed");
+						Speech.Say(Strings.Get("common.purchase_failed"));
 					}
 					break;
 
 				case CapitalUpgradeReflection.UpgradeStatus.TooExpensive:
 					SoundManager.PlayFailed();
-					Speech.Say("Can't afford");
+					Speech.Say(Strings.Get("common.cant_afford"));
 					break;
 
 				case CapitalUpgradeReflection.UpgradeStatus.LevelRequired:
 					SoundManager.PlayFailed();
-					Speech.Say($"Requires player level {upgrade.RequiredLevel}");
+					Speech.Say(Strings.Get("overlay.capital_upgrade.requires_level", upgrade.RequiredLevel));
 					break;
 
 				case CapitalUpgradeReflection.UpgradeStatus.Locked:
 					SoundManager.PlayFailed();
-					Speech.Say("Previous upgrades required");
+					Speech.Say(Strings.Get("overlay.capital_upgrade.requires_previous"));
 					break;
 
 				case CapitalUpgradeReflection.UpgradeStatus.Unlocked:
@@ -302,11 +302,11 @@ namespace ATSAccessibility.Overlays {
 					string unit = match.Groups[2].Value;
 					int total = value * level;
 					string sign = total >= 0 ? "+" : "";
-					return $" (total {sign}{total}{unit})";
+					return Strings.Get("overlay.capital_upgrade.total_suffix", sign, total, unit);
 				}
 			}
 
-			return $" ({level} stacks)";
+			return Strings.Get("overlay.capital_upgrade.stacks_suffix", level);
 		}
 	}
 }

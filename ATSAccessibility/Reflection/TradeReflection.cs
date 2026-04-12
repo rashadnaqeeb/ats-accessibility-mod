@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -692,25 +693,25 @@ namespace ATSAccessibility.Reflection {
 
 			// Check each condition in order of user-actionability
 			if (IsTradingBlocked())
-				return "Trading is blocked";
+				return Strings.Get("common.trading_is_blocked");
 
 			if (IsStormTooCloseToForce())
-				return "Storm is too close";
+				return Strings.Get("reflection.trade.storm_close");
 
 			if (IsVisitAlreadyForced())
-				return "Already forced this trader";
+				return Strings.Get("reflection.trade.already_forced");
 
 			// Check if trader has progressed too far (past force point)
 			float progress = GetTravelProgress();
 			if (progress >= 0.9f)  // forceArrivalProgress is typically 0.9
-				return "Trader is almost here";
+				return Strings.Get("reflection.trade.almost_here");
 
 			if (!CanPayForceArrivalPrice()) {
 				float cost = GetForceArrivalCost();
-				return $"Not enough Impatience to spare, costs {cost:F1}";
+				return Strings.Get("reflection.trade.not_enough_impatience", cost.ToString("F1", System.Globalization.CultureInfo.CurrentCulture));
 			}
 
-			return "Force arrival unavailable";
+			return Strings.Get("reflection.trade.unavailable");
 		}
 
 		// ========================================

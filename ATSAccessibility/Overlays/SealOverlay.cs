@@ -42,7 +42,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Seal";
+		protected override string OverlayName => Strings.Get("common.seal");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() {
@@ -123,8 +123,8 @@ namespace ATSAccessibility.Overlays {
 		protected override string GetOpenAnnouncement() {
 			if (_sealUnavailable) {
 				if (_seal != null && SealReflection.IsSealCompleted(_seal))
-					return "Seal completed";
-				return "No seal found";
+					return Strings.Get("overlay.seal.completed");
+				return Strings.Get("overlay.seal.not_found");
 			}
 			// OnOpened will handle the section announcement
 			return null;
@@ -176,7 +176,7 @@ namespace ATSAccessibility.Overlays {
 					AnnounceDialogue();
 					break;
 				case Section.Offerings:
-					Speech.Say($"Offerings, {_offerings?.Length ?? 0} options");
+					Speech.Say(Strings.Get("overlay.seal.section.offerings", _offerings?.Length ?? 0));
 					break;
 				case Section.Reward:
 					AnnounceReward();
@@ -187,7 +187,7 @@ namespace ATSAccessibility.Overlays {
 		private void AnnounceEffects() {
 			var state = SealReflection.GetSealGameState();
 			if (state == null) {
-				Speech.Say("Unable to read plague info");
+				Speech.Say(Strings.Get("overlay.seal.plague.unreadable"));
 				return;
 			}
 
@@ -198,9 +198,9 @@ namespace ATSAccessibility.Overlays {
 				string description = GetEffectDescription(effectModel);
 
 				if (!string.IsNullOrEmpty(description))
-					Speech.Say($"Current plague: {displayName}. {description}");
+					Speech.Say(Strings.Get("overlay.seal.plague.current.with_desc", displayName, description));
 				else
-					Speech.Say($"Current plague: {displayName}");
+					Speech.Say(Strings.Get("overlay.seal.plague.current", displayName));
 			} else {
 				string effectName = SealReflection.GetNextEffect(state);
 				var effectModel = GameReflection.GetEffectModel(effectName);
@@ -211,9 +211,9 @@ namespace ATSAccessibility.Overlays {
 				string timeText = FormattingUtils.FormatTime(seconds);
 
 				if (!string.IsNullOrEmpty(description))
-					Speech.Say($"Next plague: {displayName}. {description}. Activates in {timeText}");
+					Speech.Say(Strings.Get("overlay.seal.plague.next.with_desc", displayName, description, timeText));
 				else
-					Speech.Say($"Next plague: {displayName}. Activates in {timeText}");
+					Speech.Say(Strings.Get("overlay.seal.plague.next", displayName, timeText));
 			}
 		}
 
@@ -223,14 +223,14 @@ namespace ATSAccessibility.Overlays {
 			// Handle completion case
 			if (current > total) {
 				string completedStr = string.Join(", ", completedNames);
-				Speech.Say($"All {total} stages completed: {completedStr}");
+				Speech.Say(Strings.Get("overlay.seal.progress.all", total, completedStr));
 				return;
 			}
 
 			string completedText = completedNames.Count > 0
-				? $"Completed: {string.Join(", ", completedNames)}"
-				: "No stages completed";
-			Speech.Say($"Stage {current} of {total}. {completedText}");
+				? Strings.Get("overlay.seal.progress.completed", string.Join(", ", completedNames))
+				: Strings.Get("overlay.seal.progress.none");
+			Speech.Say(Strings.Get("overlay.seal.progress.stage", current, total, completedText));
 		}
 
 		private void AnnounceDialogue() {
@@ -238,12 +238,12 @@ namespace ATSAccessibility.Overlays {
 			if (!string.IsNullOrEmpty(dialogue))
 				Speech.Say(dialogue);
 			else
-				Speech.Say("No dialogue");
+				Speech.Say(Strings.Get("overlay.seal.dialogue.none"));
 		}
 
 		private void AnnounceOffering(int index) {
 			if (_offerings == null || index < 0 || index >= _offerings.Length) {
-				Speech.Say("Offering not available");
+				Speech.Say(Strings.Get("overlay.seal.offering.unavailable"));
 				return;
 			}
 
@@ -252,11 +252,11 @@ namespace ATSAccessibility.Overlays {
 				? _offeringOrders.GetValue(index)
 				: null;
 
-			string name = SealReflection.GetOfferingDisplayName(offering) ?? "Unknown offering";
+			string name = SealReflection.GetOfferingDisplayName(offering) ?? Strings.Get("overlay.seal.offering.unknown");
 			string description = SealReflection.GetOfferingDescription(offering);
 			string objectives = GetObjectivesText(offering, order);
 			bool canDeliver = CanDeliverOffering(order, offering);
-			string status = canDeliver ? "Deliverable" : "In progress";
+			string status = Strings.Get(canDeliver ? "overlay.seal.offering.deliverable" : "overlay.seal.offering.in_progress");
 
 			var parts = new System.Collections.Generic.List<string> { name };
 			if (!string.IsNullOrEmpty(objectives))
@@ -270,7 +270,7 @@ namespace ATSAccessibility.Overlays {
 		private void AnnounceReward() {
 			var reward = SealReflection.GetStageReward(_currentStageModel);
 			if (reward == null) {
-				Speech.Say("No reward");
+				Speech.Say(Strings.Get("overlay.seal.reward.none"));
 				return;
 			}
 
@@ -278,11 +278,11 @@ namespace ATSAccessibility.Overlays {
 			string description = GetEffectDescription(reward);
 
 			if (!string.IsNullOrEmpty(description))
-				Speech.Say($"Reward: {name}. {description}");
+				Speech.Say(Strings.Get("overlay.seal.reward.with_desc", name, description));
 			else if (!string.IsNullOrEmpty(name))
-				Speech.Say($"Reward: {name}");
+				Speech.Say(Strings.Get("overlay.seal.reward.simple", name));
 			else
-				Speech.Say("Reward available");
+				Speech.Say(Strings.Get("overlay.seal.reward.available"));
 		}
 
 		// ========================================
@@ -291,7 +291,7 @@ namespace ATSAccessibility.Overlays {
 
 		private void TryDeliver() {
 			if (_offerings == null || CurrentIndex < 0 || CurrentIndex >= _offerings.Length) {
-				Speech.Say("Cannot deliver");
+				Speech.Say(Strings.Get("common.cannot_deliver"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -302,14 +302,14 @@ namespace ATSAccessibility.Overlays {
 				: null;
 
 			if (!CanDeliverOffering(order, offering)) {
-				Speech.Say("Not ready to deliver");
+				Speech.Say(Strings.Get("overlay.seal.deliver.not_ready"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			// Complete the offering
 			if (SealReflection.CompleteOffering(_currentStage, _currentStageModel, CurrentIndex)) {
-				string name = SealReflection.GetOfferingDisplayName(offering) ?? "Offering";
+				string name = SealReflection.GetOfferingDisplayName(offering) ?? Strings.Get("overlay.seal.deliver.fallback");
 				SoundManager.PlaySealOrderDeliver();
 
 				// Refresh data for next stage
@@ -320,18 +320,18 @@ namespace ATSAccessibility.Overlays {
 
 				// Check if seal is now complete and close overlay
 				if (SealReflection.IsSealCompleted(_seal)) {
-					Speech.Say($"{name} delivered. Seal completed");
+					Speech.Say(Strings.Get("overlay.seal.deliver.done_completed", name));
 					Close();
 					return;
 				}
 
-				Speech.Say($"{name} delivered");
+				Speech.Say(Strings.Get("overlay.seal.deliver.done", name));
 
 				// Reset to section view
 				SetLevel(0);
 				CurrentIndex = 0;
 			} else {
-				Speech.Say("Delivery failed");
+				Speech.Say(Strings.Get("overlay.seal.deliver.failed"));
 				SoundManager.PlayFailed();
 			}
 		}

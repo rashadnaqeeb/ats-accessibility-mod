@@ -19,7 +19,7 @@ namespace ATSAccessibility.Utils {
             new Vector2Int(0, 1),   // rotation 2 -> north
             new Vector2Int(-1, 0),  // rotation 3 -> west
         };
-		private static readonly string[] ApproachDirections = { "south", "east", "north", "west" };
+		private static readonly string[] ApproachDirectionKeys = { "common.south_lower", "common.east_lower", "common.north_lower", "common.west_lower" };
 
 		/// <summary>
 		/// Get entrance info for a placed building at cursor position (settlement map E key).
@@ -35,10 +35,10 @@ namespace ATSAccessibility.Utils {
 			// Not on a building with an entrance - check if standing on a
 			// neighbor building's approach tile
 			if (IsAtAnyApproachTile(cursorX, cursorY)) {
-				return "At entrance";
+				return Strings.Get("util.entrance.at_entrance");
 			}
 
-			return onBuilding ? "No entrance" : "No building here";
+			return onBuilding ? Strings.Get("util.entrance.no_entrance") : Strings.Get("common.no_building_here");
 		}
 
 		/// <summary>
@@ -47,18 +47,18 @@ namespace ATSAccessibility.Utils {
 		/// Uses geometric footprint check since building isn't on the grid.
 		/// </summary>
 		public static string GetEntrancePreview(object building, int cursorX, int cursorY, object buildingModel, int rotation) {
-			if (building == null) return "No entrance";
+			if (building == null) return Strings.Get("util.entrance.no_entrance");
 
 			if (!ConstructionReflection.GetBuildingShouldShowEntrance(building))
-				return "No entrance";
+				return Strings.Get("util.entrance.no_entrance");
 
 			var entranceTile = ConstructionReflection.GetBuildingEntranceTile(building);
 			if (!entranceTile.HasValue)
-				return "No entrance";
+				return Strings.Get("util.entrance.no_entrance");
 
 			int buildingRotation = ConstructionReflection.GetBuildingRotation(building);
 			if (buildingRotation < 0 || buildingRotation > 3)
-				return "No entrance";
+				return Strings.Get("util.entrance.no_entrance");
 
 			int ex = entranceTile.Value.x;
 			int ey = entranceTile.Value.y;
@@ -164,16 +164,16 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		private static string FormatEntrance(int cursorX, int cursorY, int approachX, int approachY, int rotation) {
 			if (cursorX == approachX && cursorY == approachY) {
-				return "At entrance";
+				return Strings.Get("util.entrance.at_entrance");
 			}
 
 			int dx = approachX - cursorX;
 			int dy = approachY - cursorY;
 			int distance = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
 			string direction = NavigationUtils.GetDirection(dx, dy);
-			string tileWord = distance == 1 ? "tile" : "tiles";
-			string facing = ApproachDirections[rotation];
-			return $"Entrance {distance} {tileWord} {direction}, facing {facing}";
+			string tileWord = distance == 1 ? Strings.Get("common.tile") : Strings.Get("common.tiles");
+			string facing = Strings.Get(ApproachDirectionKeys[rotation]);
+			return Strings.Get("util.entrance.entrance", distance, tileWord, direction, facing);
 		}
 
 	}

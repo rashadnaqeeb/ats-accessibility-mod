@@ -74,7 +74,7 @@ namespace ATSAccessibility.Handlers {
 			int extendNorth = size.y - 1;
 			string extension = NavigationUtils.GetExtensionAnnouncement(extendEast, extendNorth);
 
-			Speech.Say($"Build mode: {buildingName}, {extension}");
+			Speech.Say(Strings.Get("handler.buildmode.entered", buildingName, extension));
 			Debug.Log($"[ATSAccessibility] Entered build mode for: {buildingName} (size {size.x}x{size.y})");
 		}
 
@@ -102,7 +102,7 @@ namespace ATSAccessibility.Handlers {
 
 			SoundManager.PlayBuildingPanelHide();
 			InputBlocker.BlockCancelOnce = true;
-			Speech.Say("Exited build mode", interrupt: !queue);
+			Speech.Say(Strings.Get("handler.buildmode.exited"), interrupt: !queue);
 			Debug.Log("[ATSAccessibility] Exited build mode");
 		}
 
@@ -187,7 +187,7 @@ namespace ATSAccessibility.Handlers {
 		private void RotateBuilding(bool clockwise) {
 			// Check if the building model allows rotation
 			if (!ConstructionReflection.CanRotateBuildingModel(_selectedBuildingModel)) {
-				Speech.Say("Cannot rotate");
+				Speech.Say(Strings.Get("common.cannot_rotate"));
 				return;
 			}
 
@@ -204,7 +204,7 @@ namespace ATSAccessibility.Handlers {
 			// Build extension announcement
 			string extension = NavigationUtils.GetExtensionAnnouncement(extendEast, extendNorth);
 
-			Speech.Say($"{direction}, {extension}");
+			Speech.Say(Strings.Get("handler.buildmode.rotated", direction, extension));
 			Debug.Log($"[ATSAccessibility] Building rotated to {_rotation} ({direction}), extends {extendEast}E {extendNorth}N");
 		}
 
@@ -214,13 +214,13 @@ namespace ATSAccessibility.Handlers {
 		/// </summary>
 		private void PlaceBuilding() {
 			if (_selectedBuildingModel == null || _mapNavigator == null) {
-				Speech.Say("Cannot place");
+				Speech.Say(Strings.Get("handler.buildmode.cannot_place"));
 				return;
 			}
 
 			// Check if we can still construct this building type
 			if (!ConstructionReflection.CanConstructBuilding(_selectedBuildingModel)) {
-				Speech.Say($"{_selectedBuildingName} at maximum, cannot place more");
+				Speech.Say(Strings.Get("handler.buildmode.at_max", _selectedBuildingName));
 				return;
 			}
 
@@ -231,7 +231,7 @@ namespace ATSAccessibility.Handlers {
 			// Create the building at the cursor position
 			var building = ConstructionReflection.CreateBuilding(_selectedBuildingModel, _rotation);
 			if (building == null) {
-				Speech.Say("Failed to create building");
+				Speech.Say(Strings.Get("handler.buildmode.failed_create"));
 				Debug.LogError("[ATSAccessibility] Failed to create building instance");
 				return;
 			}
@@ -250,7 +250,7 @@ namespace ATSAccessibility.Handlers {
 				if (!ConstructionReflection.CanPlaceBuilding(building)) {
 					// Remove the building since we can't place it
 					ConstructionReflection.RemoveBuilding(building, false);
-					Speech.Say("Cannot place here");
+					Speech.Say(Strings.Get("common.cannot_place_here"));
 					Debug.Log($"[ATSAccessibility] Cannot place {_selectedBuildingName} at ({x}, {y})");
 					return;
 				}
@@ -262,12 +262,12 @@ namespace ATSAccessibility.Handlers {
 					GameReflection.ReturnSpringsOnGrid();
 			}
 
-			Speech.Say($"{_selectedBuildingName} placed");
+			Speech.Say(Strings.Get("handler.buildmode.placed", _selectedBuildingName));
 			Debug.Log($"[ATSAccessibility] Placed {_selectedBuildingName} at ({x}, {y}) rotation {_rotation}");
 
 			// Check if we can build more
 			if (!ConstructionReflection.CanConstructBuilding(_selectedBuildingModel)) {
-				Speech.Say($"Maximum {_selectedBuildingName} reached");
+				Speech.Say(Strings.Get("handler.buildmode.max_reached", _selectedBuildingName));
 				ExitBuildMode();
 			}
 		}
@@ -277,7 +277,7 @@ namespace ATSAccessibility.Handlers {
 		/// </summary>
 		private void RemoveBuildingAtCursor() {
 			if (_mapNavigator == null) {
-				Speech.Say("Cannot remove");
+				Speech.Say(Strings.Get("handler.buildmode.cannot_remove"));
 				return;
 			}
 
@@ -287,23 +287,23 @@ namespace ATSAccessibility.Handlers {
 			// Check if there's a building at cursor
 			var building = ConstructionReflection.GetBuildingAtPosition(x, y);
 			if (building == null) {
-				Speech.Say("No building here");
+				Speech.Say(Strings.Get("common.no_building_here"));
 				return;
 			}
 
 			// Check if it's unfinished (under construction)
 			if (!ConstructionReflection.IsBuildingUnfinished(building)) {
-				Speech.Say("Building already complete, use game controls to remove");
+				Speech.Say(Strings.Get("handler.buildmode.already_complete"));
 				return;
 			}
 
 			// Get the building name for announcement
-			string buildingName = GameReflection.GetDisplayName(building) ?? "Building";
+			string buildingName = GameReflection.GetDisplayName(building) ?? Strings.Get("common.building");
 
 			// Remove with refund
 			ConstructionReflection.RemoveBuilding(building, true);
 
-			Speech.Say($"{buildingName} removed");
+			Speech.Say(Strings.Get("handler.buildmode.removed", buildingName));
 			Debug.Log($"[ATSAccessibility] Removed building at ({x}, {y})");
 		}
 

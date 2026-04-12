@@ -70,8 +70,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Deeds";
-		protected override string EmptyMessage => "No categories available";
+		protected override string OverlayName => Strings.Get("common.deeds");
+		protected override string EmptyMessage => Strings.Get("common.no_categories_available");
 
 		protected override int GetItemCount() {
 			if (Level == 0)
@@ -94,20 +94,20 @@ namespace ATSAccessibility.Overlays {
 				string status;
 
 				if (goal.Completed && !goal.Rewarded) {
-					status = "ready to collect";
+					status = Strings.Get("overlay.deeds.status.ready");
 				} else if (goal.Completed && goal.Rewarded) {
-					status = "completed";
+					status = Strings.Get("overlay.deeds.status.completed");
 				} else {
 					status = DeedsReflection.GetGoalProgressText(goal.Model, goal.State);
 				}
 
 				// Description already ends with a period from localization
 				if (!string.IsNullOrEmpty(description) && !string.IsNullOrEmpty(status))
-					return $"{goal.Name}. {description} {status}";
+					return Strings.Get("overlay.deeds.goal.desc_status", goal.Name, description, status);
 				else if (!string.IsNullOrEmpty(description))
-					return $"{goal.Name}. {description}";
+					return Strings.Get("overlay.deeds.goal.desc", goal.Name, description);
 				else if (!string.IsNullOrEmpty(status))
-					return $"{goal.Name}, {status}";
+					return Strings.Get("overlay.deeds.goal.status", goal.Name, status);
 				else
 					return goal.Name;
 			}
@@ -157,7 +157,7 @@ namespace ATSAccessibility.Overlays {
 			// Prepend "Ready to Collect" if there are claimable goals
 			if (readyToCollect.Count > 0) {
 				_categories.Add(new CategoryEntry {
-					Name = "Ready to Collect",
+					Name = Strings.Get("overlay.deeds.ready_category"),
 					Goals = readyToCollect
 				});
 			}
@@ -176,7 +176,7 @@ namespace ATSAccessibility.Overlays {
 				if (index < 0 || index >= _categories.Count) return EnterAction.None;
 				var category = _categories[index];
 				if (category.Goals.Count == 0) {
-					Speech.Say("No goals");
+					Speech.Say(Strings.Get("overlay.deeds.no_goals"));
 					return EnterAction.None;
 				}
 				return EnterAction.DrillDown;
@@ -194,7 +194,7 @@ namespace ATSAccessibility.Overlays {
 			// If a child popup (reward display) is open, pass Escape to game to close it.
 			// Don't clear _childPopup here -- OnPopupHidden will handle cleanup.
 			if (_childPopup != null && keyCode == KeyCode.Escape) {
-				Speech.Say("Rewards popup closed");
+				Speech.Say(Strings.Get("overlay.deeds.rewards_closed"));
 				// Pass to game to close the reward popup
 				return false;
 			}
@@ -206,8 +206,8 @@ namespace ATSAccessibility.Overlays {
 
 		protected override string GetOpenAnnouncement() {
 			if (_categories.Count > 0)
-				return $"Deeds. {_categories[0].Name}";
-			return $"Deeds. {EmptyMessage}";
+				return Strings.Get("overlay.deeds.open", _categories[0].Name);
+			return Strings.Get("overlay.deeds.open", EmptyMessage);
 		}
 
 		protected override void OnClosed() {
@@ -273,7 +273,7 @@ namespace ATSAccessibility.Overlays {
 			if (goal.Completed && !goal.Rewarded) {
 				// Claimable goal
 				if (DeedsReflection.IsInGame()) {
-					Speech.Say("Can only collect from the Citadel");
+					Speech.Say(Strings.Get("overlay.deeds.only_from_citadel"));
 					return;
 				}
 
@@ -282,12 +282,12 @@ namespace ATSAccessibility.Overlays {
 					_captureNextPopup = true;
 					var rewardNames = DeedsReflection.GetRewardNames(goal.Model);
 					if (rewardNames.Length > 0) {
-						Speech.Say($"Collected. Rewards: {string.Join(", ", rewardNames)}");
+						Speech.Say(Strings.Get("overlay.deeds.collected_with_rewards", string.Join(", ", rewardNames)));
 					} else {
-						Speech.Say("Collected");
+						Speech.Say(Strings.Get("overlay.deeds.collected"));
 					}
 				} else {
-					Speech.Say("Cannot collect");
+					Speech.Say(Strings.Get("common.cannot_collect"));
 					SoundManager.PlayFailed();
 				}
 			}

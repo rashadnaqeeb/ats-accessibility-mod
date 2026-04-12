@@ -1,5 +1,6 @@
 using ATSAccessibility.Reflection;
 using ATSAccessibility.Core;
+using ATSAccessibility.Utils;
 using System.Collections.Generic;
 
 namespace ATSAccessibility.Overlays {
@@ -11,7 +12,11 @@ namespace ATSAccessibility.Overlays {
 		private enum MainMenuItem { CycleStats, Upgrades, History }
 
 		// Main menu items
-		private static readonly string[] MainMenuItems = { "Cycle Stats", "Upgrades", "History" };
+		private static string[] MainMenuItems => new[] {
+			Strings.Get("overlay.games_history.item.cycle_stats"),
+			Strings.Get("common.upgrades"),
+			Strings.Get("overlay.games_history.item.history")
+		};
 
 		// Cached data
 		private List<(string label, string value)> _cycleStats;
@@ -25,7 +30,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Games History";
+		protected override string OverlayName => Strings.Get("overlay.games_history.title");
 
 		protected override string EmptyMessage => "";
 
@@ -94,7 +99,7 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		protected override string GetOpenAnnouncement() {
-			return $"Games History. {MainMenuItems[0]}";
+			return Strings.Get("overlay.games_history.open", MainMenuItems[0]);
 		}
 
 		protected override void OnClosed() {
@@ -158,14 +163,14 @@ namespace ATSAccessibility.Overlays {
 				case MainMenuItem.CycleStats:
 					if (_cycleStats != null && index >= 0 && index < _cycleStats.Count) {
 						var stat = _cycleStats[index];
-						return $"{stat.label}, {stat.value}";
+						return Strings.Get("overlay.games_history.submenu", stat.label, stat.value);
 					}
 					return null;
 
 				case MainMenuItem.Upgrades:
 					if (_upgrades != null && index >= 0 && index < _upgrades.Count) {
 						var upgrade = _upgrades[index];
-						return $"{upgrade.label}, {upgrade.value}";
+						return Strings.Get("overlay.games_history.submenu", upgrade.label, upgrade.value);
 					}
 					return null;
 
@@ -173,7 +178,7 @@ namespace ATSAccessibility.Overlays {
 					if (_settlements != null && index >= 0 && index < _settlements.Count) {
 						string name = GamesHistoryReflection.GetSettlementName(_settlements[index]);
 						bool won = GamesHistoryReflection.GetSettlementWon(_settlements[index]);
-						return $"{name}, {(won ? "Won" : "Lost")}";
+						return Strings.Get("overlay.games_history.history_row", name, Strings.Get(won ? "common.won" : "common.lost"));
 					}
 					return null;
 
@@ -212,50 +217,50 @@ namespace ATSAccessibility.Overlays {
 			int upgrades = GamesHistoryReflection.GetSettlementUpgrades(settlement);
 			string timeStr = GamesHistoryReflection.FormatGameTime(gameTime);
 
-			_settlementDetailItems.Add($"Summary: {name}, {(won ? "Won" : "Lost")}, {biome}, {difficulty}, {timeStr}, Year {years}, Level {level}, {upgrades} upgrades");
+			_settlementDetailItems.Add(Strings.Get("overlay.games_history.summary", name, Strings.Get(won ? "common.won" : "common.lost"), biome, difficulty, timeStr, years, level, upgrades));
 
 			// Races
 			var races = GamesHistoryReflection.GetSettlementRaces(settlement);
 			if (races.Count > 0) {
 				var raceParts = new List<string>();
 				foreach (var (raceName, count) in races) {
-					raceParts.Add($"{raceName} {count}");
+					raceParts.Add(Strings.Get("overlay.games_history.race_count", raceName, count));
 				}
-				_settlementDetailItems.Add($"Races: {string.Join(", ", raceParts)}");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.races", string.Join(", ", raceParts)));
 			} else {
-				_settlementDetailItems.Add("Races: none");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.races.none"));
 			}
 
 			// Cornerstones
 			var cornerstones = GamesHistoryReflection.GetSettlementCornerstones(settlement);
 			if (cornerstones.Count > 0) {
-				_settlementDetailItems.Add($"Cornerstones: {string.Join(", ", cornerstones)}");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.cornerstones", string.Join(", ", cornerstones)));
 			} else {
-				_settlementDetailItems.Add("Cornerstones: none");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.cornerstones.none"));
 			}
 
 			// Modifiers
 			var modifiers = GamesHistoryReflection.GetSettlementModifiers(settlement);
 			if (modifiers.Count > 0) {
-				_settlementDetailItems.Add($"Modifiers: {string.Join(", ", modifiers)}");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.modifiers", string.Join(", ", modifiers)));
 			} else {
-				_settlementDetailItems.Add("Modifiers: none");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.modifiers.none"));
 			}
 
 			// Buildings
 			var buildings = GamesHistoryReflection.GetSettlementBuildings(settlement);
 			if (buildings.Count > 0) {
-				_settlementDetailItems.Add($"Buildings: {string.Join(", ", buildings)}");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.buildings", string.Join(", ", buildings)));
 			} else {
-				_settlementDetailItems.Add("Buildings: none");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.buildings.none"));
 			}
 
 			// Seasonal Effects
 			var seasonalEffects = GamesHistoryReflection.GetSettlementSeasonalEffects(settlement);
 			if (seasonalEffects.Count > 0) {
-				_settlementDetailItems.Add($"Seasonal Effects: {string.Join(", ", seasonalEffects)}");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.seasonal", string.Join(", ", seasonalEffects)));
 			} else {
-				_settlementDetailItems.Add("Seasonal Effects: none");
+				_settlementDetailItems.Add(Strings.Get("overlay.games_history.seasonal.none"));
 			}
 		}
 	}

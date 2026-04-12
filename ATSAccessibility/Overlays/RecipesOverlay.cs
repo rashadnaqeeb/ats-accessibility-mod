@@ -31,8 +31,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Recipes";
-		protected override string EmptyMessage => "No goods available";
+		protected override string OverlayName => Strings.Get("common.recipes");
+		protected override string EmptyMessage => Strings.Get("overlay.recipes.empty");
 
 		protected override int GetItemCount() {
 			switch (Level) {
@@ -48,8 +48,8 @@ namespace ATSAccessibility.Overlays {
 				case 0:
 					if (_goods == null || index < 0 || index >= _goods.Count) return null;
 					var good = _goods[index];
-					var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
-					return $"{good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}";
+					var limitInfo = good.Limit > 0 ? Strings.Get("overlay.recipes.limit.value", good.Limit) : Strings.Get("overlay.recipes.limit.none");
+					return Strings.Get("overlay.recipes.good", good.DisplayName, good.StorageAmount, limitInfo);
 
 				case 1:
 					var parentGood = GetCurrentGood();
@@ -57,28 +57,28 @@ namespace ATSAccessibility.Overlays {
 					var recipe = parentGood.Recipes[index];
 
 					string workshopPart = recipe.IsBuilt && recipe.WorkshopIndex > 0
-						? $"{recipe.WorkshopName} #{recipe.WorkshopIndex}"
+						? Strings.Get("overlay.recipes.workshop.built", recipe.WorkshopName, recipe.WorkshopIndex)
 						: recipe.WorkshopName;
 
 					int gradeLevel = RecipesReflection.GetRecipeGradeLevel(recipe.RecipeModel);
-					string stars = gradeLevel == 1 ? ", 1 star" : $", {gradeLevel} stars";
+					string stars = gradeLevel == 1 ? Strings.Get("overlay.recipes.stars.one") : Strings.Get("overlay.recipes.stars.many", gradeLevel);
 
 					string status = recipe.IsBuilt
-						? (recipe.IsActive ? "active" : "inactive")
-						: "not built";
+						? Strings.Get(recipe.IsActive ? "common.active_lower" : "overlay.recipes.status.inactive")
+						: Strings.Get("overlay.recipes.status.not_built");
 
 					if (_ingredientMode) {
 						string outputName = RecipesReflection.GetRecipeOutputName(recipe.RecipeModel);
 						int outputAmount = RecipesReflection.GetRecipeOutputAmount(recipe.RecipeModel);
-						return $"{workshopPart}, produces {outputName} x {outputAmount}{stars}, {status}";
+						return Strings.Get("overlay.recipes.recipe.ingredient", workshopPart, outputName, outputAmount, stars, status);
 					}
 
-					return $"{workshopPart}{stars}, {status}";
+					return Strings.Get("overlay.recipes.recipe", workshopPart, stars, status);
 
 				case 2:
 					if (_relatedGoods == null || index < 0 || index >= _relatedGoods.Count) return null;
 					var related = _relatedGoods[index];
-					return $"{related.DisplayName} x {related.Amount}";
+					return Strings.Get("overlay.recipes.related", related.DisplayName, related.Amount);
 
 				default: return null;
 			}
@@ -95,7 +95,7 @@ namespace ATSAccessibility.Overlays {
 				case 0:
 					var good = GetCurrentGood();
 					if (good == null || good.Recipes.Count == 0) {
-						Speech.Say("No recipes for this good");
+						Speech.Say(Strings.Get("overlay.recipes.no_recipes"));
 						return EnterAction.None;
 					}
 					return EnterAction.DrillDown;
@@ -193,15 +193,16 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		protected override string GetOpenAnnouncement() {
-			var viewLabel = _ingredientMode ? "Ingredients mode" : "Producers mode";
-			var filterLabel = _showAllGoods ? "showing all" : "showing available";
+			var viewLabel = Strings.Get(_ingredientMode ? "overlay.recipes.ingredient_mode" : "overlay.recipes.producer_mode");
+			var filterLabel = Strings.Get(_showAllGoods ? "overlay.recipes.filter.all" : "overlay.recipes.filter.available");
 
 			if (_goods == null || _goods.Count == 0)
 				return $"{viewLabel}, {filterLabel}. {EmptyMessage}";
 
 			var good = _goods[0];
-			var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
-			return $"{viewLabel}, {filterLabel}. {good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}";
+			var limitInfo = good.Limit > 0 ? Strings.Get("overlay.recipes.limit.value", good.Limit) : Strings.Get("overlay.recipes.limit.none");
+			string goodAnnouncement = Strings.Get("overlay.recipes.good", good.DisplayName, good.StorageAmount, limitInfo);
+			return Strings.Get("overlay.recipes.open", viewLabel, filterLabel, goodAnnouncement);
 		}
 
 		protected override void OnClosed() {
@@ -232,9 +233,9 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			if (newLimit == 0) {
-				Speech.Say("No limit");
+				Speech.Say(Strings.Get("overlay.recipes.limit_none"));
 			} else {
-				Speech.Say($"Limit {newLimit}");
+				Speech.Say(Strings.Get("overlay.recipes.limit_set", newLimit));
 			}
 
 			SoundManager.PlayButtonClick();
@@ -249,7 +250,7 @@ namespace ATSAccessibility.Overlays {
 			if (recipe == null) return;
 
 			if (!recipe.IsBuilt) {
-				Speech.Say("Cannot toggle, workshop not built");
+				Speech.Say(Strings.Get("overlay.recipes.cannot_toggle"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -257,10 +258,10 @@ namespace ATSAccessibility.Overlays {
 			bool newState = RecipesReflection.ToggleRecipe(recipe);
 
 			if (newState) {
-				Speech.Say("Active");
+				Speech.Say(Strings.Get("common.active"));
 				SoundManager.PlayRecipeOn();
 			} else {
-				Speech.Say("Inactive");
+				Speech.Say(Strings.Get("common.inactive"));
 				SoundManager.PlayRecipeOff();
 			}
 		}
@@ -281,14 +282,14 @@ namespace ATSAccessibility.Overlays {
 			_relatedGoods?.Clear();
 			_relatedGoods = null;
 
-			var modeLabel = _showAllGoods ? "Showing all recipes" : "Showing available recipes";
+			var modeLabel = Strings.Get(_showAllGoods ? "overlay.recipes.mode.show_all" : "overlay.recipes.mode.show_available");
 
 			if (_goods != null && _goods.Count > 0) {
 				var good = _goods[0];
-				var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
-				Speech.Say($"{modeLabel}. {good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}");
+				var limitInfo = good.Limit > 0 ? Strings.Get("overlay.recipes.limit.value", good.Limit) : Strings.Get("overlay.recipes.limit.none");
+				Speech.Say(Strings.Get("overlay.recipes.mode.announce", modeLabel, good.DisplayName, good.StorageAmount, limitInfo));
 			} else {
-				Speech.Say($"{modeLabel}. No goods available");
+				Speech.Say(Strings.Get("overlay.recipes.mode.empty", modeLabel));
 			}
 		}
 
@@ -320,7 +321,7 @@ namespace ATSAccessibility.Overlays {
 		private void AnnounceRecipeFull() {
 			var recipe = GetCurrentRecipe();
 			if (recipe == null) {
-				Speech.Say("No recipe selected");
+				Speech.Say(Strings.Get("overlay.recipes.no_recipe_selected"));
 				return;
 			}
 
@@ -336,9 +337,9 @@ namespace ATSAccessibility.Overlays {
 			string inputs = RecipeFormatter.FormatIngredients(requiredGoods,
 				RecipesReflection.GetGoodsSetGoods, RecipesReflection.GetGoodRefDisplayName, RecipesReflection.GetGoodRefAmount);
 			string time = RecipeFormatter.FormatTime(productionTime);
-			string stars = gradeLevel == 1 ? " 1 star." : $" {gradeLevel} stars.";
+			string stars = gradeLevel == 1 ? Strings.Get("overlay.recipes.full.stars.one") : Strings.Get("overlay.recipes.full.stars.many", gradeLevel);
 
-			Speech.Say($"{outputName} x {outputAmount}: {inputs} {time}{stars}");
+			Speech.Say(Strings.Get("overlay.recipes.full", outputName, outputAmount, inputs, time, stars));
 		}
 
 		// ========================================
@@ -356,14 +357,14 @@ namespace ATSAccessibility.Overlays {
 			_relatedGoods?.Clear();
 			_relatedGoods = null;
 
-			var viewLabel = _ingredientMode ? "Ingredients mode" : "Producers mode";
+			var viewLabel = Strings.Get(_ingredientMode ? "overlay.recipes.ingredient_mode" : "overlay.recipes.producer_mode");
 
 			if (_goods != null && _goods.Count > 0) {
 				var good = _goods[0];
-				var limitInfo = good.Limit > 0 ? $"limit {good.Limit}" : "no limit";
-				Speech.Say($"{viewLabel}. {good.DisplayName}, {good.StorageAmount} in storage, {limitInfo}");
+				var limitInfo = good.Limit > 0 ? Strings.Get("overlay.recipes.limit.value", good.Limit) : Strings.Get("overlay.recipes.limit.none");
+				Speech.Say(Strings.Get("overlay.recipes.mode.announce", viewLabel, good.DisplayName, good.StorageAmount, limitInfo));
 			} else {
-				Speech.Say($"{viewLabel}. No goods available");
+				Speech.Say(Strings.Get("overlay.recipes.mode.empty", viewLabel));
 			}
 		}
 
@@ -432,7 +433,7 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			if (targetIndex < 0) {
-				Speech.Say($"{target.DisplayName}, end of chain, no recipes available");
+				Speech.Say(Strings.Get("overlay.recipes.chain.end", target.DisplayName));
 				SoundManager.PlayFailed();
 				return;
 			}

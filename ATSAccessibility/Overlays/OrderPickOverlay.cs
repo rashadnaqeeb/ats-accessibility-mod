@@ -26,8 +26,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Pick order";
-		protected override string EmptyMessage => "No options available";
+		protected override string OverlayName => Strings.Get("overlay.order_pick.title");
+		protected override string EmptyMessage => Strings.Get("common.no_options_available");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -77,24 +77,24 @@ namespace ATSAccessibility.Overlays {
 			var item = _items[index];
 
 			if (item.Failed) {
-				Speech.Say("Expired");
+				Speech.Say(Strings.Get("overlay.order_pick.expired"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (_orderState == null) {
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (OrdersReflection.PickOrder(_orderState, item.PickState)) {
 				SoundManager.PlayButtonClick();
-				Speech.Say("Selected");
+				Speech.Say(Strings.Get("common.selected"));
 				// Hide the popup (mirrors OrderPickPopup.OnPicked behavior)
 				OrdersReflection.HidePopup(_popup);
 			} else {
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -128,9 +128,9 @@ namespace ATSAccessibility.Overlays {
 			int firstValid = GetFirstNonFailedIndex();
 			if (firstValid >= 0) {
 				CurrentIndex = firstValid;
-				return $"{OverlayName}. {_items[firstValid].Label}";
+				return Strings.Get("overlay.order_pick.open", OverlayName, _items[firstValid].Label);
 			}
-			return $"{OverlayName}. {_items[0].Label}";
+			return Strings.Get("overlay.order_pick.open", OverlayName, _items[0].Label);
 		}
 
 		protected override void OnClosed() {
@@ -148,7 +148,7 @@ namespace ATSAccessibility.Overlays {
 
 			var item = _items[CurrentIndex];
 			if (item.Failed) {
-				Speech.Say("Expired");
+				Speech.Say(Strings.Get("overlay.order_pick.expired"));
 				return;
 			}
 
@@ -156,7 +156,7 @@ namespace ATSAccessibility.Overlays {
 			var amounts = OrdersReflection.GetPickStoredAmounts(item.OrderModel, setIndex);
 
 			if (amounts.Count == 0) {
-				Speech.Say("No storage info");
+				Speech.Say(Strings.Get("overlay.order_pick.no_storage"));
 				return;
 			}
 
@@ -175,28 +175,28 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		private string BuildPickLabel(object pickState, object orderModel, bool failed) {
-			string name = OrdersReflection.GetOrderDisplayName(orderModel) ?? "Unknown";
+			string name = OrdersReflection.GetOrderDisplayName(orderModel) ?? Strings.Get("common.unknown");
 
 			if (failed) {
-				return $"{name}, expired";
+				return Strings.Get("overlay.order_pick.expired_label", name);
 			}
 
 			int setIndex = OrdersReflection.GetPickSetIndex(pickState);
 			bool timed = OrdersReflection.CanBeFailed(orderModel);
 
 			var objectives = OrdersReflection.GetPickObjectiveTexts(orderModel, setIndex);
-			string objText = objectives.Count > 0 ? "Requirements: " + string.Join(", ", objectives) : "";
+			string objText = objectives.Count > 0 ? Strings.Get("overlay.order_pick.requirements", string.Join(", ", objectives)) : "";
 
 			var rewards = OrdersReflection.GetPickRewardTexts(pickState);
 			string repReward = OrdersReflection.GetReputationRewardText(orderModel);
 			if (!string.IsNullOrEmpty(repReward))
 				rewards.Add(repReward);
-			string rewardText = rewards.Count > 0 ? "Rewards: " + string.Join(", ", rewards) : "";
+			string rewardText = rewards.Count > 0 ? Strings.Get("overlay.order_pick.rewards", string.Join(", ", rewards)) : "";
 
 			var parts = new List<string>();
 			if (timed) {
 				float timeToFail = OrdersReflection.GetTimeToFail(orderModel);
-				parts.Add($"{name}, timed {FormattingUtils.FormatTime(timeToFail)}");
+				parts.Add(Strings.Get("overlay.order_pick.timed", name, FormattingUtils.FormatTime(timeToFail)));
 			} else {
 				parts.Add(name);
 			}
@@ -208,7 +208,7 @@ namespace ATSAccessibility.Overlays {
 
 			var warnings = OrdersReflection.GetPickWarningTexts(orderModel, setIndex);
 			if (warnings.Count > 0)
-				parts.Add("Warning: " + string.Join(", ", warnings));
+				parts.Add(Strings.Get("overlay.order_pick.warnings", string.Join(", ", warnings)));
 
 			return string.Join(". ", parts);
 		}

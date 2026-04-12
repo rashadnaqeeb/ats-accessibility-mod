@@ -11,13 +11,13 @@ namespace ATSAccessibility.Panels {
 	/// </summary>
 	public class MenuHub: MenuBase {
 		private static readonly string[] _menuLabels = {
-			"Recipes",
-			"Orders",
-			"Trade Routes",
-			"Payments",
-			"Consumption Control",
-			"Trends",
-			"Trader"
+			Strings.Get("common.recipes"),
+			Strings.Get("common.orders"),
+			Strings.Get("common.trade_routes"),
+			Strings.Get("common.payments"),
+			Strings.Get("panel.menu_hub.menu.consumption_control"),
+			Strings.Get("common.trends"),
+			Strings.Get("common.trader")
 		};
 
 		// Flag to suppress "Closed" speech when closing to open a popup
@@ -27,7 +27,7 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Menu Hub";
+		protected override string OverlayName => Strings.Get("panel.menu_hub.title");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() => _menuLabels.Length;
@@ -38,11 +38,11 @@ namespace ATSAccessibility.Panels {
 			string label = _menuLabels[index];
 			string lockSuffix = "";
 			if (index == 2 && !ConstructionReflection.AreTradeRoutesUnlocked())
-				lockSuffix = ", locked";
+				lockSuffix = Strings.Get("common.suffix_locked");
 			else if (index == 4 && !ConstructionReflection.IsConsumptionControlUnlocked())
-				lockSuffix = ", locked";
+				lockSuffix = Strings.Get("common.suffix_locked");
 
-			return $"{label}{lockSuffix}";
+			return Strings.Get("panel.menu_hub.item", label, lockSuffix);
 		}
 
 		protected override string GetSearchName(int index) {
@@ -85,7 +85,7 @@ namespace ATSAccessibility.Panels {
 		protected override void OnClosed() {
 			if (!_closingForPopup) {
 				InputBlocker.BlockCancelOnce = true;
-				Speech.Say("Closed");
+				Speech.Say(Strings.Get("common.closed"));
 			}
 			_closingForPopup = false;
 		}
@@ -129,7 +129,7 @@ namespace ATSAccessibility.Panels {
 					break;
 				case 2: // Trade Routes
 					if (!ConstructionReflection.AreTradeRoutesUnlocked()) {
-						Speech.Say("Trade Routes locked. Unlock via meta progression");
+						Speech.Say(Strings.Get("panel.menu_hub.trade_routes_locked"));
 						SoundManager.PlayFailed();
 						return;
 					}
@@ -142,7 +142,7 @@ namespace ATSAccessibility.Panels {
 					break;
 				case 4: // Consumption Control
 					if (!ConstructionReflection.IsConsumptionControlUnlocked()) {
-						Speech.Say("Consumption Control locked. Unlock via meta progression");
+						Speech.Say(Strings.Get("panel.menu_hub.consumption_locked"));
 						SoundManager.PlayFailed();
 						return;
 					}
@@ -156,7 +156,7 @@ namespace ATSAccessibility.Panels {
 				case 6: // Trader
 					success = GameReflection.OpenTraderPanel();
 					if (!success) {
-						Speech.Say("Trader unavailable. Build a Trading Post first");
+						Speech.Say(Strings.Get("panel.menu_hub.trader_unavailable"));
 						SoundManager.PlayFailed();
 						Debug.Log("[ATSAccessibility] Trader panel unavailable - no Trading Post");
 						return;
@@ -169,7 +169,7 @@ namespace ATSAccessibility.Panels {
 				Close();
 				Debug.Log($"[ATSAccessibility] Successfully opened {menuName}");
 			} else {
-				Speech.Say($"{menuName} unavailable");
+				Speech.Say(Strings.Get("panel.menu_hub.unavailable", menuName));
 				Debug.Log($"[ATSAccessibility] Failed to open {menuName}");
 			}
 		}

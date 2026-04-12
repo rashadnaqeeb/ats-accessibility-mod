@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -158,7 +159,7 @@ namespace ATSAccessibility.Reflection {
 		/// Format: "3 Humans, 2 Beavers. Bonus: 5 Planks, 3 Mushrooms"
 		/// </summary>
 		public static string FormatGroup(object group) {
-			if (group == null) return "Unknown group";
+			if (group == null) return Strings.Get("reflection.newcomers.unknown_group");
 			EnsureCached();
 
 			var parts = new List<string>();
@@ -175,12 +176,12 @@ namespace ATSAccessibility.Reflection {
 						int count = ReflectionHelper.DictGetInt(racesDict, key);
 
 						var displayName = EmbarkReflection.GetRaceDisplayName(raceName);
-						parts.Add($"{count} {displayName}");
+						parts.Add(Strings.Get("reflection.newcomers.race_entry", count, displayName));
 					}
 				}
 			}
 
-			string raceText = parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "No villagers";
+			string raceText = parts.Count > 0 ? string.Join(", ", parts.ToArray()) : Strings.Get("reflection.newcomers.no_villagers");
 
 			// Read goods list
 			var goodsList = ReflectionHelper.GetList(_ngGoodsField, group);
@@ -196,11 +197,11 @@ namespace ATSAccessibility.Reflection {
 					if (amount <= 0 || string.IsNullOrEmpty(name)) continue;
 
 					var displayName = GameReflection.GetGoodDisplayName(name);
-					goodParts.Add($"{amount} {displayName}");
+					goodParts.Add(Strings.Get("reflection.newcomers.good_entry", amount, displayName));
 				}
 
 				if (goodParts.Count > 0) {
-					return $"{raceText}. Bonus: {string.Join(", ", goodParts.ToArray())}";
+					return Strings.Get("reflection.newcomers.group_with_bonus", raceText, string.Join(", ", goodParts.ToArray()));
 				}
 			}
 

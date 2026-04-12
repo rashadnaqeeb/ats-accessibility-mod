@@ -266,7 +266,12 @@ namespace ATSAccessibility.Utils {
 
 			try {
 				// ReputationChangeSource enum: Other=0, Order=1, Resolve=2, Relics=3
-				string[] sourceNames = { "Other", "Orders", "Resolve", "Relics" };
+				string[] sourceNames = {
+					Strings.Get("common.other"),
+					Strings.Get("common.orders"),
+					Strings.Get("common.resolve"),
+					Strings.Get("common.relics")
+				};
 
 				for (int i = 0; i < 4; i++) {
 					var enumValue = Enum.ToObject(StatsReflection.ReputationChangeSourceType, i);
@@ -274,7 +279,7 @@ namespace ATSAccessibility.Utils {
 					float amount = (float)(StatsReflection.RepGetGainedFromMethod?.Invoke(repService, _singleArgArray) ?? 0f);
 
 					if (amount > 0.01f) {
-						result.Add($"+{amount:F1} from {sourceNames[i]}");
+						result.Add(Strings.Get("util.stats.rep_breakdown_entry", amount.ToString("F1"), sourceNames[i]));
 					}
 				}
 			} catch (Exception ex) {
@@ -311,14 +316,14 @@ namespace ATSAccessibility.Utils {
 
 				// Format rate per minute for readability
 				float ratePerMin = ratePerSec * 60f;
-				result.Add($"{ratePerMin:0.##} per minute");
+				result.Add(Strings.Get("util.stats.impatience_rate", ratePerMin.ToString("0.##")));
 
 				// Show if rate is modified from base
 				if (Mathf.Abs(ratePerSec - baseRatePerSec) > 0.001f) {
 					float basePerMin = baseRatePerSec * 60f;
 					float diff = ratePerMin - basePerMin;
 					string prefix = diff > 0 ? "+" : "";
-					result.Add($"{prefix}{diff:0.##} from effects");
+					result.Add(Strings.Get("util.stats.impatience_rate_diff", prefix, diff.ToString("0.##")));
 				}
 
 				// Get grace period
@@ -329,7 +334,7 @@ namespace ATSAccessibility.Utils {
 						float grace = graceVal is float g ? g : 0f;
 						if (grace > 0) {
 							int graceSec = Mathf.FloorToInt(grace);
-							result.Add($"{graceSec} seconds grace period");
+							result.Add(Strings.Get("util.stats.impatience_grace", graceSec));
 						}
 					}
 				}
@@ -357,17 +362,17 @@ namespace ATSAccessibility.Utils {
 				// HostilitySource enum values and their meanings
 				var sources = new (int value, string name)[]
 				{
-					(10, "Years"),
-					(20, "Glades"),
-					(30, "Dangerous Glades"),
-					(40, "Forbidden Glades"),
-					(50, "Villagers"),
-					(70, "Woodcutters"),
-					(80, "Burning Hearths"),
-					(90, "Reputation Penalty"),
-					(100, "Resources Removed"),
-					(1000, "Effects (negative)"),
-					(1001, "Effects (positive)")
+					(10, Strings.Get("util.stats.host_source_years")),
+					(20, Strings.Get("common.glades")),
+					(30, Strings.Get("util.stats.host_source_dangerous_glades")),
+					(40, Strings.Get("util.stats.host_source_forbidden_glades")),
+					(50, Strings.Get("common.villagers")),
+					(70, Strings.Get("util.stats.host_source_woodcutters")),
+					(80, Strings.Get("util.stats.host_source_burning_hearths")),
+					(90, Strings.Get("util.stats.host_source_reputation_penalty")),
+					(100, Strings.Get("util.stats.host_source_resources_removed")),
+					(1000, Strings.Get("util.stats.host_source_effects_negative")),
+					(1001, Strings.Get("util.stats.host_source_effects_positive"))
 				};
 
 				foreach (var (value, name) in sources) {
@@ -378,7 +383,7 @@ namespace ATSAccessibility.Utils {
 
 						if (points != 0) {
 							string prefix = points > 0 ? "+" : "";
-							result.Add($"{prefix}{points} from {name}");
+							result.Add(Strings.Get("util.stats.host_breakdown_entry", prefix, points, name));
 						}
 					} catch {
 						// Source not configured for this biome, skip it
@@ -405,10 +410,10 @@ namespace ATSAccessibility.Utils {
 				// Add base resolve and resilience at the top
 				var raceInfo = GetRaceBaseInfo(race);
 				if (raceInfo.baseResolve > 0) {
-					result.Add($"Base resolve: {raceInfo.baseResolve}");
+					result.Add(Strings.Get("util.stats.base_resolve", raceInfo.baseResolve));
 				}
 				if (!string.IsNullOrEmpty(raceInfo.resilience)) {
-					result.Add($"Resilience: {raceInfo.resilience}");
+					result.Add(Strings.Get("util.stats.resilience", raceInfo.resilience));
 				}
 
 				// Effects is Dictionary<string, Dictionary<ResolveEffectModel, int>>
@@ -446,7 +451,7 @@ namespace ATSAccessibility.Utils {
 						var locaText = displayNameField?.GetValue(effectModel);
 						string name = GameReflection.GetLocaText(locaText)
 							?? nameProp?.GetValue(effectModel)?.ToString()
-							?? "Unknown effect";
+							?? Strings.Get("common.unknown_effect");
 
 						// Get per-villager resolve value
 						int perVillager = 0;
@@ -480,7 +485,7 @@ namespace ATSAccessibility.Utils {
 						// Format: "Biscuits: +3 (+5 for 5/9 villagers)"
 						string avgPrefix = actualImpact >= 0 ? "+" : "";
 						string perPrefix = perVillager >= 0 ? "+" : "";
-						result.Add($"{name}: {avgPrefix}{actualImpact} ({perPrefix}{perVillager} for {count}/{totalPopulation} villagers)");
+						result.Add(Strings.Get("util.stats.resolve_effect", name, avgPrefix, actualImpact, perPrefix, perVillager, count, totalPopulation));
 					}
 				}
 
@@ -507,9 +512,10 @@ namespace ATSAccessibility.Utils {
 			var host = GetHostilitySummary();
 
 			int hostilityThreshold = host.points + host.pointsToNext;
-			string message = $"Reputation {FormatDecimal(rep.current)} of {rep.target}, " +
-						   $"Impatience {FormatDecimal(imp.current)} of {imp.max}, " +
-						   $"Hostility level {host.level}, {host.points}/{hostilityThreshold}";
+			string message = Strings.Get("util.stats.quick_summary",
+				FormatDecimal(rep.current), rep.target,
+				FormatDecimal(imp.current), imp.max,
+				host.level, host.points, hostilityThreshold);
 
 			Speech.Say(message);
 			Debug.Log($"[ATSAccessibility] Stats: {message}");
@@ -522,7 +528,7 @@ namespace ATSAccessibility.Utils {
 			var races = GetPresentRaces();
 
 			if (races.Count == 0) {
-				Speech.Say("No species present");
+				Speech.Say(Strings.Get("util.stats.no_species_present"));
 				return;
 			}
 
@@ -531,7 +537,7 @@ namespace ATSAccessibility.Utils {
 				var (resolve, threshold, _) = GetResolveSummary(race);
 
 				// Format: "Humans 24/30" (current resolve / threshold)
-				parts.Add($"{race} {Mathf.FloorToInt(resolve)} of {threshold}");
+				parts.Add(Strings.Get("util.stats.resolve_entry", race, Mathf.FloorToInt(resolve), threshold));
 			}
 
 			string message = string.Join(", ", parts);
@@ -548,7 +554,7 @@ namespace ATSAccessibility.Utils {
 			_cachedPresentRaces = GetPresentRaces();
 
 			if (_cachedPresentRaces.Count == 0) {
-				Speech.Say("No species present");
+				Speech.Say(Strings.Get("util.stats.no_species_present"));
 				return;
 			}
 
@@ -565,7 +571,7 @@ namespace ATSAccessibility.Utils {
 			string raceName = population == 1 ? race : race + "s";
 
 			// Format: "7 Humans, resolve 8 of 15"
-			string message = $"{population} {raceName}, resolve {Mathf.FloorToInt(resolve)} of {threshold}";
+			string message = Strings.Get("util.stats.species_cycle", population, raceName, Mathf.FloorToInt(resolve), threshold);
 			Speech.Say(message);
 			Debug.Log($"[ATSAccessibility] Species resolve: {message}");
 
@@ -580,8 +586,8 @@ namespace ATSAccessibility.Utils {
 		// TIME/SEASON (T key)
 		// ========================================
 
-		// Season names for announcement
-		private static readonly string[] SeasonNames = { "Drizzle", "Clearance", "Storm" };
+		// Season name keys for announcement
+		private static readonly string[] SeasonNameKeys = { "common.season_drizzle", "common.season_clearance", "common.season_storm" };
 
 		/// <summary>
 		/// Get time summary as (year, seasonName, secondsToNextSeason).
@@ -589,8 +595,8 @@ namespace ATSAccessibility.Utils {
 		public static (int year, string season, float secondsRemaining) GetTimeSummary() {
 			int year = GameReflection.GetYear();
 			int seasonIndex = GameReflection.GetSeason();
-			string season = seasonIndex >= 0 && seasonIndex < SeasonNames.Length
-				? SeasonNames[seasonIndex] : "Unknown";
+			string season = seasonIndex >= 0 && seasonIndex < SeasonNameKeys.Length
+				? Strings.Get(SeasonNameKeys[seasonIndex]) : Strings.Get("common.unknown");
 			float seconds = GameReflection.GetTimeTillNextSeason();
 			return (year, season, seconds);
 		}
@@ -606,12 +612,12 @@ namespace ATSAccessibility.Utils {
 			if (seconds >= 60) {
 				int minutes = Mathf.FloorToInt(seconds / 60);
 				int secs = Mathf.FloorToInt(seconds % 60);
-				timeRemaining = secs > 0 ? $"{minutes} minutes {secs} seconds" : $"{minutes} minutes";
+				timeRemaining = secs > 0 ? Strings.Get("util.stats.time_minutes_seconds", minutes, secs) : Strings.Get("util.stats.time_minutes", minutes);
 			} else {
-				timeRemaining = $"{Mathf.FloorToInt(seconds)} seconds";
+				timeRemaining = Strings.Get("util.stats.time_seconds", Mathf.FloorToInt(seconds));
 			}
 
-			string message = $"{season}, {timeRemaining} remaining, Year {year}";
+			string message = Strings.Get("util.stats.time_summary", season, timeRemaining, year);
 			Speech.Say(message);
 			Debug.Log($"[ATSAccessibility] Time: {message}");
 		}

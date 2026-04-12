@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -650,7 +651,7 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static string GetCaravanDisplayString(object caravan, int index) {
 			var villagers = GetCaravanVillagers(caravan);
-			if (villagers.Count == 0) return $"Caravan {index + 1}";
+			if (villagers.Count == 0) return Strings.Get("reflection.embark.caravan_empty", index + 1);
 
 			// Use shared helper for race counting
 			var (counts, unknownRaceCount) = GetCaravanRaceCounts(caravan);
@@ -658,11 +659,11 @@ namespace ATSAccessibility.Reflection {
 			var parts = new List<string>();
 			foreach (var kvp in counts) {
 				var displayName = GetRaceDisplayName(kvp.Key);
-				parts.Add($"{displayName}: {kvp.Value}");
+				parts.Add(Strings.Get("reflection.embark.caravan_race", displayName, kvp.Value));
 			}
 			if (unknownRaceCount > 0) {
-				string raceWord = unknownRaceCount == 1 ? "race" : "races";
-				parts.Add($"{unknownRaceCount} unknown {raceWord}");
+				string raceWord = Strings.Get(unknownRaceCount == 1 ? "common.race_singular" : "common.race_plural");
+				parts.Add(Strings.Get("reflection.embark.unknown_races", unknownRaceCount, raceWord));
 			}
 
 			return string.Join(", ", parts);
@@ -1525,9 +1526,9 @@ namespace ATSAccessibility.Reflection {
 					return null;
 
 				if (minLabel == maxLabel)
-					return $"Mystery severity: {minLabel}";
+					return Strings.Get("reflection.embark.mystery_single", minLabel);
 
-				return $"Mystery severity: {minLabel} to {maxLabel}";
+				return Strings.Get("reflection.embark.mystery_range", minLabel, maxLabel);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GetDifficultyEffectCostRangeLabel failed: {ex.Message}");
 				return null;

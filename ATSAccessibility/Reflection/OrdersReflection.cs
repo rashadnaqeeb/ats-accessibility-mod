@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -649,9 +650,9 @@ namespace ATSAccessibility.Reflection {
 			// Fallback: read the source enum field directly
 			int source = ReflectionHelper.GetEnum(_repSourceField, logic);
 			switch (source) {
-				case 1: return "Orders";
-				case 2: return "Resolve";
-				case 3: return "Relics";
+				case 1: return Strings.Get("common.orders");
+				case 2: return Strings.Get("common.resolve");
+				case 3: return Strings.Get("common.relics");
 			}
 
 			return null;

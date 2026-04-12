@@ -30,8 +30,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Black Market";
-		protected override string EmptyMessage => "No offers available";
+		protected override string OverlayName => Strings.Get("overlay.black_market.title");
+		protected override string EmptyMessage => Strings.Get("overlay.black_market.empty");
 
 		protected override int GetItemCount() {
 			if (Level == 0)
@@ -57,14 +57,14 @@ namespace ATSAccessibility.Overlays {
 				if (index == 0) {
 					// Buy now
 					bool canAfford = BlackMarketReflection.CanAffordBuy(offer.State);
-					string affordStr = canAfford ? "" : ", cannot afford";
-					return $"Buy now, {offer.BuyPrice} Amber, {offer.BuyRating}{affordStr}";
+					string affordStr = canAfford ? "" : Strings.Get("common.suffix_cannot_afford");
+					return Strings.Get("overlay.black_market.buy_now", offer.BuyPrice, offer.BuyRating, affordStr);
 				} else {
 					// Buy on credit
 					string paymentTerms = !string.IsNullOrEmpty(offer.PaymentTerms)
-						? $", payment due {offer.PaymentTerms}"
+						? Strings.Get("overlay.black_market.buy_credit.terms", offer.PaymentTerms)
 						: "";
-					return $"Buy on credit, {offer.CreditPrice} Amber, {offer.CreditRating}{paymentTerms}";
+					return Strings.Get("overlay.black_market.buy_credit", offer.CreditPrice, offer.CreditRating, paymentTerms);
 				}
 			}
 		}
@@ -149,8 +149,8 @@ namespace ATSAccessibility.Overlays {
 
 		protected override string GetOpenAnnouncement() {
 			if (_items.Count > 0)
-				return $"Black Market. {_items[0].Label}";
-			return $"Black Market. {EmptyMessage}";
+				return Strings.Get("overlay.black_market.open", _items[0].Label);
+			return Strings.Get("overlay.black_market.open", EmptyMessage);
 		}
 
 		protected override void OnClosed() {
@@ -180,31 +180,31 @@ namespace ATSAccessibility.Overlays {
 			if (BlackMarketReflection.IsRerollOnCooldown(_blackMarket)) {
 				float timeLeft = BlackMarketReflection.GetRerollTimeLeft(_blackMarket);
 				string timeStr = FormattingUtils.FormatTime(timeLeft);
-				return $"Reroll, {timeStr} remaining";
+				return Strings.Get("overlay.black_market.reroll_cooldown", timeStr);
 			}
 
 			if (!BlackMarketReflection.CanAffordReroll(_blackMarket)) {
-				return $"Reroll, {price} Amber, cannot afford";
+				return Strings.Get("overlay.black_market.reroll_cannot_afford", price);
 			}
 
-			return $"Reroll, {price} Amber";
+			return Strings.Get("overlay.black_market.reroll_normal", price);
 		}
 
 		private string BuildOfferLabel(BlackMarketReflection.OfferInfo offer) {
 			var parts = new List<string>();
 
 			// Good name and amount
-			parts.Add($"{offer.GoodName}, {offer.GoodAmount}");
+			parts.Add(Strings.Get("overlay.black_market.offer.name", offer.GoodName, offer.GoodAmount));
 
 			// Buy price with rating
-			parts.Add($"Buy {offer.BuyPrice} Amber {offer.BuyRating}");
+			parts.Add(Strings.Get("overlay.black_market.offer.buy", offer.BuyPrice, offer.BuyRating));
 
 			// Credit price with rating
-			parts.Add($"Credit {offer.CreditPrice} Amber {offer.CreditRating}");
+			parts.Add(Strings.Get("overlay.black_market.offer.credit", offer.CreditPrice, offer.CreditRating));
 
 			// Time left
 			string timeStr = FormattingUtils.FormatTime(offer.TimeLeft);
-			parts.Add($"{timeStr} remaining");
+			parts.Add(Strings.Get("overlay.black_market.offer.time", timeStr));
 
 			return string.Join(", ", parts);
 		}
@@ -217,13 +217,13 @@ namespace ATSAccessibility.Overlays {
 			if (BlackMarketReflection.IsRerollOnCooldown(_blackMarket)) {
 				float timeLeft = BlackMarketReflection.GetRerollTimeLeft(_blackMarket);
 				string timeStr = FormattingUtils.FormatTime(timeLeft);
-				Speech.Say($"On cooldown, {timeStr} remaining");
+				Speech.Say(Strings.Get("overlay.black_market.reroll.cooldown_msg", timeStr));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (!BlackMarketReflection.CanAffordReroll(_blackMarket)) {
-				Speech.Say("Cannot afford");
+				Speech.Say(Strings.Get("common.cannot_afford"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -236,12 +236,12 @@ namespace ATSAccessibility.Overlays {
 				if (_items.Count > 2)  // Header + Reroll + at least one offer
 				{
 					CurrentIndex = 2;  // First offer
-					Speech.Say($"Rerolled. {_items[2].Label}");
+					Speech.Say(Strings.Get("overlay.black_market.reroll.done_with_offer", _items[2].Label));
 				} else {
-					Speech.Say("Rerolled");
+					Speech.Say(Strings.Get("overlay.black_market.reroll.done"));
 				}
 			} else {
-				Speech.Say("Reroll failed");
+				Speech.Say(Strings.Get("overlay.black_market.reroll.failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -271,7 +271,7 @@ namespace ATSAccessibility.Overlays {
 			var offer = item.Offer.Value;
 
 			if (offer.State == null) {
-				Speech.Say("Invalid offer");
+				Speech.Say(Strings.Get("overlay.black_market.buy.invalid_offer"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -279,27 +279,27 @@ namespace ATSAccessibility.Overlays {
 			if (index == 0) {
 				// Buy now
 				if (!BlackMarketReflection.CanAffordBuy(offer.State)) {
-					Speech.Say("Cannot afford");
+					Speech.Say(Strings.Get("common.cannot_afford"));
 					SoundManager.PlayFailed();
 					return;
 				}
 
 				if (BlackMarketReflection.Buy(_blackMarket, offer.State)) {
 					SoundManager.PlayTraderTransactionCompleted();
-					Speech.Say($"Purchased {offer.GoodName}");
+					Speech.Say(Strings.Get("overlay.black_market.buy.purchased", offer.GoodName));
 					ExitSubMenuAfterPurchase();
 				} else {
-					Speech.Say("Purchase failed");
+					Speech.Say(Strings.Get("common.purchase_failed"));
 					SoundManager.PlayFailed();
 				}
 			} else {
 				// Buy on credit
 				if (BlackMarketReflection.BuyOnCredit(_blackMarket, offer.State)) {
 					SoundManager.PlayTraderTransactionCompleted();
-					Speech.Say($"Purchased {offer.GoodName} on credit");
+					Speech.Say(Strings.Get("overlay.black_market.buy.purchased_credit", offer.GoodName));
 					ExitSubMenuAfterPurchase();
 				} else {
-					Speech.Say("Purchase failed");
+					Speech.Say(Strings.Get("common.purchase_failed"));
 					SoundManager.PlayFailed();
 				}
 			}

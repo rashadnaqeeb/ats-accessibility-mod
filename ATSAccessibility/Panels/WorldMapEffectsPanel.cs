@@ -42,7 +42,7 @@ namespace ATSAccessibility.Panels {
 
 			// Don't reveal effects on unexplored tiles
 			if (!WorldMapReflection.WorldMapIsRevealed(tilePos)) {
-				Speech.Say("Unexplored");
+				Speech.Say(Strings.Get("common.unexplored"));
 				if (IsOpen) Close();  // Close if was open showing different tile
 				return;
 			}
@@ -58,8 +58,8 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE ABSTRACTS
 		// ========================================
 
-		protected override string OverlayName => "Effects";
-		protected override string EmptyMessage => "No effects available";
+		protected override string OverlayName => Strings.Get("common.effects");
+		protected override string EmptyMessage => Strings.Get("common.no_effects_available");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -96,7 +96,7 @@ namespace ATSAccessibility.Panels {
 		protected override void OnClosed() {
 			_items.Clear();
 			InputBlocker.BlockCancelOnce = true;
-			Speech.Say("Effects panel closed");
+			Speech.Say(Strings.Get("panel.worldmap_effects.closed"));
 		}
 
 		protected override void AnnounceCurrentItem() {
@@ -108,7 +108,7 @@ namespace ATSAccessibility.Panels {
 			if (string.IsNullOrEmpty(item.description))
 				message = item.name;
 			else
-				message = $"{item.name}. {item.description}";
+				message = Strings.Get("panel.worldmap_effects.item_with_description", item.name, item.description);
 
 			Speech.Say(message);
 		}
@@ -131,7 +131,7 @@ namespace ATSAccessibility.Panels {
 				var fullDescription = biomeDescription ?? "";
 				var soilGrade = WorldMapReflection.WorldMapGetBiomeSoilGrade(_tilePos);
 				if (!string.IsNullOrEmpty(soilGrade))
-					fullDescription += (fullDescription.Length > 0 ? " " : "") + "Soil: " + soilGrade;
+					fullDescription += (fullDescription.Length > 0 ? " " : "") + Strings.Get("panel.worldmap_effects.soil", soilGrade);
 				_items.Add((biomeName, fullDescription));
 			}
 

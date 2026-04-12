@@ -38,7 +38,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Game Result";
+		protected override string OverlayName => Strings.Get("overlay.game_result.title");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() {
@@ -119,7 +119,7 @@ namespace ATSAccessibility.Overlays {
 
 				case ItemType.Section:
 					// Section with no sub-items
-					Speech.Say("Empty");
+					Speech.Say(Strings.Get("common.empty"));
 					break;
 
 				case ItemType.Button:
@@ -163,13 +163,13 @@ namespace ATSAccessibility.Overlays {
 		private void AddSummaryItem() {
 			string header = GameResultReflection.GetHeaderText(_popup);
 			if (string.IsNullOrEmpty(header)) {
-				header = GameResultReflection.HasWon() ? "Victory" : "Defeat";
+				header = Strings.Get(GameResultReflection.HasWon() ? "overlay.game_result.victory" : "overlay.game_result.defeat");
 			}
 
 			string desc = GameResultReflection.GetDescriptionText(_popup);
 
 			// Flavor text comes pre-localized with period, so just use colon separator
-			string label = string.IsNullOrEmpty(desc) ? header : $"{header}: {desc}";
+			string label = string.IsNullOrEmpty(desc) ? header : Strings.Get("overlay.game_result.header_with_desc", header, desc);
 
 			_items.Add(new TopLevelItem {
 				Type = ItemType.ReadOnly,
@@ -186,39 +186,39 @@ namespace ATSAccessibility.Overlays {
 
 			string expSummary;
 			if (levelInfo.targetExp <= 0 || levelInfo.exp >= levelInfo.targetExp) {
-				expSummary = $"Gained {gainedExp} experience, Level {levelInfo.level}, max level";
+				expSummary = Strings.Get("overlay.game_result.xp_max", gainedExp, levelInfo.level);
 			} else {
-				expSummary = $"Gained {gainedExp} experience, Level {levelInfo.level}, {levelInfo.exp} of {levelInfo.targetExp} to next level";
+				expSummary = Strings.Get("overlay.game_result.xp_progress", gainedExp, levelInfo.level, levelInfo.exp, levelInfo.targetExp);
 			}
 			subItems.Add(expSummary);
 
 			// Completed goals
 			var completedGoals = GameResultReflection.GetCompletedGoals();
 			foreach (var goal in completedGoals) {
-				subItems.Add($"Completed: {goal}");
+				subItems.Add(Strings.Get("overlay.game_result.completed", goal));
 			}
 
 			// Meta currencies from field rewards
 			var currencies = GameResultReflection.GetMetaCurrencies();
 			foreach (var (name, amount) in currencies) {
-				subItems.Add($"{name}, {amount}");
+				subItems.Add(Strings.Get("overlay.game_result.currency", name, amount));
 			}
 
 			// Stored meta currencies (goods collected during the game)
 			var storedCurrencies = GameResultReflection.GetStoredMetaCurrencies();
 			foreach (var (name, amount) in storedCurrencies) {
-				subItems.Add($"{name}, {amount}");
+				subItems.Add(Strings.Get("overlay.game_result.currency", name, amount));
 			}
 
 			// Seal fragments
 			int sealFragments = GameResultReflection.GetSealFragments();
 			if (sealFragments > 0) {
-				subItems.Add($"Seal fragments, {sealFragments}");
+				subItems.Add(Strings.Get("overlay.game_result.seal_fragments", sealFragments));
 			}
 
 			_items.Add(new TopLevelItem {
 				Type = ItemType.Section,
-				Label = "Progression",
+				Label = Strings.Get("overlay.game_result.section.progression"),
 				SubItems = subItems
 			});
 		}
@@ -234,16 +234,16 @@ namespace ATSAccessibility.Overlays {
 
 			// Total score first (calculated from already-fetched breakdown to avoid redundant reflection)
 			int totalScore = scoreBreakdown.Sum(s => s.Points);
-			subItems.Add($"Total score, {totalScore} points");
+			subItems.Add(Strings.Get("overlay.game_result.total_score", totalScore));
 
 			// Individual score entries
 			foreach (var entry in scoreBreakdown) {
-				subItems.Add($"{entry.Label}, {entry.Points} points");
+				subItems.Add(Strings.Get("overlay.game_result.score_entry", entry.Label, entry.Points));
 			}
 
 			_items.Add(new TopLevelItem {
 				Type = ItemType.Section,
-				Label = "Score",
+				Label = Strings.Get("overlay.game_result.section.score"),
 				SubItems = subItems
 			});
 		}
@@ -257,12 +257,12 @@ namespace ATSAccessibility.Overlays {
 
 			var subItems = new List<string>();
 			foreach (var reward in rewards) {
-				subItems.Add($"Unlocked: {reward}");
+				subItems.Add(Strings.Get("overlay.game_result.unlocked", reward));
 			}
 
 			_items.Add(new TopLevelItem {
 				Type = ItemType.Section,
-				Label = "Tutorial Unlocks",
+				Label = Strings.Get("overlay.game_result.section.tutorial"),
 				SubItems = subItems
 			});
 		}
@@ -281,19 +281,19 @@ namespace ATSAccessibility.Overlays {
 			subItems.Add(info.Name);
 
 			// Result
-			string resultText = info.Completed ? "Result: Completed" : "Result: Failed";
+			string resultText = Strings.Get(info.Completed ? "overlay.game_result.result_completed" : "overlay.game_result.result_failed");
 			subItems.Add(resultText);
 
 			// Objectives
 			if (info.Objectives != null) {
 				foreach (var (key, value) in info.Objectives) {
-					subItems.Add($"{key}, {value}");
+					subItems.Add(Strings.Get("overlay.game_result.objective", key, value));
 				}
 			}
 
 			_items.Add(new TopLevelItem {
 				Type = ItemType.Section,
-				Label = "World Event",
+				Label = Strings.Get("common.world_event"),
 				SubItems = subItems
 			});
 		}
@@ -302,7 +302,7 @@ namespace ATSAccessibility.Overlays {
 			// Return to world map (always available)
 			_items.Add(new TopLevelItem {
 				Type = ItemType.Button,
-				Label = "Return to world map",
+				Label = Strings.Get("overlay.game_result.return"),
 				OnActivate = () => GameResultReflection.ClickMenuButton(_popup)
 			});
 
@@ -310,7 +310,7 @@ namespace ATSAccessibility.Overlays {
 			if (GameResultReflection.IsContinueButtonAvailable(_popup)) {
 				_items.Add(new TopLevelItem {
 					Type = ItemType.Button,
-					Label = "Continue playing",
+					Label = Strings.Get("overlay.game_result.continue"),
 					OnActivate = () => GameResultReflection.ClickContinueButton(_popup)
 				});
 			}

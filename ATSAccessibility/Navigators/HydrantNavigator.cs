@@ -86,12 +86,12 @@ namespace ATSAccessibility.Navigators {
 		private void RefreshFuelData() {
 			_freeCysts = BuildingReflection.GetBlightFreeCysts();
 			_fuelAmount = BuildingReflection.GetBlightFuelAmount();
-			_fuelDisplayName = BuildingReflection.GetBlightFuelName() ?? "Fuel";
+			_fuelDisplayName = BuildingReflection.GetBlightFuelName() ?? Strings.Get("common.fuel");
 		}
 
 		private void BuildSections() {
 			// Fuel is the only section
-			_sectionNames = new[] { "Fuel" };
+			_sectionNames = new[] { Strings.Get("common.fuel") };
 			_sectionTypes = new[] { SectionType.Fuel };
 		}
 
@@ -103,28 +103,28 @@ namespace ATSAccessibility.Navigators {
 			switch (itemIndex) {
 				case 0:
 					// Free cysts count
-					Speech.Say($"Free cysts: {_freeCysts}");
+					Speech.Say(Strings.Get("nav.hydrant.free_cysts", _freeCysts));
 					break;
 				case 1:
 					// Fuel amount with status
 					string status = GetFuelStatus();
-					Speech.Say($"{_fuelDisplayName}: {_fuelAmount} ({status})");
+					Speech.Say(Strings.Get("nav.hydrant.fuel_amount", _fuelDisplayName, _fuelAmount, status));
 					break;
 			}
 		}
 
 		private string GetFuelStatus() {
 			if (_freeCysts == 0) {
-				return "sufficient";
+				return Strings.Get("nav.hydrant.status.sufficient");
 			}
 
 			float ratio = (float)_fuelAmount / _freeCysts;
 			if (ratio < 0.5f) {
-				return "low";
+				return Strings.Get("nav.hydrant.status.low");
 			} else if (ratio < 1.0f) {
-				return "medium";
+				return Strings.Get("nav.hydrant.status.medium");
 			} else {
-				return "high";
+				return Strings.Get("nav.hydrant.status.high");
 			}
 		}
 	}

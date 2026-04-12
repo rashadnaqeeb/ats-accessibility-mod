@@ -26,7 +26,7 @@ namespace ATSAccessibility.Utils {
 			int chargesLeft = ReflectionHelper.GetInt(chargesLeftField, state);
 			int maxCharges = ReflectionHelper.GetInt(maxChargesField, maxSource);
 
-			return maxCharges > 0 ? $"{chargesLeft} of {maxCharges} charges" : null;
+			return maxCharges > 0 ? Strings.Get("util.tile_info.charges", chargesLeft, maxCharges) : null;
 		}
 
 		/// <summary>
@@ -92,14 +92,14 @@ namespace ATSAccessibility.Utils {
 		public static void ReadCurrentTile(int cursorX, int cursorY) {
 			var glade = GameReflection.GetGlade(cursorX, cursorY);
 			if (glade != null && !TileInfoReflection.GetGladeWasDiscovered(glade)) {
-				Speech.Say("Unrevealed glade");
+				Speech.Say(Strings.Get("util.tile_info.unrevealed_glade"));
 				return;
 			}
 
 			var objectOn = GameReflection.GetObjectOn(cursorX, cursorY);
 
 			if (objectOn == null) {
-				Speech.Say("No object");
+				Speech.Say(Strings.Get("util.tile_info.no_object"));
 				return;
 			}
 
@@ -107,7 +107,7 @@ namespace ATSAccessibility.Utils {
 
 			// GetObjectOn returns Field when there's no actual object
 			if (typeName == "Field") {
-				Speech.Say("No object");
+				Speech.Say(Strings.Get("util.tile_info.no_object"));
 				return;
 			}
 
@@ -135,7 +135,7 @@ namespace ATSAccessibility.Utils {
 			if (!string.IsNullOrEmpty(info)) {
 				Speech.Say(info);
 			} else {
-				Speech.Say("No information available");
+				Speech.Say(Strings.Get("util.tile_info.no_information"));
 			}
 		}
 
@@ -214,7 +214,7 @@ namespace ATSAccessibility.Utils {
 				int degrees = Mathf.RoundToInt(((angle % 360f) + 360f) % 360f);
 				if (degrees == 360) degrees = 0;
 
-				return $"Pointing {degrees} degrees";
+				return Strings.Get("util.tile_info.pointing", degrees);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetGuidepostDirection failed: {ex.Message}");
 				return null;
@@ -247,7 +247,7 @@ namespace ATSAccessibility.Utils {
 				if (ConstructionReflection.IsBuildingUnfinished(building)) {
 					int constructionPrio = ConstructionReflection.GetBuildingConstructionPriority(building);
 					if (constructionPrio != 0) {
-						parts.Add($"Priority: {FormatNodePriority(constructionPrio)}");
+						parts.Add(Strings.Get("util.tile_info.priority", FormatNodePriority(constructionPrio)));
 					}
 				}
 
@@ -329,7 +329,7 @@ namespace ATSAccessibility.Utils {
 					if (i > 0) sb.Append(". ");
 					var name = order[i];
 					var totals = groups[name];
-					sb.Append($"{name}, {totals.avail} of {totals.max} charges");
+					sb.Append(Strings.Get("util.tile_info.mine_ore", name, totals.avail, totals.max));
 				}
 
 				return sb.ToString();
@@ -389,19 +389,19 @@ namespace ATSAccessibility.Utils {
 				// Main product
 				string productInfo = GetMainProductInfo(model);
 				if (!string.IsNullOrEmpty(productInfo)) {
-					parts.Add($"Produces {productInfo}");
+					parts.Add(Strings.Get("util.tile_info.produces", productInfo));
 				}
 
 				// Extra products
 				string extraInfo = GetExtraProductsInfo(model);
 				if (!string.IsNullOrEmpty(extraInfo)) {
-					parts.Add($"Extra: {extraInfo}");
+					parts.Add(Strings.Get("util.tile_info.extra", extraInfo));
 				}
 
 				// Source buildings (camps that can harvest)
 				string sourcesInfo = GetCampsForResource(model, refGoodNameProp);
 				if (!string.IsNullOrEmpty(sourcesInfo)) {
-					parts.Add($"Harvested by: {sourcesInfo}");
+					parts.Add(Strings.Get("util.tile_info.harvested_by", sourcesInfo));
 				}
 
 				return string.Join(", ", parts);
@@ -455,7 +455,7 @@ namespace ATSAccessibility.Utils {
 				// Priority (only if non-default)
 				int depositPrio = ConstructionReflection.GetResourceNodePriority(deposit);
 				if (depositPrio != 0) {
-					parts.Add($"Priority: {FormatNodePriority(depositPrio)}");
+					parts.Add(Strings.Get("util.tile_info.priority", FormatNodePriority(depositPrio)));
 				}
 
 				// Description
@@ -467,19 +467,19 @@ namespace ATSAccessibility.Utils {
 				// Main product
 				string productInfo = GetMainProductInfo(model);
 				if (!string.IsNullOrEmpty(productInfo)) {
-					parts.Add($"Produces {productInfo}");
+					parts.Add(Strings.Get("util.tile_info.produces", productInfo));
 				}
 
 				// Extra products
 				string extraInfo = GetExtraProductsInfo(model);
 				if (!string.IsNullOrEmpty(extraInfo)) {
-					parts.Add($"Extra: {extraInfo}");
+					parts.Add(Strings.Get("util.tile_info.extra", extraInfo));
 				}
 
 				// Source buildings (gatherer huts that can work this deposit)
 				string sourcesInfo = GetHutsForDeposit(model);
 				if (!string.IsNullOrEmpty(sourcesInfo)) {
-					parts.Add($"Gathered by: {sourcesInfo}");
+					parts.Add(Strings.Get("util.tile_info.gathered_by", sourcesInfo));
 				}
 
 				return string.Join(", ", parts);
@@ -531,7 +531,7 @@ namespace ATSAccessibility.Utils {
 					}
 
 					if (totalCharges > 0) {
-						parts.Add($"{totalCharges} charges remaining");
+						parts.Add(Strings.Get("util.tile_info.charges_remaining", totalCharges));
 					}
 				}
 
@@ -553,7 +553,7 @@ namespace ATSAccessibility.Utils {
 							if (good != null) {
 								string productName = TileInfoReflection.GetLocalizedText(good, "displayName");
 								if (!string.IsNullOrEmpty(productName)) {
-									parts.Add($"Produces {productName}");
+									parts.Add(Strings.Get("util.tile_info.produces", productName));
 								}
 							}
 						}
@@ -598,7 +598,7 @@ namespace ATSAccessibility.Utils {
 					int maxCharges = ReflectionHelper.GetInt(maxChargesField, state);
 
 					if (maxCharges > 0) {
-						parts.Add($"{chargesLeft} of {maxCharges} charges");
+						parts.Add(Strings.Get("util.tile_info.charges", chargesLeft, maxCharges));
 					}
 				}
 
@@ -646,7 +646,7 @@ namespace ATSAccessibility.Utils {
 					int maxCharges = ReflectionHelper.GetInt(maxChargesField, state);
 
 					if (maxCharges > 0) {
-						parts.Add($"{chargesLeft} of {maxCharges} charges");
+						parts.Add(Strings.Get("util.tile_info.charges", chargesLeft, maxCharges));
 					}
 
 					// Get stored fish waiting for pickup
@@ -659,7 +659,7 @@ namespace ATSAccessibility.Utils {
 							if (sumMethod != null) {
 								int storedFish = (int)sumMethod.Invoke(goods, null);
 								if (storedFish > 0) {
-									parts.Add($"{storedFish} fish waiting for pickup");
+									parts.Add(Strings.Get("util.tile_info.stored_fish", storedFish));
 								}
 							}
 						}
@@ -669,7 +669,7 @@ namespace ATSAccessibility.Utils {
 				// Priority (only if non-default)
 				int lakePrio = ConstructionReflection.GetResourceNodePriority(lake);
 				if (lakePrio != 0) {
-					parts.Add($"Priority: {FormatNodePriority(lakePrio)}");
+					parts.Add(Strings.Get("util.tile_info.priority", FormatNodePriority(lakePrio)));
 				}
 
 				// Description - LakeModel has a Description property that includes grade requirement
@@ -681,7 +681,7 @@ namespace ATSAccessibility.Utils {
 				// Product info from production field
 				string productInfo = GetMainProductInfo(model);
 				if (!string.IsNullOrEmpty(productInfo)) {
-					parts.Add($"Produces {productInfo}");
+					parts.Add(Strings.Get("util.tile_info.produces", productInfo));
 				}
 
 				return parts.Count > 0 ? string.Join(", ", parts) : null;
@@ -751,7 +751,7 @@ namespace ATSAccessibility.Utils {
 				int amount = ReflectionHelper.GetInt(amountField, production);
 
 				if (!string.IsNullOrEmpty(productName)) {
-					return amount > 1 ? $"{amount} {productName}" : productName;
+					return amount > 1 ? Strings.Get("util.tile_info.product_with_amount", amount, productName) : Strings.Get("util.tile_info.product_no_amount", productName);
 				}
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetMainProductInfo failed: {ex.Message}"); }
 
@@ -785,7 +785,7 @@ namespace ATSAccessibility.Utils {
 
 					if (!string.IsNullOrEmpty(productName) && chance > 0) {
 						int percent = Mathf.RoundToInt(chance * 100f);
-						parts.Add($"{productName} {percent}%");
+						parts.Add(Strings.Get("util.tile_info.extra_product", productName, percent));
 					}
 				}
 
@@ -874,9 +874,9 @@ namespace ATSAccessibility.Utils {
 			return false;
 		}
 		private static string FormatNodePriority(int priority) {
-			if (priority == -5) return "-5 (lowest)";
-			if (priority == 5) return "5 (highest)";
-			if (priority == 0) return "0 (default)";
+			if (priority == -5) return Strings.Get("common.priority_lowest");
+			if (priority == 5) return Strings.Get("common.priority_highest");
+			if (priority == 0) return Strings.Get("common.priority_default");
 			return priority.ToString();
 		}
 	}

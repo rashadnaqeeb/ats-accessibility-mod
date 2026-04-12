@@ -99,7 +99,7 @@ namespace ATSAccessibility.Handlers {
 				case KeyCode.Home:
 					if (modifiers.Alt) {
 						Plugin.ScannerAutoMove.Value = !Plugin.ScannerAutoMove.Value;
-						Speech.Say(Plugin.ScannerAutoMove.Value ? "Auto-move on" : "Auto-move off");
+						Speech.Say(Plugin.ScannerAutoMove.Value ? Strings.Get("handler.settlekey.automove_on") : Strings.Get("handler.settlekey.automove_off"));
 					} else {
 						_worldMapScanner?.JumpToItem();
 					}

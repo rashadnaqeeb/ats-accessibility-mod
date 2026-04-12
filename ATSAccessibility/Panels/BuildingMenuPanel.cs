@@ -71,8 +71,8 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE ABSTRACTS
 		// ========================================
 
-		protected override string OverlayName => "Building Menu";
-		protected override string EmptyMessage => "No buildings available";
+		protected override string OverlayName => Strings.Get("panel.building_menu.title");
+		protected override string EmptyMessage => Strings.Get("common.no_buildings_available");
 
 		protected override int GetItemCount() {
 			if (Level == 0) return _categories.Count;
@@ -103,7 +103,7 @@ namespace ATSAccessibility.Panels {
 				if (index < 0 || index >= _categories.Count) return EnterAction.None;
 				var category = _categories[index];
 				if (category.Buildings.Count == 0) {
-					Speech.Say("No buildings in this category");
+					Speech.Say(Strings.Get("common.no_buildings_in_category"));
 					return EnterAction.None;
 				}
 				return EnterAction.DrillDown;
@@ -178,7 +178,7 @@ namespace ATSAccessibility.Panels {
 		protected override string GetOpenAnnouncement() {
 			if (_categories.Count == 0) return EmptyMessage;
 			var category = _categories[0];
-			return $"Building Menu. {category.Name}: {category.Buildings.Count}";
+			return Strings.Get("panel.building_menu.open", category.Name, category.Buildings.Count);
 		}
 
 		protected override void OnOpened() {
@@ -189,7 +189,7 @@ namespace ATSAccessibility.Panels {
 			_categories.Clear();
 			if (!_closingForBuild) {
 				InputBlocker.BlockCancelOnce = true;
-				Speech.Say("Building menu closed");
+				Speech.Say(Strings.Get("panel.building_menu.closed"));
 			}
 			_closingForBuild = false;
 		}
@@ -279,7 +279,7 @@ namespace ATSAccessibility.Panels {
 
 			// Check if building can still be constructed
 			if (!ConstructionReflection.CanConstructBuilding(building.Model)) {
-				Speech.Say($"{building.Name} cannot be built, at maximum");
+				Speech.Say(Strings.Get("panel.building_menu.cannot_build_max", building.Name));
 				return;
 			}
 
@@ -292,7 +292,7 @@ namespace ATSAccessibility.Panels {
 				_buildModeController.EnterBuildMode(building.Model, building.Name);
 			} else {
 				Debug.LogError("[ATSAccessibility] BuildModeController not set");
-				Speech.Say("Build mode unavailable");
+				Speech.Say(Strings.Get("panel.building_menu.build_mode_unavailable"));
 			}
 		}
 
@@ -319,7 +319,7 @@ namespace ATSAccessibility.Panels {
 			foreach (var catModel in allCategories) {
 				if (!ConstructionReflection.IsCategoryOnHUD(catModel)) continue;
 
-				var name = GameReflection.GetDisplayName(catModel) ?? "Unknown";
+				var name = GameReflection.GetDisplayName(catModel) ?? Strings.Get("common.unknown");
 				var order = GameReflection.GetModelOrder(catModel);
 
 				categoryDict[catModel] = new Category {
@@ -348,7 +348,7 @@ namespace ATSAccessibility.Panels {
 				var category = ConstructionReflection.GetBuildingCategory(buildingModel);
 				if (category == null || !categoryDict.ContainsKey(category)) continue;
 
-				var name = GameReflection.GetDisplayName(buildingModel) ?? GameReflection.GetModelName(buildingModel) ?? "Unknown";
+				var name = GameReflection.GetDisplayName(buildingModel) ?? GameReflection.GetModelName(buildingModel) ?? Strings.Get("common.unknown");
 				var order = GameReflection.GetModelOrder(buildingModel);
 
 				categoryDict[category].Buildings.Add(new BuildingItem {
@@ -399,7 +399,7 @@ namespace ATSAccessibility.Panels {
 			var category = _categories[_indices[0]];
 			int buildingCount = category.Buildings.Count;
 
-			Speech.Say($"{category.Name}: {buildingCount}");
+			Speech.Say(Strings.Get("panel.building_menu.category", category.Name, buildingCount));
 			Debug.Log($"[ATSAccessibility] Category {_indices[0] + 1}/{_categories.Count}: {category.Name}, {buildingCount} buildings");
 		}
 
@@ -414,25 +414,25 @@ namespace ATSAccessibility.Panels {
 
 			// Get building size
 			var size = ConstructionReflection.GetBuildingSize(building.Model);
-			string sizeText = $"{size.x}x{size.y}";
+			string sizeText = Strings.Get("panel.building_menu.size", size.x, size.y);
 
 			// Get building costs (includes "not enough" annotations for insufficient goods)
 			string costs = ConstructionReflection.GetBuildingCosts(building.Model);
-			string costsText = !string.IsNullOrEmpty(costs) ? $" {costs}." : "";
+			string costsText = !string.IsNullOrEmpty(costs) ? Strings.Get("panel.building_menu.costs", costs) : "";
 
 			// Get building description
 			string description = ConstructionReflection.GetBuildingModelDescription(building.Model) ?? "";
 
 			// Check if can be constructed
 			bool canConstruct = ConstructionReflection.CanConstructBuilding(building.Model);
-			string status = canConstruct ? "" : ", at maximum";
+			string status = canConstruct ? "" : Strings.Get("panel.building_menu.status_at_max");
 
 			// Check movability
 			bool movable = WikiReflection.GetBuildingMovable(building.Model);
-			string movableText = movable ? "" : " Unmovable.";
+			string movableText = movable ? "" : Strings.Get("panel.building_menu.unmovable");
 
 			// Format: "Name, size. 5 Planks, not enough, 3 Bricks. Unmovable. Description"
-			string announcement = $"{building.Name}{status}, {sizeText}.{costsText}{movableText} {description}";
+			string announcement = Strings.Get("panel.building_menu.building", building.Name, status, sizeText, costsText, movableText, description);
 			Speech.Say(announcement);
 			Debug.Log($"[ATSAccessibility] Building: {building.Name}{status}, {sizeText}");
 		}
@@ -448,16 +448,16 @@ namespace ATSAccessibility.Panels {
 
 			var building = category.Buildings[CurrentIndex];
 			var size = ConstructionReflection.GetBuildingSize(building.Model);
-			string sizeText = $"{size.x}x{size.y}";
+			string sizeText = Strings.Get("panel.building_menu.size", size.x, size.y);
 			string costs = ConstructionReflection.GetBuildingCosts(building.Model);
-			string costsText = !string.IsNullOrEmpty(costs) ? $" {costs}." : "";
+			string costsText = !string.IsNullOrEmpty(costs) ? Strings.Get("panel.building_menu.costs", costs) : "";
 			string description = ConstructionReflection.GetBuildingModelDescription(building.Model) ?? "";
 			bool canConstruct = ConstructionReflection.CanConstructBuilding(building.Model);
-			string status = canConstruct ? "" : ", at maximum";
+			string status = canConstruct ? "" : Strings.Get("panel.building_menu.status_at_max");
 			bool movable = WikiReflection.GetBuildingMovable(building.Model);
-			string movableText = movable ? "" : " Unmovable.";
+			string movableText = movable ? "" : Strings.Get("panel.building_menu.unmovable");
 
-			string announcement = $"{category.Name}. {building.Name}{status}, {sizeText}.{costsText}{movableText} {description}";
+			string announcement = Strings.Get("panel.building_menu.building_with_category", category.Name, building.Name, status, sizeText, costsText, movableText, description);
 			Speech.Say(announcement);
 			Debug.Log($"[ATSAccessibility] Building (cross-category): {category.Name} > {building.Name}{status}, {sizeText}");
 		}

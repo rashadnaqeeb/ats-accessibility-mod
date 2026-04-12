@@ -211,7 +211,7 @@ namespace ATSAccessibility.Handlers {
 				_currentNavigator.Open(building);
 			} else {
 				// Fallback - announce building name at least
-				string name = BuildingReflection.GetBuildingName(building) ?? "Building";
+				string name = BuildingReflection.GetBuildingName(building) ?? Strings.Get("common.building");
 				Speech.Say(name);
 			}
 		}
@@ -228,7 +228,7 @@ namespace ATSAccessibility.Handlers {
 				_currentNavigator = null;
 				_currentBuilding = null;
 
-				Speech.Say("Panel closed");
+				Speech.Say(Strings.Get("handler.buildingpanel.closed"));
 			} finally {
 				_isCleaningUp = false;
 			}

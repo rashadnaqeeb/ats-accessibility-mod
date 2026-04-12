@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -241,10 +242,10 @@ namespace ATSAccessibility.Reflection {
 			if (!IsIronman(profile)) return null;
 
 			if (IsIronmanActive(profile)) {
-				return "In Progress";
+				return Strings.Get("reflection.profiles.ironman_in_progress");
 			}
 
-			return GetIronmanResult(profile) ? "Won" : "Lost";
+			return Strings.Get(GetIronmanResult(profile) ? "common.won" : "common.lost");
 		}
 
 		/// <summary>

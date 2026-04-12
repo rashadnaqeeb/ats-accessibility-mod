@@ -185,24 +185,24 @@ namespace ATSAccessibility.Navigators {
 			var types = new List<SectionType>();
 
 			// Goods section
-			sections.Add("Goods");
+			sections.Add(Strings.Get("common.goods"));
 			types.Add(SectionType.Goods);
 
 			// Abilities section (only if abilities exist)
 			if (_abilityCount > 0) {
-				sections.Add("Abilities");
+				sections.Add(Strings.Get("common.abilities"));
 				types.Add(SectionType.Abilities);
 			}
 
 			// Workers section (only if building currently accepts worker assignment)
 			if (TryInitializeWorkersSection()) {
-				sections.Add("Workers");
+				sections.Add(Strings.Get("common.workers"));
 				types.Add(SectionType.Workers);
 			}
 
 			// Upgrades section if available
 			if (TryInitializeUpgradesSection()) {
-				sections.Add("Upgrades");
+				sections.Add(Strings.Get("common.upgrades"));
 				types.Add(SectionType.Upgrades);
 			}
 
@@ -219,15 +219,15 @@ namespace ATSAccessibility.Navigators {
 			RefreshGoodsData();
 
 			if (_goods.Count == 0) {
-				Speech.Say("Storage is empty");
+				Speech.Say(Strings.Get("nav.common.storage_empty"));
 				return;
 			}
 
 			if (itemIndex < _goods.Count) {
 				var good = _goods[itemIndex];
-				string text = $"{good.DisplayName}: {good.Amount}";
+				string text = Strings.Get("nav.common.storage_item", good.DisplayName, good.Amount);
 				if (good.Reserve > 0)
-					text += $", reserve {good.Reserve}";
+					text += Strings.Get("nav.storage.reserve_suffix", good.Reserve);
 				Speech.Say(text);
 			}
 		}
@@ -238,22 +238,22 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceAbilityItem(int itemIndex) {
 			if (_abilityCount == 0) {
-				Speech.Say("No abilities available");
+				Speech.Say(Strings.Get("nav.storage.no_abilities"));
 				return;
 			}
 
 			if (itemIndex >= _abilityCount) return;
 
-			string abilityName = BuildingReflection.GetCycleAbilityName(itemIndex) ?? "Unknown ability";
+			string abilityName = BuildingReflection.GetCycleAbilityName(itemIndex) ?? Strings.Get("nav.storage.unknown_ability");
 			int charges = BuildingReflection.GetCycleAbilityCharges(itemIndex);
 			string description = BuildingReflection.GetCycleAbilityDescription(itemIndex);
 
-			string chargeText = charges > 0 ? $"{charges} charges" : "No charges remaining";
+			string chargeText = charges > 0 ? Strings.Get("nav.storage.charges_count", charges) : Strings.Get("common.no_charges_remaining");
 
 			if (!string.IsNullOrEmpty(description)) {
-				Speech.Say($"{abilityName}: {description}, {chargeText}");
+				Speech.Say(Strings.Get("nav.storage.ability_with_desc", abilityName, description, chargeText));
 			} else {
-				Speech.Say($"{abilityName}: {chargeText}");
+				Speech.Say(Strings.Get("nav.storage.ability_plain", abilityName, chargeText));
 			}
 		}
 
@@ -270,7 +270,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Workers)
-				return "No free workers";
+				return Strings.Get("common.no_free_workers");
 			return null;
 		}
 
@@ -279,21 +279,21 @@ namespace ATSAccessibility.Navigators {
 
 			int charges = BuildingReflection.GetCycleAbilityCharges(abilityIndex);
 			if (charges <= 0) {
-				Speech.Say("No charges remaining");
+				Speech.Say(Strings.Get("common.no_charges_remaining"));
 				return true;  // Still handled the action
 			}
 
-			string abilityName = BuildingReflection.GetCycleAbilityName(abilityIndex) ?? "ability";
+			string abilityName = BuildingReflection.GetCycleAbilityName(abilityIndex) ?? Strings.Get("nav.storage.ability_default");
 
 			if (BuildingReflection.UseCycleAbility(abilityIndex)) {
 				int newCharges = BuildingReflection.GetCycleAbilityCharges(abilityIndex);
-				Speech.Say($"Used {abilityName}. {newCharges} charges remaining");
+				Speech.Say(Strings.Get("nav.storage.used_ability", abilityName, newCharges));
 
 				// Refresh ability data in case charges changed
 				RefreshAbilityData();
 				return true;
 			} else {
-				Speech.Say($"Cannot use {abilityName}");
+				Speech.Say(Strings.Get("nav.storage.cannot_use_ability", abilityName));
 				return true;
 			}
 		}
@@ -320,7 +320,7 @@ namespace ATSAccessibility.Navigators {
 			good.Reserve = newReserve;
 
 			SoundManager.PlayButtonClick();
-			Speech.Say(newReserve > 0 ? $"Reserve {newReserve}" : "No reserve");
+			Speech.Say(newReserve > 0 ? Strings.Get("nav.storage.reserve_line", newReserve) : Strings.Get("nav.storage.no_reserve"));
 		}
 
 		// ========================================

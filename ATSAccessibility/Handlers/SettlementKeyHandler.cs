@@ -39,7 +39,13 @@ namespace ATSAccessibility.Handlers {
 		// Worker building cycling
 		private int _workerBuildingIndex = -1;
 		private int _workerCategoryIndex = 0;  // 0=All, 1=Gathering, 2=Production, 3=Service, 4=Events
-		private static readonly string[] WorkerCategories = { "All", "Gathering", "Production", "Service", "Events" };
+		private static string[] WorkerCategories => new[] {
+			Strings.Get("common.all"),
+			Strings.Get("common.gathering"),
+			Strings.Get("common.production"),
+			Strings.Get("handler.settlekey.worker_cat_service"),
+			Strings.Get("handler.settlekey.worker_cat_events"),
+		};
 
 		private static readonly Dictionary<string, int> BuildingTypeToWorkerCategory = new Dictionary<string, int>
 		{
@@ -183,7 +189,7 @@ namespace ATSAccessibility.Handlers {
 				case KeyCode.K:
 					if (modifiers.Alt) {
 						Plugin.AnnounceCoordinates.Value = !Plugin.AnnounceCoordinates.Value;
-						Speech.Say(Plugin.AnnounceCoordinates.Value ? "Coordinates on" : "Coordinates off");
+						Speech.Say(Plugin.AnnounceCoordinates.Value ? Strings.Get("handler.settlekey.coords_on") : Strings.Get("handler.settlekey.coords_off"));
 					} else {
 						_mapNavigator.AnnounceCurrentPosition();
 					}
@@ -198,16 +204,16 @@ namespace ATSAccessibility.Handlers {
 							// Building found — existing destroy logic
 							if (!BuildingReflection.CanBeDestroyed(buildingToDestroy)) {
 								string name = GameReflection.GetDisplayName(ConstructionReflection.GetBuildingModel(buildingToDestroy));
-								Speech.Say($"Cannot destroy {name}");
+								Speech.Say(Strings.Get("handler.settlekey.cannot_destroy", name));
 							} else {
 								string name = GameReflection.GetDisplayName(ConstructionReflection.GetBuildingModel(buildingToDestroy));
 								var refundGoods = BuildingReflection.GetDestructionRefund(buildingToDestroy);
 								_confirmationDialog.Show(name, () => {
 									if (BuildingReflection.DestroyBuilding(buildingToDestroy)) {
 										SoundManager.PlayBuildingDestroyed();
-										Speech.Say($"Destroyed: {name}");
+										Speech.Say(Strings.Get("handler.settlekey.destroyed", name));
 									} else {
-										Speech.Say("Destruction failed");
+										Speech.Say(Strings.Get("handler.settlekey.destroy_failed"));
 									}
 								}, refundGoods);
 							}
@@ -215,44 +221,44 @@ namespace ATSAccessibility.Handlers {
 							// No building — check for resource node
 							var objectAtPos = GameReflection.GetObjectOn(_mapNavigator.CursorX, _mapNavigator.CursorY);
 							if (objectAtPos != null && ConstructionReflection.IsRemovableResource(objectAtPos)) {
-								string name = ConstructionReflection.GetResourceNodeDisplayName(objectAtPos) ?? "Resource";
+								string name = ConstructionReflection.GetResourceNodeDisplayName(objectAtPos) ?? Strings.Get("handler.settlekey.resource_fallback");
 								_confirmationDialog.Show(name, () => {
 									if (ConstructionReflection.RemoveResourceNode(objectAtPos)) {
 										SoundManager.PlayResourceRemoved();
-										Speech.Say($"Removed: {name}");
+										Speech.Say(Strings.Get("handler.settlekey.removed", name));
 									} else {
-										Speech.Say("Removal failed");
+										Speech.Say(Strings.Get("common.removal_failed"));
 									}
 								});
 							} else if (objectAtPos != null && objectAtPos.GetType().Name == "NaturalResource") {
-								Speech.Say("Cannot remove trees");
+								Speech.Say(Strings.Get("handler.settlekey.cannot_remove_trees"));
 							} else if (objectAtPos != null && objectAtPos.GetType().Name == "Ore") {
-								Speech.Say("Cannot remove ore");
+								Speech.Say(Strings.Get("handler.settlekey.cannot_remove_ore"));
 							} else {
-								Speech.Say("Nothing to remove");
+								Speech.Say(Strings.Get("handler.settlekey.nothing_to_remove"));
 							}
 						}
 						return true;
 					}
 					GameReflection.TogglePause();
-					Speech.Say(GameReflection.IsPaused() ? "Paused" : "Unpaused");
+					Speech.Say(GameReflection.IsPaused() ? Strings.Get("common.paused") : Strings.Get("common.unpaused"));
 					return true;
 				// Keypad keys: speed control only, no modifier checks
 				case KeyCode.Keypad1:
 					GameReflection.SetSpeed(1);
-					Speech.Say("1x");
+					Speech.Say(Strings.Get("handler.settlekey.speed_1"));
 					return true;
 				case KeyCode.Keypad2:
 					GameReflection.SetSpeed(2);
-					Speech.Say("1.5x");
+					Speech.Say(Strings.Get("handler.settlekey.speed_2"));
 					return true;
 				case KeyCode.Keypad3:
 					GameReflection.SetSpeed(3);
-					Speech.Say("2x");
+					Speech.Say(Strings.Get("handler.settlekey.speed_3"));
 					return true;
 				case KeyCode.Keypad4:
 					GameReflection.SetSpeed(4);
-					Speech.Say("3x");
+					Speech.Say(Strings.Get("handler.settlekey.speed_4"));
 					return true;
 
 				// Alpha number keys: bookmarks with modifiers, speed 1-4 unmodified
@@ -275,11 +281,17 @@ namespace ATSAccessibility.Handlers {
 						if (_numberedBookmarkSet[slot])
 							AnnounceDirectionTo(_numberedBookmarkX[slot], _numberedBookmarkY[slot]);
 						else
-							Speech.Say($"No bookmark {slot}");
+							Speech.Say(Strings.Get("handler.settlekey.no_bookmark_slot", slot));
 					} else if (slot >= 1 && slot <= 4) {
 						// Unmodified 1-4: speed control
 						GameReflection.SetSpeed(slot);
-						string[] speedLabels = { "", "1x", "1.5x", "2x", "3x" };
+						string[] speedLabels = {
+							"",
+							Strings.Get("handler.settlekey.speed_1"),
+							Strings.Get("handler.settlekey.speed_2"),
+							Strings.Get("handler.settlekey.speed_3"),
+							Strings.Get("handler.settlekey.speed_4"),
+						};
 						Speech.Say(speedLabels[slot]);
 					}
 					// Unmodified 0, 5-9: consumed silently
@@ -342,7 +354,7 @@ namespace ATSAccessibility.Handlers {
 				case KeyCode.Home:
 					if (modifiers.Alt) {
 						Plugin.ScannerAutoMove.Value = !Plugin.ScannerAutoMove.Value;
-						Speech.Say(Plugin.ScannerAutoMove.Value ? "Auto-move on" : "Auto-move off");
+						Speech.Say(Plugin.ScannerAutoMove.Value ? Strings.Get("handler.settlekey.automove_on") : Strings.Get("handler.settlekey.automove_off"));
 					} else {
 						_mapScanner?.MoveCursorToItem();
 					}
@@ -388,15 +400,15 @@ namespace ATSAccessibility.Handlers {
 						_bookmarkX = _mapNavigator.CursorX;
 						_bookmarkY = _mapNavigator.CursorY;
 						_hasBookmark = true;
-						Speech.Say("Bookmark set");
+						Speech.Say(Strings.Get("handler.settlekey.bookmark_set"));
 					} else if (modifiers.Alt) {
 						if (!_hasBookmark)
-							Speech.Say("No bookmark");
+							Speech.Say(Strings.Get("handler.settlekey.no_bookmark"));
 						else
 							AnnounceDirectionTo(_bookmarkX, _bookmarkY);
 					} else {
 						if (!_hasBookmark) {
-							Speech.Say("No bookmark");
+							Speech.Say(Strings.Get("handler.settlekey.no_bookmark"));
 						} else {
 							_mapNavigator.SetCursorPosition(_bookmarkX, _bookmarkY);
 							_mapNavigator.MoveCursor(0, 0);
@@ -486,27 +498,28 @@ namespace ATSAccessibility.Handlers {
 					if (objectAtCursor != null && objectAtCursor.GetType().Name == "Lake") {
 						var storedGoods = ConstructionReflection.GetLakeStoredGoods(objectAtCursor);
 						if (storedGoods.Count == 0) {
-							Speech.Say("No fish to retrieve");
+							Speech.Say(Strings.Get("handler.settlekey.no_fish"));
 							return true;
 						}
 
 						int charges = ConstructionReflection.GetLakeChargesLeft(objectAtCursor);
-						string lakeName = ConstructionReflection.GetResourceNodeDisplayName(objectAtCursor) ?? "Lake";
+						string lakeName = ConstructionReflection.GetResourceNodeDisplayName(objectAtCursor) ?? Strings.Get("handler.settlekey.lake_fallback");
 
 						var message = new System.Text.StringBuilder();
-						message.Append($"Retrieve {lakeName}? {charges} charges lost. Stored: ");
+						message.Append(Strings.Get("handler.settlekey.lake_confirm_prefix", lakeName, charges));
+						message.Append(' ');
 						for (int i = 0; i < storedGoods.Count; i++) {
 							if (i > 0) message.Append(", ");
-							message.Append($"{storedGoods[i].amount} {storedGoods[i].name}");
+							message.Append(Strings.Get("handler.settlekey.lake_good", storedGoods[i].amount, storedGoods[i].name));
 						}
-						message.Append(". Enter to confirm, Escape to cancel");
+						message.Append(Strings.Get("handler.settlekey.lake_confirm_suffix"));
 
 						_confirmationDialog.ShowMessage(message.ToString(), () => {
 							if (ConstructionReflection.ForceDepliteLake(objectAtCursor)) {
 								SoundManager.PlayPortNetsRetrieved();
-								Speech.Say($"Retrieved: {lakeName}");
+								Speech.Say(Strings.Get("handler.settlekey.lake_retrieved", lakeName));
 							} else {
-								Speech.Say("Retrieval failed");
+								Speech.Say(Strings.Get("handler.settlekey.lake_retrieve_failed"));
 							}
 						});
 						return true;
@@ -562,7 +575,7 @@ namespace ATSAccessibility.Handlers {
 					if (building != null)
 						_moveModeController?.EnterMoveMode(building);
 					else
-						Speech.Say("No building here");
+						Speech.Say(Strings.Get("common.no_building_here"));
 					return true;
 
 				// Scanner search
@@ -572,7 +585,7 @@ namespace ATSAccessibility.Handlers {
 							_mapScanner.ClearSearchResults();
 						_searchBuffer.Clear();
 						_searchInputActive = true;
-						Speech.Say("Search");
+						Speech.Say(Strings.Get("handler.settlekey.search"));
 					}
 					return true;
 
@@ -607,14 +620,14 @@ namespace ATSAccessibility.Handlers {
 				case KeyCode.Escape:
 					_searchInputActive = false;
 					_searchBuffer.Clear();
-					Speech.Say("Search cancelled");
+					Speech.Say(Strings.Get("common.search_cancelled"));
 					InputBlocker.BlockCancelOnce = true;
 					return true;
 
 				case KeyCode.Backspace:
 					if (_searchBuffer.Length > 0) {
 						_searchBuffer.Remove(_searchBuffer.Length - 1, 1);
-						Speech.Say(_searchBuffer.Length > 0 ? _searchBuffer.ToString() : "empty");
+						Speech.Say(_searchBuffer.Length > 0 ? _searchBuffer.ToString() : Strings.Get("common.empty_lower"));
 					}
 					return true;
 
@@ -648,12 +661,12 @@ namespace ATSAccessibility.Handlers {
 			_numberedBookmarkSet[slot] = true;
 			_numberedBookmarkX[slot] = _mapNavigator.CursorX;
 			_numberedBookmarkY[slot] = _mapNavigator.CursorY;
-			Speech.Say($"Bookmark {slot} set");
+			Speech.Say(Strings.Get("handler.settlekey.bookmark_set_n", slot));
 		}
 
 		private void JumpToNumberedBookmark(int slot) {
 			if (!_numberedBookmarkSet[slot]) {
-				Speech.Say($"No bookmark {slot}");
+				Speech.Say(Strings.Get("handler.settlekey.no_bookmark_slot", slot));
 				return;
 			}
 			_mapNavigator.SetCursorPosition(_numberedBookmarkX[slot], _numberedBookmarkY[slot]);
@@ -666,10 +679,10 @@ namespace ATSAccessibility.Handlers {
 			int distance = Math.Max(Math.Abs(dx), Math.Abs(dy));
 
 			if (distance == 0) {
-				Speech.Say("here");
+				Speech.Say(Strings.Get("common.here_lower"));
 			} else {
 				string direction = NavigationUtils.GetDirection(dx, dy);
-				Speech.Say($"{distance} tiles {direction}");
+				Speech.Say(Strings.Get("handler.settlekey.direction", distance, direction));
 			}
 		}
 
@@ -716,9 +729,9 @@ namespace ATSAccessibility.Handlers {
 
 			if (filtered.Count == 0) {
 				if (_workerCategoryIndex > 0)
-					Speech.Say($"No {WorkerCategories[_workerCategoryIndex].ToLowerInvariant()} buildings");
+					Speech.Say(Strings.Get("handler.settlekey.no_category_buildings", WorkerCategories[_workerCategoryIndex].ToLowerInvariant()));
 				else
-					Speech.Say("No buildings with worker slots");
+					Speech.Say(Strings.Get("handler.settlekey.no_worker_buildings"));
 				return;
 			}
 
@@ -732,26 +745,26 @@ namespace ATSAccessibility.Handlers {
 			_mapNavigator.SetCursorPosition(selected.pos.x, selected.pos.y);
 
 			string summary = WorkerInfoHelper.GetWorkerSummary(selected.building);
-			Speech.Say($"{selected.name}, {summary}");
+			Speech.Say(Strings.Get("handler.settlekey.worker_cycle", selected.name, summary));
 		}
 
 		private void ToggleTreeMark() {
 			var pos = new Vector2Int(_mapNavigator.CursorX, _mapNavigator.CursorY);
 			var resource = MapReflection.GetNaturalResourceAt(pos);
 			if (resource == null) {
-				Speech.Say("No tree here");
+				Speech.Say(Strings.Get("common.no_tree_here"));
 				return;
 			}
 
 			if (MapReflection.IsNaturalResourceMarked(resource)) {
 				MapReflection.UnmarkNaturalResourceAt(pos);
-				Speech.Say("Unmarked");
+				Speech.Say(Strings.Get("handler.settlekey.unmarked"));
 			} else {
 				MapReflection.MarkNaturalResourceAt(pos);
 				if (MapReflection.IsNaturalResourceGladeEdge(pos))
-					Speech.Say("Marked, glade edge");
+					Speech.Say(Strings.Get("handler.settlekey.marked_glade_edge"));
 				else
-					Speech.Say("Marked");
+					Speech.Say(Strings.Get("handler.settlekey.marked"));
 			}
 		}
 
@@ -778,24 +791,24 @@ namespace ATSAccessibility.Handlers {
 			int newPrio = Math.Max(-5, Math.Min(5, current + delta));
 
 			if (newPrio == current) {
-				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				Speech.Say(delta > 0 ? Strings.Get("common.maximum") : Strings.Get("common.minimum"));
 				return;
 			}
 
 			if (global) {
 				setGlobalPriority(target, newPrio);
 				string name = getDisplayName(target);
-				Speech.Say($"All {name} set to priority {FormatNodePriority(newPrio)}");
+				Speech.Say(Strings.Get("handler.settlekey.priority_global_all", name, FormatNodePriority(newPrio)));
 			} else {
 				setPriority(target, newPrio);
-				Speech.Say($"Priority: {FormatNodePriority(newPrio)}");
+				Speech.Say(Strings.Get("handler.settlekey.priority_local", FormatNodePriority(newPrio)));
 			}
 		}
 
 		private static string FormatNodePriority(int priority) {
-			if (priority == -5) return "-5 (lowest)";
-			if (priority == 5) return "5 (highest)";
-			if (priority == 0) return "0 (default)";
+			if (priority == -5) return Strings.Get("common.priority_lowest");
+			if (priority == 5) return Strings.Get("common.priority_highest");
+			if (priority == 0) return Strings.Get("common.priority_default");
 			return priority.ToString();
 		}
 

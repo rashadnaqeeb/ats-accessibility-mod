@@ -27,8 +27,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Newcomers";
-		protected override string EmptyMessage => "No groups available";
+		protected override string OverlayName => Strings.Get("common.newcomers");
+		protected override string EmptyMessage => Strings.Get("overlay.newcomers.empty");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -44,7 +44,7 @@ namespace ATSAccessibility.Overlays {
 			// 1. Dialogue item (hardcoded NPC text - popup TMPro text is not reliably readable)
 			_items.Add(new NavItem {
 				Type = ItemType.Dialogue,
-				Label = "Pervun Runebeak, Royal Stormwalker: These people have been sent here by the Crown. Which group do you want to stay, Viceroy? The other will continue on to the next settlement."
+				Label = Strings.Get("overlay.newcomers.dialogue")
 			});
 
 			// 2. Group options
@@ -58,7 +58,7 @@ namespace ATSAccessibility.Overlays {
 					_items.Add(new NavItem {
 						Type = ItemType.Group,
 						GroupData = group,
-						Label = $"Group {i + 1}: {groupLabel}"
+						Label = Strings.Get("overlay.newcomers.group", i + 1, groupLabel)
 					});
 				}
 			}
@@ -102,7 +102,7 @@ namespace ATSAccessibility.Overlays {
 
 		private void ActivateGroup(NavItem item) {
 			if (!NewcomersReflection.PickGroup(_popup, item.GroupData)) {
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 				return;
 			}

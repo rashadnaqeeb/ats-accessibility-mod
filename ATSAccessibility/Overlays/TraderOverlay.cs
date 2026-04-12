@@ -70,8 +70,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Trader";
-		protected override string EmptyMessage => "No trader information available";
+		protected override string OverlayName => Strings.Get("common.trader");
+		protected override string EmptyMessage => Strings.Get("overlay.trader.empty");
 
 		protected override int GetItemCount() {
 			if (Level == 0) {
@@ -171,12 +171,12 @@ namespace ATSAccessibility.Overlays {
 		protected override string GetOpenAnnouncement() {
 			if (_mode == Mode.NoTrader) {
 				if (_noTraderItems.Count > 0)
-					return $"Trader. {_noTraderItems[0].Label}";
-				return "Trader. No trader information available";
+					return Strings.Get("overlay.trader.open.no_trader", _noTraderItems[0].Label);
+				return Strings.Get("overlay.trader.open.no_info");
 			} else {
 				if (_mainMenuItems.Count > 0)
-					return $"Trader. {_mainMenuItems[0].Label}";
-				return "Trader";
+					return Strings.Get("overlay.trader.open.present", _mainMenuItems[0].Label);
+				return Strings.Get("common.trader");
 			}
 		}
 
@@ -269,13 +269,13 @@ namespace ATSAccessibility.Overlays {
 			if (string.IsNullOrEmpty(traderName)) {
 				if (TradeReflection.IsTradingBlocked()) {
 					_noTraderItems.Add(new NavItem {
-						Label = "Trading is blocked",
+						Label = Strings.Get("common.trading_is_blocked"),
 						SearchName = null,
 						OnActivate = null
 					});
 				} else {
 					_noTraderItems.Add(new NavItem {
-						Label = "No trader on the way. Traders may be too scared to visit",
+						Label = Strings.Get("overlay.trader.no_trader"),
 						SearchName = null,
 						OnActivate = null
 					});
@@ -289,25 +289,25 @@ namespace ATSAccessibility.Overlays {
 			string arrivalInfo;
 
 			if (TradeReflection.IsTradingBlocked()) {
-				arrivalInfo = "Trading blocked";
+				arrivalInfo = Strings.Get("overlay.trader.arrival.blocked");
 			} else if (isStorm) {
 				float stormEnds = TradeReflection.GetTimeTillSeasonChange();
 				if (progress >= 1f) {
-					arrivalInfo = $"waiting for storm to end, {FormattingUtils.FormatTime(stormEnds)} remaining";
+					arrivalInfo = Strings.Get("overlay.trader.arrival.waiting_storm", FormattingUtils.FormatTime(stormEnds));
 				} else {
-					arrivalInfo = $"travel paused during storm, {Mathf.RoundToInt(progress * 100)}% traveled, storm ends in {FormattingUtils.FormatTime(stormEnds)}";
+					arrivalInfo = Strings.Get("overlay.trader.arrival.travel_paused", Mathf.RoundToInt(progress * 100), FormattingUtils.FormatTime(stormEnds));
 				}
 			} else if (timeToArrival > 0) {
-				arrivalInfo = $"arriving in {FormattingUtils.FormatTime(timeToArrival)}";
+				arrivalInfo = Strings.Get("overlay.trader.arrival.arriving_in", FormattingUtils.FormatTime(timeToArrival));
 			} else if (progress < 1f) {
-				arrivalInfo = $"{Mathf.RoundToInt(progress * 100)}% traveled";
+				arrivalInfo = Strings.Get("overlay.trader.arrival.traveled", Mathf.RoundToInt(progress * 100));
 			} else {
-				arrivalInfo = "arriving soon";
+				arrivalInfo = Strings.Get("overlay.trader.arrival.arriving_soon");
 			}
 
 			string headerLabel = !string.IsNullOrEmpty(traderLabel)
-				? $"Next trader: {traderName}, {traderLabel}, {arrivalInfo}"
-				: $"Next trader: {traderName}, {arrivalInfo}";
+				? Strings.Get("overlay.trader.next.with_label", traderName, traderLabel, arrivalInfo)
+				: Strings.Get("overlay.trader.next", traderName, arrivalInfo);
 
 			_noTraderItems.Add(new NavItem {
 				Label = headerLabel,
@@ -328,14 +328,14 @@ namespace ATSAccessibility.Overlays {
 				if (TradeReflection.CanForceArrival()) {
 					float cost = TradeReflection.GetForceArrivalCost();
 					_noTraderItems.Add(new NavItem {
-						Label = $"Force arrival, costs {cost:F1} Impatience",
-						SearchName = "Force",
+						Label = Strings.Get("overlay.trader.force.available", cost),
+						SearchName = Strings.Get("overlay.trader.force.search"),
 						OnActivate = ActivateForceArrival
 					});
 				} else {
-					string reason = TradeReflection.GetForceArrivalUnavailableReason() ?? "unavailable";
+					string reason = TradeReflection.GetForceArrivalUnavailableReason() ?? Strings.Get("overlay.trader.force.unavailable");
 					_noTraderItems.Add(new NavItem {
-						Label = $"Force arrival: {reason}",
+						Label = Strings.Get("overlay.trader.force.reason", reason),
 						SearchName = null,
 						OnActivate = null
 					});
@@ -345,20 +345,20 @@ namespace ATSAccessibility.Overlays {
 
 		private void ActivateForceArrival() {
 			if (!TradeReflection.CanForceArrival()) {
-				Speech.Say("Cannot force arrival");
+				Speech.Say(Strings.Get("overlay.trader.force.cannot"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (TradeReflection.ForceTraderArrival()) {
 				SoundManager.PlayButtonClick();
-				Speech.Say("Trader arrival forced");
+				Speech.Say(Strings.Get("overlay.trader.force.forced"));
 				RefreshNoTraderData();
 				CurrentIndex = 0;
 				if (_noTraderItems.Count > 0)
 					Speech.Say(_noTraderItems[0].Label);
 			} else {
-				Speech.Say("Failed to force arrival");
+				Speech.Say(Strings.Get("overlay.trader.force.failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -377,17 +377,17 @@ namespace ATSAccessibility.Overlays {
 		private void RefreshMainMenu() {
 			_mainMenuItems.Clear();
 
-			string traderName = TradeReflection.GetTraderName() ?? "Unknown";
+			string traderName = TradeReflection.GetTraderName() ?? Strings.Get("common.unknown");
 			string traderLabel = TradeReflection.GetTraderLabel() ?? "";
 			float timeLeft = TradeReflection.GetStayingTimeLeft();
 			string dialogue = TradeReflection.GetTraderDialogue() ?? "";
 
 			string infoLabel = !string.IsNullOrEmpty(traderLabel)
-				? $"{traderName}, {traderLabel}, {FormattingUtils.FormatTime(timeLeft)} remaining"
-				: $"{traderName}, {FormattingUtils.FormatTime(timeLeft)} remaining";
+				? Strings.Get("overlay.trader.info.with_label", traderName, traderLabel, FormattingUtils.FormatTime(timeLeft))
+				: Strings.Get("overlay.trader.info", traderName, FormattingUtils.FormatTime(timeLeft));
 
 			if (!string.IsNullOrEmpty(dialogue))
-				infoLabel += $". {dialogue}";
+				infoLabel += Strings.Get("overlay.trader.info.dialogue", dialogue);
 
 			_mainMenuItems.Add(new NavItem {
 				Label = infoLabel,
@@ -396,8 +396,8 @@ namespace ATSAccessibility.Overlays {
 			});
 
 			_mainMenuItems.Add(new NavItem {
-				Label = "Goods Trade",
-				SearchName = "Goods",
+				Label = Strings.Get("overlay.trader.goods_trade"),
+				SearchName = Strings.Get("common.goods"),
 				OnActivate = () => EnterGoodsTrade()
 			});
 
@@ -406,15 +406,15 @@ namespace ATSAccessibility.Overlays {
 				if (!p.Sold) unsoldPerks++;
 
 			_mainMenuItems.Add(new NavItem {
-				Label = unsoldPerks > 0 ? $"Perks, {unsoldPerks} available" : "Perks, none available",
-				SearchName = "Perks",
+				Label = unsoldPerks > 0 ? Strings.Get("overlay.trader.perks", unsoldPerks) : Strings.Get("overlay.trader.perks.none"),
+				SearchName = Strings.Get("common.perks"),
 				OnActivate = () => EnterPerks()
 			});
 
 			if (TradeReflection.CanAssaultTrader()) {
 				_mainMenuItems.Add(new NavItem {
-					Label = "Assault Trader",
-					SearchName = "Assault",
+					Label = Strings.Get("overlay.trader.assault"),
+					SearchName = Strings.Get("overlay.trader.search.assault"),
 					OnActivate = () => EnterAssaultConfirm()
 				});
 			}
@@ -492,17 +492,17 @@ namespace ATSAccessibility.Overlays {
 
 		private void AnnounceSellTab() {
 			if (_sellGoods.Count > 0) {
-				Speech.Say($"Sell tab. {BuildGoodLabel(_sellGoods[0])}");
+				Speech.Say(Strings.Get("overlay.trader.sell_tab", BuildGoodLabel(_sellGoods[0])));
 			} else {
-				Speech.Say("Sell tab. No goods to sell");
+				Speech.Say(Strings.Get("overlay.trader.sell_tab.empty"));
 			}
 		}
 
 		private void AnnounceBuyTab() {
 			if (_buyGoods.Count > 0) {
-				Speech.Say($"Buy tab. {BuildGoodLabel(_buyGoods[0])}");
+				Speech.Say(Strings.Get("overlay.trader.buy_tab", BuildGoodLabel(_buyGoods[0])));
 			} else {
-				Speech.Say("Buy tab. No goods available");
+				Speech.Say(Strings.Get("overlay.trader.buy_tab.empty"));
 			}
 		}
 
@@ -513,14 +513,14 @@ namespace ATSAccessibility.Overlays {
 					: TradeReflection.GetGoodBuyValue(good.Name, good.OfferedAmount);
 
 				if (good.IsSell)
-					return $"{good.DisplayName}, {good.MaxAmount} stored, {good.OfferedAmount} offered, {totalValue:F2} Amber";
+					return Strings.Get("overlay.trader.good.sell.offered", good.DisplayName, good.MaxAmount, good.OfferedAmount, totalValue);
 				else
-					return $"{good.DisplayName}, {good.MaxAmount} available, {good.OfferedAmount} requested, {totalValue:F2} Amber";
+					return Strings.Get("overlay.trader.good.buy.offered", good.DisplayName, good.MaxAmount, good.OfferedAmount, totalValue);
 			} else {
 				if (good.IsSell)
-					return $"{good.DisplayName}, {good.MaxAmount} stored, {good.UnitValue:F2} each";
+					return Strings.Get("overlay.trader.good.sell", good.DisplayName, good.MaxAmount, good.UnitValue);
 				else
-					return $"{good.DisplayName}, {good.MaxAmount} available, {good.UnitValue:F2} each";
+					return Strings.Get("overlay.trader.good.buy", good.DisplayName, good.MaxAmount, good.UnitValue);
 			}
 		}
 
@@ -537,7 +537,7 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			float balance = CalculateBalance();
-			Speech.Say($"{good.OfferedAmount}, balance {balance:F2}");
+			Speech.Say(Strings.Get("overlay.trader.adjust", good.OfferedAmount, balance));
 		}
 
 		private float CalculateBalance() {
@@ -548,9 +548,9 @@ namespace ATSAccessibility.Overlays {
 		private void AnnounceBalance() {
 			CalculateTradeTotals(out float sellTotal, out float buyTotal);
 			float balance = sellTotal - buyTotal;
-			string fairness = balance >= 0 ? "fair" : "unfair";
+			string fairness = Strings.Get(balance >= 0 ? "overlay.trader.balance.fair" : "overlay.trader.balance.unfair");
 
-			Speech.Say($"Selling {sellTotal:F2}, Buying {buyTotal:F2}, Balance {balance:F2}, {fairness}");
+			Speech.Say(Strings.Get("overlay.trader.balance", sellTotal, buyTotal, balance, fairness));
 		}
 
 		private void CalculateTradeTotals(out float sellTotal, out float buyTotal) {
@@ -577,7 +577,7 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			if (!buyingAnything) {
-				Speech.Say("Not buying anything");
+				Speech.Say(Strings.Get("overlay.trader.accept.nothing"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -587,7 +587,7 @@ namespace ATSAccessibility.Overlays {
 			foreach (var g in _sellGoods) {
 				if (g.OfferedAmount > 0) {
 					sellTotal += TradeReflection.GetGoodSellValue(g.Name, g.OfferedAmount);
-					sellList.Add($"{g.OfferedAmount} {g.DisplayName}");
+					sellList.Add(Strings.Get("overlay.trader.accept.sell_item", g.OfferedAmount, g.DisplayName));
 				}
 			}
 
@@ -596,23 +596,23 @@ namespace ATSAccessibility.Overlays {
 			foreach (var g in _buyGoods) {
 				if (g.OfferedAmount > 0) {
 					buyTotal += TradeReflection.GetGoodBuyValue(g.Name, g.OfferedAmount);
-					buyList.Add($"{g.OfferedAmount} {g.DisplayName}");
+					buyList.Add(Strings.Get("overlay.trader.accept.sell_item", g.OfferedAmount, g.DisplayName));
 				}
 			}
 
 			float balance = sellTotal - buyTotal;
 
 			if (balance < 0) {
-				Speech.Say($"Trade unfair, need {Mathf.Abs(balance):F2} more");
+				Speech.Say(Strings.Get("overlay.trader.accept.unfair", Mathf.Abs(balance)));
 				SoundManager.PlayFailed();
 				return;
 			}
 
-			string sellText = sellList.Count > 0 ? string.Join(", ", sellList) : "nothing";
-			string buyText = buyList.Count > 0 ? string.Join(", ", buyList) : "nothing";
+			string sellText = sellList.Count > 0 ? string.Join(", ", sellList) : Strings.Get("overlay.trader.accept.side_nothing");
+			string buyText = buyList.Count > 0 ? string.Join(", ", buyList) : Strings.Get("overlay.trader.accept.side_nothing");
 
 			_confirmState = ConfirmState.Trade;
-			Speech.Say($"Selling: {sellText}. Buying: {buyText}. Balance: {balance:F2}. Enter to confirm, Escape to cancel");
+			Speech.Say(Strings.Get("overlay.trader.accept.confirm", sellText, buyText, balance));
 		}
 
 		// ========================================
@@ -628,27 +628,27 @@ namespace ATSAccessibility.Overlays {
 			SoundManager.PlayButtonClick();
 
 			if (_perks.Count > 0) {
-				Speech.Say($"Perks. {BuildPerkLabel(_perks[0])}");
+				Speech.Say(Strings.Get("overlay.trader.perks.header", BuildPerkLabel(_perks[0])));
 			} else {
-				Speech.Say("Perks. No perks available");
+				Speech.Say(Strings.Get("overlay.trader.perks.header.empty"));
 			}
 		}
 
 		private string BuildPerkLabel(PerkItem perk) {
 			string nameAndDesc = !string.IsNullOrEmpty(perk.Description)
-				? $"{perk.DisplayName}. {perk.Description}"
+				? Strings.Get("overlay.trader.perk.with_desc", perk.DisplayName, perk.Description)
 				: perk.DisplayName;
 
 			if (perk.Sold) {
-				return $"{nameAndDesc}, sold";
+				return Strings.Get("overlay.trader.perk.sold", nameAndDesc);
 			}
 
 			if (perk.Discounted) {
 				int discountPercent = Mathf.RoundToInt((1f - perk.DiscountRatio) * 100);
-				return $"{nameAndDesc}, {perk.Price:F0} Amber, {discountPercent}% off";
+				return Strings.Get("overlay.trader.perk.discounted", nameAndDesc, perk.Price, discountPercent);
 			}
 
-			return $"{nameAndDesc}, {perk.Price:F0} Amber";
+			return Strings.Get("overlay.trader.perk.full", nameAndDesc, perk.Price);
 		}
 
 		private void BuyCurrentPerk() {
@@ -656,14 +656,14 @@ namespace ATSAccessibility.Overlays {
 
 			var perk = _perks[CurrentIndex];
 			if (perk.Sold) {
-				Speech.Say("Already sold");
+				Speech.Say(Strings.Get("overlay.trader.perk.already_sold"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			int amber = TradeReflection.GetAmberInStorage();
 			if (amber < perk.Price) {
-				Speech.Say($"Not enough Amber, have {amber}, need {perk.Price:F0}");
+				Speech.Say(Strings.Get("overlay.trader.perk.not_enough", amber, perk.Price));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -674,13 +674,13 @@ namespace ATSAccessibility.Overlays {
 				var traderSound = TradeReflection.GetTraderTransactionSound();
 				if (traderSound != null)
 					SoundManager.PlaySoundEffect(traderSound);
-				Speech.Say($"Purchased {perk.DisplayName}");
+				Speech.Say(Strings.Get("overlay.trader.perk.purchased", perk.DisplayName));
 				RefreshPerks();
 				RefreshSellGoods();
 				RefreshBuyGoods();
 				RefreshMainMenu();
 			} else {
-				Speech.Say("Purchase failed");
+				Speech.Say(Strings.Get("common.purchase_failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -692,7 +692,7 @@ namespace ATSAccessibility.Overlays {
 		private void EnterAssaultConfirm() {
 			_confirmState = ConfirmState.Assault;
 			SoundManager.PlayButtonClick();
-			Speech.Say("Assault trader? May lose villagers and reputation. Enter to confirm, Escape to cancel");
+			Speech.Say(Strings.Get("overlay.trader.assault.confirm"));
 		}
 
 		// ========================================
@@ -709,7 +709,7 @@ namespace ATSAccessibility.Overlays {
 
 					case KeyCode.Escape:
 						_confirmState = ConfirmState.None;
-						Speech.Say($"Cancelled. {_mainMenuItems[CurrentIndex].Label}");
+						Speech.Say(Strings.Get("overlay.trader.assault.cancelled", _mainMenuItems[CurrentIndex].Label));
 						InputBlocker.BlockCancelOnce = true;
 						return true;
 
@@ -726,7 +726,7 @@ namespace ATSAccessibility.Overlays {
 
 				case KeyCode.Escape:
 					_confirmState = ConfirmState.None;
-					Speech.Say("Cancelled");
+					Speech.Say(Strings.Get("common.cancelled"));
 					InputBlocker.BlockCancelOnce = true;
 					return true;
 
@@ -741,9 +741,9 @@ namespace ATSAccessibility.Overlays {
 
 			if (result.Success) {
 				SoundManager.PlayButtonClick();
-				Speech.Say($"Assault successful. Stole {result.GoodsStolen} goods, {result.PerksStolen} perks. Lost {result.VillagersLost} villagers");
+				Speech.Say(Strings.Get("overlay.trader.assault.success", result.GoodsStolen, result.PerksStolen, result.VillagersLost));
 			} else {
-				Speech.Say("Assault failed");
+				Speech.Say(Strings.Get("overlay.trader.assault.failed"));
 				SoundManager.PlayFailed();
 				CurrentIndex = 0;
 			}
@@ -769,10 +769,10 @@ namespace ATSAccessibility.Overlays {
 				var traderSound = TradeReflection.GetTraderTransactionSound();
 				if (traderSound != null)
 					SoundManager.PlaySoundEffect(traderSound);
-				Speech.Say("Trade complete");
+				Speech.Say(Strings.Get("overlay.trader.trade.done"));
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Trade failed");
+				Speech.Say(Strings.Get("overlay.trader.trade.failed"));
 			}
 
 			foreach (var g in _sellGoods)

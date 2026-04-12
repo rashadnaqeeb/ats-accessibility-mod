@@ -63,8 +63,8 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE ABSTRACTS
 		// ========================================
 
-		protected override string OverlayName => "Notifications";
-		protected override string EmptyMessage => "No messages";
+		protected override string OverlayName => Strings.Get("panel.announcement_history.title");
+		protected override string EmptyMessage => Strings.Get("panel.announcement_history.empty");
 
 		protected override int GetItemCount() {
 			lock (_lock) { return _history.Count; }
@@ -100,7 +100,7 @@ namespace ATSAccessibility.Panels {
 			lock (_lock) {
 				if (_history.Count == 0)
 					return EmptyMessage;
-				return $"Notifications. {_history[0].Message}";
+				return Strings.Get("panel.announcement_history.open", _history[0].Message);
 			}
 		}
 
@@ -117,7 +117,7 @@ namespace ATSAccessibility.Panels {
 		protected override void OnClosed() {
 			if (!_suppressCloseAnnouncement) {
 				InputBlocker.BlockCancelOnce = true;
-				Speech.Say("Notifications closed");
+				Speech.Say(Strings.Get("panel.announcement_history.closed"));
 			}
 			_suppressCloseAnnouncement = false;
 		}
@@ -143,7 +143,7 @@ namespace ATSAccessibility.Panels {
 			}
 
 			if (!location.HasValue) {
-				Speech.Say("No location");
+				Speech.Say(Strings.Get("panel.announcement_history.no_location"));
 				return;
 			}
 
@@ -173,7 +173,7 @@ namespace ATSAccessibility.Panels {
 			}
 
 			if (!location.HasValue) {
-				Speech.Say("No event locations");
+				Speech.Say(Strings.Get("panel.announcement_history.no_event_locations"));
 				return;
 			}
 

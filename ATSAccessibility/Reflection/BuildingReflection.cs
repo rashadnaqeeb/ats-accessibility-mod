@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -5581,12 +5582,12 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		private static string GetRomanNumeral(int number) {
 			switch (number) {
-				case 1: return "Level I";
-				case 2: return "Level II";
-				case 3: return "Level III";
-				case 4: return "Level IV";
-				case 5: return "Level V";
-				default: return $"Level {number}";
+				case 1: return Strings.Get("reflection.building.level_1");
+				case 2: return Strings.Get("reflection.building.level_2");
+				case 3: return Strings.Get("reflection.building.level_3");
+				case 4: return Strings.Get("reflection.building.level_4");
+				case 5: return Strings.Get("reflection.building.level_5");
+				default: return Strings.Get("reflection.building.level_n", number);
 			}
 		}
 

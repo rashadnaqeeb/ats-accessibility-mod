@@ -65,8 +65,8 @@ namespace ATSAccessibility.Navigators {
 
 		protected override void AnnounceSection(int sectionIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Status) {
-				string status = _isSleeping ? "Paused" : "Active";
-				Speech.Say($"Status: {status}");
+				string status = _isSleeping ? Strings.Get("common.paused") : Strings.Get("common.active");
+				Speech.Say(Strings.Get("nav.common.status_line", status));
 				return;
 			}
 
@@ -110,7 +110,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Workers)
-				return "No free workers";
+				return Strings.Get("common.no_free_workers");
 			return null;
 		}
 
@@ -184,22 +184,22 @@ namespace ATSAccessibility.Navigators {
 			var types = new System.Collections.Generic.List<SectionType>();
 
 			// Always have Status
-			sections.Add("Status");
+			sections.Add(Strings.Get("common.status"));
 			types.Add(SectionType.Status);
 
 			// Water section
-			sections.Add("Water");
+			sections.Add(Strings.Get("nav.water.section.water"));
 			types.Add(SectionType.Water);
 
 			// Workers section (only if building currently accepts worker assignment)
 			if (TryInitializeWorkersSection()) {
-				sections.Add("Workers");
+				sections.Add(Strings.Get("common.workers"));
 				types.Add(SectionType.Workers);
 			}
 
 			// Add Upgrades section if available
 			if (TryInitializeUpgradesSection()) {
-				sections.Add("Upgrades");
+				sections.Add(Strings.Get("common.upgrades"));
 				types.Add(SectionType.Upgrades);
 			}
 
@@ -225,8 +225,8 @@ namespace ATSAccessibility.Navigators {
 
 			// Water type
 			if (itemIndex == index) {
-				string typeName = _waterTypeName ?? "Unknown";
-				Speech.Say($"Water type: {typeName}");
+				string typeName = _waterTypeName ?? Strings.Get("common.unknown");
+				Speech.Say(Strings.Get("nav.water.water_type", typeName));
 				return;
 			}
 			index++;
@@ -235,9 +235,9 @@ namespace ATSAccessibility.Navigators {
 			if (itemIndex == index) {
 				if (_tankCapacity > 0) {
 					int percent = (int)(((float)_tankCurrent / _tankCapacity) * 100);
-					Speech.Say($"Storage: {_tankCurrent} of {_tankCapacity} ({percent}%)");
+					Speech.Say(Strings.Get("nav.water.storage_full", _tankCurrent, _tankCapacity, percent));
 				} else {
-					Speech.Say($"Storage: {_tankCurrent}");
+					Speech.Say(Strings.Get("nav.water.storage_only", _tankCurrent));
 				}
 				return;
 			}
@@ -247,14 +247,14 @@ namespace ATSAccessibility.Navigators {
 				// Production time
 				if (itemIndex == index) {
 					string timeStr = FormatTime(_productionTime);
-					Speech.Say($"Production time: {timeStr}");
+					Speech.Say(Strings.Get("nav.water.production_time", timeStr));
 					return;
 				}
 				index++;
 
 				// Amount per cycle
 				if (itemIndex == index) {
-					Speech.Say($"Amount per cycle: {_producedAmount}");
+					Speech.Say(Strings.Get("nav.water.amount_per_cycle", _producedAmount));
 					return;
 				}
 			}
@@ -262,14 +262,22 @@ namespace ATSAccessibility.Navigators {
 
 		private string FormatTime(float seconds) {
 			if (seconds < 60) {
-				return $"{seconds:F0} seconds";
+				return Strings.Get("nav.water.time.seconds", $"{seconds:F0}");
 			} else {
 				int minutes = (int)(seconds / 60);
 				int remainingSeconds = (int)(seconds % 60);
 				if (remainingSeconds == 0) {
-					return $"{minutes} minute{(minutes > 1 ? "s" : "")}";
+					return minutes > 1
+						? Strings.Get("nav.water.time.minutes_plural", minutes)
+						: Strings.Get("nav.water.time.minutes_singular", minutes);
 				}
-				return $"{minutes} minute{(minutes > 1 ? "s" : "")} {remainingSeconds} second{(remainingSeconds > 1 ? "s" : "")}";
+				string minutesPart = minutes > 1
+					? Strings.Get("nav.water.time.minutes_plural", minutes)
+					: Strings.Get("nav.water.time.minutes_singular", minutes);
+				string secondsPart = remainingSeconds > 1
+					? Strings.Get("nav.water.time.seconds_plural", remainingSeconds)
+					: Strings.Get("nav.water.time.seconds_singular", remainingSeconds);
+				return minutesPart + " " + secondsPart;
 			}
 		}
 

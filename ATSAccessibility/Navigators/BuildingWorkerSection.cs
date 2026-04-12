@@ -129,18 +129,18 @@ namespace ATSAccessibility.Navigators {
 					int id = _looseAutomatonIds[looseIndex];
 					var actor = AutomatonReflection.GetAutomaton(id);
 					string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
-					string label = displayName != null ? $"{displayName} automaton" : "Automaton";
+					string label = displayName != null ? Strings.Get("nav.workers.automaton_labeled", displayName) : Strings.Get("nav.workers.automaton");
 					string task = BuildingReflection.GetActorTaskDescription(actor);
-					Speech.Say(!string.IsNullOrEmpty(task) ? $"{label}, {task}" : label);
+					Speech.Say(!string.IsNullOrEmpty(task) ? Strings.Get("nav.workers.automaton_with_task", label, task) : label);
 				} else {
-					Speech.Say("Invalid automaton");
+					Speech.Say(Strings.Get("nav.workers.invalid_automaton"));
 				}
 				return;
 			}
 
 			// Worker slot
 			if (!IsValidWorkerIndex(itemIndex)) {
-				Speech.Say("Invalid worker slot");
+				Speech.Say(Strings.Get("nav.workers.invalid_slot"));
 				return;
 			}
 
@@ -148,17 +148,17 @@ namespace ATSAccessibility.Navigators {
 			int slotNum = itemIndex + 1;
 
 			if (workerId <= 0) {
-				Speech.Say($"Worker slot {slotNum}: Empty");
+				Speech.Say(Strings.Get("nav.workers.slot_empty", slotNum));
 				return;
 			}
 
 			string workerDesc = BuildingReflection.GetWorkerDescription(workerId);
 			if (string.IsNullOrEmpty(workerDesc)) {
-				Speech.Say($"Worker slot {slotNum}: Assigned");
+				Speech.Say(Strings.Get("nav.workers.slot_assigned", slotNum));
 				return;
 			}
 
-			Speech.Say($"Worker slot {slotNum}: {workerDesc}");
+			Speech.Say(Strings.Get("nav.workers.slot_with_desc", slotNum, workerDesc));
 		}
 
 		/// <summary>
@@ -166,7 +166,7 @@ namespace ATSAccessibility.Navigators {
 		/// </summary>
 		public void AnnounceSubItem(int workerIndex, int subItemIndex) {
 			if (!IsValidWorkerIndex(workerIndex)) {
-				Speech.Say("Invalid worker slot");
+				Speech.Say(Strings.Get("nav.workers.invalid_slot"));
 				return;
 			}
 
@@ -174,7 +174,7 @@ namespace ATSAccessibility.Navigators {
 			int raceOffset = slotOccupied ? 1 : 0;
 
 			if (slotOccupied && subItemIndex == 0) {
-				Speech.Say("Unassign worker");
+				Speech.Say(Strings.Get("nav.workers.unassign_worker"));
 				return;
 			}
 
@@ -183,13 +183,13 @@ namespace ATSAccessibility.Navigators {
 				var (raceName, freeCount) = _availableRaces[raceIndex];
 				var (bonus, bonusType) = BuildingReflection.GetRaceBonusWithType(_building, raceName);
 				if (!string.IsNullOrEmpty(bonus)) {
-					string typeStr = !string.IsNullOrEmpty(bonusType) ? $" {bonusType}" : "";
-					Speech.Say($"{raceName}: {freeCount} available, {bonus}{typeStr}");
+					string typeStr = !string.IsNullOrEmpty(bonusType) ? Strings.Get("nav.workers.bonus_type_suffix", bonusType) : "";
+					Speech.Say(Strings.Get("nav.workers.race_available_with_bonus", raceName, freeCount, bonus, typeStr));
 				} else {
-					Speech.Say($"{raceName}: {freeCount} available");
+					Speech.Say(Strings.Get("nav.workers.race_available", raceName, freeCount));
 				}
 			} else {
-				Speech.Say("Invalid option");
+				Speech.Say(Strings.Get("nav.workers.invalid_option"));
 			}
 		}
 
@@ -200,12 +200,12 @@ namespace ATSAccessibility.Navigators {
 		public bool PerformSubItemAction(int workerIndex, int subItemIndex) {
 			// Block interaction for loose automatons and automaton-occupied slots
 			if (workerIndex >= _maxWorkers) {
-				Speech.Say("Automaton, cannot reassign");
+				Speech.Say(Strings.Get("nav.workers.automaton_cannot_reassign"));
 				return false;
 			}
 			if (!IsValidWorkerIndex(workerIndex)) return false;
 			if (IsAutomatonSlot(workerIndex)) {
-				Speech.Say("Automaton, cannot reassign");
+				Speech.Say(Strings.Get("nav.workers.automaton_cannot_reassign"));
 				return false;
 			}
 
@@ -217,10 +217,10 @@ namespace ATSAccessibility.Navigators {
 				if (BuildingReflection.UnassignWorkerFromSlot(_building, workerIndex)) {
 					RefreshWorkerIds();
 					RefreshAvailableRaces(force: true);
-					Speech.Say("Worker unassigned");
+					Speech.Say(Strings.Get("nav.workers.worker_unassigned"));
 					return true;
 				} else {
-					Speech.Say("Cannot unassign worker");
+					Speech.Say(Strings.Get("nav.workers.cannot_unassign"));
 					return false;
 				}
 			}
@@ -232,7 +232,7 @@ namespace ATSAccessibility.Navigators {
 
 				// Check if race has free workers
 				if (freeCount == 0) {
-					Speech.Say($"No free {raceName} workers");
+					Speech.Say(Strings.Get("nav.workers.no_free_race", raceName));
 					SoundManager.PlayFailed();
 					return false;
 				}
@@ -250,14 +250,14 @@ namespace ATSAccessibility.Navigators {
 					// Announce the new worker
 					if (IsValidWorkerIndex(workerIndex)) {
 						string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
-						Speech.Say($"Assigned: {workerDesc ?? raceName}");
+						Speech.Say(Strings.Get("nav.workers.assigned", workerDesc ?? raceName));
 					} else {
-						Speech.Say($"Assigned: {raceName}");
+						Speech.Say(Strings.Get("nav.workers.assigned", raceName));
 					}
 
 					return true;
 				} else {
-					Speech.Say($"Cannot assign {raceName}");
+					Speech.Say(Strings.Get("nav.workers.cannot_assign_race", raceName));
 					return false;
 				}
 			}
@@ -279,7 +279,7 @@ namespace ATSAccessibility.Navigators {
 				if (looseIndex >= 0 && looseIndex < _looseAutomatonIds.Count) {
 					var actor = AutomatonReflection.GetAutomaton(_looseAutomatonIds[looseIndex]);
 					string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
-					return displayName != null ? $"{displayName} automaton" : "Automaton";
+					return displayName != null ? Strings.Get("nav.workers.automaton_labeled", displayName) : Strings.Get("nav.workers.automaton");
 				}
 				return null;
 			}
@@ -290,10 +290,10 @@ namespace ATSAccessibility.Navigators {
 
 			int workerId = _workerIds[itemIndex];
 			if (workerId <= 0)
-				return $"Slot {itemIndex + 1}";
+				return Strings.Get("nav.workers.slot_name", itemIndex + 1);
 
 			string workerDesc = BuildingReflection.GetWorkerDescription(workerId);
-			return !string.IsNullOrEmpty(workerDesc) ? workerDesc : $"Slot {itemIndex + 1}";
+			return !string.IsNullOrEmpty(workerDesc) ? workerDesc : Strings.Get("nav.workers.slot_name", itemIndex + 1);
 		}
 
 		/// <summary>
@@ -307,7 +307,7 @@ namespace ATSAccessibility.Navigators {
 			int raceOffset = slotOccupied ? 1 : 0;
 
 			if (slotOccupied && subItemIndex == 0) {
-				return "Unassign";
+				return Strings.Get("nav.workers.unassign_search");
 			}
 
 			int raceIndex = subItemIndex - raceOffset;

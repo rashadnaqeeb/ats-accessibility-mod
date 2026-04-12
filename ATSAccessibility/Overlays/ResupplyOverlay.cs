@@ -31,8 +31,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Royal Resupply";
-		protected override string EmptyMessage => "No options";
+		protected override string OverlayName => Strings.Get("overlay.resupply.title");
+		protected override string EmptyMessage => Strings.Get("overlay.resupply.empty");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -66,7 +66,7 @@ namespace ATSAccessibility.Overlays {
 				if (string.IsNullOrEmpty(displayName)) continue;
 
 				if (!string.IsNullOrEmpty(description))
-					_items.Add($"{displayName}: {description}");
+					_items.Add(Strings.Get("overlay.resupply.item_with_desc", displayName, description));
 				else
 					_items.Add(displayName);
 
@@ -78,21 +78,21 @@ namespace ATSAccessibility.Overlays {
 
 		protected override void OnAction(int index) {
 			if (index < 0 || index >= _slots.Count) {
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			var slot = _slots[index];
 			if (slot == null) {
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			EnsureTypes();
 			if (_slotOnClickMethod == null) {
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -102,7 +102,7 @@ namespace ATSAccessibility.Overlays {
 				SoundManager.PlayButtonClick();
 			} catch (System.Exception ex) {
 				Debug.LogError($"[ATSAccessibility] ResupplyOverlay: Failed to pick: {ex.Message}");
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 			}
 		}

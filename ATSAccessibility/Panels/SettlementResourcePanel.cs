@@ -47,8 +47,8 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Resource panel";
-		protected override string EmptyMessage => "No resources in storage";
+		protected override string OverlayName => Strings.Get("panel.resource.title");
+		protected override string EmptyMessage => Strings.Get("panel.resource.empty");
 
 		protected override int GetItemCount() {
 			if (Level == 0)
@@ -65,8 +65,10 @@ namespace ATSAccessibility.Panels {
 				if (index >= 0 && index < _categories.Count) {
 					var cat = _categories[index];
 					int itemCount = cat.Items.Count;
-					string typeWord = itemCount == 1 ? "type" : "types";
-					return $"{cat.Name}: {itemCount} {typeWord}";
+					string typeWord = itemCount == 1
+						? Strings.Get("panel.resource.type_word_one")
+						: Strings.Get("panel.resource.type_word_other");
+					return Strings.Get("panel.resource.category", cat.Name, itemCount, typeWord);
 				}
 				return null;
 			}
@@ -74,7 +76,7 @@ namespace ATSAccessibility.Panels {
 			if (_currentCategoryIndex >= 0 && _currentCategoryIndex < _categories.Count) {
 				var items = _categories[_currentCategoryIndex].Items;
 				if (index >= 0 && index < items.Count)
-					return $"{items[index].Name}, {items[index].Amount}";
+					return Strings.Get("panel.resource.item", items[index].Name, items[index].Amount);
 			}
 			return null;
 		}
@@ -106,7 +108,7 @@ namespace ATSAccessibility.Panels {
 
 				var displayName = GameReflection.GetDisplayName(goodModel) ?? goodName;
 				var category = GameReflection.GetGoodCategory(goodModel);
-				var categoryName = category != null ? (GameReflection.GetDisplayName(category) ?? "Other") : "Other";
+				var categoryName = category != null ? (GameReflection.GetDisplayName(category) ?? Strings.Get("common.other")) : Strings.Get("common.other");
 				var categoryOrder = category != null ? GameReflection.GetModelOrder(category) : 999;
 				var goodOrder = GameReflection.GetModelOrder(goodModel);
 
@@ -121,7 +123,7 @@ namespace ATSAccessibility.Panels {
 
 				if (!goodInfoLookup.TryGetValue(goodName, out var info)) {
 					// Good not found in models, use raw name
-					info = (goodName, null, "Other", 999, 0);
+					info = (goodName, null, Strings.Get("common.other"), 999, 0);
 				}
 
 				if (!categoryDict.TryGetValue(info.categoryName, out var category)) {
@@ -175,7 +177,7 @@ namespace ATSAccessibility.Panels {
 					&& _categories[_currentCategoryIndex].Items.Count > 0)
 					return EnterAction.DrillDown;
 
-				Speech.Say("No items in this category");
+				Speech.Say(Strings.Get("common.empty_category"));
 				return EnterAction.None;
 			}
 			return EnterAction.None;
@@ -197,7 +199,7 @@ namespace ATSAccessibility.Panels {
 		}
 
 		private static readonly List<HelpEntry> _resourceHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Alt+I", "Resource description"),
+			new HelpEntry("Alt+I", Strings.Get("panel.resource.help.alt_i")),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _resourceHelpEntries;
 
@@ -210,7 +212,7 @@ namespace ATSAccessibility.Panels {
 			_categories.Clear();
 			_allResources.Clear();
 			InputBlocker.BlockCancelOnce = true;
-			Speech.Say($"{OverlayName} closed");
+			Speech.Say(Strings.Get("panel.resource.closed", OverlayName));
 		}
 
 		// ========================================
@@ -232,9 +234,9 @@ namespace ATSAccessibility.Panels {
 			string description = GameReflection.GetGoodDescription(item.GoodName);
 
 			if (string.IsNullOrEmpty(description)) {
-				Speech.Say($"{item.Name}, no description available");
+				Speech.Say(Strings.Get("panel.resource.no_description", item.Name));
 			} else {
-				Speech.Say($"{item.Name}. {description}");
+				Speech.Say(Strings.Get("panel.resource.with_description", item.Name, description));
 			}
 		}
 
@@ -288,7 +290,7 @@ namespace ATSAccessibility.Panels {
 			if (_currentItemIndex < 0 || _currentItemIndex >= category.Items.Count) return;
 
 			var item = category.Items[_currentItemIndex];
-			Speech.Say($"{category.Name}. {item.Name}, {item.Amount}");
+			Speech.Say(Strings.Get("panel.resource.cross_category", category.Name, item.Name, item.Amount));
 		}
 
 		// ========================================

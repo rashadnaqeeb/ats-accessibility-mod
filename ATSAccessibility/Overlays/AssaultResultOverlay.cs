@@ -30,7 +30,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Assault result";
+		protected override string OverlayName => Strings.Get("overlay.assault_result.title");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() => _items.Count;
@@ -55,17 +55,17 @@ namespace ATSAccessibility.Overlays {
 			// 2. Villagers killed
 			string villagersKilled = GetTextFieldValue(_villagersKilledField);
 			if (!string.IsNullOrEmpty(villagersKilled)) {
-				_items.Add($"Villagers lost: {villagersKilled}");
+				_items.Add(Strings.Get("overlay.assault_result.villagers_lost", villagersKilled));
 			}
 
 			// 3. Stolen goods
-			ReadGoodsSlots(_gainedGoodsSlotsField, "Stolen");
+			ReadGoodsSlots(_gainedGoodsSlotsField, Strings.Get("overlay.assault_result.prefix_stolen"));
 
 			// 4. Stolen effects/perks
-			ReadEffectsSlots(_gainedRewardsSlotsField, "Stolen");
+			ReadEffectsSlots(_gainedRewardsSlotsField, Strings.Get("overlay.assault_result.prefix_stolen"));
 
 			// 5. Consequences (negative effects)
-			ReadEffectsSlots(_effectsRewardSlotsField, "Consequence");
+			ReadEffectsSlots(_effectsRewardSlotsField, Strings.Get("overlay.assault_result.prefix_consequence"));
 
 			Debug.Log($"[ATSAccessibility] AssaultResultOverlay: {_items.Count} items");
 		}
@@ -80,7 +80,7 @@ namespace ATSAccessibility.Overlays {
 
 		protected override EscapeAction OnEscape() {
 			Dismiss();
-			Speech.Say("Closed");
+			Speech.Say(Strings.Get("common.closed"));
 			InputBlocker.BlockCancelOnce = true;
 			return EscapeAction.Close;
 		}
@@ -142,9 +142,9 @@ namespace ATSAccessibility.Overlays {
 					int amount = PopupReflection.GetGoodAmount(good);
 					string displayName = PopupReflection.GetGoodDisplayName(name);
 					if (amount > 1)
-						_items.Add($"{prefix}: {displayName}, {amount}");
+						_items.Add(Strings.Get("overlay.assault_result.good_with_amount", prefix, displayName, amount));
 					else
-						_items.Add($"{prefix}: {displayName}");
+						_items.Add(Strings.Get("overlay.assault_result.good_simple", prefix, displayName));
 				}
 			}
 		}
@@ -168,9 +168,9 @@ namespace ATSAccessibility.Overlays {
 
 					if (!string.IsNullOrEmpty(displayName)) {
 						if (!string.IsNullOrEmpty(description))
-							_items.Add($"{prefix}: {displayName}. {description}");
+							_items.Add(Strings.Get("overlay.assault_result.effect_with_desc", prefix, displayName, description));
 						else
-							_items.Add($"{prefix}: {displayName}");
+							_items.Add(Strings.Get("overlay.assault_result.effect_simple", prefix, displayName));
 					}
 				}
 			}

@@ -58,9 +58,9 @@ namespace ATSAccessibility.Utils {
 			if (_result == null) return false;
 
 			if (_result == "up-to-date") {
-				Speech.Say("Mod is up to date", interrupt: false);
+				Speech.Say(Strings.Get("util.update_checker.up_to_date"), interrupt: false);
 			} else if (_result == "update-available") {
-				Speech.Say("A mod update is available. Opening releases page.", interrupt: false);
+				Speech.Say(Strings.Get("util.update_checker.update_available"), interrupt: false);
 				try {
 					Process.Start(new ProcessStartInfo {
 						FileName = RELEASES_URL,

@@ -56,13 +56,13 @@ namespace ATSAccessibility.Handlers {
 		/// </summary>
 		public void EnterMoveMode(object building) {
 			if (building == null) {
-				Speech.Say("No building here");
+				Speech.Say(Strings.Get("common.no_building_here"));
 				return;
 			}
 
 			// Check if building can be moved
 			if (!ConstructionReflection.CanMovePlacedBuilding(building)) {
-				Speech.Say("Unmovable");
+				Speech.Say(Strings.Get("common.unmovable"));
 				Debug.Log($"[ATSAccessibility] Building cannot be moved");
 				return;
 			}
@@ -70,8 +70,8 @@ namespace ATSAccessibility.Handlers {
 			// Check if player can afford the move
 			if (!ConstructionReflection.CanAffordMove(building)) {
 				var costInfo = ConstructionReflection.GetMovingCostInfo(building);
-				string costDesc = costInfo.HasValue ? $"{costInfo.Value.amount} {costInfo.Value.displayName}" : "resources";
-				Speech.Say($"Cannot afford to move, requires {costDesc}");
+				string costDesc = costInfo.HasValue ? Strings.Get("handler.movemode.cost_desc", costInfo.Value.amount, costInfo.Value.displayName) : Strings.Get("common.resources_lower");
+				Speech.Say(Strings.Get("handler.movemode.cannot_afford", costDesc));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -85,7 +85,7 @@ namespace ATSAccessibility.Handlers {
 			_currentRotation = _originalRotation;
 
 			_movingBuilding = building;
-			_buildingName = GameReflection.GetDisplayName(building) ?? "Building";
+			_buildingName = GameReflection.GetDisplayName(building) ?? Strings.Get("common.building");
 
 			// Lift building from grid (removes from grid but keeps the object)
 			ConstructionReflection.LiftBuilding(building);
@@ -108,10 +108,10 @@ namespace ATSAccessibility.Handlers {
 			if (_pricePaid) {
 				var costInfo = ConstructionReflection.GetMovingCostInfo(building);
 				if (costInfo.HasValue)
-					costNote = $"cost: {costInfo.Value.amount} {costInfo.Value.displayName}, ";
+					costNote = Strings.Get("handler.movemode.cost_prefix", costInfo.Value.amount, costInfo.Value.displayName) + " ";
 			}
 
-			Speech.Say($"Move mode: {costNote}{extension}");
+			Speech.Say(Strings.Get("handler.movemode.entered", costNote, extension));
 			Debug.Log($"[ATSAccessibility] Entered move mode for: {_buildingName} at ({_originalPosition.x}, {_originalPosition.y})");
 		}
 
@@ -138,11 +138,11 @@ namespace ATSAccessibility.Handlers {
 				ConstructionReflection.SetBuildingPosition(_movingBuilding, newPos);
 				if (!ConstructionReflection.CanPlaceBuilding(_movingBuilding)) {
 					ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-					Speech.Say("Cannot place here");
+					Speech.Say(Strings.Get("common.cannot_place_here"));
 				} else {
 					ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
 					_awaitingPlaceConfirm = true;
-					Speech.Say("Space to confirm move");
+					Speech.Say(Strings.Get("handler.movemode.confirm_prompt"));
 				}
 			} else {
 				ExitMoveMode(false); // Free move, no confirm needed
@@ -171,7 +171,7 @@ namespace ATSAccessibility.Handlers {
 				}
 
 				InputBlocker.BlockCancelOnce = true;
-				Speech.Say("Move cancelled");
+				Speech.Say(Strings.Get("handler.movemode.cancelled"));
 				Debug.Log($"[ATSAccessibility] Move cancelled, restored to ({_originalPosition.x}, {_originalPosition.y})");
 			} else {
 				// Try to place at current cursor position
@@ -186,7 +186,7 @@ namespace ATSAccessibility.Handlers {
 				if (!ConstructionReflection.CanPlaceBuilding(_movingBuilding)) {
 					// Restore position (building stays lifted for another attempt)
 					ConstructionReflection.SetBuildingPosition(_movingBuilding, _originalPosition);
-					Speech.Say("Cannot place here");
+					Speech.Say(Strings.Get("common.cannot_place_here"));
 					Debug.Log($"[ATSAccessibility] Cannot place {_buildingName} at ({x}, {y})");
 					return; // Don't exit move mode, let user try another position
 				}
@@ -195,7 +195,7 @@ namespace ATSAccessibility.Handlers {
 				ConstructionReflection.PlaceBuildingOnGrid(_movingBuilding);
 
 				SoundManager.PlayBuildingMoveFinished();
-				Speech.Say($"{_buildingName} moved");
+				Speech.Say(Strings.Get("handler.movemode.moved", _buildingName));
 				Debug.Log($"[ATSAccessibility] Moved {_buildingName} from ({_originalPosition.x}, {_originalPosition.y}) to ({x}, {y})");
 			}
 
@@ -314,7 +314,7 @@ namespace ATSAccessibility.Handlers {
 			// Check if building can be rotated
 			var buildingModel = ConstructionReflection.GetBuildingModel(_movingBuilding);
 			if (buildingModel != null && !ConstructionReflection.CanRotateBuildingModel(buildingModel)) {
-				Speech.Say("Cannot rotate");
+				Speech.Say(Strings.Get("common.cannot_rotate"));
 				return;
 			}
 
@@ -335,7 +335,7 @@ namespace ATSAccessibility.Handlers {
 
 			string extension = NavigationUtils.GetExtensionAnnouncement(extendEast, extendNorth);
 
-			Speech.Say($"{direction}, {extension}");
+			Speech.Say(Strings.Get("handler.movemode.rotated", direction, extension));
 			Debug.Log($"[ATSAccessibility] Building rotated to {_currentRotation} ({direction})");
 		}
 

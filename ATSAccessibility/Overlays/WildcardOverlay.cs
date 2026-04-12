@@ -53,8 +53,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Wildcard";
-		protected override string EmptyMessage => "No buildings available";
+		protected override string OverlayName => Strings.Get("overlay.wildcard.title");
+		protected override string EmptyMessage => Strings.Get("common.no_buildings_available");
 
 		protected override int GetItemCount() {
 			switch (Level) {
@@ -80,7 +80,7 @@ namespace ATSAccessibility.Overlays {
 
 					var building = category.Buildings[index];
 					bool isSelected = _selectedModels.Contains(building.Model);
-					return isSelected ? $"{building.Name}, selected" : building.Name;
+					return isSelected ? Strings.Get("overlay.wildcard.selected", building.Name) : building.Name;
 
 				default: return null;
 			}
@@ -141,7 +141,7 @@ namespace ATSAccessibility.Overlays {
 				case 0:
 					if (_categories.Count == 0 || index < 0 || index >= _categories.Count) return EnterAction.None;
 					if (_categories[index].Buildings.Count == 0) {
-						Speech.Say("No buildings in this category");
+						Speech.Say(Strings.Get("common.no_buildings_in_category"));
 						return EnterAction.None;
 					}
 					return EnterAction.DrillDown;
@@ -195,8 +195,8 @@ namespace ATSAccessibility.Overlays {
 
 		protected override string GetOpenAnnouncement() {
 			if (_categories.Count == 0)
-				return $"Wildcard pick, select {_picksRequired}. {EmptyMessage}";
-			return $"Wildcard pick, select {_picksRequired}. {_categories[0].Name}";
+				return Strings.Get("overlay.wildcard.open", _picksRequired, EmptyMessage);
+			return Strings.Get("overlay.wildcard.open", _picksRequired, _categories[0].Name);
 		}
 
 		protected override void OnClosed() {
@@ -253,7 +253,7 @@ namespace ATSAccessibility.Overlays {
 
 			bool toggled = WildcardReflection.ToggleSlot(_popup, building.Model);
 			if (!toggled) {
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -270,9 +270,9 @@ namespace ATSAccessibility.Overlays {
 			int currentCount = WildcardReflection.GetCurrentPickCount(_popup);
 
 			if (_selectedModels.Contains(building.Model))
-				Speech.Say($"Selected. {currentCount} of {_picksRequired}");
+				Speech.Say(Strings.Get("overlay.wildcard.selected_count", currentCount, _picksRequired));
 			else
-				Speech.Say($"Deselected. {currentCount} of {_picksRequired}");
+				Speech.Say(Strings.Get("overlay.wildcard.deselected_count", currentCount, _picksRequired));
 		}
 
 		// ========================================
@@ -283,7 +283,7 @@ namespace ATSAccessibility.Overlays {
 			int currentCount = WildcardReflection.GetCurrentPickCount(_popup);
 
 			if (currentCount != _picksRequired) {
-				Speech.Say($"Select {_picksRequired} blueprints, {currentCount} selected");
+				Speech.Say(Strings.Get("overlay.wildcard.need_more", _picksRequired, currentCount));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -291,10 +291,10 @@ namespace ATSAccessibility.Overlays {
 			bool confirmed = WildcardReflection.Confirm(_popup);
 			if (confirmed) {
 				SoundManager.PlayButtonClick();
-				Speech.Say("Blueprints unlocked");
+				Speech.Say(Strings.Get("overlay.wildcard.done"));
 				// Popup hides itself -> OnPopupHidden -> Close()
 			} else {
-				Speech.Say("Could not confirm");
+				Speech.Say(Strings.Get("overlay.wildcard.confirm_failed"));
 				SoundManager.PlayFailed();
 			}
 		}

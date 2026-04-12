@@ -88,7 +88,7 @@ namespace ATSAccessibility.Navigators {
 		/// </summary>
 		public void AnnounceItem(int levelIndex) {
 			if (levelIndex < 0 || levelIndex >= _levels.Count) {
-				Speech.Say("Invalid upgrade level");
+				Speech.Say(Strings.Get("nav.upgrades.invalid_level"));
 				return;
 			}
 
@@ -98,18 +98,18 @@ namespace ATSAccessibility.Navigators {
 				// Level already purchased - show which perk was chosen
 				string chosenPerk = GetChosenPerkName(level);
 				if (!string.IsNullOrEmpty(chosenPerk)) {
-					Speech.Say($"{level.levelName}: Achieved, {chosenPerk}");
+					Speech.Say(Strings.Get("nav.upgrades.level_achieved_with_perk", level.levelName, chosenPerk));
 				} else {
-					Speech.Say($"{level.levelName}: Achieved");
+					Speech.Say(Strings.Get("nav.upgrades.level_achieved", level.levelName));
 				}
 			} else if (levelIndex == _nextAvailableIndex) {
 				// This is the next available level - show cost
 				string costText = GetCostText(level);
-				string affordText = level.canAfford ? "" : ", cannot afford";
-				Speech.Say($"{level.levelName}: {costText}{affordText}");
+				string affordText = level.canAfford ? "" : Strings.Get("common.suffix_cannot_afford");
+				Speech.Say(Strings.Get("nav.upgrades.level_cost", level.levelName, costText, affordText));
 			} else {
 				// Level is locked - need to complete previous levels first
-				Speech.Say($"{level.levelName}: Locked, complete previous level first");
+				Speech.Say(Strings.Get("nav.upgrades.level_locked", level.levelName));
 			}
 		}
 
@@ -118,14 +118,14 @@ namespace ATSAccessibility.Navigators {
 		/// </summary>
 		public void AnnounceSubItem(int levelIndex, int perkIndex) {
 			if (levelIndex < 0 || levelIndex >= _levels.Count) {
-				Speech.Say("Invalid upgrade level");
+				Speech.Say(Strings.Get("nav.upgrades.invalid_level"));
 				return;
 			}
 
 			var level = _levels[levelIndex];
 
 			if (perkIndex < 0 || perkIndex >= level.perks.Count) {
-				Speech.Say("Invalid perk");
+				Speech.Say(Strings.Get("nav.upgrades.invalid_perk"));
 				return;
 			}
 
@@ -134,19 +134,19 @@ namespace ATSAccessibility.Navigators {
 			string statusText;
 			if (IsLevelAchieved(levelIndex)) {
 				// Level achieved - show if this perk was chosen or not
-				statusText = perk.isChosen ? "Chosen" : "Not chosen";
+				statusText = perk.isChosen ? Strings.Get("nav.upgrades.perk.chosen") : Strings.Get("nav.upgrades.perk.not_chosen");
 			} else if (levelIndex == _nextAvailableIndex) {
 				// This is the next available level - perks are available options
-				statusText = "Available";
+				statusText = Strings.Get("common.available");
 			} else {
 				// Level is locked
-				statusText = "Locked";
+				statusText = Strings.Get("common.locked");
 			}
 
-			string announcement = $"{perk.displayName}: {statusText}";
+			string announcement = Strings.Get("nav.upgrades.perk_status", perk.displayName, statusText);
 
 			if (!string.IsNullOrEmpty(perk.description)) {
-				announcement += $". {perk.description}";
+				announcement += Strings.Get("nav.upgrades.perk_description_suffix", perk.description);
 			}
 
 			Speech.Say(announcement);
@@ -163,29 +163,29 @@ namespace ATSAccessibility.Navigators {
 			var level = _levels[levelIndex];
 
 			if (IsLevelAchieved(levelIndex)) {
-				Speech.Say("Upgrade already purchased");
+				Speech.Say(Strings.Get("nav.upgrades.already_purchased"));
 				return false;
 			}
 
 			if (levelIndex != _nextAvailableIndex) {
-				Speech.Say("Complete previous level first");
+				Speech.Say(Strings.Get("nav.upgrades.complete_previous"));
 				return false;
 			}
 
 			if (!level.canAfford) {
-				Speech.Say("Not enough resources");
+				Speech.Say(Strings.Get("common.not_enough_resources"));
 				return false;
 			}
 
 			if (perkIndex < 0 || perkIndex >= level.perks.Count) {
-				Speech.Say("Invalid perk");
+				Speech.Say(Strings.Get("nav.upgrades.invalid_perk"));
 				return false;
 			}
 
 			// Call the game's Upgrade() method via reflection
 			if (BuildingReflection.PurchaseUpgrade(_building, level.levelIndex, perkIndex)) {
 				var perk = level.perks[perkIndex];
-				Speech.Say($"Purchased {perk.displayName}");
+				Speech.Say(Strings.Get("nav.upgrades.purchased", perk.displayName));
 
 				// Track locally to prevent duplicates (game state may be delayed)
 				_purchasedThisSession.Add(levelIndex);
@@ -194,7 +194,7 @@ namespace ATSAccessibility.Navigators {
 				Initialize(_building);
 				return true;
 			} else {
-				Speech.Say("Purchase failed");
+				Speech.Say(Strings.Get("common.purchase_failed"));
 				return false;
 			}
 		}
@@ -248,11 +248,11 @@ namespace ATSAccessibility.Navigators {
 		/// </summary>
 		private string GetCostText(BuildingReflection.UpgradeLevelInfo level) {
 			if (level.requiredGoods.Count == 0)
-				return "Free";
+				return Strings.Get("common.free");
 
 			var parts = new List<string>();
 			foreach (var cost in level.requiredGoods) {
-				parts.Add($"{cost.required} {cost.displayName}");
+				parts.Add(Strings.Get("nav.upgrades.cost.item", cost.required, cost.displayName));
 			}
 			return string.Join(", ", parts);
 		}

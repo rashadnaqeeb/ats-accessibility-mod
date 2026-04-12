@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -633,27 +634,27 @@ namespace ATSAccessibility.Reflection {
 		private static string GetFuelGoodName() {
 			EnsureCached();
 			var settings = GameReflection.GetSettings();
-			if (settings == null || _tradeRoutesConfigField == null) return "Provisions";
+			if (settings == null || _tradeRoutesConfigField == null) return Strings.Get("reflection.traderoutes.provisions");
 
 			var config = ReflectionHelper.GetField(_tradeRoutesConfigField, settings);
-			if (config == null) return "Provisions";
+			if (config == null) return Strings.Get("reflection.traderoutes.provisions");
 
 			var fuelGoodModel = ReflectionHelper.GetField(_configFuelField, config);
-			if (fuelGoodModel == null) return "Provisions";
+			if (fuelGoodModel == null) return Strings.Get("reflection.traderoutes.provisions");
 
 			// Get the Name property from the GoodModel
 			var nameProperty = fuelGoodModel.GetType().GetProperty("Name", GameReflection.PublicInstance);
-			if (nameProperty == null) return "Provisions";
+			if (nameProperty == null) return Strings.Get("reflection.traderoutes.provisions");
 
 			var name = ReflectionHelper.GetPropString(nameProperty, fuelGoodModel);
-			return GetGoodDisplayName(name ?? "Provisions");
+			return GetGoodDisplayName(name ?? Strings.Get("reflection.traderoutes.provisions"));
 		}
 
 		private static string GetBlockedReason(object service, object offer, bool accepted) {
-			if (accepted) return "already accepted";
-			if (HasReachedLimit()) return "route limit reached";
-			if (!HaveEnoughGoods(service, offer)) return "not enough goods";
-			if (!HaveEnoughFuel(service, offer)) return "not enough fuel";
+			if (accepted) return Strings.Get("reflection.traderoutes.already_accepted");
+			if (HasReachedLimit()) return Strings.Get("reflection.traderoutes.limit_reached");
+			if (!HaveEnoughGoods(service, offer)) return Strings.Get("reflection.traderoutes.not_enough_goods");
+			if (!HaveEnoughFuel(service, offer)) return Strings.Get("reflection.traderoutes.not_enough_fuel");
 			return null;
 		}
 

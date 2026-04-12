@@ -28,8 +28,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Cornerstone";
-		protected override string EmptyMessage => "No options available";
+		protected override string OverlayName => Strings.Get("overlay.cornerstone.title");
+		protected override string EmptyMessage => Strings.Get("common.no_options_available");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -52,7 +52,7 @@ namespace ATSAccessibility.Overlays {
 			var (npcName, dialogue) = CornerstoneReflection.GetNpcDialogue(_popup);
 			if (!string.IsNullOrEmpty(npcName) || !string.IsNullOrEmpty(dialogue)) {
 				string dialogueLabel = !string.IsNullOrEmpty(npcName)
-					? $"{npcName}: {dialogue}"
+					? Strings.Get("overlay.cornerstone.dialogue", npcName, dialogue)
 					: dialogue;
 
 				_items.Add(new NavItem {
@@ -67,11 +67,11 @@ namespace ATSAccessibility.Overlays {
 				foreach (var option in options) {
 					string rarityText = option.Rarity;
 					if (option.IsEthereal)
-						rarityText += ", ethereal";
+						rarityText += Strings.Get("overlay.cornerstone.rarity_ethereal");
 
 					string label = !string.IsNullOrEmpty(option.Description)
-						? $"{option.DisplayName}, {rarityText}. {option.Description}"
-						: $"{option.DisplayName}, {rarityText}";
+						? Strings.Get("overlay.cornerstone.option_with_desc", option.DisplayName, rarityText, option.Description)
+						: Strings.Get("overlay.cornerstone.option_simple", option.DisplayName, rarityText);
 
 					_items.Add(new NavItem {
 						Type = ItemType.Cornerstone,
@@ -86,8 +86,8 @@ namespace ATSAccessibility.Overlays {
 			if (CornerstoneReflection.CanExtend()) {
 				var (extAmount, extGoodName) = CornerstoneReflection.GetExtendCost();
 				string extendLabel = CornerstoneReflection.CanAffordExtend()
-					? $"Extend, {extAmount} {extGoodName}"
-					: $"Extend, {extAmount} {extGoodName}, cannot afford";
+					? Strings.Get("overlay.cornerstone.extend", extAmount, extGoodName)
+					: Strings.Get("overlay.cornerstone.extend_cannot_afford", extAmount, extGoodName);
 
 				_items.Add(new NavItem {
 					Type = ItemType.Extend,
@@ -100,7 +100,7 @@ namespace ATSAccessibility.Overlays {
 			if (rerolls > 0) {
 				_items.Add(new NavItem {
 					Type = ItemType.Reroll,
-					Label = $"Reroll, {rerolls} remaining"
+					Label = Strings.Get("overlay.cornerstone.reroll", rerolls)
 				});
 			}
 
@@ -109,7 +109,7 @@ namespace ATSAccessibility.Overlays {
 				var (skipAmount, skipGoodName) = CornerstoneReflection.GetDeclinePayoff();
 				_items.Add(new NavItem {
 					Type = ItemType.Skip,
-					Label = $"Skip, receive {skipAmount} {skipGoodName}"
+					Label = Strings.Get("overlay.cornerstone.skip", skipAmount, skipGoodName)
 				});
 			}
 
@@ -177,7 +177,7 @@ namespace ATSAccessibility.Overlays {
 
 		private void ActivateCornerstone(NavItem item) {
 			if (!CornerstoneReflection.PickCornerstone(_popup, item.Model)) {
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -186,12 +186,12 @@ namespace ATSAccessibility.Overlays {
 
 			var newOptions = CornerstoneReflection.GetCurrentOptions();
 			if (newOptions != null && newOptions.Count > 0) {
-				Speech.Say("Picked");
+				Speech.Say(Strings.Get("overlay.cornerstone.picked"));
 				RefreshData();
 				CurrentIndex = GetFirstCornerstoneIndex();
 				AnnounceCurrentItem();
 			} else {
-				Speech.Say("Picked");
+				Speech.Say(Strings.Get("overlay.cornerstone.picked"));
 				// Popup hides -> OnPopupHidden -> Close()
 				// OR limit popup opened -> handled by CornerstoneLimitOverlay
 			}
@@ -200,7 +200,7 @@ namespace ATSAccessibility.Overlays {
 		private void ActivateExtend() {
 			if (!CornerstoneReflection.CanAffordExtend()) {
 				var (amount, goodName) = CornerstoneReflection.GetExtendCost();
-				Speech.Say($"Cannot afford, need {amount} {goodName}");
+				Speech.Say(Strings.Get("overlay.cornerstone.cannot_afford_extend", amount, goodName));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -208,7 +208,7 @@ namespace ATSAccessibility.Overlays {
 			int prevCount = CountCornerstones();
 
 			if (!CornerstoneReflection.Extend()) {
-				Speech.Say("Cannot extend");
+				Speech.Say(Strings.Get("common.cannot_extend"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -221,13 +221,13 @@ namespace ATSAccessibility.Overlays {
 				CurrentIndex = GetLastCornerstoneIndex();
 				AnnounceCurrentItem();
 			} else {
-				Speech.Say("No new option available");
+				Speech.Say(Strings.Get("common.no_new_option_available"));
 			}
 		}
 
 		private void ActivateReroll() {
 			if (!CornerstoneReflection.Reroll(_popup)) {
-				Speech.Say("Cannot reroll");
+				Speech.Say(Strings.Get("common.cannot_reroll"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -240,7 +240,7 @@ namespace ATSAccessibility.Overlays {
 
 		private void ActivateSkip() {
 			if (!CornerstoneReflection.Skip(_popup)) {
-				Speech.Say("Cannot skip");
+				Speech.Say(Strings.Get("overlay.cornerstone.cannot_skip"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -249,12 +249,12 @@ namespace ATSAccessibility.Overlays {
 
 			var afterSkip = CornerstoneReflection.GetCurrentOptions();
 			if (afterSkip != null && afterSkip.Count > 0) {
-				Speech.Say("Skipped");
+				Speech.Say(Strings.Get("common.skipped"));
 				RefreshData();
 				CurrentIndex = GetFirstCornerstoneIndex();
 				AnnounceCurrentItem();
 			} else {
-				Speech.Say("Skipped");
+				Speech.Say(Strings.Get("common.skipped"));
 				// Popup hides -> Close()
 			}
 		}

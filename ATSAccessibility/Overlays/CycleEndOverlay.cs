@@ -23,7 +23,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "End Cycle";
+		protected override string OverlayName => Strings.Get("common.end_cycle");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() => _items.Count;
@@ -81,8 +81,8 @@ namespace ATSAccessibility.Overlays {
 
 		protected override string GetOpenAnnouncement() {
 			if (_items.Count > 0)
-				return $"End Cycle. {_items[0]}";
-			return "End Cycle";
+				return Strings.Get("overlay.cycle_end.open", _items[0]);
+			return Strings.Get("common.end_cycle");
 		}
 
 		protected override void OnClosed() {
@@ -114,7 +114,7 @@ namespace ATSAccessibility.Overlays {
 			// Hide the popup
 			if (PopupReflection.HidePopup(_popup)) {
 				SoundManager.PlayButtonClick();
-				Speech.Say("Confirmed");
+				Speech.Say(Strings.Get("overlay.cycle_end.confirmed"));
 			}
 		}
 
@@ -123,7 +123,7 @@ namespace ATSAccessibility.Overlays {
 
 			// Hide the popup without triggering cycle end
 			if (PopupReflection.HidePopup(_popup)) {
-				Speech.Say("Cancelled");
+				Speech.Say(Strings.Get("common.cancelled"));
 			}
 		}
 
@@ -138,13 +138,13 @@ namespace ATSAccessibility.Overlays {
 
 				// Handle max level case (targetExp == 0 or currentExp >= targetExp)
 				if (targetExp <= 0 || currentExp >= targetExp) {
-					return $"Gained {currentCycleExp} experience, Level {currentLevel}, max level";
+					return Strings.Get("overlay.cycle_end.xp_max", currentCycleExp, currentLevel);
 				}
 
-				return $"Gained {currentCycleExp} experience, Level {currentLevel}, {currentExp} of {targetExp} to next level";
+				return Strings.Get("overlay.cycle_end.xp_progress", currentCycleExp, currentLevel, currentExp, targetExp);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] CycleEndOverlay: GetXpSummary failed: {ex.Message}");
-				return "Experience summary unavailable";
+				return Strings.Get("overlay.cycle_end.xp_unavailable");
 			}
 		}
 

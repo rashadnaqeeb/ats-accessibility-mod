@@ -24,7 +24,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string NavigatorName => "FarmfieldNavigator";
 
-		protected override string[] GetSections() => new[] { "Name", "Status" };
+		protected override string[] GetSections() => new[] { Strings.Get("common.name"), Strings.Get("common.status") };
 
 		protected override int GetItemCount(int sectionIndex) {
 			// No sub-items - this is a flat list
@@ -41,11 +41,11 @@ namespace ATSAccessibility.Navigators {
 				case 1:
 					// Status (visual state of the field)
 					if (_isSeeded) {
-						Speech.Say($"Seeded with {_cropName}");
+						Speech.Say(Strings.Get("nav.farmfield.seeded_with", _cropName));
 					} else if (_isPlowed) {
-						Speech.Say("Plowed");
+						Speech.Say(Strings.Get("common.plowed"));
 					} else {
-						Speech.Say("Empty");
+						Speech.Say(Strings.Get("common.empty"));
 					}
 					break;
 			}
@@ -56,12 +56,12 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		protected override void RefreshData() {
-			_buildingName = BuildingReflection.GetBuildingName(_building) ?? "Farm Field";
+			_buildingName = BuildingReflection.GetBuildingName(_building) ?? Strings.Get("nav.farmfield.default_name");
 			_isPlowed = BuildingReflection.IsFarmfieldPlowed(_building);
 			_isSeeded = BuildingReflection.IsFarmfieldSeeded(_building);
 
 			if (_isSeeded) {
-				_cropName = BuildingReflection.GetFarmfieldCropName(_building) ?? "Unknown crop";
+				_cropName = BuildingReflection.GetFarmfieldCropName(_building) ?? Strings.Get("nav.farmfield.unknown_crop");
 			} else {
 				_cropName = null;
 			}
@@ -82,8 +82,8 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string GetSectionName(int sectionIndex) {
 			switch (sectionIndex) {
-				case 0: return "Name";
-				case 1: return "Status";
+				case 0: return Strings.Get("common.name");
+				case 1: return Strings.Get("common.status");
 				default: return null;
 			}
 		}

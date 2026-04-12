@@ -17,7 +17,7 @@ namespace ATSAccessibility.Utils {
 			Func<object, Array> getGoodsSetGoods,
 			Func<object, string> getGoodRefDisplayName,
 			Func<object, int> getGoodRefAmount) {
-			if (goodsSets == null || goodsSets.Length == 0) return "nothing.";
+			if (goodsSets == null || goodsSets.Length == 0) return Strings.Get("util.recipe_formatter.nothing");
 
 			var parts = new List<string>();
 			foreach (var goodsSet in goodsSets) {
@@ -37,7 +37,7 @@ namespace ATSAccessibility.Utils {
 
 				if (items.Count == 1) {
 					// Single item, no alternatives
-					parts.Add($"{items[0].name} x {items[0].amount}.");
+					parts.Add(Strings.Get("util.recipe_formatter.single", items[0].name, items[0].amount));
 				} else {
 					// Multiple alternatives - check if all amounts are the same
 					bool sameAmounts = items.All(i => i.amount == items[0].amount);
@@ -45,16 +45,16 @@ namespace ATSAccessibility.Utils {
 					if (sameAmounts) {
 						// Same amounts: "3 x Herbs, Insects, Resin."
 						var names = string.Join(", ", items.Select(i => i.name));
-						parts.Add($"{items[0].amount} x {names}.");
+						parts.Add(Strings.Get("util.recipe_formatter.same_amounts", items[0].amount, names));
 					} else {
 						// Different amounts: "One of Stone x 4, Clay x 4, Salt x 3."
-						var itemStrs = items.Select(i => $"{i.name} x {i.amount}");
-						parts.Add($"One of {string.Join(", ", itemStrs)}.");
+						var itemStrs = items.Select(i => Strings.Get("util.recipe_formatter.diff_item", i.name, i.amount));
+						parts.Add(Strings.Get("util.recipe_formatter.different_amounts", string.Join(", ", itemStrs)));
 					}
 				}
 			}
 
-			return parts.Count > 0 ? string.Join(" ", parts) : "nothing.";
+			return parts.Count > 0 ? string.Join(" ", parts) : Strings.Get("util.recipe_formatter.nothing");
 		}
 
 		/// <summary>
@@ -62,7 +62,7 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static string FormatTime(float totalSeconds) {
 			int secs = (int)totalSeconds;
-			return $"Takes {secs} sec.";
+			return Strings.Get("util.recipe_formatter.time", secs);
 		}
 	}
 }

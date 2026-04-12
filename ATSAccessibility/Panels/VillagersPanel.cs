@@ -60,9 +60,9 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE ABSTRACT IMPLEMENTATIONS
 		// ========================================
 
-		protected override string OverlayName => "Villagers";
+		protected override string OverlayName => Strings.Get("common.villagers");
 
-		protected override string EmptyMessage => "No villagers present";
+		protected override string EmptyMessage => Strings.Get("panel.villagers.empty");
 
 		protected override int GetItemCount() {
 			switch (Level) {
@@ -150,7 +150,7 @@ namespace ATSAccessibility.Panels {
 						var cat = _categories[index];
 						if (cat.Details.Count > 0)
 							return EnterAction.DrillDown;
-						Speech.Say("No details for this race");
+						Speech.Say(Strings.Get("panel.villagers.no_details"));
 						return EnterAction.None;
 					}
 				case 1: {
@@ -298,10 +298,10 @@ namespace ATSAccessibility.Panels {
 			// If this race is already favored, toggle it off
 			if (GameReflection.IsFavored(raceName)) {
 				if (GameReflection.StopFavoringRace()) {
-					Speech.Say($"{category.DisplayName} no longer favored");
+					Speech.Say(Strings.Get("panel.villagers.no_longer_favored", category.DisplayName));
 					UpdateFavoringLabel();
 				} else {
-					Speech.Say("Failed to stop favoring");
+					Speech.Say(Strings.Get("panel.villagers.failed_stop"));
 				}
 				return;
 			}
@@ -310,7 +310,7 @@ namespace ATSAccessibility.Panels {
 			// but we need to tell the player verbally and avoid cancelling existing favoring
 			if (GameReflection.IsFavoringOnCooldown()) {
 				float cooldown = GameReflection.GetFavorCooldownLeft();
-				Speech.Say($"Favoring on cooldown, {Mathf.CeilToInt(cooldown)} seconds remaining");
+				Speech.Say(Strings.Get("panel.villagers.favoring_on_cooldown_spoken", Mathf.CeilToInt(cooldown)));
 				return;
 			}
 
@@ -323,23 +323,23 @@ namespace ATSAccessibility.Panels {
 				if (cat.Population > 0) racesWithVillagers++;
 			}
 			if (racesWithVillagers < 2) {
-				Speech.Say("Need at least two races with villagers to use favoring");
+				Speech.Say(Strings.Get("panel.villagers.need_two_races"));
 				return;
 			}
 
 			// Check if this race has any villagers
 			if (category.Population == 0) {
-				Speech.Say("Cannot favor a race with no villagers");
+				Speech.Say(Strings.Get("panel.villagers.cannot_favor_no_villagers"));
 				return;
 			}
 
 			// Start favoring
 			if (GameReflection.FavorRace(raceName)) {
 				PlayFavoringSound(raceName);
-				Speech.Say($"{category.DisplayName} now favored. Other races penalized");
+				Speech.Say(Strings.Get("panel.villagers.now_favored", category.DisplayName));
 				UpdateFavoringLabel();
 			} else {
-				Speech.Say("Failed to favor race");
+				Speech.Say(Strings.Get("panel.villagers.failed_favor"));
 			}
 		}
 
@@ -391,8 +391,8 @@ namespace ATSAccessibility.Panels {
 				return category.DisplayName;
 			}
 
-			string favoredStatus = GameReflection.IsFavored(category.RaceName) ? ", favored" : "";
-			return $"{category.DisplayName}{favoredStatus}. {category.Population} villagers, {category.FreeWorkers} free, {category.Homeless} homeless";
+			string favoredStatus = GameReflection.IsFavored(category.RaceName) ? Strings.Get("panel.villagers.favored_suffix") : "";
+			return Strings.Get("panel.villagers.category_announce", category.DisplayName, favoredStatus, category.Population, category.FreeWorkers, category.Homeless);
 		}
 
 		private void AnnounceCategory() {
@@ -414,7 +414,7 @@ namespace ATSAccessibility.Panels {
 
 			// Add type-specific suffix if expandable
 			if (detail.Type == DetailType.Resolve && detail.SubDetails.Count > 0) {
-				message += ". Press right for breakdown";
+				message += Strings.Get("panel.villagers.press_right_for_breakdown");
 			}
 
 			Speech.Say(message);
@@ -440,7 +440,7 @@ namespace ATSAccessibility.Panels {
 		private void BuildSharedNeedsCategory(Dictionary<string, List<SharedNeedRaceInfo>> needRaces, List<string> needOrder) {
 			var sharedCategory = new RaceCategory {
 				RaceName = null,
-				DisplayName = "Shared Needs",
+				DisplayName = Strings.Get("panel.villagers.shared_needs"),
 				Population = 0,
 				FreeWorkers = 0,
 				Homeless = 0
@@ -461,13 +461,15 @@ namespace ATSAccessibility.Panels {
 					raceNames.Add(info.DisplayName.ToLowerInvariant());
 				}
 
-				string prefix = firstNeed ? "Needs: " : "";
+				bool isFirst = firstNeed;
 				firstNeed = false;
 				string racesStr = string.Join(",", raceNames);
 
 				sharedCategory.Details.Add(new DetailItem {
 					Type = DetailType.Need,
-					Label = $"{prefix}{needName}, {racesStr}, {totalSatisfied} of {totalPopulation} satisfied"
+					Label = isFirst
+						? Strings.Get("panel.villagers.shared_need_entry_first", needName, racesStr, totalSatisfied, totalPopulation)
+						: Strings.Get("panel.villagers.shared_need_entry", needName, racesStr, totalSatisfied, totalPopulation)
 				});
 			}
 
@@ -483,7 +485,7 @@ namespace ATSAccessibility.Panels {
 
 			category.Details.Add(new DetailItem {
 				Type = DetailType.Resolve,
-				Label = $"Resolve: {Mathf.FloorToInt(resolve)} of {threshold}, settling to {settling}",
+				Label = Strings.Get("panel.villagers.resolve_label", Mathf.FloorToInt(resolve), threshold, settling),
 				SubDetails = resolveBreakdown
 			});
 
@@ -494,12 +496,14 @@ namespace ATSAccessibility.Panels {
 				int satisfied = GetNeedSatisfiedCount(raceName, need.model);
 				int total = category.Population;
 
-				string prefix = firstNeed ? "Needs: " : "";
+				bool isFirst = firstNeed;
 				firstNeed = false;
 
 				category.Details.Add(new DetailItem {
 					Type = DetailType.Need,
-					Label = $"{prefix}{needName}, {satisfied} of {total} satisfied"
+					Label = isFirst
+						? Strings.Get("panel.villagers.need_entry_first", needName, satisfied, total)
+						: Strings.Get("panel.villagers.need_entry", needName, satisfied, total)
 				});
 			}
 
@@ -514,12 +518,12 @@ namespace ATSAccessibility.Panels {
 
 		private string GetFavoringLabel(string raceName) {
 			if (GameReflection.IsFavored(raceName)) {
-				return "Favoring: Active. Press Enter to stop";
+				return Strings.Get("panel.villagers.favoring_active");
 			} else if (GameReflection.IsFavoringOnCooldown()) {
 				float cooldown = GameReflection.GetFavorCooldownLeft();
-				return $"Favoring: On cooldown, {Mathf.CeilToInt(cooldown)} seconds";
+				return Strings.Get("panel.villagers.favoring_cooldown", Mathf.CeilToInt(cooldown));
 			} else {
-				return "Favoring: Press Enter to favor this race";
+				return Strings.Get("panel.villagers.favoring_press");
 			}
 		}
 
@@ -625,7 +629,7 @@ namespace ATSAccessibility.Panels {
 
 					var displayNameField = effect.GetType().GetField("displayName", GameReflection.PublicInstance);
 					var locaText = displayNameField?.GetValue(effect);
-					string name = GameReflection.GetLocaText(locaText) ?? "Unknown";
+					string name = GameReflection.GetLocaText(locaText) ?? Strings.Get("common.unknown");
 
 					result.Add(new NeedInfo { name = name, model = need });
 				}

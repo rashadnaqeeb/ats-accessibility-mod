@@ -17,8 +17,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Capital";
-		protected override string EmptyMessage => "No items available";
+		protected override string OverlayName => Strings.Get("common.capital");
+		protected override string EmptyMessage => Strings.Get("overlay.capital.empty");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -27,7 +27,7 @@ namespace ATSAccessibility.Overlays {
 
 			string name = _items[index].name;
 			string lockSuffix = GetLockSuffix(name);
-			return $"{name}{lockSuffix}";
+			return Strings.Get("overlay.capital.item.label", name, lockSuffix);
 		}
 
 		protected override string GetSearchName(int index) {
@@ -38,14 +38,14 @@ namespace ATSAccessibility.Overlays {
 		protected override void RefreshData() {
 			_items.Clear();
 
-			_items.Add(("Buy Upgrades", () => CapitalReflection.OpenUpgrades()));
-			_items.Add(("Deeds", () => CapitalReflection.OpenDeeds()));
-			_items.Add(("Game History", () => CapitalReflection.OpenHistory()));
-			_items.Add(("Daily Expedition", () => CapitalReflection.OpenDailyExpedition()));
-			_items.Add(("Training Expedition", () => CapitalReflection.OpenTrainingExpedition()));
+			_items.Add((Strings.Get("overlay.capital.item.buy_upgrades"), () => CapitalReflection.OpenUpgrades()));
+			_items.Add((Strings.Get("common.deeds"), () => CapitalReflection.OpenDeeds()));
+			_items.Add((Strings.Get("overlay.capital.item.game_history"), () => CapitalReflection.OpenHistory()));
+			_items.Add((Strings.Get("common.daily_expedition"), () => CapitalReflection.OpenDailyExpedition()));
+			_items.Add((Strings.Get("overlay.capital.item.training_expedition"), () => CapitalReflection.OpenTrainingExpedition()));
 
 			if (CapitalReflection.IsHomeUnlocked()) {
-				_items.Add(("Home", () => CapitalReflection.OpenHome()));
+				_items.Add((Strings.Get("overlay.capital.item.home"), () => CapitalReflection.OpenHome()));
 			}
 		}
 
@@ -58,7 +58,7 @@ namespace ATSAccessibility.Overlays {
 
 			// Check if item is locked before suspending
 			if (IsItemLocked(item.name)) {
-				Speech.Say($"{item.name} locked. Unlock via meta progression");
+				Speech.Say(Strings.Get("overlay.capital.locked_activation", item.name));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -91,27 +91,22 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		private bool IsItemLocked(string name) {
-			switch (name) {
-				case "Deeds": return !CapitalReflection.IsDeedsUnlocked();
-				case "Daily Expedition": return !CapitalReflection.IsDailyExpeditionUnlocked();
-				case "Training Expedition": return !CapitalReflection.IsTrainingExpeditionUnlocked();
-				default: return false;
-			}
+			if (name == Strings.Get("common.deeds")) return !CapitalReflection.IsDeedsUnlocked();
+			if (name == Strings.Get("common.daily_expedition")) return !CapitalReflection.IsDailyExpeditionUnlocked();
+			if (name == Strings.Get("overlay.capital.item.training_expedition")) return !CapitalReflection.IsTrainingExpeditionUnlocked();
+			return false;
 		}
 
 		private string GetLockSuffix(string itemName) {
-			switch (itemName) {
-				case "Deeds":
-					return CapitalReflection.IsDeedsUnlocked() ? "" : ", locked";
-				case "Daily Expedition":
-					return CapitalReflection.IsDailyExpeditionUnlocked() ? "" : ", locked";
-				case "Training Expedition":
-					return CapitalReflection.IsTrainingExpeditionUnlocked() ? "" : ", locked";
-				case "Home":
-					return NarrationReflection.HasAnyImportantTopics() ? ", new dialogue" : "";
-				default:
-					return "";
-			}
+			if (itemName == Strings.Get("common.deeds"))
+				return CapitalReflection.IsDeedsUnlocked() ? "" : Strings.Get("common.suffix_locked");
+			if (itemName == Strings.Get("common.daily_expedition"))
+				return CapitalReflection.IsDailyExpeditionUnlocked() ? "" : Strings.Get("common.suffix_locked");
+			if (itemName == Strings.Get("overlay.capital.item.training_expedition"))
+				return CapitalReflection.IsTrainingExpeditionUnlocked() ? "" : Strings.Get("common.suffix_locked");
+			if (itemName == Strings.Get("overlay.capital.item.home"))
+				return NarrationReflection.HasAnyImportantTopics() ? Strings.Get("overlay.capital.suffix.new_dialogue") : "";
+			return "";
 		}
 	}
 }

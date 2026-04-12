@@ -121,7 +121,7 @@ namespace ATSAccessibility.Panels {
 			// Build "All" category
 			if (allProfessions.Count > 0) {
 				var allCategory = new WorkerCategory {
-					Name = Strings.Get("panel.workers.all_category"),
+					Name = Strings.Get("common.all"),
 					RaceName = null,
 					Items = BuildSortedItems(allProfessions)
 				};

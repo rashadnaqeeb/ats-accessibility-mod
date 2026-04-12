@@ -110,9 +110,9 @@ namespace ATSAccessibility.Navigators {
 					string description = ShrineReflection.GetTierEffectDescription(_building, tier.TierIndex, actualEffectIndex);
 
 					if (!string.IsNullOrEmpty(description))
-						Speech.Say($"{effectName ?? "Unknown effect"}: {description}");
+						Speech.Say(Strings.Get("nav.shrine.effect_with_desc", effectName ?? Strings.Get("common.unknown_effect"), description));
 					else
-						Speech.Say(effectName ?? "Unknown effect");
+						Speech.Say(effectName ?? Strings.Get("common.unknown_effect"));
 				}
 			}
 		}
@@ -126,7 +126,7 @@ namespace ATSAccessibility.Navigators {
 				} else {
 					// Any other key cancels
 					_awaitingConfirm = false;
-					Speech.Say("Cancelled");
+					Speech.Say(Strings.Get("common.cancelled"));
 				}
 				return true;
 			}
@@ -139,7 +139,7 @@ namespace ATSAccessibility.Navigators {
 				var tier = _effectTiers[itemIndex];
 				// Check if usable: unlimited (MaxCharges == 0) or has charges left
 				if (tier.MaxCharges > 0 && tier.ChargesLeft <= 0) {
-					Speech.Say("No charges remaining");
+					Speech.Say(Strings.Get("common.no_charges_remaining"));
 					return false;
 				}
 
@@ -159,7 +159,7 @@ namespace ATSAccessibility.Navigators {
 				_confirmTierIndex = tier.TierIndex;
 				_confirmEffectIndex = actualEffectIndex;
 
-				Speech.Say("Enter to confirm");
+				Speech.Say(Strings.Get("nav.shrine.enter_to_confirm"));
 				return true;
 			}
 			return false;
@@ -212,7 +212,7 @@ namespace ATSAccessibility.Navigators {
 
 		private void BuildSections() {
 			// Abilities is the only section
-			_sectionNames = new[] { "Abilities" };
+			_sectionNames = new[] { Strings.Get("common.abilities") };
 			_sectionTypes = new[] { SectionType.Effects };
 		}
 
@@ -222,21 +222,21 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceEffectTierItem(int itemIndex) {
 			if (_effectTiers.Count == 0) {
-				Speech.Say("No effects available");
+				Speech.Say(Strings.Get("common.no_effects_available"));
 				return;
 			}
 
 			if (itemIndex < _effectTiers.Count) {
 				var tier = _effectTiers[itemIndex];
-				string label = tier.Label ?? $"Tier {tier.TierIndex + 1}";
+				string label = tier.Label ?? Strings.Get("nav.shrine.tier_default", tier.TierIndex + 1);
 
 				// MaxCharges == 0 means unlimited uses
 				if (tier.MaxCharges <= 0) {
-					Speech.Say($"{label}, unlimited");
+					Speech.Say(Strings.Get("nav.shrine.tier_unlimited", label));
 				} else if (tier.ChargesLeft > 0) {
-					Speech.Say($"{label}, {tier.ChargesLeft} of {tier.MaxCharges} charges");
+					Speech.Say(Strings.Get("nav.shrine.tier_charges", label, tier.ChargesLeft, tier.MaxCharges));
 				} else {
-					Speech.Say($"{label}, no charges remaining");
+					Speech.Say(Strings.Get("nav.shrine.tier_no_charges", label));
 				}
 			}
 		}
@@ -251,11 +251,11 @@ namespace ATSAccessibility.Navigators {
 					SoundManager.PlayButtonClick();
 
 				string effectName = ShrineReflection.GetTierEffectName(_building, tierIndex, effectIndex);
-				Speech.Say($"Used {effectName ?? "effect"}");
+				Speech.Say(Strings.Get("nav.shrine.used_effect", effectName ?? Strings.Get("nav.shrine.effect_default")));
 				RefreshEffectData();  // Refresh to update charges and drawable effects
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Failed to use effect");
+				Speech.Say(Strings.Get("nav.shrine.failed_to_use"));
 			}
 		}
 	}

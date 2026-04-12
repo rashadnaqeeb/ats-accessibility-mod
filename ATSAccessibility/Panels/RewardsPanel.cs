@@ -48,7 +48,7 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE ABSTRACTS
 		// ========================================
 
-		protected override string OverlayName => "Rewards";
+		protected override string OverlayName => Strings.Get("common.rewards");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() => _items.Count;
@@ -104,13 +104,17 @@ namespace ATSAccessibility.Panels {
 			_items.Clear();
 			if (!_closingForPopup) {
 				InputBlocker.BlockCancelOnce = true;
-				Speech.Say("Closed");
+				Speech.Say(Strings.Get("common.closed"));
 			}
 			_closingForPopup = false;
 		}
 
 		// Search uses short names, not full labels
-		private static readonly string[] _searchNames = { "Blueprints", "Cornerstones", "Newcomers" };
+		private static readonly string[] _searchNames = {
+			Strings.Get("panel.rewards.blueprints"),
+			Strings.Get("common.cornerstones"),
+			Strings.Get("common.newcomers")
+		};
 
 		protected override string GetSearchName(int index) {
 			return index >= 0 && index < _searchNames.Length ? _searchNames[index] : null;
@@ -125,34 +129,34 @@ namespace ATSAccessibility.Panels {
 
 			// Blueprints
 			if (RewardsReflection.HasPendingBlueprints()) {
-				_items.Add(new RewardItem { Type = RewardType.Blueprints, Available = true, Label = "Blueprints" });
+				_items.Add(new RewardItem { Type = RewardType.Blueprints, Available = true, Label = Strings.Get("panel.rewards.blueprints") });
 			} else {
 				var threshold = RewardsReflection.GetNextBlueprintThreshold();
 				string label = threshold.HasValue
-					? $"Blueprints, next at {threshold.Value.nextThreshold} reputation"
-					: "Blueprints, unavailable";
+					? Strings.Get("panel.rewards.blueprints_next", threshold.Value.nextThreshold)
+					: Strings.Get("panel.rewards.blueprints_unavailable");
 				_items.Add(new RewardItem { Type = RewardType.Blueprints, Available = false, Label = label });
 			}
 
 			// Cornerstones
 			if (RewardsReflection.HasPendingCornerstones()) {
-				_items.Add(new RewardItem { Type = RewardType.Cornerstones, Available = true, Label = "Cornerstones" });
+				_items.Add(new RewardItem { Type = RewardType.Cornerstones, Available = true, Label = Strings.Get("common.cornerstones") });
 			} else {
 				var nextDate = RewardsReflection.GetNextCornerstoneDate();
 				string label = nextDate.HasValue
-					? $"Cornerstones, next at {nextDate.Value.season}, Year {nextDate.Value.year}"
-					: "Cornerstones, unavailable";
+					? Strings.Get("panel.rewards.cornerstones_next", nextDate.Value.season, nextDate.Value.year)
+					: Strings.Get("panel.rewards.cornerstones_unavailable");
 				_items.Add(new RewardItem { Type = RewardType.Cornerstones, Available = false, Label = label });
 			}
 
 			// Newcomers
 			if (RewardsReflection.HasPendingNewcomers()) {
-				_items.Add(new RewardItem { Type = RewardType.Newcomers, Available = true, Label = "Newcomers" });
+				_items.Add(new RewardItem { Type = RewardType.Newcomers, Available = true, Label = Strings.Get("common.newcomers") });
 			} else {
 				float time = RewardsReflection.GetTimeToNextNewcomers();
 				string label = time > 0
-					? $"Newcomers, arriving in {RewardsReflection.FormatGameTime(time)}"
-					: "Newcomers, unavailable";
+					? Strings.Get("panel.rewards.newcomers_next", RewardsReflection.FormatGameTime(time))
+					: Strings.Get("panel.rewards.newcomers_unavailable");
 				_items.Add(new RewardItem { Type = RewardType.Newcomers, Available = false, Label = label });
 			}
 
@@ -193,7 +197,7 @@ namespace ATSAccessibility.Panels {
 				Close();
 				Debug.Log($"[ATSAccessibility] Successfully opened {item.Label}");
 			} else {
-				Speech.Say($"{item.Label} unavailable");
+				Speech.Say(Strings.Get("panel.rewards.unavailable", item.Label));
 				Debug.Log($"[ATSAccessibility] Failed to open {item.Label}");
 			}
 		}

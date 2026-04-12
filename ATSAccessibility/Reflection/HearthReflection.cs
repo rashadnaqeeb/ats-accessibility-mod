@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -662,10 +663,10 @@ namespace ATSAccessibility.Reflection {
 				// DecorationTier extends LabelModel which has displayName
 				var displayNameField = decorTier.GetType().GetField("displayName", GameReflection.PublicInstance);
 				var displayNameLoca = displayNameField?.GetValue(decorTier);
-				return GameReflection.GetLocaText(displayNameLoca) ?? "Decorations";
+				return GameReflection.GetLocaText(displayNameLoca) ?? Strings.Get("common.decorations");
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetDecorationTierName failed: {ex.Message}");
-				return "Decorations";
+				return Strings.Get("common.decorations");
 			}
 		}
 

@@ -48,7 +48,7 @@ namespace ATSAccessibility.Overlays {
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry>();
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;
-		public string HelpContextName => "Encyclopedia";
+		public string HelpContextName => Strings.Get("overlay.encyclopedia.title");
 		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
 		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
@@ -462,7 +462,7 @@ namespace ATSAccessibility.Overlays {
 
 			// Check if unlocked
 			if (!WikiReflection.IsWikiSlotUnlocked(slot)) {
-				Speech.Say("Locked");
+				Speech.Say(Strings.Get("common.locked"));
 				return false;
 			}
 
@@ -542,31 +542,31 @@ namespace ATSAccessibility.Overlays {
 
 			// 3. Stats (one per line, "Label: value" format)
 			var resolve = WikiReflection.GetRaceInitialResolve(raceModel);
-			_contentLines.Add($"Resolve: {resolve}");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.race.resolve", resolve));
 
 			var interval = WikiReflection.GetRaceNeedsInterval(raceModel);
-			_contentLines.Add($"Break Interval: {FormatMinSec(interval)}");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.race.break_interval", FormatMinSec(interval)));
 
 			var resilience = WikiReflection.GetRaceResilienceLabel(raceModel);
-			AddIfNotEmpty("Resilience: " + resilience);
+			AddIfNotEmpty(Strings.Get("overlay.encyclopedia.race.resilience", resilience));
 
 			var demanding = WikiReflection.GetRaceDemanding(raceModel);
-			_contentLines.Add($"Demanding: {demanding}");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.race.demanding", demanding));
 
 			var decadent = WikiReflection.GetRaceDecadent(raceModel);
-			_contentLines.Add($"Decadent: {Mathf.RoundToInt(decadent)}");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.race.decadent", Mathf.RoundToInt(decadent)));
 
 			var hunger = WikiReflection.GetRaceHungerTolerance(raceModel);
-			_contentLines.Add($"Hunger Tolerance: {hunger}");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.race.hunger", hunger));
 
 			// 4. Effects
 			var revealEffect = WikiReflection.GetRaceRevealEffect(raceModel);
 			if (!string.IsNullOrEmpty(revealEffect))
-				_contentLines.Add("Reveal Effect: " + revealEffect);
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.race.reveal_effect", revealEffect));
 
 			var passiveEffect = WikiReflection.GetRacePassiveEffect(raceModel);
 			if (!string.IsNullOrEmpty(passiveEffect))
-				_contentLines.Add("Passive Effect: " + passiveEffect);
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.race.passive_effect", passiveEffect));
 
 			// 5. Needs (comma-separated on one line)
 			var needs = WikiReflection.GetRaceNeeds(raceModel);
@@ -578,7 +578,7 @@ namespace ATSAccessibility.Overlays {
 						needNames.Add(needName);
 				}
 				if (needNames.Count > 0)
-					_contentLines.Add("Needs: " + string.Join(", ", needNames));
+					_contentLines.Add(Strings.Get("overlay.encyclopedia.race.needs", string.Join(", ", needNames)));
 			}
 
 			// 6. Species Buildings (comma-separated on one line)
@@ -591,17 +591,17 @@ namespace ATSAccessibility.Overlays {
 						buildingNames.Add(buildingName);
 				}
 				if (buildingNames.Count > 0)
-					_contentLines.Add("Species Buildings: " + string.Join(", ", buildingNames));
+					_contentLines.Add(Strings.Get("overlay.encyclopedia.race.species_buildings", string.Join(", ", buildingNames)));
 			}
 
 			// 7. Specializations (multi-line with header)
 			var characteristics = WikiReflection.GetRaceCharacteristicsText(raceModel);
 			if (!string.IsNullOrEmpty(characteristics)) {
-				_contentLines.Add("Specializations:");
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.race.specializations"));
 				foreach (var line in characteristics.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)) {
 					var cleaned = line.Trim();
 					if (!string.IsNullOrEmpty(cleaned))
-						_contentLines.Add("  " + cleaned);
+						_contentLines.Add(Strings.Get("overlay.encyclopedia.race.bullet", cleaned));
 				}
 			}
 		}
@@ -623,21 +623,21 @@ namespace ATSAccessibility.Overlays {
 			// 3. Category
 			var category = WikiReflection.GetBuildingCategory(building);
 			if (!string.IsNullOrEmpty(category))
-				_contentLines.Add($"Category: {category}");
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.building.category", category));
 
 			// 4. Size
 			var size = WikiReflection.GetBuildingSize(building);
 			if (size.x > 0 && size.y > 0)
-				_contentLines.Add($"Size: {size.x}x{size.y}");
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.building.size", size.x, size.y));
 
 			// 5. Workplaces
 			var workplaces = WikiReflection.GetBuildingWorkplacesCount(building);
 			if (workplaces > 0)
-				_contentLines.Add($"Workplaces: {workplaces}");
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.building.workplaces", workplaces));
 
 			// 6. Movability
 			var movable = WikiReflection.GetBuildingMovable(building);
-			_contentLines.Add(movable ? "Can be moved" : "Cannot be moved");
+			_contentLines.Add(Strings.Get(movable ? "overlay.encyclopedia.building.can_move" : "overlay.encyclopedia.building.cannot_move"));
 
 			// 7. Construction cost
 			var requiredGoods = WikiReflection.GetBuildingRequiredGoods(building);
@@ -647,10 +647,10 @@ namespace ATSAccessibility.Overlays {
 					var name = WikiReflection.GetGoodRefDisplayName(goodRef);
 					var amount = WikiReflection.GetGoodRefAmount(goodRef);
 					if (!string.IsNullOrEmpty(name) && amount > 0)
-						costs.Add($"{amount} {name}");
+						costs.Add(Strings.Get("overlay.encyclopedia.good", amount, name));
 				}
 				if (costs.Count > 0)
-					_contentLines.Add("Construction: " + string.Join(", ", costs));
+					_contentLines.Add(Strings.Get("overlay.encyclopedia.building.construction", string.Join(", ", costs)));
 			}
 
 			// 8. Tags
@@ -665,7 +665,7 @@ namespace ATSAccessibility.Overlays {
 					}
 				}
 				if (tagNames.Count > 0)
-					_contentLines.Add("Tags: " + string.Join(", ", tagNames));
+					_contentLines.Add(Strings.Get("overlay.encyclopedia.building.tags", string.Join(", ", tagNames)));
 			}
 
 			// 9. Recipes (for workshops)
@@ -687,7 +687,7 @@ namespace ATSAccessibility.Overlays {
 			var recipes = WikiReflection.GetWorkshopRecipes(workshop);
 			if (recipes == null || recipes.Length == 0) return;
 
-			_contentLines.Add("Recipes:");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.building.recipes"));
 			foreach (var recipe in recipes) {
 				var outputName = WikiReflection.GetRecipeOutputName(recipe);
 				var outputAmount = WikiReflection.GetRecipeOutputAmount(recipe);
@@ -703,9 +703,9 @@ namespace ATSAccessibility.Overlays {
 				var time = RecipeFormatter.FormatTime(productionTime);
 
 				// Format stars
-				var stars = gradeLevel > 0 ? $" {gradeLevel} star{(gradeLevel > 1 ? "s" : "")}." : "";
+				var stars = gradeLevel > 0 ? Strings.Get(gradeLevel > 1 ? "overlay.encyclopedia.stars.many" : "overlay.encyclopedia.stars.one", gradeLevel) : "";
 
-				_contentLines.Add($"  {outputName} x {outputAmount}: {inputs} {time}{stars}");
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.recipe_row", outputName, outputAmount, inputs, time, stars));
 			}
 		}
 
@@ -717,7 +717,7 @@ namespace ATSAccessibility.Overlays {
 			var levels = WikiReflection.GetBuildingLevels(building);
 			if (levels == null || levels.Length <= 1) return;  // Skip if only base level
 
-			_contentLines.Add("Upgrades:");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.building.upgrades"));
 
 			// Start from index 1 (level I), skip index 0 (base)
 			for (int i = 1; i < levels.Length; i++) {
@@ -728,7 +728,7 @@ namespace ATSAccessibility.Overlays {
 				var requiredGoods = WikiReflection.GetLevelRequiredGoods(level);
 				var costStr = FormatUpgradeCost(requiredGoods);
 
-				_contentLines.Add($"  Level {levelNum}: {costStr}");
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.upgrade.level", levelNum, costStr));
 
 				// Get perk options
 				var options = WikiReflection.GetLevelOptions(level);
@@ -739,8 +739,8 @@ namespace ATSAccessibility.Overlays {
 						var desc = WikiReflection.GetPerkDescription(perk);
 
 						// Format: "Perk Name (+10%): Description"
-						var amountPart = !string.IsNullOrEmpty(amount) ? $" ({amount})" : "";
-						_contentLines.Add($"    {name}{amountPart}: {desc}");
+						var amountPart = !string.IsNullOrEmpty(amount) ? Strings.Get("overlay.encyclopedia.upgrade.perk.amount", amount) : "";
+						_contentLines.Add(Strings.Get("overlay.encyclopedia.upgrade.perk", name, amountPart, desc));
 					}
 				}
 			}
@@ -760,8 +760,8 @@ namespace ATSAccessibility.Overlays {
 			var dangerLevel = WikiReflection.GetRelicDangerLevel(relic);
 			var workplaces = WikiReflection.GetRelicWorkplacesCount(relic);
 			if (!string.IsNullOrEmpty(dangerLevel)) {
-				string workerText = workplaces > 0 ? $", {workplaces} worker{(workplaces > 1 ? "s" : "")}" : "";
-				_contentLines.Add($"Danger: {dangerLevel}{workerText}");
+				string workerText = workplaces > 0 ? Strings.Get("overlay.encyclopedia.relic.workers", workplaces, workplaces > 1 ? "s" : "") : "";
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.danger", dangerLevel, workerText));
 			}
 
 			// 3. Effects section
@@ -788,7 +788,7 @@ namespace ATSAccessibility.Overlays {
 			var effectsTiers = WikiReflection.GetRelicEffectsTiers(relic);
 			if (effectsTiers == null || effectsTiers.Length == 0) return;
 
-			_contentLines.Add("Effects (escalating):");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.effects_escalating"));
 
 			int tierNum = 1;
 			foreach (var tier in effectsTiers) {
@@ -806,7 +806,7 @@ namespace ATSAccessibility.Overlays {
 				}
 
 				if (effectNames.Count > 0) {
-					_contentLines.Add($"  After {timeStr}: {string.Join(", ", effectNames)}");
+					_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.tier", timeStr, string.Join(", ", effectNames)));
 				}
 				tierNum++;
 			}
@@ -818,15 +818,15 @@ namespace ATSAccessibility.Overlays {
 		private void BuildRelicStaticEffects(object relic) {
 			var activeEffects = WikiReflection.GetRelicActiveEffects(relic);
 			if (activeEffects == null || activeEffects.Length == 0) {
-				_contentLines.Add("Effects: None");
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.effects_none"));
 				return;
 			}
 
-			_contentLines.Add("Effects:");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.effects"));
 			foreach (var effect in activeEffects) {
 				var name = WikiReflection.GetEffectDisplayName(effect);
 				if (!string.IsNullOrEmpty(name))
-					_contentLines.Add($"  {name}");
+					_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.effect", name));
 			}
 		}
 
@@ -848,21 +848,21 @@ namespace ATSAccessibility.Overlays {
 			foreach (var decision in decisions) {
 				var label = WikiReflection.GetRelicDecisionLabel(decision);
 				if (string.IsNullOrEmpty(label))
-					label = $"Option {decisionNum}";
+					label = Strings.Get("overlay.encyclopedia.relic.option", decisionNum);
 
-				_contentLines.Add($"Decision: {label}");
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.decision", label));
 
 				// Working time
 				float workingTime = WikiReflection.GetRelicDecisionWorkingTime(decision);
 				if (workingTime > 0)
-					_contentLines.Add($"  Time: {FormatMinSec(workingTime)}");
+					_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.time", FormatMinSec(workingTime)));
 
 				// Required goods
 				var requiredGoods = WikiReflection.GetRelicDecisionRequiredGoods(decision);
 				if (requiredGoods != null && requiredGoods.Length > 0) {
 					string costStr = FormatGoodsSets(requiredGoods, " + ", " OR ");
 					if (!string.IsNullOrEmpty(costStr))
-						_contentLines.Add($"  Cost: {costStr}");
+						_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.cost", costStr));
 				}
 
 				// Working effects (during investigation)
@@ -875,7 +875,7 @@ namespace ATSAccessibility.Overlays {
 							effectNames.Add(name);
 					}
 					if (effectNames.Count > 0)
-						_contentLines.Add($"  During: {string.Join(", ", effectNames)}");
+						_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.during", string.Join(", ", effectNames)));
 				}
 
 				// Rewards for this decision
@@ -890,7 +890,7 @@ namespace ATSAccessibility.Overlays {
 								rewardNames.Add(name);
 						}
 						if (rewardNames.Count > 0)
-							_contentLines.Add($"  Rewards: {string.Join(", ", rewardNames)}");
+							_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.rewards", string.Join(", ", rewardNames)));
 					}
 				}
 
@@ -912,19 +912,19 @@ namespace ATSAccessibility.Overlays {
 
 			var decision = decisions.GetValue(0);
 
-			_contentLines.Add("Requirements:");
+			_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.requirements"));
 
 			// Working time
 			float workingTime = WikiReflection.GetRelicDecisionWorkingTime(decision);
 			if (workingTime > 0)
-				_contentLines.Add($"  Time: {FormatMinSec(workingTime)}");
+				_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.time", FormatMinSec(workingTime)));
 
 			// Required goods
 			var requiredGoods = WikiReflection.GetRelicDecisionRequiredGoods(decision);
 			if (requiredGoods != null && requiredGoods.Length > 0) {
 				string costStr = FormatGoodsSets(requiredGoods, " + ", " OR ");
 				if (!string.IsNullOrEmpty(costStr))
-					_contentLines.Add($"  Cost: {costStr}");
+					_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.cost", costStr));
 			}
 
 			// Working effects
@@ -937,7 +937,7 @@ namespace ATSAccessibility.Overlays {
 						effectNames.Add(name);
 				}
 				if (effectNames.Count > 0)
-					_contentLines.Add($"  During: {string.Join(", ", effectNames)}");
+					_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.during", string.Join(", ", effectNames)));
 			}
 
 			// Rewards
@@ -953,7 +953,7 @@ namespace ATSAccessibility.Overlays {
 							rewardNames.Add(name);
 					}
 					if (rewardNames.Count > 0)
-						_contentLines.Add($"  Rewards: {string.Join(", ", rewardNames)}");
+						_contentLines.Add(Strings.Get("overlay.encyclopedia.relic.rewards", string.Join(", ", rewardNames)));
 				}
 			}
 		}
@@ -977,6 +977,8 @@ namespace ATSAccessibility.Overlays {
 		/// Each GoodsSet represents one required input slot (joined by separator).
 		/// Multiple goods within a GoodsSet are alternatives (joined by altSeparator).
 		/// </summary>
+		// TODO: verify — separator/altSeparator default values are user-facing English glue;
+		// left inline because C# default parameter values must be compile-time constants.
 		private string FormatGoodsSets(Array goodsSets, string separator = ", + ", string altSeparator = " OR ") {
 			if (goodsSets == null || goodsSets.Length == 0) return null;
 
@@ -989,7 +991,7 @@ namespace ATSAccessibility.Overlays {
 						var name = WikiReflection.GetGoodRefDisplayName(goodRef);
 						var amount = WikiReflection.GetGoodRefAmount(goodRef);
 						if (!string.IsNullOrEmpty(name))
-							alternatives.Add($"{amount} {name}");
+							alternatives.Add(Strings.Get("overlay.encyclopedia.good", amount, name));
 					}
 					if (alternatives.Count > 0)
 						parts.Add(string.Join(altSeparator, alternatives));
@@ -1002,7 +1004,7 @@ namespace ATSAccessibility.Overlays {
 		/// Format the upgrade cost from an array of GoodsSet objects.
 		/// </summary>
 		private string FormatUpgradeCost(Array requiredGoods) {
-			return FormatGoodsSets(requiredGoods) ?? "Free";
+			return FormatGoodsSets(requiredGoods) ?? Strings.Get("common.free");
 		}
 
 		/// <summary>
@@ -1146,10 +1148,10 @@ namespace ATSAccessibility.Overlays {
 
 		private void AnnounceCurrentPanel() {
 			string panelName = _currentPanel switch {
-				WikiPanel.Categories => "Categories",
-				WikiPanel.Articles => "Articles",
-				WikiPanel.Content => "Content",
-				_ => "Unknown"
+				WikiPanel.Categories => Strings.Get("overlay.encyclopedia.panel.categories"),
+				WikiPanel.Articles => Strings.Get("overlay.encyclopedia.panel.articles"),
+				WikiPanel.Content => Strings.Get("common.content"),
+				_ => Strings.Get("common.unknown")
 			};
 
 			Speech.Say(panelName);
@@ -1171,7 +1173,7 @@ namespace ATSAccessibility.Overlays {
 
 		private void AnnounceCategoryElement() {
 			if (_categoryButtons.Count == 0) {
-				Speech.Say("No categories");
+				Speech.Say(Strings.Get("overlay.encyclopedia.no_categories"));
 				return;
 			}
 
@@ -1180,14 +1182,14 @@ namespace ATSAccessibility.Overlays {
 
 			var button = _categoryButtons[_categoryIndex];
 			var comp = button as Component;
-			string name = comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : "Unknown";
+			string name = comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : Strings.Get("common.unknown");
 
 			Speech.Say(name);
 		}
 
 		private void AnnounceArticleElement() {
 			if (_articleSlots.Count == 0) {
-				Speech.Say("No articles");
+				Speech.Say(Strings.Get("overlay.encyclopedia.no_articles"));
 				return;
 			}
 
@@ -1196,17 +1198,17 @@ namespace ATSAccessibility.Overlays {
 
 			var slot = _articleSlots[_articleIndex];
 			var comp = slot as Component;
-			string name = comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : "Unknown";
+			string name = comp != null ? UIElementFinder.GetTextFromTransform(comp.transform) : Strings.Get("common.unknown");
 
 			bool unlocked = WikiReflection.IsWikiSlotUnlocked(slot);
-			string lockStatus = unlocked ? "" : ", locked";
+			string lockStatus = unlocked ? "" : Strings.Get("common.suffix_locked");
 
-			Speech.Say($"{name}, button{lockStatus}");
+			Speech.Say(Strings.Get("overlay.encyclopedia.article", name, lockStatus));
 		}
 
 		private void AnnounceContentElement() {
 			if (_contentLines.Count == 0) {
-				Speech.Say("No content");
+				Speech.Say(Strings.Get("overlay.encyclopedia.no_content"));
 				return;
 			}
 

@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -496,7 +497,7 @@ namespace ATSAccessibility.Reflection {
 				return CleanInternalName(name);
 			}
 
-			return $"Hook {index + 1}";
+			return Strings.Get("reflection.perkcrafter.hook", index + 1);
 		}
 
 		private static string CleanInternalName(string name) {

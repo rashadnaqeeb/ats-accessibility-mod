@@ -103,11 +103,19 @@ namespace ATSAccessibility.Reflection {
 		// GameTime property
 		private static PropertyInfo _gtsTimeProperty = null;
 
-		// Rating labels
-		private static readonly string[] _ratingLabels = { "good deal", "regular price", "bad deal" };
+		// Rating labels (lookup keys for Strings.Get — resolved at call time)
+		private static readonly string[] _ratingLabelKeys = {
+			"reflection.blackmarket.rating_good",
+			"reflection.blackmarket.rating_regular",
+			"reflection.blackmarket.rating_bad",
+		};
 
-		// Season names
-		private static readonly string[] _seasonNames = { "Drizzle", "Clearance", "Storm" };
+		// Season names (lookup keys for Strings.Get — resolved at call time)
+		private static readonly string[] _seasonNameKeys = {
+			"common.season_drizzle",
+			"common.season_clearance",
+			"common.season_storm",
+		};
 
 		// ========================================
 		// INITIALIZATION
@@ -305,7 +313,7 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static string GetFlavorText() {
 			// Static text as per plan
-			return "Fain, Syndicate Representative: \"Many greetings, Viceroy. Running low on wood again, are we? I'm sure we can arrange something...\"";
+			return Strings.Get("reflection.blackmarket.flavor");
 		}
 
 		/// <summary>
@@ -355,12 +363,12 @@ namespace ATSAccessibility.Reflection {
 
 						// Get ratings
 						int buyRatingInt = ReflectionHelper.GetEnum(_bmosBuyRatingField, offer);
-						info.BuyRating = buyRatingInt >= 0 && buyRatingInt < _ratingLabels.Length
-							? _ratingLabels[buyRatingInt] : "unknown";
+						info.BuyRating = buyRatingInt >= 0 && buyRatingInt < _ratingLabelKeys.Length
+							? Strings.Get(_ratingLabelKeys[buyRatingInt]) : "unknown";
 
 						int creditRatingInt = ReflectionHelper.GetEnum(_bmosCreditRatingField, offer);
-						info.CreditRating = creditRatingInt >= 0 && creditRatingInt < _ratingLabels.Length
-							? _ratingLabels[creditRatingInt] : "unknown";
+						info.CreditRating = creditRatingInt >= 0 && creditRatingInt < _ratingLabelKeys.Length
+							? Strings.Get(_ratingLabelKeys[creditRatingInt]) : "unknown";
 
 						// Get time left
 						info.TimeLeft = ReflectionHelper.InvokeFloat(_bmGetTimeLeftForMethod, blackMarket, offer);
@@ -412,10 +420,10 @@ namespace ATSAccessibility.Reflection {
 				year += totalSeasons / 3;
 				season = totalSeasons % 3;
 
-				string seasonName = season >= 0 && season < _seasonNames.Length ? _seasonNames[season] : "Unknown";
+				string seasonName = season >= 0 && season < _seasonNameKeys.Length ? Strings.Get(_seasonNameKeys[season]) : "Unknown";
 				string yearRoman = FormattingUtils.YearToRoman(year);
 
-				return $"Year {yearRoman} {seasonName}";
+				return Strings.Get("reflection.blackmarket.payment_terms", yearRoman, seasonName);
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] BlackMarketReflection.GetPaymentTerms failed: {ex.Message}");
 				return "";

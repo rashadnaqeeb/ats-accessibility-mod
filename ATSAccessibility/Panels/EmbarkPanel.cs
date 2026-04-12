@@ -44,14 +44,14 @@ namespace ATSAccessibility.Panels {
 		private Vector3Int _cachedFieldPos;  // Cached field position (avoids repeated reflection)
 
 		// Top menu
-		private readonly string[] _topMenuItems = {
-			"Settlement Name",
-			"Randomize Name",
-			"Mission Info",
-			"Caravans",
-			"Spend Embark Points",
-			"Difficulty",
-			"Embark"
+		private readonly string[] _topMenuItems = new string[] {
+			Strings.Get("panel.embark.menu.settlement_name"),
+			Strings.Get("panel.embark.menu.randomize_name"),
+			Strings.Get("panel.embark.menu.mission_info"),
+			Strings.Get("panel.embark.menu.caravans"),
+			Strings.Get("panel.embark.menu.spend_embark_points"),
+			Strings.Get("common.difficulty"),
+			Strings.Get("common.embark")
 		};
 
 		// Name editing state
@@ -71,7 +71,7 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE ABSTRACTS
 		// ========================================
 
-		protected override string OverlayName => "Embark screen";
+		protected override string OverlayName => Strings.Get("panel.embark.title");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() {
@@ -83,7 +83,7 @@ namespace ATSAccessibility.Panels {
 			if (Level == 0 && index >= 0 && index < _topMenuItems.Length) {
 				if (index == 0) {
 					var name = EmbarkReflection.GetSettlementName();
-					return $"Settlement Name, {name ?? "Unknown"}";
+					return Strings.Get("panel.embark.settlement_name_label", name ?? Strings.Get("common.unknown"));
 				}
 				return _topMenuItems[index];
 			}
@@ -161,7 +161,7 @@ namespace ATSAccessibility.Panels {
 
 		protected override string GetOpenAnnouncement() {
 			var name = EmbarkReflection.GetSettlementName();
-			return $"Embark screen. Settlement Name, {name ?? "Unknown"}";
+			return Strings.Get("panel.embark.open", name ?? Strings.Get("common.unknown"));
 		}
 
 		protected override void OnOpened() {
@@ -174,11 +174,11 @@ namespace ATSAccessibility.Panels {
 			_categories.Clear();
 			_nameEditing = false;
 			EmbarkReflection.ClearInstanceCaches();
-			Speech.Say("Embark panel closed");
+			Speech.Say(Strings.Get("panel.embark.closed"));
 		}
 
 		private static readonly List<HelpEntry> _embarkHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Tab", "Cycle modifier category"),
+			new HelpEntry("Tab", Strings.Get("common.cycle_modifier_category")),
 		};
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _embarkHelpEntries;
 
@@ -331,7 +331,7 @@ namespace ATSAccessibility.Panels {
 							_sectionDetailIndex = 0;
 							AnnounceCurrentDetail();
 						} else {
-							Speech.Say("No details");
+							Speech.Say(Strings.Get("panel.embark.no_details"));
 						}
 					}
 					return true;
@@ -475,7 +475,7 @@ namespace ATSAccessibility.Panels {
 
 		private void AnnounceCurrentCategory() {
 			if (_sectionCategoryIndex < 0 || _sectionCategoryIndex >= _categories.Count) {
-				Speech.Say("No items");
+				Speech.Say(Strings.Get("common.no_items"));
 				return;
 			}
 
@@ -483,10 +483,10 @@ namespace ATSAccessibility.Panels {
 			string message = category.Name;
 
 			if (!string.IsNullOrEmpty(category.Value))
-				message += $", {category.Value}";
+				message = Strings.Get("panel.embark.category_with_value", category.Name, category.Value);
 
 			if (category.Details.Count > 0) {
-				message += ". Press right for details";
+				message += Strings.Get("panel.embark.press_right_for_details");
 			}
 
 			Speech.Say(message);
@@ -504,7 +504,7 @@ namespace ATSAccessibility.Panels {
 					if (category.Data != null) {
 						SelectCaravan(category.Data);
 					} else {
-						Speech.Say("This caravan slot is locked");
+						Speech.Say(Strings.Get("panel.embark.caravan_slot_locked_spoken"));
 					}
 					break;
 
@@ -551,7 +551,7 @@ namespace ATSAccessibility.Panels {
 		private void AnnounceCurrentDetail() {
 			var category = _categories[_sectionCategoryIndex];
 			if (_sectionDetailIndex < 0 || _sectionDetailIndex >= category.Details.Count) {
-				Speech.Say("No details");
+				Speech.Say(Strings.Get("panel.embark.no_details"));
 				return;
 			}
 
@@ -597,7 +597,7 @@ namespace ATSAccessibility.Panels {
 
 			var category = _categories[_sectionCategoryIndex];
 			if (category.Details.Count == 0) {
-				Speech.Say("No items in this panel");
+				Speech.Say(Strings.Get("panel.embark.no_items_in_panel"));
 				return;
 			}
 
@@ -612,7 +612,7 @@ namespace ATSAccessibility.Panels {
 			int used = EmbarkReflection.CalculatePointsUsed();
 			int total = EmbarkReflection.GetTotalPreparationPoints();
 
-			Speech.Say($"{category.Name}. {used} of {total} points spent");
+			Speech.Say(Strings.Get("panel.embark.points_summary", category.Name, used, total));
 		}
 
 		private void AnnounceSpendPointsItem() {
@@ -630,12 +630,12 @@ namespace ATSAccessibility.Panels {
 
 			var category = _categories[_sectionCategoryIndex];
 			if (category.Details.Count == 0 || category.DataList == null || category.DataList.Count == 0) {
-				Speech.Say("No item selected");
+				Speech.Say(Strings.Get("panel.embark.no_item_selected"));
 				return;
 			}
 
 			if (_sectionDetailIndex >= category.DataList.Count) {
-				Speech.Say("Invalid selection");
+				Speech.Say(Strings.Get("panel.embark.invalid_selection"));
 				return;
 			}
 
@@ -653,7 +653,7 @@ namespace ATSAccessibility.Panels {
 			SetLevel(2);
 			_nameEditing = true;
 
-			Speech.Say($"Editing name: {currentName}. Type to replace, Enter to confirm");
+			Speech.Say(Strings.Get("panel.embark.name_edit_prompt", currentName));
 		}
 
 		private bool ProcessNameEditKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
@@ -671,7 +671,7 @@ namespace ATSAccessibility.Panels {
 				case KeyCode.Backspace:
 					if (_nameBuffer.Length > 0) {
 						_nameBuffer.Remove(_nameBuffer.Length - 1, 1);
-						Speech.Say(_nameBuffer.Length > 0 ? _nameBuffer.ToString() : "Empty");
+						Speech.Say(_nameBuffer.Length > 0 ? _nameBuffer.ToString() : Strings.Get("common.empty"));
 					}
 					return true;
 
@@ -703,9 +703,9 @@ namespace ATSAccessibility.Panels {
 			if (_nameBuffer.Length > 0) {
 				EmbarkReflection.SetCustomSettlementName(_nameBuffer.ToString());
 				SoundManager.PlayButtonClick();
-				Speech.Say($"Name set to {_nameBuffer}");
+				Speech.Say(Strings.Get("panel.embark.name_set_to", _nameBuffer));
 			} else {
-				Speech.Say("Name unchanged");
+				Speech.Say(Strings.Get("common.name_unchanged"));
 			}
 
 			SetLevel(0);
@@ -713,7 +713,7 @@ namespace ATSAccessibility.Panels {
 		}
 
 		private void CancelNameEdit() {
-			Speech.Say("Cancelled");
+			Speech.Say(Strings.Get("common.cancelled"));
 			SetLevel(0);
 			_nameEditing = false;
 		}
@@ -725,7 +725,7 @@ namespace ATSAccessibility.Panels {
 				Speech.Say(newName);
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Cannot randomize");
+				Speech.Say(Strings.Get("common.cannot_randomize"));
 			}
 		}
 
@@ -757,18 +757,18 @@ namespace ATSAccessibility.Panels {
 			// Add soil grade (fertility)
 			var soilGrade = WorldMapReflection.WorldMapGetBiomeSoilGrade(fieldPos);
 			if (!string.IsNullOrEmpty(soilGrade))
-				biomeDetails.Add($"Soil: {soilGrade}");
+				biomeDetails.Add(Strings.Get("panel.embark.soil", soilGrade));
 
 			// Add resource nodes
 			if (biomeDeposits.Count > 0)
-				biomeDetails.Add($"Deposits: {string.Join(", ", biomeDeposits)}");
+				biomeDetails.Add(Strings.Get("panel.embark.deposits", string.Join(", ", biomeDeposits)));
 
 			if (biomeTrees.Count > 0)
-				biomeDetails.Add($"Resources from trees: {string.Join(", ", biomeTrees)}");
+				biomeDetails.Add(Strings.Get("panel.embark.resources_from_trees", string.Join(", ", biomeTrees)));
 
 			_categories.Add(new Category {
-				Name = "Biome",
-				Value = biomeName ?? "Unknown",
+				Name = Strings.Get("panel.embark.biome"),
+				Value = biomeName ?? Strings.Get("common.unknown"),
 				Details = biomeDetails
 			});
 
@@ -780,23 +780,23 @@ namespace ATSAccessibility.Panels {
 
 			var difficultyDetails = new List<string>();
 			if (!string.IsNullOrEmpty(minDifficulty) && minDifficulty != selectedDiffName) {
-				difficultyDetails.Add($"Minimum for this field: {minDifficulty}");
+				difficultyDetails.Add(Strings.Get("panel.embark.min_for_field", minDifficulty));
 			}
 
 			_categories.Add(new Category {
-				Name = "Selected Difficulty",
-				Value = selectedDiffName ?? "Unknown",
+				Name = Strings.Get("panel.embark.selected_difficulty"),
+				Value = selectedDiffName ?? Strings.Get("common.unknown"),
 				Details = difficultyDetails
 			});
 
 			// Modifiers
 			var effects = WorldMapReflection.WorldMapGetFieldEffectsWithDescriptions(fieldPos);
 			var modifierDetails = effects?.Select(e =>
-				string.IsNullOrEmpty(e.description) ? e.name : $"{e.name}: {e.description}"
+				string.IsNullOrEmpty(e.description) ? e.name : Strings.Get("panel.embark.modifier_with_description", e.name, e.description)
 			).ToList() ?? new List<string>();
 			_categories.Add(new Category {
-				Name = "Modifiers",
-				Value = $"{modifierDetails.Count} modifiers",
+				Name = Strings.Get("common.modifiers"),
+				Value = Strings.Get("panel.embark.modifiers_count", modifierDetails.Count),
 				Details = modifierDetails
 			});
 
@@ -806,7 +806,7 @@ namespace ATSAccessibility.Panels {
 				: WorldMapReflection.WorldMapGetSealFragmentsForWin(fieldPos);
 			if (fragments > 0) {
 				_categories.Add(new Category {
-					Name = "Seal Fragments Awarded",
+					Name = Strings.Get("panel.embark.seal_fragments"),
 					Value = fragments.ToString()
 				});
 			}
@@ -817,8 +817,8 @@ namespace ATSAccessibility.Panels {
 				: WorldMapReflection.WorldMapGetMetaCurrencies(fieldPos)?.ToList() ?? new List<string>();
 			if (rewardDetails.Count > 0) {
 				_categories.Add(new Category {
-					Name = "Rewards",
-					Value = $"{rewardDetails.Count} rewards",
+					Name = Strings.Get("common.rewards"),
+					Value = Strings.Get("panel.embark.rewards_count", rewardDetails.Count),
 					Details = rewardDetails
 				});
 			}
@@ -829,23 +829,23 @@ namespace ATSAccessibility.Panels {
 			int bonusPoints = EmbarkReflection.GetBonusPreparationPoints();
 			int totalPoints = EmbarkReflection.GetTotalPreparationPoints();
 			var pointsParts = new System.Collections.Generic.List<string>();
-			pointsParts.Add($"{rawBase} base");
+			pointsParts.Add(Strings.Get("panel.embark.points_base", rawBase));
 			if (penalty != 0)
-				pointsParts.Add($"{penalty} difficulty");
+				pointsParts.Add(Strings.Get("panel.embark.points_difficulty", penalty));
 			if (bonusPoints != 0)
-				pointsParts.Add($"{bonusPoints} bonus");
+				pointsParts.Add(Strings.Get("panel.embark.points_bonus", bonusPoints));
 			string pointsValue = pointsParts.Count > 1
-				? $"{totalPoints}, {string.Join(", ", pointsParts)}"
+				? Strings.Get("panel.embark.points_value_with_breakdown", totalPoints, string.Join(", ", pointsParts))
 				: totalPoints.ToString();
 			_categories.Add(new Category {
-				Name = "Embark Points",
+				Name = Strings.Get("panel.embark.embark_points"),
 				Value = pointsValue
 			});
 
 			if (_categories.Count > 0) {
 				AnnounceCurrentCategory();
 			} else {
-				Speech.Say("No mission info available");
+				Speech.Say(Strings.Get("panel.embark.no_mission_info"));
 			}
 		}
 
@@ -868,10 +868,11 @@ namespace ATSAccessibility.Panels {
 
 					var details = BuildCaravanDetails(caravan);
 					string displayStr = EmbarkReflection.GetCaravanDisplayString(caravan, i);
-					string selectedMarker = isSelected ? "Selected, " : "";
 
 					_categories.Add(new Category {
-						Name = $"{selectedMarker}Caravan {i + 1}",
+						Name = isSelected
+							? Strings.Get("panel.embark.caravan_name_selected", i + 1)
+							: Strings.Get("panel.embark.caravan_name", i + 1),
 						Value = displayStr,
 						Details = details,
 						Data = caravan
@@ -879,8 +880,8 @@ namespace ATSAccessibility.Panels {
 				} else {
 					// Locked slot
 					_categories.Add(new Category {
-						Name = $"Caravan {i + 1}",
-						Value = "Slot locked",
+						Name = Strings.Get("panel.embark.caravan_slot_locked_name", i + 1),
+						Value = Strings.Get("panel.embark.caravan_slot_locked_value"),
 						Details = new List<string>(),
 						Data = null
 					});
@@ -901,25 +902,27 @@ namespace ATSAccessibility.Panels {
 			// Add species to details
 			foreach (var kvp in raceCounts) {
 				var displayName = EmbarkReflection.GetRaceDisplayName(kvp.Key);
-				details.Add($"{kvp.Value} {displayName}");
+				details.Add(Strings.Get("panel.embark.race_count", kvp.Value, displayName));
 			}
 			if (unknownRaceCount > 0) {
-				string raceWord = unknownRaceCount == 1 ? "race" : "races";
-				details.Add($"{unknownRaceCount} unknown {raceWord}");
+				string raceWord = unknownRaceCount == 1
+					? Strings.Get("common.race_singular")
+					: Strings.Get("common.race_plural");
+				details.Add(Strings.Get("panel.embark.unknown_races_count", unknownRaceCount, raceWord));
 			}
 
 			// Base goods
 			var goods = EmbarkReflection.GetCaravanGoods(caravan);
 			foreach (var (name, amount) in goods) {
 				var displayName = EmbarkReflection.GetGoodDisplayName(name);
-				details.Add($"{amount} {displayName}");
+				details.Add(Strings.Get("panel.embark.good_amount", amount, displayName));
 			}
 
 			// Bonus goods
 			var bonusGoods = EmbarkReflection.GetCaravanBonusGoods(caravan);
 			foreach (var (name, amount) in bonusGoods) {
 				var displayName = EmbarkReflection.GetGoodDisplayName(name);
-				details.Add($"{amount} {displayName} (bonus)");
+				details.Add(Strings.Get("panel.embark.good_amount_bonus", amount, displayName));
 			}
 
 			return details;
@@ -933,7 +936,7 @@ namespace ATSAccessibility.Panels {
 			BuildCaravanCategories();
 			_sectionCategoryIndex = prevIndex;
 
-			Speech.Say("Caravan selected");
+			Speech.Say(Strings.Get("panel.embark.caravan_selected_spoken"));
 		}
 
 		// ========================================
@@ -953,16 +956,18 @@ namespace ATSAccessibility.Panels {
 				string displayName = EmbarkReflection.GetEffectDisplayName(name);
 				string description = EmbarkReflection.GetEffectDescription(name);
 				int cost = EmbarkReflection.GetConditionPickCost(effect);
-				string detail = $"{displayName}, {cost} points";
+				string detail = Strings.Get("panel.embark.effect_detail", displayName, cost);
 				if (!string.IsNullOrEmpty(description))
-					detail += $". {description}";
+					detail = Strings.Get("panel.embark.detail_with_description", detail, description);
 				effectDetails.Add(detail);
 				effectDataList.Add(effect);
 			}
 
 			_categories.Add(new Category {
-				Name = "Available Effects",
-				Value = effectDetails.Count > 0 ? $"{effectDetails.Count} available" : "None",
+				Name = Strings.Get("panel.embark.available_effects"),
+				Value = effectDetails.Count > 0
+					? Strings.Get("panel.embark.n_available", effectDetails.Count)
+					: Strings.Get("common.none"),
 				Details = effectDetails,
 				DataList = effectDataList
 			});
@@ -978,16 +983,18 @@ namespace ATSAccessibility.Panels {
 				string description = GameReflection.GetGoodDescription(name);
 				int amount = EmbarkReflection.GetGoodPickAmount(good);
 				int cost = EmbarkReflection.GetGoodPickCost(good);
-				string detail = $"{amount} {displayName}, {cost} points";
+				string detail = Strings.Get("panel.embark.good_detail", amount, displayName, cost);
 				if (!string.IsNullOrEmpty(description))
-					detail += $". {description}";
+					detail = Strings.Get("panel.embark.detail_with_description", detail, description);
 				goodDetails.Add(detail);
 				goodDataList.Add(good);
 			}
 
 			_categories.Add(new Category {
-				Name = "Available Goods",
-				Value = goodDetails.Count > 0 ? $"{goodDetails.Count} available" : "None",
+				Name = Strings.Get("panel.embark.available_goods"),
+				Value = goodDetails.Count > 0
+					? Strings.Get("panel.embark.n_available", goodDetails.Count)
+					: Strings.Get("common.none"),
 				Details = goodDetails,
 				DataList = goodDataList
 			});
@@ -1006,9 +1013,9 @@ namespace ATSAccessibility.Panels {
 				string displayName = EmbarkReflection.GetEffectDisplayName(name);
 				string description = EmbarkReflection.GetEffectDescription(name);
 				int cost = EmbarkReflection.GetConditionPickCost(effect);
-				string detail = $"{displayName}, {cost} points";
+				string detail = Strings.Get("panel.embark.effect_detail", displayName, cost);
 				if (!string.IsNullOrEmpty(description))
-					detail += $". {description}";
+					detail = Strings.Get("panel.embark.detail_with_description", detail, description);
 				spentDetails.Add(detail);
 				spentDataList.Add(effect);
 			}
@@ -1021,16 +1028,16 @@ namespace ATSAccessibility.Panels {
 				string description = GameReflection.GetGoodDescription(name);
 				int amount = EmbarkReflection.GetGoodPickAmount(good);
 				int cost = EmbarkReflection.GetGoodPickCost(good);
-				string detail = $"{amount} {displayName}, {cost} points";
+				string detail = Strings.Get("panel.embark.good_detail", amount, displayName, cost);
 				if (!string.IsNullOrEmpty(description))
-					detail += $". {description}";
+					detail = Strings.Get("panel.embark.detail_with_description", detail, description);
 				spentDetails.Add(detail);
 				spentDataList.Add(good);
 			}
 
 			_categories.Add(new Category {
-				Name = "Spent",
-				Value = $"{used} of {total} points",
+				Name = Strings.Get("panel.embark.spent"),
+				Value = Strings.Get("panel.embark.spent_value", used, total),
 				Details = spentDetails,
 				DataList = spentDataList
 			});
@@ -1045,20 +1052,24 @@ namespace ATSAccessibility.Panels {
 			bool added;
 
 			// Determine type from the item itself (ConditionPickState vs GoodPickState)
+			// TODO: verify — categoryName substring checks ("Effect"/"Good") are English-only
+			// fallbacks for the typeName detection; primary path uses type names which stay stable.
 			string typeName = item?.GetType().Name ?? "";
 			if (typeName.Contains("Condition") || categoryName.Contains("Effect")) {
 				(success, added) = EmbarkReflection.ToggleEffectBonus(item);
 			} else if (typeName.Contains("Good") || categoryName.Contains("Good")) {
 				(success, added) = EmbarkReflection.ToggleGoodBonus(item);
 			} else {
-				Speech.Say("Cannot toggle this item");
+				Speech.Say(Strings.Get("panel.embark.cannot_toggle"));
 				return;
 			}
 
 			if (success) {
-				string action = added ? "Added" : "Removed";
+				string action = added
+					? Strings.Get("panel.embark.bonus_added")
+					: Strings.Get("panel.embark.bonus_removed");
 				int remaining = EmbarkReflection.CalculatePointsRemaining();
-				Speech.Say($"{action}. {remaining} points remaining");
+				Speech.Say(Strings.Get("panel.embark.bonus_toggled", action, remaining));
 
 				// Rebuild the section, preserving position (don't announce since we already gave feedback)
 				int prevCategoryIndex = _sectionCategoryIndex;
@@ -1079,7 +1090,7 @@ namespace ATSAccessibility.Panels {
 					cost = EmbarkReflection.GetGoodPickCost(item);
 
 				int remaining = EmbarkReflection.CalculatePointsRemaining();
-				Speech.Say($"Cannot afford. Need {cost} points, only {remaining} remaining");
+				Speech.Say(Strings.Get("panel.embark.cannot_afford", cost, remaining));
 			}
 		}
 
@@ -1116,13 +1127,14 @@ namespace ATSAccessibility.Panels {
 
 				float rewardsMult = EmbarkReflection.GetDifficultyRewardsMultiplier(diff);
 				if (rewardsMult > 0)
-					details.Add($"Rewards multiplier: {rewardsMult:P0}");
+					details.Add(Strings.Get("panel.embark.rewards_multiplier", rewardsMult));
 
-				string selectedMarker = isSelected ? "Selected, " : "";
-				string lockedMarker = !isUnlocked ? " (Locked)" : "";
+				string lockedMarker = !isUnlocked ? Strings.Get("panel.embark.difficulty_locked_suffix") : "";
 
 				_categories.Add(new Category {
-					Name = $"{selectedMarker}{name}{lockedMarker}",
+					Name = isSelected
+						? Strings.Get("panel.embark.difficulty_name_selected", name, lockedMarker)
+						: Strings.Get("panel.embark.difficulty_name", name, lockedMarker),
 					Value = "",  // Details will speak for themselves
 					Details = details,
 					Data = diff
@@ -1135,7 +1147,7 @@ namespace ATSAccessibility.Panels {
 			if (_categories.Count > 0) {
 				AnnounceCurrentCategory();
 			} else {
-				Speech.Say("No difficulties available");
+				Speech.Say(Strings.Get("common.no_difficulties_available"));
 			}
 		}
 
@@ -1147,7 +1159,7 @@ namespace ATSAccessibility.Panels {
 		private void SelectDifficulty(object difficulty) {
 			// Check if locked
 			if (!EmbarkReflection.IsDifficultyUnlocked(difficulty)) {
-				Speech.Say("This difficulty is locked");
+				Speech.Say(Strings.Get("panel.embark.difficulty_locked_spoken"));
 				return;
 			}
 
@@ -1160,9 +1172,9 @@ namespace ATSAccessibility.Panels {
 				_sectionCategoryIndex = prevIndex;
 
 				var name = EmbarkReflection.GetDifficultyDisplayName(difficulty);
-				Speech.Say($"{name} selected");
+				Speech.Say(Strings.Get("panel.embark.difficulty_selected_spoken", name));
 			} else {
-				Speech.Say("Cannot select this difficulty");
+				Speech.Say(Strings.Get("panel.embark.difficulty_cannot_select"));
 			}
 		}
 
@@ -1174,24 +1186,24 @@ namespace ATSAccessibility.Panels {
 			// Check if caravan is selected
 			var picked = EmbarkReflection.GetPickedCaravan();
 			if (picked == null) {
-				Speech.Say("Please select a caravan first");
+				Speech.Say(Strings.Get("panel.embark.select_caravan_first"));
 				return;
 			}
 
 			// Check if points are overspent
 			int remaining = EmbarkReflection.CalculatePointsRemaining();
 			if (remaining < 0) {
-				Speech.Say($"Cannot embark. Over budget by {-remaining} points");
+				Speech.Say(Strings.Get("panel.embark.cannot_embark_over_budget", -remaining));
 				return;
 			}
 
 			// Trigger the game's embark flow (may show confirm dialog if points unspent)
 			// Don't close panel here - it will close via OnFieldPreviewClosed when embark succeeds
-			Speech.Say("Embarking");
+			Speech.Say(Strings.Get("common.embarking"));
 			bool success = EmbarkReflection.TriggerEmbark();
 
 			if (!success) {
-				Speech.Say("Embark failed. Please use the game's embark button.");
+				Speech.Say(Strings.Get("panel.embark.embark_failed"));
 			}
 		}
 

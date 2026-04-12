@@ -38,7 +38,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Cornerstone Forge";
+		protected override string OverlayName => Strings.Get("common.cornerstone_forge");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() {
@@ -147,19 +147,19 @@ namespace ATSAccessibility.Overlays {
 
 		protected override string GetOpenAnnouncement() {
 			if (_isFinishedMode) {
-				string msg = $"Cornerstone Forge, finished. {_craftedPerks?.Count ?? 0} cornerstones crafted";
+				string msg = Strings.Get("overlay.perk_crafter.open.finished", _craftedPerks?.Count ?? 0);
 				if (_craftedPerks != null && _craftedPerks.Count > 0) {
 					string first = GetFinishedLabel(0);
 					if (!string.IsNullOrEmpty(first))
-						msg += ". " + first;
+						msg += Strings.Get("overlay.perk_crafter.open.finished_first", first);
 				}
 				return msg;
 			}
 
 			string label = GetMainMenuLabel(0);
 			if (!string.IsNullOrEmpty(label))
-				return "Cornerstone Forge. " + label;
-			return "Cornerstone Forge";
+				return Strings.Get("overlay.perk_crafter.open.prefix", label);
+			return Strings.Get("common.cornerstone_forge");
 		}
 
 		protected override void AnnounceCurrentItem() {
@@ -207,7 +207,7 @@ namespace ATSAccessibility.Overlays {
 						return _positiveOptions[index].Description;
 					break;
 				case MenuItem.Negative:
-					if (index == 0) return "None";
+					if (index == 0) return Strings.Get("common.none");
 					int negIdx = index - 1;
 					if (_negativeOptions != null && negIdx >= 0 && negIdx < _negativeOptions.Count)
 						return _negativeOptions[negIdx].Description;
@@ -226,50 +226,50 @@ namespace ATSAccessibility.Overlays {
 				case MenuItem.Dialogue: {
 						var dialogue = PerkCrafterReflection.GetNpcDialogue();
 						return !string.IsNullOrEmpty(dialogue)
-							? $"Malzor Stonespine: {dialogue}"
-							: "Malzor Stonespine";
+							? Strings.Get("overlay.perk_crafter.dialogue_with", dialogue)
+							: Strings.Get("overlay.perk_crafter.dialogue_empty");
 					}
 				case MenuItem.Shards: {
 						int usesLeft = PerkCrafterReflection.GetUsesLeft();
 						int total = PerkCrafterReflection.GetTotalCharges();
 						int crafted = PerkCrafterReflection.GetCraftedPerksCount();
 						return usesLeft > 0
-							? $"Crafting {crafted + 1} of {total}"
-							: "All crafts used";
+							? Strings.Get("overlay.perk_crafter.crafting", crafted + 1, total)
+							: Strings.Get("overlay.perk_crafter.all_used");
 					}
 				case MenuItem.Hook: {
 						var currentHook = PerkCrafterReflection.GetCurrentHook();
 						return currentHook != null
-							? $"Hook: {currentHook.Description}"
-							: "Hook: not selected";
+							? Strings.Get("overlay.perk_crafter.hook", currentHook.Description)
+							: Strings.Get("overlay.perk_crafter.hook.none");
 					}
 				case MenuItem.Positive: {
 						var currentPositive = PerkCrafterReflection.GetCurrentPositive();
 						return currentPositive != null
-							? $"Positive effect: {currentPositive.Description}"
-							: "Positive effect: not selected";
+							? Strings.Get("overlay.perk_crafter.positive", currentPositive.Description)
+							: Strings.Get("overlay.perk_crafter.positive.none");
 					}
 				case MenuItem.Negative: {
 						int negIndex = PerkCrafterReflection.GetPickedNegativeIndex();
 						if (negIndex < 0)
-							return "Negative effect: none";
+							return Strings.Get("overlay.perk_crafter.negative.none_line");
 						var currentNegative = PerkCrafterReflection.GetCurrentNegative();
 						return currentNegative != null
-							? $"Negative effect: {currentNegative.Description}"
-							: "Negative effect: not selected";
+							? Strings.Get("overlay.perk_crafter.negative", currentNegative.Description)
+							: Strings.Get("overlay.perk_crafter.negative.not_selected");
 					}
 				case MenuItem.Result: {
 						var resultName = PerkCrafterReflection.GetResultName();
 						return !string.IsNullOrEmpty(resultName)
-							? $"Result: {resultName}"
-							: "Result: unnamed";
+							? Strings.Get("overlay.perk_crafter.result", resultName)
+							: Strings.Get("overlay.perk_crafter.result.unnamed");
 					}
 				case MenuItem.Craft: {
 						var (amount, goodName) = PerkCrafterReflection.GetPrice();
 						int have = PerkCrafterReflection.GetStorageAmount();
 						return PerkCrafterReflection.CanAffordCraft()
-							? $"Craft, costs {amount} {goodName}, have {have}"
-							: $"Craft, unavailable, need {amount} {goodName}, have {have}";
+							? Strings.Get("overlay.perk_crafter.craft", amount, goodName, have)
+							: Strings.Get("overlay.perk_crafter.craft.unavailable", amount, goodName, have);
 					}
 				default:
 					return null;
@@ -330,7 +330,7 @@ namespace ATSAccessibility.Overlays {
 						return _positiveOptions[index].Description;
 					break;
 				case MenuItem.Negative:
-					if (index == 0) return "None: skip negative effect";
+					if (index == 0) return Strings.Get("overlay.perk_crafter.negative.none_submenu");
 					int negIdx = index - 1;
 					if (_negativeOptions != null && negIdx >= 0 && negIdx < _negativeOptions.Count)
 						return _negativeOptions[negIdx].Description;
@@ -368,11 +368,11 @@ namespace ATSAccessibility.Overlays {
 
 			if (success) {
 				SoundManager.PlayButtonClick();
-				Speech.Say("Selected");
+				Speech.Say(Strings.Get("common.selected"));
 				RefreshData();
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 			}
 
 			SetLevel(0);
@@ -390,7 +390,7 @@ namespace ATSAccessibility.Overlays {
 			SetLevel(2);
 			_nameEditing = true;
 
-			Speech.Say($"Editing name: {currentName}. Type to replace, Alt R to randomize, Enter to confirm");
+			Speech.Say(Strings.Get("overlay.perk_crafter.name.editing", currentName));
 		}
 
 		private bool ProcessNameEditKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
@@ -408,7 +408,7 @@ namespace ATSAccessibility.Overlays {
 				case KeyCode.Backspace:
 					if (_nameBuffer.Length > 0) {
 						_nameBuffer.Remove(_nameBuffer.Length - 1, 1);
-						Speech.Say(_nameBuffer.Length > 0 ? _nameBuffer.ToString() : "Empty");
+						Speech.Say(_nameBuffer.Length > 0 ? _nameBuffer.ToString() : Strings.Get("common.empty"));
 					}
 					return true;
 
@@ -446,9 +446,9 @@ namespace ATSAccessibility.Overlays {
 			if (_nameBuffer.Length > 0) {
 				PerkCrafterReflection.SetResultName(_nameBuffer.ToString());
 				SoundManager.PlayButtonClick();
-				Speech.Say($"Name set to {_nameBuffer}");
+				Speech.Say(Strings.Get("overlay.perk_crafter.name.saved", _nameBuffer));
 			} else {
-				Speech.Say("Name unchanged");
+				Speech.Say(Strings.Get("common.name_unchanged"));
 			}
 
 			SetLevel(0);
@@ -456,7 +456,7 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		private void CancelNameEdit() {
-			Speech.Say("Cancelled");
+			Speech.Say(Strings.Get("common.cancelled"));
 			SetLevel(0);
 			_nameEditing = false;
 		}
@@ -466,10 +466,10 @@ namespace ATSAccessibility.Overlays {
 				SoundManager.PlayButtonClick();
 				var newName = PerkCrafterReflection.GetResultName();
 				_nameBuffer = new StringBuilder(newName ?? "");
-				Speech.Say($"Randomized: {newName}");
+				Speech.Say(Strings.Get("overlay.perk_crafter.name.randomized", newName));
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Cannot randomize");
+				Speech.Say(Strings.Get("common.cannot_randomize"));
 			}
 		}
 
@@ -481,7 +481,7 @@ namespace ATSAccessibility.Overlays {
 			if (!PerkCrafterReflection.CanAffordCraft()) {
 				var (amount, goodName) = PerkCrafterReflection.GetPrice();
 				int have = PerkCrafterReflection.GetStorageAmount();
-				Speech.Say($"Cannot afford, need {amount} {goodName}, have {have}");
+				Speech.Say(Strings.Get("overlay.perk_crafter.craft.cannot_afford", amount, goodName, have));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -496,16 +496,16 @@ namespace ATSAccessibility.Overlays {
 				RefreshData();
 
 				if (_isFinishedMode) {
-					Speech.Say("Crafted. All cornerstones complete");
+					Speech.Say(Strings.Get("overlay.perk_crafter.craft.done_all"));
 					CurrentIndex = 0;
 				} else {
 					int crafted = PerkCrafterReflection.GetCraftedPerksCount();
 					int total = PerkCrafterReflection.GetTotalCharges();
-					Speech.Say($"Crafted. Now crafting {crafted + 1} of {total}");
+					Speech.Say(Strings.Get("overlay.perk_crafter.craft.done_next", crafted + 1, total));
 				}
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Craft failed");
+				Speech.Say(Strings.Get("overlay.perk_crafter.craft.failed"));
 			}
 		}
 
@@ -517,14 +517,14 @@ namespace ATSAccessibility.Overlays {
 			if (index == 0) {
 				var dialogue = PerkCrafterReflection.GetNpcDialogue();
 				return !string.IsNullOrEmpty(dialogue)
-					? $"Malzor Stonespine: {dialogue}"
-					: "Malzor Stonespine: That's all I can do for you.";
+					? Strings.Get("overlay.perk_crafter.dialogue_with", dialogue)
+					: Strings.Get("overlay.perk_crafter.dialogue_finished");
 			}
 
 			int perkIndex = index - 1;
 			if (_craftedPerks != null && perkIndex < _craftedPerks.Count) {
 				var perk = _craftedPerks[perkIndex];
-				return $"Crafted cornerstone {perkIndex + 1}: {perk.Name}. {perk.Description}";
+				return Strings.Get("overlay.perk_crafter.finished.perk", perkIndex + 1, perk.Name, perk.Description);
 			}
 			return null;
 		}

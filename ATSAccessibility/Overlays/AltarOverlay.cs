@@ -41,7 +41,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Forsaken Altar";
+		protected override string OverlayName => Strings.Get("overlay.altar.title");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() {
@@ -59,9 +59,9 @@ namespace ATSAccessibility.Overlays {
 			switch (_menuLevel) {
 				case MenuLevel.Main:
 					switch ((MainItem)index) {
-						case MainItem.Resources: return "Resources";
-						case MainItem.Cornerstones: return "Cornerstones";
-						case MainItem.Skip: return "Skip this pick";
+						case MainItem.Resources: return Strings.Get("common.resources");
+						case MainItem.Cornerstones: return Strings.Get("common.cornerstones");
+						case MainItem.Skip: return Strings.Get("overlay.altar.main.skip");
 						default: return null;
 					}
 
@@ -69,39 +69,39 @@ namespace ATSAccessibility.Overlays {
 					switch ((ResourceItem)index) {
 						case ResourceItem.Currencies:
 							int totalValue = AltarReflection.GetTotalMetaValue();
-							return $"Currencies, {totalValue} total value";
+							return Strings.Get("overlay.altar.resources.currencies", totalValue);
 						case ResourceItem.Villagers:
 							int totalVillagers = AltarReflection.GetTotalVillagers();
 							bool villagersEnabled = AltarReflection.AreVillagersAllowed();
-							return $"Villagers, {totalVillagers} available, {(villagersEnabled ? "enabled" : "disabled")}";
+							return Strings.Get("overlay.altar.resources.villagers", totalVillagers, Strings.Get(villagersEnabled ? "common.enabled_lower" : "common.disabled_lower"));
 						default: return null;
 					}
 
 				case MenuLevel.Currencies:
 					if (_currencies != null && index >= 0 && index < _currencies.Count) {
 						var currency = _currencies[index];
-						string state = currency.Enabled ? "enabled" : "disabled";
-						return $"{currency.DisplayName}: {currency.Amount}, {state}";
+						string state = Strings.Get(currency.Enabled ? "common.enabled_lower" : "common.disabled_lower");
+						return Strings.Get("overlay.altar.currency.item", currency.DisplayName, currency.Amount, state);
 					}
 					return null;
 
 				case MenuLevel.Races:
 					if (_races != null && index >= 0 && index < _races.Count) {
 						var race = _races[index];
-						string state = race.Enabled ? "enabled" : "disabled";
-						return $"{race.DisplayName}: {race.Count}, {state}";
+						string state = Strings.Get(race.Enabled ? "common.enabled_lower" : "common.disabled_lower");
+						return Strings.Get("overlay.altar.race.item", race.DisplayName, race.Count, state);
 					}
 					return null;
 
 				case MenuLevel.Cornerstones:
 					if (_cornerstones != null && index >= 0 && index < _cornerstones.Count) {
 						var cornerstone = _cornerstones[index];
-						string priceStr = $"{cornerstone.MetaPrice} value";
+						string priceStr = Strings.Get("overlay.altar.cornerstone.price", cornerstone.MetaPrice);
 						if (AltarReflection.AreVillagersAllowed() && cornerstone.VillagersPrice > 0)
-							priceStr += $" + {cornerstone.VillagersPrice} villagers";
-						string affordStr = cornerstone.CanAfford ? "can afford" : "cannot afford";
-						string upgradeStr = cornerstone.IsUpgrade ? ", upgrade" : "";
-						return $"{cornerstone.DisplayName}, {priceStr}, {affordStr}{upgradeStr}";
+							priceStr += Strings.Get("overlay.altar.cornerstone.price_villagers", cornerstone.VillagersPrice);
+						string affordStr = Strings.Get(cornerstone.CanAfford ? "overlay.altar.cornerstone.can_afford" : "overlay.altar.cornerstone.cannot_afford");
+						string upgradeStr = cornerstone.IsUpgrade ? Strings.Get("overlay.altar.cornerstone.upgrade_suffix") : "";
+						return Strings.Get("overlay.altar.cornerstone.item", cornerstone.DisplayName, priceStr, affordStr, upgradeStr);
 					}
 					return null;
 
@@ -221,15 +221,15 @@ namespace ATSAccessibility.Overlays {
 		protected override string GetOpenAnnouncement() {
 			if (!_isActive) {
 				var nextCharge = AltarReflection.GetNextChargeThreshold();
-				string message = "Altar inactive. Requires Storm season and activation charge.";
+				string message = Strings.Get("overlay.altar.inactive.header");
 				if (nextCharge.HasValue)
-					message += $" Next activation at {nextCharge.Value} reputation.";
+					message += Strings.Get("overlay.altar.inactive.next", nextCharge.Value);
 				else
-					message += " No more activations available this run.";
+					message += Strings.Get("overlay.altar.inactive.none");
 				return message;
 			}
 
-			return "Forsaken Altar. Resources";
+			return Strings.Get("overlay.altar.open");
 		}
 
 		protected override void OnClosed() {
@@ -283,7 +283,7 @@ namespace ATSAccessibility.Overlays {
 				_currencies = AltarReflection.GetCurrencies();
 				AnnounceCurrentItem();
 			} else {
-				Speech.Say("Cannot toggle");
+				Speech.Say(Strings.Get("overlay.altar.toggle.failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -296,7 +296,7 @@ namespace ATSAccessibility.Overlays {
 				_races = AltarReflection.GetRaces();
 				AnnounceCurrentItem();
 			} else {
-				Speech.Say("Cannot toggle");
+				Speech.Say(Strings.Get("overlay.altar.toggle.failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -306,7 +306,7 @@ namespace ATSAccessibility.Overlays {
 				SoundManager.PlayButtonClick();
 				AnnounceCurrentItem();
 			} else {
-				Speech.Say("Cannot toggle");
+				Speech.Say(Strings.Get("overlay.altar.toggle.failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -317,20 +317,20 @@ namespace ATSAccessibility.Overlays {
 
 		private void PurchaseCornerstone() {
 			if (_cornerstones == null || CurrentIndex < 0 || CurrentIndex >= _cornerstones.Count) {
-				Speech.Say("No cornerstone selected");
+				Speech.Say(Strings.Get("overlay.altar.cornerstone.none_selected"));
 				return;
 			}
 
 			var cornerstone = _cornerstones[CurrentIndex];
 
 			if (!cornerstone.CanAfford) {
-				Speech.Say("Cannot afford");
+				Speech.Say(Strings.Get("common.cannot_afford"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (AltarReflection.PickEffect(cornerstone.Model)) {
-				Speech.Say($"Purchased {cornerstone.DisplayName}");
+				Speech.Say(Strings.Get("overlay.altar.cornerstone.purchased", cornerstone.DisplayName));
 				SoundManager.PlayButtonClick();
 
 				if (AltarReflection.HasActivePick()) {
@@ -341,14 +341,14 @@ namespace ATSAccessibility.Overlays {
 					AnnounceCurrentItem();
 				}
 			} else {
-				Speech.Say("Purchase failed");
+				Speech.Say(Strings.Get("common.purchase_failed"));
 				SoundManager.PlayFailed();
 			}
 		}
 
 		private void ExecuteSkip() {
 			if (AltarReflection.Skip()) {
-				Speech.Say("Skipped");
+				Speech.Say(Strings.Get("common.skipped"));
 				SoundManager.PlayDecline();
 
 				if (AltarReflection.HasActivePick()) {
@@ -359,7 +359,7 @@ namespace ATSAccessibility.Overlays {
 					AnnounceCurrentItem();
 				}
 			} else {
-				Speech.Say("Skip failed");
+				Speech.Say(Strings.Get("overlay.altar.skip.failed"));
 				SoundManager.PlayFailed();
 			}
 		}

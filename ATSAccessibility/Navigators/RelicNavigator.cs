@@ -96,8 +96,8 @@ namespace ATSAccessibility.Navigators {
 		protected override string NavigatorName => "RelicNavigator";
 
 		protected override string GetOpenAnnouncement() {
-			string header = _buildingName ?? "Relic";
-			header += $". Threat level: {_threatLevel}";
+			string header = _buildingName ?? Strings.Get("common.relic");
+			header += Strings.Get("nav.relic.threat_level_suffix", _threatLevel);
 			if (!string.IsNullOrEmpty(_buildingDescription))
 				header += ". " + _buildingDescription;
 			return header;
@@ -169,20 +169,20 @@ namespace ATSAccessibility.Navigators {
 				if (_investigationFinished) {
 					// Phase C: Resolved status
 					if (_storageTotalSum > 0)
-						Speech.Say($"Status: Resolved, {_storageTotalSum} goods awaiting pickup");
+						Speech.Say(Strings.Get("nav.relic.status_resolved_with_pickup", _storageTotalSum));
 					else
-						Speech.Say("Status: Resolved");
+						Speech.Say(Strings.Get("nav.relic.status_resolved"));
 				} else if (_investigationStarted) {
 					// Phase B: In progress status with full details
 					int percentage = Mathf.RoundToInt(_progress * 100f);
 					string timeStr = FormatTimeLeft();
-					Speech.Say($"Status: In progress, {percentage}%, {timeStr}");
+					Speech.Say(Strings.Get("nav.relic.status_in_progress", percentage, timeStr));
 				} else {
 					// Phase A: Start investigation
 					if (_canStart)
-						Speech.Say("Start Investigation");
+						Speech.Say(Strings.Get("common.start_investigation"));
 					else
-						Speech.Say(_startBlockingReason ?? "Cannot start");
+						Speech.Say(_startBlockingReason ?? Strings.Get("nav.relic.cannot_start"));
 				}
 				return;
 			}
@@ -190,7 +190,7 @@ namespace ATSAccessibility.Navigators {
 			if (sectionType == SectionType.Effects) {
 				string effectsAnnouncement = _sectionNames[sectionIndex];
 				if (_areEffectsPermanent)
-					effectsAnnouncement += ", permanent";
+					effectsAnnouncement += Strings.Get("nav.relic.permanent_suffix");
 				Speech.Say(effectsAnnouncement);
 				return;
 			}
@@ -202,14 +202,14 @@ namespace ATSAccessibility.Navigators {
 		private string FormatDynamicEffectTime(float seconds) {
 			int secs = Mathf.RoundToInt(seconds);
 			if (secs <= 0)
-				return "moments";
+				return Strings.Get("nav.relic.time.moments");
 			if (secs < 60)
-				return $"{secs} seconds";
+				return Strings.Get("nav.relic.time.seconds", secs);
 			int minutes = secs / 60;
 			int remainingSecs = secs % 60;
 			if (remainingSecs > 0)
-				return $"{minutes} minutes {remainingSecs} seconds";
-			return $"{minutes} minutes";
+				return Strings.Get("nav.relic.time.minutes_seconds", minutes, remainingSecs);
+			return Strings.Get("nav.relic.time.minutes", minutes);
 		}
 
 		private string FormatTimeLeft() => FormattingUtils.FormatTimeRemaining(_timeLeft);
@@ -271,7 +271,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Workers)
-				return "No free workers";
+				return Strings.Get("common.no_free_workers");
 			return null;
 		}
 
@@ -312,9 +312,9 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		protected override void RefreshData() {
-			_buildingName = BuildingReflection.GetBuildingName(_building) ?? "Relic";
+			_buildingName = BuildingReflection.GetBuildingName(_building) ?? Strings.Get("common.relic");
 			_buildingDescription = BuildingReflection.GetBuildingDescription(_building);
-			_threatLevel = RelicReflection.GetRelicDangerLevel(_building) ?? "None";
+			_threatLevel = RelicReflection.GetRelicDangerLevel(_building) ?? Strings.Get("common.none");
 
 			// Phase flags
 			_investigationStarted = RelicReflection.IsRelicInvestigationStarted(_building);
@@ -386,82 +386,82 @@ namespace ATSAccessibility.Navigators {
 
 			if (_investigationFinished) {
 				// Phase C: Info, Status, Storage
-				sectionNames.Add("Status");
+				sectionNames.Add(Strings.Get("common.status"));
 				sectionTypes.Add(SectionType.Status);
 
 				if (TryInitializeWorkersSection()) {
-					sectionNames.Add("Workers");
+					sectionNames.Add(Strings.Get("common.workers"));
 					sectionTypes.Add(SectionType.Workers);
 				}
 
 				if (_storageItems.Count > 0) {
-					sectionNames.Add("Storage");
+					sectionNames.Add(Strings.Get("common.storage"));
 					sectionTypes.Add(SectionType.Storage);
 				}
 			} else if (_investigationStarted) {
 				// Phase B: Info, Status, Workers, Requirements, Effects, Rewards, Cancel
-				sectionNames.Add("Status");
+				sectionNames.Add(Strings.Get("common.status"));
 				sectionTypes.Add(SectionType.Status);
 
 				if (TryInitializeWorkersSection()) {
-					sectionNames.Add("Workers");
+					sectionNames.Add(Strings.Get("common.workers"));
 					sectionTypes.Add(SectionType.Workers);
 				}
 
 				if (_goodsSetCount > 0) {
-					sectionNames.Add("Requirements");
+					sectionNames.Add(Strings.Get("nav.relic.section.requirements"));
 					sectionTypes.Add(SectionType.Requirements);
 				}
 
 				if (GetEffectsItemCount() > 0) {
-					sectionNames.Add("Effects");
+					sectionNames.Add(Strings.Get("common.effects"));
 					sectionTypes.Add(SectionType.Effects);
 				}
 
 				if (_hasRewards) {
-					sectionNames.Add("Rewards");
+					sectionNames.Add(Strings.Get("common.rewards"));
 					sectionTypes.Add(SectionType.Rewards);
 				}
 
 				if (_canCancel) {
-					sectionNames.Add("Cancel Investigation");
+					sectionNames.Add(Strings.Get("nav.relic.section.cancel_investigation"));
 					sectionTypes.Add(SectionType.Cancel);
 				}
 			} else {
 				// Phase A: Info, Decisions, Choose Requirements, Effects, Workers, Rewards, Start Investigation
 				if (_hasMultipleDecisions) {
-					sectionNames.Add("Decisions");
+					sectionNames.Add(Strings.Get("nav.relic.section.decisions"));
 					sectionTypes.Add(SectionType.Decisions);
 				}
 
 				if (_goodsSetCount > 0) {
-					sectionNames.Add("Choose Requirements");
+					sectionNames.Add(Strings.Get("nav.relic.section.choose_requirements"));
 					sectionTypes.Add(SectionType.Requirements);
 				}
 
 				if (GetEffectsItemCount() > 0) {
-					sectionNames.Add("Effects");
+					sectionNames.Add(Strings.Get("common.effects"));
 					sectionTypes.Add(SectionType.Effects);
 				}
 
 				// Workers section - required for relics with workplaces
 				if (TryInitializeWorkersSection()) {
-					sectionNames.Add("Workers");
+					sectionNames.Add(Strings.Get("common.workers"));
 					sectionTypes.Add(SectionType.Workers);
 				}
 
 				if (_hasRewards) {
-					sectionNames.Add("Preview Rewards");
+					sectionNames.Add(Strings.Get("nav.relic.section.preview_rewards"));
 					sectionTypes.Add(SectionType.Rewards);
 				}
 
-				sectionNames.Add("Start Investigation");
+				sectionNames.Add(Strings.Get("common.start_investigation"));
 				sectionTypes.Add(SectionType.Status);
 			}
 
 			// Add Upgrades section if available (all phases)
 			if (TryInitializeUpgradesSection()) {
-				sectionNames.Add("Upgrades");
+				sectionNames.Add(Strings.Get("common.upgrades"));
 				sectionTypes.Add(SectionType.Upgrades);
 			}
 
@@ -515,7 +515,7 @@ namespace ATSAccessibility.Navigators {
 
 				for (int j = 0; j < altCount; j++) {
 					names[j] = RelicReflection.GetRelicGoodName(_building, decisionIndex, i, j);
-					displayNames[j] = RelicReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, j) ?? "Unknown";
+					displayNames[j] = RelicReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, j) ?? Strings.Get("common.unknown");
 					amounts[j] = RelicReflection.GetRelicGoodAmount(_building, decisionIndex, i, j);
 				}
 
@@ -573,32 +573,32 @@ namespace ATSAccessibility.Navigators {
 		private void AnnounceDecisionItem(int itemIndex) {
 			if (itemIndex < 0 || itemIndex >= _decisionCount) return;
 
-			string label = RelicReflection.GetRelicDecisionLabel(_building, itemIndex) ?? $"Decision {itemIndex + 1}";
+			string label = RelicReflection.GetRelicDecisionLabel(_building, itemIndex) ?? Strings.Get("nav.relic.decision_default", itemIndex + 1);
 			float workTime = RelicReflection.GetRelicDecisionWorkingTime(_building, itemIndex);
 
 			string announcement = label;
 			if (workTime > 0f)
-				announcement += $", {Mathf.RoundToInt(workTime)} seconds";
+				announcement += Strings.Get("nav.relic.decision_seconds_suffix", Mathf.RoundToInt(workTime));
 
 			if (itemIndex == _selectedDecisionIndex)
-				announcement += ", selected";
+				announcement += Strings.Get("common.suffix_selected");
 
 			// Append requirements summary for this decision
 			string reqSummary = GetDecisionRequirementsSummary(itemIndex);
 			if (!string.IsNullOrEmpty(reqSummary))
-				announcement += $", requires: {reqSummary}";
+				announcement += Strings.Get("nav.relic.requires_suffix", reqSummary);
 
 			// Append effects (cached, only accurate for selected decision)
 			if (itemIndex == _selectedDecisionIndex) {
 				string effectsSummary = GetEffectsSummary();
 				if (!string.IsNullOrEmpty(effectsSummary))
-					announcement += $", effects: {effectsSummary}";
+					announcement += Strings.Get("nav.relic.effects_suffix", effectsSummary);
 			}
 
 			// Append rewards for this decision
 			string rewardsSummary = GetDecisionRewardsSummary(itemIndex);
 			if (!string.IsNullOrEmpty(rewardsSummary))
-				announcement += $", rewards: {rewardsSummary}";
+				announcement += Strings.Get("nav.relic.rewards_suffix", rewardsSummary);
 
 			Speech.Say(announcement);
 		}
@@ -613,17 +613,17 @@ namespace ATSAccessibility.Navigators {
 				if (altCount == 0) continue;
 
 				if (altCount == 1) {
-					string name = RelicReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, 0) ?? "Unknown";
+					string name = RelicReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, 0) ?? Strings.Get("common.unknown");
 					int amount = RelicReflection.GetRelicGoodAmount(_building, decisionIndex, i, 0);
-					parts.Add($"{name} {amount}");
+					parts.Add(Strings.Get("nav.relic.req_item", name, amount));
 				} else {
 					var alts = new List<string>();
 					for (int j = 0; j < altCount; j++) {
-						string name = RelicReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, j) ?? "Unknown";
+						string name = RelicReflection.GetRelicGoodDisplayName(_building, decisionIndex, i, j) ?? Strings.Get("common.unknown");
 						int amount = RelicReflection.GetRelicGoodAmount(_building, decisionIndex, i, j);
-						alts.Add($"{name} {amount}");
+						alts.Add(Strings.Get("nav.relic.req_item", name, amount));
 					}
-					parts.Add(string.Join(" or ", alts));
+					parts.Add(string.Join(Strings.Get("nav.relic.req_or_separator"), alts));
 				}
 			}
 
@@ -658,8 +658,8 @@ namespace ATSAccessibility.Navigators {
 
 			if (RelicReflection.SetRelicDecisionIndex(_building, itemIndex)) {
 				_selectedDecisionIndex = itemIndex;
-				string label = RelicReflection.GetRelicDecisionLabel(_building, itemIndex) ?? $"Decision {itemIndex + 1}";
-				Speech.Say($"Selected: {label}");
+				string label = RelicReflection.GetRelicDecisionLabel(_building, itemIndex) ?? Strings.Get("nav.relic.decision_default", itemIndex + 1);
+				Speech.Say(Strings.Get("nav.relic.selected", label));
 				SoundManager.PlayButtonClick();
 
 				// Refresh decision-dependent data and rebuild sections
@@ -669,7 +669,7 @@ namespace ATSAccessibility.Navigators {
 				return true;
 			}
 
-			Speech.Say("Cannot select decision");
+			Speech.Say(Strings.Get("nav.relic.cannot_select_decision"));
 			return false;
 		}
 
@@ -692,15 +692,15 @@ namespace ATSAccessibility.Navigators {
 				// Phase B: show delivery progress
 				string goodName = set.goodNames[pickedIndex];
 				int delivered = RelicReflection.GetRelicDeliveredAmount(_building, goodName);
-				string announcement = $"{displayName}: {delivered} of {amount} delivered";
+				string announcement = Strings.Get("nav.relic.req_delivered", displayName, delivered, amount);
 				Speech.Say(announcement);
 			} else {
 				// Phase A: show requirement with stored amount
 				string goodName = set.goodNames[pickedIndex];
 				int inStorage = BuildingReflection.GetStoredGoodAmount(goodName);
-				string announcement = $"{displayName}: {amount} ({inStorage} in storage)";
+				string announcement = Strings.Get("nav.relic.req_with_storage", displayName, amount, inStorage);
 				if (set.alternativeCount > 1)
-					announcement += $", {set.alternativeCount - 1} other options";
+					announcement += Strings.Get("nav.relic.other_options_suffix", set.alternativeCount - 1);
 				Speech.Say(announcement);
 			}
 		}
@@ -714,10 +714,10 @@ namespace ATSAccessibility.Navigators {
 			string displayName = set.goodDisplayNames[subItemIndex];
 			int amount = set.goodAmounts[subItemIndex];
 			int inStorage = BuildingReflection.GetStoredGoodAmount(set.goodNames[subItemIndex]);
-			string announcement = $"{displayName}: {amount} ({inStorage} in storage)";
+			string announcement = Strings.Get("nav.relic.req_with_storage", displayName, amount, inStorage);
 
 			if (subItemIndex == set.pickedIndex)
-				announcement += ", selected";
+				announcement += Strings.Get("common.suffix_selected");
 
 			Speech.Say(announcement);
 		}
@@ -733,7 +733,7 @@ namespace ATSAccessibility.Navigators {
 			if (RelicReflection.SetRelicPickedGoodIndex(_building, safeDecision, itemIndex, subItemIndex)) {
 				_goodsSets[itemIndex].pickedIndex = subItemIndex;
 				string displayName = set.goodDisplayNames[subItemIndex];
-				Speech.Say($"Picked: {displayName}");
+				Speech.Say(Strings.Get("nav.relic.picked", displayName));
 				SoundManager.PlayButtonClick();
 
 				// Refresh status (availability may have changed)
@@ -742,7 +742,7 @@ namespace ATSAccessibility.Navigators {
 				return true;
 			}
 
-			Speech.Say("Cannot pick good");
+			Speech.Say(Strings.Get("common.cannot_pick_good"));
 			return false;
 		}
 
@@ -765,16 +765,16 @@ namespace ATSAccessibility.Navigators {
 			if (effect == null) return;
 
 			string announcement = effect.Value.Name;
-			announcement += effect.Value.IsPositive ? ", positive" : ", negative";
+			announcement += effect.Value.IsPositive ? Strings.Get("nav.relic.effect.positive_suffix") : Strings.Get("nav.relic.effect.negative_suffix");
 
 			// Indicate effect type
 			if (IsWorkingEffect(itemIndex)) {
-				announcement += ", during investigation";
+				announcement += Strings.Get("nav.relic.effect.during_investigation_suffix");
 			} else if (IsNextTierEffect(itemIndex)) {
 				if (_timeToNextTier > 0f)
-					announcement += $", in {FormatDynamicEffectTime(_timeToNextTier)}";
+					announcement += Strings.Get("nav.relic.effect.in_time_suffix", FormatDynamicEffectTime(_timeToNextTier));
 				else
-					announcement += ", pending";
+					announcement += Strings.Get("nav.relic.effect.pending_suffix");
 			}
 
 			// Include description
@@ -842,7 +842,7 @@ namespace ATSAccessibility.Navigators {
 
 			string announcement = _rewards[itemIndex].Name;
 			if (!string.IsNullOrEmpty(_rewards[itemIndex].Description))
-				announcement += $", {_rewards[itemIndex].Description}";
+				announcement += Strings.Get("nav.relic.reward_description_suffix", _rewards[itemIndex].Description);
 			Speech.Say(announcement);
 		}
 
@@ -870,13 +870,13 @@ namespace ATSAccessibility.Navigators {
 
 			// Phase A: Start investigation from section level
 			if (!_canStart) {
-				Speech.Say(_startBlockingReason ?? "Cannot start");
+				Speech.Say(_startBlockingReason ?? Strings.Get("nav.relic.cannot_start"));
 				SoundManager.PlayFailed();
 				return true;
 			}
 
 			if (RelicReflection.RelicStartInvestigation(_building)) {
-				Speech.Say("Investigation started");
+				Speech.Say(Strings.Get("nav.relic.investigation_started"));
 				SoundManager.PlayButtonClick();
 				var startSound = RelicReflection.GetRelicInvestigationStartSoundModel(_building);
 				SoundManager.PlaySoundEffect(startSound);
@@ -892,7 +892,7 @@ namespace ATSAccessibility.Navigators {
 				_navigationLevel = 0;
 				return true;
 			} else {
-				Speech.Say("Failed to start investigation");
+				Speech.Say(Strings.Get("nav.relic.failed_to_start"));
 				SoundManager.PlayFailed();
 				return true;
 			}
@@ -900,7 +900,7 @@ namespace ATSAccessibility.Navigators {
 
 		private bool PerformCancelAction() {
 			if (RelicReflection.RelicCancelInvestigation(_building)) {
-				Speech.Say("Investigation cancelled");
+				Speech.Say(Strings.Get("nav.relic.investigation_cancelled"));
 				SoundManager.PlayButtonClick();
 				if (RelicReflection.RelicHasWorkingEffects(_building))
 					SoundManager.PlayRelicStopWithWorkingEffects();
@@ -916,7 +916,7 @@ namespace ATSAccessibility.Navigators {
 				_navigationLevel = 0;
 				return true;
 			} else {
-				Speech.Say("Failed to cancel");
+				Speech.Say(Strings.Get("nav.relic.failed_to_cancel"));
 				SoundManager.PlayFailed();
 				return false;
 			}
@@ -948,7 +948,7 @@ namespace ATSAccessibility.Navigators {
 			if (itemIndex < 0 || itemIndex >= _storageItems.Count) return;
 
 			var (_, displayName, amount) = _storageItems[itemIndex];
-			Speech.Say($"{displayName}: {amount}");
+			Speech.Say(Strings.Get("nav.common.storage_item", displayName, amount));
 		}
 
 	}

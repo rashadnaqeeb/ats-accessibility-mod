@@ -81,7 +81,7 @@ namespace ATSAccessibility.Panels {
 					return true;
 
 				case KeyCode.Escape:
-					Speech.Say(Strings.Get("dialog.confirm.cancelled"));
+					Speech.Say(Strings.Get("common.cancelled"));
 					Close();
 					return true;
 

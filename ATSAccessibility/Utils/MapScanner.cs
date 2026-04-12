@@ -90,13 +90,15 @@ namespace ATSAccessibility.Utils {
 		// BUILDING SUBCATEGORY DEFINITIONS
 		// ========================================
 
-		private static readonly string[] SubcategoryNames = new string[]
+		private static readonly string[] SubcategoryNameKeys = new string[]
 		{
-			"All",  // 0 — excludes Decorations and Roads
-            "Essential", "Gathering", "Production", "Trade",
-			"Housing and Services", "Special Buildings",
-			"Blight Fighting", "Decorations", "Ruins", "Roads"
+			"common.all",  // 0 — excludes Decorations and Roads
+            "util.map_scanner.sub_essential", "common.gathering", "common.production", "util.map_scanner.sub_trade",
+			"util.map_scanner.sub_housing_and_services", "util.map_scanner.sub_special_buildings",
+			"util.map_scanner.sub_blight_fighting", "common.decorations", "util.map_scanner.sub_ruins", "util.map_scanner.sub_roads"
 		};
+
+		private static string SubcategoryName(int index) => Strings.Get(SubcategoryNameKeys[index]);
 
 		private static readonly Dictionary<string, int> BuildingTypeToSubcategory = new Dictionary<string, int>
 		{
@@ -123,14 +125,16 @@ namespace ATSAccessibility.Utils {
             { "Road", 10 }
 		};
 
-		private static readonly string[] ResourceSubcategoryNames = new string[]
+		private static readonly string[] ResourceSubcategoryNameKeys = new string[]
 		{
-			"All",
-			"Natural Resources",
-			"Extracted Resources",
-			"Nodes Small",
-			"Nodes Large"
+			"common.all",
+			"util.map_scanner.sub_natural_resources",
+			"util.map_scanner.sub_extracted_resources",
+			"util.map_scanner.sub_nodes_small",
+			"util.map_scanner.sub_nodes_large"
 		};
+
+		private static string ResourceSubcategoryName(int index) => Strings.Get(ResourceSubcategoryNameKeys[index]);
 
 		// (Reflection caching moved to MapReflection)
 		private bool _reflectionCached = false;
@@ -199,10 +203,10 @@ namespace ATSAccessibility.Utils {
 
 			// Build combined announcement: "Category: item info" or "Category: no items"
 			string categoryName = _currentCategory switch {
-				ScanCategory.Glades => "Glades",
-				ScanCategory.Resources => "Resources",
-				ScanCategory.Buildings => "Buildings",
-				_ => "Unknown"
+				ScanCategory.Glades => Strings.Get("common.glades"),
+				ScanCategory.Resources => Strings.Get("common.resources"),
+				ScanCategory.Buildings => Strings.Get("util.map_scanner.category_buildings"),
+				_ => Strings.Get("common.unknown")
 			};
 
 			// For Buildings, use subcategory system
@@ -216,7 +220,7 @@ namespace ATSAccessibility.Utils {
 
 				// Find first non-empty subcategory
 				bool foundSubcategory = false;
-				for (int i = 0; i < SubcategoryNames.Length; i++) {
+				for (int i = 0; i < SubcategoryNameKeys.Length; i++) {
 					if (_cachedBuildingsBySubcategory.TryGetValue(i, out var groups) && groups.Count > 0) {
 						_currentSubcategoryIndex = i;
 						_cachedGroups = groups;
@@ -226,13 +230,13 @@ namespace ATSAccessibility.Utils {
 				}
 
 				if (!foundSubcategory || _cachedGroups == null || _cachedGroups.Count == 0) {
-					Speech.Say($"{categoryName}, none");
+					Speech.Say(Strings.Get("util.map_scanner.category_none", categoryName));
 				} else {
 					var currentGroup = _cachedGroups[_currentGroupIndex];
 					int itemNum = _currentItemIndex + 1;
 					int itemTotal = currentGroup.Items.Count;
 					// Intentional: "X of Y" position context is useful for scanner navigation
-					Speech.Say($"{categoryName}, {SubcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+					Speech.Say(Strings.Get("util.map_scanner.category_item_with_sub", categoryName, SubcategoryName(_currentSubcategoryIndex), currentGroup.TypeName, itemNum, itemTotal));
 				}
 			} else if (_currentCategory == ScanCategory.Resources) {
 				// Resources use subcategory system
@@ -243,7 +247,7 @@ namespace ATSAccessibility.Utils {
 
 				// Find first non-empty subcategory
 				bool foundSubcategory = false;
-				for (int i = 0; i < ResourceSubcategoryNames.Length; i++) {
+				for (int i = 0; i < ResourceSubcategoryNameKeys.Length; i++) {
 					if (_cachedResourcesBySubcategory.TryGetValue(i, out var groups) && groups.Count > 0) {
 						_currentSubcategoryIndex = i;
 						_cachedGroups = groups;
@@ -253,20 +257,20 @@ namespace ATSAccessibility.Utils {
 				}
 
 				if (!foundSubcategory || _cachedGroups == null || _cachedGroups.Count == 0) {
-					Speech.Say($"{categoryName}, none");
+					Speech.Say(Strings.Get("util.map_scanner.category_none", categoryName));
 				} else {
 					var currentGroup = _cachedGroups[_currentGroupIndex];
 					int itemNum = _currentItemIndex + 1;
 					int itemTotal = currentGroup.Items.Count;
 					// Intentional: "X of Y" position context is useful for scanner navigation
-					Speech.Say($"{categoryName}, {ResourceSubcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+					Speech.Say(Strings.Get("util.map_scanner.category_item_with_sub", categoryName, ResourceSubcategoryName(_currentSubcategoryIndex), currentGroup.TypeName, itemNum, itemTotal));
 				}
 			} else {
 				// For Glades, use standard scanning
 				ScanCurrentCategory();
 
 				if (_cachedGroups == null || _cachedGroups.Count == 0 || _cachedGroups[0].Items.Count == 0) {
-					Speech.Say($"{categoryName}, none");
+					Speech.Say(Strings.Get("util.map_scanner.category_none", categoryName));
 				} else {
 					var currentGroup = _cachedGroups[_currentGroupIndex];
 					var item = currentGroup.Items[_currentItemIndex];
@@ -274,7 +278,7 @@ namespace ATSAccessibility.Utils {
 					int itemTotal = currentGroup.Items.Count;
 					string itemSuffix = GetGladeItemSuffix(item);
 					// Intentional: "X of Y" position context is useful for scanner navigation
-					Speech.Say($"{categoryName}, {currentGroup.TypeName}, {itemNum} of {itemTotal}{itemSuffix}");
+					Speech.Say(Strings.Get("util.map_scanner.category_item_no_sub", categoryName, currentGroup.TypeName, itemNum, itemTotal, itemSuffix));
 				}
 			}
 
@@ -405,10 +409,10 @@ namespace ATSAccessibility.Utils {
 			string coordsSuffix = coords != null ? $", {coords}" : "";
 
 			if (distance == 0) {
-				Speech.Say(suffix != null ? $"at {suffix}{coordsSuffix}" : $"here{coordsSuffix}");
+				Speech.Say(suffix != null ? Strings.Get("util.map_scanner.at_suffix", suffix, coordsSuffix) : Strings.Get("util.map_scanner.at_here", coordsSuffix));
 			} else {
 				string direction = NavigationUtils.GetDirection(dx, dy);
-				Speech.Say(suffix != null ? $"{distance} {direction} {suffix}{coordsSuffix}" : $"{distance} tiles {direction}{coordsSuffix}");
+				Speech.Say(suffix != null ? Strings.Get("util.map_scanner.distance_with_suffix", distance, direction, suffix, coordsSuffix) : Strings.Get("util.map_scanner.distance_plain", distance, direction, coordsSuffix));
 			}
 		}
 
@@ -452,10 +456,9 @@ namespace ATSAccessibility.Utils {
 			_mapNavigator.SetCursorPosition(item.Position.x, item.Position.y);
 
 			// Announce where we moved
-			string announcement = $"moved to {currentGroup.TypeName}";
 			string coords = _mapNavigator.GetCoordinateSuffix();
-			if (coords != null)
-				announcement = $"{announcement}, {coords}";
+			string coordsSuffix = coords != null ? $", {coords}" : "";
+			string announcement = Strings.Get("util.map_scanner.moved_to", currentGroup.TypeName, coordsSuffix);
 			Speech.Say(announcement);
 		}
 
@@ -571,9 +574,9 @@ namespace ATSAccessibility.Utils {
 					// Build group name based on glade type only
 					string groupName;
 					if (!hasDangerousGladeInfo) {
-						groupName = "Unknown glade";
+						groupName = Strings.Get("util.map_scanner.glade_unknown_type");
 					} else {
-						groupName = $"{dangerLevel} glade";
+						groupName = Strings.Get("util.map_scanner.glade_group", dangerLevel);
 					}
 
 					int distance = CalculateDistance(position, cursorX, cursorY);
@@ -741,7 +744,7 @@ namespace ATSAccessibility.Utils {
 			if (rays.Count == 0) return;
 
 			// Test each unrevealed glade against all bearing rays
-			var candidateGroup = new ItemGroup("Seal candidate");
+			var candidateGroup = new ItemGroup(Strings.Get("util.map_scanner.seal_candidate"));
 
 			foreach (var (glade, firstField) in unrevealedGlades) {
 				// Compute glade center from all field tiles
@@ -784,7 +787,7 @@ namespace ATSAccessibility.Utils {
 
 			if (candidateGroup.Items.Count > 0) {
 				candidateGroup.Items.Sort(CompareItemsByDistance);
-				groups["Seal candidate"] = candidateGroup;
+				groups[Strings.Get("util.map_scanner.seal_candidate")] = candidateGroup;
 			}
 		}
 
@@ -817,9 +820,9 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		private void ScanLocationMarkers(Dictionary<string, ItemGroup> groups, int cursorX, int cursorY) {
 			// Scan location marker types (grass/spring/relic)
-			ScanLocationMarkerType(MapReflection.GetRevealedGrassLocations(), "Grass marker", groups, cursorX, cursorY);
-			ScanLocationMarkerType(MapReflection.GetRevealedSpringsLocations(), "Spring marker", groups, cursorX, cursorY);
-			ScanLocationMarkerType(MapReflection.GetRevealedRelicLocations(), "Relic marker", groups, cursorX, cursorY);
+			ScanLocationMarkerType(MapReflection.GetRevealedGrassLocations(), Strings.Get("util.map_scanner.grass_marker"), groups, cursorX, cursorY);
+			ScanLocationMarkerType(MapReflection.GetRevealedSpringsLocations(), Strings.Get("util.map_scanner.spring_marker"), groups, cursorX, cursorY);
+			ScanLocationMarkerType(MapReflection.GetRevealedRelicLocations(), Strings.Get("util.map_scanner.relic_marker"), groups, cursorX, cursorY);
 
 			// Highlighted relics (from Short Range Scanner, etc)
 			var highlightedRelics = MapReflection.GetHighlightedRelics();
@@ -832,7 +835,7 @@ namespace ATSAccessibility.Utils {
 					if (IsInsideUnrevealedGlade(pos)) {
 						// Get display name for the relic
 						string displayName = GameReflection.GetRelicDisplayName(relicName);
-						string highlightedGroupName = $"Highlighted: {displayName}";
+						string highlightedGroupName = Strings.Get("util.map_scanner.highlighted_group", displayName);
 						if (!groups.ContainsKey(highlightedGroupName)) {
 							var group = new ItemGroup(highlightedGroupName);
 							group.Items.Add(new ScannedItem(pos, CalculateDistance(pos, cursorX, cursorY)));
@@ -884,7 +887,7 @@ namespace ATSAccessibility.Utils {
 
 						string displayName = !string.IsNullOrEmpty(modelName)
 							? GameReflection.GetRelicDisplayName(modelName)
-							: "Chase relic";
+							: Strings.Get("util.map_scanner.chase_relic");
 
 						// Format remaining time as m:ss
 						int totalSeconds = (int)remaining;
@@ -892,7 +895,7 @@ namespace ATSAccessibility.Utils {
 						int seconds = totalSeconds % 60;
 						string timeStr = $"{minutes}:{seconds:D2}";
 
-						string groupName = $"{displayName}, {timeStr}";
+						string groupName = Strings.Get("util.map_scanner.chase_group", displayName, timeStr);
 
 						int distance = CalculateDistance(pos, cursorX, cursorY);
 
@@ -926,7 +929,7 @@ namespace ATSAccessibility.Utils {
 						if (string.IsNullOrEmpty(displayName)) continue;
 
 						bool isMarked = MapReflection.IsNaturalResourceMarked(resource);
-						string groupName = isMarked ? $"Marked {displayName}" : displayName;
+						string groupName = isMarked ? Strings.Get("util.map_scanner.marked_prefix", displayName) : displayName;
 
 						int distance = CalculateDistance(pos, cursorX, cursorY);
 
@@ -1034,7 +1037,7 @@ namespace ATSAccessibility.Utils {
 				// Scan Fertile Soil (fields with type "Grass")
 				int mapWidth = GameReflection.GetMapWidth();
 				int mapHeight = GameReflection.GetMapHeight();
-				var fertileSoilGroup = new ItemGroup("Fertile Soil");
+				var fertileSoilGroup = new ItemGroup(Strings.Get("common.fertile_soil"));
 
 				for (int x = 0; x < mapWidth; x++) {
 					for (int y = 0; y < mapHeight; y++) {
@@ -1056,7 +1059,7 @@ namespace ATSAccessibility.Utils {
 
 				if (fertileSoilGroup.Items.Count > 0) {
 					fertileSoilGroup.Items.Sort(CompareItemsByDistance);
-					groups["Fertile Soil"] = fertileSoilGroup;
+					groups[Strings.Get("common.fertile_soil")] = fertileSoilGroup;
 				}
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] ScanResources failed: {ex.Message}");
@@ -1124,7 +1127,7 @@ namespace ATSAccessibility.Utils {
 			string itemSuffix = GetGladeItemSuffix(item);
 
 			// Intentional: "X of Y" position context is useful for scanner navigation
-			Speech.Say($"{currentGroup.TypeName}, {itemNum} of {itemTotal}{itemSuffix}");
+			Speech.Say(Strings.Get("util.map_scanner.group_item", currentGroup.TypeName, itemNum, itemTotal, itemSuffix));
 		}
 
 		/// <summary>
@@ -1139,7 +1142,7 @@ namespace ATSAccessibility.Utils {
 			if (item.ContentsSummary != null)
 				parts.Add(item.ContentsSummary);
 			if (item.CuttingDepth > 0)
-				parts.Add($"{item.CuttingDepth} deep");
+				parts.Add(Strings.Get("util.map_scanner.deep", item.CuttingDepth));
 			return ", " + string.Join(", ", parts);
 		}
 
@@ -1184,13 +1187,13 @@ namespace ATSAccessibility.Utils {
 
 		private void AnnounceEmpty() {
 			string categoryName = _currentCategory switch {
-				ScanCategory.Glades => "glades",
-				ScanCategory.Resources => "resources",
-				ScanCategory.Buildings => "buildings",
-				ScanCategory.SearchResults => "search results",
-				_ => "items"
+				ScanCategory.Glades => Strings.Get("util.map_scanner.empty_glades"),
+				ScanCategory.Resources => Strings.Get("common.resources_lower"),
+				ScanCategory.Buildings => Strings.Get("util.map_scanner.empty_buildings"),
+				ScanCategory.SearchResults => Strings.Get("util.map_scanner.empty_search_results"),
+				_ => Strings.Get("common.items_lower")
 			};
-			Speech.Say($"No {categoryName}");
+			Speech.Say(Strings.Get("util.map_scanner.no_items", categoryName));
 		}
 
 		// ========================================
@@ -1207,12 +1210,12 @@ namespace ATSAccessibility.Utils {
 
 		private string GetGladeDangerLevel(object glade) {
 			string raw = MapReflection.GetGladeDangerLevelRaw(glade);
-			if (raw == null) return "Unknown";
+			if (raw == null) return Strings.Get("common.unknown");
 
 			return raw switch {
-				"None" => "Small",
-				"Dangerous" => "Dangerous",
-				"Forbidden" => "Forbidden",
+				"None" => Strings.Get("util.map_scanner.glade_small"),
+				"Dangerous" => Strings.Get("util.map_scanner.glade_dangerous"),
+				"Forbidden" => Strings.Get("util.map_scanner.glade_forbidden"),
 				_ => raw
 			};
 		}
@@ -1261,7 +1264,7 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		private int GetBuildingSubcategoryIndex(object building) {
 			var typeName = GetBuildingTypeName(building);
-			if (typeName == null) return SubcategoryNames.Length - 1; // Default to last (Roads)
+			if (typeName == null) return SubcategoryNameKeys.Length - 1; // Default to last (Roads)
 
 			if (BuildingTypeToSubcategory.TryGetValue(typeName, out int index)) {
 				// Archaeologist's Office is a Decoration subclass but functions as a special building
@@ -1274,7 +1277,7 @@ namespace ATSAccessibility.Utils {
 			}
 
 			// Default to last (Roads) for unknown types
-			return SubcategoryNames.Length - 1;
+			return SubcategoryNameKeys.Length - 1;
 		}
 
 		/// <summary>
@@ -1285,7 +1288,7 @@ namespace ATSAccessibility.Utils {
 			GetScanOrigin(out int cursorX, out int cursorY);
 
 			// Initialize all subcategories
-			for (int i = 0; i < SubcategoryNames.Length; i++) {
+			for (int i = 0; i < SubcategoryNameKeys.Length; i++) {
 				_cachedBuildingsBySubcategory[i] = new List<ItemGroup>();
 			}
 
@@ -1341,7 +1344,7 @@ namespace ATSAccessibility.Utils {
 
 				// Build "All" subcategory (excludes Decorations and Roads)
 				var allGroups = new List<ItemGroup>();
-				for (int i = 1; i < SubcategoryNames.Length; i++) {
+				for (int i = 1; i < SubcategoryNameKeys.Length; i++) {
 					if (i == 8 || i == 10) continue;  // Decorations, Roads
 					if (_cachedBuildingsBySubcategory.TryGetValue(i, out var groups))
 						allGroups.AddRange(groups);
@@ -1365,7 +1368,7 @@ namespace ATSAccessibility.Utils {
 			_cachedResourcesBySubcategory = new Dictionary<int, List<ItemGroup>>();
 			GetScanOrigin(out int cursorX, out int cursorY);
 
-			for (int i = 0; i < ResourceSubcategoryNames.Length; i++) {
+			for (int i = 0; i < ResourceSubcategoryNameKeys.Length; i++) {
 				_cachedResourcesBySubcategory[i] = new List<ItemGroup>();
 			}
 
@@ -1391,7 +1394,7 @@ namespace ATSAccessibility.Utils {
 						if (string.IsNullOrEmpty(displayName)) continue;
 
 						bool isMarked = MapReflection.IsNaturalResourceMarked(resource);
-						string groupName = isMarked ? $"Marked {displayName}" : displayName;
+						string groupName = isMarked ? Strings.Get("util.map_scanner.marked_prefix", displayName) : displayName;
 
 						int distance = CalculateDistance(pos, cursorX, cursorY);
 
@@ -1407,7 +1410,7 @@ namespace ATSAccessibility.Utils {
 				// Fertile Soil
 				int mapWidth = GameReflection.GetMapWidth();
 				int mapHeight = GameReflection.GetMapHeight();
-				var fertileSoilGroup = new ItemGroup("Fertile Soil");
+				var fertileSoilGroup = new ItemGroup(Strings.Get("common.fertile_soil"));
 
 				for (int x = 0; x < mapWidth; x++) {
 					for (int y = 0; y < mapHeight; y++) {
@@ -1430,7 +1433,7 @@ namespace ATSAccessibility.Utils {
 
 				if (fertileSoilGroup.Items.Count > 0) {
 					fertileSoilGroup.Items.Sort(CompareItemsByDistance);
-					naturalGroups["Fertile Soil"] = fertileSoilGroup;
+					naturalGroups[Strings.Get("common.fertile_soil")] = fertileSoilGroup;
 				}
 
 				// === Subcategory 2: Extracted Resources ===
@@ -1556,7 +1559,7 @@ namespace ATSAccessibility.Utils {
 
 				// Build "All" subcategory
 				var allGroups = new List<ItemGroup>();
-				for (int i = 1; i < ResourceSubcategoryNames.Length; i++) {
+				for (int i = 1; i < ResourceSubcategoryNameKeys.Length; i++) {
 					if (_cachedResourcesBySubcategory.TryGetValue(i, out var groups))
 						allGroups.AddRange(groups);
 				}
@@ -1574,7 +1577,7 @@ namespace ATSAccessibility.Utils {
 		public void ChangeSubcategory(int direction) {
 			UpdateScanOrigin();
 			if (_currentCategory == ScanCategory.SearchResults) {
-				Speech.Say("No subcategories");
+				Speech.Say(Strings.Get("util.map_scanner.no_subcategories"));
 				return;
 			}
 			if (_currentCategory == ScanCategory.Buildings) {
@@ -1583,26 +1586,26 @@ namespace ATSAccessibility.Utils {
 				ScanBuildingsWithSubcategories();
 				_unrevealedGladeTiles = null;
 
-				ChangeSubcategoryInternal(direction, SubcategoryNames, _cachedBuildingsBySubcategory, "No buildings in any subcategory");
+				ChangeSubcategoryInternal(direction, SubcategoryNameKeys, _cachedBuildingsBySubcategory, Strings.Get("util.map_scanner.no_buildings_any_subcat"));
 			} else if (_currentCategory == ScanCategory.Resources) {
 				EnsureReflectionCache();
 				BuildUnrevealedGladeTilesMap();
 				ScanResourcesWithSubcategories();
 				_unrevealedGladeTiles = null;
 
-				ChangeSubcategoryInternal(direction, ResourceSubcategoryNames, _cachedResourcesBySubcategory, "No resources in any subcategory");
+				ChangeSubcategoryInternal(direction, ResourceSubcategoryNameKeys, _cachedResourcesBySubcategory, Strings.Get("util.map_scanner.no_resources_any_subcat"));
 			} else {
-				Speech.Say("No subcategories");
+				Speech.Say(Strings.Get("util.map_scanner.no_subcategories"));
 			}
 		}
 
-		private void ChangeSubcategoryInternal(int direction, string[] subcategoryNames, Dictionary<int, List<ItemGroup>> cache, string emptyMessage) {
+		private void ChangeSubcategoryInternal(int direction, string[] subcategoryNameKeys, Dictionary<int, List<ItemGroup>> cache, string emptyMessage) {
 			int startIndex = _currentSubcategoryIndex;
 			int attempts = 0;
-			int maxAttempts = subcategoryNames.Length;
+			int maxAttempts = subcategoryNameKeys.Length;
 
 			do {
-				_currentSubcategoryIndex = NavigationUtils.WrapIndex(_currentSubcategoryIndex, direction, subcategoryNames.Length);
+				_currentSubcategoryIndex = NavigationUtils.WrapIndex(_currentSubcategoryIndex, direction, subcategoryNameKeys.Length);
 				attempts++;
 
 				if (cache.TryGetValue(_currentSubcategoryIndex, out var groups) && groups.Count > 0) {
@@ -1614,7 +1617,7 @@ namespace ATSAccessibility.Utils {
 					int itemNum = _currentItemIndex + 1;
 					int itemTotal = currentGroup.Items.Count;
 					// Intentional: "X of Y" position context is useful for scanner navigation
-					Speech.Say($"{subcategoryNames[_currentSubcategoryIndex]}, {currentGroup.TypeName}, {itemNum} of {itemTotal}");
+					Speech.Say(Strings.Get("util.map_scanner.sub_announce", Strings.Get(subcategoryNameKeys[_currentSubcategoryIndex]), currentGroup.TypeName, itemNum, itemTotal));
 					AutoMoveCursorSilent();
 					return;
 				}
@@ -1634,7 +1637,7 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public void CommitSearch(string query) {
 			if (string.IsNullOrWhiteSpace(query)) {
-				Speech.Say("Search cancelled");
+				Speech.Say(Strings.Get("common.search_cancelled"));
 				return;
 			}
 
@@ -1655,7 +1658,7 @@ namespace ATSAccessibility.Utils {
 			// Include all subcategories (1..N) to capture Decorations and Roads
 			// which are excluded from the "All" bucket (index 0)
 			if (_cachedBuildingsBySubcategory != null) {
-				for (int i = 1; i < SubcategoryNames.Length; i++) {
+				for (int i = 1; i < SubcategoryNameKeys.Length; i++) {
 					if (_cachedBuildingsBySubcategory.TryGetValue(i, out var subGroups))
 						allGroups.AddRange(subGroups);
 				}
@@ -1691,11 +1694,11 @@ namespace ATSAccessibility.Utils {
 			_cachedGroups = _searchResultGroups;
 
 			if (_searchResultGroups.Count == 0) {
-				Speech.Say($"No results for {query}");
+				Speech.Say(Strings.Get("util.map_scanner.search_no_results", query));
 			} else {
 				var first = _searchResultGroups[0];
 				// Intentional: "X of Y" position context is useful for scanner navigation
-				Speech.Say($"Search results, {first.TypeName}, 1 of {first.Items.Count}");
+				Speech.Say(Strings.Get("util.map_scanner.search_first_result", first.TypeName, first.Items.Count));
 				AutoMoveCursorSilent();
 			}
 		}

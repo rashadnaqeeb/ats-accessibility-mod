@@ -33,8 +33,8 @@ namespace ATSAccessibility.Utils {
 			bool useNS = absDy > 0 && absDy * 2 >= absDx;
 			bool useEW = absDx > 0 && absDx * 2 >= absDy;
 
-			string ns = useNS ? (dy > 0 ? "north" : "south") : "";
-			string ew = useEW ? (dx > 0 ? "east" : "west") : "";
+			string ns = useNS ? (dy > 0 ? Strings.Get("common.north_lower") : Strings.Get("common.south_lower")) : "";
+			string ew = useEW ? (dx > 0 ? Strings.Get("common.east_lower") : Strings.Get("common.west_lower")) : "";
 
 			if (string.IsNullOrEmpty(ns)) return ew;
 			if (string.IsNullOrEmpty(ew)) return ns;
@@ -47,11 +47,11 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static string GetCardinalDirection(int rotation) {
 			return rotation switch {
-				0 => "North",
-				1 => "West",
-				2 => "South",
-				3 => "East",
-				_ => "Unknown"
+				0 => Strings.Get("common.north"),
+				1 => Strings.Get("common.west"),
+				2 => Strings.Get("common.south"),
+				3 => Strings.Get("common.east"),
+				_ => Strings.Get("common.unknown")
 			};
 		}
 
@@ -60,19 +60,19 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static string GetExtensionAnnouncement(int east, int north) {
 			if (east == 0 && north == 0) {
-				return "1 tile";
+				return Strings.Get("util.navigation.extension_one_tile");
 			}
 
 			var parts = new System.Collections.Generic.List<string>();
 
 			if (east > 0) {
-				parts.Add($"{east} east");
+				parts.Add(Strings.Get("util.navigation.extension_east", east));
 			}
 			if (north > 0) {
-				parts.Add($"{north} north");
+				parts.Add(Strings.Get("util.navigation.extension_north", north));
 			}
 
-			return "extends " + string.Join(", ", parts);
+			return Strings.Get("util.navigation.extension_format", string.Join(", ", parts));
 		}
 	}
 }

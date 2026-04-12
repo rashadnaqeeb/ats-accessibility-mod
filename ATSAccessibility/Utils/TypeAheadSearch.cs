@@ -169,14 +169,14 @@ namespace ATSAccessibility.Utils {
 					case KeyCode.Escape:
 						Clear();
 						InputBlocker.BlockCancelOnce = true;
-						Speech.Say("Search cleared");
+						Speech.Say(Strings.Get("util.type_ahead.search_cleared"));
 						return true;
 					case KeyCode.Backspace:
 						if (!RemoveChar())
 							return true;
 						if (!HasBuffer) {
 							Clear();
-							Speech.Say("Search cleared");
+							Speech.Say(Strings.Get("util.type_ahead.search_cleared"));
 							return true;
 						}
 						RunSearch();
@@ -214,7 +214,7 @@ namespace ATSAccessibility.Utils {
 				if (!RemoveChar()) return true;
 				if (!HasBuffer) {
 					Clear();
-					Speech.Say("Search cleared");
+					Speech.Say(Strings.Get("util.type_ahead.search_cleared"));
 					return true;
 				}
 				RunSearch();
@@ -256,7 +256,7 @@ namespace ATSAccessibility.Utils {
 				_resultNames.Clear();
 				_resultCursor = 0;
 				_isSearchActive = true;
-				Speech.Say($"No match for {bufferStr}");
+				Speech.Say(Strings.Get("util.type_ahead.no_match", bufferStr));
 				return;
 			}
 
@@ -279,7 +279,7 @@ namespace ATSAccessibility.Utils {
 				_resultNames.Clear();
 				_resultCursor = 0;
 				_isSearchActive = true;
-				Speech.Say($"No match for {bufferStr}");
+				Speech.Say(Strings.Get("util.type_ahead.no_match", bufferStr));
 			} else {
 				// Swap working lists into result lists (no allocation)
 				var tempIndices = _resultIndices;

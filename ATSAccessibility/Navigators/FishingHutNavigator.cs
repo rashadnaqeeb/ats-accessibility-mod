@@ -102,8 +102,8 @@ namespace ATSAccessibility.Navigators {
 
 		protected override void AnnounceSection(int sectionIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Status) {
-				string status = _isSleeping ? "Paused" : "Active";
-				Speech.Say($"Status: {status}");
+				string status = _isSleeping ? Strings.Get("common.paused") : Strings.Get("common.active");
+				Speech.Say(Strings.Get("nav.common.status_line", status));
 				return;
 			}
 
@@ -153,7 +153,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Workers)
-				return "No free workers";
+				return Strings.Get("common.no_free_workers");
 			return null;
 		}
 
@@ -202,28 +202,28 @@ namespace ATSAccessibility.Navigators {
 			var sectionTypes = new List<SectionType>();
 
 			// Always have Status section at top (announced dynamically)
-			sectionNames.Add("Status");
+			sectionNames.Add(Strings.Get("common.status"));
 			sectionTypes.Add(SectionType.Status);
 
 			// Always have Bait section for FishingHut
-			sectionNames.Add("Bait");
+			sectionNames.Add(Strings.Get("nav.fishinghut.section.bait"));
 			sectionTypes.Add(SectionType.Bait);
 
 			// Add Recipes if available
 			if (_recipes.Count > 0) {
-				sectionNames.Add("Recipes");
+				sectionNames.Add(Strings.Get("common.recipes"));
 				sectionTypes.Add(SectionType.Recipes);
 			}
 
 			// Add Workers if building currently accepts worker assignment
 			if (TryInitializeWorkersSection()) {
-				sectionNames.Add("Workers");
+				sectionNames.Add(Strings.Get("common.workers"));
 				sectionTypes.Add(SectionType.Workers);
 			}
 
 			// Add Upgrades section if available
 			if (TryInitializeUpgradesSection()) {
-				sectionNames.Add("Upgrades");
+				sectionNames.Add(Strings.Get("common.upgrades"));
 				sectionTypes.Add(SectionType.Upgrades);
 			}
 
@@ -263,32 +263,32 @@ namespace ATSAccessibility.Navigators {
 					// Bait mode
 					string modeName = _baitModeNames != null && _baitMode < _baitModeNames.Length
 						? _baitModeNames[_baitMode]
-						: $"Mode {_baitMode}";
-					Speech.Say($"Bait mode: {modeName}");
+						: Strings.Get("nav.fishinghut.mode_default", _baitMode);
+					Speech.Say(Strings.Get("nav.fishinghut.bait_mode", modeName));
 					break;
 
 				case 1:
 					// Bait charges
-					Speech.Say($"Bait charges: {_baitCharges}");
+					Speech.Say(Strings.Get("nav.fishinghut.bait_charges", _baitCharges));
 					break;
 
 				case 2:
 					// Bait ingredient
 					string ingredient = !string.IsNullOrEmpty(_baitIngredient)
 						? CleanupName(_baitIngredient)
-						: "Unknown";
-					Speech.Say($"Bait ingredient: {ingredient}");
+						: Strings.Get("common.unknown");
+					Speech.Say(Strings.Get("nav.fishinghut.bait_ingredient", ingredient));
 					break;
 
 				default:
-					Speech.Say("Unknown bait info");
+					Speech.Say(Strings.Get("nav.fishinghut.unknown_bait_info"));
 					break;
 			}
 		}
 
 		private void AnnounceBaitModeSubItem(int subItemIndex) {
 			if (_baitModeNames == null || subItemIndex >= _baitModeNames.Length) {
-				Speech.Say("Invalid mode");
+				Speech.Say(Strings.Get("nav.common.invalid_mode"));
 				return;
 			}
 
@@ -296,7 +296,7 @@ namespace ATSAccessibility.Navigators {
 			bool isSelected = subItemIndex == _baitMode;
 
 			if (isSelected)
-				Speech.Say($"{modeName}, selected");
+				Speech.Say(Strings.Get("nav.common.mode_selected_suffix", modeName));
 			else
 				Speech.Say(modeName);
 		}
@@ -306,21 +306,21 @@ namespace ATSAccessibility.Navigators {
 				return false;
 
 			if (subItemIndex == _baitMode) {
-				Speech.Say("Already selected");
+				Speech.Say(Strings.Get("nav.common.already_selected"));
 				return false;
 			}
 
 			if (BuildingReflection.SetFishingBaitMode(_building, subItemIndex)) {
 				_baitMode = subItemIndex;
 				string modeName = _baitModeNames[subItemIndex];
-				Speech.Say($"{modeName} selected");
+				Speech.Say(Strings.Get("nav.common.mode_was_selected", modeName));
 
 				// Exit submenu back to item level
 				_navigationLevel = 1;
 				return true;
 			}
 
-			Speech.Say("Cannot change mode");
+			Speech.Say(Strings.Get("nav.common.cannot_change_mode"));
 			return false;
 		}
 
@@ -335,7 +335,7 @@ namespace ATSAccessibility.Navigators {
 			foreach (var recipeState in recipeStates) {
 				var info = new RecipeInfo {
 					RecipeState = recipeState,
-					ModelName = BuildingReflection.GetRecipeModelName(recipeState) ?? "Unknown",
+					ModelName = BuildingReflection.GetRecipeModelName(recipeState) ?? Strings.Get("common.unknown"),
 					ProductName = BuildingReflection.GetRecipeProductName(recipeState),
 					IsActive = BuildingReflection.IsRecipeActive(recipeState)
 				};
@@ -345,15 +345,15 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceRecipeItem(int itemIndex) {
 			if (itemIndex >= _recipes.Count) {
-				Speech.Say("Invalid recipe");
+				Speech.Say(Strings.Get("nav.common.invalid_recipe"));
 				return;
 			}
 
 			var recipe = _recipes[itemIndex];
 			string displayName = GetRecipeDisplayName(recipe);
-			string status = recipe.IsActive ? "enabled" : "disabled";
+			string status = recipe.IsActive ? Strings.Get("common.enabled_lower") : Strings.Get("common.disabled_lower");
 
-			Speech.Say($"{displayName}: {status}");
+			Speech.Say(Strings.Get("nav.common.recipe_status", displayName, status));
 		}
 
 		private string GetRecipeDisplayName(RecipeInfo recipe) {
@@ -365,7 +365,7 @@ namespace ATSAccessibility.Navigators {
 				return CleanupName(recipe.ModelName);
 			}
 
-			return "Unknown Recipe";
+			return Strings.Get("nav.common.unknown_recipe");
 		}
 
 		private void ToggleRecipe(int itemIndex) {
@@ -389,9 +389,9 @@ namespace ATSAccessibility.Navigators {
 					SoundManager.PlayRecipeOff();
 
 				string displayName = GetRecipeDisplayName(recipe);
-				Speech.Say($"{displayName}: {(newActive ? "enabled" : "disabled")}");
+				Speech.Say(Strings.Get("nav.common.recipe_status", displayName, newActive ? Strings.Get("common.enabled_lower") : Strings.Get("common.disabled_lower")));
 			} else {
-				Speech.Say("Cannot toggle recipe");
+				Speech.Say(Strings.Get("nav.common.cannot_toggle_recipe"));
 			}
 		}
 

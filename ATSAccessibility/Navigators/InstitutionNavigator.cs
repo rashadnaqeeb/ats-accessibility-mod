@@ -110,8 +110,8 @@ namespace ATSAccessibility.Navigators {
 
 		protected override void AnnounceSection(int sectionIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Status) {
-				string status = _isSleeping ? "Paused" : "Active";
-				Speech.Say($"Status: {status}");
+				string status = _isSleeping ? Strings.Get("common.paused") : Strings.Get("common.active");
+				Speech.Say(Strings.Get("nav.common.status_line", status));
 				return;
 			}
 
@@ -144,7 +144,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Workers)
-				return "No free workers";
+				return Strings.Get("common.no_free_workers");
 			return null;
 		}
 
@@ -152,7 +152,7 @@ namespace ATSAccessibility.Navigators {
 			if (_sectionTypes[sectionIndex] == SectionType.Services && itemIndex < _services.Count) {
 				var service = _services[itemIndex];
 				string goodName = InstitutionReflection.GetAvailableGoodName(_building, service.RecipeIndex, subItemIndex);
-				Speech.Say($"Option {subItemIndex + 1}: {goodName ?? "Unknown"}");
+				Speech.Say(Strings.Get("nav.institution.service_option", subItemIndex + 1, goodName ?? Strings.Get("common.unknown")));
 			} else if (_sectionTypes[sectionIndex] == SectionType.Workers) {
 				_workersSection.AnnounceSubItem(itemIndex, subItemIndex);
 			} else if (_sectionTypes[sectionIndex] == SectionType.Upgrades) {
@@ -165,7 +165,7 @@ namespace ATSAccessibility.Navigators {
 				var service = _services[itemIndex];
 				if (InstitutionReflection.ChangeIngredient(_building, service.RecipeIndex, subItemIndex)) {
 					string goodName = InstitutionReflection.GetAvailableGoodName(_building, service.RecipeIndex, subItemIndex);
-					Speech.Say($"Changed to {goodName ?? "Unknown"}");
+					Speech.Say(Strings.Get("nav.institution.changed_to", goodName ?? Strings.Get("common.unknown")));
 					RefreshServiceData();  // Refresh to update current good
 					return true;
 				}
@@ -248,32 +248,32 @@ namespace ATSAccessibility.Navigators {
 			var types = new List<SectionType>();
 
 			// Always have Status
-			sections.Add("Status");
+			sections.Add(Strings.Get("common.status"));
 			types.Add(SectionType.Status);
 
 			// Effects section (only if institution has effects)
 			if (_effectCount > 0) {
-				sections.Add("Effects");
+				sections.Add(Strings.Get("common.effects"));
 				types.Add(SectionType.Effects);
 			}
 
 			// Services section
-			sections.Add("Services");
+			sections.Add(Strings.Get("common.services"));
 			types.Add(SectionType.Services);
 
 			// Storage section
-			sections.Add("Storage");
+			sections.Add(Strings.Get("common.storage"));
 			types.Add(SectionType.Storage);
 
 			// Workers section (only if building currently accepts worker assignment)
 			if (TryInitializeWorkersSection()) {
-				sections.Add("Workers");
+				sections.Add(Strings.Get("common.workers"));
 				types.Add(SectionType.Workers);
 			}
 
 			// Add Upgrades section if available
 			if (TryInitializeUpgradesSection()) {
-				sections.Add("Upgrades");
+				sections.Add(Strings.Get("common.upgrades"));
 				types.Add(SectionType.Upgrades);
 			}
 
@@ -293,12 +293,12 @@ namespace ATSAccessibility.Navigators {
 			bool isActive = InstitutionReflection.IsEffectActive(_building, itemIndex);
 			string description = InstitutionReflection.GetEffectDescription(_building, itemIndex);
 
-			string activation = isActive ? "active" : $"requires {minWorkers} workers";
+			string activation = isActive ? Strings.Get("common.active_lower") : Strings.Get("nav.institution.effect.requires_workers", minWorkers);
 
 			if (!string.IsNullOrEmpty(description))
-				Speech.Say($"{name}, {activation}, {description}");
+				Speech.Say(Strings.Get("nav.institution.effect_with_desc", name, activation, description));
 			else
-				Speech.Say($"{name}, {activation}");
+				Speech.Say(Strings.Get("nav.institution.effect_plain", name, activation));
 		}
 
 		// ========================================
@@ -307,19 +307,19 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceServiceItem(int itemIndex) {
 			if (_services.Count == 0) {
-				Speech.Say("No services available");
+				Speech.Say(Strings.Get("nav.institution.no_services"));
 				return;
 			}
 
 			if (itemIndex < _services.Count) {
 				var service = _services[itemIndex];
-				string needName = service.ServedNeedName ?? "Unknown need";
+				string needName = service.ServedNeedName ?? Strings.Get("nav.institution.unknown_need");
 
 				if (service.ConsumesGood) {
-					string goodName = service.CurrentGoodName ?? "Unknown";
-					Speech.Say($"{needName}: using {goodName}");
+					string goodName = service.CurrentGoodName ?? Strings.Get("common.unknown");
+					Speech.Say(Strings.Get("nav.institution.service_using", needName, goodName));
 				} else {
-					Speech.Say($"{needName}: Free service (no consumption)");
+					Speech.Say(Strings.Get("nav.institution.service_free", needName));
 				}
 			}
 		}
@@ -333,13 +333,13 @@ namespace ATSAccessibility.Navigators {
 			RefreshStorageData();
 
 			if (_storageGoods.Count == 0) {
-				Speech.Say("Storage is empty");
+				Speech.Say(Strings.Get("nav.common.storage_empty"));
 				return;
 			}
 
 			if (itemIndex < _storageGoods.Count) {
 				var good = _storageGoods[itemIndex];
-				Speech.Say($"{good.displayName}: {good.amount}");
+				Speech.Say(Strings.Get("nav.common.storage_item", good.displayName, good.amount));
 			}
 		}
 

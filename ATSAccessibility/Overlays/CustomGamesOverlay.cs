@@ -61,7 +61,12 @@ namespace ATSAccessibility.Overlays {
 
 		// Modifiers state
 		private int _modifierCategoryIndex = 0;  // 0=WorldMap, 1=Daily, 2=Difficulty, 3=All
-		private readonly string[] _categoryNames = { "World Map", "Daily", "Difficulty", "All" };
+		private string[] CategoryNames => new[] {
+			Strings.Get("overlay.custom_games.category.world_map"),
+			Strings.Get("overlay.custom_games.category.daily"),
+			Strings.Get("common.difficulty"),
+			Strings.Get("common.all")
+		};
 
 		// Seed text editing state
 		private bool _isEditingSeed = false;
@@ -71,7 +76,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Training Expeditions";
+		protected override string OverlayName => Strings.Get("overlay.custom_games.title");
 		protected override string EmptyMessage => "";
 
 		protected override void StorePopup(object popup) {
@@ -237,61 +242,61 @@ namespace ATSAccessibility.Overlays {
 				case SectionType.Difficulty:
 					var diff = CustomGamesReflection.GetCurrentDifficulty(_popup);
 					string diffName = CustomGamesReflection.GetDifficultyDisplayName(diff);
-					return $"Difficulty: {diffName}";
+					return Strings.Get("overlay.custom_games.difficulty", diffName);
 
 				case SectionType.Seed:
 					string seed = CustomGamesReflection.GetSeed(_popup);
-					return $"Seed: {seed}. Space to randomize, Enter to edit";
+					return Strings.Get("overlay.custom_games.seed", seed);
 
 				case SectionType.Biome:
 					var biomes = CustomGamesReflection.GetAvailableBiomes(_popup);
 					int biomeIdx = CustomGamesReflection.GetCurrentBiomeIndex(_popup);
-					string biomeName = biomeIdx >= 0 && biomeIdx < biomes.Count ? biomes[biomeIdx].displayName : "Unknown";
-					return $"Biome: {biomeName}";
+					string biomeName = biomeIdx >= 0 && biomeIdx < biomes.Count ? biomes[biomeIdx].displayName : Strings.Get("common.unknown");
+					return Strings.Get("overlay.custom_games.biome", biomeName);
 
 				case SectionType.Races:
 					var races = CustomGamesReflection.GetRaceSlots(_popup);
 					int selectedCount = races.Count(r => r.isSelected);
-					return $"Races: {selectedCount} selected";
+					return Strings.Get("overlay.custom_games.races", selectedCount);
 
 				case SectionType.Reputation:
-					return "Reputation Settings";
+					return Strings.Get("overlay.custom_games.reputation");
 
 				case SectionType.Seasons:
-					return "Season Durations";
+					return Strings.Get("overlay.custom_games.seasons");
 
 				case SectionType.SeasonalEffects:
 					bool isRandom = CustomGamesReflection.IsSeasonalEffectsRandom(_popup);
 					if (isRandom) {
 						var counts = CustomGamesReflection.GetSeasonalEffectsCounts(_popup);
-						return $"Seasonal Effects: Random ({counts.positive} positive, {counts.negative} negative)";
+						return Strings.Get("overlay.custom_games.seasonal_effects.random", counts.positive, counts.negative);
 					}
-					return "Seasonal Effects: Manual";
+					return Strings.Get("overlay.custom_games.seasonal_effects.manual");
 
 				case SectionType.Blight:
 					bool blightOn = CustomGamesReflection.IsBlightEnabled(_popup);
-					return $"Blight: {(blightOn ? "Enabled" : "Disabled")}";
+					return Strings.Get("overlay.custom_games.blight", Strings.Get(blightOn ? "common.enabled" : "common.disabled"));
 
 				case SectionType.Modifiers:
 					var mods = CustomGamesReflection.GetAllModifiers(_popup);
 					int pickedCount = mods.Count(m => m.IsPicked);
-					return $"Modifiers: {pickedCount} selected";
+					return Strings.Get("overlay.custom_games.modifiers", pickedCount);
 
 				case SectionType.TradeTowns:
 					var towns = CustomGamesReflection.GetTradeTownSlots(_popup);
 					int townsSelected = towns.Count(t => t.isSelected);
-					return $"Trade Towns: {townsSelected} selected";
+					return Strings.Get("overlay.custom_games.trade_towns", townsSelected);
 
 				case SectionType.EmbarkGoods:
-					return "Embark Goods";
+					return Strings.Get("overlay.custom_games.embark_goods");
 
 				case SectionType.EmbarkEffects:
 					var effects = CustomGamesReflection.GetEmbarkEffects(_popup);
 					int effectsSelected = effects.Count(e => e.isSelected);
-					return $"Embark Effects: {effectsSelected} selected";
+					return Strings.Get("overlay.custom_games.embark_effects", effectsSelected);
 
 				case SectionType.Embark:
-					return "Embark";
+					return Strings.Get("common.embark");
 
 				default:
 					return section.ToString();
@@ -311,7 +316,7 @@ namespace ATSAccessibility.Overlays {
 						var current = CustomGamesReflection.GetCurrentDifficulty(_popup);
 						bool isCurrent = CustomGamesReflection.GetDifficultyIndex(diff) ==
 										CustomGamesReflection.GetDifficultyIndex(current);
-						return isCurrent ? $"{name}, current" : name;
+						return isCurrent ? Strings.Get("overlay.custom_games.item.current", name) : name;
 					}
 					return null;
 
@@ -320,14 +325,14 @@ namespace ATSAccessibility.Overlays {
 						var biome = _biomes[index];
 						int currentIdx = CustomGamesReflection.GetCurrentBiomeIndex(_popup);
 						bool isCurrent = index == currentIdx;
-						return isCurrent ? $"{biome.name}, current" : biome.name;
+						return isCurrent ? Strings.Get("overlay.custom_games.item.current", biome.name) : biome.name;
 					}
 					return null;
 
 				case SectionType.Races:
 					if (index < _races.Count) {
 						var race = _races[index];
-						return race.selected ? $"{race.name}, selected" : $"{race.name}, not selected";
+						return Strings.Get(race.selected ? "overlay.custom_games.item.selected" : "overlay.custom_games.item.not_selected", race.name);
 					}
 					return null;
 
@@ -336,25 +341,25 @@ namespace ATSAccessibility.Overlays {
 				case SectionType.Blight:
 					if (index < _sliders.Count) {
 						var slider = _sliders[index];
-						return $"{slider.name}: {slider.value:F1}";
+						return Strings.Get("overlay.custom_games.slider", slider.name, slider.value);
 					}
 					return null;
 
 				case SectionType.TradeTowns:
 					if (index < _tradeTowns.Count) {
 						var town = _tradeTowns[index];
-						return town.selected ? $"{town.name}, selected" : $"{town.name}, not selected";
+						return Strings.Get(town.selected ? "overlay.custom_games.item.selected" : "overlay.custom_games.item.not_selected", town.name);
 					}
 					return null;
 
 				case SectionType.Modifiers:
 					if (index < _filteredModifiers.Count) {
 						var mod = _filteredModifiers[index];
-						string polarity = mod.IsPositive ? "positive" : "negative";
-						string status = mod.IsPicked ? "enabled" : "disabled";
-						string label = $"{mod.DisplayName}, {polarity}, {status}";
+						string polarity = Strings.Get(mod.IsPositive ? "overlay.custom_games.polarity.positive" : "overlay.custom_games.polarity.negative");
+						string status = Strings.Get(mod.IsPicked ? "common.enabled_lower" : "common.disabled_lower");
+						string label = Strings.Get("overlay.custom_games.modifier", mod.DisplayName, polarity, status);
 						if (!string.IsNullOrEmpty(mod.Description)) {
-							label += $". {mod.Description}";
+							label += Strings.Get("overlay.custom_games.modifier.desc", mod.Description);
 						}
 						return label;
 					}
@@ -363,31 +368,31 @@ namespace ATSAccessibility.Overlays {
 				case SectionType.EmbarkGoods:
 					if (index < _embarkGoods.Count) {
 						var good = _embarkGoods[index];
-						return $"{good.amount} {good.name}";
+						return Strings.Get("overlay.custom_games.embark_good", good.amount, good.name);
 					}
 					return null;
 
 				case SectionType.EmbarkEffects:
 					if (index < _embarkEffects.Count) {
 						var effect = _embarkEffects[index];
-						return effect.selected ? $"{effect.name}, selected" : $"{effect.name}, not selected";
+						return Strings.Get(effect.selected ? "overlay.custom_games.item.selected" : "overlay.custom_games.item.not_selected", effect.name);
 					}
 					return null;
 
 				case SectionType.Seed:
-					return "Press Space to randomize seed";
+					return Strings.Get("overlay.custom_games.seed.item");
 
 				case SectionType.SeasonalEffects:
 					if (CustomGamesReflection.IsSeasonalEffectsRandom(_popup)) {
 						var seasonalCounts = CustomGamesReflection.GetSeasonalEffectsCounts(_popup);
-						return $"Positive effects: {seasonalCounts.positive}, Negative effects: {seasonalCounts.negative}";
+						return Strings.Get("overlay.custom_games.seasonal_counts", seasonalCounts.positive, seasonalCounts.negative);
 					}
 					if (index < _seasonalEffects.Count) {
 						var effect = _seasonalEffects[index];
-						string polarity = effect.IsPositive ? "positive" : "negative";
-						string status = effect.IsPicked ? "selected" : "not selected";
-						string desc = !string.IsNullOrEmpty(effect.Description) ? $". {effect.Description}" : "";
-						return $"{effect.DisplayName}, {polarity}, {status}{desc}";
+						string polarity = Strings.Get(effect.IsPositive ? "overlay.custom_games.polarity.positive" : "overlay.custom_games.polarity.negative");
+						string status = Strings.Get(effect.IsPicked ? "common.selected_lower" : "overlay.custom_games.status.not_selected");
+						string desc = !string.IsNullOrEmpty(effect.Description) ? Strings.Get("overlay.custom_games.seasonal_effect.desc", effect.Description) : "";
+						return Strings.Get("overlay.custom_games.seasonal_effect", effect.DisplayName, polarity, status, desc);
 					}
 					return null;
 
@@ -402,14 +407,14 @@ namespace ATSAccessibility.Overlays {
 
 		private void EnterSection(SectionType section) {
 			if (section == SectionType.Blight && !CustomGamesReflection.IsBlightEnabled(_popup)) {
-				Speech.Say("Blight is disabled. Press Space to enable.");
+				Speech.Say(Strings.Get("overlay.custom_games.blight_disabled"));
 				return;
 			}
 
 			LoadSectionData(section);
 
 			if (GetSectionItemCount(section) == 0) {
-				Speech.Say("No items");
+				Speech.Say(Strings.Get("common.no_items"));
 				return;
 			}
 
@@ -427,7 +432,7 @@ namespace ATSAccessibility.Overlays {
 			var inputField = CustomGamesReflection.GetSeedInputField(_popup);
 			if (inputField == null) {
 				SoundManager.PlayFailed();
-				Speech.Say("Cannot edit seed");
+				Speech.Say(Strings.Get("overlay.custom_games.seed.cannot_edit"));
 				return;
 			}
 
@@ -440,7 +445,7 @@ namespace ATSAccessibility.Overlays {
 			inputField.ActivateInputField();
 
 			string currentSeed = inputField.text;
-			Speech.Say($"Editing seed: {currentSeed}. Press Enter or Escape when done");
+			Speech.Say(Strings.Get("overlay.custom_games.seed.editing", currentSeed));
 		}
 
 		private void ExitSeedEdit() {
@@ -456,14 +461,14 @@ namespace ATSAccessibility.Overlays {
 			_seedInputField = null;
 
 			string newSeed = CustomGamesReflection.GetSeed(_popup);
-			Speech.Say($"Seed set to: {newSeed}");
+			Speech.Say(Strings.Get("overlay.custom_games.seed.set", newSeed));
 		}
 
 		private void RandomizeSeed() {
 			if (CustomGamesReflection.RandomizeSeed(_popup)) {
 				SoundManager.PlayButtonClick();
 				string newSeed = CustomGamesReflection.GetSeed(_popup);
-				Speech.Say($"Seed: {newSeed}");
+				Speech.Say(Strings.Get("overlay.custom_games.seed.after_randomize", newSeed));
 			} else {
 				SoundManager.PlayFailed();
 			}
@@ -649,11 +654,11 @@ namespace ATSAccessibility.Overlays {
 			if (CustomGamesReflection.SetDifficulty(_popup, diff)) {
 				SoundManager.PlayButtonClick();
 				string name = CustomGamesReflection.GetDifficultyDisplayName(diff);
-				Speech.Say($"Selected {name}");
+				Speech.Say(Strings.Get("overlay.custom_games.difficulty.selected", name));
 				GoBackToTopMenu();
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Could not select difficulty");
+				Speech.Say(Strings.Get("overlay.custom_games.difficulty.could_not"));
 			}
 		}
 
@@ -664,11 +669,11 @@ namespace ATSAccessibility.Overlays {
 			if (CustomGamesReflection.SetBiomeIndex(_popup, CurrentIndex)) {
 				SoundManager.PlayButtonClick();
 				var biome = _biomes[CurrentIndex];
-				Speech.Say($"Selected {biome.name}");
+				Speech.Say(Strings.Get("overlay.custom_games.biome.selected", biome.name));
 				GoBackToTopMenu();
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Could not select biome");
+				Speech.Say(Strings.Get("overlay.custom_games.biome.could_not"));
 			}
 		}
 
@@ -681,12 +686,12 @@ namespace ATSAccessibility.Overlays {
 				_races = CustomGamesReflection.GetRaceSlots(_popup);
 				if (CurrentIndex < _races.Count) {
 					var race = _races[CurrentIndex];
-					Speech.Say(race.selected ? $"{race.name}, selected" : $"{race.name}, not selected");
+					Speech.Say(Strings.Get(race.selected ? "overlay.custom_games.item.selected" : "overlay.custom_games.item.not_selected", race.name));
 				}
 			} else {
 				SoundManager.PlayFailed();
 				if (CurrentIndex < _races.Count && !_races[CurrentIndex].selected) {
-					Speech.Say("Maximum races selected");
+					Speech.Say(Strings.Get("overlay.custom_games.races.max"));
 				}
 			}
 		}
@@ -700,12 +705,12 @@ namespace ATSAccessibility.Overlays {
 				_tradeTowns = CustomGamesReflection.GetTradeTownSlots(_popup);
 				if (CurrentIndex < _tradeTowns.Count) {
 					var town = _tradeTowns[CurrentIndex];
-					Speech.Say(town.selected ? $"{town.name}, selected" : $"{town.name}, not selected");
+					Speech.Say(Strings.Get(town.selected ? "overlay.custom_games.item.selected" : "overlay.custom_games.item.not_selected", town.name));
 				}
 			} else {
 				SoundManager.PlayFailed();
 				if (CurrentIndex < _tradeTowns.Count && !_tradeTowns[CurrentIndex].selected) {
-					Speech.Say("Maximum trade towns selected");
+					Speech.Say(Strings.Get("overlay.custom_games.trade_towns.max"));
 				}
 			}
 		}
@@ -720,16 +725,16 @@ namespace ATSAccessibility.Overlays {
 
 			if (!effect.IsPicked && currentPicked >= maxEffects) {
 				SoundManager.PlayFailed();
-				Speech.Say($"Maximum {maxEffects} effects selected");
+				Speech.Say(Strings.Get("overlay.custom_games.seasonal.max", maxEffects));
 				return;
 			}
 
 			if (CustomGamesReflection.ToggleSeasonalEffect(_popup, effect)) {
 				SoundManager.PlayButtonClick();
 				effect.IsPicked = !effect.IsPicked;
-				string polarity = effect.IsPositive ? "positive" : "negative";
-				string status = effect.IsPicked ? "selected" : "not selected";
-				Speech.Say($"{effect.DisplayName}, {polarity}, {status}");
+				string polarity = Strings.Get(effect.IsPositive ? "overlay.custom_games.polarity.positive" : "overlay.custom_games.polarity.negative");
+				string status = Strings.Get(effect.IsPicked ? "common.selected_lower" : "overlay.custom_games.status.not_selected");
+				Speech.Say(Strings.Get("overlay.custom_games.seasonal.selected", effect.DisplayName, polarity, status));
 			} else {
 				SoundManager.PlayFailed();
 			}
@@ -742,8 +747,8 @@ namespace ATSAccessibility.Overlays {
 			var mod = _filteredModifiers[CurrentIndex];
 			if (CustomGamesReflection.ToggleModifier(_popup, mod)) {
 				SoundManager.PlayButtonClick();
-				string status = mod.IsPicked ? "enabled" : "disabled";
-				Speech.Say($"{mod.DisplayName}, {status}");
+				string status = Strings.Get(mod.IsPicked ? "common.enabled_lower" : "common.disabled_lower");
+				Speech.Say(Strings.Get("overlay.custom_games.modifier.toggled", mod.DisplayName, status));
 			} else {
 				SoundManager.PlayFailed();
 			}
@@ -758,7 +763,7 @@ namespace ATSAccessibility.Overlays {
 				_embarkEffects = CustomGamesReflection.GetEmbarkEffects(_popup);
 				if (CurrentIndex < _embarkEffects.Count) {
 					var effect = _embarkEffects[CurrentIndex];
-					Speech.Say(effect.selected ? $"{effect.name}, selected" : $"{effect.name}, not selected");
+					Speech.Say(Strings.Get(effect.selected ? "overlay.custom_games.item.selected" : "overlay.custom_games.item.not_selected", effect.name));
 				}
 			} else {
 				SoundManager.PlayFailed();
@@ -771,7 +776,7 @@ namespace ATSAccessibility.Overlays {
 			if (CustomGamesReflection.ToggleBlight(_popup)) {
 				SoundManager.PlayButtonClick();
 				bool isOn = CustomGamesReflection.IsBlightEnabled(_popup);
-				Speech.Say(isOn ? "Blight enabled" : "Blight disabled");
+				Speech.Say(Strings.Get(isOn ? "overlay.custom_games.blight.turned_on" : "overlay.custom_games.blight.turned_off"));
 
 				if (isOn) {
 					_sliders = CustomGamesReflection.GetBlightSliders(_popup);
@@ -871,13 +876,13 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		private void CycleModifierCategory(int direction) {
-			_modifierCategoryIndex = NavigationUtils.WrapIndex(_modifierCategoryIndex, direction, _categoryNames.Length);
+			_modifierCategoryIndex = NavigationUtils.WrapIndex(_modifierCategoryIndex, direction, CategoryNames.Length);
 			FilterModifiers();
 			CurrentIndex = 0;
 
-			string categoryName = _categoryNames[_modifierCategoryIndex];
+			string categoryName = CategoryNames[_modifierCategoryIndex];
 			int count = _filteredModifiers.Count;
-			Speech.Say($"{categoryName} ({count} modifiers)");
+			Speech.Say(Strings.Get("overlay.custom_games.category.announced", categoryName, count));
 
 			if (count > 0) {
 				AnnounceCurrentItem();
@@ -914,11 +919,11 @@ namespace ATSAccessibility.Overlays {
 		private void TriggerEmbark() {
 			if (CustomGamesReflection.TriggerEmbark(_popup)) {
 				SoundManager.PlayButtonClick();
-				Speech.Say("Embarking");
+				Speech.Say(Strings.Get("common.embarking"));
 				Debug.Log("[ATSAccessibility] Embark triggered from CustomGamesOverlay");
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Could not embark");
+				Speech.Say(Strings.Get("common.could_not_embark"));
 			}
 		}
 	}

@@ -127,7 +127,7 @@ namespace ATSAccessibility.Utils {
 		public static void AnnounceLevel() {
 			var (level, currentXP, targetXP) = GetLevelInfo();
 			int remaining = targetXP - currentXP;
-			Speech.Say($"Level {level}, {remaining} experience to next level");
+			Speech.Say(Strings.Get("util.worldmap_stats.level", level, remaining));
 		}
 
 		/// <summary>
@@ -136,13 +136,13 @@ namespace ATSAccessibility.Utils {
 		public static void AnnounceMetaResources() {
 			var resources = GetMetaResources();
 			if (resources.Count == 0) {
-				Speech.Say("No meta resources");
+				Speech.Say(Strings.Get("util.worldmap_stats.no_meta_resources"));
 				return;
 			}
 
 			var parts = new List<string>();
 			foreach (var (name, amount) in resources) {
-				parts.Add($"{amount} {name}");
+				parts.Add(Strings.Get("util.worldmap_stats.meta_resource_entry", amount, name));
 			}
 			Speech.Say(string.Join(", ", parts));
 		}
@@ -155,12 +155,12 @@ namespace ATSAccessibility.Utils {
 			if (string.IsNullOrEmpty(name)) {
 				// No seal reforged yet, but still show fragment count from cycle state
 				var (_, _, _, _, fragments) = GetCycleInfo();
-				Speech.Say($"No seals reforged, {fragments} fragments");
+				Speech.Say(Strings.Get("util.worldmap_stats.no_seals_reforged", fragments));
 				return;
 			}
 
 			int rewardsPercent = (int)(mult * 100);
-			Speech.Say($"{name}, {rewardsPercent} percent rewards, {years} bonus years, {frags} fragments");
+			Speech.Say(Strings.Get("util.worldmap_stats.seal_summary", name, rewardsPercent, years, frags));
 		}
 
 		/// <summary>
@@ -173,11 +173,11 @@ namespace ATSAccessibility.Utils {
 
 			string cycleStatus;
 			if (yearsLeft <= 0)
-				cycleStatus = "Blightstorm approaching, press E to end cycle";
+				cycleStatus = Strings.Get("util.worldmap_stats.blightstorm_approaching");
 			else
-				cycleStatus = $"{yearsLeft} years left in cycle";
+				cycleStatus = Strings.Get("util.worldmap_stats.years_left", yearsLeft);
 
-			Speech.Say($"Year {year}, {cycleStatus}, {won} of {played} games won");
+			Speech.Say(Strings.Get("util.worldmap_stats.cycle_summary", year, cycleStatus, won, played));
 		}
 
 		/// <summary>
@@ -193,7 +193,7 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static bool OpenCycleEndPopup() {
 			if (!IsBlightstormApproaching()) {
-				Speech.Say("Cannot end cycle yet");
+				Speech.Say(Strings.Get("util.worldmap_stats.cannot_end_cycle"));
 				return false;
 			}
 
@@ -204,7 +204,7 @@ namespace ATSAccessibility.Utils {
 				return true;
 			}
 
-			Speech.Say("Failed to open cycle end");
+			Speech.Say(Strings.Get("util.worldmap_stats.failed_to_end_cycle"));
 			return false;
 		}
 	}

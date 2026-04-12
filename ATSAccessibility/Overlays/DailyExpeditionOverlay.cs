@@ -59,7 +59,7 @@ namespace ATSAccessibility.Overlays {
 		// MenuBase Overrides
 		// ========================================
 
-		protected override string OverlayName => "Daily Expedition";
+		protected override string OverlayName => Strings.Get("common.daily_expedition");
 
 		protected override string EmptyMessage => "";
 
@@ -83,9 +83,9 @@ namespace ATSAccessibility.Overlays {
 			// Add interactive items at the end
 			string diffName = currentDifficulty != null
 				? DailyExpeditionReflection.GetDifficultyDisplayName(currentDifficulty)
-				: "Unknown";
-			_items.Add((ItemType.Difficulty, $"Difficulty: {diffName}"));
-			_items.Add((ItemType.Embark, "Embark"));
+				: Strings.Get("common.unknown");
+			_items.Add((ItemType.Difficulty, Strings.Get("overlay.daily.difficulty", diffName)));
+			_items.Add((ItemType.Embark, Strings.Get("common.embark")));
 
 			Debug.Log($"[ATSAccessibility] DailyExpeditionOverlay: Built {_items.Count} items");
 		}
@@ -148,8 +148,8 @@ namespace ATSAccessibility.Overlays {
 
 		protected override string GetOpenAnnouncement() {
 			if (_items.Count > 0)
-				return $"Daily Expedition. {_items[0].text}";
-			return "Daily Expedition";
+				return Strings.Get("overlay.daily.open", _items[0].text);
+			return Strings.Get("common.daily_expedition");
 		}
 
 		protected override void OnClosed() {
@@ -319,7 +319,7 @@ namespace ATSAccessibility.Overlays {
 		private void OpenDifficultySubmenu() {
 			_difficulties = DailyExpeditionReflection.GetAvailableDifficulties(_popup);
 			if (_difficulties.Count == 0) {
-				Speech.Say("No difficulties available");
+				Speech.Say(Strings.Get("common.no_difficulties_available"));
 				return;
 			}
 
@@ -355,7 +355,7 @@ namespace ATSAccessibility.Overlays {
 			int thisIdx = DailyExpeditionReflection.GetDifficultyIndex(difficulty);
 
 			if (thisIdx == currentIdx) {
-				Speech.Say($"{name}, current");
+				Speech.Say(Strings.Get("overlay.daily.diff.current", name));
 			} else {
 				Speech.Say(name);
 			}
@@ -376,12 +376,12 @@ namespace ATSAccessibility.Overlays {
 
 				// Announce selected difficulty
 				string diffName = DailyExpeditionReflection.GetDifficultyDisplayName(selectedDifficulty);
-				Speech.Say($"Selected {diffName}");
+				Speech.Say(Strings.Get("overlay.daily.diff.selected", diffName));
 
 				Debug.Log($"[ATSAccessibility] Difficulty changed to {diffName}");
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Could not change difficulty");
+				Speech.Say(Strings.Get("overlay.daily.diff.could_not"));
 			}
 		}
 
@@ -392,7 +392,7 @@ namespace ATSAccessibility.Overlays {
 		private void OpenModifiersSubmenu() {
 			_modifiers = DailyExpeditionReflection.GetModifiersDetailed(_popup);
 			if (_modifiers.Count == 0) {
-				Speech.Say("No modifiers");
+				Speech.Say(Strings.Get("overlay.daily.no_modifiers"));
 				return;
 			}
 
@@ -410,7 +410,7 @@ namespace ATSAccessibility.Overlays {
 			var (name, description) = _modifiers[_submenuIndex];
 
 			if (!string.IsNullOrEmpty(description)) {
-				Speech.Say($"{name}. {description}");
+				Speech.Say(Strings.Get("overlay.daily.modifier_with_desc", name, description));
 			} else {
 				Speech.Say(name);
 			}
@@ -423,11 +423,11 @@ namespace ATSAccessibility.Overlays {
 		private void TriggerEmbark() {
 			if (DailyExpeditionReflection.TriggerEmbark(_popup)) {
 				SoundManager.PlayButtonClick();
-				Speech.Say("Embarking");
+				Speech.Say(Strings.Get("common.embarking"));
 				Debug.Log("[ATSAccessibility] Embark triggered");
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Could not embark");
+				Speech.Say(Strings.Get("common.could_not_embark"));
 			}
 		}
 
@@ -438,34 +438,34 @@ namespace ATSAccessibility.Overlays {
 		private void BuildStaticItems() {
 			// Biome
 			string biome = DailyExpeditionReflection.GetBiomeName(_popup);
-			_items.Add((ItemType.Biome, $"Biome: {biome}"));
+			_items.Add((ItemType.Biome, Strings.Get("overlay.daily.biome", biome)));
 
 			// Time left
 			string timeLeft = DailyExpeditionReflection.GetTimeLeft(_popup);
-			_items.Add((ItemType.TimeLeft, $"Time Left: {timeLeft}"));
+			_items.Add((ItemType.TimeLeft, Strings.Get("overlay.daily.time_left", timeLeft)));
 
 			// Races
 			var races = DailyExpeditionReflection.GetRaces(_popup);
 			if (races.Count > 0) {
-				_items.Add((ItemType.Races, $"Races: {string.Join(", ", races)}"));
+				_items.Add((ItemType.Races, Strings.Get("overlay.daily.races", string.Join(", ", races))));
 			}
 
 			// Embark goods
 			var goods = DailyExpeditionReflection.GetEmbarkGoods(_popup);
 			if (goods.Count > 0) {
-				_items.Add((ItemType.EmbarkGoods, $"Embark Goods: {string.Join(", ", goods)}"));
+				_items.Add((ItemType.EmbarkGoods, Strings.Get("overlay.daily.embark_goods", string.Join(", ", goods))));
 			}
 
 			// Embark effects
 			var effects = DailyExpeditionReflection.GetEmbarkEffects(_popup);
 			if (effects.Count > 0) {
-				_items.Add((ItemType.EmbarkEffects, $"Embark Effects: {string.Join(", ", effects)}"));
+				_items.Add((ItemType.EmbarkEffects, Strings.Get("overlay.daily.embark_effects", string.Join(", ", effects))));
 			}
 
 			// Modifiers (with count, interactive submenu)
 			var modifiers = DailyExpeditionReflection.GetModifiers(_popup);
 			if (modifiers.Count > 0) {
-				_items.Add((ItemType.Modifiers, $"Modifiers ({modifiers.Count})"));
+				_items.Add((ItemType.Modifiers, Strings.Get("overlay.daily.modifiers", modifiers.Count)));
 			}
 		}
 
@@ -477,9 +477,9 @@ namespace ATSAccessibility.Overlays {
 			var (positive, negative) = DailyExpeditionReflection.GetSeasonalEffectsCounts(difficulty);
 			string magnitude = DailyExpeditionReflection.GetEffectsMagnitude(difficulty);
 			if (positive > 0 || negative > 0) {
-				string effectsText = $"Seasonal Effects: {positive} positive, {negative} negative";
+				string effectsText = Strings.Get("overlay.daily.seasonal", positive, negative);
 				if (!string.IsNullOrEmpty(magnitude)) {
-					effectsText += $", {magnitude}";
+					effectsText += Strings.Get("overlay.daily.seasonal.magnitude", magnitude);
 				}
 				_items.Add((ItemType.SeasonalEffects, effectsText));
 			}
@@ -487,16 +487,16 @@ namespace ATSAccessibility.Overlays {
 			// Rewards (affected by difficulty multiplier)
 			var rewards = DailyExpeditionReflection.GetRewards(_popup);
 			if (rewards.Count > 0) {
-				_items.Add((ItemType.Rewards, $"Rewards: {string.Join(", ", rewards)}"));
+				_items.Add((ItemType.Rewards, Strings.Get("overlay.daily.rewards", string.Join(", ", rewards))));
 			} else {
 				// No rewards if already done today at this difficulty
 				if (completed) {
-					_items.Add((ItemType.Rewards, "Rewards: None (already completed at this difficulty)"));
+					_items.Add((ItemType.Rewards, Strings.Get("overlay.daily.rewards.none")));
 				}
 			}
 
 			// Completed status
-			_items.Add((ItemType.Completed, $"Completed Today: {(completed ? "Yes" : "No")}"));
+			_items.Add((ItemType.Completed, Strings.Get("overlay.daily.completed", Strings.Get(completed ? "overlay.daily.yes" : "overlay.daily.no"))));
 		}
 
 		private void RefreshDifficultyDependentItems() {
@@ -519,9 +519,9 @@ namespace ATSAccessibility.Overlays {
 			// Re-add interactive items
 			string diffName = difficulty != null
 				? DailyExpeditionReflection.GetDifficultyDisplayName(difficulty)
-				: "Unknown";
-			_items.Add((ItemType.Difficulty, $"Difficulty: {diffName}"));
-			_items.Add((ItemType.Embark, "Embark"));
+				: Strings.Get("common.unknown");
+			_items.Add((ItemType.Difficulty, Strings.Get("overlay.daily.difficulty", diffName)));
+			_items.Add((ItemType.Embark, Strings.Get("common.embark")));
 
 			// Update current index to point to difficulty item
 			for (int i = 0; i < _items.Count; i++) {

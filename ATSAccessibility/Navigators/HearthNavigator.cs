@@ -144,7 +144,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Workers)
-				return "No free workers";
+				return Strings.Get("common.no_free_workers");
 			return null;
 		}
 
@@ -166,14 +166,14 @@ namespace ATSAccessibility.Navigators {
 
 			// Sacrifice: hint about +/- keys
 			if (_sectionTypes[sectionIndex] == SectionType.Sacrifice) {
-				Speech.Say("Press plus and minus to adjust sacrifice levels");
+				Speech.Say(Strings.Get("nav.hearth.sacrifice.hint"));
 				return true;
 			}
 
 			// Services unlock action
 			if (_sectionTypes[sectionIndex] == SectionType.Services && !_servicesSettlementUnlocked && itemIndex == 0) {
 				if (!HearthReflection.CanAffordHearthServicesUnlock(_building)) {
-					Speech.Say("Not enough resources");
+					Speech.Say(Strings.Get("common.not_enough_resources"));
 					SoundManager.PlayFailed();
 					return false;
 				}
@@ -182,10 +182,10 @@ namespace ATSAccessibility.Navigators {
 					_servicesSettlementUnlocked = true;
 					_serviceRecipes = HearthReflection.GetHearthServiceRecipes(_building);
 					SoundManager.PlayButtonClick();
-					Speech.Say("The Commons unlocked");
+					Speech.Say(Strings.Get("nav.hearth.commons_unlocked"));
 					return true;
 				} else {
-					Speech.Say("Cannot unlock");
+					Speech.Say(Strings.Get("nav.hearth.cannot_unlock"));
 					SoundManager.PlayFailed();
 					return false;
 				}
@@ -257,35 +257,35 @@ namespace ATSAccessibility.Navigators {
 			var sectionNames = new List<string>();
 			var sectionTypes = new List<SectionType>();
 
-			sectionNames.Add("Fire");
+			sectionNames.Add(Strings.Get("nav.hearth.section.fire"));
 			sectionTypes.Add(SectionType.Fire);
 
 			// Sacrifice section only shown if there are sacrifice recipes
 			if (_sacrificeRecipes.Count > 0) {
-				sectionNames.Add("Sacrifice");
+				sectionNames.Add(Strings.Get("nav.hearth.section.sacrifice"));
 				sectionTypes.Add(SectionType.Sacrifice);
 			}
 
 			// Services section only shown on main hearth if meta progression unlocked
 			if (_servicesMetaUnlocked && _isMainHearth) {
-				sectionNames.Add("Services");
+				sectionNames.Add(Strings.Get("common.services"));
 				sectionTypes.Add(SectionType.Services);
 			}
 
 			// Upgrades section only shown if there are upgrade tiers
 			if (_upgradeInfo.Count > 0) {
-				sectionNames.Add("Upgrades");
+				sectionNames.Add(Strings.Get("common.upgrades"));
 				sectionTypes.Add(SectionType.Upgrades);
 			}
 
 			// Blight section only shown for main hearth when blight is active
 			if (_isMainHearth && GameReflection.IsBlightActive()) {
-				sectionNames.Add("Blight");
+				sectionNames.Add(Strings.Get("nav.hearth.section.blight"));
 				sectionTypes.Add(SectionType.Blight);
 			}
 
 			if (TryInitializeWorkersSection()) {
-				sectionNames.Add("Workers");
+				sectionNames.Add(Strings.Get("common.workers"));
 				sectionTypes.Add(SectionType.Workers);
 			}
 
@@ -320,21 +320,21 @@ namespace ATSAccessibility.Navigators {
 			switch (itemIndex) {
 				case 0:
 					int percentage = Mathf.RoundToInt(_fuelLevel * 100f);
-					Speech.Say($"Fuel level: {percentage} percent");
+					Speech.Say(Strings.Get("nav.hearth.fuel_level", percentage));
 					break;
 				case 1:
 					int seconds = Mathf.RoundToInt(_fuelTimeRemaining);
 					if (seconds <= 0) {
-						Speech.Say("Time remaining: Fire is out");
+						Speech.Say(Strings.Get("nav.hearth.time_fire_out"));
 					} else if (seconds < 60) {
-						Speech.Say($"Time remaining: {seconds} seconds");
+						Speech.Say(Strings.Get("nav.hearth.time_seconds", seconds));
 					} else {
 						int minutes = seconds / 60;
 						int remainingSecs = seconds % 60;
 						if (remainingSecs > 0)
-							Speech.Say($"Time remaining: {minutes} minutes {remainingSecs} seconds");
+							Speech.Say(Strings.Get("nav.hearth.time_minutes_seconds", minutes, remainingSecs));
 						else
-							Speech.Say($"Time remaining: {minutes} minutes");
+							Speech.Say(Strings.Get("nav.hearth.time_minutes", minutes));
 					}
 					break;
 				case 2:
@@ -343,7 +343,7 @@ namespace ATSAccessibility.Navigators {
 					foreach (var fuel in _fuelTypes) {
 						if (fuel.isEnabled) enabledCount++;
 					}
-					Speech.Say($"Fuel types: {enabledCount} of {_fuelTypes.Count} enabled");
+					Speech.Say(Strings.Get("nav.hearth.fuel_types_count", enabledCount, _fuelTypes.Count));
 					break;
 			}
 		}
@@ -354,14 +354,14 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceUpgradeItem(int itemIndex) {
 			if (itemIndex < 0 || itemIndex >= _upgradeInfo.Count) {
-				Speech.Say("Invalid upgrade");
+				Speech.Say(Strings.Get("nav.hearth.invalid_upgrade"));
 				return;
 			}
 
 			// Refresh upgrade info to get current state
 			_upgradeInfo = HearthReflection.GetHearthUpgradeInfo(_building);
 			if (itemIndex >= _upgradeInfo.Count) {
-				Speech.Say("Invalid upgrade");
+				Speech.Say(Strings.Get("nav.hearth.invalid_upgrade"));
 				return;
 			}
 
@@ -369,39 +369,39 @@ namespace ATSAccessibility.Navigators {
 
 			// Locked tiers: just announce the name and that it requires meta progression
 			if (!info.isUnlockedInMeta) {
-				Speech.Say($"{info.displayName}, unlocked through meta progression upgrade");
+				Speech.Say(Strings.Get("nav.hearth.upgrade_meta_locked", info.displayName));
 				return;
 			}
 
 			// Build status string
-			string status = info.isAchieved ? "Achieved" : "Available";
+			string status = info.isAchieved ? Strings.Get("nav.hearth.upgrade.achieved") : Strings.Get("common.available");
 
 			// Build requirements string
 			var reqParts = new List<string>();
 
 			// Housed population
 			if (info.minPopulation > 0) {
-				reqParts.Add($"Housed population {info.currentPopulation} of {info.minPopulation}");
+				reqParts.Add(Strings.Get("nav.hearth.req.housed_population", info.currentPopulation, info.minPopulation));
 			}
 
 			// Institutions
 			if (info.minInstitutions > 0) {
-				reqParts.Add($"Institutions {info.currentInstitutions} of {info.minInstitutions}");
+				reqParts.Add(Strings.Get("nav.hearth.req.institutions", info.currentInstitutions, info.minInstitutions));
 			}
 
 			// Decorations (tier name already includes "decorations" suffix)
 			foreach (var decorReq in info.decorationRequirements) {
-				reqParts.Add($"{decorReq.tierName} {decorReq.current} of {decorReq.required}");
+				reqParts.Add(Strings.Get("nav.hearth.req.decoration", decorReq.tierName, decorReq.current, decorReq.required));
 			}
 
-			string requirements = reqParts.Count > 0 ? string.Join(", ", reqParts) : "None";
+			string requirements = reqParts.Count > 0 ? string.Join(", ", reqParts) : Strings.Get("common.none");
 
 			// Build announcement
-			string announcement = $"{info.displayName}: {status}. Requirements: {requirements}";
+			string announcement = Strings.Get("nav.hearth.upgrade_line", info.displayName, status, requirements);
 
 			// Add effect
 			if (!string.IsNullOrEmpty(info.effectDescription)) {
-				announcement += $". Effect: {info.effectDescription}";
+				announcement += Strings.Get("nav.hearth.upgrade_effect_suffix", info.effectDescription);
 			}
 
 			Speech.Say(announcement);
@@ -421,9 +421,9 @@ namespace ATSAccessibility.Navigators {
 		private void AnnounceBlightItem(int itemIndex) {
 			int percentage = Mathf.RoundToInt(_corruptionRate * 100f);
 			if (percentage <= 0)
-				Speech.Say("Corruption: None");
+				Speech.Say(Strings.Get("nav.hearth.corruption_none"));
 			else
-				Speech.Say($"Corruption: {percentage} percent");
+				Speech.Say(Strings.Get("nav.hearth.corruption_percent", percentage));
 		}
 
 		// ========================================
@@ -440,7 +440,7 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceSacrificeItem(int recipeIndex) {
 			if (recipeIndex < 0 || recipeIndex >= _sacrificeInfo.Count) {
-				Speech.Say("Invalid sacrifice recipe");
+				Speech.Say(Strings.Get("nav.hearth.invalid_sacrifice"));
 				return;
 			}
 
@@ -464,17 +464,17 @@ namespace ATSAccessibility.Navigators {
 			}
 			if (!string.IsNullOrEmpty(effect)) {
 				effect = effect.TrimEnd('.');
-				effect = effect + " per level";
+				effect = effect + Strings.Get("nav.hearth.sacrifice.per_level_suffix");
 			}
 
 			if (info.level > 0) {
 				// Active: "{Good}: Level X, {total consumption} per minute, {effect} per level"
 				float totalConsumption = info.consumptionPerMin * info.level;
 				int consumptionRounded = Mathf.RoundToInt(totalConsumption);
-				Speech.Say($"{name}: Level {info.level}, {consumptionRounded} per minute, {effect}");
+				Speech.Say(Strings.Get("nav.hearth.sacrifice.active", name, info.level, consumptionRounded, effect));
 			} else {
 				// Off: "{Good}: Off, {effect} per level"
-				Speech.Say($"{name}: Off, {effect}");
+				Speech.Say(Strings.Get("nav.hearth.sacrifice.off", name, effect));
 			}
 		}
 
@@ -497,9 +497,9 @@ namespace ATSAccessibility.Navigators {
 			// No change needed
 			if (newLevel == currentLevel) {
 				if (delta > 0 && currentLevel == info.maxLevel) {
-					Speech.Say("Maximum level");
+					Speech.Say(Strings.Get("nav.hearth.maximum_level"));
 				} else if (delta < 0 && currentLevel == 0) {
-					Speech.Say("Already off");
+					Speech.Say(Strings.Get("nav.hearth.already_off"));
 				}
 				return;
 			}
@@ -507,7 +507,7 @@ namespace ATSAccessibility.Navigators {
 			// Check if can afford when increasing from 0
 			if (currentLevel == 0 && newLevel > 0 && !info.canAfford) {
 				SoundManager.PlayFailed();
-				Speech.Say($"Not enough {info.goodName}");
+				Speech.Say(Strings.Get("nav.hearth.not_enough_good", info.goodName));
 				return;
 			}
 
@@ -515,14 +515,14 @@ namespace ATSAccessibility.Navigators {
 			if (HearthReflection.SetHearthSacrificeLevel(_building, recipeState, newLevel)) {
 				if (newLevel == 0) {
 					SoundManager.PlayButtonClick();
-					Speech.Say("Off");
+					Speech.Say(Strings.Get("common.off"));
 				} else if (currentLevel == 0) {
 					// Enabling from off
 					SoundManager.PlayBuildingFireButtonStart();
-					Speech.Say($"Level {newLevel}");
+					Speech.Say(Strings.Get("nav.hearth.level_n", newLevel));
 				} else {
 					SoundManager.PlayButtonClick();
-					Speech.Say($"Level {newLevel}");
+					Speech.Say(Strings.Get("nav.hearth.level_n", newLevel));
 				}
 				RefreshSacrificeInfo();
 			}
@@ -550,32 +550,32 @@ namespace ATSAccessibility.Navigators {
 				var price = HearthReflection.GetHearthServicesUnlockPrice(_building);
 				if (price != null) {
 					bool canAfford = HearthReflection.CanAffordHearthServicesUnlock(_building);
-					string affordText = canAfford ? "" : ", not enough resources";
-					Speech.Say($"Locked, costs {price.Value.amount} {price.Value.displayName}{affordText}");
+					string affordText = canAfford ? "" : Strings.Get("nav.common.not_enough_resources_suffix");
+					Speech.Say(Strings.Get("nav.hearth.services.locked_with_cost", price.Value.amount, price.Value.displayName, affordText));
 				} else {
-					Speech.Say("Locked");
+					Speech.Say(Strings.Get("common.locked"));
 				}
 				return;
 			}
 
 			// Service recipe
 			if (itemIndex < 0 || itemIndex >= _serviceRecipes.Count) {
-				Speech.Say("Invalid service");
+				Speech.Say(Strings.Get("nav.hearth.invalid_service"));
 				return;
 			}
 
 			var service = _serviceRecipes[itemIndex];
 			// Format: "Need name: requires X Good, Y stars" or "Need name: free, Y stars"
 			if (service.IsGoodConsumed && service.GoodAmount > 0) {
-				Speech.Say($"{service.NeedName}: requires {service.GoodAmount} {service.GoodDisplayName}, {service.Grade} stars");
+				Speech.Say(Strings.Get("nav.hearth.service.paid", service.NeedName, service.GoodAmount, service.GoodDisplayName, service.Grade));
 			} else {
-				Speech.Say($"{service.NeedName}: free, {service.Grade} stars");
+				Speech.Say(Strings.Get("nav.hearth.service.free", service.NeedName, service.Grade));
 			}
 		}
 
 		private string GetServiceItemName(int itemIndex) {
 			if (!_servicesSettlementUnlocked)
-				return itemIndex == 0 ? "Unlock" : null;
+				return itemIndex == 0 ? Strings.Get("common.unlock") : null;
 
 			if (itemIndex >= 0 && itemIndex < _serviceRecipes.Count)
 				return _serviceRecipes[itemIndex].NeedName;
@@ -589,7 +589,7 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceFuelSubItem(int subItemIndex) {
 			if (subItemIndex < 0 || subItemIndex >= _fuelTypes.Count) {
-				Speech.Say("Invalid fuel type");
+				Speech.Say(Strings.Get("nav.hearth.invalid_fuel"));
 				return;
 			}
 
@@ -597,11 +597,11 @@ namespace ATSAccessibility.Navigators {
 			_fuelTypes = HearthReflection.GetAllFuelTypes();
 
 			var fuel = _fuelTypes[subItemIndex];
-			string status = fuel.isEnabled ? "Enabled" : "Disabled";
+			string status = fuel.isEnabled ? Strings.Get("common.enabled") : Strings.Get("common.disabled");
 			if (fuel.priority > 0)
-				Speech.Say($"{fuel.displayName}: {status}, priority {fuel.priority}");
+				Speech.Say(Strings.Get("nav.hearth.fuel.with_priority", fuel.displayName, status, fuel.priority));
 			else
-				Speech.Say($"{fuel.displayName}: {status}");
+				Speech.Say(Strings.Get("nav.hearth.fuel.status", fuel.displayName, status));
 		}
 
 		private bool ToggleFuel(int subItemIndex) {
@@ -613,12 +613,12 @@ namespace ATSAccessibility.Navigators {
 
 			if (HearthReflection.SetFuelEnabled(fuel.name, newState)) {
 				SoundManager.PlayButtonClick();
-				Speech.Say(newState ? "Enabled" : "Disabled");
+				Speech.Say(newState ? Strings.Get("common.enabled") : Strings.Get("common.disabled"));
 				_fuelTypes = HearthReflection.GetAllFuelTypes();
 				return true;
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Cannot change fuel setting");
+				Speech.Say(Strings.Get("nav.hearth.cannot_change_fuel"));
 				return false;
 			}
 		}
@@ -632,19 +632,19 @@ namespace ATSAccessibility.Navigators {
 			int newPrio = Mathf.Clamp(currentPrio + delta, 0, 3);
 
 			if (newPrio == currentPrio) {
-				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				Speech.Say(delta > 0 ? Strings.Get("common.maximum") : Strings.Get("common.minimum"));
 				return;
 			}
 
 			HearthReflection.SetFuelPriority(fuel.name, newPrio);
-			Speech.Say($"Priority: {FormatPriority(newPrio)}");
+			Speech.Say(Strings.Get("nav.common.priority_line", FormatPriority(newPrio)));
 			_fuelTypes = HearthReflection.GetAllFuelTypes();
 		}
 
 		private string FormatPriority(int priority) {
 			switch (priority) {
-				case 0: return "0 (lowest)";
-				case 3: return "3 (highest)";
+				case 0: return Strings.Get("nav.common.priority.lowest");
+				case 3: return Strings.Get("nav.common.priority.highest");
 				default: return priority.ToString();
 			}
 		}
@@ -673,9 +673,9 @@ namespace ATSAccessibility.Navigators {
 			switch (_sectionTypes[sectionIndex]) {
 				case SectionType.Fire:
 					switch (itemIndex) {
-						case 0: return "Fuel";
-						case 1: return "Time";
-						case 2: return "Fuel types";
+						case 0: return Strings.Get("common.fuel");
+						case 1: return Strings.Get("nav.hearth.search.time");
+						case 2: return Strings.Get("nav.hearth.search.fuel_types");
 						default: return null;
 					}
 				case SectionType.Sacrifice:
@@ -685,7 +685,7 @@ namespace ATSAccessibility.Navigators {
 				case SectionType.Upgrades:
 					return GetUpgradeItemName(itemIndex);
 				case SectionType.Blight:
-					return "Corruption";
+					return Strings.Get("nav.hearth.search.corruption");
 				case SectionType.Workers:
 					return _workersSection.GetItemName(itemIndex);
 				default:

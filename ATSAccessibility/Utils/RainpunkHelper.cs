@@ -30,7 +30,7 @@ namespace ATSAccessibility.Utils {
 		public static string GetRainpunkInfo(int cursorX, int cursorY) {
 			// Check if rainpunk meta is unlocked
 			if (!BuildingReflection.IsRainpunkEnabledGlobally()) {
-				return "Rainpunk not unlocked";
+				return Strings.Get("util.rainpunk.not_unlocked");
 			}
 
 			// Check if cursor is on a building with engines
@@ -52,35 +52,35 @@ namespace ATSAccessibility.Utils {
 		public static string StopAllEnginesAtBuilding(int cursorX, int cursorY) {
 			// Check if rainpunk meta is unlocked
 			if (!BuildingReflection.IsRainpunkEnabledGlobally()) {
-				return "Rainpunk not unlocked";
+				return Strings.Get("util.rainpunk.not_unlocked");
 			}
 
 			var building = ConstructionReflection.GetBuildingAtPosition(cursorX, cursorY);
 			if (building == null) {
-				return "No building";
+				return Strings.Get("common.no_building");
 			}
 
 			int engineCount = BuildingReflection.GetEngineCount(building);
 			if (engineCount == 0) {
-				return "No engines";
+				return Strings.Get("util.rainpunk.no_engines");
 			}
 
 			if (!BuildingReflection.IsRainpunkUnlocked(building)) {
-				return "Rainpunk not installed";
+				return Strings.Get("util.rainpunk.not_installed");
 			}
 
 			// Check if any engines are running
 			if (!BuildingReflection.HasRunningEngines(building)) {
-				return "Engines already stopped";
+				return Strings.Get("util.rainpunk.already_stopped");
 			}
 
 			// Stop all engines
 			if (BuildingReflection.StopAllEngines(building)) {
 				SoundManager.PlayRainpunkStop();
-				return "All engines stopped";
+				return Strings.Get("util.rainpunk.all_stopped");
 			}
 
-			return "Failed to stop engines";
+			return Strings.Get("util.rainpunk.stop_failed");
 		}
 
 		/// <summary>
@@ -88,7 +88,7 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		private static string GetEngineStatusSummary(object building) {
 			int engineCount = BuildingReflection.GetEngineCount(building);
-			if (engineCount == 0) return "No engines";
+			if (engineCount == 0) return Strings.Get("util.rainpunk.no_engines");
 
 			int runningCount = 0;
 			int maxLevel = 0;
@@ -108,11 +108,13 @@ namespace ATSAccessibility.Utils {
 					maxLevel = engineMaxLevel;
 			}
 
+			string engineWord = engineCount == 1 ? Strings.Get("util.rainpunk.engine_singular") : Strings.Get("util.rainpunk.engine_plural");
+
 			if (runningCount == 0) {
-				return $"{engineCount} {(engineCount == 1 ? "engine" : "engines")}, all stopped";
+				return Strings.Get("util.rainpunk.engines_all_stopped", engineCount, engineWord);
 			}
 
-			return $"{runningCount} of {engineCount} {(engineCount == 1 ? "engine" : "engines")} running, level {currentMaxRequestedLevel} of {maxLevel}";
+			return Strings.Get("util.rainpunk.running_summary", runningCount, engineCount, engineWord, currentMaxRequestedLevel, maxLevel);
 		}
 
 		/// <summary>
@@ -122,7 +124,7 @@ namespace ATSAccessibility.Utils {
 		private static string FindNearestRunningEngine(int cursorX, int cursorY) {
 			var buildingsService = GameReflection.GetBuildingsService();
 			if (buildingsService == null) {
-				return "No running engines";
+				return Strings.Get("util.rainpunk.no_running_engines");
 			}
 
 			try {
@@ -130,7 +132,7 @@ namespace ATSAccessibility.Utils {
 				var buildingsDict = _buildingsProperty?.GetValue(buildingsService) as IDictionary;
 
 				if (buildingsDict == null) {
-					return "No running engines";
+					return Strings.Get("util.rainpunk.no_running_engines");
 				}
 
 				string nearestName = null;
@@ -162,21 +164,22 @@ namespace ATSAccessibility.Utils {
 
 				if (nearestName != null) {
 					string direction = NavigationUtils.GetDirection(nearestDx, nearestDy);
-					if (string.IsNullOrEmpty(direction)) direction = "here";
-					return $"Nearest: {nearestName}, {nearestDistance} {(nearestDistance == 1 ? "tile" : "tiles")} {direction}";
+					if (string.IsNullOrEmpty(direction)) direction = Strings.Get("common.here_lower");
+					string tileWord = nearestDistance == 1 ? Strings.Get("common.tile") : Strings.Get("common.tiles");
+					return Strings.Get("util.rainpunk.nearest", nearestName, nearestDistance, tileWord, direction);
 				}
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] FindNearestRunningEngine failed: {ex.Message}");
 			}
 
-			return "No running engines";
+			return Strings.Get("util.rainpunk.no_running_engines");
 		}
 
 		/// <summary>
 		/// Get display name for a building.
 		/// </summary>
 		private static string GetBuildingDisplayName(object building) {
-			if (building == null) return "Building";
+			if (building == null) return Strings.Get("common.building");
 
 			try {
 				var model = ConstructionReflection.GetBuildingModel(building);
@@ -189,7 +192,7 @@ namespace ATSAccessibility.Utils {
 				Debug.LogWarning($"[ATSAccessibility] GetBuildingDisplayName failed: {ex.Message}");
 			}
 
-			return "Building";
+			return Strings.Get("common.building");
 		}
 	}
 }

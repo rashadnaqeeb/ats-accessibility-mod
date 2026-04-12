@@ -43,8 +43,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Reputation reward";
-		protected override string EmptyMessage => "No options available";
+		protected override string OverlayName => Strings.Get("overlay.rep_reward.title");
+		protected override string EmptyMessage => Strings.Get("common.no_options_available");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -82,8 +82,8 @@ namespace ATSAccessibility.Overlays {
 			if (ReputationRewardReflection.CanExtend()) {
 				var (extAmount, extGoodName) = ReputationRewardReflection.GetExtendCost();
 				string extendLabel = ReputationRewardReflection.CanAffordExtend()
-					? $"Extend, {extAmount} {extGoodName}"
-					: $"Extend, {extAmount} {extGoodName}, cannot afford";
+					? Strings.Get("overlay.rep_reward.extend", extAmount, extGoodName)
+					: Strings.Get("overlay.rep_reward.extend.cannot_afford", extAmount, extGoodName);
 
 				_items.Add(new NavItem {
 					Type = ItemType.Extend,
@@ -95,8 +95,8 @@ namespace ATSAccessibility.Overlays {
 			if (ConstructionReflection.IsBlueprintRerollUnlocked()) {
 				var (rerollAmount, rerollGoodName) = ReputationRewardReflection.GetRerollCost();
 				string rerollLabel = ReputationRewardReflection.CanAffordReroll()
-					? $"Reroll, {rerollAmount} {rerollGoodName}"
-					: $"Reroll, {rerollAmount} {rerollGoodName}, cannot afford";
+					? Strings.Get("overlay.rep_reward.reroll", rerollAmount, rerollGoodName)
+					: Strings.Get("overlay.rep_reward.reroll.cannot_afford", rerollAmount, rerollGoodName);
 
 				_items.Add(new NavItem {
 					Type = ItemType.Reroll,
@@ -155,7 +155,7 @@ namespace ATSAccessibility.Overlays {
 			if (keyCode == KeyCode.M && modifiers.Alt) {
 				if (CurrentIndex >= 0 && CurrentIndex < _items.Count && _items[CurrentIndex].Type == ItemType.Building) {
 					string costs = ConstructionReflection.GetBuildingCosts(_items[CurrentIndex].Model);
-					Speech.Say(!string.IsNullOrEmpty(costs) ? costs : "No construction costs");
+					Speech.Say(!string.IsNullOrEmpty(costs) ? costs : Strings.Get("overlay.rep_reward.no_costs"));
 				}
 				return true;
 			}
@@ -178,7 +178,7 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			if (_items.Count > 0)
-				return $"{OverlayName}. {_items[0].Label}";
+				return Strings.Get("overlay.rep_reward.open", OverlayName, _items[0].Label);
 
 			return EmptyMessage;
 		}
@@ -195,7 +195,7 @@ namespace ATSAccessibility.Overlays {
 
 		private void ActivateBuilding(NavItem item) {
 			if (!ReputationRewardReflection.PickBuilding(_popup, item.Model)) {
-				Speech.Say("Cannot select");
+				Speech.Say(Strings.Get("common.cannot_select"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -204,12 +204,12 @@ namespace ATSAccessibility.Overlays {
 
 			var newOptions = ReputationRewardReflection.GetCurrentOptions();
 			if (newOptions != null && newOptions.Count > 0) {
-				Speech.Say("Unlocked");
+				Speech.Say(Strings.Get("common.unlocked"));
 				RefreshData();
 				CurrentIndex = 0;
 				AnnounceCurrentItem();
 			} else {
-				Speech.Say("Unlocked");
+				Speech.Say(Strings.Get("common.unlocked"));
 				// Popup hides -> OnPopupHidden -> Close()
 			}
 		}
@@ -217,7 +217,7 @@ namespace ATSAccessibility.Overlays {
 		private void ActivateExtend() {
 			if (!ReputationRewardReflection.CanAffordExtend()) {
 				var (amount, goodName) = ReputationRewardReflection.GetExtendCost();
-				Speech.Say($"Cannot afford, need {amount} {goodName}");
+				Speech.Say(Strings.Get("overlay.rep_reward.cannot_afford", amount, goodName));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -225,7 +225,7 @@ namespace ATSAccessibility.Overlays {
 			int prevBuildingCount = CountBuildings();
 
 			if (!ReputationRewardReflection.Extend()) {
-				Speech.Say("Cannot extend");
+				Speech.Say(Strings.Get("common.cannot_extend"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -238,20 +238,20 @@ namespace ATSAccessibility.Overlays {
 				CurrentIndex = GetLastBuildingIndex();
 				AnnounceCurrentItem();
 			} else {
-				Speech.Say("No new option available");
+				Speech.Say(Strings.Get("common.no_new_option_available"));
 			}
 		}
 
 		private void ActivateReroll() {
 			if (!ReputationRewardReflection.CanAffordReroll()) {
 				var (amount, goodName) = ReputationRewardReflection.GetRerollCost();
-				Speech.Say($"Cannot afford, need {amount} {goodName}");
+				Speech.Say(Strings.Get("overlay.rep_reward.cannot_afford", amount, goodName));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (!ReputationRewardReflection.Reroll(_popup)) {
-				Speech.Say("Cannot reroll");
+				Speech.Say(Strings.Get("common.cannot_reroll"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -276,30 +276,29 @@ namespace ATSAccessibility.Overlays {
 				foreach (var comp in comparisons) {
 					parts.Append(". ");
 					parts.Append(comp.GoodDisplayName);
-					parts.Append($", {comp.GradeLevel} star, ");
 					switch (comp.Status) {
 						case RecipesReflection.RecipeCompareStatus.New:
-							parts.Append("new recipe");
+							parts.Append(Strings.Get("overlay.rep_reward.comp.new", comp.GradeLevel));
 							break;
 						case RecipesReflection.RecipeCompareStatus.Better:
-							parts.Append($"plus {comp.LevelDifference} better");
+							parts.Append(Strings.Get("overlay.rep_reward.comp.better", comp.GradeLevel, comp.LevelDifference));
 							break;
 						case RecipesReflection.RecipeCompareStatus.Worse:
-							parts.Append($"{comp.LevelDifference} worse");
+							parts.Append(Strings.Get("overlay.rep_reward.comp.worse", comp.GradeLevel, comp.LevelDifference));
 							break;
 						case RecipesReflection.RecipeCompareStatus.Same:
-							parts.Append("already unlocked");
+							parts.Append(Strings.Get("overlay.rep_reward.comp.same", comp.GradeLevel));
 							break;
 					}
 					if (!comp.CanProduce)
-						parts.Append(", cannot produce");
+						parts.Append(Strings.Get("overlay.rep_reward.comp.cannot_produce"));
 				}
 				return parts.ToString();
 			}
 
 			// Non-workshop building: use existing description
 			return !string.IsNullOrEmpty(option.Description)
-				? $"{option.DisplayName}. {option.Description}"
+				? Strings.Get("overlay.rep_reward.building.with_desc", option.DisplayName, option.Description)
 				: option.DisplayName;
 		}
 

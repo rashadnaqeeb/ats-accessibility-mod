@@ -167,8 +167,8 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			if (_sectionTypes[sectionIndex] == SectionType.Status) {
-				string status = _isSleeping ? "Paused" : "Active";
-				Speech.Say($"Status: {status}");
+				string status = _isSleeping ? Strings.Get("common.paused") : Strings.Get("common.active");
+				Speech.Say(Strings.Get("nav.common.status_line", status));
 				return;
 			}
 
@@ -217,7 +217,7 @@ namespace ATSAccessibility.Navigators {
 			// Rainpunk unlock
 			if (_sectionTypes[sectionIndex] == SectionType.Rainpunk && !_rainpunkUnlocked && itemIndex == 0) {
 				if (!BuildingReflection.CanAffordRainpunkUnlock(_building)) {
-					Speech.Say("Not enough resources");
+					Speech.Say(Strings.Get("common.not_enough_resources"));
 					SoundManager.PlayFailed();
 					return false;
 				}
@@ -226,10 +226,10 @@ namespace ATSAccessibility.Navigators {
 					_rainpunkUnlocked = true;
 					_engineCount = BuildingReflection.GetEngineCount(_building);
 					SoundManager.PlayRainpunkUnlock();
-					Speech.Say("Rainpunk unlocked");
+					Speech.Say(Strings.Get("nav.prod.rainpunk_unlocked"));
 					return true;
 				} else {
-					Speech.Say("Cannot unlock rainpunk");
+					Speech.Say(Strings.Get("nav.prod.cannot_unlock_rainpunk"));
 					SoundManager.PlayFailed();
 					return false;
 				}
@@ -250,7 +250,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string GetNoSubItemsMessage(int sectionIndex, int itemIndex) {
 			if (_sectionTypes[sectionIndex] == SectionType.Workers)
-				return "No free workers";
+				return Strings.Get("common.no_free_workers");
 			return null;
 		}
 
@@ -322,7 +322,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override void RefreshData() {
 			// Cache basic info first
-			_buildingName = BuildingReflection.GetBuildingName(_building) ?? "Unknown building";
+			_buildingName = BuildingReflection.GetBuildingName(_building) ?? Strings.Get("common.unknown_building");
 			_isSleeping = BuildingReflection.IsBuildingSleeping(_building);
 			_canSleep = BuildingReflection.CanBuildingSleep(_building);
 			_isCamp = BuildingReflection.IsCamp(_building);  // Camp buildings have simple recipes
@@ -361,59 +361,59 @@ namespace ATSAccessibility.Navigators {
 
 			// Mine-only: show underlying ore + charges at the very top
 			if (_isMine && !string.IsNullOrEmpty(_oreInfo)) {
-				sectionNames.Add("Ore");
+				sectionNames.Add(Strings.Get("nav.prod.section.ore"));
 				sectionTypes.Add(SectionType.Ore);
 			}
 
 			// Always have Status section (announced dynamically as "Status: Active/Paused")
-			sectionNames.Add("Status");
+			sectionNames.Add(Strings.Get("common.status"));
 			sectionTypes.Add(SectionType.Status);
 
 			// Only add Workers if building currently accepts worker assignment
 			if (TryInitializeWorkersSection()) {
-				sectionNames.Add("Workers");
+				sectionNames.Add(Strings.Get("common.workers"));
 				sectionTypes.Add(SectionType.Workers);
 			}
 
 			// Only add Recipes if building has recipes
 			if (_recipes.Count > 0) {
-				sectionNames.Add("Recipes");
+				sectionNames.Add(Strings.Get("common.recipes"));
 				sectionTypes.Add(SectionType.Recipes);
 			}
 
 			// Add Rainpunk section if workshop has rainpunk capability (unlocked or not)
 			if (_hasRainpunk) {
-				sectionNames.Add("Rainpunk");
+				sectionNames.Add(Strings.Get("nav.prod.section.rainpunk"));
 				sectionTypes.Add(SectionType.Rainpunk);
 			}
 
 			// Add Inputs section if building has IngredientsStorage capability
 			if (_hasInputStorage) {
-				sectionNames.Add("Inputs");
+				sectionNames.Add(Strings.Get("nav.prod.section.inputs"));
 				sectionTypes.Add(SectionType.Inputs);
 			}
 
 			// Add Outputs section if building has ProductionStorage capability
 			if (_hasOutputStorage) {
-				sectionNames.Add("Outputs");
+				sectionNames.Add(Strings.Get("nav.prod.section.outputs"));
 				sectionTypes.Add(SectionType.Outputs);
 			}
 
 			// Add Settings section for Camp buildings (mode selection)
 			if (_isCamp) {
-				sectionNames.Add("Settings");
+				sectionNames.Add(Strings.Get("nav.prod.section.settings"));
 				sectionTypes.Add(SectionType.Settings);
 			}
 
 			// Add Fields section for Farm buildings
 			if (_isFarm) {
-				sectionNames.Add("Fields");
+				sectionNames.Add(Strings.Get("nav.prod.section.fields"));
 				sectionTypes.Add(SectionType.Fields);
 			}
 
 			// Add Upgrades section if available
 			if (TryInitializeUpgradesSection()) {
-				sectionNames.Add("Upgrades");
+				sectionNames.Add(Strings.Get("common.upgrades"));
 				sectionTypes.Add(SectionType.Upgrades);
 			}
 
@@ -458,7 +458,7 @@ namespace ATSAccessibility.Navigators {
 			foreach (var recipeState in recipeStates) {
 				var info = new RecipeInfo {
 					RecipeState = recipeState,
-					ModelName = BuildingReflection.GetRecipeModelName(recipeState) ?? "Unknown",
+					ModelName = BuildingReflection.GetRecipeModelName(recipeState) ?? Strings.Get("common.unknown"),
 					ProductName = BuildingReflection.GetRecipeProductName(recipeState),
 					IsActive = BuildingReflection.IsRecipeActive(recipeState),
 					Limit = BuildingReflection.GetRecipeLimit(recipeState),
@@ -471,8 +471,8 @@ namespace ATSAccessibility.Navigators {
 
 		private string FormatPriority(int priority) {
 			switch (priority) {
-				case 0: return "0 (lowest)";
-				case 3: return "3 (highest)";
+				case 0: return Strings.Get("nav.common.priority.lowest");
+				case 3: return Strings.Get("nav.common.priority.highest");
 				default: return priority.ToString();
 			}
 		}
@@ -485,7 +485,7 @@ namespace ATSAccessibility.Navigators {
 			int newPrio = System.Math.Max(0, System.Math.Min(3, currentPrio + delta));
 
 			if (newPrio == currentPrio) {
-				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				Speech.Say(delta > 0 ? Strings.Get("common.maximum") : Strings.Get("common.minimum"));
 				return;
 			}
 
@@ -496,7 +496,7 @@ namespace ATSAccessibility.Navigators {
 			updatedRecipe.Priority = newPrio;
 			_recipes[recipeIndex] = updatedRecipe;
 
-			Speech.Say($"Priority: {FormatPriority(newPrio)}");
+			Speech.Say(Strings.Get("nav.common.priority_line", FormatPriority(newPrio)));
 		}
 
 		private void AdjustIngredientPriority(int recipeIndex, int delta) {
@@ -515,12 +515,12 @@ namespace ATSAccessibility.Navigators {
 			int newPrio = System.Math.Max(0, System.Math.Min(3, currentPrio + delta));
 
 			if (newPrio == currentPrio) {
-				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				Speech.Say(delta > 0 ? Strings.Get("common.maximum") : Strings.Get("common.minimum"));
 				return;
 			}
 
 			BuildingReflection.SetIngredientPriority(option, newPrio);
-			Speech.Say($"Priority: {FormatPriority(newPrio)}");
+			Speech.Say(Strings.Get("nav.common.priority_line", FormatPriority(newPrio)));
 		}
 
 		// ========================================
@@ -564,31 +564,31 @@ namespace ATSAccessibility.Navigators {
 			RefreshStorage();
 
 			if (_inputGoods.Count == 0) {
-				Speech.Say("Empty");
+				Speech.Say(Strings.Get("common.empty"));
 				return;
 			}
 
 			if (itemIndex >= _inputGoods.Count) {
-				Speech.Say("Invalid input item");
+				Speech.Say(Strings.Get("nav.prod.invalid_input"));
 				return;
 			}
 
 			var (goodName, displayName, amount) = _inputGoods[itemIndex];
-			Speech.Say($"{amount} {displayName}");
+			Speech.Say(Strings.Get("nav.prod.amount_good", amount, displayName));
 		}
 
 		private void AnnounceInputSubItem(int itemIndex, int subItemIndex) {
 			if (itemIndex >= _inputGoods.Count) {
-				Speech.Say("Invalid input item");
+				Speech.Say(Strings.Get("nav.prod.invalid_input"));
 				return;
 			}
 
 			var (goodName, displayName, amount) = _inputGoods[itemIndex];
 
 			if (subItemIndex == 0) {
-				Speech.Say($"Return {amount} {displayName} to warehouse");
+				Speech.Say(Strings.Get("nav.prod.return_to_warehouse", amount, displayName));
 			} else {
-				Speech.Say("Invalid option");
+				Speech.Say(Strings.Get("nav.workers.invalid_option"));
 			}
 		}
 
@@ -602,7 +602,7 @@ namespace ATSAccessibility.Navigators {
 			var (goodName, displayName, amount) = _inputGoods[itemIndex];
 
 			if (BuildingReflection.ReturnIngredientToWarehouse(_building, goodName, amount)) {
-				Speech.Say($"Returned {amount} {displayName} to warehouse");
+				Speech.Say(Strings.Get("nav.prod.returned_to_warehouse", amount, displayName));
 
 				// Refresh storage data and go back to item level
 				RefreshStorage();
@@ -610,13 +610,13 @@ namespace ATSAccessibility.Navigators {
 
 				// If inputs are now empty, announce that
 				if (_inputGoods.Count == 0) {
-					Speech.Say("Inputs now empty");
+					Speech.Say(Strings.Get("nav.prod.inputs_now_empty"));
 				}
 
 				return true;
 			}
 
-			Speech.Say($"Failed to return {displayName}");
+			Speech.Say(Strings.Get("nav.prod.failed_to_return", displayName));
 			return false;
 		}
 
@@ -625,12 +625,12 @@ namespace ATSAccessibility.Navigators {
 			RefreshStorage();
 
 			if (_outputGoods.Count == 0) {
-				Speech.Say("Empty");
+				Speech.Say(Strings.Get("common.empty"));
 				return;
 			}
 
 			if (itemIndex >= _outputGoods.Count) {
-				Speech.Say("Invalid output item");
+				Speech.Say(Strings.Get("nav.prod.invalid_output"));
 				return;
 			}
 
@@ -640,16 +640,16 @@ namespace ATSAccessibility.Navigators {
 			var (isForced, isConstantForced) = BuildingReflection.GetOutputDeliveryState(_building, goodName);
 			string status = "";
 			if (isConstantForced)
-				status = ", auto-deliver on";
+				status = Strings.Get("nav.prod.output.auto_deliver_on_suffix");
 			else if (isForced)
-				status = ", transport queued";
+				status = Strings.Get("nav.prod.output.transport_queued_suffix");
 
-			Speech.Say($"{amount} {displayName}{status}");
+			Speech.Say(Strings.Get("nav.prod.output_line", amount, displayName, status));
 		}
 
 		private void AnnounceOutputSubItem(int itemIndex, int subItemIndex) {
 			if (itemIndex >= _outputGoods.Count) {
-				Speech.Say("Invalid output item");
+				Speech.Say(Strings.Get("nav.prod.invalid_output"));
 				return;
 			}
 
@@ -659,18 +659,18 @@ namespace ATSAccessibility.Navigators {
 			switch (subItemIndex) {
 				case 0:
 					if (isForced)
-						Speech.Say("Transport queued");
+						Speech.Say(Strings.Get("nav.prod.output.transport_queued"));
 					else
-						Speech.Say("Force transport now");
+						Speech.Say(Strings.Get("nav.prod.output.force_transport_now"));
 					break;
 				case 1:
 					if (isConstantForced)
-						Speech.Say("Auto-deliver when produced: On");
+						Speech.Say(Strings.Get("nav.prod.output.auto_deliver_on"));
 					else
-						Speech.Say("Auto-deliver when produced: Off");
+						Speech.Say(Strings.Get("nav.prod.output.auto_deliver_off"));
 					break;
 				default:
-					Speech.Say("Invalid option");
+					Speech.Say(Strings.Get("nav.workers.invalid_option"));
 					break;
 			}
 		}
@@ -687,12 +687,12 @@ namespace ATSAccessibility.Navigators {
 					if (BuildingReflection.ToggleForceDelivery(_building, goodName)) {
 						var (isForced, _) = BuildingReflection.GetOutputDeliveryState(_building, goodName);
 						if (isForced)
-							Speech.Say($"Transport queued for {displayName}");
+							Speech.Say(Strings.Get("nav.prod.output.transport_queued_for", displayName));
 						else
-							Speech.Say($"Transport cancelled for {displayName}");
+							Speech.Say(Strings.Get("nav.prod.output.transport_cancelled_for", displayName));
 						return true;
 					}
-					Speech.Say("Failed to toggle transport");
+					Speech.Say(Strings.Get("nav.prod.output.failed_toggle_transport"));
 					return false;
 
 				case 1:
@@ -700,12 +700,12 @@ namespace ATSAccessibility.Navigators {
 					if (BuildingReflection.ToggleConstantDelivery(_building, goodName)) {
 						var (_, isConstantForced) = BuildingReflection.GetOutputDeliveryState(_building, goodName);
 						if (isConstantForced)
-							Speech.Say($"Auto-deliver enabled for {displayName}");
+							Speech.Say(Strings.Get("nav.prod.output.auto_deliver_enabled", displayName));
 						else
-							Speech.Say($"Auto-deliver disabled for {displayName}");
+							Speech.Say(Strings.Get("nav.prod.output.auto_deliver_disabled", displayName));
 						return true;
 					}
-					Speech.Say("Failed to toggle auto-deliver");
+					Speech.Say(Strings.Get("nav.prod.output.failed_toggle_auto"));
 					return false;
 
 				default:
@@ -715,7 +715,7 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceRecipeItem(int itemIndex) {
 			if (itemIndex >= _recipes.Count) {
-				Speech.Say("Invalid recipe");
+				Speech.Say(Strings.Get("nav.common.invalid_recipe"));
 				return;
 			}
 
@@ -724,14 +724,14 @@ namespace ATSAccessibility.Navigators {
 			// Use product name if available, otherwise fall back to cleaned model name
 			string displayName = GetRecipeDisplayName(recipe);
 
-			string status = recipe.IsActive ? "enabled" : "disabled";
+			string status = recipe.IsActive ? Strings.Get("common.enabled_lower") : Strings.Get("common.disabled_lower");
 
 			string limitText = "";
 			if (recipe.Limit > 0) {
-				limitText = recipe.IsLimitLocal ? $", limit {recipe.Limit}" : $", global limit {recipe.Limit}";
+				limitText = recipe.IsLimitLocal ? Strings.Get("nav.prod.recipe.limit_local_suffix", recipe.Limit) : Strings.Get("nav.prod.recipe.limit_global_suffix", recipe.Limit);
 			}
 
-			Speech.Say($"{displayName}: {status}{limitText}");
+			Speech.Say(Strings.Get("nav.prod.recipe_status_with_limit", displayName, status, limitText));
 		}
 
 		private string GetRecipeDisplayName(RecipeInfo recipe) {
@@ -747,7 +747,7 @@ namespace ATSAccessibility.Navigators {
 				return CleanupName(recipe.ModelName);
 			}
 
-			return "Unknown Recipe";
+			return Strings.Get("nav.common.unknown_recipe");
 		}
 
 		private string CleanupName(string name) => FormattingUtils.CleanupRecipeName(name);
@@ -774,9 +774,9 @@ namespace ATSAccessibility.Navigators {
 					SoundManager.PlayRecipeOff();
 
 				string displayName = GetRecipeDisplayName(recipe);
-				Speech.Say($"{displayName}: {(newActive ? "enabled" : "disabled")}");
+				Speech.Say(Strings.Get("nav.common.recipe_status", displayName, newActive ? Strings.Get("common.enabled_lower") : Strings.Get("common.disabled_lower")));
 			} else {
-				Speech.Say("Cannot toggle recipe");
+				Speech.Say(Strings.Get("nav.common.cannot_toggle_recipe"));
 			}
 		}
 
@@ -789,14 +789,14 @@ namespace ATSAccessibility.Navigators {
 
 			string modeName = _campModeNames != null && _campMode < _campModeNames.Length
 				? _campModeNames[_campMode]
-				: $"Mode {_campMode}";
+				: Strings.Get("nav.prod.camp.mode_default", _campMode);
 
-			Speech.Say($"Cutting mode: {modeName}");
+			Speech.Say(Strings.Get("nav.prod.camp.cutting_mode", modeName));
 		}
 
 		private void AnnounceSettingsSubItem(int subItemIndex) {
 			if (_campModeNames == null || subItemIndex >= _campModeNames.Length) {
-				Speech.Say("Invalid mode");
+				Speech.Say(Strings.Get("nav.common.invalid_mode"));
 				return;
 			}
 
@@ -804,7 +804,7 @@ namespace ATSAccessibility.Navigators {
 			bool isSelected = subItemIndex == _campMode;
 
 			if (isSelected)
-				Speech.Say($"{modeName}, selected");
+				Speech.Say(Strings.Get("nav.common.mode_selected_suffix", modeName));
 			else
 				Speech.Say(modeName);
 		}
@@ -815,21 +815,21 @@ namespace ATSAccessibility.Navigators {
 
 			if (subItemIndex == _campMode) {
 				// Already selected
-				Speech.Say("Already selected");
+				Speech.Say(Strings.Get("nav.common.already_selected"));
 				return false;
 			}
 
 			if (BuildingReflection.SetCampMode(_building, subItemIndex)) {
 				_campMode = subItemIndex;
 				string modeName = _campModeNames[subItemIndex];
-				Speech.Say($"{modeName} selected");
+				Speech.Say(Strings.Get("nav.common.mode_was_selected", modeName));
 
 				// Exit submenu back to item level
 				_navigationLevel = 1;
 				return true;
 			}
 
-			Speech.Say("Cannot change mode");
+			Speech.Say(Strings.Get("nav.common.cannot_change_mode"));
 			return false;
 		}
 
@@ -846,21 +846,21 @@ namespace ATSAccessibility.Navigators {
 					// Summary: placed farmfields and available fertile soil
 					var parts = new List<string>();
 					if (_farmPlacedFields > 0)
-						parts.Add($"{_farmPlacedFields} farm fields");
+						parts.Add(Strings.Get("nav.prod.farm.placed_fields", _farmPlacedFields));
 					if (availableSoil > 0)
-						parts.Add($"{availableSoil} fertile soil");
-					Speech.Say(parts.Count > 0 ? string.Join(", ", parts) : "No fertile soil");
+						parts.Add(Strings.Get("nav.prod.farm.fertile_soil", availableSoil));
+					Speech.Say(parts.Count > 0 ? string.Join(", ", parts) : Strings.Get("nav.prod.farm.no_fertile_soil"));
 					break;
 				case 1:
 					// Sown fields detail
-					Speech.Say($"Planted: {_farmSownFields}");
+					Speech.Say(Strings.Get("nav.prod.farm.planted", _farmSownFields));
 					break;
 				case 2:
 					// Plowed fields detail
-					Speech.Say($"Plowed: {_farmPlowedFields}");
+					Speech.Say(Strings.Get("nav.prod.farm.plowed", _farmPlowedFields));
 					break;
 				default:
-					Speech.Say("Unknown field info");
+					Speech.Say(Strings.Get("nav.prod.farm.unknown_info"));
 					break;
 			}
 		}
@@ -907,10 +907,10 @@ namespace ATSAccessibility.Navigators {
 				var price = BuildingReflection.GetRainpunkUnlockPrice(_building);
 				if (price != null) {
 					bool canAfford = BuildingReflection.CanAffordRainpunkUnlock(_building);
-					string affordText = canAfford ? "" : ", not enough resources";
-					Speech.Say($"Locked, costs {price.Value.amount} {price.Value.displayName}{affordText}");
+					string affordText = canAfford ? "" : Strings.Get("nav.common.not_enough_resources_suffix");
+					Speech.Say(Strings.Get("nav.prod.rainpunk.locked_with_cost", price.Value.amount, price.Value.displayName, affordText));
 				} else {
-					Speech.Say("Locked");
+					Speech.Say(Strings.Get("common.locked"));
 				}
 				return;
 			}
@@ -921,49 +921,49 @@ namespace ATSAccessibility.Navigators {
 				int current = BuildingReflection.GetWaterTankCurrent(_building);
 				int capacity = BuildingReflection.GetWaterTankCapacity(_building);
 				string waterType = BuildingReflection.GetWaterTypeName(_building);
-				string typeLabel = waterType != null ? $" ({waterType})" : "";
-				Speech.Say($"Water stored: {current} of {capacity}{typeLabel}");
+				string typeLabel = waterType != null ? Strings.Get("nav.prod.rainpunk.water_type_label", waterType) : "";
+				Speech.Say(Strings.Get("nav.prod.rainpunk.water_stored", current, capacity, typeLabel));
 			} else if (itemIndex == RAINPUNK_ITEM_WATER_USE) {
 				float usePerSec = BuildingReflection.GetTotalWaterUsePerSecond(_building);
 				float usePerMin = usePerSec * 60f;
 				if (usePerMin > 0) {
-					Speech.Say($"Water use: {usePerMin:F1} per minute");
+					Speech.Say(Strings.Get("nav.prod.rainpunk.water_use_per_min", $"{usePerMin:F1}"));
 				} else {
-					Speech.Say("Water use: None");
+					Speech.Say(Strings.Get("nav.prod.rainpunk.water_use_none"));
 				}
 			} else if (itemIndex == RAINPUNK_ITEM_BLIGHT && engineStartIndex == 3) {
 				int blightProgress = BuildingReflection.GetBlightProgress(_building);
-				Speech.Say($"Blightrot: {blightProgress}%");
+				Speech.Say(Strings.Get("nav.prod.rainpunk.blightrot", blightProgress));
 			} else if (itemIndex >= engineStartIndex) {
 				int engineIndex = itemIndex - engineStartIndex;
 				AnnounceEngine(engineIndex);
 			} else {
-				Speech.Say("Unknown");
+				Speech.Say(Strings.Get("common.unknown"));
 			}
 		}
 
 		private string GetRainpunkItemName(int itemIndex) {
 			// If not unlocked, only item is unlock
 			if (!_rainpunkUnlocked) {
-				return itemIndex == 0 ? "Unlock" : null;
+				return itemIndex == 0 ? Strings.Get("common.unlock") : null;
 			}
 
 			int engineStartIndex = GetRainpunkEngineStartIndex();
 
 			if (itemIndex == RAINPUNK_ITEM_WATER_STORED)
-				return "Water stored";
+				return Strings.Get("nav.prod.rainpunk.search.water_stored");
 			if (itemIndex == RAINPUNK_ITEM_WATER_USE)
-				return "Water use";
+				return Strings.Get("nav.prod.rainpunk.search.water_use");
 			if (itemIndex == RAINPUNK_ITEM_BLIGHT && engineStartIndex == 3)
-				return "Blightrot";
+				return Strings.Get("nav.prod.rainpunk.search.blightrot");
 			if (itemIndex >= engineStartIndex)
-				return $"Engine {itemIndex - engineStartIndex + 1}";
+				return Strings.Get("nav.prod.rainpunk.engine_name", itemIndex - engineStartIndex + 1);
 			return null;
 		}
 
 		private void AnnounceEngine(int engineIndex) {
 			if (engineIndex >= _engineCount) {
-				Speech.Say("Invalid engine");
+				Speech.Say(Strings.Get("nav.prod.rainpunk.invalid_engine"));
 				return;
 			}
 
@@ -971,14 +971,14 @@ namespace ATSAccessibility.Navigators {
 			int requestedLevel = BuildingReflection.GetEngineRequestedLevel(_building, engineIndex);
 			int maxLevel = BuildingReflection.GetEngineMaxLevel(_building, engineIndex);
 
-			string engineName = $"Engine {engineIndex + 1}";
+			string engineName = Strings.Get("nav.prod.rainpunk.engine_name", engineIndex + 1);
 
 			if (requestedLevel == 0) {
-				Speech.Say($"{engineName}: Off, max {maxLevel}");
+				Speech.Say(Strings.Get("nav.prod.rainpunk.engine_off", engineName, maxLevel));
 			} else if (currentLevel < requestedLevel) {
-				Speech.Say($"{engineName}: {requestedLevel} of {maxLevel}, low water");
+				Speech.Say(Strings.Get("nav.prod.rainpunk.engine_low_water", engineName, requestedLevel, maxLevel));
 			} else {
-				Speech.Say($"{engineName}: {requestedLevel} of {maxLevel}");
+				Speech.Say(Strings.Get("nav.prod.rainpunk.engine_level", engineName, requestedLevel, maxLevel));
 			}
 		}
 
@@ -995,7 +995,7 @@ namespace ATSAccessibility.Navigators {
 
 			if (newLevel == currentRequested) {
 				// At limit
-				Speech.Say(delta > 0 ? "Maximum" : "Minimum");
+				Speech.Say(delta > 0 ? Strings.Get("common.maximum") : Strings.Get("common.minimum"));
 				return;
 			}
 
@@ -1010,13 +1010,13 @@ namespace ATSAccessibility.Navigators {
 
 			if (success) {
 				if (newLevel == 0) {
-					Speech.Say("Off");
+					Speech.Say(Strings.Get("common.off"));
 				} else {
 					string effect = BuildingReflection.GetEngineLevelEffect(_building, engineIndex, newLevel);
 					if (!string.IsNullOrEmpty(effect)) {
-						Speech.Say($"{newLevel}, {effect}");
+						Speech.Say(Strings.Get("nav.prod.rainpunk.engine_set_level_effect", newLevel, effect));
 					} else {
-						Speech.Say($"{newLevel}");
+						Speech.Say(Strings.Get("nav.prod.rainpunk.engine_set_level", newLevel));
 					}
 				}
 			}
@@ -1057,12 +1057,12 @@ namespace ATSAccessibility.Navigators {
 			switch (subItemIndex) {
 				case RECIPE_SUBITEM_STATUS:
 					bool isActive = BuildingReflection.IsRecipeActive(recipe.RecipeState);
-					Speech.Say($"Status: {(isActive ? "enabled" : "disabled")}. Space to toggle");
+					Speech.Say(Strings.Get("nav.prod.recipe.status_sub", isActive ? Strings.Get("common.enabled_lower") : Strings.Get("common.disabled_lower")));
 					break;
 
 				case RECIPE_SUBITEM_PRIORITY:
 					int prio = BuildingReflection.GetRecipePriority(recipe.RecipeState);
-					Speech.Say($"Priority: {FormatPriority(prio)}. Plus/minus to adjust");
+					Speech.Say(Strings.Get("nav.prod.recipe.priority_sub", FormatPriority(prio)));
 					break;
 
 				case RECIPE_SUBITEM_PRODUCTION:
@@ -1074,10 +1074,10 @@ namespace ATSAccessibility.Navigators {
 					bool isLocal = BuildingReflection.IsRecipeLimitLocal(recipe.RecipeState);
 					string limitText;
 					if (limit > 0)
-						limitText = isLocal ? limit.ToString() : $"global {limit}";
+						limitText = isLocal ? limit.ToString() : Strings.Get("nav.prod.recipe.limit_global_value", limit);
 					else
-						limitText = "unlimited";
-					Speech.Say($"Limit: {limitText}. Plus/minus to adjust");
+						limitText = Strings.Get("nav.prod.recipe.limit_unlimited");
+					Speech.Say(Strings.Get("nav.prod.recipe.limit_sub", limitText));
 					break;
 
 				default:
@@ -1102,7 +1102,7 @@ namespace ATSAccessibility.Navigators {
 				if (!string.IsNullOrEmpty(productName))
 					productName = CleanupName(productName);
 			}
-			productName = productName ?? "items";
+			productName = productName ?? Strings.Get("common.items_lower");
 
 			float time = BuildingReflection.GetRecipeProductionTime(recipeState);
 			int grade = BuildingReflection.GetRecipeGrade(recipeState);
@@ -1110,7 +1110,7 @@ namespace ATSAccessibility.Navigators {
 			// Format time to remove .0 if whole number
 			string timeText = time % 1 == 0 ? $"{(int)time}" : $"{time:F1}";
 
-			Speech.Say($"Produces: {amount} {productName} every {timeText} seconds. {grade} stars");
+			Speech.Say(Strings.Get("nav.prod.recipe.produces", amount, productName, timeText, grade));
 		}
 
 		private void AnnounceFarmProductionInfo(object recipeState) {
@@ -1121,7 +1121,7 @@ namespace ATSAccessibility.Navigators {
 				if (!string.IsNullOrEmpty(productName))
 					productName = CleanupName(productName);
 			}
-			productName = productName ?? "crop";
+			productName = productName ?? Strings.Get("nav.prod.recipe.crop_default");
 
 			// Get amount produced
 			int amount = BuildingReflection.GetFarmRecipeProductAmount(recipeState);
@@ -1144,13 +1144,13 @@ namespace ATSAccessibility.Navigators {
 			string plantTimeText = System.TimeSpan.FromSeconds(plantTime).ToString("m\\:ss");
 			string harvestTimeText = System.TimeSpan.FromSeconds(harvestTime).ToString("m\\:ss");
 
-			Speech.Say($"{amount} {productName}: plant {plantTimeText}, harvest {harvestTimeText}. {grade} stars");
+			Speech.Say(Strings.Get("nav.prod.recipe.farm_produces", amount, productName, plantTimeText, harvestTimeText, grade));
 		}
 
 		private void AnnounceIngredientSlot(object recipeState, int slotIndex) {
 			var options = BuildingReflection.GetIngredientSlotOptions(recipeState, slotIndex);
 			if (options.Length == 0) {
-				Speech.Say($"Ingredient {slotIndex + 1}: Unknown");
+				Speech.Say(Strings.Get("nav.prod.ingredient.slot_unknown", slotIndex + 1));
 				return;
 			}
 
@@ -1158,13 +1158,13 @@ namespace ATSAccessibility.Navigators {
 			var disabledItems = new List<string>();
 
 			foreach (var option in options) {
-				string name = BuildingReflection.GetIngredientGoodName(option) ?? "Unknown";
+				string name = BuildingReflection.GetIngredientGoodName(option) ?? Strings.Get("common.unknown");
 				name = CleanupName(name);
 				int amount = BuildingReflection.GetIngredientAmount(option);
 				bool allowed = BuildingReflection.IsIngredientAllowed(option);
 
 				// Format as "X name" (e.g., "3 wood")
-				string itemText = $"{amount} {name}";
+				string itemText = Strings.Get("nav.prod.ingredient.item", amount, name);
 
 				if (allowed)
 					enabledItems.Add(itemText);
@@ -1172,15 +1172,15 @@ namespace ATSAccessibility.Navigators {
 					disabledItems.Add(itemText);
 			}
 
-			string announcement = $"Ingredient {slotIndex + 1}: ";
+			string announcement = Strings.Get("nav.prod.ingredient.slot_prefix", slotIndex + 1);
 			if (enabledItems.Count > 0) {
 				announcement += string.Join(", ", enabledItems);
 			} else {
-				announcement += "none enabled";
+				announcement += Strings.Get("nav.prod.ingredient.none_enabled");
 			}
 
 			if (disabledItems.Count > 0) {
-				announcement += $". Disabled: {string.Join(", ", disabledItems)}";
+				announcement += Strings.Get("nav.prod.ingredient.disabled_suffix", string.Join(", ", disabledItems));
 			}
 
 			Speech.Say(announcement);
@@ -1209,8 +1209,8 @@ namespace ATSAccessibility.Navigators {
 			updatedRecipe.IsLimitLocal = true;
 			_recipes[recipeIndex] = updatedRecipe;
 
-			string limitText = newLimit > 0 ? newLimit.ToString() : "unlimited";
-			Speech.Say($"Limit: {limitText}");
+			string limitText = newLimit > 0 ? newLimit.ToString() : Strings.Get("nav.prod.recipe.limit_unlimited");
+			Speech.Say(Strings.Get("nav.prod.recipe.limit_adjusted", limitText));
 		}
 
 		// ========================================
@@ -1254,20 +1254,20 @@ namespace ATSAccessibility.Navigators {
 			var options = BuildingReflection.GetIngredientSlotOptions(recipe.RecipeState, slotIndex);
 
 			if (subSubItemIndex >= options.Length) {
-				Speech.Say("Invalid option");
+				Speech.Say(Strings.Get("nav.workers.invalid_option"));
 				return;
 			}
 
 			var option = options[subSubItemIndex];
-			string rawName = BuildingReflection.GetIngredientGoodName(option) ?? "Unknown";
+			string rawName = BuildingReflection.GetIngredientGoodName(option) ?? Strings.Get("common.unknown");
 			string name = CleanupName(rawName);
 			int amount = BuildingReflection.GetIngredientAmount(option);
 			bool allowed = BuildingReflection.IsIngredientAllowed(option);
 			int inStorage = BuildingReflection.GetStoredGoodAmount(rawName);
 			int priority = BuildingReflection.GetIngredientPriority(option);
 
-			string priorityPart = priority > 0 ? $", priority {priority}" : "";
-			Speech.Say($"{amount} {name}{priorityPart} ({inStorage} in storage): {(allowed ? "enabled" : "disabled")}. Space to toggle");
+			string priorityPart = priority > 0 ? Strings.Get("nav.prod.ingredient.priority_suffix", priority) : "";
+			Speech.Say(Strings.Get("nav.prod.ingredient.option_line", amount, name, priorityPart, inStorage, allowed ? Strings.Get("common.enabled_lower") : Strings.Get("common.disabled_lower")));
 		}
 
 		protected override bool PerformSubSubItemAction(int sectionIndex, int itemIndex, int subItemIndex, int subSubItemIndex) {
@@ -1292,12 +1292,12 @@ namespace ATSAccessibility.Navigators {
 			BuildingReflection.ToggleIngredientAllowed(option);
 
 			// Announce new state
-			string rawName = BuildingReflection.GetIngredientGoodName(option) ?? "Unknown";
+			string rawName = BuildingReflection.GetIngredientGoodName(option) ?? Strings.Get("common.unknown");
 			string name = CleanupName(rawName);
 			int amount = BuildingReflection.GetIngredientAmount(option);
 			bool newAllowed = BuildingReflection.IsIngredientAllowed(option);
 			int inStorage = BuildingReflection.GetStoredGoodAmount(rawName);
-			Speech.Say($"{amount} {name} ({inStorage} in storage): {(newAllowed ? "enabled" : "disabled")}");
+			Speech.Say(Strings.Get("nav.prod.ingredient.toggled", amount, name, inStorage, newAllowed ? Strings.Get("common.enabled_lower") : Strings.Get("common.disabled_lower")));
 
 			return true;
 		}
@@ -1329,9 +1329,9 @@ namespace ATSAccessibility.Navigators {
 				case SectionType.Outputs:
 					return itemIndex < _outputGoods.Count ? _outputGoods[itemIndex].displayName : null;
 				case SectionType.Settings:
-					return "Cutting mode";
+					return Strings.Get("nav.prod.search.cutting_mode");
 				case SectionType.Fields:
-					return itemIndex == 0 ? "Sown" : "Plowed";
+					return itemIndex == 0 ? Strings.Get("nav.prod.search.sown") : Strings.Get("common.plowed");
 				case SectionType.Upgrades:
 					return _upgradesSection.GetItemName(itemIndex);
 				default:
@@ -1357,9 +1357,9 @@ namespace ATSAccessibility.Navigators {
 				case SectionType.Recipes:
 					return GetRecipeSubItemName(itemIndex, subItemIndex);
 				case SectionType.Outputs:
-					return subItemIndex == 0 ? "Transport" : "Auto-deliver";
+					return subItemIndex == 0 ? Strings.Get("nav.prod.search.transport") : Strings.Get("nav.prod.search.auto_deliver");
 				case SectionType.Inputs:
-					return "Return";
+					return Strings.Get("nav.prod.search.return");
 				case SectionType.Settings:
 					return GetSettingsSubItemName(subItemIndex);
 				case SectionType.Upgrades:
@@ -1375,17 +1375,17 @@ namespace ATSAccessibility.Navigators {
 
 			switch (subItemIndex) {
 				case RECIPE_SUBITEM_STATUS:
-					return "Status";
+					return Strings.Get("common.status");
 				case RECIPE_SUBITEM_PRIORITY:
-					return "Priority";
+					return Strings.Get("nav.prod.search.priority");
 				case RECIPE_SUBITEM_PRODUCTION:
-					return "Production";
+					return Strings.Get("common.production");
 				case RECIPE_SUBITEM_LIMIT:
-					return "Limit";
+					return Strings.Get("nav.prod.search.limit");
 				default:
 					// Ingredient slots
 					int slotIndex = subItemIndex - RECIPE_SUBITEM_INGREDIENTS_START;
-					return $"Ingredient {slotIndex + 1}";
+					return Strings.Get("nav.prod.search.ingredient_slot", slotIndex + 1);
 			}
 		}
 

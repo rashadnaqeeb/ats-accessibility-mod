@@ -64,8 +64,8 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string GetOpenAnnouncement() {
 			if (!string.IsNullOrEmpty(_buildingDescription))
-				return $"{_buildingName}: {_buildingDescription}";
-			return _buildingName ?? "Poro";
+				return Strings.Get("nav.poro.open_with_desc", _buildingName, _buildingDescription);
+			return _buildingName ?? Strings.Get("nav.poro.default_name");
 		}
 
 		protected override string[] GetSections() {
@@ -141,7 +141,7 @@ namespace ATSAccessibility.Navigators {
 				// First sub-item is Feed action (if available)
 				if (need.CanFulfill) {
 					if (subIndex == 0) {
-						Speech.Say("Feed");
+						Speech.Say(Strings.Get("nav.poro.feed"));
 						return;
 					}
 					subIndex--;
@@ -150,10 +150,10 @@ namespace ATSAccessibility.Navigators {
 				// Remaining sub-items are good options
 				if (need.AvailableGoodsCount > 1 && subIndex < need.AvailableGoodsCount) {
 					string goodName = PoroReflection.GetNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
-					Speech.Say($"Change to {goodName ?? "Unknown"}");
+					Speech.Say(Strings.Get("nav.poro.change_to", goodName ?? Strings.Get("common.unknown")));
 				}
 			} else if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather) {
-				Speech.Say($"Collect {_productAmount} {_productName ?? "products"}");
+				Speech.Say(Strings.Get("nav.poro.collect_action", _productAmount, _productName ?? Strings.Get("nav.poro.products_default")));
 			}
 		}
 
@@ -166,11 +166,11 @@ namespace ATSAccessibility.Navigators {
 				if (need.CanFulfill) {
 					if (subIndex == 0) {
 						if (PoroReflection.FulfillNeed(_building, need.NeedIndex)) {
-							Speech.Say("Fed successfully");
+							Speech.Say(Strings.Get("nav.poro.fed_successfully"));
 							RefreshNeedData();
 							return true;
 						} else {
-							Speech.Say("Cannot feed");
+							Speech.Say(Strings.Get("nav.poro.cannot_feed"));
 							return false;
 						}
 					}
@@ -181,18 +181,18 @@ namespace ATSAccessibility.Navigators {
 				if (need.AvailableGoodsCount > 1 && subIndex < need.AvailableGoodsCount) {
 					if (PoroReflection.ChangeNeedGood(_building, need.NeedIndex, subIndex)) {
 						string goodName = PoroReflection.GetNeedAvailableGoodName(_building, need.NeedIndex, subIndex);
-						Speech.Say($"Changed to {goodName ?? "Unknown"}");
+						Speech.Say(Strings.Get("nav.poro.changed_to", goodName ?? Strings.Get("common.unknown")));
 						RefreshNeedData();
 						return true;
 					}
 				}
 			} else if (_sectionTypes[sectionIndex] == SectionType.Product && _canGather) {
 				if (PoroReflection.GatherProducts(_building)) {
-					Speech.Say($"Collected {_productAmount} {_productName ?? "products"}");
+					Speech.Say(Strings.Get("nav.poro.collected", _productAmount, _productName ?? Strings.Get("nav.poro.products_default")));
 					RefreshProductData();
 					return true;
 				} else {
-					Speech.Say("Cannot collect");
+					Speech.Say(Strings.Get("common.cannot_collect"));
 					return false;
 				}
 			}
@@ -200,7 +200,7 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		protected override void RefreshData() {
-			_buildingName = BuildingReflection.GetBuildingName(_building) ?? "Poro";
+			_buildingName = BuildingReflection.GetBuildingName(_building) ?? Strings.Get("nav.poro.default_name");
 			_buildingDescription = BuildingReflection.GetBuildingDescription(_building);
 
 			RefreshHappinessData();
@@ -255,15 +255,15 @@ namespace ATSAccessibility.Navigators {
 			var types = new List<SectionType>();
 
 			// Happiness section
-			sections.Add("Happiness");
+			sections.Add(Strings.Get("nav.poro.section.happiness"));
 			types.Add(SectionType.Happiness);
 
 			// Needs section
-			sections.Add("Needs");
+			sections.Add(Strings.Get("nav.poro.section.needs"));
 			types.Add(SectionType.Needs);
 
 			// Product section
-			sections.Add("Product");
+			sections.Add(Strings.Get("common.product"));
 			types.Add(SectionType.Product);
 
 			_sectionNames = sections.ToArray();
@@ -276,9 +276,9 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceHappinessItem(int itemIndex) {
 			if (itemIndex == 0) {
-				Speech.Say($"Happiness: {_happiness:P0}");
+				Speech.Say(Strings.Get("nav.poro.happiness", $"{_happiness:P0}"));
 			} else if (itemIndex == 1) {
-				Speech.Say($"Production progress: {_productionProgress:P0}");
+				Speech.Say(Strings.Get("nav.poro.production_progress", $"{_productionProgress:P0}"));
 			}
 		}
 
@@ -288,17 +288,17 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceNeedItem(int itemIndex) {
 			if (_needs.Count == 0) {
-				Speech.Say("No needs");
+				Speech.Say(Strings.Get("nav.poro.no_needs"));
 				return;
 			}
 
 			if (itemIndex < _needs.Count) {
 				var need = _needs[itemIndex];
-				string needName = need.NeedName ?? $"Need {need.NeedIndex + 1}";
+				string needName = need.NeedName ?? Strings.Get("nav.poro.need_default", need.NeedIndex + 1);
 				string levelPercent = $"{need.Level:P0}";
-				string currentGood = need.CurrentGoodName ?? "Unknown";
+				string currentGood = need.CurrentGoodName ?? Strings.Get("common.unknown");
 
-				Speech.Say($"{needName}: {levelPercent}, using {currentGood}");
+				Speech.Say(Strings.Get("nav.poro.need_line", needName, levelPercent, currentGood));
 			}
 		}
 
@@ -308,11 +308,11 @@ namespace ATSAccessibility.Navigators {
 
 		private void AnnounceProductItem(int itemIndex) {
 			if (itemIndex == 0) {
-				string productName = _productName ?? "Product";
-				string announcement = $"{productName}: {_productAmount} of {_maxProducts} ready";
+				string productName = _productName ?? Strings.Get("common.product");
+				string announcement = Strings.Get("nav.poro.product_ready", productName, _productAmount, _maxProducts);
 
 				if (_productAmount == 0) {
-					announcement += " (none ready)";
+					announcement += Strings.Get("nav.poro.product_none_suffix");
 				}
 
 				Speech.Say(announcement);

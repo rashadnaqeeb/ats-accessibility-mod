@@ -77,7 +77,7 @@ namespace ATSAccessibility.Handlers {
 
 			// Bounds check using game's MapService
 			if (!GameReflection.MapInBounds(newX, newY)) {
-				Speech.Say("edge of map");
+				Speech.Say(Strings.Get("handler.mapnav.edge_of_map"));
 				return;
 			}
 
@@ -131,7 +131,7 @@ namespace ATSAccessibility.Handlers {
 				// Check bounds BEFORE moving using game's MapService
 				if (!GameReflection.MapInBounds(nextX, nextY)) {
 					// Hit edge without finding different tile - stay at current position
-					Speech.Say("no change till edge");
+					Speech.Say(Strings.Get("handler.mapnav.no_change_till_edge"));
 					return;
 				}
 
@@ -149,15 +149,15 @@ namespace ATSAccessibility.Handlers {
 					_cursorX = newX;
 					_cursorY = newY;
 
-					string tileWord = tilesSkipped == 1 ? "tile" : "tiles";
+					string tileWord = tilesSkipped == 1 ? Strings.Get("common.tile") : Strings.Get("common.tiles");
 					string announcement = GetTileAnnouncement(_cursorX, _cursorY, nextField);
 					string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
 					if (!string.IsNullOrEmpty(prefix))
-						announcement = $"{prefix}, {announcement}";
+						announcement = Strings.Get("handler.mapnav.prefix_announcement", prefix, announcement);
 					string coords = GetCoordinateSuffix();
 					if (coords != null)
-						announcement = $"{announcement}, {coords}";
-					Speech.Say($"{tilesSkipped} {tileWord}, {announcement}");
+						announcement = Strings.Get("handler.mapnav.with_coords", announcement, coords);
+					Speech.Say(Strings.Get("handler.mapnav.skip_announcement", tilesSkipped, tileWord, announcement));
 
 					SyncCameraToTile(nextField);
 					return;
@@ -175,9 +175,9 @@ namespace ATSAccessibility.Handlers {
 			if (_originSet) {
 				int relX = _cursorX - _originX;
 				int relY = _cursorY - _originY;
-				Speech.Say($"{relX}, {relY}");
+				Speech.Say(Strings.Get("handler.mapnav.coords", relX, relY));
 			} else {
-				Speech.Say("Coordinates unavailable");
+				Speech.Say(Strings.Get("handler.mapnav.coords_unavailable"));
 			}
 		}
 
@@ -187,7 +187,7 @@ namespace ATSAccessibility.Handlers {
 		public string GetRelativeCoordinates(int x, int y) {
 			EnsureOriginSet();
 			if (!_originSet) return null;
-			return $"{x - _originX}, {y - _originY}";
+			return Strings.Get("handler.mapnav.coords", x - _originX, y - _originY);
 		}
 
 		/// <summary>
@@ -198,7 +198,7 @@ namespace ATSAccessibility.Handlers {
 				return null;
 			int relX = _cursorX - _originX;
 			int relY = _cursorY - _originY;
-			return $"{relX}, {relY}";
+			return Strings.Get("handler.mapnav.coords", relX, relY);
 		}
 
 		/// <summary>
@@ -235,10 +235,10 @@ namespace ATSAccessibility.Handlers {
 			if (!string.IsNullOrEmpty(announcement)) {
 				string prefix = AnnouncementPrefix?.Invoke(_cursorX, _cursorY);
 				if (!string.IsNullOrEmpty(prefix))
-					announcement = $"{prefix}, {announcement}";
+					announcement = Strings.Get("handler.mapnav.prefix_announcement", prefix, announcement);
 				string coords = GetCoordinateSuffix();
 				if (coords != null)
-					announcement = $"{announcement}, {coords}";
+					announcement = Strings.Get("handler.mapnav.with_coords", announcement, coords);
 				Speech.Say(announcement);
 			}
 		}
@@ -261,28 +261,28 @@ namespace ATSAccessibility.Handlers {
 					string baseName;
 					if (!hasDangerousGladeInfo) {
 						// Cursed Royal Woodlands: ALL glade markers are hidden
-						baseName = "glade-unknown";
+						baseName = Strings.Get("handler.mapnav.glade_unknown");
 					} else if (hasGladeInfo) {
 						// Has glade info perk - show type and contents
-						baseName = $"glade-{dangerLevel.ToLower()}";
+						baseName = Strings.Get("handler.mapnav.glade_danger", dangerLevel.ToLower());
 						string contents = MapReflection.GetGladeContentsSummary(glade);
 						if (!string.IsNullOrEmpty(contents))
-							baseName += $": {contents}";
+							baseName = Strings.Get("handler.mapnav.glade_with_contents", baseName, contents);
 					} else {
 						// Normal biome without glade info perk - show type only
-						baseName = $"glade-{dangerLevel.ToLower()}";
+						baseName = Strings.Get("handler.mapnav.glade_danger", dangerLevel.ToLower());
 					}
 
 					// Add location marker if present
 					string markerType = MapReflection.GetLocationMarkerType(x, y);
 					if (!string.IsNullOrEmpty(markerType))
-						baseName = $"{baseName}, {markerType}";
+						baseName = Strings.Get("handler.mapnav.glade_with_marker", baseName, markerType);
 
 					// Add highlighted relic info if present (from Short Range Scanner, etc)
 					string highlightedRelic = MapReflection.GetHighlightedRelicAt(x, y);
 					if (!string.IsNullOrEmpty(highlightedRelic)) {
 						string relicDisplayName = GameReflection.GetRelicDisplayName(highlightedRelic);
-						baseName = $"{baseName}, highlighted: {relicDisplayName}";
+						baseName = Strings.Get("handler.mapnav.glade_with_relic", baseName, relicDisplayName);
 					}
 
 					return baseName;
@@ -305,12 +305,12 @@ namespace ATSAccessibility.Handlers {
 						// Check building state if it's a building
 						if (ConstructionReflection.IsBuilding(objectOn)) {
 							if (ConstructionReflection.IsBuildingUnfinished(objectOn)) {
-								objectName += ", under construction";
+								objectName += Strings.Get("handler.mapnav.under_construction");
 							} else if (BuildingReflection.IsRelic(objectOn)) {
-								objectName += ", ruin";
+								objectName += Strings.Get("handler.mapnav.ruin");
 							}
 						} else if (typeName == "NaturalResource" && MapReflection.IsNaturalResourceMarked(objectOn)) {
-							objectName = "Marked " + objectName;
+							objectName = Strings.Get("handler.mapnav.marked_prefix", objectName);
 						}
 						parts.Add(objectName);
 						hasRealObject = true;
@@ -332,7 +332,7 @@ namespace ATSAccessibility.Handlers {
 			if (field != null) {
 				bool isTraversable = GetFieldIsTraversable(field);
 				if (!isTraversable) {
-					parts.Add("impassable");
+					parts.Add(Strings.Get("handler.mapnav.impassable"));
 				}
 			}
 
@@ -353,11 +353,11 @@ namespace ATSAccessibility.Handlers {
 
 		private string GetFieldType(object field) {
 			string result = MapReflection.GetFieldTypeName(field);
-			if (result == null) return "unknown";
+			if (result == null) return Strings.Get("common.unknown_lower");
 
 			// Map game names to more descriptive names
-			if (result == "Grass") return "Fertile Soil";
-			if (result == "Sand") return "Soil";
+			if (result == "Grass") return Strings.Get("common.fertile_soil");
+			if (result == "Sand") return Strings.Get("handler.mapnav.terrain_sand");
 
 			return result;
 		}
@@ -378,12 +378,12 @@ namespace ATSAccessibility.Handlers {
 
 		private string GetGladeDangerLevel(object glade) {
 			string raw = MapReflection.GetGladeDangerLevelRaw(glade);
-			if (raw == null) return "unknown";
+			if (raw == null) return Strings.Get("common.unknown_lower");
 
 			return raw switch {
-				"None" => "small",
-				"Dangerous" => "dangerous",
-				"Forbidden" => "forbidden",
+				"None" => Strings.Get("handler.mapnav.glade_danger_small"),
+				"Dangerous" => Strings.Get("handler.mapnav.glade_danger_dangerous"),
+				"Forbidden" => Strings.Get("handler.mapnav.glade_danger_forbidden"),
 				_ => raw.ToLower()
 			};
 		}
@@ -496,7 +496,7 @@ namespace ATSAccessibility.Handlers {
 
 					if (villagerX == x && villagerZ == y) {
 						string race = MapReflection.GetVillagerRace(villager);
-						if (string.IsNullOrEmpty(race)) race = "villager";
+						if (string.IsNullOrEmpty(race)) race = Strings.Get("handler.mapnav.villager_default");
 
 						if (raceCounts.ContainsKey(race)) {
 							raceCounts[race]++;
@@ -514,10 +514,10 @@ namespace ATSAccessibility.Handlers {
 					int count = kvp.Value;
 
 					if (count > 1 && !race.EndsWith("s")) {
-						race += "s";
+						race += Strings.Get("handler.mapnav.plural_suffix");
 					}
 
-					parts.Add($"{count} {race}");
+					parts.Add(Strings.Get("handler.mapnav.villager_group", count, race));
 				}
 
 				return string.Join(", ", parts);
@@ -564,13 +564,13 @@ namespace ATSAccessibility.Handlers {
 			// Get object at cursor position
 			var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
 			if (objectOn == null || objectOn.GetType().Name == "Field") {
-				Speech.Say("No building here");
+				Speech.Say(Strings.Get("common.no_building_here"));
 				return false;
 			}
 
 			// Check if it's a building
 			if (!ConstructionReflection.IsBuilding(objectOn)) {
-				Speech.Say("Not a building");
+				Speech.Say(Strings.Get("handler.mapnav.not_a_building"));
 				return false;
 			}
 
@@ -584,7 +584,7 @@ namespace ATSAccessibility.Handlers {
 			if (ConstructionReflection.PickBuilding(objectOn)) {
 				return true;
 			} else {
-				Speech.Say("Cannot open building");
+				Speech.Say(Strings.Get("handler.mapnav.cannot_open"));
 				return false;
 			}
 		}
@@ -594,7 +594,7 @@ namespace ATSAccessibility.Handlers {
 			int percent = (int)(progress * 100);
 
 			if (percent > 0) {
-				Speech.Say($"{percent}%");
+				Speech.Say(Strings.Get("handler.mapnav.construction_percent", percent));
 				return;
 			}
 
@@ -603,11 +603,11 @@ namespace ATSAccessibility.Handlers {
 			if (materials != null && materials.Count > 0) {
 				var parts = new List<string>();
 				foreach (var (name, delivered, required) in materials) {
-					parts.Add($"{name} {delivered} of {required}");
+					parts.Add(Strings.Get("handler.mapnav.construction_material", name, delivered, required));
 				}
 				Speech.Say(string.Join(", ", parts));
 			} else {
-				Speech.Say("0%");
+				Speech.Say(Strings.Get("handler.mapnav.construction_zero"));
 			}
 		}
 
@@ -625,7 +625,12 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		// Rotation directions: 0=North, 1=West, 2=South, 3=East
-		private static readonly string[] RotationDirections = { "North", "West", "South", "East" };
+		private static string[] RotationDirections => new[] {
+			Strings.Get("common.north"),
+			Strings.Get("common.west"),
+			Strings.Get("common.south"),
+			Strings.Get("common.east"),
+		};
 
 		/// <summary>
 		/// Rotate the building at current cursor position and announce the new direction.
@@ -636,31 +641,31 @@ namespace ATSAccessibility.Handlers {
 			// Get object at cursor position
 			var objectOn = GameReflection.GetObjectOn(_cursorX, _cursorY);
 			if (objectOn == null || objectOn.GetType().Name == "Field") {
-				Speech.Say("No building here");
+				Speech.Say(Strings.Get("common.no_building_here"));
 				return;
 			}
 
 			// Check if it's a building
 			if (!ConstructionReflection.IsBuilding(objectOn)) {
-				Speech.Say("Not a building");
+				Speech.Say(Strings.Get("handler.mapnav.not_a_building"));
 				return;
 			}
 
 			// Check if building type supports rotation
 			if (!ConstructionReflection.CanRotateBuilding(objectOn)) {
-				Speech.Say("Cannot rotate");
+				Speech.Say(Strings.Get("common.cannot_rotate"));
 				return;
 			}
 
 			// Check if building is movable (required for rotation)
 			if (!ConstructionReflection.CanMovePlacedBuilding(objectOn)) {
-				Speech.Say("Unmovable");
+				Speech.Say(Strings.Get("common.unmovable"));
 				return;
 			}
 
 			// Check if rotation would be blocked by obstacles
 			if (!ConstructionReflection.CanRotatePlacedBuilding(objectOn)) {
-				Speech.Say("Rotation blocked");
+				Speech.Say(Strings.Get("handler.mapnav.rotate_blocked"));
 				return;
 			}
 
@@ -668,10 +673,11 @@ namespace ATSAccessibility.Handlers {
 			// Rotation values: 0=N, 1=W, 2=S, 3=E — incrementing is counterclockwise
 			int direction = clockwise ? -1 : 1;
 			int newRotation = ConstructionReflection.RotatePlacedBuildingDirection(objectOn, direction);
-			if (newRotation >= 0 && newRotation < RotationDirections.Length) {
-				Speech.Say(RotationDirections[newRotation]);
+			var directions = RotationDirections;
+			if (newRotation >= 0 && newRotation < directions.Length) {
+				Speech.Say(directions[newRotation]);
 			} else {
-				Speech.Say("Rotation failed");
+				Speech.Say(Strings.Get("handler.mapnav.rotate_failed"));
 			}
 		}
 	}

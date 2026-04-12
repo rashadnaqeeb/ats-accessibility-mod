@@ -65,18 +65,18 @@ namespace ATSAccessibility.Handlers {
 		// If a phase has a custom message, it replaces the game's text.
 		// If not, the game's text is used as fallback.
 
-		private static readonly Dictionary<int, string> _accessibilityMessages = new Dictionary<int, string>
+		private static Dictionary<int, string> _accessibilityMessages => new Dictionary<int, string>
 		{
             // Tutorial 1: Basics
-            { 10, "Welcome to against the storm! You are now in a tutorial mode. You can press enter to dismiss these tutorial boxes, though you will have to wait for the animations to finish. Now, explore your new settlement with the arrow keys." }, // CameraControl
-            { 20, "Neglecting your village will increase the Queen's Impatience and bring her wrath upon you. You will lose the game if the impatience bar fills." }, // Impatience
-            { 30, "Fulfilling your duties will increase the town's Reputation, unlock new buildings and eventually bring you to victory. You can check both of these stats on the fly by pressing s at any time outside these popups. For more details, you can open the dedicated stats screen, found in the f1 information menu." }, // Reputation
-            { 35, "As a reward for gaining reputation points, you unlock blueprints- new buildings for you to use to win the game. One is ready to collect now. Dismiss this popup and press f3, the rewards menu. Pick blueprints." }, // ReputationPick
-            { 40, "You can now press space bar to resume the game. If you press the numbers 1 through 4, you control the speed at which time flows." }, // TimeControl
-            { 50, "Now, you will have to build a woodcutters camp. Check the read me for building instructions. The rest of this tutorial involves completing orders, which you can find in the f2 menu. This is the last tooltip." }, // Wood
+            { 10, Strings.Get("handler.tutorial.phase_10") }, // CameraControl
+            { 20, Strings.Get("handler.tutorial.phase_20") }, // Impatience
+            { 30, Strings.Get("handler.tutorial.phase_30") }, // Reputation
+            { 35, Strings.Get("handler.tutorial.phase_35") }, // ReputationPick
+            { 40, Strings.Get("handler.tutorial.phase_40") }, // TimeControl
+            { 50, Strings.Get("handler.tutorial.phase_50") }, // Wood
 
             // Tutorial 4: The Cycle
-            { 340, "It is almost upon us, so no caravans are allowed to embark. Press E to finish the cycle." }, // CyclePreFinish
+            { 340, Strings.Get("handler.tutorial.phase_340") }, // CyclePreFinish
         };
 
 		// ========================================
@@ -117,12 +117,12 @@ namespace ATSAccessibility.Handlers {
 						_forceEngaged = false;
 					} else if (TutorialReflection.IsButtonExpected()) {
 						// Button will appear after animation - wait
-						Speech.Say("Wait for animation to finish");
+						Speech.Say(Strings.Get("handler.tutorial.wait_animation"));
 					} else {
 						// No button expected - disengage so player can perform the required action
 						_isEngaged = false;
 						_forceEngaged = false;
-						Speech.Say("Perform the action to continue");
+						Speech.Say(Strings.Get("handler.tutorial.perform_action"));
 					}
 					return true;
 
@@ -130,7 +130,7 @@ namespace ATSAccessibility.Handlers {
 					// Disengage so player can interact with game, but don't close tooltip
 					_isEngaged = false;
 					_forceEngaged = false;
-					Speech.Say("Tutorial paused");
+					Speech.Say(Strings.Get("handler.tutorial.paused"));
 					return true;
 
 				case KeyCode.UpArrow:
@@ -220,7 +220,7 @@ namespace ATSAccessibility.Handlers {
 			if (!string.IsNullOrEmpty(text)) {
 				Speech.Say(text);
 			} else {
-				Speech.Say("No text");
+				Speech.Say(Strings.Get("handler.tutorial.no_text"));
 			}
 		}
 	}

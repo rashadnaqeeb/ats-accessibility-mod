@@ -33,8 +33,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Trade Routes";
-		protected override string EmptyMessage => "No data available";
+		protected override string OverlayName => Strings.Get("common.trade_routes");
+		protected override string EmptyMessage => Strings.Get("overlay.trade_routes.empty");
 
 		protected override int GetItemCount() {
 			switch (_branch) {
@@ -140,7 +140,7 @@ namespace ATSAccessibility.Overlays {
 
 		protected override string GetOpenAnnouncement() {
 			if (_mainMenuItems.Count == 0) return EmptyMessage;
-			return $"Trade Routes. {_mainMenuItems[0].Label}";
+			return Strings.Get("overlay.trade_routes.open", _mainMenuItems[0].Label);
 		}
 
 		protected override void AnnounceCurrentItem() {
@@ -202,13 +202,13 @@ namespace ATSAccessibility.Overlays {
 				if (r.CanCollect) readyCount++;
 
 			string activeLabel = readyCount > 0
-				? $"Active Routes, {activeCount} of {maxRoutes}, {readyCount} ready"
-				: $"Active Routes, {activeCount} of {maxRoutes}";
+				? Strings.Get("overlay.trade_routes.active.ready", activeCount, maxRoutes, readyCount)
+				: Strings.Get("overlay.trade_routes.active", activeCount, maxRoutes);
 
 			_mainMenuItems.Add(new MainMenuItem {
 				Type = MainMenuItemType.ActiveRoutes,
 				Label = activeLabel,
-				SearchName = "Active"
+				SearchName = Strings.Get("common.active")
 			});
 
 			for (int i = 0; i < _towns.Count; i++) {
@@ -224,15 +224,15 @@ namespace ATSAccessibility.Overlays {
 			bool autoCollect = TradeRoutesReflection.IsAutoCollectEnabled();
 			_mainMenuItems.Add(new MainMenuItem {
 				Type = MainMenuItemType.AutoCollect,
-				Label = autoCollect ? "Auto-Collect, enabled" : "Auto-Collect, disabled",
-				SearchName = "Auto"
+				Label = Strings.Get(autoCollect ? "overlay.trade_routes.auto.on" : "overlay.trade_routes.auto.off"),
+				SearchName = Strings.Get("overlay.trade_routes.search.auto")
 			});
 
 			bool onlyAvailable = TradeRoutesReflection.IsOnlyAvailableEnabled();
 			_mainMenuItems.Add(new MainMenuItem {
 				Type = MainMenuItemType.OnlyAvailable,
-				Label = onlyAvailable ? "Show affordable only, enabled" : "Show affordable only, disabled",
-				SearchName = "Show"
+				Label = Strings.Get(onlyAvailable ? "overlay.trade_routes.available.on" : "overlay.trade_routes.available.off"),
+				SearchName = Strings.Get("overlay.trade_routes.search.show")
 			});
 		}
 
@@ -288,14 +288,14 @@ namespace ATSAccessibility.Overlays {
 			SoundManager.PlayButtonClick();
 
 			var item = _mainMenuItems[CurrentIndex];
-			item.Label = newState ? "Auto-Collect, enabled" : "Auto-Collect, disabled";
+			item.Label = Strings.Get(newState ? "overlay.trade_routes.auto.on" : "overlay.trade_routes.auto.off");
 
 			if (newState) {
 				int collected = TradeRoutesReflection.AutoCollectAllReady();
 				if (collected > 0) {
 					RefreshAllData();
 					RefreshMainMenu();
-					Speech.Say($"{item.Label}, collected {collected} routes");
+					Speech.Say(Strings.Get("overlay.trade_routes.auto.collected", item.Label, collected));
 					return;
 				}
 			}
@@ -309,7 +309,7 @@ namespace ATSAccessibility.Overlays {
 			SoundManager.PlayButtonClick();
 
 			var item = _mainMenuItems[CurrentIndex];
-			item.Label = !current ? "Show affordable only, enabled" : "Show affordable only, disabled";
+			item.Label = Strings.Get(!current ? "overlay.trade_routes.available.on" : "overlay.trade_routes.available.off");
 			Speech.Say(item.Label);
 		}
 
@@ -321,7 +321,7 @@ namespace ATSAccessibility.Overlays {
 			RefreshActiveRoutes();
 
 			if (_routes.Count == 0) {
-				Speech.Say("No active routes");
+				Speech.Say(Strings.Get("overlay.trade_routes.no_active_routes"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -331,16 +331,16 @@ namespace ATSAccessibility.Overlays {
 			_indices[1] = 0;
 			_search.Clear();
 
-			Speech.Say($"Active Routes. {BuildRouteLabel(_routes[0])}");
+			Speech.Say(Strings.Get("overlay.trade_routes.active_routes_header", BuildRouteLabel(_routes[0])));
 		}
 
 		private string BuildRouteLabel(TradeRoutesReflection.RouteInfo route) {
 			if (route.CanCollect) {
-				return $"{route.GoodName}, {route.GoodAmount}, to {route.TownName}, ready to collect, {route.PriceAmount} {route.PriceName}";
+				return Strings.Get("overlay.trade_routes.route.ready", route.GoodName, route.GoodAmount, route.TownName, route.PriceAmount, route.PriceName);
 			} else {
 				int percent = Mathf.RoundToInt(route.Progress * 100);
 				string time = FormattingUtils.FormatTime(route.TimeRemaining);
-				return $"{route.GoodName}, {route.GoodAmount}, to {route.TownName}, {percent}%, {time}";
+				return Strings.Get("overlay.trade_routes.route.traveling", route.GoodName, route.GoodAmount, route.TownName, percent, time);
 			}
 		}
 
@@ -350,14 +350,14 @@ namespace ATSAccessibility.Overlays {
 			var route = _routes[CurrentIndex];
 			if (!route.CanCollect) {
 				int percent = Mathf.RoundToInt(route.Progress * 100);
-				Speech.Say($"Not ready, {percent}%");
+				Speech.Say(Strings.Get("overlay.trade_routes.not_ready", percent));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (TradeRoutesReflection.Collect(route.State)) {
 				SoundManager.PlayButtonClick();
-				Speech.Say($"Collected {route.PriceAmount} {route.PriceName}");
+				Speech.Say(Strings.Get("overlay.trade_routes.collected", route.PriceAmount, route.PriceName));
 
 				RefreshActiveRoutes();
 
@@ -368,7 +368,7 @@ namespace ATSAccessibility.Overlays {
 					Speech.Say(BuildRouteLabel(_routes[CurrentIndex]));
 				}
 			} else {
-				Speech.Say("Failed to collect");
+				Speech.Say(Strings.Get("overlay.trade_routes.collect_failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -379,7 +379,7 @@ namespace ATSAccessibility.Overlays {
 
 		private void EnterTownOffers(MainMenuItem item) {
 			if (item.TownIndex < 0 || item.TownIndex >= _towns.Count) {
-				Speech.Say("Town not found");
+				Speech.Say(Strings.Get("overlay.trade_routes.town.not_found"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -398,10 +398,10 @@ namespace ATSAccessibility.Overlays {
 
 		private void AnnounceTownHeader(TradeRoutesReflection.TownInfo town) {
 			string standingInfo = town.IsMaxStanding
-				? $"{town.Name}, {town.StandingLabel}"
-				: $"{town.Name}, {town.StandingLabel}, {town.CurrentStandingValue} of {town.ValueForLevelUp}";
+				? Strings.Get("overlay.trade_routes.town.header_max", town.Name, town.StandingLabel)
+				: Strings.Get("overlay.trade_routes.town.header", town.Name, town.StandingLabel, town.CurrentStandingValue, town.ValueForLevelUp);
 
-			Speech.Say($"{standingInfo}. {BuildExtendOffersLabel(town)}");
+			Speech.Say(Strings.Get("overlay.trade_routes.town.announce", standingInfo, BuildExtendOffersLabel(town)));
 		}
 
 		private string BuildTownLabel(TradeRoutesReflection.TownInfo town) {
@@ -411,50 +411,50 @@ namespace ATSAccessibility.Overlays {
 			if (!string.IsNullOrEmpty(town.Faction))
 				parts.Add(town.Faction);
 
-			parts.Add($"distance {town.Distance}");
-			parts.Add($"Standing {town.StandingLevel}");
+			parts.Add(Strings.Get("overlay.trade_routes.town.distance", town.Distance));
+			parts.Add(Strings.Get("overlay.trade_routes.town.standing", town.StandingLevel));
 			parts.Add(town.StandingLabel);
 
 			if (town.IsMaxStanding)
-				parts.Add("max");
+				parts.Add(Strings.Get("overlay.trade_routes.town.max"));
 			else
-				parts.Add($"{town.CurrentStandingValue} of {town.ValueForLevelUp}");
+				parts.Add(Strings.Get("overlay.trade_routes.town.progress", town.CurrentStandingValue, town.ValueForLevelUp));
 
 			return string.Join(", ", parts);
 		}
 
 		private string BuildExtendOffersLabel(TradeRoutesReflection.TownInfo town) {
 			if (town.CanExtend)
-				return $"Extend Offers, costs {town.ExtendCost}, available";
+				return Strings.Get("overlay.trade_routes.extend.available", town.ExtendCost);
 			else if (town.ReachedMaxOffers)
-				return "Extend Offers, maximum reached";
+				return Strings.Get("overlay.trade_routes.extend.max");
 			else
-				return $"Extend Offers, costs {town.ExtendCost}, not enough resources";
+				return Strings.Get("overlay.trade_routes.extend.not_enough", town.ExtendCost);
 		}
 
 		private string BuildOfferLabel(TradeRoutesReflection.OfferInfo offer) {
-			string baseLabel = $"{offer.GoodName}, {offer.GoodAmount * offer.Multiplier}";
+			string baseLabel = Strings.Get("overlay.trade_routes.offer.base", offer.GoodName, offer.GoodAmount * offer.Multiplier);
 
 			if (offer.Multiplier > 1)
-				baseLabel += $", x{offer.Multiplier}";
+				baseLabel += Strings.Get("overlay.trade_routes.offer.multiplier", offer.Multiplier);
 
-			baseLabel += $", sells for {offer.PriceAmount} {offer.PriceName}";
-			baseLabel += $", time {FormattingUtils.FormatTime(offer.TravelTime)}";
-			baseLabel += $", requires {offer.FuelAmount} {offer.FuelName}";
+			baseLabel += Strings.Get("overlay.trade_routes.offer.sells", offer.PriceAmount, offer.PriceName);
+			baseLabel += Strings.Get("overlay.trade_routes.offer.time", FormattingUtils.FormatTime(offer.TravelTime));
+			baseLabel += Strings.Get("overlay.trade_routes.offer.requires", offer.FuelAmount, offer.FuelName);
 
 			if (offer.Accepted) {
-				baseLabel += ", already accepted";
+				baseLabel += Strings.Get("overlay.trade_routes.offer.accepted");
 			} else if (!string.IsNullOrEmpty(offer.BlockedReason)) {
 				string reason = offer.BlockedReason;
 				if (reason == "not enough fuel")
-					reason = $"not enough {offer.FuelName}";
-				baseLabel += $", {reason}";
+					reason = Strings.Get("overlay.trade_routes.offer.not_enough_fuel", offer.FuelName);
+				baseLabel += Strings.Get("overlay.trade_routes.offer.blocked", reason);
 			} else {
-				baseLabel += ", available";
+				baseLabel += Strings.Get("overlay.trade_routes.offer.available");
 			}
 
 			if (!offer.Accepted && offer.MaxMultiplier > 1)
-				baseLabel += ". Press plus and minus to adjust level";
+				baseLabel += Strings.Get("overlay.trade_routes.offer.adjust_hint");
 
 			return baseLabel;
 		}
@@ -468,7 +468,7 @@ namespace ATSAccessibility.Overlays {
 
 		private void AdjustAmount(int delta) {
 			if (CurrentIndex == 0) {
-				Speech.Say("Navigate to an offer to adjust amount");
+				Speech.Say(Strings.Get("overlay.trade_routes.offer.navigate_first"));
 				return;
 			}
 
@@ -477,7 +477,7 @@ namespace ATSAccessibility.Overlays {
 
 			var offer = _offers[offerIndex];
 			if (offer.Accepted) {
-				Speech.Say("Already accepted");
+				Speech.Say(Strings.Get("overlay.trade_routes.offer.already_accepted"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -493,7 +493,7 @@ namespace ATSAccessibility.Overlays {
 				if (offerIndex < _offers.Count)
 					Speech.Say(BuildOfferLabel(_offers[offerIndex]));
 			} else {
-				Speech.Say(newAmount == 1 ? "Minimum amount" : "Maximum amount");
+				Speech.Say(Strings.Get(newAmount == 1 ? "overlay.trade_routes.offer.min" : "overlay.trade_routes.offer.max"));
 			}
 		}
 
@@ -504,20 +504,20 @@ namespace ATSAccessibility.Overlays {
 			var offer = _offers[offerIndex];
 
 			if (offer.Accepted) {
-				Speech.Say("Already accepted");
+				Speech.Say(Strings.Get("overlay.trade_routes.offer.already_accepted"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (!offer.CanAccept) {
-				Speech.Say(offer.BlockedReason ?? "Cannot accept");
+				Speech.Say(offer.BlockedReason ?? Strings.Get("overlay.trade_routes.offer.cannot"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (TradeRoutesReflection.AcceptOffer(offer.State)) {
 				SoundManager.PlayButtonClick();
-				Speech.Say($"Accepted, {offer.GoodAmount * offer.Multiplier} {offer.GoodName} to {offer.TownName}");
+				Speech.Say(Strings.Get("overlay.trade_routes.offer.accepted_msg", offer.GoodAmount * offer.Multiplier, offer.GoodName, offer.TownName));
 
 				RefreshAllData();
 				RefreshTownOffers(_currentTownIndex);
@@ -529,7 +529,7 @@ namespace ATSAccessibility.Overlays {
 					AnnounceCurrentItem();
 				}
 			} else {
-				Speech.Say("Failed to accept");
+				Speech.Say(Strings.Get("overlay.trade_routes.offer.failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -539,7 +539,7 @@ namespace ATSAccessibility.Overlays {
 
 			var town = _towns[_currentTownIndex];
 			if (!town.CanExtend) {
-				Speech.Say("Cannot extend offers");
+				Speech.Say(Strings.Get("overlay.trade_routes.extend.cannot"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -552,12 +552,12 @@ namespace ATSAccessibility.Overlays {
 
 				if (_offers.Count > 0) {
 					CurrentIndex = _offers.Count;
-					Speech.Say($"Offers extended. {BuildOfferLabel(_offers[_offers.Count - 1])}");
+					Speech.Say(Strings.Get("overlay.trade_routes.extend.done_with", BuildOfferLabel(_offers[_offers.Count - 1])));
 				} else {
-					Speech.Say("Offers extended");
+					Speech.Say(Strings.Get("overlay.trade_routes.extend.done"));
 				}
 			} else {
-				Speech.Say("Failed to extend");
+				Speech.Say(Strings.Get("overlay.trade_routes.extend.failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -578,7 +578,7 @@ namespace ATSAccessibility.Overlays {
 			SetLevel(0);
 			_indices[0] = 0;
 			InputBlocker.BlockCancelOnce = true;
-			Speech.Say($"Main menu. {_mainMenuItems[0].Label}");
+			Speech.Say(Strings.Get("overlay.trade_routes.return", _mainMenuItems[0].Label));
 		}
 	}
 }

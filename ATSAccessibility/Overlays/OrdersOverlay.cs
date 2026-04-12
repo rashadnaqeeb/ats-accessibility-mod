@@ -28,8 +28,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Orders";
-		protected override string EmptyMessage => "No orders available";
+		protected override string OverlayName => Strings.Get("common.orders");
+		protected override string EmptyMessage => Strings.Get("overlay.orders.empty");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -58,7 +58,7 @@ namespace ATSAccessibility.Overlays {
 				_items.Add(new OrderItem {
 					State = orderState,
 					Model = model,
-					Label = $"{slotNum}: {statusLabel}",
+					Label = Strings.Get("overlay.orders.row", slotNum, statusLabel),
 					Status = status,
 					Tracked = tracked
 				});
@@ -78,23 +78,23 @@ namespace ATSAccessibility.Overlays {
 					if (OrdersReflection.FireOrderPickPopupRequested(item.State)) {
 						SoundManager.PlayButtonClick();
 					} else {
-						Speech.Say("Cannot open picks");
+						Speech.Say(Strings.Get("overlay.orders.cannot_open_picks"));
 						SoundManager.PlayFailed();
 					}
 					break;
 
 				case OrderStatus.Completable:
-					string name = OrdersReflection.GetOrderDisplayName(item.Model) ?? "order";
+					string name = OrdersReflection.GetOrderDisplayName(item.Model) ?? Strings.Get("overlay.orders.order_fallback");
 					if (OrdersReflection.CompleteOrder(item.State, item.Model)) {
 						SoundManager.PlayButtonClick();
-						Speech.Say($"Delivered, {name}");
+						Speech.Say(Strings.Get("overlay.orders.delivered", name));
 						RefreshData();
 						if (CurrentIndex >= _items.Count)
 							CurrentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
 						if (_items.Count > 0)
 							AnnounceCurrentItem();
 					} else {
-						Speech.Say("Cannot deliver");
+						Speech.Say(Strings.Get("common.cannot_deliver"));
 						SoundManager.PlayFailed();
 					}
 					break;
@@ -158,7 +158,7 @@ namespace ATSAccessibility.Overlays {
 			if (CurrentIndex >= _items.Count)
 				CurrentIndex = _items.Count > 0 ? _items.Count - 1 : 0;
 
-			Speech.Say("Orders updated");
+			Speech.Say(Strings.Get("overlay.orders.updated"));
 		}
 
 		// ========================================
@@ -171,7 +171,7 @@ namespace ATSAccessibility.Overlays {
 			var item = _items[CurrentIndex];
 
 			if (item.Status != OrderStatus.Active && item.Status != OrderStatus.Completable) {
-				Speech.Say("Cannot track");
+				Speech.Say(Strings.Get("overlay.orders.cannot_track"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -179,10 +179,10 @@ namespace ATSAccessibility.Overlays {
 			if (OrdersReflection.ToggleTracking(item.State)) {
 				bool nowTracked = OrdersReflection.IsTracked(item.State);
 				item.Tracked = nowTracked;
-				Speech.Say(nowTracked ? "Tracked" : "Untracked");
+				Speech.Say(Strings.Get(nowTracked ? "overlay.orders.tracked" : "overlay.orders.untracked"));
 				SoundManager.PlayButtonClick();
 			} else {
-				Speech.Say("Cannot toggle tracking");
+				Speech.Say(Strings.Get("overlay.orders.cannot_toggle_track"));
 			}
 		}
 
@@ -208,7 +208,7 @@ namespace ATSAccessibility.Overlays {
 
 		private string BuildLabel(object orderState, object orderModel, OrderStatus status) {
 			string name = orderModel != null
-				? (OrdersReflection.GetOrderDisplayName(orderModel) ?? "Unknown order")
+				? (OrdersReflection.GetOrderDisplayName(orderModel) ?? Strings.Get("overlay.orders.unknown"))
 				: null;
 
 			switch (status) {
@@ -216,39 +216,39 @@ namespace ATSAccessibility.Overlays {
 					return BuildLockedLabel(orderState, orderModel);
 
 				case OrderStatus.ToPick:
-					return "Ready to pick";
+					return Strings.Get("overlay.orders.status.ready_to_pick");
 
 				case OrderStatus.Completable:
-					return $"{name}, ready to deliver. {BuildRewardText(orderState, orderModel)}";
+					return Strings.Get("overlay.orders.status.completable", name, BuildRewardText(orderState, orderModel));
 
 				case OrderStatus.Active:
 					return BuildActiveLabel(name, orderState, orderModel);
 
 				case OrderStatus.Completed:
-					return $"{name}, completed. {BuildRewardText(orderState, orderModel)}";
+					return Strings.Get("overlay.orders.status.completed", name, BuildRewardText(orderState, orderModel));
 
 				case OrderStatus.Failed:
-					return $"{name}, failed";
+					return Strings.Get("overlay.orders.status.failed", name);
 
 				default:
-					return name ?? "Unknown order";
+					return name ?? Strings.Get("overlay.orders.unknown");
 			}
 		}
 
 		private string BuildLockedLabel(object orderState, object orderModel) {
 			if (orderModel != null && OrdersReflection.HasUnlockAfter(orderModel)) {
-				string prereqName = OrdersReflection.GetUnlockAfterName(orderModel) ?? "another order";
-				return $"Locked, requires {prereqName}";
+				string prereqName = OrdersReflection.GetUnlockAfterName(orderModel) ?? Strings.Get("overlay.orders.locked.another");
+				return Strings.Get("overlay.orders.locked.requires", prereqName);
 			}
 
 			float startTime = OrdersReflection.GetStartTime(orderState);
 			float gameTime = OrdersReflection.GetGameTime();
 			float remaining = startTime - gameTime;
 			if (remaining > 0) {
-				return $"Locked, unlocks in {FormattingUtils.FormatTime(remaining)}";
+				return Strings.Get("overlay.orders.locked.unlocks_in", FormattingUtils.FormatTime(remaining));
 			}
 
-			return "Locked";
+			return Strings.Get("common.locked");
 		}
 
 		private string BuildActiveLabel(string name, object orderState, object orderModel) {
@@ -259,7 +259,7 @@ namespace ATSAccessibility.Overlays {
 			string repReward = OrdersReflection.GetReputationRewardText(orderModel);
 			if (!string.IsNullOrEmpty(repReward))
 				rewards.Add(repReward);
-			string rewardText = rewards.Count > 0 ? "Rewards: " + string.Join(", ", rewards) : "";
+			string rewardText = rewards.Count > 0 ? Strings.Get("overlay.orders.rewards", string.Join(", ", rewards)) : "";
 
 			var parts = new List<string>();
 
@@ -267,7 +267,7 @@ namespace ATSAccessibility.Overlays {
 			if (timed) {
 				float timeLeft = OrdersReflection.GetTimeLeft(orderState);
 				string timeStr = FormattingUtils.FormatTime(timeLeft);
-				parts.Add($"{name}, {timeStr}");
+				parts.Add(Strings.Get("overlay.orders.active.timed", name, timeStr));
 			} else {
 				parts.Add(name);
 			}
@@ -285,7 +285,7 @@ namespace ATSAccessibility.Overlays {
 			string repReward = OrdersReflection.GetReputationRewardText(orderModel);
 			if (!string.IsNullOrEmpty(repReward))
 				rewards.Add(repReward);
-			return rewards.Count > 0 ? "Rewards: " + string.Join(", ", rewards) : "";
+			return rewards.Count > 0 ? Strings.Get("overlay.orders.rewards", string.Join(", ", rewards)) : "";
 		}
 	}
 }

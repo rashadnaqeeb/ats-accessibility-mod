@@ -84,7 +84,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected override string OverlayName => NavigatorName;
 
-		protected override string EmptyMessage => "No sections";
+		protected override string EmptyMessage => Strings.Get("nav.bsn.empty_sections");
 
 		protected sealed override int GetItemCount() {
 			switch (Level) {
@@ -152,7 +152,7 @@ namespace ATSAccessibility.Navigators {
 			switch (Level) {
 				case 0:
 					if (!PerformSectionAction(_indices[0]))
-						Speech.Say("No items in this section");
+						Speech.Say(Strings.Get("nav.bsn.no_items_in_section"));
 					break;
 				case 1:
 					if (!PerformItemAction(_indices[0], index)) {
@@ -200,7 +200,7 @@ namespace ATSAccessibility.Navigators {
 			// Alt+Space for pause toggle
 			if (modifiers.Alt && keyCode == KeyCode.Space) {
 				GameReflection.TogglePause();
-				Speech.Say(GameReflection.IsPaused() ? "Paused" : "Unpaused");
+				Speech.Say(GameReflection.IsPaused() ? Strings.Get("common.paused") : Strings.Get("common.unpaused"));
 				return true;
 			}
 			return null;
@@ -211,13 +211,13 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private static readonly List<HelpEntry> _buildingHelpEntries = new List<HelpEntry>(MenuBaseHelpEntries) {
-			new HelpEntry("Alt+Space", "Pause/unpause"),
+			new HelpEntry("Alt+Space", Strings.Get("nav.bsn.help.pause_unpause")),
 		};
 
 		public override IReadOnlyList<HelpEntry> GetHelpEntries() => _buildingHelpEntries;
 
 		protected override string GetOpenAnnouncement() {
-			string buildingName = BuildingReflection.GetBuildingName(_building) ?? "Building";
+			string buildingName = BuildingReflection.GetBuildingName(_building) ?? Strings.Get("common.building");
 			string status = GetBuildingStatus();
 
 			string announcement = buildingName;
@@ -228,7 +228,7 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		protected override void OnOpened() {
-			Debug.Log($"[ATSAccessibility] {NavigatorName}: Opened panel for {(BuildingReflection.GetBuildingName(_building) ?? "Building")}");
+			Debug.Log($"[ATSAccessibility] {NavigatorName}: Opened panel for {(BuildingReflection.GetBuildingName(_building) ?? Strings.Get("common.building"))}");
 
 			// Queue first section after the building name (interrupt: false)
 			var sections = GetSections();
@@ -277,7 +277,7 @@ namespace ATSAccessibility.Navigators {
 
 		protected virtual bool ToggleBuildingSleep() {
 			if (!_canSleep) {
-				Speech.Say("Cannot pause this building");
+				Speech.Say(Strings.Get("nav.bsn.cannot_pause"));
 				return false;
 			}
 
@@ -287,11 +287,11 @@ namespace ATSAccessibility.Navigators {
 				if (!wasSleeping) {
 					_workersSection.RefreshWorkerIds();
 				}
-				Speech.Say(_isSleeping ? "Paused" : "Active");
+				Speech.Say(_isSleeping ? Strings.Get("common.paused") : Strings.Get("common.active"));
 				return true;
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Cannot change building state");
+				Speech.Say(Strings.Get("nav.bsn.cannot_change_state"));
 				return false;
 			}
 		}
@@ -333,9 +333,9 @@ namespace ATSAccessibility.Navigators {
 
 		private string GetBuildingStatus() {
 			if (!BuildingReflection.IsBuildingFinished(_building))
-				return "under construction";
+				return Strings.Get("nav.bsn.status.under_construction");
 			if (BuildingReflection.IsBuildingSleeping(_building))
-				return "paused";
+				return Strings.Get("nav.bsn.status.paused");
 			return null;
 		}
 

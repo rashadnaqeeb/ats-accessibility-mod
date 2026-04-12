@@ -25,8 +25,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Choose cornerstone to remove";
-		protected override string EmptyMessage => "No cornerstones found";
+		protected override string OverlayName => Strings.Get("overlay.cornerstone_limit.title");
+		protected override string EmptyMessage => Strings.Get("overlay.cornerstone_limit.empty");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -35,7 +35,7 @@ namespace ATSAccessibility.Overlays {
 
 			string announcement = _items[index].Label;
 			if (index == _selectedIndex)
-				announcement += ", selected";
+				announcement += Strings.Get("common.suffix_selected");
 
 			return announcement;
 		}
@@ -54,7 +54,7 @@ namespace ATSAccessibility.Overlays {
 				foreach (var option in cornerstones) {
 					_items.Add(new NavItem {
 						Model = option.Model,
-						Label = $"{option.DisplayName}, {option.Rarity}",
+						Label = Strings.Get("overlay.cornerstone_limit.item", option.DisplayName, option.Rarity),
 						SearchName = option.DisplayName
 					});
 				}
@@ -102,23 +102,23 @@ namespace ATSAccessibility.Overlays {
 
 			if (_selectedIndex == CurrentIndex) {
 				_selectedIndex = -1;
-				Speech.Say($"{_items[CurrentIndex].Label} deselected");
+				Speech.Say(Strings.Get("overlay.cornerstone_limit.deselected", _items[CurrentIndex].Label));
 			} else {
 				_selectedIndex = CurrentIndex;
-				Speech.Say($"{_items[CurrentIndex].Label} selected for removal");
+				Speech.Say(Strings.Get("overlay.cornerstone_limit.selected", _items[CurrentIndex].Label));
 			}
 		}
 
 		private void ConfirmRemoval() {
 			if (_selectedIndex < 0 || _selectedIndex >= _items.Count) {
-				Speech.Say("Select a cornerstone first");
+				Speech.Say(Strings.Get("overlay.cornerstone_limit.need_selection"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			var item = _items[_selectedIndex];
 			SoundManager.PlayButtonClick();
-			Speech.Say($"Removed {item.Label}");
+			Speech.Say(Strings.Get("overlay.cornerstone_limit.removed", item.Label));
 			var popup = _popup;
 			_popup = null; // Prevent OnClosed from cancelling
 			CornerstoneReflection.RemoveAndConfirm(popup, item.Model);

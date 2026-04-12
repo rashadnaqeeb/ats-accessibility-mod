@@ -26,7 +26,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Ironman Upgrades";
+		protected override string OverlayName => Strings.Get("overlay.ironman.title");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() {
@@ -76,7 +76,7 @@ namespace ATSAccessibility.Overlays {
 					if (_sections == null || index < 0 || index >= _sections.Length) return EnterAction.None;
 					var items = LoadItemsForSection(_sections[index]);
 					if (items.Count == 0) {
-						Speech.Say("No upgrades");
+						Speech.Say(Strings.Get("common.no_upgrades"));
 						return EnterAction.None;
 					}
 					_currentItems = items;
@@ -107,7 +107,7 @@ namespace ATSAccessibility.Overlays {
 					if (_sections == null || index < 0 || index >= _sections.Length) return false;
 					var items = LoadItemsForSection(_sections[index]);
 					if (items.Count == 0) {
-						Speech.Say("No upgrades");
+						Speech.Say(Strings.Get("common.no_upgrades"));
 						return false;
 					}
 					_currentItems = items;
@@ -118,7 +118,7 @@ namespace ATSAccessibility.Overlays {
 					if (index < 0 || index >= _currentItems.Count) return false;
 					var rewards = IronmanReflection.GetRewards(_currentItems[index].UpgradeObj);
 					if (rewards.Count == 0) {
-						Speech.Say("No rewards");
+						Speech.Say(Strings.Get("common.no_rewards"));
 						return false;
 					}
 					_rewards = rewards;
@@ -198,18 +198,18 @@ namespace ATSAccessibility.Overlays {
 			// Add Random Upgrades section only if not at max picks
 			if (!IronmanReflection.HasReachedMaxPicks()) {
 				sectionList.Add(SectionType.PickOptions);
-				nameList.Add("Random Upgrades");
+				nameList.Add(Strings.Get("overlay.ironman.section.random"));
 			}
 
 			// Always add Core Upgrades
 			sectionList.Add(SectionType.CoreUpgrades);
-			nameList.Add("Core Upgrades");
+			nameList.Add(Strings.Get("overlay.ironman.section.core"));
 
 			// Add Unlocked section if there are unlocked upgrades
 			var unlocked = IronmanReflection.GetUnlockedUpgrades();
 			if (unlocked.Count > 0) {
 				sectionList.Add(SectionType.Unlocked);
-				nameList.Add("Unlocked");
+				nameList.Add(Strings.Get("common.unlocked"));
 			}
 
 			_sections = sectionList.ToArray();
@@ -241,9 +241,9 @@ namespace ATSAccessibility.Overlays {
 			int max = IronmanReflection.GetMaxPicks();
 
 			if (IronmanReflection.HasReachedMaxPicks()) {
-				Speech.Say($"Ironman Upgrades. All {max} picks complete");
+				Speech.Say(Strings.Get("overlay.ironman.open.all_done", max));
 			} else {
-				Speech.Say($"Ironman Upgrades. Pick {completed + 1} of {max}");
+				Speech.Say(Strings.Get("overlay.ironman.open.pick", completed + 1, max));
 			}
 
 			AnnounceSection();
@@ -268,7 +268,7 @@ namespace ATSAccessibility.Overlays {
 					break;
 			}
 
-			Speech.Say($"{name}, {count} upgrades");
+			Speech.Say(Strings.Get("overlay.ironman.section_row", name, count));
 		}
 
 		private void AnnounceItem() {
@@ -277,11 +277,11 @@ namespace ATSAccessibility.Overlays {
 			var upgrade = _currentItems[_indices[1]];
 
 			if (upgrade.IsUnlocked) {
-				Speech.Say($"{upgrade.Name}, unlocked");
+				Speech.Say(Strings.Get("overlay.ironman.item.unlocked", upgrade.Name));
 			} else if (upgrade.CanAfford) {
-				Speech.Say($"{upgrade.Name}, {upgrade.PriceText}");
+				Speech.Say(Strings.Get("overlay.ironman.item.buyable", upgrade.Name, upgrade.PriceText));
 			} else {
-				Speech.Say($"{upgrade.Name}, {upgrade.PriceText}, can't afford");
+				Speech.Say(Strings.Get("overlay.ironman.item.cannot_afford", upgrade.Name, upgrade.PriceText));
 			}
 		}
 
@@ -291,7 +291,7 @@ namespace ATSAccessibility.Overlays {
 			var reward = _rewards[_indices[2]];
 
 			if (!string.IsNullOrEmpty(reward.Description))
-				Speech.Say($"{reward.Name}, {reward.Description}");
+				Speech.Say(Strings.Get("overlay.ironman.reward.with_desc", reward.Name, reward.Description));
 			else
 				Speech.Say(reward.Name);
 		}
@@ -306,25 +306,25 @@ namespace ATSAccessibility.Overlays {
 			var upgrade = _currentItems[_indices[1]];
 
 			if (upgrade.IsUnlocked) {
-				Speech.Say("Already unlocked");
+				Speech.Say(Strings.Get("overlay.ironman.already_unlocked"));
 				return;
 			}
 
 			if (!upgrade.CanAfford) {
 				SoundManager.PlayFailed();
-				Speech.Say("Can't afford");
+				Speech.Say(Strings.Get("common.cant_afford"));
 				return;
 			}
 
 			if (IronmanReflection.Pick(upgrade.UpgradeObj)) {
 				SoundManager.PlayCapitalUpgradeBought();
-				Speech.Say($"Purchased {upgrade.Name}");
+				Speech.Say(Strings.Get("overlay.ironman.purchased", upgrade.Name));
 
 				// Refresh data after purchase
 				RefreshAfterPurchase();
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Purchase failed");
+				Speech.Say(Strings.Get("common.purchase_failed"));
 			}
 		}
 
@@ -372,7 +372,7 @@ namespace ATSAccessibility.Overlays {
 					// Announce new pick status and first option
 					int completed = IronmanReflection.GetCompletedPicks();
 					int max = IronmanReflection.GetMaxPicks();
-					Speech.Say($"Pick {completed + 1} of {max}");
+					Speech.Say(Strings.Get("overlay.ironman.new_pick", completed + 1, max));
 					AnnounceItem();
 				}
 			} else if (_sections == null || _indices[0] >= _sections.Length) {
@@ -381,7 +381,7 @@ namespace ATSAccessibility.Overlays {
 				SetLevel(0);
 				// Announce that all picks are complete
 				int max = IronmanReflection.GetMaxPicks();
-				Speech.Say($"All {max} picks complete");
+				Speech.Say(Strings.Get("overlay.ironman.all_picks_done", max));
 				AnnounceSection();
 			}
 		}

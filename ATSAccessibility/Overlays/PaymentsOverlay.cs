@@ -22,18 +22,12 @@ namespace ATSAccessibility.Overlays {
 		private object _popup;
 		private List<NavItem> _items = new List<NavItem>();
 
-		// Header text (Zhera Mossback quote)
-		private const string HEADER_TEXT = "Zhera Mossback, Assistant to the Royal Treasurer: " +
-			"\"May the sun shine on you, Viceroy! I was sent here to help you keep track of all " +
-			"those annoying payments and obligations. Another pair of eyes on your Exploration Tax " +
-			"forms might come in handy.\"";
-
 		// ========================================
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Payments";
-		protected override string EmptyMessage => "No payments due";
+		protected override string OverlayName => Strings.Get("common.payments");
+		protected override string EmptyMessage => Strings.Get("common.no_payments_due");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -49,7 +43,7 @@ namespace ATSAccessibility.Overlays {
 			// Add header item
 			_items.Add(new NavItem {
 				Type = ItemType.Header,
-				Label = HEADER_TEXT
+				Label = Strings.Get("overlay.payments.header")
 			});
 
 			// Get payments
@@ -78,14 +72,14 @@ namespace ATSAccessibility.Overlays {
 
 			var payment = item.Payment.Value;
 			if (!payment.CanPay) {
-				Speech.Say("Cannot pay");
+				Speech.Say(Strings.Get("overlay.payments.cannot_pay"));
 				SoundManager.PlayFailed();
 				return;
 			}
 
 			if (PaymentsReflection.Pay(payment.State)) {
 				SoundManager.PlayTraderTransactionCompleted();
-				Speech.Say("Paid");
+				Speech.Say(Strings.Get("overlay.payments.paid"));
 
 				RefreshData();
 
@@ -95,9 +89,9 @@ namespace ATSAccessibility.Overlays {
 				if (_items.Count > 1)
 					AnnounceCurrentItem();
 				else
-					Speech.Say("No payments due");
+					Speech.Say(Strings.Get("common.no_payments_due"));
 			} else {
-				Speech.Say("Failed to pay");
+				Speech.Say(Strings.Get("overlay.payments.pay_failed"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -119,7 +113,7 @@ namespace ATSAccessibility.Overlays {
 			if (PaymentsReflection.SetAutoPaymentType(payment.State, newType)) {
 				SoundManager.PlayButtonClick();
 				string newLabel = PaymentsReflection.GetAutoPaymentLabel(newType);
-				Speech.Say($"auto: {newLabel}");
+				Speech.Say(Strings.Get("overlay.payments.auto_label", newLabel));
 
 				// Update the cached payment info
 				var updatedPayment = payment;
@@ -127,7 +121,7 @@ namespace ATSAccessibility.Overlays {
 				item.Payment = updatedPayment;
 				item.Label = BuildPaymentLabel(updatedPayment);
 			} else {
-				Speech.Say("Cannot change auto-payment");
+				Speech.Say(Strings.Get("overlay.payments.auto_cannot"));
 				SoundManager.PlayFailed();
 			}
 		}
@@ -156,20 +150,20 @@ namespace ATSAccessibility.Overlays {
 			if (!string.IsNullOrEmpty(payment.TypeLabel))
 				parts.Add(payment.TypeLabel);
 			else
-				parts.Add("Payment");
+				parts.Add(Strings.Get("overlay.payments.default_type"));
 
-			parts.Add($"{payment.GoodAmount} {payment.GoodName}");
+			parts.Add(Strings.Get("overlay.payments.amount", payment.GoodAmount, payment.GoodName));
 
 			string yearStr = FormattingUtils.YearToRoman(payment.DueYear);
-			parts.Add($"due Year {yearStr} {payment.DueSeason}");
+			parts.Add(Strings.Get("overlay.payments.due", yearStr, payment.DueSeason));
 
 			string timeStr = FormattingUtils.FormatTime(payment.TimeRemaining);
 			parts.Add(timeStr);
 
 			string autoLabel = PaymentsReflection.GetAutoPaymentLabel(payment.AutoPaymentType);
-			parts.Add($"auto: {autoLabel}");
+			parts.Add(Strings.Get("overlay.payments.auto", autoLabel));
 
-			parts.Add(payment.CanPay ? "can pay" : "cannot pay");
+			parts.Add(Strings.Get(payment.CanPay ? "overlay.payments.can_pay" : "overlay.payments.cannot_pay_row"));
 
 			return string.Join(", ", parts);
 		}

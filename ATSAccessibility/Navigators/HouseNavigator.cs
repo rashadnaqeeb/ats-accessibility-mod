@@ -105,12 +105,12 @@ namespace ATSAccessibility.Navigators {
 			var sectionNames = new List<string>();
 			var sectionTypes = new List<SectionType>();
 
-			sectionNames.Add("Residents");
+			sectionNames.Add(Strings.Get("nav.house.section.residents"));
 			sectionTypes.Add(SectionType.Residents);
 
 			// Add Upgrades section if available
 			if (TryInitializeUpgradesSection()) {
-				sectionNames.Add("Upgrades");
+				sectionNames.Add(Strings.Get("common.upgrades"));
 				sectionTypes.Add(SectionType.Upgrades);
 			}
 
@@ -134,7 +134,7 @@ namespace ATSAccessibility.Navigators {
 		private void AnnounceResidentItem(int itemIndex) {
 			// Item 0: Capacity
 			if (itemIndex == 0) {
-				Speech.Say($"Capacity: {_residentIds.Count} of {_currentCapacity}");
+				Speech.Say(Strings.Get("nav.house.capacity", _residentIds.Count, _currentCapacity));
 				return;
 			}
 
@@ -142,12 +142,12 @@ namespace ATSAccessibility.Navigators {
 			int residentIndex = itemIndex - 1;
 
 			if (_residentIds.Count == 0) {
-				Speech.Say("None");
+				Speech.Say(Strings.Get("common.none"));
 				return;
 			}
 
 			if (residentIndex >= _residentIds.Count) {
-				Speech.Say("Invalid resident");
+				Speech.Say(Strings.Get("nav.house.invalid_resident"));
 				return;
 			}
 
@@ -155,15 +155,15 @@ namespace ATSAccessibility.Navigators {
 			var actor = BuildingReflection.GetActor(residentId);
 
 			if (actor != null) {
-				string name = BuildingReflection.GetActorName(actor) ?? "Unknown";
+				string name = BuildingReflection.GetActorName(actor) ?? Strings.Get("common.unknown");
 				string race = BuildingReflection.GetActorRace(actor);
 
 				if (!string.IsNullOrEmpty(race))
-					Speech.Say($"{name}, {race}");
+					Speech.Say(Strings.Get("nav.house.name_with_race", name, race));
 				else
 					Speech.Say(name);
 			} else {
-				Speech.Say("Unknown villager");
+				Speech.Say(Strings.Get("nav.house.unknown_villager"));
 			}
 		}
 
@@ -204,12 +204,12 @@ namespace ATSAccessibility.Navigators {
 		private string GetResidentItemName(int itemIndex) {
 			// Item 0 is Capacity
 			if (itemIndex == 0)
-				return "Capacity";
+				return Strings.Get("nav.house.search.capacity");
 
 			int residentIndex = itemIndex - 1;
 
 			if (_residentIds.Count == 0)
-				return "None";
+				return Strings.Get("common.none");
 
 			if (residentIndex >= _residentIds.Count)
 				return null;
@@ -218,7 +218,7 @@ namespace ATSAccessibility.Navigators {
 			var actor = BuildingReflection.GetActor(residentId);
 
 			if (actor != null) {
-				return BuildingReflection.GetActorName(actor) ?? "Unknown";
+				return BuildingReflection.GetActorName(actor) ?? Strings.Get("common.unknown");
 			}
 			return null;
 		}

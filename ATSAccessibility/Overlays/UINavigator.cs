@@ -86,7 +86,7 @@ namespace ATSAccessibility.Overlays {
 		};
 
 		public HelpBehavior HelpBehavior => HelpBehavior.Terminator;
-		public string HelpContextName => "Popup";
+		public string HelpContextName => Strings.Get("overlay.ui.title");
 		public IReadOnlyList<HelpEntry> GetHelpEntries() => _helpEntries;
 		public IReadOnlyList<string> GetPassthroughKeys() => null;
 
@@ -387,7 +387,7 @@ namespace ATSAccessibility.Overlays {
 						button.onClick.Invoke();
 						bool? newState = UIElementFinder.GetToggleButtonState(toggleButton);
 						if (newState.HasValue) {
-							Speech.Say(newState.Value ? "checked" : "unchecked");
+							Speech.Say(Strings.Get(newState.Value ? "common.checked" : "common.unchecked"));
 						}
 						return true;
 					}
@@ -404,7 +404,7 @@ namespace ATSAccessibility.Overlays {
 					}
 				} else if (element is Toggle toggle) {
 					toggle.isOn = !toggle.isOn;
-					string state = toggle.isOn ? "checked" : "unchecked";
+					string state = Strings.Get(toggle.isOn ? "common.checked" : "common.unchecked");
 					Speech.Say(state);
 				} else if (element is TMP_Dropdown dropdown) {
 					OpenDropdown(dropdown);
@@ -446,6 +446,7 @@ namespace ATSAccessibility.Overlays {
 			var allToggles = dropdownList.GetComponentsInChildren<Toggle>(true);
 			foreach (var toggle in allToggles) {
 				var label = toggle.GetComponentInChildren<TMP_Text>()?.text;
+				// "Option A" is the Unity dropdown template placeholder — identifier, not speech.
 				if (label != null && label != "Option A") {
 					_dropdownToggles.Add(toggle);
 				}
@@ -467,7 +468,7 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			// Announce dropdown opened
-			string announcement = $"dropdown opened, {_dropdownToggles.Count} options";
+			string announcement = Strings.Get("overlay.ui.dropdown.opened", _dropdownToggles.Count);
 			Speech.Say(announcement);
 
 			// Announce current option
@@ -508,12 +509,12 @@ namespace ATSAccessibility.Overlays {
 
 			if (_dropdownIndex >= 0 && _dropdownIndex < _dropdownToggles.Count) {
 				var toggle = _dropdownToggles[_dropdownIndex];
-				var optionText = toggle.GetComponentInChildren<TMP_Text>()?.text ?? "option";
+				var optionText = toggle.GetComponentInChildren<TMP_Text>()?.text ?? Strings.Get("overlay.ui.dropdown.option");
 
 				// Setting isOn triggers the dropdown's selection mechanism
 				toggle.isOn = true;
 
-				Speech.Say($"{optionText}, selected");
+				Speech.Say(Strings.Get("overlay.ui.dropdown.selected", optionText));
 			}
 
 			ClearDropdownState();
@@ -526,7 +527,7 @@ namespace ATSAccessibility.Overlays {
 			if (_activeDropdown == null) return;
 
 			_activeDropdown.Hide();
-			Speech.Say("cancelled");
+			Speech.Say(Strings.Get("overlay.ui.dropdown.cancelled"));
 
 			// Prevent Escape from also closing the parent popup
 			InputBlocker.BlockCancelOnce = true;
@@ -543,7 +544,7 @@ namespace ATSAccessibility.Overlays {
 		private void AnnounceDropdownOption() {
 			if (_dropdownIndex >= 0 && _dropdownIndex < _dropdownToggles.Count) {
 				var toggle = _dropdownToggles[_dropdownIndex];
-				var text = toggle.GetComponentInChildren<TMP_Text>()?.text ?? "option";
+				var text = toggle.GetComponentInChildren<TMP_Text>()?.text ?? Strings.Get("overlay.ui.dropdown.option");
 				Speech.Say(text);
 			}
 		}
@@ -566,8 +567,8 @@ namespace ATSAccessibility.Overlays {
 			inputField.Select();
 			inputField.ActivateInputField();
 
-			string currentText = string.IsNullOrEmpty(inputField.text) ? "empty" : inputField.text;
-			Speech.Say($"Editing, current text: {currentText}");
+			string currentText = string.IsNullOrEmpty(inputField.text) ? Strings.Get("common.empty_lower") : inputField.text;
+			Speech.Say(Strings.Get("overlay.ui.edit.editing", currentText));
 		}
 
 		/// <summary>
@@ -579,12 +580,12 @@ namespace ATSAccessibility.Overlays {
 			if (submit) {
 				// Deselect triggers OnEndEdit which submits
 				_editingInputField.DeactivateInputField();
-				string finalText = string.IsNullOrEmpty(_editingInputField.text) ? "empty" : _editingInputField.text;
-				Speech.Say($"Submitted: {finalText}");
+				string finalText = string.IsNullOrEmpty(_editingInputField.text) ? Strings.Get("common.empty_lower") : _editingInputField.text;
+				Speech.Say(Strings.Get("overlay.ui.edit.submitted", finalText));
 			} else {
 				// Cancel - just deactivate without submitting
 				_editingInputField.DeactivateInputField();
-				Speech.Say("Cancelled");
+				Speech.Say(Strings.Get("common.cancelled"));
 			}
 
 			_isEditingTextField = false;
@@ -613,7 +614,7 @@ namespace ATSAccessibility.Overlays {
 				slider.value = newValue;
 
 				int percent = Mathf.RoundToInt(slider.normalizedValue * 100);
-				Speech.Say($"{percent} percent");
+				Speech.Say(Strings.Get("overlay.ui.slider.percent", percent));
 			}
 		}
 
@@ -733,11 +734,11 @@ namespace ATSAccessibility.Overlays {
 			// Hardcoded names for menus that pick up extraneous text
 			string popupName = _currentPopup.name;
 			if (popupName.Contains("Options") || popupName.Contains("Settings")) {
-				Speech.Say("Options");
+				Speech.Say(Strings.Get("overlay.ui.popup.options"));
 				yield break;
 			}
 			if (popupName.Contains("Pause") || popupName.Contains("GameMenu")) {
-				Speech.Say("Pause Menu");
+				Speech.Say(Strings.Get("overlay.ui.popup.pause"));
 				yield break;
 			}
 
@@ -803,7 +804,7 @@ namespace ATSAccessibility.Overlays {
 
 			string name;
 			if (_isTabbedPopup) {
-				name = _currentPanelIndex == 0 ? "Tabs" : "Content";
+				name = Strings.Get(_currentPanelIndex == 0 ? "overlay.ui.panel.tabs" : "common.content");
 			} else {
 				var panel = _panels[_currentPanelIndex];
 				name = UIElementFinder.CleanObjectName(panel.name);

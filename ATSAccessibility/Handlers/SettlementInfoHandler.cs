@@ -49,7 +49,7 @@ namespace ATSAccessibility.Handlers {
 		public static void AnnounceTrackedOrders() {
 			var orders = OrdersReflection.GetOrders();
 			if (orders == null || orders.Count == 0) {
-				Speech.Say("No orders");
+				Speech.Say(Strings.Get("handler.settleinfo.no_orders"));
 				return;
 			}
 
@@ -65,18 +65,18 @@ namespace ATSAccessibility.Handlers {
 				var model = OrdersReflection.GetOrderModel(orderState);
 				if (model == null) continue;
 
-				string name = OrdersReflection.GetOrderDisplayName(model) ?? "Unknown";
+				string name = OrdersReflection.GetOrderDisplayName(model) ?? Strings.Get("common.unknown");
 				var objectives = OrdersReflection.GetObjectiveTexts(model, orderState);
 				string objText = objectives.Count > 0 ? string.Join(", ", objectives) : "";
 
 				if (!string.IsNullOrEmpty(objText))
-					parts.Add($"{name}: {objText}");
+					parts.Add(Strings.Get("handler.settleinfo.order_with_objectives", name, objText));
 				else
 					parts.Add(name);
 			}
 
 			if (parts.Count == 0) {
-				Speech.Say("No tracked orders");
+				Speech.Say(Strings.Get("handler.settleinfo.no_tracked_orders"));
 				return;
 			}
 

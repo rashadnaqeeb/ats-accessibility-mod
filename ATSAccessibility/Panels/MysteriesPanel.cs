@@ -81,8 +81,8 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Modifiers";
-		protected override string EmptyMessage => "No modifiers active";
+		protected override string OverlayName => Strings.Get("common.modifiers");
+		protected override string EmptyMessage => Strings.Get("panel.mysteries.empty");
 
 		protected override int GetItemCount() {
 			if (Level == 0)
@@ -98,7 +98,7 @@ namespace ATSAccessibility.Panels {
 			if (Level == 0) {
 				if (index >= 0 && index < _categories.Count) {
 					var cat = _categories[index];
-					return $"{cat.Name}, {cat.Items.Count}";
+					return Strings.Get("panel.mysteries.category_label", cat.Name, cat.Items.Count);
 				}
 				return null;
 			}
@@ -126,7 +126,7 @@ namespace ATSAccessibility.Panels {
 
 			// Category 1: Biome Resources (soil, deposits, trees)
 			_categories.Add(new Category {
-				Name = "Biome Resources",
+				Name = Strings.Get("panel.mysteries.category.biome_resources"),
 				Type = ItemType.BiomeResource,
 				Items = GetBiomeResourceItems()
 			});
@@ -141,13 +141,13 @@ namespace ATSAccessibility.Panels {
 			var (positiveMysteries, negativeMysteries) = GetMysteriesByType(mysteryNames);
 
 			_categories.Add(new Category {
-				Name = "Positive Mysteries",
+				Name = Strings.Get("panel.mysteries.category.positive_mysteries"),
 				Type = ItemType.Mystery,
 				Items = positiveMysteries
 			});
 
 			_categories.Add(new Category {
-				Name = "Negative Mysteries",
+				Name = Strings.Get("panel.mysteries.category.negative_mysteries"),
 				Type = ItemType.Mystery,
 				Items = negativeMysteries
 			});
@@ -156,7 +156,7 @@ namespace ATSAccessibility.Panels {
 			// Excludes IsPerk=true effects (those show under Perks)
 			// Also collects effect names for exclusion from perks
 			_categories.Add(new Category {
-				Name = "Effects",
+				Name = Strings.Get("common.effects"),
 				Type = ItemType.Effect,
 				Items = GetActiveEffects(effectNames)
 			});
@@ -172,14 +172,14 @@ namespace ATSAccessibility.Panels {
 			}
 
 			_categories.Add(new Category {
-				Name = "Cornerstones",
+				Name = Strings.Get("common.cornerstones"),
 				Type = ItemType.Cornerstone,
 				Items = GetCornerstoneItems(cornerstones)
 			});
 
 			// Category 6: Perks (exclude mysteries + cornerstones + effects)
 			_categories.Add(new Category {
-				Name = "Perks",
+				Name = Strings.Get("common.perks"),
 				Type = ItemType.Perk,
 				Items = GetActivePerks(mysteryNames, cornerstoneNames, effectNames)
 			});
@@ -193,7 +193,7 @@ namespace ATSAccessibility.Panels {
 					&& _categories[_currentCategoryIndex].Items.Count > 0)
 					return EnterAction.DrillDown;
 
-				Speech.Say("No items in this category");
+				Speech.Say(Strings.Get("common.empty_category"));
 				return EnterAction.None;
 			}
 			return EnterAction.None;
@@ -232,7 +232,7 @@ namespace ATSAccessibility.Panels {
 		protected override void OnClosed() {
 			_categories.Clear();
 			InputBlocker.BlockCancelOnce = true;
-			Speech.Say($"{OverlayName} closed");
+			Speech.Say(Strings.Get("panel.mysteries.closed", OverlayName));
 		}
 
 		// ========================================
@@ -285,9 +285,9 @@ namespace ATSAccessibility.Panels {
 			string itemText = BuildItemAnnouncement(_currentItemIndex);
 
 			if (itemText != null)
-				Speech.Say($"{categoryName}. {itemText}");
+				Speech.Say(Strings.Get("panel.mysteries.category_with_item", categoryName, itemText));
 			else
-				Speech.Say($"{categoryName}, empty");
+				Speech.Say(Strings.Get("panel.mysteries.category_empty", categoryName));
 		}
 
 		// ========================================
@@ -310,9 +310,13 @@ namespace ATSAccessibility.Panels {
 			switch (item.Type) {
 				case ItemType.Mystery:
 					// Mysteries format: "Active/Inactive, Name [xN], Season. Description Condition"
-					string status = item.IsActive ? "Active" : "Inactive";
-					string mysteryName = item.Stacks > 1 ? $"{item.Name} x{item.Stacks}" : item.Name;
-					parts.Add($"{status}, {mysteryName}, {item.Season}.");
+					string status = item.IsActive
+						? Strings.Get("common.active")
+						: Strings.Get("common.inactive");
+					string mysteryName = item.Stacks > 1
+						? Strings.Get("panel.mysteries.name_with_stacks", item.Name, item.Stacks)
+						: item.Name;
+					parts.Add(Strings.Get("panel.mysteries.mystery_header", status, mysteryName, item.Season));
 
 					if (!string.IsNullOrEmpty(item.Description))
 						parts.Add(item.Description);
@@ -324,7 +328,7 @@ namespace ATSAccessibility.Panels {
 
 				case ItemType.Effect:
 					// Effects format: "Name. Description [StatusText]"
-					parts.Add(item.Name + ".");
+					parts.Add(Strings.Get("panel.mysteries.name_period", item.Name));
 					if (!string.IsNullOrEmpty(item.Description))
 						parts.Add(item.Description);
 					break;
@@ -332,9 +336,9 @@ namespace ATSAccessibility.Panels {
 				case ItemType.Cornerstone:
 					// Cornerstones format: "Name [xN]. Description [StatusText]"
 					if (item.Stacks > 1)
-						parts.Add($"{item.Name} x{item.Stacks}.");
+						parts.Add(Strings.Get("panel.mysteries.name_period", Strings.Get("panel.mysteries.name_with_stacks", item.Name, item.Stacks)));
 					else
-						parts.Add(item.Name + ".");
+						parts.Add(Strings.Get("panel.mysteries.name_period", item.Name));
 					if (!string.IsNullOrEmpty(item.Description))
 						parts.Add(item.Description);
 					break;
@@ -342,9 +346,9 @@ namespace ATSAccessibility.Panels {
 				case ItemType.Perk:
 					// Perks format: "Name x3. Description [StatusText]" or "Name. Description" if stacks=1
 					if (item.Stacks > 1)
-						parts.Add($"{item.Name} x{item.Stacks}.");
+						parts.Add(Strings.Get("panel.mysteries.name_period", Strings.Get("panel.mysteries.name_with_stacks", item.Name, item.Stacks)));
 					else
-						parts.Add(item.Name + ".");
+						parts.Add(Strings.Get("panel.mysteries.name_period", item.Name));
 
 					if (!string.IsNullOrEmpty(item.Description))
 						parts.Add(item.Description);
@@ -382,7 +386,7 @@ namespace ATSAccessibility.Panels {
 			string soilGrade = WorldMapReflection.GetBiomeSoilGrade(biome);
 			if (!string.IsNullOrEmpty(soilGrade)) {
 				items.Add(new MysteryItem {
-					Name = $"Soil: {soilGrade}",
+					Name = Strings.Get("panel.mysteries.biome_soil", soilGrade),
 					Type = ItemType.BiomeResource
 				});
 			}
@@ -391,7 +395,7 @@ namespace ATSAccessibility.Panels {
 			var deposits = WorldMapReflection.GetBiomeDepositsGoods(biome);
 			if (deposits != null && deposits.Count > 0) {
 				items.Add(new MysteryItem {
-					Name = $"Deposits: {string.Join(", ", deposits)}",
+					Name = Strings.Get("panel.mysteries.biome_deposits", string.Join(", ", deposits)),
 					Type = ItemType.BiomeResource
 				});
 			}
@@ -400,7 +404,7 @@ namespace ATSAccessibility.Panels {
 			var treeGoods = WorldMapReflection.GetBiomeTreesGoods(biome);
 			if (treeGoods != null && treeGoods.Count > 0) {
 				items.Add(new MysteryItem {
-					Name = $"Resources from trees: {string.Join(", ", treeGoods)}",
+					Name = Strings.Get("panel.mysteries.biome_trees", string.Join(", ", treeGoods)),
 					Type = ItemType.BiomeResource
 				});
 			}
@@ -780,7 +784,7 @@ namespace ATSAccessibility.Panels {
 				// Check hostility level requirement (both Simple and Conditional models have this)
 				int hostilityLevel = GameReflection.GetSeasonalEffectHostilityLevel(seasonalEffectModel);
 				if (hostilityLevel > 0) {
-					parts.Add($"Hostility level {hostilityLevel}");
+					parts.Add(Strings.Get("panel.mysteries.hostility_level", hostilityLevel));
 				}
 
 				// Check need category conditions (ConditionalSeasonalEffectModel only)
@@ -808,12 +812,12 @@ namespace ATSAccessibility.Panels {
 							string text = GameReflection.GetLocaText(displayName) ?? "";
 
 							if (!string.IsNullOrEmpty(text))
-								parts.Add($"{text} x{amount}");
+								parts.Add(Strings.Get("panel.mysteries.need_category", text, amount));
 						}
 					}
 				}
 
-				return parts.Count > 0 ? "requires " + string.Join(", ", parts) : "";
+				return parts.Count > 0 ? Strings.Get("panel.mysteries.requires", string.Join(", ", parts)) : "";
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GetConditionText failed: {ex.Message}");
 				return "";

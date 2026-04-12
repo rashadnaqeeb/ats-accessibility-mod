@@ -83,19 +83,19 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		protected override void RefreshData() {
-			_buildingName = BuildingReflection.GetBuildingName(_building) ?? "Unknown building";
+			_buildingName = BuildingReflection.GetBuildingName(_building) ?? Strings.Get("common.unknown_building");
 			_buildingDescription = BuildingReflection.GetBuildingDescription(_building);
 			_isFinished = BuildingReflection.IsBuildingFinished(_building);
 			_isSleeping = BuildingReflection.IsBuildingSleeping(_building);
 
 			// Build sections list
 			var sections = new System.Collections.Generic.List<string>();
-			sections.Add("Info");
+			sections.Add(Strings.Get("nav.simple.section.info"));
 
 			// Add Upgrades section if available
 			_hasUpgrades = TryInitializeUpgradesSection();
 			if (_hasUpgrades) {
-				sections.Add("Upgrades");
+				sections.Add(Strings.Get("common.upgrades"));
 			}
 
 			_sectionNames = sections.ToArray();
@@ -119,27 +119,27 @@ namespace ATSAccessibility.Navigators {
 			int index = 0;
 
 			// Name
-			if (itemIndex == index) return $"Name: {_buildingName}";
+			if (itemIndex == index) return Strings.Get("nav.simple.info.name", _buildingName);
 			index++;
 
 			// Description (if present)
 			if (!string.IsNullOrEmpty(_buildingDescription)) {
-				if (itemIndex == index) return $"Description: {_buildingDescription}";
+				if (itemIndex == index) return Strings.Get("nav.simple.info.description", _buildingDescription);
 				index++;
 			}
 
 			// Status
 			if (itemIndex == index) {
 				if (!_isFinished) {
-					return "Status: Under construction";
+					return Strings.Get("nav.simple.info.status_construction");
 				} else if (_isSleeping) {
-					return "Status: Paused";
+					return Strings.Get("nav.simple.info.status_paused");
 				} else {
-					return "Status: Active";
+					return Strings.Get("nav.simple.info.status_active");
 				}
 			}
 
-			return "Unknown item";
+			return Strings.Get("nav.simple.unknown_item");
 		}
 
 		// ========================================
@@ -155,13 +155,13 @@ namespace ATSAccessibility.Navigators {
 		protected override string GetItemName(int sectionIndex, int itemIndex) {
 			if (sectionIndex == 0) {
 				int index = 0;
-				if (itemIndex == index) return "Name";
+				if (itemIndex == index) return Strings.Get("common.name");
 				index++;
 				if (!string.IsNullOrEmpty(_buildingDescription)) {
-					if (itemIndex == index) return "Description";
+					if (itemIndex == index) return Strings.Get("nav.simple.search.description");
 					index++;
 				}
-				if (itemIndex == index) return "Status";
+				if (itemIndex == index) return Strings.Get("common.status");
 				return null;
 			}
 

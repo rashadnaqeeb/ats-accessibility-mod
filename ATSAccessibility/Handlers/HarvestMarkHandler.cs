@@ -63,13 +63,13 @@ namespace ATSAccessibility.Handlers {
 			_selectedPositions.Clear();
 			_mapNavigator.AnnouncementPrefix = GetAnnouncementPrefix;
 
-			string modeStr = isUnmark ? "Unmark" : "Mark";
-			Speech.Say($"{modeStr} mode, rectangle");
+			string modeStr = isUnmark ? Strings.Get("handler.harvestmark.mode_unmark") : Strings.Get("handler.harvestmark.mode_mark");
+			Speech.Say(Strings.Get("handler.harvestmark.mode_entered", modeStr));
 		}
 
 		private void ExitMode(bool announce = true) {
 			if (announce)
-				Speech.Say("Cancelled");
+				Speech.Say(Strings.Get("common.cancelled"));
 			_mode = Mode.None;
 			_rectPhase = RectPhase.Idle;
 			_awaitingGladeConfirm = false;
@@ -159,25 +159,25 @@ namespace ATSAccessibility.Handlers {
 				// Reset rect phase when deselecting during WaitingForSecond
 				if (_rectPhase == RectPhase.WaitingForSecond)
 					_rectPhase = RectPhase.Idle;
-				Speech.Say("Deselected");
+				Speech.Say(Strings.Get("handler.harvestmark.deselected"));
 				return;
 			}
 
 			if (_rectPhase == RectPhase.Idle) {
 				// Setting first corner - must be on a valid resource
 				if (!MapReflection.HasNaturalResourceAt(cursorPos)) {
-					Speech.Say("No tree here");
+					Speech.Say(Strings.Get("common.no_tree_here"));
 					return;
 				}
 
 				if (_mode == Mode.Unmark && !IsMarkedAt(cursorPos)) {
-					Speech.Say("Not marked");
+					Speech.Say(Strings.Get("handler.harvestmark.not_marked"));
 					return;
 				}
 
 				_firstCorner = cursorPos;
 				_rectPhase = RectPhase.WaitingForSecond;
-				Speech.Say("First corner");
+				Speech.Say(Strings.Get("handler.harvestmark.first_corner"));
 			} else {
 				// WaitingForSecond - calculate rectangle and select resources within
 				int minX = Mathf.Min(_firstCorner.x, cursorPos.x);
@@ -205,9 +205,9 @@ namespace ATSAccessibility.Handlers {
 				_selMode = SelMode.Single;
 
 				if (count > 0)
-					Speech.Say($"{count} selected. Now in single select");
+					Speech.Say(Strings.Get("handler.harvestmark.rect_selected", count));
 				else
-					Speech.Say("Rectangle empty. Now in single select");
+					Speech.Say(Strings.Get("handler.harvestmark.rect_empty"));
 			}
 		}
 
@@ -217,39 +217,39 @@ namespace ATSAccessibility.Handlers {
 			// Toggle if already selected
 			if (_selectedPositions.Contains(cursorPos)) {
 				_selectedPositions.Remove(cursorPos);
-				Speech.Say("Deselected");
+				Speech.Say(Strings.Get("handler.harvestmark.deselected"));
 				return;
 			}
 
 			// Must be on a NaturalResource
 			if (!MapReflection.HasNaturalResourceAt(cursorPos)) {
-				Speech.Say("No tree here");
+				Speech.Say(Strings.Get("common.no_tree_here"));
 				return;
 			}
 
 			// Unmark mode: must be marked
 			if (_mode == Mode.Unmark && !IsMarkedAt(cursorPos)) {
-				Speech.Say("Not marked");
+				Speech.Say(Strings.Get("handler.harvestmark.not_marked"));
 				return;
 			}
 
 			// Mark mode: skip already marked
 			if (_mode == Mode.Mark && IsMarkedAt(cursorPos)) {
-				Speech.Say("Already marked");
+				Speech.Say(Strings.Get("handler.harvestmark.already_marked"));
 				return;
 			}
 
 			_selectedPositions.Add(cursorPos);
-			Speech.Say("Selected");
+			Speech.Say(Strings.Get("common.selected"));
 		}
 
 		private void ToggleSelectionMode() {
 			if (_selMode == SelMode.Rectangle) {
 				_selMode = SelMode.Single;
-				Speech.Say("Single select");
+				Speech.Say(Strings.Get("handler.harvestmark.single_select"));
 			} else {
 				_selMode = SelMode.Rectangle;
-				Speech.Say("Rectangle select");
+				Speech.Say(Strings.Get("handler.harvestmark.rectangle_select"));
 			}
 
 			// Reset rect phase when switching modes
@@ -268,14 +268,14 @@ namespace ATSAccessibility.Handlers {
 			}
 
 			if (count > 0)
-				Speech.Say($"{count} selected");
+				Speech.Say(Strings.Get("handler.harvestmark.c_selected", count));
 			else
-				Speech.Say("None marked");
+				Speech.Say(Strings.Get("handler.harvestmark.none_marked"));
 		}
 
 		private void CommitSelection() {
 			if (_selectedPositions.Count == 0) {
-				Speech.Say("Nothing selected");
+				Speech.Say(Strings.Get("handler.harvestmark.nothing_selected"));
 				return;
 			}
 
@@ -289,8 +289,8 @@ namespace ATSAccessibility.Handlers {
 
 				if (gladeEdgeCount > 0) {
 					_awaitingGladeConfirm = true;
-					string treeWord = gladeEdgeCount == 1 ? "tree" : "trees";
-					Speech.Say($"{gladeEdgeCount} {treeWord} near glade edge. Enter to confirm");
+					string treeWord = gladeEdgeCount == 1 ? Strings.Get("handler.harvestmark.tree") : Strings.Get("handler.harvestmark.trees");
+					Speech.Say(Strings.Get("handler.harvestmark.glade_edge_warning", gladeEdgeCount, treeWord));
 					return;
 				}
 			}
@@ -307,16 +307,16 @@ namespace ATSAccessibility.Handlers {
 						count++;
 				}
 
-				string treeWord = count == 1 ? "tree" : "trees";
-				Speech.Say($"Marked {count} {treeWord}");
+				string treeWord = count == 1 ? Strings.Get("handler.harvestmark.tree") : Strings.Get("handler.harvestmark.trees");
+				Speech.Say(Strings.Get("handler.harvestmark.marked", count, treeWord));
 			} else {
 				foreach (var pos in _selectedPositions) {
 					if (MapReflection.UnmarkNaturalResourceAt(pos))
 						count++;
 				}
 
-				string treeWord = count == 1 ? "tree" : "trees";
-				Speech.Say($"Unmarked {count} {treeWord}");
+				string treeWord = count == 1 ? Strings.Get("handler.harvestmark.tree") : Strings.Get("handler.harvestmark.trees");
+				Speech.Say(Strings.Get("handler.harvestmark.unmarked", count, treeWord));
 			}
 
 			ExitMode(announce: false);
@@ -326,10 +326,10 @@ namespace ATSAccessibility.Handlers {
 			var pos = new Vector2Int(x, y);
 
 			if (_rectPhase == RectPhase.WaitingForSecond && pos == _firstCorner)
-				return "first corner";
+				return Strings.Get("handler.harvestmark.prefix_first_corner");
 
 			if (_selectedPositions.Contains(pos))
-				return "selected";
+				return Strings.Get("common.selected_lower");
 
 			return null;
 		}

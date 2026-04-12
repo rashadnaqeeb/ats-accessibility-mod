@@ -29,8 +29,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Rewards";
-		protected override string EmptyMessage => "No items";
+		protected override string OverlayName => Strings.Get("common.rewards");
+		protected override string EmptyMessage => Strings.Get("common.no_items");
 
 		protected override int GetItemCount() => _items.Count;
 
@@ -63,7 +63,7 @@ namespace ATSAccessibility.Overlays {
 					int amount = PopupReflection.GetGoodAmount(good);
 					string displayName = PopupReflection.GetGoodDisplayName(name);
 					if (amount > 1)
-						_items.Add($"{displayName}, {amount}");
+						_items.Add(Strings.Get("overlay.rewards_pack.good_with_amount", displayName, amount));
 					else
 						_items.Add(displayName);
 				}
@@ -86,7 +86,7 @@ namespace ATSAccessibility.Overlays {
 
 					if (!string.IsNullOrEmpty(displayName)) {
 						if (!string.IsNullOrEmpty(description))
-							_items.Add($"{displayName}: {description}");
+							_items.Add(Strings.Get("overlay.rewards_pack.effect_with_desc", displayName, description));
 						else
 							_items.Add(displayName);
 					}
@@ -106,7 +106,7 @@ namespace ATSAccessibility.Overlays {
 
 		protected override EscapeAction OnEscape() {
 			Dismiss();
-			Speech.Say("Closed");
+			Speech.Say(Strings.Get("common.closed"));
 			InputBlocker.BlockCancelOnce = true;
 			return EscapeAction.Close;
 		}
@@ -121,8 +121,8 @@ namespace ATSAccessibility.Overlays {
 			string announcement = !string.IsNullOrEmpty(flavorText) ? flavorText : OverlayName;
 
 			if (_items.Count > 0)
-				return $"{announcement}. {_items[0]}";
-			return $"{announcement}. {EmptyMessage}";
+				return Strings.Get("overlay.rewards_pack.open", announcement, _items[0]);
+			return Strings.Get("overlay.rewards_pack.open", announcement, EmptyMessage);
 		}
 
 		protected override void OnClosed() {

@@ -12,6 +12,13 @@
 
 ### Internal
 - Localization groundwork: add `Utils/Strings.cs` + `LocalizationReflection.cs` + embedded `Strings/English.properties` table. Detects game language via `TextsService.CurrentLocaCode` and falls back to English. Migrated `ConfirmationDialog`, `HelpOverlay`, and `WorkersPanel` as proof-of-concept; remaining files still use English literals.
+- Migrated `Overlays/` English literals to the localization table (`overlay.*` keys)
+- Migrated `Navigators/` English literals to the localization table (`nav.*` keys)
+- Migrated `Handlers/` English literals to the localization table (`handler.*` keys)
+- Migrated `Utils/` English literals to the localization table (`util.*` keys)
+- Migrated remaining user-facing strings in `Reflection/` to the localization table (`reflection.*` keys)
+- Migrated remaining `Panels/` files to the localization table (`panel.*` keys)
+- Localization dedupe pass: consolidated 443 per-subsystem keys with byte-identical values into 159 shared `common.*` keys in `en.properties` (e.g. `common.unknown`, `common.cancelled`, `common.locked`, direction/season names).
 
 ## v1.3.4
 

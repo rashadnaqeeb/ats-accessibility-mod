@@ -28,8 +28,8 @@ namespace ATSAccessibility.Panels {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Stats panel";
-		protected override string EmptyMessage => "No stats available";
+		protected override string OverlayName => Strings.Get("panel.stats.title");
+		protected override string EmptyMessage => Strings.Get("panel.stats.empty");
 
 		protected override int GetItemCount() {
 			if (Level == 0)
@@ -45,7 +45,7 @@ namespace ATSAccessibility.Panels {
 			if (Level == 0) {
 				if (index >= 0 && index < _categories.Count) {
 					var cat = _categories[index];
-					return $"{cat.Name}, {cat.Value}";
+					return Strings.Get("panel.stats.category", cat.Name, cat.Value);
 				}
 				return null;
 			}
@@ -74,8 +74,8 @@ namespace ATSAccessibility.Panels {
 			var rep = StatsReader.GetReputationSummary();
 			var repBreakdown = StatsReader.GetReputationBreakdown();
 			_categories.Add(new Category {
-				Name = "Reputation",
-				Value = $"{rep.current:0.##} of {rep.target}",
+				Name = Strings.Get("panel.stats.reputation"),
+				Value = Strings.Get("panel.stats.reputation_value", rep.current, rep.target),
 				Details = repBreakdown
 			});
 
@@ -83,8 +83,8 @@ namespace ATSAccessibility.Panels {
 			var imp = StatsReader.GetImpatienceSummary();
 			var impBreakdown = StatsReader.GetImpatienceBreakdown();
 			_categories.Add(new Category {
-				Name = "Queen's Impatience",
-				Value = $"{imp.current:0.##} of {imp.max}",
+				Name = Strings.Get("panel.stats.impatience"),
+				Value = Strings.Get("panel.stats.impatience_value", imp.current, imp.max),
 				Details = impBreakdown
 			});
 
@@ -92,8 +92,8 @@ namespace ATSAccessibility.Panels {
 			var host = StatsReader.GetHostilitySummary();
 			var hostBreakdown = StatsReader.GetHostilityBreakdown();
 			_categories.Add(new Category {
-				Name = "Hostility",
-				Value = $"{host.points} points, level {host.level}",
+				Name = Strings.Get("panel.stats.hostility"),
+				Value = Strings.Get("panel.stats.hostility_value", host.points, host.level),
 				Details = hostBreakdown
 			});
 
@@ -105,8 +105,8 @@ namespace ATSAccessibility.Panels {
 				int population = StatsReader.GetRaceCount(raceName);
 
 				_categories.Add(new Category {
-					Name = $"{raceName} Resolve",
-					Value = $"{Mathf.FloorToInt(resolve)} of {threshold}, settling to {settling}, {population} villagers",
+					Name = Strings.Get("panel.stats.resolve_name", raceName),
+					Value = Strings.Get("panel.stats.resolve_value", Mathf.FloorToInt(resolve), threshold, settling, population),
 					Details = resolveBreakdown
 				});
 			}
@@ -120,7 +120,7 @@ namespace ATSAccessibility.Panels {
 					&& _categories[_currentCategoryIndex].Details.Count > 0)
 					return EnterAction.DrillDown;
 
-				Speech.Say("No additional details");
+				Speech.Say(Strings.Get("panel.stats.no_details"));
 				return EnterAction.None;
 			}
 			return EnterAction.None;
@@ -142,7 +142,7 @@ namespace ATSAccessibility.Panels {
 		protected override void OnClosed() {
 			_categories.Clear();
 			InputBlocker.BlockCancelOnce = true;
-			Speech.Say($"{OverlayName} closed");
+			Speech.Say(Strings.Get("panel.stats.closed", OverlayName));
 		}
 	}
 }

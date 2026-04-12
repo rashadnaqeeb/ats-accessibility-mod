@@ -341,7 +341,7 @@ namespace ATSAccessibility.Utils {
 			foreach (var (message, time, location) in _pendingMessages) {
 				// Skip blueprint announcement if overlay is showing description
 				if (ReputationRewardOverlay.SuppressBlueprintAnnouncement &&
-					message == "New blueprint available to pick") {
+					message == Strings.Get("util.event.new_blueprint")) {
 					continue;
 				}
 
@@ -361,7 +361,7 @@ namespace ATSAccessibility.Utils {
 			var formattedMessages = new List<string>();
 			foreach (var message in messageOrder) {
 				int count = messageCounts[message];
-				string formatted = count > 1 ? $"{message} x{count}" : message;
+				string formatted = count > 1 ? Strings.Get("util.event.duplicate", message, count) : message;
 				formattedMessages.Add(formatted);
 
 				// Add each message to history individually for review
@@ -410,7 +410,7 @@ namespace ATSAccessibility.Utils {
 
 			// Announce season change if enabled
 			if (Plugin.AnnounceSeasonChanged.Value) {
-				Announce($"Season changed to {seasonName}");
+				Announce(Strings.Get("util.event.season_changed", seasonName));
 			}
 
 			// Check for Sealed Forest plague events
@@ -446,19 +446,19 @@ namespace ATSAccessibility.Utils {
 					description = RichTextTagsRegex.Replace(description, "").Trim();
 
 				if (!string.IsNullOrEmpty(description))
-					Announce($"Plague activated: {displayName}. {description}");
+					Announce(Strings.Get("util.event.plague_activated_with_description", displayName, description));
 				else
-					Announce($"Plague activated: {displayName}");
+					Announce(Strings.Get("util.event.plague_activated", displayName));
 			} else if (seasonName == "Drizzle") {
 				// Plague ends when Drizzle starts
-				Announce("Plague ended");
+				Announce(Strings.Get("util.event.plague_ended"));
 			}
 		}
 
 		private void OnYearChanged(object year) {
 			if (!Plugin.AnnounceYearChanged.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce($"Year {year}");
+			Announce(Strings.Get("util.event.year", year));
 		}
 
 		// ========================================
@@ -481,7 +481,7 @@ namespace ATSAccessibility.Utils {
 		private void OnNewcomersArrival(object _) {
 			if (!Plugin.AnnounceNewcomersWaiting.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Newcomers waiting to be picked");
+			Announce(Strings.Get("util.event.newcomers_waiting"));
 		}
 
 		// ========================================
@@ -509,7 +509,7 @@ namespace ATSAccessibility.Utils {
 				EventReflection.EnsureVillagerReflectionCached(villager);
 
 				// Get villager name using cached method
-				string villagerName = EventReflection.VillagerGetDisplayNameMethod?.Invoke(villager, null) as string ?? "Villager";
+				string villagerName = EventReflection.VillagerGetDisplayNameMethod?.Invoke(villager, null) as string ?? Strings.Get("util.event.villager");
 
 				// Get loss type from villager.state.lossType using cached fields
 				var state = EventReflection.VillagerStateField?.GetValue(villager);
@@ -526,19 +526,19 @@ namespace ATSAccessibility.Utils {
 
 				string message;
 				if (lossTypeStr == "Leave")
-					message = $"{villagerName} left";
+					message = Strings.Get("util.event.villager_left", villagerName);
 				else if (lossTypeStr == "Exile")
-					message = $"{villagerName} exiled";
+					message = Strings.Get("util.event.villager_exiled", villagerName);
 				else
-					message = $"{villagerName} died";
+					message = Strings.Get("util.event.villager_died", villagerName);
 
 				if (!string.IsNullOrEmpty(reason))
-					message += $": {reason}";
+					message = Strings.Get("util.event.with_reason", message, reason);
 
 				Announce(message, GetVillagerLocation(villager));
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] OnVillagerRemoved failed: {ex.Message}");
-				Announce("Villager lost");
+				Announce(Strings.Get("common.villager_lost"));
 			}
 		}
 
@@ -571,7 +571,7 @@ namespace ATSAccessibility.Utils {
 			int lvl = level is int i ? i : -1;
 			if (lvl != _lastAnnouncedHostilityLevel) {
 				_lastAnnouncedHostilityLevel = lvl;
-				Announce($"Hostility increased to level {lvl}");
+				Announce(Strings.Get("util.event.hostility_increased", lvl));
 			}
 		}
 
@@ -581,7 +581,7 @@ namespace ATSAccessibility.Utils {
 			int lvl = level is int i ? i : -1;
 			if (lvl != _lastAnnouncedHostilityLevel) {
 				_lastAnnouncedHostilityLevel = lvl;
-				Announce($"Hostility decreased to level {lvl}");
+				Announce(Strings.Get("util.event.hostility_decreased", lvl));
 			}
 		}
 
@@ -605,7 +605,7 @@ namespace ATSAccessibility.Utils {
 		private void OnTraderDeparted(object traderVisit) {
 			if (!Plugin.AnnounceTraderDeparted.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Trader departed");
+			Announce(Strings.Get("common.trader_departed"));
 		}
 
 		// ========================================
@@ -644,19 +644,19 @@ namespace ATSAccessibility.Utils {
 
 			if (!Plugin.AnnounceOrderAvailable.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("New order available");
+			Announce(Strings.Get("util.event.new_order"));
 		}
 
 		private void OnOrderCompleted(object orderState) {
 			if (!Plugin.AnnounceOrderCompleted.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Order completed");
+			Announce(Strings.Get("common.order_completed"));
 		}
 
 		private void OnOrderFailed(object orderState) {
 			if (!Plugin.AnnounceOrderFailed.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Order failed");
+			Announce(Strings.Get("common.order_failed"));
 		}
 
 		// ========================================
@@ -691,13 +691,13 @@ namespace ATSAccessibility.Utils {
 					if (dangerLevel != null) {
 						string level = dangerLevel.ToString();
 						if (level != "None" && level != "Safe") {
-							dangerInfo = $", {level} danger";
+							dangerInfo = Strings.Get("util.event.glade_danger_suffix", level);
 						}
 					}
 				}
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] OnGladeRevealed danger lookup failed: {ex.Message}"); }
 
-			Announce($"Glade revealed{dangerInfo}", GetGladeLocation(gladeState));
+			Announce(Strings.Get("util.event.glade_revealed", dangerInfo), GetGladeLocation(gladeState));
 		}
 
 		// ========================================
@@ -737,9 +737,9 @@ namespace ATSAccessibility.Utils {
 					// Format to 1 decimal place
 					string amountStr = Math.Abs(amount).ToString("F1");
 					if (amount > 0)
-						Announce($"Reputation gained: {amountStr}");
+						Announce(Strings.Get("util.event.reputation_gained", amountStr));
 					else
-						Announce($"Reputation lost: {amountStr}");
+						Announce(Strings.Get("util.event.reputation_lost", amountStr));
 				}
 			} catch {
 				// Fallback
@@ -751,9 +751,9 @@ namespace ATSAccessibility.Utils {
 
 			bool isWon = won is bool b && b;
 			if (isWon)
-				Announce("Victory! Game won");
+				Announce(Strings.Get("util.event.victory"));
 			else
-				Announce("Defeat! Game lost");
+				Announce(Strings.Get("util.event.defeat"));
 		}
 
 		// ========================================
@@ -803,7 +803,7 @@ namespace ATSAccessibility.Utils {
 
 					// Strip any rich text tags like <color>, <b>, etc.
 					string cleanContent = RichTextTagsRegex.Replace(content, "");
-					Announce($"Alert: {cleanContent}");
+					Announce(Strings.Get("util.event.alert", cleanContent));
 				}
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] OnNewsPublished failed: {ex.Message}"); }
 		}
@@ -905,7 +905,7 @@ namespace ATSAccessibility.Utils {
 			if (IsInGracePeriod()) return; // Ignore events during initialization
 
 			string buildingName = GetBuildingName(building);
-			Announce($"{buildingName} construction complete", GetBuildingLocation(building));
+			Announce(Strings.Get("util.event.construction_complete", buildingName), GetBuildingLocation(building));
 		}
 
 		/// <summary>
@@ -913,7 +913,7 @@ namespace ATSAccessibility.Utils {
 		/// Building has a DisplayName property that returns BuildingModel.displayName.Text
 		/// </summary>
 		private string GetBuildingName(object building) {
-			if (building == null) return "Building";
+			if (building == null) return Strings.Get("common.building");
 
 			try {
 				// Try DisplayName property first (direct on Building)
@@ -938,7 +938,7 @@ namespace ATSAccessibility.Utils {
 				// Failed to get building name, return fallback
 			}
 
-			return "Building";
+			return Strings.Get("common.building");
 		}
 
 		// OnBuildingDestroyed removed - covered by game's AlertsBuildingLoss
@@ -946,7 +946,7 @@ namespace ATSAccessibility.Utils {
 		private void OnHearthIgnited(object hearth) {
 			if (!Plugin.AnnounceHearthIgnited.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Hearth ignited", GetBuildingLocation(hearth));
+			Announce(Strings.Get("common.hearth_ignited"), GetBuildingLocation(hearth));
 		}
 
 		// OnHearthDied removed - covered by game's AlertsFireDown
@@ -954,19 +954,19 @@ namespace ATSAccessibility.Utils {
 		private void OnHearthLeveledUp(object hearth) {
 			if (!Plugin.AnnounceHearthLevelChange.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Hearth leveled up", GetBuildingLocation(hearth));
+			Announce(Strings.Get("util.event.hearth_leveled_up"), GetBuildingLocation(hearth));
 		}
 
 		private void OnHearthLeveledDown(object hearth) {
 			if (!Plugin.AnnounceHearthLevelChange.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Hearth leveled down", GetBuildingLocation(hearth));
+			Announce(Strings.Get("util.event.hearth_leveled_down"), GetBuildingLocation(hearth));
 		}
 
 		private void OnHearthCorrupted(object hearth) {
 			if (!Plugin.AnnounceHearthCorrupted.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Hearth corrupted by blight", GetBuildingLocation(hearth));
+			Announce(Strings.Get("util.event.hearth_corrupted"), GetBuildingLocation(hearth));
 		}
 
 		private void OnGoodDiscovered(object goodName) {
@@ -989,7 +989,7 @@ namespace ATSAccessibility.Utils {
 				}
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] OnGoodDiscovered name lookup failed: {ex.Message}"); }
 
-			Announce($"New good discovered: {name}");
+			Announce(Strings.Get("util.event.good_discovered", name));
 		}
 
 		// OnBlightCystSpawned removed - covered by game's AlertsBlight
@@ -1000,27 +1000,27 @@ namespace ATSAccessibility.Utils {
 
 			// Relic extends Building, so we can use GetBuildingName
 			string relicName = GetBuildingName(relic);
-			if (relicName == "Building") relicName = "Relic"; // Fallback
+			if (relicName == Strings.Get("common.building")) relicName = Strings.Get("common.relic"); // Fallback
 
-			Announce($"{relicName} resolved", GetBuildingLocation(relic));
+			Announce(Strings.Get("util.event.relic_resolved", relicName), GetBuildingLocation(relic));
 		}
 
 		private void OnRewardChaseStarted(object gladeState) {
 			if (!Plugin.AnnounceRewardChase.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Reward chase started", GetGladeLocation(gladeState));
+			Announce(Strings.Get("util.event.reward_chase_started"), GetGladeLocation(gladeState));
 		}
 
 		private void OnRewardChaseEnded(object gladeState) {
 			if (!Plugin.AnnounceRewardChase.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Reward chase ended", GetGladeLocation(gladeState));
+			Announce(Strings.Get("util.event.reward_chase_ended"), GetGladeLocation(gladeState));
 		}
 
 		private void OnPortExpeditionStarted(object port) {
 			if (!Plugin.AnnouncePortExpeditionStarted.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Expedition departed", GetBuildingLocation(port));
+			Announce(Strings.Get("common.expedition_departed"), GetBuildingLocation(port));
 		}
 
 		// ========================================
@@ -1050,19 +1050,19 @@ namespace ATSAccessibility.Utils {
 		private void OnGrassLocationRevealed() {
 			if (!Plugin.AnnounceLocateMarkers.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Fertile soil location revealed", GetLastRevealedLocation(MapReflection.GetRevealedGrassLocations()));
+			Announce(Strings.Get("util.event.fertile_soil_revealed"), GetLastRevealedLocation(MapReflection.GetRevealedGrassLocations()));
 		}
 
 		private void OnSpringsLocationRevealed() {
 			if (!Plugin.AnnounceLocateMarkers.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Spring location revealed", GetLastRevealedLocation(MapReflection.GetRevealedSpringsLocations()));
+			Announce(Strings.Get("util.event.spring_revealed"), GetLastRevealedLocation(MapReflection.GetRevealedSpringsLocations()));
 		}
 
 		private void OnRelicLocationRevealed() {
 			if (!Plugin.AnnounceLocateMarkers.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("Relic location revealed", GetLastRevealedLocation(MapReflection.GetRevealedRelicLocations()));
+			Announce(Strings.Get("util.event.relic_location_revealed"), GetLastRevealedLocation(MapReflection.GetRevealedRelicLocations()));
 		}
 
 		private void OnRelicHighlighted(string relicName, UnityEngine.Vector2Int position) {
@@ -1071,7 +1071,7 @@ namespace ATSAccessibility.Utils {
 
 			// Get a friendly name for the relic
 			string friendlyName = GameReflection.GetRelicDisplayName(relicName);
-			Announce($"Relic highlighted: {friendlyName}", (Vector2Int?)position);
+			Announce(Strings.Get("util.event.relic_highlighted", friendlyName), (Vector2Int?)position);
 		}
 
 		// ========================================
@@ -1093,7 +1093,7 @@ namespace ATSAccessibility.Utils {
 		private void OnBlueprintPickRequested(object _) {
 			if (!Plugin.AnnounceBlueprintAvailable.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("New blueprint available to pick");
+			Announce(Strings.Get("util.event.new_blueprint"));
 		}
 
 		// ========================================
@@ -1115,7 +1115,7 @@ namespace ATSAccessibility.Utils {
 		private void OnCornerstonePicksChanged(object _) {
 			if (!Plugin.AnnounceCornerstoneAvailable.Value) return;
 			if (IsInGracePeriod()) return;
-			Announce("New cornerstone available to pick");
+			Announce(Strings.Get("util.event.new_cornerstone"));
 		}
 
 		// ========================================
@@ -1176,7 +1176,7 @@ namespace ATSAccessibility.Utils {
 						// Strip "Alert:" or "Alert" prefix if game already includes it
 						text = AlertPrefixRegex.Replace(text, "");
 
-						Announce($"Alert: {text}", TryGetAlertBuildingLocation(alert));
+						Announce(Strings.Get("util.event.alert", text), TryGetAlertBuildingLocation(alert));
 					}
 				}
 			} catch (Exception ex) {
@@ -1256,7 +1256,7 @@ namespace ATSAccessibility.Utils {
 					if (wasOn && !isOn) {
 						// Sacrifice stopped - announce it
 						if (_instance != null && !_instance.IsInGracePeriod()) {
-							_instance.Announce("Sacrifice stopped");
+							_instance.Announce(Strings.Get("common.sacrifice_stopped"));
 						}
 					}
 				}
@@ -1376,8 +1376,8 @@ namespace ATSAccessibility.Utils {
 				if (_buildingIdleStates.TryGetValue(key, out bool wasIdle)) {
 					if (!wasIdle && isIdle) {
 						if (_instance != null && !_instance.IsInGracePeriod()) {
-							string name = _displayNameProp?.GetValue(__instance) as string ?? "Building";
-							_instance.Announce($"{name} idle", GetBuildingLocation(__instance));
+							string name = _displayNameProp?.GetValue(__instance) as string ?? Strings.Get("common.building");
+							_instance.Announce(Strings.Get("util.event.building_idle", name), GetBuildingLocation(__instance));
 						}
 					}
 				}

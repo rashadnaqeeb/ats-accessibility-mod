@@ -35,16 +35,16 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Trends";
+		protected override string OverlayName => Strings.Get("common.trends");
 
-		protected override string EmptyMessage => "No goods with trend data";
+		protected override string EmptyMessage => Strings.Get("overlay.trends.empty");
 
 		protected override int GetItemCount() => _operations.Count;
 
 		protected override string GetLabel(int index) {
 			if (index < 0 || index >= _operations.Count) return null;
 			var op = _operations[index];
-			return $"{op.DisplayName}: {FormatAmount(op.TotalAmount)}";
+			return Strings.Get("overlay.trends.operation", op.DisplayName, FormatAmount(op.TotalAmount));
 		}
 
 		protected override void RefreshData() {
@@ -74,7 +74,7 @@ namespace ATSAccessibility.Overlays {
 
 			string goodName = GetCurrentGoodDisplayName();
 			string changeText = FormatNetChange(GetNetChangeFromOperations());
-			return $"{goodName}, {changeText}";
+			return Strings.Get("overlay.trends.announce", goodName, changeText);
 		}
 
 		protected override void OnClosed() {
@@ -100,17 +100,17 @@ namespace ATSAccessibility.Overlays {
 				// Time frame toggles
 				case KeyCode.Alpha1:
 				case KeyCode.Keypad1:
-					SetTimeFrame(TICKS_10_SECONDS, "Last 10 seconds");
+					SetTimeFrame(TICKS_10_SECONDS, Strings.Get("overlay.trends.range.10sec"));
 					return true;
 
 				case KeyCode.Alpha2:
 				case KeyCode.Keypad2:
-					SetTimeFrame(TICKS_1_MINUTE, "Last minute");
+					SetTimeFrame(TICKS_1_MINUTE, Strings.Get("overlay.trends.range.1min"));
 					return true;
 
 				case KeyCode.Alpha3:
 				case KeyCode.Keypad3:
-					SetTimeFrame(TICKS_5_MINUTES, "Last 5 minutes");
+					SetTimeFrame(TICKS_5_MINUTES, Strings.Get("overlay.trends.range.5min"));
 					return true;
 
 				// Goods navigation (separate axis)
@@ -194,13 +194,13 @@ namespace ATSAccessibility.Overlays {
 
 		private void AnnounceTimeFrameAndGood(string timeFrameLabel) {
 			if (_goods.Count == 0) {
-				Speech.Say($"{timeFrameLabel}. No goods");
+				Speech.Say(Strings.Get("overlay.trends.time_frame_empty", timeFrameLabel));
 				return;
 			}
 
 			string goodName = GetCurrentGoodDisplayName();
 			string changeText = FormatNetChange(GetNetChangeFromOperations());
-			Speech.Say($"{timeFrameLabel}. {goodName}, {changeText}");
+			Speech.Say(Strings.Get("overlay.trends.time_frame", timeFrameLabel, goodName, changeText));
 		}
 
 		// ========================================
@@ -209,18 +209,18 @@ namespace ATSAccessibility.Overlays {
 
 		private void AnnounceCurrentGood() {
 			if (_goods.Count == 0 || _goodIndex < 0 || _goodIndex >= _goods.Count) {
-				Speech.Say("No goods");
+				Speech.Say(Strings.Get("overlay.trends.no_goods"));
 				return;
 			}
 
 			string goodName = GetCurrentGoodDisplayName();
 			string changeText = FormatNetChange(GetNetChangeFromOperations());
-			Speech.Say($"{goodName}, {changeText}");
+			Speech.Say(Strings.Get("overlay.trends.announce", goodName, changeText));
 		}
 
 		private string GetCurrentGoodDisplayName() {
 			if (_goods.Count == 0 || _goodIndex < 0 || _goodIndex >= _goods.Count)
-				return "Unknown";
+				return Strings.Get("common.unknown");
 
 			return TrendsReflection.GetGoodDisplayName(_goods[_goodIndex]);
 		}
@@ -238,16 +238,16 @@ namespace ATSAccessibility.Overlays {
 
 		private string FormatNetChange(int amount) {
 			if (amount == 0)
-				return "no changes";
+				return Strings.Get("overlay.trends.net.zero");
 			else if (amount > 0)
-				return $"net +{amount}";
+				return Strings.Get("overlay.trends.net.pos", amount);
 			else
-				return $"net {amount}";
+				return Strings.Get("overlay.trends.net.neg", amount);
 		}
 
 		private string FormatAmount(int amount) {
 			if (amount > 0)
-				return $"+{amount}";
+				return Strings.Get("overlay.trends.amount.pos", amount);
 			else
 				return amount.ToString();
 		}

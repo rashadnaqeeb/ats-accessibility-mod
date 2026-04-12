@@ -41,8 +41,8 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Consumption";
-		protected override string EmptyMessage => "No categories available";
+		protected override string OverlayName => Strings.Get("overlay.consumption.title");
+		protected override string EmptyMessage => Strings.Get("common.no_categories_available");
 
 		protected override int GetItemCount() {
 			switch (Level) {
@@ -90,7 +90,7 @@ namespace ATSAccessibility.Overlays {
 				RefreshItems(_categories[index]);
 
 				if (_items.Count == 0) {
-					Speech.Say("No items");
+					Speech.Say(Strings.Get("common.no_items"));
 					return false;
 				}
 				return true;
@@ -103,7 +103,7 @@ namespace ATSAccessibility.Overlays {
 				RefreshRaces(_items[index]);
 
 				if (_races.Count == 0) {
-					Speech.Say("No races");
+					Speech.Say(Strings.Get("overlay.consumption.no_races"));
 					return false;
 				}
 				return true;
@@ -130,14 +130,14 @@ namespace ATSAccessibility.Overlays {
 			if (_isBlocked) {
 				string effects = ConsumptionReflection.GetBlockingEffectsList();
 				if (!string.IsNullOrEmpty(effects))
-					return $"Consumption control blocked by {effects}";
-				return "Consumption control blocked";
+					return Strings.Get("overlay.consumption.blocked_with", effects);
+				return Strings.Get("overlay.consumption.blocked");
 			}
 
 			if (_categories.Count > 0)
-				return $"Consumption. {GetCategoryAnnouncement(0)}";
+				return Strings.Get("overlay.consumption.open", GetCategoryAnnouncement(0));
 
-			return $"Consumption. {EmptyMessage}";
+			return Strings.Get("overlay.consumption.open", EmptyMessage);
 		}
 
 		protected override void OnClosed() {
@@ -184,7 +184,7 @@ namespace ATSAccessibility.Overlays {
 			if (_categories.Count == 0) return;
 
 			if (_isBlocked) {
-				Speech.Say("Blocked");
+				Speech.Say(Strings.Get("overlay.consumption.toggle.blocked"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -209,14 +209,14 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			SoundManager.PlayButtonClick();
-			Speech.Say(setTo ? "Permitted" : "Prohibited");
+			Speech.Say(Strings.Get(setTo ? "overlay.consumption.toggle.permitted" : "overlay.consumption.toggle.prohibited"));
 		}
 
 		private void ToggleItem() {
 			if (_items.Count == 0) return;
 
 			if (_isBlocked) {
-				Speech.Say("Blocked");
+				Speech.Say(Strings.Get("overlay.consumption.toggle.blocked"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -239,14 +239,14 @@ namespace ATSAccessibility.Overlays {
 			}
 
 			SoundManager.PlayButtonClick();
-			Speech.Say(setTo ? "Permitted" : "Prohibited");
+			Speech.Say(Strings.Get(setTo ? "overlay.consumption.toggle.permitted" : "overlay.consumption.toggle.prohibited"));
 		}
 
 		private void ToggleRace() {
 			if (_races.Count == 0 || _items.Count == 0) return;
 
 			if (_isBlocked) {
-				Speech.Say("Blocked");
+				Speech.Say(Strings.Get("overlay.consumption.toggle.blocked"));
 				SoundManager.PlayFailed();
 				return;
 			}
@@ -257,7 +257,7 @@ namespace ATSAccessibility.Overlays {
 			ConsumptionReflection.SetNeedPermissionForRace(race, need, setTo);
 
 			SoundManager.PlayButtonClick();
-			Speech.Say(setTo ? "Permitted" : "Prohibited");
+			Speech.Say(Strings.Get(setTo ? "overlay.consumption.toggle.permitted" : "overlay.consumption.toggle.prohibited"));
 		}
 
 		// ========================================
@@ -270,41 +270,41 @@ namespace ATSAccessibility.Overlays {
 
 			if (cat.IsRace) {
 				string status = ConsumptionReflection.GetRaceNeedsStatus(cat.Race);
-				return $"{cat.Name}, {status}";
+				return Strings.Get("overlay.consumption.category_row", cat.Name, status);
 			}
 
 			string catStatus = ConsumptionReflection.GetCategoryStatus(cat.Category, cat.IsRawFood);
-			return $"{cat.Name}, {catStatus}";
+			return Strings.Get("overlay.consumption.category_row", cat.Name, catStatus);
 		}
 
 		private string GetItemAnnouncement(int index) {
 			if (index < 0 || index >= _items.Count) return "";
 
-			string name = (index < _itemNames.Count) ? _itemNames[index] : "Unknown";
+			string name = (index < _itemNames.Count) ? _itemNames[index] : Strings.Get("common.unknown");
 
 			if (_currentCategoryIsRawFood) {
 				string id = _items[index] as string;
 				bool permitted = (id != null) && ConsumptionReflection.IsRawFoodPermitted(id);
-				return $"{name}, {(permitted ? "permitted" : "prohibited")}";
+				return Strings.Get("overlay.consumption.item_row", name, Strings.Get(permitted ? "overlay.consumption.status.permitted" : "overlay.consumption.status.prohibited"));
 			} else {
 				var need = _items[index];
 				string status = ConsumptionReflection.GetNeedStatus(need);
-				return $"{name}, {status}";
+				return Strings.Get("overlay.consumption.item_row", name, status);
 			}
 		}
 
 		private string GetRaceAnnouncement(int index) {
 			if (index < 0 || index >= _races.Count || _items.Count == 0) return "";
 
-			string name = (index < _raceNames.Count) ? _raceNames[index] : "Unknown";
+			string name = (index < _raceNames.Count) ? _raceNames[index] : Strings.Get("common.unknown");
 			var race = _races[index];
 			var need = _items[_indices[1]];
 
 			bool permitted = ConsumptionReflection.IsNeedPermittedForRace(race, need);
 			var (_, max) = ConsumptionReflection.GetResolveImpact(race, need);
 
-			string impact = permitted ? $"+{max} resolve bonus" : $"{max} rationing penalty";
-			return $"{name}, {(permitted ? "permitted" : "prohibited")}, {impact}";
+			string impact = permitted ? Strings.Get("overlay.consumption.impact.bonus", max) : Strings.Get("overlay.consumption.impact.penalty", max);
+			return Strings.Get("overlay.consumption.race_row", name, Strings.Get(permitted ? "overlay.consumption.status.permitted" : "overlay.consumption.status.prohibited"), impact);
 		}
 
 		// ========================================
@@ -317,7 +317,7 @@ namespace ATSAccessibility.Overlays {
 			// First category is always "Raw Food"
 			_categories.Add(new CategoryData {
 				Category = null,
-				Name = "Raw Food",
+				Name = Strings.Get("overlay.consumption.category.raw_food"),
 				IsRawFood = true
 			});
 

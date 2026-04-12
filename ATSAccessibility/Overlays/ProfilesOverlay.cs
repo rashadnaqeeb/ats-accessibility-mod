@@ -70,7 +70,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Saves";
+		protected override string OverlayName => Strings.Get("overlay.profiles.title");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() {
@@ -156,7 +156,7 @@ namespace ATSAccessibility.Overlays {
 
 		protected override string GetOpenAnnouncement() {
 			if (_items.Count == 0) return OverlayName;
-			return $"{OverlayName}. {GetItemAnnouncement(0)}";
+			return Strings.Get("overlay.profiles.open", OverlayName, GetItemAnnouncement(0));
 		}
 
 		protected override void OnClosed() {
@@ -215,7 +215,7 @@ namespace ATSAccessibility.Overlays {
 					Profile = null,
 					IsCurrent = false,
 					IsDefault = false,
-					DisplayName = "Create new save",
+					DisplayName = Strings.Get("overlay.profiles.create_new"),
 					SlotNumber = slotNum++
 				});
 			}
@@ -223,13 +223,13 @@ namespace ATSAccessibility.Overlays {
 			if (_viewingQueensHand) {
 				_items.Add(new ProfileItem {
 					Type = ItemType.SwitchMode,
-					DisplayName = "Switch to Regular Saves",
+					DisplayName = Strings.Get("overlay.profiles.switch_to_regular"),
 					SlotNumber = 0
 				});
 			} else if (ProfilesReflection.IsIronmanUnlocked()) {
 				_items.Add(new ProfileItem {
 					Type = ItemType.SwitchMode,
-					DisplayName = "Switch to Queen's Hand",
+					DisplayName = Strings.Get("overlay.profiles.switch_to_queens"),
 					SlotNumber = 0
 				});
 			}
@@ -274,14 +274,14 @@ namespace ATSAccessibility.Overlays {
 				case ItemType.SaveSlot:
 					string status = "";
 					if (item.IsCurrent) {
-						status = ", current";
+						status = Strings.Get("overlay.profiles.suffix.current");
 					} else if (item.IronmanStatus != null) {
-						status = $", {item.IronmanStatus}";
+						status = Strings.Get("overlay.profiles.suffix.iron", item.IronmanStatus);
 					}
-					return $"Save {item.SlotNumber}: {item.DisplayName}{status}";
+					return Strings.Get("overlay.profiles.slot", item.SlotNumber, item.DisplayName, status);
 
 				case ItemType.CreateNew:
-					return $"Save {item.SlotNumber}: {item.DisplayName}";
+					return Strings.Get("overlay.profiles.slot_create", item.SlotNumber, item.DisplayName);
 
 				case ItemType.SwitchMode:
 					return item.DisplayName;
@@ -299,20 +299,20 @@ namespace ATSAccessibility.Overlays {
 
 			switch (item) {
 				case SubMenuItem.Name:
-					return $"Name: {name}";
+					return Strings.Get("overlay.profiles.submenu.name", name);
 
 				case SubMenuItem.Switch:
-					return "Switch to save";
+					return Strings.Get("overlay.profiles.submenu.switch");
 
 				case SubMenuItem.Reset:
 					if (ProfilesReflection.IsIronman(_currentSlotProfile)) {
 						bool canResetSeed = ProfilesReflection.CanResetIronmanSeed(_currentSlotProfile);
-						return canResetSeed ? "Reset progress, new seed" : "Reset progress, same seed";
+						return Strings.Get(canResetSeed ? "overlay.profiles.submenu.reset.new_seed" : "overlay.profiles.submenu.reset.same_seed");
 					}
-					return "Reset progress";
+					return Strings.Get("common.reset_progress");
 
 				case SubMenuItem.Delete:
-					return "Delete";
+					return Strings.Get("common.delete");
 
 				default:
 					return null;
@@ -332,10 +332,10 @@ namespace ATSAccessibility.Overlays {
 				CurrentIndex = profiles.Count - 1;
 				if (CurrentIndex < 0) CurrentIndex = 0;
 
-				Speech.Say($"Created. {GetItemAnnouncement(CurrentIndex)}");
+				Speech.Say(Strings.Get("overlay.profiles.create.done", GetItemAnnouncement(CurrentIndex)));
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Could not create new save");
+				Speech.Say(Strings.Get("overlay.profiles.create.failed"));
 			}
 		}
 
@@ -346,10 +346,10 @@ namespace ATSAccessibility.Overlays {
 
 			RefreshItems();
 
-			string modeText = _viewingQueensHand ? "Queen's Hand saves" : "Regular saves";
+			string modeText = Strings.Get(_viewingQueensHand ? "overlay.profiles.mode.queens" : "overlay.profiles.mode.regular");
 			string announcement = modeText;
 			if (_items.Count > 0) {
-				announcement += $". {GetItemAnnouncement(0)}";
+				announcement += Strings.Get("overlay.profiles.mode.first", GetItemAnnouncement(0));
 			}
 
 			SoundManager.PlayButtonClick();
@@ -388,10 +388,10 @@ namespace ATSAccessibility.Overlays {
 			if (ProfilesReflection.ChangeProfile(_currentSlotProfile)) {
 				SoundManager.PlayButtonClick();
 				string name = ProfilesReflection.GetProfileDisplayName(_currentSlotProfile);
-				Speech.Say($"Switching to {name}");
+				Speech.Say(Strings.Get("overlay.profiles.switching", name));
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Could not switch profile");
+				Speech.Say(Strings.Get("overlay.profiles.switch_failed"));
 			}
 		}
 
@@ -401,8 +401,8 @@ namespace ATSAccessibility.Overlays {
 
 		private void RequestConfirmation(ConfirmAction action) {
 			_awaitingConfirm = action;
-			string actionText = action == ConfirmAction.Reset ? "Reset progress" : "Delete";
-			Speech.Say($"{actionText}. Press Enter to confirm");
+			string actionText = Strings.Get(action == ConfirmAction.Reset ? "common.reset_progress" : "common.delete");
+			Speech.Say(Strings.Get("overlay.profiles.confirm.prompt", actionText));
 		}
 
 		private bool ProcessConfirmKey(KeyCode keyCode) {
@@ -413,7 +413,7 @@ namespace ATSAccessibility.Overlays {
 
 			if (keyCode == KeyCode.Escape)
 				InputBlocker.BlockCancelOnce = true;  // Prevent game from closing popup
-			Speech.Say("Cancelled");
+			Speech.Say(Strings.Get("common.cancelled"));
 			_awaitingConfirm = ConfirmAction.None;
 			return true;
 		}
@@ -426,19 +426,19 @@ namespace ATSAccessibility.Overlays {
 				case ConfirmAction.Reset:
 					if (ProfilesReflection.ClearProfile(_currentSlotProfile)) {
 						SoundManager.PlayButtonClick();
-						Speech.Say("Progress reset");
+						Speech.Say(Strings.Get("overlay.profiles.reset.done"));
 						ExitSubmenu();
 						RefreshItems();
 					} else {
 						SoundManager.PlayFailed();
-						Speech.Say("Could not reset progress");
+						Speech.Say(Strings.Get("overlay.profiles.reset.failed"));
 					}
 					break;
 
 				case ConfirmAction.Delete:
 					if (ProfilesReflection.RemoveProfile(_currentSlotProfile)) {
 						SoundManager.PlayButtonClick();
-						Speech.Say("Deleted");
+						Speech.Say(Strings.Get("overlay.profiles.delete.done"));
 						ExitSubmenu();
 						RefreshItems();
 
@@ -450,7 +450,7 @@ namespace ATSAccessibility.Overlays {
 						AnnounceCurrentItem();
 					} else {
 						SoundManager.PlayFailed();
-						Speech.Say("Could not delete");
+						Speech.Say(Strings.Get("overlay.profiles.delete.failed"));
 					}
 					break;
 			}
@@ -472,7 +472,7 @@ namespace ATSAccessibility.Overlays {
 			_editBuffer.Clear();
 
 			string currentName = ProfilesReflection.GetProfileName(_currentSlotProfile);
-			Speech.Say($"Current name: {currentName}. Type new name, Enter to save, Escape to cancel");
+			Speech.Say(Strings.Get("overlay.profiles.name.editing", currentName));
 		}
 
 		private bool ProcessEditingKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
@@ -490,13 +490,13 @@ namespace ATSAccessibility.Overlays {
 				case KeyCode.Backspace:
 					if (_editBuffer.Length > 0) {
 						_editBuffer.Remove(_editBuffer.Length - 1, 1);
-						Speech.Say(_editBuffer.Length > 0 ? _editBuffer.ToString() : "empty");
+						Speech.Say(_editBuffer.Length > 0 ? _editBuffer.ToString() : Strings.Get("common.empty_lower"));
 					}
 					return true;
 
 				case KeyCode.Space:
 					_editBuffer.Append(' ');
-					Speech.Say("space");
+					Speech.Say(Strings.Get("overlay.profiles.name.space"));
 					return true;
 
 				default:
@@ -527,13 +527,13 @@ namespace ATSAccessibility.Overlays {
 						case KeyCode.Minus:
 						case KeyCode.KeypadMinus:
 							_editBuffer.Append(modifiers.Shift ? '_' : '-');
-							Speech.Say(modifiers.Shift ? "underscore" : "dash");
+							Speech.Say(Strings.Get(modifiers.Shift ? "overlay.profiles.name.underscore" : "overlay.profiles.name.dash"));
 							return true;
 
 						case KeyCode.Period:
 						case KeyCode.KeypadPeriod:
 							_editBuffer.Append('.');
-							Speech.Say("period");
+							Speech.Say(Strings.Get("overlay.profiles.name.period"));
 							return true;
 					}
 
@@ -548,14 +548,14 @@ namespace ATSAccessibility.Overlays {
 			_editBuffer.Clear();
 
 			if (string.IsNullOrEmpty(newName)) {
-				Speech.Say("Name cannot be empty. Cancelled");
+				Speech.Say(Strings.Get("overlay.profiles.name.cannot_empty"));
 				AnnounceCurrentItem();
 				return;
 			}
 
 			if (ProfilesReflection.RenameProfile(_currentSlotProfile, newName)) {
 				SoundManager.PlayButtonClick();
-				Speech.Say($"Saved: {newName}");
+				Speech.Say(Strings.Get("overlay.profiles.name.saved", newName));
 
 				RefreshItems();
 
@@ -567,7 +567,7 @@ namespace ATSAccessibility.Overlays {
 				}
 			} else {
 				SoundManager.PlayFailed();
-				Speech.Say("Could not rename");
+				Speech.Say(Strings.Get("overlay.profiles.name.failed"));
 			}
 
 			AnnounceCurrentItem();
@@ -576,7 +576,7 @@ namespace ATSAccessibility.Overlays {
 		private void CancelNameEditing() {
 			_editingName = false;
 			_editBuffer.Clear();
-			Speech.Say("Cancelled");
+			Speech.Say(Strings.Get("common.cancelled"));
 			AnnounceCurrentItem();
 		}
 	}

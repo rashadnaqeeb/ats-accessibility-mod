@@ -158,24 +158,24 @@ namespace ATSAccessibility.Navigators {
 			switch (_sectionTypes[sectionIndex]) {
 				case SectionType.Level:
 					if (_maxLevel > 1)
-						Speech.Say($"Level {_expeditionLevel} of {_maxLevel}, duration {FormatDuration(_duration)}");
+						Speech.Say(Strings.Get("nav.port.level_of_max", _expeditionLevel, _maxLevel, FormatDuration(_duration)));
 					else
-						Speech.Say($"Level {_expeditionLevel}, duration {FormatDuration(_duration)}");
+						Speech.Say(Strings.Get("nav.port.level_only", _expeditionLevel, FormatDuration(_duration)));
 					break;
 				case SectionType.Status:
-					Speech.Say($"Status: In progress, {FormatProgress()}, {FormatTimeLeft()}");
+					Speech.Say(Strings.Get("nav.port.status_in_progress", FormatProgress(), FormatTimeLeft()));
 					break;
 				case SectionType.Confirm:
 					if (PortReflection.IsPortBlockedByUnpickedCategory(_building))
-						Speech.Say("Confirm, pick a category first");
+						Speech.Say(Strings.Get("nav.port.confirm_pick_category"));
 					else
-						Speech.Say("Confirm Expedition");
+						Speech.Say(Strings.Get("nav.port.confirm_expedition"));
 					break;
 				case SectionType.Cancel:
-					Speech.Say("Cancel Expedition");
+					Speech.Say(Strings.Get("nav.port.cancel_expedition"));
 					break;
 				case SectionType.AcceptRewards:
-					Speech.Say("Accept Rewards");
+					Speech.Say(Strings.Get("common.accept_rewards"));
 					break;
 				default:
 					Speech.Say(_sectionNames[sectionIndex]);
@@ -287,7 +287,7 @@ namespace ATSAccessibility.Navigators {
 				if (PortReflection.PortChangeLevel(_building, newLevel)) {
 					SoundManager.PlayButtonClick();
 					RefreshData();
-					Speech.Say($"Level {_expeditionLevel} of {_maxLevel}, duration {FormatDuration(_duration)}");
+					Speech.Say(Strings.Get("nav.port.level_of_max", _expeditionLevel, _maxLevel, FormatDuration(_duration)));
 				}
 			}
 		}
@@ -416,53 +416,53 @@ namespace ATSAccessibility.Navigators {
 			if (_rewardsWaiting) {
 				// Phase 4: Rewards
 				if (!string.IsNullOrEmpty(_blueprintReward) || !string.IsNullOrEmpty(_perkReward)) {
-					sectionNames.Add("Rewards");
+					sectionNames.Add(Strings.Get("common.rewards"));
 					sectionTypes.Add(SectionType.Rewards);
 				}
-				sectionNames.Add("Accept Rewards");
+				sectionNames.Add(Strings.Get("common.accept_rewards"));
 				sectionTypes.Add(SectionType.AcceptRewards);
 			} else if (_expeditionStarted) {
 				// Phase 3: In Progress - Status front-loads progress and time
-				sectionNames.Add("Status");
+				sectionNames.Add(Strings.Get("common.status"));
 				sectionTypes.Add(SectionType.Status);
 			} else if (_wasDecisionMade) {
 				// Phase 2: Collecting
 				if (TryInitializeWorkersSection()) {
-					sectionNames.Add("Workers");
+					sectionNames.Add(Strings.Get("common.workers"));
 					sectionTypes.Add(SectionType.Workers);
 				}
 				if (_deliveryItemCount > 0) {
-					sectionNames.Add("Goods Progress");
+					sectionNames.Add(Strings.Get("nav.port.section.goods_progress"));
 					sectionTypes.Add(SectionType.GoodsProgress);
 				}
-				sectionNames.Add("Cancel");
+				sectionNames.Add(Strings.Get("nav.port.section.cancel"));
 				sectionTypes.Add(SectionType.Cancel);
 			} else {
 				// Phase 1: Planning - no Info, start with Level
-				sectionNames.Add("Level");
+				sectionNames.Add(Strings.Get("nav.port.section.level"));
 				sectionTypes.Add(SectionType.Level);
 				if (_striderSetCount + _crewSetCount > 0) {
-					sectionNames.Add("Food Choices");
+					sectionNames.Add(Strings.Get("nav.port.section.food_choices"));
 					sectionTypes.Add(SectionType.Goods);
 				}
 				if (_hasBlueprintReward && _categoryDisplayNames != null && _categoryDisplayNames.Count > 0) {
-					sectionNames.Add("Choose Blueprint Reward Category");
+					sectionNames.Add(Strings.Get("nav.port.section.choose_category"));
 					sectionTypes.Add(SectionType.Category);
 				} else {
-					sectionNames.Add("No blueprint reward this expedition");
+					sectionNames.Add(Strings.Get("nav.port.section.no_blueprint"));
 					sectionTypes.Add(SectionType.Category);
 				}
 				if (_rewardChances != null && _rewardChances.Count > 0) {
-					sectionNames.Add("Rewards Preview");
+					sectionNames.Add(Strings.Get("nav.port.section.rewards_preview"));
 					sectionTypes.Add(SectionType.RewardsPreview);
 				}
-				sectionNames.Add("Confirm");
+				sectionNames.Add(Strings.Get("nav.port.section.confirm"));
 				sectionTypes.Add(SectionType.Confirm);
 			}
 
 			// Upgrades in all phases
 			if (TryInitializeUpgradesSection()) {
-				sectionNames.Add("Upgrades");
+				sectionNames.Add(Strings.Get("common.upgrades"));
 				sectionTypes.Add(SectionType.Upgrades);
 			}
 
@@ -507,7 +507,7 @@ namespace ATSAccessibility.Navigators {
 			var amounts = new int[altCount];
 
 			for (int j = 0; j < altCount; j++) {
-				displayNames[j] = PortReflection.GetPortGoodDisplayName(_building, setIndex, j, isStrider) ?? "Unknown";
+				displayNames[j] = PortReflection.GetPortGoodDisplayName(_building, setIndex, j, isStrider) ?? Strings.Get("common.unknown");
 				names[j] = PortReflection.GetPortGoodName(_building, setIndex, j, isStrider);
 				amounts[j] = PortReflection.GetPortGoodAmount(_building, setIndex, j, isStrider);
 			}
@@ -538,7 +538,7 @@ namespace ATSAccessibility.Navigators {
 			for (int i = 0; i < count; i++) {
 				int pickedIndex = PortReflection.GetPortPickedIndex(_building, i, isStrider);
 				string name = PortReflection.GetPortGoodName(_building, i, pickedIndex, isStrider);
-				string displayName = PortReflection.GetPortGoodDisplayName(_building, i, pickedIndex, isStrider) ?? "Unknown";
+				string displayName = PortReflection.GetPortGoodDisplayName(_building, i, pickedIndex, isStrider) ?? Strings.Get("common.unknown");
 				int amount = PortReflection.GetPortGoodAmount(_building, i, pickedIndex, isStrider);
 				int delivered = !string.IsNullOrEmpty(name)
 					? PortReflection.GetPortGoodDeliveredAmount(_building, name)
@@ -626,14 +626,14 @@ namespace ATSAccessibility.Navigators {
 			int pickedIndex = set.pickedIndex;
 			if (pickedIndex < 0 || pickedIndex >= set.alternativeCount) pickedIndex = 0;
 
-			string prefix = isStrider ? "Strider food" : "Crew food";
+			string prefix = isStrider ? Strings.Get("nav.port.goods.strider_food") : Strings.Get("nav.port.goods.crew_food");
 			string displayName = set.goodDisplayNames[pickedIndex];
 			int amount = set.goodAmounts[pickedIndex];
 			int inStorage = BuildingReflection.GetStoredGoodAmount(set.goodNames[pickedIndex]);
 
-			string announcement = $"{prefix}: {displayName}, {amount} ({inStorage} in storage)";
+			string announcement = Strings.Get("nav.port.goods.item_line", prefix, displayName, amount, inStorage);
 			if (set.alternativeCount > 1)
-				announcement += $", {set.alternativeCount - 1} other options";
+				announcement += Strings.Get("nav.port.goods.other_options_suffix", set.alternativeCount - 1);
 
 			Speech.Say(announcement);
 		}
@@ -648,10 +648,10 @@ namespace ATSAccessibility.Navigators {
 			string displayName = set.goodDisplayNames[subItemIndex];
 			int amount = set.goodAmounts[subItemIndex];
 			int inStorage = BuildingReflection.GetStoredGoodAmount(set.goodNames[subItemIndex]);
-			string announcement = $"{displayName}: {amount} ({inStorage} in storage)";
+			string announcement = Strings.Get("nav.port.goods.sub_line", displayName, amount, inStorage);
 
 			if (subItemIndex == set.pickedIndex)
-				announcement += ", selected";
+				announcement += Strings.Get("common.suffix_selected");
 
 			Speech.Say(announcement);
 		}
@@ -667,13 +667,13 @@ namespace ATSAccessibility.Navigators {
 
 			if (success) {
 				sets[localIndex].pickedIndex = subItemIndex;
-				Speech.Say($"Picked: {set.goodDisplayNames[subItemIndex]}");
+				Speech.Say(Strings.Get("nav.port.picked", set.goodDisplayNames[subItemIndex]));
 				SoundManager.PlayButtonClick();
 				_navigationLevel = 1;
 				return true;
 			}
 
-			Speech.Say("Cannot pick good");
+			Speech.Say(Strings.Get("common.cannot_pick_good"));
 			return false;
 		}
 
@@ -711,7 +711,7 @@ namespace ATSAccessibility.Navigators {
 			if (_categoryInternalNames != null && itemIndex < _categoryInternalNames.Count
 				&& !string.IsNullOrEmpty(_pickedCategory)
 				&& _categoryInternalNames[itemIndex] == _pickedCategory) {
-				announcement += ", selected";
+				announcement += Strings.Get("common.suffix_selected");
 			}
 
 			Speech.Say(announcement);
@@ -725,12 +725,12 @@ namespace ATSAccessibility.Navigators {
 			if (PortReflection.SetPortPickedCategory(_building, internalName)) {
 				_pickedCategory = internalName;
 				string displayName = _categoryDisplayNames[itemIndex];
-				Speech.Say($"Picked: {displayName}");
+				Speech.Say(Strings.Get("nav.port.picked", displayName));
 				SoundManager.PlayButtonClick();
 				return true;
 			}
 
-			Speech.Say("Cannot pick category");
+			Speech.Say(Strings.Get("nav.port.cannot_pick_category"));
 			return false;
 		}
 
@@ -743,7 +743,7 @@ namespace ATSAccessibility.Navigators {
 				return;
 
 			var (rarity, chance) = _rewardChances[itemIndex];
-			Speech.Say($"{rarity}: {chance} percent");
+			Speech.Say(Strings.Get("nav.port.reward_chance", rarity, chance));
 		}
 
 		// ========================================
@@ -755,7 +755,7 @@ namespace ATSAccessibility.Navigators {
 				return;
 
 			var item = _deliveryItems[itemIndex];
-			Speech.Say($"{item.displayName}, {item.delivered} of {item.needed}");
+			Speech.Say(Strings.Get("nav.port.goods_progress_line", item.displayName, item.delivered, item.needed));
 		}
 
 		// ========================================
@@ -785,16 +785,16 @@ namespace ATSAccessibility.Navigators {
 
 			if (!string.IsNullOrEmpty(_blueprintReward)) {
 				string displayName = GetBuildingDisplayName(_blueprintReward);
-				rewards.Add($"Blueprint: {displayName}");
+				rewards.Add(Strings.Get("nav.port.reward.blueprint", displayName));
 			}
 
 			if (!string.IsNullOrEmpty(_perkReward)) {
 				string displayName = GetEffectDisplayName(_perkReward);
-				rewards.Add($"Perk: {displayName}");
+				rewards.Add(Strings.Get("nav.port.reward.perk", displayName));
 			}
 
 			if (rewards.Count == 0) {
-				Speech.Say("No rewards");
+				Speech.Say(Strings.Get("common.no_rewards"));
 				return;
 			}
 
@@ -808,13 +808,13 @@ namespace ATSAccessibility.Navigators {
 
 		private bool PerformConfirmAction() {
 			if (PortReflection.IsPortBlockedByUnpickedCategory(_building)) {
-				Speech.Say("Pick a category first");
+				Speech.Say(Strings.Get("nav.port.pick_category_first"));
 				SoundManager.PlayFailed();
 				return true;
 			}
 
 			if (PortReflection.PortLockDecision(_building)) {
-				Speech.Say("Expedition confirmed");
+				Speech.Say(Strings.Get("nav.port.expedition_confirmed"));
 				SoundManager.PlayPortStartClick();
 				RefreshData();
 				_currentSectionIndex = 0;
@@ -823,14 +823,14 @@ namespace ATSAccessibility.Navigators {
 				return true;
 			}
 
-			Speech.Say("Cannot confirm");
+			Speech.Say(Strings.Get("nav.port.cannot_confirm"));
 			SoundManager.PlayFailed();
 			return true;
 		}
 
 		private bool PerformCancelAction() {
 			if (PortReflection.PortCancelDecision(_building)) {
-				Speech.Say("Expedition cancelled");
+				Speech.Say(Strings.Get("nav.port.expedition_cancelled"));
 				SoundManager.PlayPortCancelClick();
 				RefreshData();
 				_currentSectionIndex = 0;
@@ -839,14 +839,14 @@ namespace ATSAccessibility.Navigators {
 				return true;
 			}
 
-			Speech.Say("Cannot cancel");
+			Speech.Say(Strings.Get("nav.port.cannot_cancel"));
 			SoundManager.PlayFailed();
 			return true;
 		}
 
 		private bool PerformAcceptRewardsAction() {
 			if (PortReflection.PortAcceptRewards(_building)) {
-				Speech.Say("Rewards accepted");
+				Speech.Say(Strings.Get("nav.port.rewards_accepted"));
 				SoundManager.PlayPortRewardsClick();
 				RefreshData();
 				_currentSectionIndex = 0;
@@ -855,7 +855,7 @@ namespace ATSAccessibility.Navigators {
 				return true;
 			}
 
-			Speech.Say("Cannot accept rewards");
+			Speech.Say(Strings.Get("nav.port.cannot_accept_rewards"));
 			SoundManager.PlayFailed();
 			return true;
 		}
@@ -867,13 +867,13 @@ namespace ATSAccessibility.Navigators {
 		private string FormatDuration(float seconds) {
 			int totalSeconds = Mathf.RoundToInt(seconds);
 			if (totalSeconds < 60)
-				return $"{totalSeconds} seconds";
+				return Strings.Get("nav.port.duration.seconds", totalSeconds);
 
 			int minutes = totalSeconds / 60;
 			int remainingSecs = totalSeconds % 60;
 			if (remainingSecs > 0)
-				return $"{minutes} minutes {remainingSecs} seconds";
-			return $"{minutes} minutes";
+				return Strings.Get("nav.port.duration.minutes_seconds", minutes, remainingSecs);
+			return Strings.Get("nav.port.duration.minutes", minutes);
 		}
 
 		private string GetBuildingDisplayName(string buildingName) {

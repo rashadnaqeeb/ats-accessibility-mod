@@ -44,7 +44,7 @@ namespace ATSAccessibility.Overlays {
 		// MENUBASE OVERRIDES
 		// ========================================
 
-		protected override string OverlayName => "Dialogue";
+		protected override string OverlayName => Strings.Get("overlay.dialogue.title");
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() => _items.Count;
@@ -69,7 +69,7 @@ namespace ATSAccessibility.Overlays {
 						_eventQueue.Clear();
 						_processingEvent = false;
 						if (!NarrationReflection.ExecuteTransition(_currentDialogue)) {
-							Speech.Say("Cannot continue");
+							Speech.Say(Strings.Get("overlay.dialogue.cannot_continue"));
 							SoundManager.PlayFailed();
 						}
 					}
@@ -80,7 +80,7 @@ namespace ATSAccessibility.Overlays {
 						_eventQueue.Clear();
 						_processingEvent = false;
 						if (!NarrationReflection.SelectChoice(item.Choice)) {
-							Speech.Say("Cannot select");
+							Speech.Say(Strings.Get("common.cannot_select"));
 							SoundManager.PlayFailed();
 						}
 					}
@@ -103,7 +103,7 @@ namespace ATSAccessibility.Overlays {
 		protected override string GetOpenAnnouncement() {
 			string npcName = NarrationReflection.GetNPCName();
 			if (!string.IsNullOrEmpty(npcName))
-				return $"Dialogue with {npcName}";
+				return Strings.Get("overlay.dialogue.open", npcName);
 			return null;
 		}
 
@@ -208,16 +208,16 @@ namespace ATSAccessibility.Overlays {
 		private void BuildDialogueList(object dialogue) {
 			_items.Clear();
 
-			string npcName = NarrationReflection.GetNPCName() ?? "Unknown";
+			string npcName = NarrationReflection.GetNPCName() ?? Strings.Get("common.unknown");
 			string npcTitle = NarrationReflection.GetNPCTitle();
-			string headerText = string.IsNullOrEmpty(npcTitle) ? npcName : $"{npcName}, {npcTitle}";
+			string headerText = string.IsNullOrEmpty(npcTitle) ? npcName : Strings.Get("overlay.dialogue.header_with_title", npcName, npcTitle);
 
 			_items.Add(new ListItem {
 				Type = ItemType.Header,
 				Text = headerText
 			});
 
-			string dialogueText = NarrationReflection.GetDialogueText(dialogue) ?? "...";
+			string dialogueText = NarrationReflection.GetDialogueText(dialogue) ?? Strings.Get("overlay.dialogue.ellipsis");
 			_items.Add(new ListItem {
 				Type = ItemType.Dialogue,
 				Text = dialogueText
@@ -226,7 +226,7 @@ namespace ATSAccessibility.Overlays {
 			if (NarrationReflection.HasTransition(dialogue)) {
 				_items.Add(new ListItem {
 					Type = ItemType.Continue,
-					Text = "Continue"
+					Text = Strings.Get("overlay.dialogue.continue")
 				});
 			}
 		}
@@ -234,9 +234,9 @@ namespace ATSAccessibility.Overlays {
 		private void BuildBranchList(object branch) {
 			_items.Clear();
 
-			string npcName = NarrationReflection.GetNPCName() ?? "Unknown";
+			string npcName = NarrationReflection.GetNPCName() ?? Strings.Get("common.unknown");
 			string npcTitle = NarrationReflection.GetNPCTitle();
-			string headerText = string.IsNullOrEmpty(npcTitle) ? npcName : $"{npcName}, {npcTitle}";
+			string headerText = string.IsNullOrEmpty(npcTitle) ? npcName : Strings.Get("overlay.dialogue.header_with_title", npcName, npcTitle);
 
 			_items.Add(new ListItem {
 				Type = ItemType.Header,
