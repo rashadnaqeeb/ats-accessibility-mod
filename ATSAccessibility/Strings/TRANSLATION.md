@@ -166,9 +166,29 @@ the accepted-awkward approach is to:
 - Reword to dodge count agreement (e.g. `"Seconds: {0}"` instead of `"{0}
   seconds"`).
 
-If a specific string sounds genuinely broken at certain counts, flag it — we
-can add a `Strings.Plural` call site and CLDR resolver for that one key rather
-than up-front for the whole table.
+### Evidence this matches the game's own approach
+
+Inspection of the dumped loca JSONs shows **Against the Storm itself has no
+plural engine** — no CLDR, no ICU MessageFormat, no per-count key variants.
+Races carry only a `Name` (singular) and `PluralName` (plural-any), and the
+plural is used unconditionally for every count ≥ 2, including counts where
+grammatically correct Russian / Polish / etc. demand a different form. Eremite's
+own translators use the same two workarounds the list above prescribes:
+
+- *Reword to dodge agreement.* Russian `ConditionalNeedEffect_3BuildingsDestroyed_Desc`
+  puts numbers in parenthetical side-notes so nothing has to agree with them.
+  Abbreviations (`сек.` instead of `секунд/секунды/секунда`) also sidestep
+  declension.
+- *Accept minor wrongness.* Polish uses `"Co {0} sekund {1} budynki"` — the
+  5+ form for both nouns, knowingly wrong at 2–4. Shipped anyway.
+
+In other words: our two-form `Strings.Plural` matches the plural support
+the reference product actually provides. A CLDR resolver isn't worth building
+just to exceed the grammatical rigor of the game's own translations.
+
+If a specific translated string sounds broken at certain counts, apply the
+same workarounds. Only escalate to adding per-language plural logic if the
+affected string is critical enough to be worth the one-off complexity.
 
 ## File format quick reference
 
