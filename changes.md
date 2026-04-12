@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Scanner now announces underlying ore type and remaining charges when hovering a mine
 
 ### Internal
 

@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
 
 namespace ATSAccessibility.Utils {
@@ -227,6 +228,16 @@ namespace ATSAccessibility.Utils {
 			try {
 				var parts = new List<string>();
 
+				var buildingType = building.GetType();
+
+				// Mine-specific: prepend underlying ore info
+				if (buildingType.Name == "Mine") {
+					string oreInfo = GetMineOreInfo(building);
+					if (!string.IsNullOrEmpty(oreInfo)) {
+						parts.Add(oreInfo);
+					}
+				}
+
 				// Check for guidepost direction info
 				string guidepostInfo = GetGuidepostDirection(building);
 				if (!string.IsNullOrEmpty(guidepostInfo))
@@ -240,14 +251,12 @@ namespace ATSAccessibility.Utils {
 					}
 				}
 
-				var buildingType = building.GetType();
-
 				// Get BuildingModel property for this type
 				var buildingModelProp = TileInfoReflection.GetBuildingModelProp(buildingType);
-				if (buildingModelProp == null) return null;
+				if (buildingModelProp == null) return parts.Count > 0 ? string.Join(", ", parts) : null;
 
 				var buildingModel = buildingModelProp.GetValue(building);
-				if (buildingModel == null) return null;
+				if (buildingModel == null) return parts.Count > 0 ? string.Join(", ", parts) : null;
 
 				var modelType = buildingModel.GetType();
 
@@ -263,6 +272,69 @@ namespace ATSAccessibility.Utils {
 				return string.Join(", ", parts);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GetBuildingInfo failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Get underlying ore info for a Mine: "Copper Ore, 12 of 20 charges. Coal, 6 of 14 charges"
+		/// Groups ores in the mine's footprint by display name and sums currently-accessible
+		/// charges at the mine's upgrade level. Matches what the sighted mine panel shows
+		/// (Mine.GetChargesLeft/GetMaxCharges).
+		/// </summary>
+		private static string GetMineOreInfo(object mine) {
+			try {
+				TileInfoReflection.EnsureMineOreCache();
+
+				var getOreMethod = TileInfoReflection.MineGetOreUnderMineMethod;
+				if (getOreMethod == null) return null;
+
+				var oresArray = getOreMethod.Invoke(mine, null) as Array;
+				if (oresArray == null || oresArray.Length == 0) return null;
+
+				var modelProp = TileInfoReflection.OreModelProp;
+				var availMethod = TileInfoReflection.OreGetAvailableChargesForMethod;
+				var maxMethod = TileInfoReflection.OreGetMaxChargesForMethod;
+				var displayNameField = TileInfoReflection.OreModelDisplayNameField;
+				if (modelProp == null || availMethod == null || maxMethod == null || displayNameField == null) return null;
+
+				var groups = new Dictionary<string, (int avail, int max)>();
+				var order = new List<string>();
+
+				foreach (var ore in oresArray) {
+					if (ore == null) continue;
+
+					var model = modelProp.GetValue(ore);
+					if (model == null) continue;
+
+					var locaText = displayNameField.GetValue(model);
+					string name = GameReflection.GetLocaText(locaText);
+					if (string.IsNullOrEmpty(name)) continue;
+
+					int avail = ReflectionHelper.InvokeInt(availMethod, ore, mine);
+					int max = ReflectionHelper.InvokeInt(maxMethod, ore, mine);
+
+					if (groups.TryGetValue(name, out var totals)) {
+						groups[name] = (totals.avail + avail, totals.max + max);
+					} else {
+						groups[name] = (avail, max);
+						order.Add(name);
+					}
+				}
+
+				if (order.Count == 0) return null;
+
+				var sb = new StringBuilder();
+				for (int i = 0; i < order.Count; i++) {
+					if (i > 0) sb.Append(". ");
+					var name = order[i];
+					var totals = groups[name];
+					sb.Append($"{name}, {totals.avail} of {totals.max} charges");
+				}
+
+				return sb.ToString();
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetMineOreInfo failed: {ex.Message}");
 				return null;
 			}
 		}

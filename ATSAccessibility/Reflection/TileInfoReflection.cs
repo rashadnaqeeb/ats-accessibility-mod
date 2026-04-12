@@ -189,6 +189,43 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		// ========================================
+		// MINE / ORE CACHE
+		// ========================================
+
+		private static MethodInfo _mineGetOreUnderMineMethod;
+		private static PropertyInfo _oreModelProp;
+		private static MethodInfo _oreGetAvailableChargesForMethod;
+		private static MethodInfo _oreGetMaxChargesForMethod;
+		private static FieldInfo _oreModelDisplayNameField;
+		private static bool _mineOreCached;
+
+		public static MethodInfo MineGetOreUnderMineMethod => _mineGetOreUnderMineMethod;
+		public static PropertyInfo OreModelProp => _oreModelProp;
+		public static MethodInfo OreGetAvailableChargesForMethod => _oreGetAvailableChargesForMethod;
+		public static MethodInfo OreGetMaxChargesForMethod => _oreGetMaxChargesForMethod;
+		public static FieldInfo OreModelDisplayNameField => _oreModelDisplayNameField;
+
+		public static void EnsureMineOreCache() {
+			if (_mineOreCached) return;
+			_mineOreCached = true;
+
+			ReflectionHelper.InitCache("TileInfoReflection.MineOre", assembly => {
+				var mineType = assembly.GetType("Eremite.Buildings.Mine");
+				_mineGetOreUnderMineMethod = mineType?.GetMethod("GetOreUnderMine", GameReflection.PublicInstance);
+
+				var oreType = assembly.GetType("Eremite.MapObjects.Ore");
+				if (oreType != null) {
+					_oreModelProp = oreType.GetProperty("Model", GameReflection.PublicInstance);
+					_oreGetAvailableChargesForMethod = oreType.GetMethod("GetAvailableChargesFor", GameReflection.PublicInstance);
+					_oreGetMaxChargesForMethod = oreType.GetMethod("GetMaxChargesFor", GameReflection.PublicInstance);
+				}
+
+				var oreModelType = assembly.GetType("Eremite.Model.OreModel");
+				_oreModelDisplayNameField = oreModelType?.GetField("displayName", GameReflection.PublicInstance);
+			});
+		}
+
+		// ========================================
 		// SERVICE CACHE
 		// ========================================
 
