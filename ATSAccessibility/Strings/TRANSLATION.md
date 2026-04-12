@@ -67,6 +67,15 @@ write each language's JSON to disk.
 
 **Procedure:**
 
+0. **Check first** whether
+   `%USERPROFILE%\Documents\ATSAccessibility-Locas\` already exists and
+   contains `en.json` + your target language's `<code>.json`. The dumper was
+   run at least once during initial setup, so these files are likely already
+   on disk from a prior session. If they are, skip straight to step 4. If not
+   (fresh machine, the folder was deleted, or the game added a new language),
+   proceed with steps 1–3 to re-dump. **Do not commit the dumped JSONs to the
+   repo** — they're copyrighted game content; the repo only ships the code
+   that produces them on demand.
 1. In the mod's BepInEx config (`BepInEx/config/com.accessibility.ats.cfg`),
    under `[Localization]`, set `DumpGameLocalization = true`.
 2. Launch the game and wait for the main menu to announce. The mod writes
