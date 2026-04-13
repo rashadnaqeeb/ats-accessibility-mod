@@ -9,6 +9,7 @@
 ### Bug fixes
 - Race and good display names now localise correctly in worker slots, newcomers groups, and other announcements (previously leaked English internal keys like "Lizard" / "Grain" because the reflection lookup used `GetProperty` on a public field).
 - Woodcutter camp mode names (Fell All Trees, Only Marked Trees, etc.) now pull from the game's own `MenuUI_Options_CampMode_*` loca keys instead of hardcoded English strings.
+- Newcomers popup dialogue now reads the NPC's name and title via the game's own localization, so non-English users hear the transliterated form (e.g. 佩尔文·鲁内毕克, 皇家风暴行者) that matches the in-game UI.
 
 ### Internal
 

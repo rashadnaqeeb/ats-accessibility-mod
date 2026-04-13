@@ -41,10 +41,11 @@ namespace ATSAccessibility.Overlays {
 		protected override void RefreshData() {
 			_items.Clear();
 
-			// 1. Dialogue item (hardcoded NPC text - popup TMPro text is not reliably readable)
+			// 1. Dialogue item — resolved from the game's own loca keys so NPC
+			// name/title match the transliterated form shown in the popup UI.
 			_items.Add(new NavItem {
 				Type = ItemType.Dialogue,
-				Label = Strings.Get("overlay.newcomers.dialogue")
+				Label = BuildDialogueLabel()
 			});
 
 			// 2. Group options
@@ -94,6 +95,29 @@ namespace ATSAccessibility.Overlays {
 		protected override void OnClosed() {
 			_popup = null;
 			_items.Clear();
+		}
+
+		private static string BuildDialogueLabel() {
+			const string personKey = "GameUI_NewcomersPopup_Person";
+			const string titleKey = "GameUI_NewcomersPopup_PersonTitle";
+			const string dialogueKey = "GameUI_NewcomersPopup_Dialogue";
+
+			string person = GameReflection.ResolveLocaKey(personKey);
+			string title = GameReflection.ResolveLocaKey(titleKey);
+			string line = GameReflection.ResolveLocaKey(dialogueKey);
+
+			// ResolveLocaKey returns the key itself on lookup failure.
+			bool resolved =
+				!string.IsNullOrEmpty(person) && person != personKey
+				&& !string.IsNullOrEmpty(title) && title != titleKey
+				&& !string.IsNullOrEmpty(line) && line != dialogueKey;
+
+			if (!resolved)
+				return Strings.Get("overlay.newcomers.dialogue_fallback");
+
+			// Game wraps the dialogue line in literal quote marks.
+			line = line.Trim().Trim('"', '\u201C', '\u201D');
+			return Strings.Get("overlay.newcomers.dialogue_format", person, title, line);
 		}
 
 		// ========================================
