@@ -10,7 +10,7 @@ using UnityEngine;
 namespace ATSAccessibility.Core {
 	[BepInPlugin("com.accessibility.ats", "ATS Accessibility", ModVersion)]
 	public class Plugin: BaseUnityPlugin {
-		public const string ModVersion = "1.4.1";
+		public const string ModVersion = "1.4.2";
 		[DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
 		private static extern bool SetDllDirectory(string lpPathName);
 
