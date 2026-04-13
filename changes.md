@@ -6,6 +6,7 @@
 
 ### New features
 - Mine building panel now announces underlying ore type and currently-available charges as a new top section above Status
+- Add Simplified Chinese translation (zh-CN.properties)
 
 ### Bug fixes
 - Scanner now announces underlying ore type and remaining charges when hovering a mine
