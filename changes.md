@@ -2,18 +2,18 @@
 
 
 
-## Changes since v1.4.0
+## Changes since v1.4.1
 
 ### New features
 
 ### Bug fixes
-- Third-pass English-leak fixes: glade-revealed danger suffix now maps the `GladeDangerLevel` enum through the existing `handler.mapnav.glade_danger_{dangerous,forbidden}` keys instead of interpolating the raw enum name; `OnGoodDiscovered` null-name fallback routes through `common.unknown`; `Speech.ConvertSpriteTags` recipe-grade sprite replacements now use new `common.sprite.grade_{0..3}` keys (translated for all 9 locales) and fix the English plural ("2 stars" not "2 star").
-- Comply-timer order objectives now substitute the live countdown into the localized objective text (e.g. "Maintain hostility for 12 seconds") via locale-safe numeric replacement on the OrderLogic `time` field, falling back to the previous ", N seconds remaining" suffix only when no total numeral is found. Villager-on-tile (I-key) summary now uses mod-shipped per-race singular/plural keys (`common.race.<id>_singular`/`_plural`) so non-English plurals don't depend on English `-s` inflection.
-- Second pass of English-leak fixes across non-English locales: order objective text now routes through `Strings.Get` for the "Build N X" fallback, "from <source>" reputation suffix, and comply-timer "N seconds remaining" suffix, dropping the English `Pluralize` helper and the `for \d+ seconds` regex; villager-on-tile (I-key) summary resolves race IDs through `EmbarkReflection.GetRaceDisplayName` and uses singular/plural keys instead of an English `-s` suffix; encyclopedia `FormatMinSec` uses loca keys for the m/s abbreviations; mass `return "Unknown"` / `?? "Unknown"` fallbacks across ~12 reflection helpers (Building/Consumption/CustomGames/Deeds/Embark/Game/GamesHistory/Hearth/Profiles/Recipes/TradeRoutes/Trends) now go through `common.unknown`; hearth-upgrade-tier, perk-effect, and relic-error fallback templates now use `Strings.Get`; new shared `common.amount_and_name` key replaces ad-hoc `$"{amount} {name}"` literals across capital-upgrade, daily-expedition, ironman, world-map, and embark cost lines.
-- Fixed English leaks in non-English locales across multiple announcement paths: newcomers-arrival countdown (`RewardsReflection.FormatGameTime`), construction cost lines (`ConstructionReflection.GetBuildingCosts`), worker descriptions (`BuildingReflection.GetWorkerDescription`) and worker-menu race +/- selector (`BuildingWorkerSection`), worker-info quick summaries (`WorkerInfoHelper`), house resident race suffix (`HouseNavigator`), resolve-summary and species-cycle race names (`StatsReader`), glade content summaries and location markers (`MapReflection`), hearth decoration tier requirements, orders reputation/blueprint labels, embark seasonal mystery counts, relic decision/order-blocking labels. Race IDs now resolve through `EmbarkReflection.GetRaceDisplayName` at the announcement boundary; English literals replaced with new `Strings.Get` keys with singular/plural pairs where appropriate. Added keys to `en.properties` only — translations for the other 8 languages will follow separately.
 
 ### Internal
-- Synced all 8 non-English translations (de, es, es-LATAM, fr, pl, pt, ru, zh-CN) with the recent en.properties additions: per-race singular/plural names, automaton labels, time-readout pairs, construction cost entries, map markers + glade content pairs, hearth tier/upgrade fallbacks, order objective templates, seasonal mystery counts, relic decision/error fallbacks, perk effect fallback, and encyclopedia compact-time keys. Split `util.worker_info.race_count`/`auto_count` and `handler.mapnav.villager_group` into `_singular`/`_plural` pairs; removed `handler.mapnav.plural_suffix`; reworded `util.worker_info.no_free_race` for the new localized-race-name contract.
+
+## v1.4.1
+
+### Bug fixes
+- Many localisation-related fixes.
 
 ## v1.4.0
 
