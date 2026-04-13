@@ -836,7 +836,7 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		private static string GetBiomeDisplayName(string biomeName) {
-			if (string.IsNullOrEmpty(biomeName)) return "Unknown";
+			if (string.IsNullOrEmpty(biomeName)) return Strings.Get("common.unknown");
 
 			var settings = GameReflection.GetSettings();
 			var biomeModel = ReflectionHelper.Invoke(_settingsGetBiomeMethod, settings, biomeName);

@@ -23,7 +23,6 @@ namespace ATSAccessibility.Reflection {
 		private static readonly Regex ProductionBonusRegex = new Regex(
 			@"(\+\d+) to (.+?) production \(from gathering, farming, fishing, or production\)\.?",
 			RegexOptions.Compiled);
-		private static readonly Regex ForTimeSecondsRegex = new Regex(@"for \d+ seconds", RegexOptions.Compiled);
 
 		public static string StripRichText(string text) {
 			if (string.IsNullOrEmpty(text)) return text;
@@ -52,31 +51,6 @@ namespace ATSAccessibility.Reflection {
 				total = total * 60 + val;
 			}
 			return total;
-		}
-
-		/// <summary>
-		/// Basic English pluralization of the last word in a name.
-		/// </summary>
-		private static string Pluralize(string name) {
-			if (string.IsNullOrEmpty(name)) return name;
-
-			int lastSpace = name.LastIndexOf(' ');
-			string prefix = lastSpace >= 0 ? name.Substring(0, lastSpace + 1) : "";
-			string word = lastSpace >= 0 ? name.Substring(lastSpace + 1) : name;
-
-			if (word.Length == 0) return name;
-
-			char last = word[word.Length - 1];
-			if (last == 's' || last == 'x' || last == 'z')
-				word += "es";
-			else if (last == 'h' && word.Length >= 2 && (word[word.Length - 2] == 's' || word[word.Length - 2] == 'c'))
-				word += "es";
-			else if (last == 'y' && word.Length >= 2 && "aeiou".IndexOf(word[word.Length - 2]) < 0)
-				word = word.Substring(0, word.Length - 1) + "ies";
-			else
-				word += "s";
-
-			return prefix + word;
 		}
 
 		// ========================================
@@ -559,17 +533,16 @@ namespace ATSAccessibility.Reflection {
 							if (formatted == null) {
 								// Fallback: type-specific formatting
 								if (isNumericProgress) {
-									int spaceIdx = displayName.IndexOf(' ');
 									if (typeName.Contains("Building")) {
-										int amount = 0;
-										if (!string.IsNullOrEmpty(totalAmount))
-											int.TryParse(totalAmount, out amount);
-										string name = amount > 1 ? Pluralize(displayName) : displayName;
-										formatted = TrimObjectiveText($"Build {progressAmount} {name}");
-									} else if (spaceIdx > 0) {
-										formatted = TrimObjectiveText($"{displayName.Substring(0, spaceIdx)} {progressAmount} {displayName.Substring(spaceIdx + 1)}");
+										formatted = TrimObjectiveText(Strings.Get("reflection.orders.objective_build", progressAmount, displayName));
 									} else {
-										formatted = TrimObjectiveText($"{progressAmount} {displayName}");
+										// Word-order ("Verb {amount} Noun") cannot be reconstructed safely
+										// without locale knowledge; defer to the game's own localized
+										// objective text and only fall back to bare "{amount} {name}".
+										string rawText = ReflectionHelper.InvokeString(_olGetObjectiveTextMethod, logic, objState);
+										formatted = !string.IsNullOrEmpty(rawText)
+											? TrimObjectiveText(StripRichText(rawText))
+											: TrimObjectiveText(Strings.Get("common.amount_and_name", progressAmount, displayName));
 									}
 								} else {
 									// Status word (e.g. "Done"): just use the display name
@@ -579,7 +552,7 @@ namespace ATSAccessibility.Reflection {
 								// Append source for reputation objectives when not already in text
 								string source = GetReputationSourceText(logic);
 								if (source != null)
-									formatted += " from " + source;
+									formatted = Strings.Get("reflection.orders.objective_from", formatted, source);
 							}
 						}
 					} else if (!string.IsNullOrEmpty(progressAmount)) {
@@ -591,14 +564,11 @@ namespace ATSAccessibility.Reflection {
 						formatted = !string.IsNullOrEmpty(rawText) ? TrimObjectiveText(StripRichText(rawText)) : null;
 					}
 
-					// For comply timers, replace "for X seconds" with remaining time
-					if (complySecondsLeft >= 0 && formatted != null) {
-						string replaced = ForTimeSecondsRegex.Replace(formatted, $"for {complySecondsLeft} seconds");
-						if (replaced != formatted)
-							formatted = replaced;
-						else
-							formatted += $", {complySecondsLeft} seconds remaining";
-					}
+					// For comply timers, append remaining time. (We can't reliably
+					// substitute the localized "for N seconds" phrase across languages, so
+					// always append rather than splice.)
+					if (complySecondsLeft >= 0 && formatted != null)
+						formatted = Strings.Get("reflection.orders.objective_with_seconds_remaining", formatted, complySecondsLeft);
 
 					// Prefix completed objectives with checkmark
 					if (!isNumericProgress && !string.IsNullOrEmpty(progressAmount) && formatted != null)
@@ -713,24 +683,19 @@ namespace ATSAccessibility.Reflection {
 							}
 
 							// Fallback: type-specific formatting
-							// For building types, prefix with "Build" (e.g. "Build 3 Shelter")
-							// For verb+noun patterns, insert after first word (e.g. "Produce 6 Pipes")
 							string formatted;
-							int spaceIdx = displayName.IndexOf(' ');
 							if (typeName.Contains("Building")) {
-								int amount = 0;
-								int.TryParse(stripped, out amount);
-								string name = amount > 1 ? Pluralize(displayName) : displayName;
-								formatted = TrimObjectiveText($"Build {stripped} {name}");
-							} else if (spaceIdx > 0)
-								formatted = TrimObjectiveText($"{displayName.Substring(0, spaceIdx)} {stripped} {displayName.Substring(spaceIdx + 1)}");
-							else
-								formatted = TrimObjectiveText($"{stripped} {displayName}");
+								formatted = TrimObjectiveText(Strings.Get("reflection.orders.objective_build", stripped, displayName));
+							} else {
+								// Word-order cannot be reconstructed safely without locale knowledge;
+								// fall back to bare "{amount} {name}" via the shared key.
+								formatted = TrimObjectiveText(Strings.Get("common.amount_and_name", stripped, displayName));
+							}
 
 							// Append source for reputation objectives when not already in text
 							string source = GetReputationSourceText(logic);
 							if (source != null)
-								formatted += " from " + source;
+								formatted = Strings.Get("reflection.orders.objective_from", formatted, source);
 
 							result.Add(formatted);
 						} else {

@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -671,26 +672,26 @@ namespace ATSAccessibility.Reflection {
 		/// Get the display name of a good model.
 		/// </summary>
 		public static string GetGoodDisplayName(object goodModel) {
-			if (goodModel == null) return "Unknown";
+			if (goodModel == null) return Strings.Get("common.unknown");
 
 			var text = ReflectionHelper.GetLocaString(_goodDisplayNameField, goodModel);
 			if (!string.IsNullOrEmpty(text)) return text;
 
 			// Fallback to Name property
-			return ReflectionHelper.GetPropString(_goodNameProperty, goodModel) ?? "Unknown";
+			return ReflectionHelper.GetPropString(_goodNameProperty, goodModel) ?? Strings.Get("common.unknown");
 		}
 
 		/// <summary>
 		/// Get the display name of a building model.
 		/// </summary>
 		public static string GetBuildingDisplayName(object buildingModel) {
-			if (buildingModel == null) return "Unknown";
+			if (buildingModel == null) return Strings.Get("common.unknown");
 
 			var text = ReflectionHelper.GetLocaString(_buildingDisplayNameField, buildingModel);
 			if (!string.IsNullOrEmpty(text)) return text;
 
 			// Fallback to Name property
-			return ReflectionHelper.GetPropString(_buildingNameProperty, buildingModel) ?? "Unknown";
+			return ReflectionHelper.GetPropString(_buildingNameProperty, buildingModel) ?? Strings.Get("common.unknown");
 		}
 
 		private static object GetWorkshopRecipeModel(string recipeName) {
@@ -718,10 +719,10 @@ namespace ATSAccessibility.Reflection {
 		/// Get the output good name from a recipe model.
 		/// </summary>
 		public static string GetRecipeOutputName(object recipeModel) {
-			if (recipeModel == null) return "Unknown";
+			if (recipeModel == null) return Strings.Get("common.unknown");
 
 			var producedGoodRef = ReflectionHelper.GetField(_recipeProducedGoodField, recipeModel);
-			if (producedGoodRef == null) return "Unknown";
+			if (producedGoodRef == null) return Strings.Get("common.unknown");
 
 			var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGoodRef);
 			return GetGoodDisplayName(goodModel);
@@ -763,7 +764,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get the display name from a GoodRef.
 		/// </summary>
 		public static string GetGoodRefDisplayName(object goodRef) {
-			if (goodRef == null) return "Unknown";
+			if (goodRef == null) return Strings.Get("common.unknown");
 
 			var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, goodRef);
 			return GetGoodDisplayName(goodModel);

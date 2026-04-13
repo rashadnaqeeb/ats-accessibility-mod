@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -256,8 +257,8 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		public static string GetGoalName(object model) {
-			if (model == null) return "Unknown";
-			return ReflectionHelper.GetLocaString(_goalModelDisplayNameField, model) ?? "Unknown";
+			if (model == null) return Strings.Get("common.unknown");
+			return ReflectionHelper.GetLocaString(_goalModelDisplayNameField, model) ?? Strings.Get("common.unknown");
 		}
 
 		public static string GetGoalDescription(object model) {
@@ -283,8 +284,8 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		public static string GetCategoryName(object category) {
-			if (category == null) return "Unknown";
-			return ReflectionHelper.GetLocaString(_categoryDisplayNameField, category) ?? "Unknown";
+			if (category == null) return Strings.Get("common.unknown");
+			return ReflectionHelper.GetLocaString(_categoryDisplayNameField, category) ?? Strings.Get("common.unknown");
 		}
 
 		public static int GetCategoryOrder(object category) {

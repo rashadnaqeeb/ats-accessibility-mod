@@ -311,7 +311,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get the display name for a profile.
 		/// </summary>
 		public static string GetProfileDisplayName(object profile) {
-			if (profile == null) return "Unknown";
+			if (profile == null) return Strings.Get("common.unknown");
 			EnsureTypesCached();
 
 			var service = GetProfilesService();
@@ -327,7 +327,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get the raw name field from a profile.
 		/// </summary>
 		public static string GetProfileName(object profile) {
-			if (profile == null) return "Unknown";
+			if (profile == null) return Strings.Get("common.unknown");
 			var name = ReflectionHelper.GetString(_pdNameField, profile);
 			return string.IsNullOrEmpty(name) ? "Unnamed" : name;
 		}

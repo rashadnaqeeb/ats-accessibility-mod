@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -333,7 +334,7 @@ namespace ATSAccessibility.Reflection {
 
 				if (!string.IsNullOrEmpty(goodName) && amount > 0) {
 					string displayName = GameReflection.GetGoodDisplayName(goodName);
-					result.Add($"{amount} {displayName}");
+					result.Add(Strings.Get("common.amount_and_name", amount, displayName));
 				}
 			}
 
@@ -595,7 +596,7 @@ namespace ATSAccessibility.Reflection {
 					displayName = ReflectionHelper.GetProp(_mcModelDisplayNameProperty, model)?.ToString() ?? currencyName;
 				}
 
-				result.Add($"{amount} {displayName}");
+				result.Add(Strings.Get("common.amount_and_name", amount, displayName));
 			}
 
 			return result;

@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -308,10 +309,10 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		private static string GetOperationDisplayName(object opsService, object operation) {
 			if (opsService == null || _getDisplayNameMethod == null || operation == null)
-				return "Unknown";
+				return Strings.Get("common.unknown");
 
 			var name = ReflectionHelper.InvokeString(_getDisplayNameMethod, opsService, operation);
-			return !string.IsNullOrEmpty(name) ? name : "Unknown";
+			return !string.IsNullOrEmpty(name) ? name : Strings.Get("common.unknown");
 		}
 
 		public static int LogCacheStatus() {

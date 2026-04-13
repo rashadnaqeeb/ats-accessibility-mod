@@ -5401,15 +5401,15 @@ namespace ATSAccessibility.Reflection {
 		/// Get display name from a BuildingPerkModel.
 		/// </summary>
 		private static string GetPerkDisplayName(object perk) {
-			if (perk == null) return "Unknown";
+			if (perk == null) return Strings.Get("common.unknown");
 
 			EnsureUpgradeTypes();
 
 			try {
 				// Use DisplayName property
-				return _buildingPerkDisplayNameProp?.GetValue(perk) as string ?? "Unknown";
+				return _buildingPerkDisplayNameProp?.GetValue(perk) as string ?? Strings.Get("common.unknown");
 			} catch {
-				return "Unknown";
+				return Strings.Get("common.unknown");
 			}
 		}
 

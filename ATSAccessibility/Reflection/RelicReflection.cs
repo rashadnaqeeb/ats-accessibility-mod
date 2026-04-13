@@ -847,7 +847,7 @@ namespace ATSAccessibility.Reflection {
 
 				return true;
 			} catch (Exception ex) {
-				blockingReason = $"Error: {ex.Message}";
+				blockingReason = Strings.Get("reflection.relic.error_blocked", ex.Message);
 				return false;
 			}
 		}

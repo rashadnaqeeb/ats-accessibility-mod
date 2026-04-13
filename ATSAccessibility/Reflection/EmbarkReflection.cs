@@ -673,7 +673,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get display name for a race from Settings.
 		/// </summary>
 		public static string GetRaceDisplayName(string raceName) {
-			if (string.IsNullOrEmpty(raceName)) return "Unknown";
+			if (string.IsNullOrEmpty(raceName)) return Strings.Get("common.unknown");
 
 			var settings = GameReflection.GetSettings();
 			if (settings == null) return raceName;
@@ -696,7 +696,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get the name from a ConditionPickState.
 		/// </summary>
 		public static string GetConditionPickName(object conditionPick) {
-			return ReflectionHelper.GetString(_cpsNameField, conditionPick) ?? "Unknown";
+			return ReflectionHelper.GetString(_cpsNameField, conditionPick) ?? Strings.Get("common.unknown");
 		}
 
 		/// <summary>
@@ -731,7 +731,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get display name for an effect from Settings.
 		/// </summary>
 		public static string GetEffectDisplayName(string effectName) {
-			if (string.IsNullOrEmpty(effectName)) return "Unknown";
+			if (string.IsNullOrEmpty(effectName)) return Strings.Get("common.unknown");
 
 			var settings = GameReflection.GetSettings();
 			if (settings == null) return effectName;
@@ -764,7 +764,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get display name for a good from Settings.
 		/// </summary>
 		public static string GetGoodDisplayName(string goodName) {
-			if (string.IsNullOrEmpty(goodName)) return "Unknown";
+			if (string.IsNullOrEmpty(goodName)) return Strings.Get("common.unknown");
 
 			var settings = GameReflection.GetSettings();
 			if (settings == null) return goodName;
@@ -1601,7 +1601,7 @@ namespace ATSAccessibility.Reflection {
 							var displayNameProp = model.GetType().GetProperty("DisplayName",
 								BindingFlags.Public | BindingFlags.Instance);
 							var displayName = displayNameProp?.GetValue(model) as string ?? name;
-							result.Add($"{amount} {displayName}");
+							result.Add(Strings.Get("common.amount_and_name", amount, displayName));
 						}
 					}
 				}

@@ -553,7 +553,7 @@ namespace ATSAccessibility.Reflection {
 					if (effectModel == null) continue;
 
 					// Use Description as the display text - these effects don't have proper display names
-					string description = ReflectionHelper.GetPropString(_emDescriptionProperty, effectModel) ?? $"Effect {i + 1}";
+					string description = ReflectionHelper.GetPropString(_emDescriptionProperty, effectModel) ?? Strings.Get("reflection.perkcrafter.effect_fallback", i + 1);
 
 					result.Add(new EffectOption {
 						TierState = tierState,

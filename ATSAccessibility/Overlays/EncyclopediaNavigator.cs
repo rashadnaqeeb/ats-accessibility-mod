@@ -1022,11 +1022,11 @@ namespace ATSAccessibility.Overlays {
 			int mins = (int)(totalSeconds / 60);
 			int secs = (int)(totalSeconds % 60);
 			if (mins > 0 && secs > 0)
-				return $"{mins}m {secs}s";
+				return Strings.Get("overlay.encyclopedia.time_min_sec", mins, secs);
 			else if (mins > 0)
-				return $"{mins}m";
+				return Strings.Get("overlay.encyclopedia.time_min", mins);
 			else
-				return $"{secs}s";
+				return Strings.Get("overlay.encyclopedia.time_sec", secs);
 		}
 
 		private string ExtractPreviewContent() {

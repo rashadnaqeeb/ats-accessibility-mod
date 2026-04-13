@@ -609,7 +609,7 @@ namespace ATSAccessibility.Reflection {
 
 					// Display name
 					var displayNameLoca = ReflectionHelper.GetField(_hubTierDisplayNameField, tier);
-					info.displayName = GameReflection.GetLocaText(displayNameLoca) ?? $"Upgrade {info.index + 1}";
+					info.displayName = GameReflection.GetLocaText(displayNameLoca) ?? Strings.Get("reflection.hearth.upgrade_fallback", info.index + 1);
 
 					// Only gather detailed info for meta-unlocked tiers
 					if (info.isUnlockedInMeta) {
@@ -657,7 +657,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get the display name of a decoration tier.
 		/// </summary>
 		private static string GetDecorationTierName(object decorTier) {
-			if (decorTier == null) return "Unknown";
+			if (decorTier == null) return Strings.Get("common.unknown");
 
 			try {
 				// DecorationTier extends LabelModel which has displayName

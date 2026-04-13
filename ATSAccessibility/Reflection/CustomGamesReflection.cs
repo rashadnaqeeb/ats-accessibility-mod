@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -653,14 +654,14 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static string GetBiomeDisplayName(object biome) {
 			EnsureTypes();
-			if (biome == null) return "Unknown";
+			if (biome == null) return Strings.Get("common.unknown");
 
 			string text = ReflectionHelper.GetLocaString(_bmDisplayNameField, biome);
 			if (!string.IsNullOrEmpty(text))
 				return text;
 
 			// Fallback to Name property (from SO base class)
-			return ReflectionHelper.GetProp(_bmNameProperty, biome)?.ToString() ?? "Unknown";
+			return ReflectionHelper.GetProp(_bmNameProperty, biome)?.ToString() ?? Strings.Get("common.unknown");
 		}
 
 		/// <summary>
@@ -745,14 +746,14 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static string GetRaceDisplayName(object race) {
 			EnsureTypes();
-			if (race == null) return "Unknown";
+			if (race == null) return Strings.Get("common.unknown");
 
 			string text = ReflectionHelper.GetLocaString(_rmDisplayNameField, race);
 			if (!string.IsNullOrEmpty(text))
 				return text;
 
 			// Fallback to Name property (from SO base class)
-			return ReflectionHelper.GetProp(_rmNameProperty, race)?.ToString() ?? "Unknown";
+			return ReflectionHelper.GetProp(_rmNameProperty, race)?.ToString() ?? Strings.Get("common.unknown");
 		}
 
 		/// <summary>

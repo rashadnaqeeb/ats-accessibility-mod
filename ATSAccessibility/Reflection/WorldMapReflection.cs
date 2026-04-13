@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -1284,7 +1285,7 @@ namespace ATSAccessibility.Reflection {
 							var displayNameProp = model.GetType().GetProperty("DisplayName",
 								BindingFlags.Public | BindingFlags.Instance);
 							var displayName = displayNameProp?.GetValue(model) as string ?? name;
-							result.Add($"{amount} {displayName}");
+							result.Add(Strings.Get("common.amount_and_name", amount, displayName));
 						}
 					}
 				}

@@ -1,4 +1,5 @@
 using ATSAccessibility.Core;
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -2736,7 +2737,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get the display name for a good by its internal name.
 		/// </summary>
 		public static string GetGoodDisplayName(string goodName) {
-			if (string.IsNullOrEmpty(goodName)) return "Unknown";
+			if (string.IsNullOrEmpty(goodName)) return Strings.Get("common.unknown");
 
 			EnsureSettingsGetGood();
 
@@ -2819,7 +2820,7 @@ namespace ATSAccessibility.Reflection {
 		/// Get the display name for a relic by its internal model name.
 		/// </summary>
 		public static string GetRelicDisplayName(string relicModelName) {
-			if (string.IsNullOrEmpty(relicModelName)) return "Unknown";
+			if (string.IsNullOrEmpty(relicModelName)) return Strings.Get("common.unknown");
 
 			EnsureSettingsGetRelic();
 
@@ -2876,7 +2877,7 @@ namespace ATSAccessibility.Reflection {
 		/// Meta currencies include Food Stockpiles, Machinery Parts, Artifacts, etc.
 		/// </summary>
 		public static string GetMetaCurrencyDisplayName(string currencyName) {
-			if (string.IsNullOrEmpty(currencyName)) return "Unknown";
+			if (string.IsNullOrEmpty(currencyName)) return Strings.Get("common.unknown");
 
 			EnsureSettingsGetMetaCurrency();
 

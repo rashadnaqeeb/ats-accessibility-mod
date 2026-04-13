@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -553,7 +554,7 @@ namespace ATSAccessibility.Reflection {
 		// ========================================
 
 		public static string GetSettlementName(object record) {
-			if (record == null) return "Unknown";
+			if (record == null) return Strings.Get("common.unknown");
 			try {
 				string name = ReflectionHelper.GetString(_ghsNameField, record);
 
@@ -570,7 +571,7 @@ namespace ATSAccessibility.Reflection {
 
 				// Non-static name is a user-entered name
 				return name;
-			} catch { return "Unknown"; }
+			} catch { return Strings.Get("common.unknown"); }
 		}
 
 		public static bool GetSettlementWon(object record) {
@@ -579,30 +580,30 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		public static string GetSettlementBiome(object record) {
-			if (record == null) return "Unknown";
+			if (record == null) return Strings.Get("common.unknown");
 			try {
 				string biomeKey = ReflectionHelper.GetString(_ghsBiomeField, record);
-				if (string.IsNullOrEmpty(biomeKey)) return "Unknown";
+				if (string.IsNullOrEmpty(biomeKey)) return Strings.Get("common.unknown");
 
 				var settings = GameReflection.GetSettings();
 				if (settings == null) return biomeKey;
 
 				// Check if biome exists
 				if (!ReflectionHelper.InvokeBool(_settingsContainsBiomeMethod, settings, biomeKey))
-					return "Unknown";
+					return Strings.Get("common.unknown");
 
 				var biomeModel = ReflectionHelper.Invoke(_settingsGetBiomeMethod, settings, biomeKey);
 				if (biomeModel == null) return biomeKey;
 
 				return ReflectionHelper.GetLocaString(_biomeDisplayNameField, biomeModel) ?? biomeKey;
-			} catch { return "Unknown"; }
+			} catch { return Strings.Get("common.unknown"); }
 		}
 
 		public static string GetSettlementDifficulty(object record) {
-			if (record == null) return "Unknown";
+			if (record == null) return Strings.Get("common.unknown");
 			try {
 				string difficultyKey = ReflectionHelper.GetString(_ghsDifficultyField, record);
-				if (string.IsNullOrEmpty(difficultyKey)) return "Unknown";
+				if (string.IsNullOrEmpty(difficultyKey)) return Strings.Get("common.unknown");
 
 				var settings = GameReflection.GetSettings();
 				if (settings == null) return difficultyKey;
@@ -615,7 +616,7 @@ namespace ATSAccessibility.Reflection {
 				if (!string.IsNullOrEmpty(name)) return name;
 
 				return difficultyKey;
-			} catch { return "Unknown"; }
+			} catch { return Strings.Get("common.unknown"); }
 		}
 
 		public static float GetSettlementGameTime(object record) {

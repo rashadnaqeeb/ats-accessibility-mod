@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -295,8 +296,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static string GetCategoryName(object category) {
 			EnsureCached();
-			if (category == null) return "Unknown";
-			return ReflectionHelper.GetLocaString(_ncmDisplayNameField, category) ?? "Unknown";
+			if (category == null) return Strings.Get("common.unknown");
+			return ReflectionHelper.GetLocaString(_ncmDisplayNameField, category) ?? Strings.Get("common.unknown");
 		}
 
 		/// <summary>
@@ -439,8 +440,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static string GetNeedName(object need) {
 			EnsureCached();
-			if (need == null) return "Unknown";
-			return ReflectionHelper.GetPropString(_nmDisplayNameProperty, need) ?? "Unknown";
+			if (need == null) return Strings.Get("common.unknown");
+			return ReflectionHelper.GetPropString(_nmDisplayNameProperty, need) ?? Strings.Get("common.unknown");
 		}
 
 		/// <summary>
@@ -559,8 +560,8 @@ namespace ATSAccessibility.Reflection {
 		/// </summary>
 		public static string GetRaceName(object race) {
 			EnsureCached();
-			if (race == null) return "Unknown";
-			return ReflectionHelper.GetLocaString(_rmDisplayNameField, race) ?? "Unknown";
+			if (race == null) return Strings.Get("common.unknown");
+			return ReflectionHelper.GetLocaString(_rmDisplayNameField, race) ?? Strings.Get("common.unknown");
 		}
 
 		/// <summary>

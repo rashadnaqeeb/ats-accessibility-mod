@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -397,7 +398,7 @@ namespace ATSAccessibility.Reflection {
 				string displayName = ReflectionHelper.GetPropString(_currencyModelDisplayNameProperty, currencyModel) ?? "";
 
 				if (!string.IsNullOrEmpty(displayName)) {
-					parts.Add($"{amount} {displayName}");
+					parts.Add(Strings.Get("common.amount_and_name", amount, displayName));
 				}
 			}
 
