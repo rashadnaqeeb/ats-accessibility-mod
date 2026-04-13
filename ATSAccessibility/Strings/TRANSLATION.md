@@ -151,10 +151,23 @@ translating.
 
 ### Species
 
-Seven playable species — names are usually translated or transliterated
-distinctly, not left in English:
+Seven playable species. The mod ships **two keys per species** —
+`common.race.<id>_singular` and `common.race.<id>_plural` — and they appear
+in announcements like "2 beavers on this tile". Translators must provide
+both forms (translated or transliterated distinctly, not left in English):
 
-- Humans, Beavers, Lizards, Harpies, Foxes, Frogs, Bats
+| ID       | Singular | Plural   |
+| -------- | -------- | -------- |
+| Beaver   | Beaver   | Beavers  |
+| Human    | Human    | Humans   |
+| Harpy    | Harpy    | Harpies  |
+| Lizard   | Lizard   | Lizards  |
+| Fox      | Fox      | Foxes    |
+| Frog     | Frog     | Frogs    |
+| Bat      | Bat      | Bats     |
+
+Resolve both renderings in Phase 1 against `<code>.json` — `RaceModel`
+exposes `displayName` (singular) and `pluralName` (plural) LocaTexts.
 
 ### Building categories
 

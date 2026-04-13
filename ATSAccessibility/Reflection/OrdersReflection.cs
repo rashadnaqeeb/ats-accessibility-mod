@@ -122,6 +122,11 @@ namespace ATSAccessibility.Reflection {
 		private static PropertyInfo _olGetStoredAmountProperty = null;
 		private static MethodInfo _olGetWarningTextMethod = null;
 
+		// Comply-timer `time` field — lives on derived logics
+		// (HostilityForTimeLogic, EnginesLevelForTimeLogic, NeedSatisfiedForTimeLogic, …),
+		// not the OrderLogic base. Resolved per-instance at use time.
+		private static readonly Dictionary<Type, FieldInfo> _olTimeFieldCache = new Dictionary<Type, FieldInfo>();
+
 		// ReputationGainedFromSourceLogic (for appending source to objective text)
 		private static Type _repSourceLogicType = null;
 		private static FieldInfo _repSourceField = null;
@@ -564,11 +569,21 @@ namespace ATSAccessibility.Reflection {
 						formatted = !string.IsNullOrEmpty(rawText) ? TrimObjectiveText(StripRichText(rawText)) : null;
 					}
 
-					// For comply timers, append remaining time. (We can't reliably
-					// substitute the localized "for N seconds" phrase across languages, so
-					// always append rather than splice.)
-					if (complySecondsLeft >= 0 && formatted != null)
-						formatted = Strings.Get("reflection.orders.objective_with_seconds_remaining", formatted, complySecondsLeft);
+					// For comply timers, splice the live countdown into the localized
+					// objective text by replacing the total-seconds numeral (locale-agnostic)
+					// with the remaining-seconds numeral. Falls back to a trailing suffix
+					// when the total numeral isn't present in the formatted text.
+					if (complySecondsLeft >= 0 && formatted != null) {
+						int totalInt = GetComplyTotalSeconds(logic);
+						string replaced = null;
+						if (totalInt > 0)
+							replaced = Regex.Replace(formatted, $@"\b{totalInt}\b", complySecondsLeft.ToString());
+
+						if (!string.IsNullOrEmpty(replaced) && replaced != formatted)
+							formatted = replaced;
+						else
+							formatted = Strings.Get("reflection.orders.objective_with_seconds_remaining", formatted, complySecondsLeft);
+					}
 
 					// Prefix completed objectives with checkmark
 					if (!isNumericProgress && !string.IsNullOrEmpty(progressAmount) && formatted != null)
@@ -582,6 +597,25 @@ namespace ATSAccessibility.Reflection {
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// Look up the total comply-timer duration (integer seconds) for a comply-time
+		/// OrderLogic via its derived-class `time` field. Returns 0 if the logic has no
+		/// `time` field (e.g. non-timed logic), signalling the caller to use the suffix
+		/// fallback.
+		/// </summary>
+		private static int GetComplyTotalSeconds(object logic) {
+			if (logic == null) return 0;
+			Type t = logic.GetType();
+			FieldInfo field;
+			if (!_olTimeFieldCache.TryGetValue(t, out field)) {
+				field = t.GetField("time", BindingFlags.Instance | BindingFlags.Public | BindingFlags.FlattenHierarchy);
+				if (field != null && field.FieldType != typeof(float)) field = null;
+				_olTimeFieldCache[t] = field;
+			}
+			if (field == null) return 0;
+			return (int)ReflectionHelper.GetFloat(field, logic);
 		}
 
 		/// <summary>

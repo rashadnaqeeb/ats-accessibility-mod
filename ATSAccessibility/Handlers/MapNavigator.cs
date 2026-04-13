@@ -496,15 +496,9 @@ namespace ATSAccessibility.Handlers {
 
 					if (villagerX == x && villagerZ == y) {
 						string rawRace = MapReflection.GetVillagerRace(villager);
-						string race = string.IsNullOrEmpty(rawRace)
-							? Strings.Get("handler.mapnav.villager_default")
-							: EmbarkReflection.GetRaceDisplayName(rawRace);
-
-						if (raceCounts.ContainsKey(race)) {
-							raceCounts[race]++;
-						} else {
-							raceCounts[race] = 1;
-						}
+						if (string.IsNullOrEmpty(rawRace)) rawRace = "_unknown_";
+						if (raceCounts.ContainsKey(rawRace)) raceCounts[rawRace]++;
+						else raceCounts[rawRace] = 1;
 					}
 				}
 
@@ -512,12 +506,15 @@ namespace ATSAccessibility.Handlers {
 
 				var parts = new List<string>();
 				foreach (var kvp in raceCounts) {
-					string race = kvp.Key;
+					string raceId = kvp.Key;
 					int count = kvp.Value;
+					string raceName = raceId == "_unknown_"
+						? Strings.Get("handler.mapnav.villager_default")
+						: RaceNameHelper.GetRaceName(raceId, plural: count != 1);
 					string key = count == 1
 						? "handler.mapnav.villager_group_singular"
 						: "handler.mapnav.villager_group_plural";
-					parts.Add(Strings.Get(key, count, race));
+					parts.Add(Strings.Get(key, count, raceName));
 				}
 
 				return string.Join(", ", parts);

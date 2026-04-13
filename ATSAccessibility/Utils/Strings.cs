@@ -80,6 +80,19 @@ namespace ATSAccessibility.Utils {
 		}
 
 		/// <summary>
+		/// Look up a key without warning on miss. Returns null when neither the current
+		/// language nor the English fallback table defines the key — lets callers chain
+		/// their own fallback (e.g. the game's localized display name) instead of
+		/// getting back the <c>&gt;key&lt;</c> sentinel.
+		/// </summary>
+		public static string GetOrNull(string key) {
+			if (string.IsNullOrEmpty(key)) return null;
+			if (_current.TryGetValue(key, out var text)) return text;
+			if (_current != _fallback && _fallback.TryGetValue(key, out text)) return text;
+			return null;
+		}
+
+		/// <summary>
 		/// Look up a key and format it with positional args (<c>{0}</c>, <c>{1}</c>, …).
 		/// Uses the game's current culture for number formatting so translators get the
 		/// right decimal separators, plural forms, etc.
