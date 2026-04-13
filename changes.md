@@ -8,6 +8,7 @@
 
 ### Bug fixes
 - Race and good display names now localise correctly in worker slots, newcomers groups, and other announcements (previously leaked English internal keys like "Lizard" / "Grain" because the reflection lookup used `GetProperty` on a public field).
+- Woodcutter camp mode names (Fell All Trees, Only Marked Trees, etc.) now pull from the game's own `MenuUI_Options_CampMode_*` loca keys instead of hardcoded English strings.
 
 ### Internal
 

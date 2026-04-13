@@ -1580,18 +1580,14 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get localized names for all Camp modes.
+		/// Get localized names for all Camp modes, resolved through the game's own loca table.
 		/// </summary>
 		public static string[] GetCampModeNames() {
-			// These correspond to CampMode enum: None, OnlyMarked, NoGlades, OnlyMarkedGlades, NoGladesAndOnlyMarked
-			return new string[]
-			{
-				"Fell All Trees",
-				"Only Marked Trees",
-				"Avoid Glades",
-				"Avoid Glades (except marked)",
-				"Only Marked Trees & Avoid Glades"
-			};
+			// CampMode enum order: None, OnlyMarked, NoGlades, OnlyMarkedGlades, NoGladesAndOnlyMarked
+			var names = new string[5];
+			for (int i = 0; i < names.Length; i++)
+				names[i] = GameReflection.ResolveLocaKey($"MenuUI_Options_CampMode_{i}");
+			return names;
 		}
 
 		/// <summary>
