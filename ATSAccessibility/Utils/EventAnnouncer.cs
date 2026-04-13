@@ -989,21 +989,10 @@ namespace ATSAccessibility.Utils {
 			if (!Plugin.AnnounceGoodDiscovered.Value) return;
 			if (IsInGracePeriod()) return;
 
-			string name = goodName?.ToString() ?? Strings.Get("common.unknown");
-			// Try to get the display name from settings
-			try {
-				var settings = GameReflection.GetSettings();
-				if (settings != null) {
-					var getGoodMethod = settings.GetType().GetMethod("GetGood");
-					var good = getGoodMethod?.Invoke(settings, new[] { goodName });
-					if (good != null) {
-						// GoodModel.displayName is a field, not a property
-						var displayNameField = good.GetType().GetField("displayName");
-						var displayName = displayNameField?.GetValue(good);
-						name = GameReflection.GetLocaText(displayName) ?? name;
-					}
-				}
-			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] OnGoodDiscovered name lookup failed: {ex.Message}"); }
+			string rawName = goodName?.ToString();
+			string name = string.IsNullOrEmpty(rawName)
+				? Strings.Get("common.unknown")
+				: GameReflection.GetGoodDisplayName(rawName);
 
 			Announce(Strings.Get("util.event.good_discovered", name));
 		}

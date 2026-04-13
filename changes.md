@@ -11,6 +11,7 @@
 - Woodcutter camp mode names (Fell All Trees, Only Marked Trees, etc.) now pull from the game's own `MenuUI_Options_CampMode_*` loca keys instead of hardcoded English strings.
 - Newcomers popup dialogue now reads the NPC's name and title via the game's own localization, so non-English users hear the transliterated form (e.g. 佩尔文·鲁内毕克, 皇家风暴行者) that matches the in-game UI.
 - Payments popup header (Zhera Mossback) now reads the NPC's name, title, and dialogue via the game's own localization, matching the newcomers fix. Non-English players hear the transliterated form shown in the UI.
+- "New good discovered" announcement now reads the localized good name (e.g. 石头) instead of the raw English internal key (e.g. "Stone"). The previous lookup called `Settings.GetMethod("GetGood")` without disambiguating between the two overloads, which silently threw `AmbiguousMatchException` and fell back to the internal key.
 
 ### Internal
 
