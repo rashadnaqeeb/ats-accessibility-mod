@@ -535,7 +535,7 @@ namespace ATSAccessibility.Utils {
 				var (resolve, threshold, _) = GetResolveSummary(race);
 
 				// Format: "Humans 24/30" (current resolve / threshold)
-				parts.Add(Strings.Get("util.stats.resolve_entry", race, Mathf.FloorToInt(resolve), threshold));
+				parts.Add(Strings.Get("util.stats.resolve_entry", EmbarkReflection.GetRaceDisplayName(race), Mathf.FloorToInt(resolve), threshold));
 			}
 
 			string message = string.Join(", ", parts);
@@ -565,8 +565,7 @@ namespace ATSAccessibility.Utils {
 			int population = GetRaceCount(race);
 			var (resolve, threshold, _) = GetResolveSummary(race);
 
-			// Pluralize species name if more than 1
-			string raceName = population == 1 ? race : race + "s";
+			string raceName = EmbarkReflection.GetRaceDisplayName(race);
 
 			// Format: "7 Humans, resolve 8 of 15"
 			string message = Strings.Get("util.stats.species_cycle", population, raceName, Mathf.FloorToInt(resolve), threshold);

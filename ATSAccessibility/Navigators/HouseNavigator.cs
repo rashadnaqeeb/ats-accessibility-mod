@@ -159,7 +159,7 @@ namespace ATSAccessibility.Navigators {
 				string race = BuildingReflection.GetActorRace(actor);
 
 				if (!string.IsNullOrEmpty(race))
-					Speech.Say(Strings.Get("nav.house.name_with_race", name, race));
+					Speech.Say(Strings.Get("nav.house.name_with_race", name, EmbarkReflection.GetRaceDisplayName(race)));
 				else
 					Speech.Say(name);
 			} else {

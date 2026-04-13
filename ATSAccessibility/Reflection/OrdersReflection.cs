@@ -845,8 +845,8 @@ namespace ATSAccessibility.Reflection {
 
 			string amountText = ReflectionHelper.InvokeString(_emGetAmountTextMethod, effectModel);
 			if (!string.IsNullOrEmpty(amountText))
-				return $"{StripRichText(amountText)} Reputation";
-			return "1 Reputation";
+				return Strings.Get("reflection.orders.reputation_amount", StripRichText(amountText));
+			return Strings.Get("reflection.orders.reputation_amount", "1");
 		}
 
 		private static IList GetRewardsList(object orderState) => ReflectionHelper.GetList(_osRewardsField, orderState);
@@ -870,7 +870,7 @@ namespace ATSAccessibility.Reflection {
 				bool isBlueprint = name.Contains("Blueprint");
 				string text = GetEffectDisplayText(effectModel, isBlueprint);
 				if (!string.IsNullOrEmpty(text))
-					result.Add(isBlueprint ? $"Blueprint: {text}" : text);
+					result.Add(isBlueprint ? Strings.Get("reflection.orders.blueprint_prefix", text) : text);
 			}
 
 			return result;

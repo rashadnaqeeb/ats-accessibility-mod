@@ -531,7 +531,7 @@ namespace ATSAccessibility.Reflection {
 		/// Rounds to nearest 5 seconds for cleaner output.
 		/// </summary>
 		public static string FormatGameTime(float seconds) {
-			if (seconds <= 0) return "soon";
+			if (seconds <= 0) return Strings.Get("reflection.rewards.time_soon");
 
 			// Round to nearest 5 seconds
 			int totalSeconds = (int)(Mathf.Round(seconds / 5f) * 5f);
@@ -540,11 +540,14 @@ namespace ATSAccessibility.Reflection {
 			int minutes = totalSeconds / 60;
 			int secs = totalSeconds % 60;
 
-			if (minutes > 0 && secs > 0)
-				return $"{minutes} minute{(minutes != 1 ? "s" : "")} {secs} seconds";
+			if (minutes > 0 && secs > 0) {
+				string minPart = Strings.Get(minutes == 1 ? "reflection.rewards.time_minutes_singular" : "reflection.rewards.time_minutes_plural", minutes);
+				string secPart = Strings.Get(secs == 1 ? "reflection.rewards.time_seconds_singular" : "reflection.rewards.time_seconds_plural", secs);
+				return Strings.Get("reflection.rewards.time_minutes_seconds", minPart, secPart);
+			}
 			if (minutes > 0)
-				return $"{minutes} minute{(minutes != 1 ? "s" : "")}";
-			return $"{secs} seconds";
+				return Strings.Get(minutes == 1 ? "reflection.rewards.time_minutes_singular" : "reflection.rewards.time_minutes_plural", minutes);
+			return Strings.Get(secs == 1 ? "reflection.rewards.time_seconds_singular" : "reflection.rewards.time_seconds_plural", secs);
 		}
 
 		public static int LogCacheStatus() {

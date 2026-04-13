@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Fixed English leaks in non-English locales across multiple announcement paths: newcomers-arrival countdown (`RewardsReflection.FormatGameTime`), construction cost lines (`ConstructionReflection.GetBuildingCosts`), worker descriptions (`BuildingReflection.GetWorkerDescription`) and worker-menu race +/- selector (`BuildingWorkerSection`), worker-info quick summaries (`WorkerInfoHelper`), house resident race suffix (`HouseNavigator`), resolve-summary and species-cycle race names (`StatsReader`), glade content summaries and location markers (`MapReflection`), hearth decoration tier requirements, orders reputation/blueprint labels, embark seasonal mystery counts, relic decision/order-blocking labels. Race IDs now resolve through `EmbarkReflection.GetRaceDisplayName` at the announcement boundary; English literals replaced with new `Strings.Get` keys with singular/plural pairs where appropriate. Added keys to `en.properties` only — translations for the other 8 languages will follow separately.
 
 ### Internal
 

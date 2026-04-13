@@ -2148,19 +2148,21 @@ namespace ATSAccessibility.Reflection {
 			// Automaton branch: display name + "automaton" suffix + task
 			if (AutomatonReflection.IsAutomaton(actor)) {
 				string displayName = AutomatonReflection.GetAutomatonDisplayName(actor);
-				string label = displayName != null ? $"{displayName} automaton" : "Automaton";
+				string label = displayName != null
+					? Strings.Get("reflection.building.automaton_named", displayName)
+					: Strings.Get("reflection.building.automaton");
 				string automatonTask = GetActorTaskDescription(actor);
 				return !string.IsNullOrEmpty(automatonTask) ? $"{label}, {automatonTask}" : label;
 			}
 
 			// Villager path: name + race + task
-			string name = GetActorName(actor) ?? "Unknown";
+			string name = GetActorName(actor) ?? Strings.Get("common.unknown");
 			string race = GetActorRace(actor);
 			string task = GetActorTaskDescription(actor);
 
 			var parts = new List<string> { name };
 			if (!string.IsNullOrEmpty(race))
-				parts.Add(race);
+				parts.Add(EmbarkReflection.GetRaceDisplayName(race));
 			if (!string.IsNullOrEmpty(task))
 				parts.Add(task);
 

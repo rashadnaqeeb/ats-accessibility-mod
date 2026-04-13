@@ -445,7 +445,7 @@ namespace ATSAccessibility.Reflection {
 
 				if (!string.IsNullOrEmpty(tagText) && !string.IsNullOrEmpty(labelText))
 					return $"{labelText} ({tagText})";
-				return labelText ?? tagText ?? $"Decision {decisionIndex + 1}";
+				return labelText ?? tagText ?? Strings.Get("reflection.relic.decision_fallback", decisionIndex + 1);
 			} catch {
 				return null;
 			}
@@ -838,9 +838,9 @@ namespace ATSAccessibility.Reflection {
 					if (!canComplete) {
 						var objectives = GetRelicOrderObjectiveTexts(building);
 						if (objectives != null && objectives.Count > 0)
-							blockingReason = "Complete order: " + string.Join(", ", objectives);
+							blockingReason = Strings.Get("reflection.relic.complete_order_with_name", string.Join(", ", objectives));
 						else
-							blockingReason = "Complete the order first";
+							blockingReason = Strings.Get("reflection.relic.complete_order");
 						return false;
 					}
 				}

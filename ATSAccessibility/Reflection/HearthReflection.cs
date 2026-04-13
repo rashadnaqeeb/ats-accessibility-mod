@@ -635,7 +635,7 @@ namespace ATSAccessibility.Reflection {
 								var decorTier = ReflectionHelper.GetField(_decorReqTierField, decorReq);
 								// Get tier name and append "decorations" for clarity
 								string tierName = GetDecorationTierName(decorTier);
-								reqInfo.tierName = tierName + " decorations";
+								reqInfo.tierName = Strings.Get("reflection.hearth.tier_decorations", tierName);
 								reqInfo.required = ReflectionHelper.GetInt(_decorReqAmountField, decorReq);
 								reqInfo.current = CountDecorationsForHearth(building, decorTier);
 

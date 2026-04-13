@@ -1287,9 +1287,9 @@ namespace ATSAccessibility.Reflection {
 				// 1. Add seasonal mystery counts
 				var (positive, negative) = GetDifficultySeasonalEffects(difficulty);
 				if (negative > 0)
-					result.Add($"{negative} negative seasonal myster{(negative > 1 ? "ies" : "y")}");
+					result.Add(Strings.Get(negative == 1 ? "reflection.embark.negative_mystery_singular" : "reflection.embark.negative_mystery_plural", negative));
 				if (positive > 0)
-					result.Add($"{positive} positive seasonal myster{(positive > 1 ? "ies" : "y")}");
+					result.Add(Strings.Get(positive == 1 ? "reflection.embark.positive_mystery_singular" : "reflection.embark.positive_mystery_plural", positive));
 
 				// 2. Add effect severity range with labels (if available)
 				if (fieldPos.HasValue) {

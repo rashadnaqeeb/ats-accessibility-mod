@@ -1,3 +1,4 @@
+using ATSAccessibility.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -307,9 +308,9 @@ namespace ATSAccessibility.Reflection {
 								int stored = 0;
 								storedGoods.TryGetValue(goodName, out stored);
 								if (stored < amount)
-									costs.Add($"{amount} {displayName}, not enough");
+									costs.Add(Strings.Get("reflection.construction.cost_entry_short", amount, displayName));
 								else
-									costs.Add($"{amount} {displayName}");
+									costs.Add(Strings.Get("reflection.construction.cost_entry", amount, displayName));
 							}
 						}
 						if (costs.Count > 0) return string.Join(", ", costs);
@@ -327,7 +328,7 @@ namespace ATSAccessibility.Reflection {
 					int amount = (int?)_goodRefAmountField?.GetValue(goodRef) ?? 0;
 					string displayName = _goodRefDisplayNameProperty?.GetValue(goodRef) as string;
 					if (amount > 0 && !string.IsNullOrEmpty(displayName))
-						fallbackCosts.Add($"{amount} {displayName}");
+						fallbackCosts.Add(Strings.Get("reflection.construction.cost_entry", amount, displayName));
 				}
 				return fallbackCosts.Count > 0 ? string.Join(", ", fallbackCosts) : null;
 			} catch (Exception ex) { Debug.LogWarning($"[ATSAccessibility] GetBuildingCosts failed: {ex.Message}"); }

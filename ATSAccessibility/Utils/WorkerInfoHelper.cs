@@ -65,12 +65,13 @@ namespace ATSAccessibility.Utils {
 				var hearthWorkers = GetWorkerRaceCounts(building);
 				if (hearthWorkers.Count > 0) {
 					string raceName = hearthWorkers[0].raceName;
+					string raceDisplay = EmbarkReflection.GetRaceDisplayName(raceName);
 					// Use GetRaceBonusForBuilding - same path as worker menu
 					string effect = BuildingReflection.GetRaceBonusForBuilding(building, raceName);
 					if (!string.IsNullOrEmpty(effect)) {
-						return Strings.Get("util.worker_info.hearth_with_effect", currentWorkers, maxWorkers, raceName, effect, looseInfo);
+						return Strings.Get("util.worker_info.hearth_with_effect", currentWorkers, maxWorkers, raceDisplay, effect, looseInfo);
 					}
-					return Strings.Get("util.worker_info.hearth_no_effect", currentWorkers, maxWorkers, raceName, looseInfo);
+					return Strings.Get("util.worker_info.hearth_no_effect", currentWorkers, maxWorkers, raceDisplay, looseInfo);
 				}
 				return Strings.Get("util.worker_info.hearth_plain", currentWorkers, maxWorkers, looseInfo);
 			}
@@ -85,9 +86,10 @@ namespace ATSAccessibility.Utils {
 				return Strings.Get("util.worker_info.no_races", currentWorkers, maxWorkers, FormatSpecialtyInfo(building), looseInfo);
 			}
 
-			// Format: "3/3: 2 beavers, 1 harpy, Woodworking Efficiency (Beavers)"
+			// Format: "3/3: 2 Beaver, 1 Harpy, Woodworking Efficiency (Beavers)"
 			var raceStrings = raceCounts.Select(rc =>
-				Strings.Get("util.worker_info.race_count", rc.count, Pluralize(rc.raceName.ToLowerInvariant(), rc.count)));
+				Strings.Get(rc.count == 1 ? "util.worker_info.race_count_singular" : "util.worker_info.race_count_plural",
+					rc.count, EmbarkReflection.GetRaceDisplayName(rc.raceName)));
 			return Strings.Get("util.worker_info.with_workers", currentWorkers, maxWorkers, string.Join(", ", raceStrings), FormatSpecialtyInfo(building), looseInfo);
 		}
 
@@ -125,7 +127,8 @@ namespace ATSAccessibility.Utils {
 				return "";
 			}
 			string typeStr = !string.IsNullOrEmpty(bonusType) ? $" {bonusType}" : "";
-			return Strings.Get("util.worker_info.specialty", specialty, typeStr, string.Join(", ", matchingRaces));
+			var localizedRaces = matchingRaces.Select(r => EmbarkReflection.GetRaceDisplayName(r));
+			return Strings.Get("util.worker_info.specialty", specialty, typeStr, string.Join(", ", localizedRaces));
 		}
 
 		/// <summary>
@@ -151,7 +154,7 @@ namespace ATSAccessibility.Utils {
 			if (counts.Count == 0) return "";
 
 			var parts = counts.Select(kv =>
-				Strings.Get("util.worker_info.auto_count", kv.Value, Pluralize(kv.Key, kv.Value)));
+				Strings.Get(kv.Value == 1 ? "util.worker_info.auto_count_singular" : "util.worker_info.auto_count_plural", kv.Value, kv.Key));
 			return Strings.Get("util.worker_info.loose_suffix", string.Join(", ", parts));
 		}
 
@@ -186,19 +189,6 @@ namespace ATSAccessibility.Utils {
 		}
 
 		/// <summary>
-		/// Pluralize a race name. Handles irregular plurals (harpy->harpies, fox->foxes).
-		/// </summary>
-		private static string Pluralize(string name, int count) {
-			if (count == 1) return name;
-
-			if (name.EndsWith("y"))
-				return name.Substring(0, name.Length - 1) + "ies";
-			if (name.EndsWith("x") || name.EndsWith("s"))
-				return name + "es";
-			return name + "s";
-		}
-
-		/// <summary>
 		/// Cycle to next/previous race with free workers.
 		/// Returns announcement like "Beaver, 5 free" or "No free workers"
 		/// </summary>
@@ -211,7 +201,7 @@ namespace ATSAccessibility.Utils {
 
 			_selectedRaceIndex = NavigationUtils.WrapIndex(_selectedRaceIndex, direction, _cachedRaces.Count);
 			var selected = _cachedRaces[_selectedRaceIndex];
-			return Strings.Get("util.worker_info.race_free", selected.raceName, selected.freeCount);
+			return Strings.Get("util.worker_info.race_free", EmbarkReflection.GetRaceDisplayName(selected.raceName), selected.freeCount);
 		}
 
 		/// <summary>
@@ -304,8 +294,9 @@ namespace ATSAccessibility.Utils {
 
 			// Check if this race has free workers
 			int freeCount = BuildingReflection.GetFreeWorkerCount(raceName);
+			string raceDisplay = EmbarkReflection.GetRaceDisplayName(raceName);
 			if (freeCount <= 0) {
-				return Strings.Get("util.worker_info.no_free_race", raceName.ToLowerInvariant());
+				return Strings.Get("util.worker_info.no_free_race", raceDisplay);
 			}
 
 			// Assign the worker
@@ -322,10 +313,10 @@ namespace ATSAccessibility.Utils {
 			if (emptySlot < newWorkerIds.Length && newWorkerIds[emptySlot] > 0) {
 				var actor = BuildingReflection.GetActor(newWorkerIds[emptySlot]);
 				string workerName = BuildingReflection.GetActorName(actor) ?? Strings.Get("common.worker");
-				return Strings.Get("util.worker_info.assigned_with_race", workerName, raceName);
+				return Strings.Get("util.worker_info.assigned_with_race", workerName, raceDisplay);
 			}
 
-			return Strings.Get("util.worker_info.assigned_race_only", raceName);
+			return Strings.Get("util.worker_info.assigned_race_only", raceDisplay);
 		}
 
 		/// <summary>

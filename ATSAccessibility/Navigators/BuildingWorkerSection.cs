@@ -181,12 +181,13 @@ namespace ATSAccessibility.Navigators {
 			int raceIndex = subItemIndex - raceOffset;
 			if (raceIndex >= 0 && raceIndex < _availableRaces.Count) {
 				var (raceName, freeCount) = _availableRaces[raceIndex];
+				string raceDisplay = EmbarkReflection.GetRaceDisplayName(raceName);
 				var (bonus, bonusType) = BuildingReflection.GetRaceBonusWithType(_building, raceName);
 				if (!string.IsNullOrEmpty(bonus)) {
 					string typeStr = !string.IsNullOrEmpty(bonusType) ? Strings.Get("nav.workers.bonus_type_suffix", bonusType) : "";
-					Speech.Say(Strings.Get("nav.workers.race_available_with_bonus", raceName, freeCount, bonus, typeStr));
+					Speech.Say(Strings.Get("nav.workers.race_available_with_bonus", raceDisplay, freeCount, bonus, typeStr));
 				} else {
-					Speech.Say(Strings.Get("nav.workers.race_available", raceName, freeCount));
+					Speech.Say(Strings.Get("nav.workers.race_available", raceDisplay, freeCount));
 				}
 			} else {
 				Speech.Say(Strings.Get("nav.workers.invalid_option"));
@@ -230,9 +231,11 @@ namespace ATSAccessibility.Navigators {
 			if (raceIndex >= 0 && raceIndex < _availableRaces.Count) {
 				var (raceName, freeCount) = _availableRaces[raceIndex];
 
+				string raceDisplay = EmbarkReflection.GetRaceDisplayName(raceName);
+
 				// Check if race has free workers
 				if (freeCount == 0) {
-					Speech.Say(Strings.Get("nav.workers.no_free_race", raceName));
+					Speech.Say(Strings.Get("nav.workers.no_free_race", raceDisplay));
 					SoundManager.PlayFailed();
 					return false;
 				}
@@ -250,14 +253,14 @@ namespace ATSAccessibility.Navigators {
 					// Announce the new worker
 					if (IsValidWorkerIndex(workerIndex)) {
 						string workerDesc = BuildingReflection.GetWorkerDescription(_workerIds[workerIndex]);
-						Speech.Say(Strings.Get("nav.workers.assigned", workerDesc ?? raceName));
+						Speech.Say(Strings.Get("nav.workers.assigned", workerDesc ?? raceDisplay));
 					} else {
-						Speech.Say(Strings.Get("nav.workers.assigned", raceName));
+						Speech.Say(Strings.Get("nav.workers.assigned", raceDisplay));
 					}
 
 					return true;
 				} else {
-					Speech.Say(Strings.Get("nav.workers.cannot_assign_race", raceName));
+					Speech.Say(Strings.Get("nav.workers.cannot_assign_race", raceDisplay));
 					return false;
 				}
 			}
@@ -312,7 +315,7 @@ namespace ATSAccessibility.Navigators {
 
 			int raceIndex = subItemIndex - raceOffset;
 			if (raceIndex >= 0 && raceIndex < _availableRaces.Count) {
-				return _availableRaces[raceIndex].raceName;
+				return EmbarkReflection.GetRaceDisplayName(_availableRaces[raceIndex].raceName);
 			}
 			return null;
 		}

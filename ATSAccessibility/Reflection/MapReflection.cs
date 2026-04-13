@@ -594,15 +594,15 @@ namespace ATSAccessibility.Reflection {
 
 			var grassLocations = GetRevealedGrassLocations();
 			if (grassLocations != null && grassLocations.Contains(pos))
-				return "grass marker";
+				return Strings.Get("reflection.map.marker_grass");
 
 			var springsLocations = GetRevealedSpringsLocations();
 			if (springsLocations != null && springsLocations.Contains(pos))
-				return "spring marker";
+				return Strings.Get("reflection.map.marker_spring");
 
 			var relicLocations = GetRevealedRelicLocations();
 			if (relicLocations != null && relicLocations.Contains(pos))
-				return "relic marker";
+				return Strings.Get("reflection.map.marker_relic");
 
 			return null;
 		}
@@ -646,40 +646,23 @@ namespace ATSAccessibility.Reflection {
 			var parts = new List<string>();
 
 			try {
-				// Deposits
-				var deposits = _gladeContentsDepositsField?.GetValue(glade) as System.Collections.IList;
-				if (deposits != null && deposits.Count > 0)
-					parts.Add($"{deposits.Count} deposit{(deposits.Count > 1 ? "s" : "")}");
-
-				// Relics
-				var relics = _gladeContentsRelicsField?.GetValue(glade) as System.Collections.IList;
-				if (relics != null && relics.Count > 0)
-					parts.Add($"{relics.Count} relic{(relics.Count > 1 ? "s" : "")}");
-
-				// Buildings (abandoned structures)
-				var buildings = _gladeContentsBuildingsField?.GetValue(glade) as System.Collections.IList;
-				if (buildings != null && buildings.Count > 0)
-					parts.Add($"{buildings.Count} building{(buildings.Count > 1 ? "s" : "")}");
-
-				// Springs
-				var springs = _gladeContentsSpringsField?.GetValue(glade) as System.Collections.IList;
-				if (springs != null && springs.Count > 0)
-					parts.Add($"{springs.Count} spring{(springs.Count > 1 ? "s" : "")}");
-
-				// Lakes
-				var lakes = _gladeContentsLakesField?.GetValue(glade) as System.Collections.IList;
-				if (lakes != null && lakes.Count > 0)
-					parts.Add($"{lakes.Count} lake{(lakes.Count > 1 ? "s" : "")}");
-
-				// Ore
-				var ore = _gladeContentsOreField?.GetValue(glade) as System.Collections.IList;
-				if (ore != null && ore.Count > 0)
-					parts.Add($"{ore.Count} ore");
+				AddGladePart(parts, _gladeContentsDepositsField, glade, "reflection.map.glade_deposit_singular", "reflection.map.glade_deposit_plural");
+				AddGladePart(parts, _gladeContentsRelicsField, glade, "reflection.map.glade_relic_singular", "reflection.map.glade_relic_plural");
+				AddGladePart(parts, _gladeContentsBuildingsField, glade, "reflection.map.glade_building_singular", "reflection.map.glade_building_plural");
+				AddGladePart(parts, _gladeContentsSpringsField, glade, "reflection.map.glade_spring_singular", "reflection.map.glade_spring_plural");
+				AddGladePart(parts, _gladeContentsLakesField, glade, "reflection.map.glade_lake_singular", "reflection.map.glade_lake_plural");
+				AddGladePart(parts, _gladeContentsOreField, glade, "reflection.map.glade_ore_singular", "reflection.map.glade_ore_plural");
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetGladeContentsSummary failed: {ex.Message}");
 			}
 
-			return parts.Count > 0 ? string.Join(", ", parts) : "empty";
+			return parts.Count > 0 ? string.Join(", ", parts) : Strings.Get("reflection.map.glade_empty");
+		}
+
+		private static void AddGladePart(List<string> parts, FieldInfo field, object glade, string singularKey, string pluralKey) {
+			var list = field?.GetValue(glade) as System.Collections.IList;
+			if (list == null || list.Count == 0) return;
+			parts.Add(Strings.Get(list.Count == 1 ? singularKey : pluralKey, list.Count));
 		}
 
 		// ========================================
