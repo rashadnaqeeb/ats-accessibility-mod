@@ -681,10 +681,10 @@ namespace ATSAccessibility.Reflection {
 			var raceModel = ReflectionHelper.Invoke(_settingsGetRaceMethod, settings, raceName);
 			if (raceModel == null) return raceName;
 
-			// Get displayName from RaceModel
-			var displayNameProp = raceModel.GetType().GetProperty("displayName",
+			// RaceModel.displayName is a public field, not a property.
+			var displayNameField = raceModel.GetType().GetField("displayName",
 				BindingFlags.Public | BindingFlags.Instance);
-			var locaText = displayNameProp?.GetValue(raceModel);
+			var locaText = displayNameField?.GetValue(raceModel);
 			return GameReflection.GetLocaText(locaText) ?? raceName;
 		}
 
@@ -772,9 +772,10 @@ namespace ATSAccessibility.Reflection {
 			var goodModel = ReflectionHelper.Invoke(_settingsGetGoodMethod, settings, goodName);
 			if (goodModel == null) return goodName;
 
-			var displayNameProp = goodModel.GetType().GetProperty("displayName",
+			// GoodModel.displayName is a public field, not a property.
+			var displayNameField = goodModel.GetType().GetField("displayName",
 				BindingFlags.Public | BindingFlags.Instance);
-			var locaText = displayNameProp?.GetValue(goodModel);
+			var locaText = displayNameField?.GetValue(goodModel);
 			return GameReflection.GetLocaText(locaText) ?? goodName;
 		}
 

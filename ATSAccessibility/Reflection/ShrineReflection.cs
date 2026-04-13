@@ -269,9 +269,10 @@ namespace ATSAccessibility.Reflection {
 			if (raceField != null) {
 				var raceModel = raceField.GetValue(effect);
 				if (raceModel != null) {
-					var raceDisplayNameProp = raceModel.GetType().GetProperty("displayName", GameReflection.PublicInstance);
-					if (raceDisplayNameProp != null) {
-						var locaText = raceDisplayNameProp.GetValue(raceModel);
+					// RaceModel.displayName is a public field, not a property.
+					var raceDisplayNameField = raceModel.GetType().GetField("displayName", GameReflection.PublicInstance);
+					if (raceDisplayNameField != null) {
+						var locaText = raceDisplayNameField.GetValue(raceModel);
 						if (locaText != null) {
 							var textProp = locaText.GetType().GetProperty("Text", GameReflection.PublicInstance);
 							return textProp?.GetValue(locaText) as string;

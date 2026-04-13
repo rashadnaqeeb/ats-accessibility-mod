@@ -2748,8 +2748,9 @@ namespace ATSAccessibility.Reflection {
 				var goodModel = _settingsGetGoodMethodCached.Invoke(settings, new object[] { goodName });
 				if (goodModel == null) return goodName;
 
-				var displayNameProp = goodModel.GetType().GetProperty("displayName", PublicInstance);
-				var locaText = displayNameProp?.GetValue(goodModel);
+				// GoodModel.displayName is a public field, not a property.
+				var displayNameField = goodModel.GetType().GetField("displayName", PublicInstance);
+				var locaText = displayNameField?.GetValue(goodModel);
 				return GetLocaText(locaText) ?? goodName;
 			} catch {
 				return goodName;

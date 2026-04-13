@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Race and good display names now localise correctly in worker slots, newcomers groups, and other announcements (previously leaked English internal keys like "Lizard" / "Grain" because the reflection lookup used `GetProperty` on a public field).
 
 ### Internal
 
