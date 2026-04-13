@@ -40,10 +40,11 @@ namespace ATSAccessibility.Overlays {
 		protected override void RefreshData() {
 			_items.Clear();
 
-			// Add header item
+			// Add header item — resolved from the game's own loca keys so NPC
+			// name/title/dialogue match the transliterated form shown in the popup UI.
 			_items.Add(new NavItem {
 				Type = ItemType.Header,
-				Label = Strings.Get("overlay.payments.header")
+				Label = BuildHeaderLabel()
 			});
 
 			// Get payments
@@ -143,6 +144,29 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 		// DATA HELPERS
 		// ========================================
+
+		private static string BuildHeaderLabel() {
+			const string nameKey = "GameUI_PaymentsPopup_Dialogue_Name";
+			const string titleKey = "GameUI_PaymentsPopup_Dialogue_Title";
+			const string textKey = "GameUI_PaymentsPopup_Dialogue_Text";
+
+			string name = GameReflection.ResolveLocaKey(nameKey);
+			string title = GameReflection.ResolveLocaKey(titleKey);
+			string text = GameReflection.ResolveLocaKey(textKey);
+
+			// ResolveLocaKey returns the key itself on lookup failure.
+			bool resolved =
+				!string.IsNullOrEmpty(name) && name != nameKey
+				&& !string.IsNullOrEmpty(title) && title != titleKey
+				&& !string.IsNullOrEmpty(text) && text != textKey;
+
+			if (!resolved)
+				return Strings.Get("overlay.payments.header_fallback");
+
+			// Game wraps the dialogue line in literal quote marks; ru/fr use guillemets.
+			text = text.Trim().Trim('"', '\u201C', '\u201D', '«', '»');
+			return Strings.Get("overlay.payments.header_format", name, title, text);
+		}
 
 		private string BuildPaymentLabel(PaymentsReflection.PaymentInfo payment) {
 			var parts = new List<string>();
