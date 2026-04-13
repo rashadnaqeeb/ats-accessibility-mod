@@ -701,8 +701,13 @@ namespace ATSAccessibility.Utils {
 					var dangerLevel = EventReflection.GladesGetDangerLevelMethod?.Invoke(gladesService, new[] { gladeState });
 					if (dangerLevel != null) {
 						string level = dangerLevel.ToString();
-						if (level != "None" && level != "Safe") {
-							dangerInfo = Strings.Get("util.event.glade_danger_suffix", level);
+						string localized = level switch {
+							"Dangerous" => Strings.Get("handler.mapnav.glade_danger_dangerous"),
+							"Forbidden" => Strings.Get("handler.mapnav.glade_danger_forbidden"),
+							_ => null
+						};
+						if (localized != null) {
+							dangerInfo = Strings.Get("util.event.glade_danger_suffix", localized);
 						}
 					}
 				}
@@ -984,7 +989,7 @@ namespace ATSAccessibility.Utils {
 			if (!Plugin.AnnounceGoodDiscovered.Value) return;
 			if (IsInGracePeriod()) return;
 
-			string name = goodName?.ToString() ?? "Unknown";
+			string name = goodName?.ToString() ?? Strings.Get("common.unknown");
 			// Try to get the display name from settings
 			try {
 				var settings = GameReflection.GetSettings();

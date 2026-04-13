@@ -135,16 +135,16 @@ namespace ATSAccessibility.Utils {
 
 					// Check for grade sprites by name pattern
 					// Primary format: "grade0", "grade1", "grade2", "grade3"
-					if (spriteName == "grade0" || spriteName.EndsWith("grade0")) return "0 star";
-					if (spriteName == "grade1" || spriteName.EndsWith("grade1")) return "1 star";
-					if (spriteName == "grade2" || spriteName.EndsWith("grade2")) return "2 star";
-					if (spriteName == "grade3" || spriteName.EndsWith("grade3")) return "3 star";
+					if (spriteName == "grade0" || spriteName.EndsWith("grade0")) return Strings.Get("common.sprite.grade_0");
+					if (spriteName == "grade1" || spriteName.EndsWith("grade1")) return Strings.Get("common.sprite.grade_1");
+					if (spriteName == "grade2" || spriteName.EndsWith("grade2")) return Strings.Get("common.sprite.grade_2");
+					if (spriteName == "grade3" || spriteName.EndsWith("grade3")) return Strings.Get("common.sprite.grade_3");
 
 					// Fallback patterns: "0 star", "1 star", etc. or just numbers
-					if (spriteName == "0 star" || spriteName == "0") return "0 star";
-					if (spriteName == "1 star" || spriteName == "1") return "1 star";
-					if (spriteName == "2 star" || spriteName == "2") return "2 star";
-					if (spriteName == "3 star" || spriteName == "3") return "3 star";
+					if (spriteName == "0 star" || spriteName == "0") return Strings.Get("common.sprite.grade_0");
+					if (spriteName == "1 star" || spriteName == "1") return Strings.Get("common.sprite.grade_1");
+					if (spriteName == "2 star" || spriteName == "2") return Strings.Get("common.sprite.grade_2");
+					if (spriteName == "3 star" || spriteName == "3") return Strings.Get("common.sprite.grade_3");
 
 					// For other sprites, just remove them
 					return "";
