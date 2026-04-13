@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.3.4
+## Changes since v1.4.0
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.4.0
 
 ### New features
 - Mine building panel now announces underlying ore type and currently-available charges as a new top section above Status
