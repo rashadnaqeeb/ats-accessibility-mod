@@ -9,6 +9,7 @@
 - Add Simplified Chinese translation (zh-CN.properties)
 - Add Spanish (Spain) translation (es.properties)
 - Add Spanish (Latin America) translation (es-LATAM.properties)
+- Add Portuguese translation (pt.properties)
 
 ### Bug fixes
 - Scanner now announces underlying ore type and remaining charges when hovering a mine
