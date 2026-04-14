@@ -735,10 +735,11 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private string GetRecipeDisplayName(RecipeInfo recipe) {
-			// Prefer product name (good name) if available
+			// Prefer localized product name via game loca table
 			if (!string.IsNullOrEmpty(recipe.ProductName)) {
-				// ProductName is the internal good name, need to look up display name
-				// For now, just clean it up
+				string localized = BuildingReflection.GetGoodDisplayName(recipe.ProductName);
+				if (!string.IsNullOrEmpty(localized) && localized != recipe.ProductName)
+					return localized;
 				return CleanupName(recipe.ProductName);
 			}
 

@@ -358,6 +358,9 @@ namespace ATSAccessibility.Navigators {
 
 		private string GetRecipeDisplayName(RecipeInfo recipe) {
 			if (!string.IsNullOrEmpty(recipe.ProductName)) {
+				string localized = BuildingReflection.GetGoodDisplayName(recipe.ProductName);
+				if (!string.IsNullOrEmpty(localized) && localized != recipe.ProductName)
+					return localized;
 				return CleanupName(recipe.ProductName);
 			}
 

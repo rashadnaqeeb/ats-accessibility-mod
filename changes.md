@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Fix recipe/production names in workshops and fishing huts showing in English regardless of game language
 
 ### Internal
 
