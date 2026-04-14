@@ -274,9 +274,15 @@ namespace ATSAccessibility.Navigators {
 
 				case 2:
 					// Bait ingredient
-					string ingredient = !string.IsNullOrEmpty(_baitIngredient)
-						? CleanupName(_baitIngredient)
-						: Strings.Get("common.unknown");
+					string ingredient;
+					if (!string.IsNullOrEmpty(_baitIngredient)) {
+						string localized = BuildingReflection.GetGoodDisplayName(_baitIngredient);
+						ingredient = (!string.IsNullOrEmpty(localized) && localized != _baitIngredient)
+							? localized
+							: CleanupName(_baitIngredient);
+					} else {
+						ingredient = Strings.Get("common.unknown");
+					}
 					Speech.Say(Strings.Get("nav.fishinghut.bait_ingredient", ingredient));
 					break;
 

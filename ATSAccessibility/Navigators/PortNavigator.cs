@@ -897,7 +897,21 @@ namespace ATSAccessibility.Navigators {
 
 		private string GetEffectDisplayName(string effectName) {
 			if (string.IsNullOrEmpty(effectName)) return effectName;
-			return CleanupName(effectName);
+
+			try {
+				var settings = GameReflection.GetSettings();
+				if (settings == null) return CleanupName(effectName);
+
+				var getEffectMethod = settings.GetType().GetMethod("GetEffect", new[] { typeof(string) });
+				var model = getEffectMethod?.Invoke(settings, new object[] { effectName });
+				if (model == null) return CleanupName(effectName);
+
+				var displayNameField = model.GetType().GetField("displayName", GameReflection.PublicInstance);
+				var displayNameObj = displayNameField?.GetValue(model);
+				return GameReflection.GetLocaText(displayNameObj) ?? CleanupName(effectName);
+			} catch {
+				return CleanupName(effectName);
+			}
 		}
 
 		private string CleanupName(string name) {

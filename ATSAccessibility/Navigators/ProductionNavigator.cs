@@ -1159,8 +1159,11 @@ namespace ATSAccessibility.Navigators {
 			var disabledItems = new List<string>();
 
 			foreach (var option in options) {
-				string name = BuildingReflection.GetIngredientGoodName(option) ?? Strings.Get("common.unknown");
-				name = CleanupName(name);
+				string rawName = BuildingReflection.GetIngredientGoodName(option) ?? Strings.Get("common.unknown");
+				string localized = BuildingReflection.GetGoodDisplayName(rawName);
+				string name = (!string.IsNullOrEmpty(localized) && localized != rawName)
+					? localized
+					: CleanupName(rawName);
 				int amount = BuildingReflection.GetIngredientAmount(option);
 				bool allowed = BuildingReflection.IsIngredientAllowed(option);
 
@@ -1261,7 +1264,10 @@ namespace ATSAccessibility.Navigators {
 
 			var option = options[subSubItemIndex];
 			string rawName = BuildingReflection.GetIngredientGoodName(option) ?? Strings.Get("common.unknown");
-			string name = CleanupName(rawName);
+			string localized = BuildingReflection.GetGoodDisplayName(rawName);
+			string name = (!string.IsNullOrEmpty(localized) && localized != rawName)
+				? localized
+				: CleanupName(rawName);
 			int amount = BuildingReflection.GetIngredientAmount(option);
 			bool allowed = BuildingReflection.IsIngredientAllowed(option);
 			int inStorage = BuildingReflection.GetStoredGoodAmount(rawName);
@@ -1294,7 +1300,10 @@ namespace ATSAccessibility.Navigators {
 
 			// Announce new state
 			string rawName = BuildingReflection.GetIngredientGoodName(option) ?? Strings.Get("common.unknown");
-			string name = CleanupName(rawName);
+			string localized = BuildingReflection.GetGoodDisplayName(rawName);
+			string name = (!string.IsNullOrEmpty(localized) && localized != rawName)
+				? localized
+				: CleanupName(rawName);
 			int amount = BuildingReflection.GetIngredientAmount(option);
 			bool newAllowed = BuildingReflection.IsIngredientAllowed(option);
 			int inStorage = BuildingReflection.GetStoredGoodAmount(rawName);
