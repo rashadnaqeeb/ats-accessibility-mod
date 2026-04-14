@@ -2,17 +2,18 @@
 
 
 
-## Changes since v1.4.2
+## Changes since v1.4.3
 
 ### New features
 
 ### Bug fixes
-- Fix recipe/production names in workshops and fishing huts showing in English regardless of game language
-- Fix English ingredient names in recipe ingredient settings for non-English players
-- Fix English bait ingredient name in fishing hut panel for non-English players
-- Fix English effect name in port perk reward announcements for non-English players
 
 ### Internal
+
+## v1.4.3
+
+### Bug fixes
+- Many localisation-related fixes.
 
 ## v1.4.2
 
