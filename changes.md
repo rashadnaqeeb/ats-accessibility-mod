@@ -2,14 +2,18 @@
 
 
 
-## Changes since v1.4.3
+## Changes since v1.4.4
 
 ### New features
 
 ### Bug fixes
-- Localize recipe names in camp-type production buildings (Woodcutters' Camp, etc.) via game loca table.
 
 ### Internal
+
+## v1.4.4
+
+### Bug fixes
+- Localize recipe names in camp-type production buildings (Woodcutters' Camp, etc.) via game loca table.
 
 ## v1.4.3
 
