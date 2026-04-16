@@ -735,7 +735,7 @@ namespace ATSAccessibility.Navigators {
 		}
 
 		private string GetRecipeDisplayName(RecipeInfo recipe) {
-			// Prefer localized product name via game loca table
+			// Workshop path: ProductName is populated on WorkshopRecipeState
 			if (!string.IsNullOrEmpty(recipe.ProductName)) {
 				string localized = BuildingReflection.GetGoodDisplayName(recipe.ProductName);
 				if (!string.IsNullOrEmpty(localized) && localized != recipe.ProductName)
@@ -743,7 +743,18 @@ namespace ATSAccessibility.Navigators {
 				return CleanupName(recipe.ProductName);
 			}
 
-			// Fall back to model name
+			// Camp path: resolve CampRecipeModel.refGood and localize the good name
+			if (_isCamp && !string.IsNullOrEmpty(recipe.ModelName)) {
+				string goodName = BuildingReflection.GetCampRecipeGoodName(recipe.ModelName);
+				if (!string.IsNullOrEmpty(goodName)) {
+					string localized = BuildingReflection.GetGoodDisplayName(goodName);
+					if (!string.IsNullOrEmpty(localized) && localized != goodName)
+						return localized;
+					return CleanupName(goodName);
+				}
+			}
+
+			// Final fallback
 			if (!string.IsNullOrEmpty(recipe.ModelName)) {
 				return CleanupName(recipe.ModelName);
 			}

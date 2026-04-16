@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Localize recipe names in camp-type production buildings (Woodcutters' Camp, etc.) via game loca table.
 
 ### Internal
 

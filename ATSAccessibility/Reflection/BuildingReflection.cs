@@ -117,6 +117,10 @@ namespace ATSAccessibility.Reflection {
 		// Produced good info (from WorkshopRecipeModel.producedGood)
 		private static FieldInfo _recipeModelProducedGoodField = null;  // GoodRef
 		private static FieldInfo _recipeGoodModelDisplayNameField = null;  // GoodModel.displayName (LocaText)
+		private static PropertyInfo _recipeGoodModelNameProperty = null;  // GoodModel.Name
+		// Camp recipe info (CampRecipeModel has refGood instead of producedGood)
+		private static MethodInfo _settingsGetCampRecipeMethod = null;  // Settings.GetCampRecipe(name)
+		private static FieldInfo _campRecipeModelRefGoodField = null;  // CampRecipeModel.refGood (GoodRef)
 		private static bool _recipeModelTypesCached = false;
 
 		// IngredientState fields
@@ -573,6 +577,17 @@ namespace ATSAccessibility.Reflection {
 				var goodModelType = assembly.GetType("Eremite.Model.GoodModel");
 				if (goodModelType != null) {
 					_recipeGoodModelDisplayNameField = goodModelType.GetField("displayName", GameReflection.PublicInstance);
+					_recipeGoodModelNameProperty = goodModelType.GetProperty("Name", GameReflection.PublicInstance);
+				}
+
+				// Camp recipe support: Settings.GetCampRecipe + CampRecipeModel.refGood
+				if (settingsType != null) {
+					_settingsGetCampRecipeMethod = settingsType.GetMethod("GetCampRecipe", GameReflection.PublicInstance);
+				}
+
+				var campRecipeModelType = assembly.GetType("Eremite.Buildings.CampRecipeModel");
+				if (campRecipeModelType != null) {
+					_campRecipeModelRefGoodField = campRecipeModelType.GetField("refGood", GameReflection.PublicInstance);
 				}
 			});
 		}
@@ -3311,6 +3326,35 @@ namespace ATSAccessibility.Reflection {
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// Resolve a camp recipe's produced good internal name (e.g. "Wood") from the recipe's model name.
+		/// Camp recipes use plain RecipeState (no productName field); the produced good lives on CampRecipeModel.refGood.
+		/// </summary>
+		public static string GetCampRecipeGoodName(string recipeModelName) {
+			if (string.IsNullOrEmpty(recipeModelName)) return null;
+
+			EnsureRecipeModelTypes();
+
+			try {
+				var settings = GameReflection.GetSettings();
+				if (settings == null) return null;
+
+				var model = ReflectionHelper.Invoke(_settingsGetCampRecipeMethod, settings, recipeModelName);
+				if (model == null) return null;
+
+				var refGood = ReflectionHelper.GetField(_campRecipeModelRefGoodField, model);
+				if (refGood == null) return null;
+
+				var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, refGood);
+				if (goodModel == null) return null;
+
+				return ReflectionHelper.GetPropString(_recipeGoodModelNameProperty, goodModel);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetCampRecipeGoodName failed: {ex.Message}");
+				return null;
+			}
 		}
 
 		/// <summary>
