@@ -371,6 +371,15 @@ namespace ATSAccessibility.Navigators {
 			}
 
 			if (!string.IsNullOrEmpty(recipe.ModelName)) {
+				// FishingHut uses plain RecipeState with no productName field, so route
+				// through FishingHutRecipeModel.refGood to get the localized good name.
+				string goodName = BuildingReflection.GetFishingHutRecipeGoodName(recipe.ModelName);
+				if (!string.IsNullOrEmpty(goodName)) {
+					string localized = BuildingReflection.GetGoodDisplayName(goodName);
+					if (!string.IsNullOrEmpty(localized) && localized != goodName)
+						return localized;
+					return CleanupName(goodName);
+				}
 				return CleanupName(recipe.ModelName);
 			}
 
