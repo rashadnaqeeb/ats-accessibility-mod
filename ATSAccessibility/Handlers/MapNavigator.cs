@@ -355,9 +355,13 @@ namespace ATSAccessibility.Handlers {
 			string result = MapReflection.GetFieldTypeName(field);
 			if (result == null) return Strings.Get("common.unknown_lower");
 
-			// Map game names to more descriptive names
+			// Map game names to more descriptive names. These come from the
+			// FieldType enum (Sand, Water, Grass, Ruins) and are language-invariant,
+			// so they need to be translated here rather than passed through raw.
 			if (result == "Grass") return Strings.Get("common.fertile_soil");
 			if (result == "Sand") return Strings.Get("handler.mapnav.terrain_sand");
+			if (result == "Water") return Strings.Get("handler.mapnav.terrain_water");
+			if (result == "Ruins") return Strings.Get("handler.mapnav.terrain_ruins");
 
 			return result;
 		}

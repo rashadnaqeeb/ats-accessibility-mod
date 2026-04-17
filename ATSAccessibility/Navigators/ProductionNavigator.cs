@@ -754,6 +754,15 @@ namespace ATSAccessibility.Navigators {
 				}
 			}
 
+			// Farm path: Plantation/Herb Garden/etc. use plain RecipeState with no
+			// productName field, so route through FarmRecipeModel.producedGood to
+			// get the localized crop name instead of falling back to the raw model ID.
+			if (_isFarm && recipe.RecipeState != null) {
+				string farmProduct = BuildingReflection.GetFarmRecipeProductDisplayName(recipe.RecipeState);
+				if (!string.IsNullOrEmpty(farmProduct))
+					return farmProduct;
+			}
+
 			// Final fallback
 			if (!string.IsNullOrEmpty(recipe.ModelName)) {
 				return CleanupName(recipe.ModelName);

@@ -43,15 +43,18 @@ namespace ATSAccessibility.Panels {
 		private object _currentField;  // WorldField object
 		private Vector3Int _cachedFieldPos;  // Cached field position (avoids repeated reflection)
 
-		// Top menu
-		private readonly string[] _topMenuItems = new string[] {
-			Strings.Get("panel.embark.menu.settlement_name"),
-			Strings.Get("panel.embark.menu.randomize_name"),
-			Strings.Get("panel.embark.menu.mission_info"),
-			Strings.Get("panel.embark.menu.caravans"),
-			Strings.Get("panel.embark.menu.spend_embark_points"),
-			Strings.Get("common.difficulty"),
-			Strings.Get("common.embark")
+		// Top menu — resolved lazily in GetLabel so they pick up the active
+		// language. Baking the resolved strings here would freeze them to English
+		// because this panel is constructed during AccessibilityCore.Start(),
+		// before Strings.ApplyGameLanguage() runs.
+		private static readonly string[] _topMenuKeys = new string[] {
+			"panel.embark.menu.settlement_name",
+			"panel.embark.menu.randomize_name",
+			"panel.embark.menu.mission_info",
+			"panel.embark.menu.caravans",
+			"panel.embark.menu.spend_embark_points",
+			"common.difficulty",
+			"common.embark"
 		};
 
 		// Name editing state
@@ -75,17 +78,17 @@ namespace ATSAccessibility.Panels {
 		protected override string EmptyMessage => "";
 
 		protected override int GetItemCount() {
-			if (Level == 0) return _topMenuItems.Length;
+			if (Level == 0) return _topMenuKeys.Length;
 			return 0;  // Section navigation handled in HandleSpecialKey
 		}
 
 		protected override string GetLabel(int index) {
-			if (Level == 0 && index >= 0 && index < _topMenuItems.Length) {
+			if (Level == 0 && index >= 0 && index < _topMenuKeys.Length) {
 				if (index == 0) {
 					var name = EmbarkReflection.GetSettlementName();
 					return Strings.Get("panel.embark.settlement_name_label", name ?? Strings.Get("common.unknown"));
 				}
-				return _topMenuItems[index];
+				return Strings.Get(_topMenuKeys[index]);
 			}
 			return null;
 		}
