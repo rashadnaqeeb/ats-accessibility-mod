@@ -2,17 +2,18 @@
 
 
 
-## Changes since v1.4.4
+## Changes since v1.4.5
 
 ### New features
 
 ### Bug fixes
-- Fix embark panel top-menu labels (Randomize Name, Mission Info, Caravans, Difficulty, Embark) leaking English on non-English languages — strings were baked at construction time before the language table loaded.
-- Localize raw Water/Ruins terrain names in map tile announcements (previously passed through as English).
-- Localize recipe names on Farm-type buildings (Plantation, Herb Garden, etc.) via FarmRecipeModel.producedGood — previously fell back to raw model ID (e.g. "Fibre Plantation").
-- Localize recipe names on Fishing Hut via FishingHutRecipeModel.refGood — previously fell back to raw model ID (e.g. "Food Raw Fish").
 
 ### Internal
+
+## v1.4.5
+
+### Bug fixes
+- Many localisation-related fixes.
 
 ## v1.4.4
 
