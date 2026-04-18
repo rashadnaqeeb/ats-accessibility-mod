@@ -5,9 +5,9 @@ namespace ATSAccessibility.Utils {
 	public static class StringUtil {
 		/// <summary>
 		/// Strips diacritics and expands ligatures so accented and composed
-		/// characters match their plain Latin equivalents
-		/// (é→e, ç→c, œ→oe, æ→ae, etc.). Used by type-ahead search to make
-		/// queries accent-insensitive.
+		/// characters match their plain Latin equivalents (e-acute to e,
+		/// c-cedilla to c, oe-ligature to oe, etc.). Used by type-ahead
+		/// search to make queries accent-insensitive.
 		/// </summary>
 		public static string RemoveDiacritics(string text) {
 			if (string.IsNullOrEmpty(text)) return text;

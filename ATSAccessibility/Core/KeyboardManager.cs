@@ -21,8 +21,6 @@ namespace ATSAccessibility.Core {
 			public bool Shift { get; }
 			public char TypedChar { get; }
 
-			public KeyModifiers(bool control, bool alt, bool shift) : this(control, alt, shift, '\0') { }
-
 			public KeyModifiers(bool control, bool alt, bool shift, char typedChar) {
 				Control = control;
 				Alt = alt;

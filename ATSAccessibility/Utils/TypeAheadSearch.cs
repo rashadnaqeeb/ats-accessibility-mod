@@ -76,13 +76,6 @@ namespace ATSAccessibility.Utils {
 		// Optional callback for full announcements (called with original index)
 		private Action<int> _announceResult;
 
-		/// <summary>
-		/// Optional grouping function: maps an original item index to a group number.
-		/// During merge, all group-0 items (sorted by tier+position) appear before
-		/// group-1 items, etc. When null, all items are in a single group.
-		/// </summary>
-		public Func<int, int> GroupOf { get; set; }
-
 		// Cached delegates for RunSearch (avoids allocation per call)
 		private readonly Func<int, string> _getLabelCached;
 		private readonly Action<int> _moveToIndexCached;
@@ -240,8 +233,8 @@ namespace ATSAccessibility.Utils {
 						return false;
 				}
 
-				// Any other key — including Unity IMGUI's keyCode-only half of a paired
-				// letter KeyDown (keyCode=A..Z with TypedChar='\0') — is passed through
+				// Any other key, including Unity IMGUI's keyCode-only half of a paired
+				// letter KeyDown (keyCode=A..Z with TypedChar='\0'), passes through
 				// without clearing. The paired char-only event arrives next and extends
 				// the buffer via the letter branch above.
 				return false;
@@ -287,7 +280,7 @@ namespace ATSAccessibility.Utils {
 		/// index of the matched item. When null, falls back to announcing the search name.</param>
 		public void Search(int itemCount, Func<int, string> nameByIndex, Action<int> announceResult = null) {
 			// Repeat single-letter cycles start-of-string matches only (tiers 0-1),
-			// so hammering "b" goes Beaver → Bat → Brewery and doesn't wrap into
+			// so hammering "b" walks Beaver, Bat, Brewery without wrapping into
 			// substring matches like "Herbalist".
 			string bufferStr = _buffer.ToString();
 			if (_isSearchActive && _resultIndices.Count > 0 && _buffer.Length > 1 && IsAllSameChar(bufferStr)) {
@@ -346,30 +339,13 @@ namespace ATSAccessibility.Utils {
 
 			_workIndices.Clear();
 			_workNames.Clear();
-			if (GroupOf == null) {
-				for (int inSeg = 0; inSeg <= 1; inSeg++)
-					for (int t = 0; t < TierCount; t++)
-						for (int i = 0; i < _tierIndices[t].Count; i++)
-							if (_tierInSegment[t][i] == inSeg) {
-								_workIndices.Add(_tierIndices[t][i]);
-								_workNames.Add(_tierNames[t][i]);
-							}
-			} else {
-				int maxGroup = 0;
+			for (int inSeg = 0; inSeg <= 1; inSeg++)
 				for (int t = 0; t < TierCount; t++)
-					for (int i = 0; i < _tierIndices[t].Count; i++) {
-						int g = GroupOf(_tierIndices[t][i]);
-						if (g > maxGroup) maxGroup = g;
-					}
-				for (int g = 0; g <= maxGroup; g++)
-					for (int inSeg = 0; inSeg <= 1; inSeg++)
-						for (int t = 0; t < TierCount; t++)
-							for (int i = 0; i < _tierIndices[t].Count; i++)
-								if (GroupOf(_tierIndices[t][i]) == g && _tierInSegment[t][i] == inSeg) {
-									_workIndices.Add(_tierIndices[t][i]);
-									_workNames.Add(_tierNames[t][i]);
-								}
-			}
+					for (int i = 0; i < _tierIndices[t].Count; i++)
+						if (_tierInSegment[t][i] == inSeg) {
+							_workIndices.Add(_tierIndices[t][i]);
+							_workNames.Add(_tierNames[t][i]);
+						}
 
 			if (_workIndices.Count == 0) {
 				_resultIndices.Clear();
@@ -487,10 +463,6 @@ namespace ATSAccessibility.Utils {
 		/// Returns the match tier for a prefix against a name (both lowercase), or -1 for no match.
 		/// See class docs for tier descriptions.
 		/// </summary>
-		internal static int MatchTier(string lowerName, string lowerPrefix) {
-			return MatchTier(lowerName, lowerPrefix, out _);
-		}
-
 		internal static int MatchTier(string lowerName, string lowerPrefix, out int position) {
 			position = -1;
 			lowerName = StringUtil.RemoveDiacritics(lowerName);
