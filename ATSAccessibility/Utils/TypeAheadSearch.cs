@@ -180,11 +180,6 @@ namespace ATSAccessibility.Utils {
 			bool hasModifier = modifiers.Control || modifiers.Alt;
 			char typed = modifiers.TypedChar;
 
-			// Fallback for callers that pass only KeyCode (nested panel bridges).
-			// Lets A-Z search still work when TypedChar wasn't threaded through.
-			if (typed == '\0' && keyCode >= KeyCode.A && keyCode <= KeyCode.Z)
-				typed = (char)('a' + (keyCode - KeyCode.A));
-
 			if (_isSearchActive) {
 				switch (keyCode) {
 					case KeyCode.UpArrow:
@@ -233,9 +228,22 @@ namespace ATSAccessibility.Utils {
 					return true;
 				}
 
-				// Non-search key while active: cursor already moved via SearchMoveTo.
-				// Clear search and let the handler process the key normally.
-				Clear();
+				// Explicit "end of search" keys: clear and pass through so the
+				// handler processes them normally (drill down, activate, etc.).
+				switch (keyCode) {
+					case KeyCode.Return:
+					case KeyCode.KeypadEnter:
+					case KeyCode.LeftArrow:
+					case KeyCode.RightArrow:
+					case KeyCode.Tab:
+						Clear();
+						return false;
+				}
+
+				// Any other key — including Unity IMGUI's keyCode-only half of a paired
+				// letter KeyDown (keyCode=A..Z with TypedChar='\0') — is passed through
+				// without clearing. The paired char-only event arrives next and extends
+				// the buffer via the letter branch above.
 				return false;
 			}
 
