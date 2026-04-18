@@ -15,18 +15,6 @@ namespace ATSAccessibility.Panels {
 		private Vector3Int _tilePos;
 
 		// ========================================
-		// BRIDGE
-		// ========================================
-
-		/// <summary>
-		/// Bridge for WorldMapNavigator which calls ProcessKeyEvent(KeyCode, KeyModifiers).
-		/// </summary>
-		public bool ProcessKeyEvent(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers = default) {
-			if (!IsOpen) return false;
-			return ProcessKey(keyCode, modifiers);
-		}
-
-		// ========================================
 		// CUSTOM OPEN
 		// ========================================
 

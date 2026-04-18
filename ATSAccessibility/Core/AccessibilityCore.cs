@@ -513,18 +513,24 @@ namespace ATSAccessibility.Core {
 		private void OnGUI() {
 			// Process input in OnGUI - this captures input even when UI has focus
 			Event e = Event.current;
-			if (e != null && e.isKey && e.type == EventType.KeyDown && e.keyCode != KeyCode.None) {
-				// Deferred menu setup - rebuild on first key press after popup closes
-				if (_menuPendingSetup) {
-					Debug.Log("[ATSAccessibility] Rebuilding menu navigation on user input");
-					SetupMainMenuNavigation();
-					_menuPendingSetup = false;
-				}
+			if (e == null || !e.isKey || e.type != EventType.KeyDown) return;
 
-				var modifiers = new KeyboardManager.KeyModifiers(e.control, e.alt, e.shift);
+			// Accept events that carry either a KeyCode or a typed character. IME and
+			// non-Latin input (Cyrillic, CJK) can arrive as character-only events with
+			// KeyCode.None; those are needed for cross-language type-ahead search.
+			bool hasKey = e.keyCode != KeyCode.None;
+			bool hasChar = e.character != '\0';
+			if (!hasKey && !hasChar) return;
 
-				_keyboardManager?.ProcessKeyEvent(e.keyCode, modifiers);
+			// Deferred menu setup - rebuild on first key press after popup closes
+			if (_menuPendingSetup) {
+				Debug.Log("[ATSAccessibility] Rebuilding menu navigation on user input");
+				SetupMainMenuNavigation();
+				_menuPendingSetup = false;
 			}
+
+			var modifiers = new KeyboardManager.KeyModifiers(e.control, e.alt, e.shift, e.character);
+			_keyboardManager?.ProcessKeyEvent(e.keyCode, modifiers);
 		}
 
 		private void CheckCurrentScene() {

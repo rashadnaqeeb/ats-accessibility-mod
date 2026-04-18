@@ -422,10 +422,20 @@ namespace ATSAccessibility.Core {
 
 		/// <summary>
 		/// Convenience bridge for callers that only pass a KeyCode without modifiers.
+		/// Use the overload that threads KeyModifiers when available so type-ahead
+		/// search can see the typed character (modifiers.TypedChar).
 		/// </summary>
 		public bool ProcessKeyEvent(KeyCode keyCode) {
 			if (!IsOpen) return false;
 			return ProcessKey(keyCode, default(KeyboardManager.KeyModifiers));
+		}
+
+		/// <summary>
+		/// Bridge for nested panels that want to forward modifiers (including TypedChar).
+		/// </summary>
+		public bool ProcessKeyEvent(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			if (!IsOpen) return false;
+			return ProcessKey(keyCode, modifiers);
 		}
 
 		// ========================================

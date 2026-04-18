@@ -10,17 +10,24 @@ namespace ATSAccessibility.Core {
 	/// </summary>
 	public class KeyboardManager {
 		/// <summary>
-		/// Key modifiers state (Ctrl, Alt, Shift).
+		/// Key modifiers state (Ctrl, Alt, Shift) plus the typed character from the
+		/// current OnGUI event. TypedChar is 0 for non-character key events (arrows,
+		/// function keys, etc.) and carries Unicode letters for type-ahead search
+		/// across locales (Latin, Cyrillic, CJK, etc.).
 		/// </summary>
 		public struct KeyModifiers {
 			public bool Control { get; }
 			public bool Alt { get; }
 			public bool Shift { get; }
+			public char TypedChar { get; }
 
-			public KeyModifiers(bool control, bool alt, bool shift) {
+			public KeyModifiers(bool control, bool alt, bool shift) : this(control, alt, shift, '\0') { }
+
+			public KeyModifiers(bool control, bool alt, bool shift, char typedChar) {
 				Control = control;
 				Alt = alt;
 				Shift = shift;
+				TypedChar = typedChar;
 			}
 		}
 

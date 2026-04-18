@@ -92,7 +92,7 @@ namespace ATSAccessibility.Panels {
 				switch (keyCode) {
 					case KeyCode.LeftArrow:
 						// Try to let child handle Left first (for internal navigation)
-						if (ProcessChildPanelKey(keyCode)) {
+						if (ProcessChildPanelKey(keyCode, modifiers)) {
 							return true; // Child handled it (was in nested view)
 						}
 						// Child returned false (at root level), return to menu
@@ -102,7 +102,7 @@ namespace ATSAccessibility.Panels {
 
 					case KeyCode.Escape:
 						// Let child handle Escape first (e.g., to clear search)
-						if (ProcessChildPanelKey(keyCode)) {
+						if (ProcessChildPanelKey(keyCode, modifiers)) {
 							return true; // Child handled it
 						}
 						// Close entire overlay
@@ -117,8 +117,8 @@ namespace ATSAccessibility.Panels {
 							_resourcePanel?.AnnounceCurrentItemDescription();
 							return true;
 						}
-						// Delegate to child panel
-						return ProcessChildPanelKey(keyCode);
+						// Delegate to child panel (thread modifiers so type-ahead TypedChar survives)
+						return ProcessChildPanelKey(keyCode, modifiers);
 				}
 			}
 
@@ -272,22 +272,22 @@ namespace ATSAccessibility.Panels {
 			_activeChildPanel = null;
 		}
 
-		private bool ProcessChildPanelKey(KeyCode keyCode) {
+		private bool ProcessChildPanelKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
 			if (!_activeChildPanel.HasValue) return false;
 
 			switch (_activeChildPanel.Value) {
 				case MenuPanel.Stats:
-					return _statsPanel?.ProcessKeyEvent(keyCode) ?? false;
+					return _statsPanel?.ProcessKeyEvent(keyCode, modifiers) ?? false;
 				case MenuPanel.Resources:
-					return _resourcePanel?.ProcessKeyEvent(keyCode) ?? false;
+					return _resourcePanel?.ProcessKeyEvent(keyCode, modifiers) ?? false;
 				case MenuPanel.Modifiers:
-					return _mysteriesPanel?.ProcessKeyEvent(keyCode) ?? false;
+					return _mysteriesPanel?.ProcessKeyEvent(keyCode, modifiers) ?? false;
 				case MenuPanel.Villagers:
-					return _villagersPanel?.ProcessKeyEvent(keyCode) ?? false;
+					return _villagersPanel?.ProcessKeyEvent(keyCode, modifiers) ?? false;
 				case MenuPanel.Workers:
-					return _workersPanel?.ProcessKeyEvent(keyCode) ?? false;
+					return _workersPanel?.ProcessKeyEvent(keyCode, modifiers) ?? false;
 				case MenuPanel.Announcements:
-					return _announcementsPanel?.ProcessKeyEvent(keyCode) ?? false;
+					return _announcementsPanel?.ProcessKeyEvent(keyCode, modifiers) ?? false;
 			}
 
 			return false;
