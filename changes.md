@@ -2,19 +2,23 @@
 
 
 
-## Changes since v1.4.5
+## Changes since v1.5
 
 ### New features
-- Type-ahead search now ranks results by match quality. Start-of-name matches beat word-starts, which beat substrings. Shorter names rank ahead of longer ones, and matches in the primary name outrank matches inside trailing metadata (after the first comma). Typing a multi-word query like "gra pla" will also find "Granary planks" via word-prefix abbreviation.
-- Type-ahead search accepts any Unicode letter, so search now works in non-English locales (Chinese, Russian, etc.) and accepts accented input (é, œ, ß) interchangeably with plain Latin.
-- Search buffer no longer resets after 1.5 seconds of inactivity. Press Escape (or Backspace through the whole buffer) to clear.
-- Repeating a single letter (e.g. "b", "b", "b") now cycles through start-of-name matches only instead of wrapping into mid-string matches.
 
 ### Bug fixes
-- Fishing Hut bait mode names (No bait, Optional bait, Only with bait) now pull from the game's own `GameUI_FishingHutPanel_BaitMode_*` loca keys instead of hardcoded English strings.
-- Localize recipe names in Harvesters'/Trappers'/Foragers' Camps (GathererHut), Collector buildings, and Mines via the game loca table. Previously fell through to the raw English asset ID like the Camp/Farm/Fishing Hut issues fixed in earlier releases.
 
 ### Internal
+
+## v1.5
+
+### New features
+- Type-ahead search now works in all languages, not just English.
+- Vastly improved result sorting: start-of-name matches beat word-starts, which beat substrings; shorter names rank ahead of longer ones.
+- Multi-token search with spaces: typing "wo ca" finds "Woodcutter's Camp".
+
+### Bug fixes
+- Many localisation-related fixes.
 
 ## v1.4.5
 
