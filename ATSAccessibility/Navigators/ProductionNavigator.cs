@@ -61,6 +61,10 @@ namespace ATSAccessibility.Navigators {
 		private bool _isMine = false;
 		private string _oreInfo;
 
+		// Other refGood/producedGood recipe building types (for recipe-name localization)
+		private bool _isGathererHut = false;
+		private bool _isCollector = false;
+
 		// Rainpunk data
 		private bool _hasRainpunk = false;
 		private bool _rainpunkUnlocked = false;
@@ -327,7 +331,9 @@ namespace ATSAccessibility.Navigators {
 			_canSleep = BuildingReflection.CanBuildingSleep(_building);
 			_isCamp = BuildingReflection.IsCamp(_building);  // Camp buildings have simple recipes
 			_isFarm = BuildingReflection.IsFarm(_building);
-			_isMine = _building?.GetType().Name == "Mine";
+			_isMine = BuildingReflection.IsMine(_building);
+			_isGathererHut = BuildingReflection.IsGathererHut(_building);
+			_isCollector = BuildingReflection.IsCollector(_building);
 			_oreInfo = _isMine ? TileInfoReader.GetMineOreInfo(_building) : null;
 
 			// Cache recipe data
@@ -432,6 +438,8 @@ namespace ATSAccessibility.Navigators {
 			_hasOutputStorage = false;
 			_isFarm = false;
 			_isMine = false;
+			_isGathererHut = false;
+			_isCollector = false;
 			_oreInfo = null;
 			_farmSownFields = 0;
 			_farmPlowedFields = 0;
@@ -746,6 +754,41 @@ namespace ATSAccessibility.Navigators {
 			// Camp path: resolve CampRecipeModel.refGood and localize the good name
 			if (_isCamp && !string.IsNullOrEmpty(recipe.ModelName)) {
 				string goodName = BuildingReflection.GetCampRecipeGoodName(recipe.ModelName);
+				if (!string.IsNullOrEmpty(goodName)) {
+					string localized = BuildingReflection.GetGoodDisplayName(goodName);
+					if (!string.IsNullOrEmpty(localized) && localized != goodName)
+						return localized;
+					return CleanupName(goodName);
+				}
+			}
+
+			// GathererHut path: Harvesters'/Trappers'/Foragers' Camps. Same fallthrough
+			// as Camp — plain RecipeState with no productName — but the good lives on
+			// GathererHutRecipeModel.refGood.
+			if (_isGathererHut && !string.IsNullOrEmpty(recipe.ModelName)) {
+				string goodName = BuildingReflection.GetGathererHutRecipeGoodName(recipe.ModelName);
+				if (!string.IsNullOrEmpty(goodName)) {
+					string localized = BuildingReflection.GetGoodDisplayName(goodName);
+					if (!string.IsNullOrEmpty(localized) && localized != goodName)
+						return localized;
+					return CleanupName(goodName);
+				}
+			}
+
+			// Collector path: good lives on CollectorRecipeModel.producedGood.
+			if (_isCollector && !string.IsNullOrEmpty(recipe.ModelName)) {
+				string goodName = BuildingReflection.GetCollectorRecipeGoodName(recipe.ModelName);
+				if (!string.IsNullOrEmpty(goodName)) {
+					string localized = BuildingReflection.GetGoodDisplayName(goodName);
+					if (!string.IsNullOrEmpty(localized) && localized != goodName)
+						return localized;
+					return CleanupName(goodName);
+				}
+			}
+
+			// Mine path: good lives on MineRecipeModel.producedGood.
+			if (_isMine && !string.IsNullOrEmpty(recipe.ModelName)) {
+				string goodName = BuildingReflection.GetMineRecipeGoodName(recipe.ModelName);
 				if (!string.IsNullOrEmpty(goodName)) {
 					string localized = BuildingReflection.GetGoodDisplayName(goodName);
 					if (!string.IsNullOrEmpty(localized) && localized != goodName)

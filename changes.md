@@ -8,6 +8,7 @@
 
 ### Bug fixes
 - Fishing Hut bait mode names (No bait, Optional bait, Only with bait) now pull from the game's own `GameUI_FishingHutPanel_BaitMode_*` loca keys instead of hardcoded English strings.
+- Localize recipe names in Harvesters'/Trappers'/Foragers' Camps (GathererHut), Collector buildings, and Mines via the game loca table. Previously fell through to the raw English asset ID like the Camp/Farm/Fishing Hut issues fixed in earlier releases.
 
 ### Internal
 

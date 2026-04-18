@@ -86,6 +86,18 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _farmfieldPlantMultiplierField = null;  // FarmfieldPlantState.multiplier (int)
 		private static bool _farmfieldTypesCached = false;
 
+		// GathererHut type (Harvesters', Trappers', Foragers' Camps — uses GathererHutRecipeModel.refGood)
+		private static Type _gathererHutType = null;
+		private static bool _gathererHutTypesCached = false;
+
+		// Collector type (uses CollectorRecipeModel.producedGood)
+		private static Type _collectorType = null;
+		private static bool _collectorTypesCached = false;
+
+		// Mine type (uses MineRecipeModel.producedGood)
+		private static Type _mineType = null;
+		private static bool _mineTypesCached = false;
+
 		// FishingHut type
 		private static Type _fishingHutType = null;
 		private static FieldInfo _fishingHutStateField = null;  // FishingHut.state
@@ -124,6 +136,15 @@ namespace ATSAccessibility.Reflection {
 		// Fishing Hut recipe info (FishingHutRecipeModel has refGood instead of producedGood)
 		private static MethodInfo _settingsGetFishingHutRecipeMethod = null;  // Settings.GetFishingHutRecipe(name)
 		private static FieldInfo _fishingHutRecipeModelRefGoodField = null;  // FishingHutRecipeModel.refGood (GoodRef)
+		// GathererHut recipe info (GathererHutRecipeModel has refGood)
+		private static MethodInfo _settingsGetGathererHutRecipeMethod = null;  // Settings.GetGathererHutRecipe(name)
+		private static FieldInfo _gathererHutRecipeModelRefGoodField = null;  // GathererHutRecipeModel.refGood (GoodRef)
+		// Collector recipe info (CollectorRecipeModel has producedGood)
+		private static MethodInfo _settingsGetCollectorRecipeMethod = null;  // Settings.GetCollectorRecipe(name)
+		private static FieldInfo _collectorRecipeModelProducedGoodField = null;  // CollectorRecipeModel.producedGood (GoodRef)
+		// Mine recipe info (MineRecipeModel has producedGood)
+		private static MethodInfo _settingsGetMineRecipeMethod = null;  // Settings.GetMineRecipe(name)
+		private static FieldInfo _mineRecipeModelProducedGoodField = null;  // MineRecipeModel.producedGood (GoodRef)
 		private static bool _recipeModelTypesCached = false;
 
 		// IngredientState fields
@@ -454,6 +475,33 @@ namespace ATSAccessibility.Reflection {
 			});
 		}
 
+		private static void EnsureGathererHutTypes() {
+			if (_gathererHutTypesCached) return;
+			_gathererHutTypesCached = true;
+
+			ReflectionHelper.InitCache("BuildingReflection.GathererHut", assembly => {
+				_gathererHutType = assembly.GetType("Eremite.Buildings.GathererHut");
+			});
+		}
+
+		private static void EnsureCollectorTypes() {
+			if (_collectorTypesCached) return;
+			_collectorTypesCached = true;
+
+			ReflectionHelper.InitCache("BuildingReflection.Collector", assembly => {
+				_collectorType = assembly.GetType("Eremite.Buildings.Collector");
+			});
+		}
+
+		private static void EnsureMineTypes() {
+			if (_mineTypesCached) return;
+			_mineTypesCached = true;
+
+			ReflectionHelper.InitCache("BuildingReflection.Mine", assembly => {
+				_mineType = assembly.GetType("Eremite.Buildings.Mine");
+			});
+		}
+
 		private static void EnsureFarmTypes() {
 			if (_farmTypesCached) return;
 			_farmTypesCached = true;
@@ -601,6 +649,36 @@ namespace ATSAccessibility.Reflection {
 				var fishingHutRecipeModelType = assembly.GetType("Eremite.Buildings.FishingHutRecipeModel");
 				if (fishingHutRecipeModelType != null) {
 					_fishingHutRecipeModelRefGoodField = fishingHutRecipeModelType.GetField("refGood", GameReflection.PublicInstance);
+				}
+
+				// GathererHut recipe support: Settings.GetGathererHutRecipe + GathererHutRecipeModel.refGood
+				if (settingsType != null) {
+					_settingsGetGathererHutRecipeMethod = settingsType.GetMethod("GetGathererHutRecipe", GameReflection.PublicInstance);
+				}
+
+				var gathererHutRecipeModelType = assembly.GetType("Eremite.Buildings.GathererHutRecipeModel");
+				if (gathererHutRecipeModelType != null) {
+					_gathererHutRecipeModelRefGoodField = gathererHutRecipeModelType.GetField("refGood", GameReflection.PublicInstance);
+				}
+
+				// Collector recipe support: Settings.GetCollectorRecipe + CollectorRecipeModel.producedGood
+				if (settingsType != null) {
+					_settingsGetCollectorRecipeMethod = settingsType.GetMethod("GetCollectorRecipe", GameReflection.PublicInstance);
+				}
+
+				var collectorRecipeModelType = assembly.GetType("Eremite.Buildings.CollectorRecipeModel");
+				if (collectorRecipeModelType != null) {
+					_collectorRecipeModelProducedGoodField = collectorRecipeModelType.GetField("producedGood", GameReflection.PublicInstance);
+				}
+
+				// Mine recipe support: Settings.GetMineRecipe + MineRecipeModel.producedGood
+				if (settingsType != null) {
+					_settingsGetMineRecipeMethod = settingsType.GetMethod("GetMineRecipe", GameReflection.PublicInstance);
+				}
+
+				var mineRecipeModelType = assembly.GetType("Eremite.Buildings.MineRecipeModel");
+				if (mineRecipeModelType != null) {
+					_mineRecipeModelProducedGoodField = mineRecipeModelType.GetField("producedGood", GameReflection.PublicInstance);
 				}
 			});
 		}
@@ -1562,6 +1640,45 @@ namespace ATSAccessibility.Reflection {
 			if (_campType == null) return false;
 
 			return _campType.IsInstanceOfType(building);
+		}
+
+		/// <summary>
+		/// Check if building is a GathererHut (Harvesters'/Trappers'/Foragers' Camp).
+		/// </summary>
+		public static bool IsGathererHut(object building) {
+			if (building == null) return false;
+
+			EnsureGathererHutTypes();
+
+			if (_gathererHutType == null) return false;
+
+			return _gathererHutType.IsInstanceOfType(building);
+		}
+
+		/// <summary>
+		/// Check if building is a Collector.
+		/// </summary>
+		public static bool IsCollector(object building) {
+			if (building == null) return false;
+
+			EnsureCollectorTypes();
+
+			if (_collectorType == null) return false;
+
+			return _collectorType.IsInstanceOfType(building);
+		}
+
+		/// <summary>
+		/// Check if building is a Mine.
+		/// </summary>
+		public static bool IsMine(object building) {
+			if (building == null) return false;
+
+			EnsureMineTypes();
+
+			if (_mineType == null) return false;
+
+			return _mineType.IsInstanceOfType(building);
 		}
 
 		/// <summary>
@@ -3395,6 +3512,93 @@ namespace ATSAccessibility.Reflection {
 				return ReflectionHelper.GetPropString(_recipeGoodModelNameProperty, goodModel);
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GetFishingHutRecipeGoodName failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Resolve a gatherer hut recipe's produced good internal name from the recipe's model name.
+		/// GathererHut recipes use plain RecipeState (no productName field); the produced good lives on GathererHutRecipeModel.refGood.
+		/// </summary>
+		public static string GetGathererHutRecipeGoodName(string recipeModelName) {
+			if (string.IsNullOrEmpty(recipeModelName)) return null;
+
+			EnsureRecipeModelTypes();
+
+			try {
+				var settings = GameReflection.GetSettings();
+				if (settings == null) return null;
+
+				var model = ReflectionHelper.Invoke(_settingsGetGathererHutRecipeMethod, settings, recipeModelName);
+				if (model == null) return null;
+
+				var refGood = ReflectionHelper.GetField(_gathererHutRecipeModelRefGoodField, model);
+				if (refGood == null) return null;
+
+				var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, refGood);
+				if (goodModel == null) return null;
+
+				return ReflectionHelper.GetPropString(_recipeGoodModelNameProperty, goodModel);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetGathererHutRecipeGoodName failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Resolve a collector recipe's produced good internal name from the recipe's model name.
+		/// Collector recipes use plain RecipeState (no productName field); the produced good lives on CollectorRecipeModel.producedGood.
+		/// </summary>
+		public static string GetCollectorRecipeGoodName(string recipeModelName) {
+			if (string.IsNullOrEmpty(recipeModelName)) return null;
+
+			EnsureRecipeModelTypes();
+
+			try {
+				var settings = GameReflection.GetSettings();
+				if (settings == null) return null;
+
+				var model = ReflectionHelper.Invoke(_settingsGetCollectorRecipeMethod, settings, recipeModelName);
+				if (model == null) return null;
+
+				var producedGood = ReflectionHelper.GetField(_collectorRecipeModelProducedGoodField, model);
+				if (producedGood == null) return null;
+
+				var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGood);
+				if (goodModel == null) return null;
+
+				return ReflectionHelper.GetPropString(_recipeGoodModelNameProperty, goodModel);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetCollectorRecipeGoodName failed: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Resolve a mine recipe's produced good internal name from the recipe's model name.
+		/// Mine recipes use plain RecipeState (no productName field); the produced good lives on MineRecipeModel.producedGood.
+		/// </summary>
+		public static string GetMineRecipeGoodName(string recipeModelName) {
+			if (string.IsNullOrEmpty(recipeModelName)) return null;
+
+			EnsureRecipeModelTypes();
+
+			try {
+				var settings = GameReflection.GetSettings();
+				if (settings == null) return null;
+
+				var model = ReflectionHelper.Invoke(_settingsGetMineRecipeMethod, settings, recipeModelName);
+				if (model == null) return null;
+
+				var producedGood = ReflectionHelper.GetField(_mineRecipeModelProducedGoodField, model);
+				if (producedGood == null) return null;
+
+				var goodModel = ReflectionHelper.GetField(GameReflection.GoodRefGoodField, producedGood);
+				if (goodModel == null) return null;
+
+				return ReflectionHelper.GetPropString(_recipeGoodModelNameProperty, goodModel);
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetMineRecipeGoodName failed: {ex.Message}");
 				return null;
 			}
 		}
