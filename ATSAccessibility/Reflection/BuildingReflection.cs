@@ -1945,15 +1945,15 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
-		/// Get localized names for all FishingHut bait modes.
+		/// Get localized names for all FishingHut bait modes, resolved through the game's own loca table.
 		/// </summary>
 		public static string[] GetFishingBaitModeNames() {
-			// These correspond to FishmanBaitMode enum: None, Optional, OnlyWithBait
+			// FishmanBaitMode enum order: None, Optional, OnlyWithBait
 			return new string[]
 			{
-				"No bait",
-				"Optional bait",
-				"Only with bait"
+				GameReflection.ResolveLocaKey("GameUI_FishingHutPanel_BaitMode_None"),
+				GameReflection.ResolveLocaKey("GameUI_FishingHutPanel_BaitMode_Optional"),
+				GameReflection.ResolveLocaKey("GameUI_FishingHutPanel_BaitMode_OnlyWithBait")
 			};
 		}
 

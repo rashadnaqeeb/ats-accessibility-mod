@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Fishing Hut bait mode names (No bait, Optional bait, Only with bait) now pull from the game's own `GameUI_FishingHutPanel_BaitMode_*` loca keys instead of hardcoded English strings.
 
 ### Internal
 
