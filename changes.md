@@ -2,15 +2,18 @@
 
 
 
-## Changes since v1.5
+## Changes since v1.5.1
 
 ### New features
 
 ### Bug fixes
-- Localize the "Upgrade Unlocked" line in level-up popups (was leaking the English prefab fallback "New Capital Upgrades Available" in non-English builds).
-- Localize the six Cycle Stats labels in the Games History popup (Completed Deeds, Games Started, Games Won, Games Lost, Win Ratio, Time Played).
 
 ### Internal
+
+## v1.5.1
+
+### Bug fixes
+- Several localisation fixes.
 
 ## v1.5
 
