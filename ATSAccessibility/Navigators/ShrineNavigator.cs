@@ -119,6 +119,11 @@ namespace ATSAccessibility.Navigators {
 
 		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
 			if (_awaitingConfirm) {
+				// Unity IMGUI fires a paired KeyCode.None character-only event after Enter.
+				// Swallow it so it doesn't fall through to the cancel path.
+				if (keyCode == KeyCode.None)
+					return true;
+
 				if (keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter || keyCode == KeyCode.Space) {
 					// Confirm — use the effect
 					_awaitingConfirm = false;

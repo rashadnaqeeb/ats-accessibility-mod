@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Fix "reset progress" and "delete profile" confirmations in the Profiles popup immediately reporting "cancelled" when Enter was pressed. Same paired-KeyDown issue also fixed in the Shrine effect-use confirmation.
 
 ### Internal
 

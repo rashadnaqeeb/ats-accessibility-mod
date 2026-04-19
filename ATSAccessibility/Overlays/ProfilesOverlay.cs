@@ -406,6 +406,11 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		private bool ProcessConfirmKey(KeyCode keyCode) {
+			// Unity IMGUI fires a paired KeyCode.None character-only event after Enter.
+			// Swallow it so it doesn't fall through to the cancel path.
+			if (keyCode == KeyCode.None)
+				return true;
+
 			if (keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter) {
 				ExecuteConfirmedAction();
 				return true;
