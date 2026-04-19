@@ -417,12 +417,12 @@ namespace ATSAccessibility.Reflection {
 				string timeStr = $"{(int)timeSpan.TotalDays}:{timeSpan.Hours:D2}:{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
 
 				// Add stats in the same order as GoalsStatsPanel
-				result.Add(("Completed Deeds", completedGoals.ToString()));
-				result.Add(("Games Started", gamesStarted.ToString()));
-				result.Add(("Games Won", gamesWon.ToString()));
-				result.Add(("Games Lost", gamesLost.ToString()));
-				result.Add(("Win Ratio", winRatioStr));
-				result.Add(("Time Played", timeStr));
+				result.Add((Strings.Get("overlay.games_history.stats.completed_deeds"), completedGoals.ToString()));
+				result.Add((Strings.Get("overlay.games_history.stats.games_started"), gamesStarted.ToString()));
+				result.Add((Strings.Get("overlay.games_history.stats.games_won"), gamesWon.ToString()));
+				result.Add((Strings.Get("overlay.games_history.stats.games_lost"), gamesLost.ToString()));
+				result.Add((Strings.Get("overlay.games_history.stats.win_ratio"), winRatioStr));
+				result.Add((Strings.Get("overlay.games_history.stats.time_played"), timeStr));
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] GamesHistoryReflection: GetCycleStats failed: {ex.Message}");
 			}

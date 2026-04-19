@@ -304,27 +304,16 @@ namespace ATSAccessibility.Utils {
 					rewardNames.Add(rewardText);
 				}
 
-				// Also check upgradesSlot (ProgressionSlot) for level-up unlocks
+				// Also check upgradesSlot (ProgressionSlot) for level-up unlocks.
+				// The game calls ProgressionSlot.Show() without setting text, so amountText
+				// retains the prefab's baked English fallback ("New Capital Upgrades Available")
+				// which isn't wired to runtime localization. Always use our localized string.
 				var upgradesSlotField = popupType.GetField("upgradesSlot",
 					BindingFlags.NonPublic | BindingFlags.Instance);
 				if (upgradesSlotField != null) {
 					var upgradesSlot = upgradesSlotField.GetValue(popupComponent) as Component;
 					if (upgradesSlot != null && upgradesSlot.gameObject.activeInHierarchy) {
-						// ProgressionSlot has amountText field
-						var progressionSlotType = GameReflection.GetTypeByName("Eremite.View.HUD.Result.ProgressionSlot");
-						var amountTextField = progressionSlotType?.GetField("amountText",
-							BindingFlags.NonPublic | BindingFlags.Instance);
-
-						if (amountTextField != null) {
-							var amountText = amountTextField.GetValue(upgradesSlot) as TMP_Text;
-							if (amountText != null && !string.IsNullOrEmpty(amountText.text)) {
-								// This is typically something like "+1 Upgrade Points"
-								rewardNames.Add(amountText.text);
-							} else {
-								// If no text, just indicate there's an upgrade unlock
-								rewardNames.Add(Strings.Get("util.meta_rewards.upgrade_unlocked"));
-							}
-						}
+						rewardNames.Add(Strings.Get("util.meta_rewards.upgrade_unlocked"));
 					}
 				}
 			} catch (Exception ex) {
