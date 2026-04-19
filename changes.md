@@ -2,14 +2,18 @@
 
 
 
-## Changes since v1.5.1
+## Changes since v1.5.2
 
 ### New features
 
 ### Bug fixes
-- Fix "reset progress" and "delete profile" confirmations in the Profiles popup immediately reporting "cancelled" when Enter was pressed. Same paired-KeyDown issue also fixed in the Shrine effect-use confirmation.
 
 ### Internal
+
+## v1.5.2
+
+### Bug fixes
+- Fixed a bug preventing you from reseting or deleting saves introduced by my type ahead changes.
 
 ## v1.5.1
 
