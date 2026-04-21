@@ -2,14 +2,18 @@
 
 
 
-## Changes since v1.5.2
+## Changes since v1.5.3
 
 ### New features
 
 ### Bug fixes
-- Building menu is now labelled as "construction menu" (or equivalent) in es, es-LATAM, pt, fr, de, pl, ru, and zh-CN, matching the act of building rather than already-constructed structures.
 
 ### Internal
+
+## v1.5.3
+
+### Bug fixes
+- Building menu is now labelled as "construction menu" (or equivalent) in es, es-LATAM, pt, fr, de, pl, ru, and zh-CN, matching the act of building rather than already-constructed structures.
 
 ## v1.5.2
 
