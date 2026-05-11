@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Fixed Smoldering City "Home" menu item being mistranslated as "start/start page/homepage" in es, es-LATAM, pt, de, fr, and zh-CN; now refers to a place of residence in each language.
 
 ### Internal
 
