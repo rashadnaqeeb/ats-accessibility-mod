@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Thai: corrected "Fertile Soil" translation from "ดินอุดม" to "พื้นดินอุดมสมบูรณ์".
 
 ### Internal
 
