@@ -655,6 +655,10 @@ namespace ATSAccessibility.Navigators {
 
 		private bool PerformDecisionAction(int itemIndex) {
 			if (itemIndex < 0 || itemIndex >= _decisionCount) return false;
+			// Same live-state guard as PerformRequirementSubItemAction - decisionIndex feeds
+			// GetChoosenGoods which determined state.relicGoods at start time, so editing it
+			// after a partial-mutation start would also desync haulers.
+			if (_investigationStarted || RelicReflection.IsRelicInvestigationStarted(_building)) return false;
 
 			if (RelicReflection.SetRelicDecisionIndex(_building, itemIndex)) {
 				_selectedDecisionIndex = itemIndex;
@@ -724,7 +728,11 @@ namespace ATSAccessibility.Navigators {
 
 		private bool PerformRequirementSubItemAction(int itemIndex, int subItemIndex) {
 			if (itemIndex < 0 || itemIndex >= _goodsSetCount || _goodsSets == null) return false;
-			if (_investigationStarted) return false;  // Can't change during investigation
+			// Check live state, not just the local cache: a failed StartInvestigation can
+			// leave game-side investigationStarted=true while our cache stayed false,
+			// and editing pickedGoods against that state desyncs state.relicGoods from
+			// the current pick, breaking haulers and CheckForFinish.
+			if (_investigationStarted || RelicReflection.IsRelicInvestigationStarted(_building)) return false;
 
 			var set = _goodsSets[itemIndex];
 			if (subItemIndex < 0 || subItemIndex >= set.alternativeCount) return false;
@@ -894,6 +902,18 @@ namespace ATSAccessibility.Navigators {
 			} else {
 				Speech.Say(Strings.Get("nav.relic.failed_to_start"));
 				SoundManager.PlayFailed();
+				// Game's StartInvestigation may have partially mutated state before throwing
+				// (investigationStarted=true and relicGoods allocated happen on the first two
+				// lines, before any code that can throw). Resync from live state so the
+				// requirements section locks into Phase B and we don't allow further pickedGood
+				// edits against a stale local cache.
+				RefreshData();
+				if (_investigationStarted) {
+					// State actually transitioned - section list is now Phase B with a different
+					// shape, so reset the cursor to avoid landing on an unrelated section.
+					_currentSectionIndex = 0;
+					_navigationLevel = 0;
+				}
 				return true;
 			}
 		}

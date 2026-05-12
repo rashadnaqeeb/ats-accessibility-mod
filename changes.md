@@ -8,6 +8,7 @@
 
 ### Bug fixes
 - Thai: corrected "Fertile Soil" translation from "ดินอุดม" to "พื้นดินอุดมสมบูรณ์".
+- Fixed glade events (e.g. Cursed Forest ghost decorations) getting stuck at 100% progress with no deliveries when Start Investigation was pressed in a state the game's UI would have blocked.
 
 ### Internal
 

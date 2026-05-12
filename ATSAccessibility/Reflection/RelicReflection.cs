@@ -807,12 +807,17 @@ namespace ATSAccessibility.Reflection {
 					}
 				}
 
-				// Force requirements check (for instant-goods relics without workplaces)
+				// Storage check: mirror the game's two gates from RelicPanel.CanStartInvestigation -
+				// AreForcedGoodsBlocking (forceRequirements regardless of workplace) and
+				// AreInstantGoodsBlocking (no workplace regardless of forceRequirements). Both
+				// check that the currently-picked good is available in storage; combining as OR
+				// is equivalent. Missing either gate lets us call Relic.StartInvestigation when
+				// the game would have blocked, which can leave state partially mutated.
 				var model = ReflectionHelper.GetField(_relicModelField, building);
 				bool forceReqs = ReflectionHelper.GetBool(_relicModelForceRequirementsField, model);
 				bool hasWorkplace = RelicHasAnyWorkplace(building);
 
-				if (forceReqs && !hasWorkplace) {
+				if (forceReqs || !hasWorkplace) {
 					// Check if goods are available in storage
 					int safeDecision = GetRelicSafeDecisionIndex(building);
 					int setCount = GetRelicGoodsSetCount(building, safeDecision);
