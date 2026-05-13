@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Thai: corrected "Extracted Resources" translation from "ทรัพยากรที่สกัด" to "ทรัพยากรที่สกัดได้".
 
 ### Internal
 
