@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.5.6
+## Changes since v1.6
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.6
 
 ### New features
 - Switched the speech backend from Tolk to Prism, which bundles all screen-reader bridges into a single DLL and supports a much wider range of international screen readers.
