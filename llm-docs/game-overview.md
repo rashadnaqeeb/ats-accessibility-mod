@@ -158,7 +158,7 @@ Against the Storm is fundamentally mouse-driven. Nearly all actions require clic
 - All keybindings are rebindable via the in-game options menu.
 
 ### Accessibility Notes from the Mod's Perspective
-The game has **no native screen reader support**. All UI interaction is point-and-click. The mod intercepts input before it reaches the game engine using BepInEx's InputSystem patches and provides keyboard navigation + Tolk speech output.
+The game has **no native screen reader support**. All UI interaction is point-and-click. The mod intercepts input before it reaches the game engine using BepInEx's InputSystem patches and provides keyboard navigation + Prism speech output.
 
 ---
 
@@ -352,7 +352,7 @@ According to the Family Gaming Database accessibility report, Against the Storm 
 - **Colorblind mode:** Not documented as supported (unconfirmed).
 
 ### This Mod's Accessibility Coverage
-The mod provides screen reader support via Tolk for the following (each with a dedicated overlay/navigator/handler):
+The mod provides screen reader support via Prism for the following (each with a dedicated overlay/navigator/handler):
 
 **Settlement gameplay:**
 - Building panel navigation (all building types: production, farm, fishing, hearth, house, institution, hydrant, storage, relic, shrine, port, water, farmfield, poro).

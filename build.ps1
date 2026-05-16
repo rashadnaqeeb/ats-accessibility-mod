@@ -38,4 +38,13 @@ if (-not (Test-Path $DestFolder)) {
 Write-Host "Copying to $DestFolder..." -ForegroundColor Cyan
 Copy-Item -Path $SourceDll -Destination $DestFolder -Force
 
+# Deploy Prism native library
+$PrismSrc = "$ScriptDir\prism\native\win-x64\prism.dll"
+if (Test-Path $PrismSrc) {
+    Copy-Item -Path $PrismSrc -Destination $DestFolder -Force
+    Write-Host "Deployed prism.dll" -ForegroundColor Green
+} else {
+    Write-Host "WARNING: prism.dll not found at $PrismSrc" -ForegroundColor Yellow
+}
+
 Write-Host "Deploy complete" -ForegroundColor Green

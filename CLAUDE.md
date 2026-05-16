@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-BepInEx 5 accessibility mod for "Against the Storm" (roguelite city-builder by Eremite Games) — screen reader support via Tolk. Uses HarmonyX patching and reflection against `Assembly-CSharp.dll` (namespace `Eremite`).
+BepInEx 5 accessibility mod for "Against the Storm" (roguelite city-builder by Eremite Games) — screen reader support via Prism (`prism.dll`, vendored under `prism/native/win-x64/`). Uses HarmonyX patching and reflection against `Assembly-CSharp.dll` (namespace `Eremite`).
 
 ## Game Overview
 

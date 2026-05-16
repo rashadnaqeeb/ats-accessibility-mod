@@ -15,26 +15,45 @@ namespace ATSAccessibility.Utils {
 		private static readonly Regex WhitespaceRegex =
 			new Regex(@"\s+", RegexOptions.Compiled);
 
-		// Tolk P/Invoke declarations
-		[DllImport("Tolk.dll", CallingConvention = CallingConvention.Cdecl)]
-		private static extern void Tolk_Load();
+		// Prism P/Invoke declarations. The library name "prism" resolves to prism.dll on Windows.
+		[StructLayout(LayoutKind.Sequential)]
+		private struct PrismConfig {
+			public byte version;
+		}
 
-		[DllImport("Tolk.dll", CallingConvention = CallingConvention.Cdecl)]
-		private static extern void Tolk_Unload();
+		private const int PRISM_OK = 0;
+		private const int PRISM_ERROR_NOT_SPEAKING = 10;
 
-		[DllImport("Tolk.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-		private static extern bool Tolk_Output(string str, bool interrupt);
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern PrismConfig prism_config_init();
 
-		[DllImport("Tolk.dll", CallingConvention = CallingConvention.Cdecl)]
-		private static extern bool Tolk_TrySAPI(bool trySAPI);
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern IntPtr prism_init(ref PrismConfig cfg);
 
-		[DllImport("Tolk.dll", CallingConvention = CallingConvention.Cdecl)]
-		private static extern bool Tolk_HasSpeech();
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern void prism_shutdown(IntPtr ctx);
 
-		[DllImport("Tolk.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-		private static extern IntPtr Tolk_DetectScreenReader();
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern IntPtr prism_registry_acquire_best(IntPtr ctx);
+
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern IntPtr prism_backend_name(IntPtr backend);
+
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+		private static extern int prism_backend_speak(IntPtr backend, string text, bool interrupt);
+
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern int prism_backend_stop(IntPtr backend);
+
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern void prism_backend_free(IntPtr backend);
+
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern IntPtr prism_error_string(int error);
 
 		// State tracking
+		private static IntPtr _context = IntPtr.Zero;
+		private static IntPtr _backend = IntPtr.Zero;
 		private static bool _initialized = false;
 		private static bool _available = false;
 
@@ -42,28 +61,38 @@ namespace ATSAccessibility.Utils {
 		public static bool IsAvailable => _available;
 
 		/// <summary>
-		/// Initialize Tolk. Must be called after SetDllDirectory in Plugin.Awake().
+		/// Initialize Prism. Must be called after SetDllDirectory in Plugin.Awake().
 		/// </summary>
 		public static bool Initialize() {
 			if (_initialized) return _available;
 
 			try {
-				Tolk_Load();
-				Tolk_TrySAPI(true); // Enable SAPI fallback for users without screen readers
+				var config = prism_config_init();
+				_context = prism_init(ref config);
+				if (_context == IntPtr.Zero) {
+					Debug.LogError("[ATSAccessibility] prism_init returned null");
+					_initialized = true;
+					_available = false;
+					return false;
+				}
 
-				_available = Tolk_HasSpeech();
+				_backend = prism_registry_acquire_best(_context);
+				_available = _backend != IntPtr.Zero;
 				_initialized = true;
 
-				// Log which screen reader was detected
-				IntPtr readerPtr = Tolk_DetectScreenReader();
-				string reader = readerPtr != IntPtr.Zero
-					? Marshal.PtrToStringUni(readerPtr)
-					: "SAPI (fallback)";
-				Debug.Log($"[ATSAccessibility] Speech initialized with: {reader}");
+				if (_available) {
+					IntPtr namePtr = prism_backend_name(_backend);
+					string name = namePtr != IntPtr.Zero
+						? Marshal.PtrToStringAnsi(namePtr)
+						: "unknown";
+					Debug.Log($"[ATSAccessibility] Speech initialized with: {name}");
+				} else {
+					Debug.LogWarning("[ATSAccessibility] No Prism speech backend available");
+				}
 
 				return _available;
 			} catch (DllNotFoundException ex) {
-				Debug.LogError($"[ATSAccessibility] Tolk.dll not found: {ex.Message}");
+				Debug.LogError($"[ATSAccessibility] prism.dll not found: {ex.Message}");
 				_initialized = true;
 				_available = false;
 				return false;
@@ -76,13 +105,20 @@ namespace ATSAccessibility.Utils {
 		}
 
 		/// <summary>
-		/// Shutdown Tolk and release resources.
+		/// Shutdown Prism and release resources.
 		/// </summary>
 		public static void Shutdown() {
 			if (!_initialized) return;
 
 			try {
-				Tolk_Unload();
+				if (_backend != IntPtr.Zero) {
+					prism_backend_free(_backend);
+					_backend = IntPtr.Zero;
+				}
+				if (_context != IntPtr.Zero) {
+					prism_shutdown(_context);
+					_context = IntPtr.Zero;
+				}
 				Debug.Log("[ATSAccessibility] Speech shutdown");
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] Speech shutdown error: {ex.Message}");
@@ -179,8 +215,11 @@ namespace ATSAccessibility.Utils {
 
 			try {
 				string filtered = FilterRichText(message);
-				if (!string.IsNullOrEmpty(filtered)) {
-					Tolk_Output(filtered, interrupt);
+				if (string.IsNullOrEmpty(filtered)) return;
+
+				int err = prism_backend_speak(_backend, filtered, interrupt);
+				if (err != PRISM_OK) {
+					Debug.LogWarning($"[ATSAccessibility] Speech error: {DescribePrismError(err)}");
 				}
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] Speech error: {ex.Message}");
@@ -194,11 +233,20 @@ namespace ATSAccessibility.Utils {
 			if (!_available) return;
 
 			try {
-				// Output empty string with interrupt to stop speech
-				Tolk_Output("", true);
+				int err = prism_backend_stop(_backend);
+				if (err != PRISM_OK && err != PRISM_ERROR_NOT_SPEAKING) {
+					Debug.LogWarning($"[ATSAccessibility] Speech stop error: {DescribePrismError(err)}");
+				}
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] Speech stop error: {ex.Message}");
 			}
+		}
+
+		private static string DescribePrismError(int err) {
+			IntPtr msgPtr = prism_error_string(err);
+			return msgPtr != IntPtr.Zero
+				? Marshal.PtrToStringAnsi(msgPtr)
+				: $"error code {err}";
 		}
 	}
 }

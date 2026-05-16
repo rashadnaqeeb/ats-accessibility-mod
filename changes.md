@@ -5,10 +5,12 @@
 ## Changes since v1.5.6
 
 ### New features
+- Switched the speech backend from Tolk to Prism, which bundles all screen-reader bridges into a single DLL and supports a much wider range of international screen readers.
 
 ### Bug fixes
 
 ### Internal
+- Replaced the Tolk + SAAPI64 + nvdaControllerClient64 trio in the release package with a single `prism.dll`. Vendored `prism.dll` under `prism/native/win-x64/` and updated `build.ps1` to deploy it.
 
 ## v1.5.6
 

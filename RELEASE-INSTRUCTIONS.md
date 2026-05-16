@@ -9,16 +9,17 @@ release-package/
 │   └── plugins/
 │       └── ATSAccessibility/
 │           ├── ATSAccessibility.dll
-│           ├── Tolk.dll
-│           └── SAAPI64.dll
-├── nvdaControllerClient64.dll   (MUST be in game root for NVDA detection)
+│           └── prism.dll
 ├── doorstop_config.ini          (from BepInEx distribution)
 ├── winhttp.dll                  (from BepInEx distribution)
 ├── LICENSE.txt                  (MIT - this project)
 ├── LICENSE-BepInEx.txt          (LGPL-2.1)
-├── LICENSE-Tolk.txt             (LGPL-3.0)
+├── LICENSE-Prism.txt            (MPL-2.0)
 └── README.md                    (copy from repo root)
 ```
+
+Prism bundles every supported screen-reader bridge into a single DLL, so no
+separate SAPI/NVDA client files need to be shipped.
 
 ## Creating a Release
 
@@ -63,19 +64,18 @@ release-package/
 
 ## Source Locations
 
-| File | Source |
-|------|--------|
-| BepInEx core files | Fresh BepInEx 5.x download (user provides) |
-| ATSAccessibility.dll | Build output: `ATSAccessibility/bin/Debug/net472/` |
-| Tolk.dll, SAAPI64.dll | Deployed game folder: `/c/Program Files (x86)/Steam/steamapps/common/Against the Storm/BepInEx/plugins/ATSAccessibility/` |
-| nvdaControllerClient64.dll | NVDA releases: https://download.nvaccess.org/releases/stable/ (controllerClient.zip) - goes in package ROOT |
-| LICENSE.txt | Repo root (rename from LICENSE) |
-| LICENSE-BepInEx.txt | https://raw.githubusercontent.com/BepInEx/BepInEx/master/LICENSE |
-| LICENSE-Tolk.txt | https://raw.githubusercontent.com/ndarilek/tolk/master/LICENSE.txt |
-| README.md | Repo root |
+Sources:
+
+- BepInEx core files: fresh BepInEx 5.x download (user provides).
+- `ATSAccessibility.dll`: build output at `ATSAccessibility/bin/Debug/net472/`.
+- `prism.dll`: vendored at `prism/native/win-x64/prism.dll` in this repo (sourced from the [Prism](https://github.com/ethindp/prism) project).
+- `LICENSE.txt`: repo root (rename from `LICENSE`).
+- `LICENSE-BepInEx.txt`: https://raw.githubusercontent.com/BepInEx/BepInEx/master/LICENSE
+- `LICENSE-Prism.txt`: copy from `prism/LICENSES/` (MPL-2.0).
+- `README.md`: repo root.
 
 ## License Requirements
 
-- **ATSAccessibility**: MIT - must include LICENSE.txt
-- **BepInEx**: LGPL-2.1 - must include LICENSE-BepInEx.txt
-- **Tolk**: LGPL-3.0 - must include LICENSE-Tolk.txt
+- **ATSAccessibility**: MIT, must include `LICENSE.txt`.
+- **BepInEx**: LGPL-2.1, must include `LICENSE-BepInEx.txt`.
+- **Prism**: MPL-2.0, must include `LICENSE-Prism.txt`. See `prism/NOTICE` for additional third-party attributions bundled inside `prism.dll`.

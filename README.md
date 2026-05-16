@@ -1,6 +1,6 @@
 # ATS Accessibility Mod
 
-A BepInEx mod adding screen reader support to Against the Storm via Tolk.
+A BepInEx mod adding screen reader support to Against the Storm via Prism.
 
 **The game and its DLCs are fully playable with this mod.** All core gameplay mechanics are accessible.
 
