@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.6.1
+## Changes since v1.6.2
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.6.2
 
 ### New features
 - World map: Q/E/D/C/Z/A move the hex cursor directly by direction (NW, NE, E, SE, SW, W), alongside the arrow keys which work unchanged. this allows for exact movement for those who understand how hex grids work.
