@@ -9,6 +9,7 @@
 ### Bug fixes
 
 ### Internal
+- Updated the vendored Prism speech library from v0.15.0 to v0.16.1.
 
 ## v1.6.1
 
