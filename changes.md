@@ -2,7 +2,15 @@
 
 
 
-## Changes since v1.6
+## Changes since v1.6.1
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.6.1
 
 ### New features
 - F3 Rewards panel: the available Blueprints row now shows how many blueprint picks remain (e.g. "Blueprints, 2 remaining").
