@@ -66,6 +66,11 @@ namespace ATSAccessibility.Overlays {
 		private List<TradeGoodItem> _buyGoods = new List<TradeGoodItem>();
 		private List<PerkItem> _perks = new List<PerkItem>();
 
+		// Trade values are floats; summing many goods accumulates tiny rounding
+		// error, so an exactly-even trade can come out as a fraction below zero.
+		// Treat any balance within this tolerance of zero as a fair trade.
+		private const float BalanceTolerance = 0.01f;
+
 		// ========================================
 		// MENUBASE OVERRIDES
 		// ========================================
@@ -548,7 +553,7 @@ namespace ATSAccessibility.Overlays {
 		private void AnnounceBalance() {
 			CalculateTradeTotals(out float sellTotal, out float buyTotal);
 			float balance = sellTotal - buyTotal;
-			string fairness = Strings.Get(balance >= 0 ? "overlay.trader.balance.fair" : "overlay.trader.balance.unfair");
+			string fairness = Strings.Get(balance >= -BalanceTolerance ? "overlay.trader.balance.fair" : "overlay.trader.balance.unfair");
 
 			Speech.Say(Strings.Get("overlay.trader.balance", sellTotal, buyTotal, balance, fairness));
 		}
@@ -602,7 +607,7 @@ namespace ATSAccessibility.Overlays {
 
 			float balance = sellTotal - buyTotal;
 
-			if (balance < 0) {
+			if (balance < -BalanceTolerance) {
 				Speech.Say(Strings.Get("overlay.trader.accept.unfair", Mathf.Abs(balance)));
 				SoundManager.PlayFailed();
 				return;

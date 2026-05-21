@@ -7,6 +7,8 @@
 ### New features
 
 ### Bug fixes
+- Embark: the "cannot afford" message now reports the correct point cost in non-English languages (it previously always said "Need 0 points").
+- Trader: an exactly-even trade is no longer rejected as unfair when many goods are offered, where floating-point rounding made the balance a fraction below zero.
 
 ### Internal
 - Updated the vendored Prism speech library from v0.15.0 to v0.16.1.

@@ -1054,13 +1054,16 @@ namespace ATSAccessibility.Panels {
 			bool success;
 			bool added;
 
-			// Determine type from the item itself (ConditionPickState vs GoodPickState)
-			// TODO: verify — categoryName substring checks ("Effect"/"Good") are English-only
-			// fallbacks for the typeName detection; primary path uses type names which stay stable.
+			// Determine type from the item itself (ConditionPickState vs GoodPickState).
+			// The typeName check is the primary path and stays stable across languages;
+			// the categoryName substring checks are English-only fallbacks.
 			string typeName = item?.GetType().Name ?? "";
-			if (typeName.Contains("Condition") || categoryName.Contains("Effect")) {
+			bool isEffect = typeName.Contains("Condition") || categoryName.Contains("Effect");
+			bool isGood = typeName.Contains("Good") || categoryName.Contains("Good");
+
+			if (isEffect) {
 				(success, added) = EmbarkReflection.ToggleEffectBonus(item);
-			} else if (typeName.Contains("Good") || categoryName.Contains("Good")) {
+			} else if (isGood) {
 				(success, added) = EmbarkReflection.ToggleGoodBonus(item);
 			} else {
 				Speech.Say(Strings.Get("panel.embark.cannot_toggle"));
@@ -1086,11 +1089,11 @@ namespace ATSAccessibility.Panels {
 					_sectionDetailIndex = Math.Min(prevDetailIndex, Math.Max(0, category.Details.Count - 1));
 				}
 			} else {
-				int cost = 0;
-				if (categoryName.Contains("Effect"))
-					cost = EmbarkReflection.GetConditionPickCost(item);
-				else if (categoryName.Contains("Good"))
-					cost = EmbarkReflection.GetGoodPickCost(item);
+				// Reuse the type-based detection so the cost is correct in every
+				// language (categoryName substring checks only match English).
+				int cost = isEffect
+					? EmbarkReflection.GetConditionPickCost(item)
+					: EmbarkReflection.GetGoodPickCost(item);
 
 				int remaining = EmbarkReflection.CalculatePointsRemaining();
 				Speech.Say(Strings.Get("panel.embark.cannot_afford", cost, remaining));
