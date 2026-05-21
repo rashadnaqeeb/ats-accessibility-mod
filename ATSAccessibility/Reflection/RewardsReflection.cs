@@ -113,6 +113,36 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
+		/// Get the number of pending blueprints to pick.
+		/// Uses ReputationRewardsService.RewardsToCollect.Value.
+		/// </summary>
+		public static int GetPendingBlueprintCount() {
+			EnsureCached();
+
+			try {
+				var gameServices = GameReflection.GetGameServices();
+				if (gameServices == null) return 0;
+
+				var rewardsService = ReflectionHelper.GetProp(_gsReputationRewardsServiceProperty, gameServices);
+				if (rewardsService == null) return 0;
+
+				var rewardsToCollect = ReflectionHelper.GetProp(_rrsRewardsToCollectProperty, rewardsService);
+				if (rewardsToCollect == null) return 0;
+
+				// Get the Value property from ReactiveProperty<int>
+				if (_reactivePropertyValueProperty == null) {
+					_reactivePropertyValueProperty = rewardsToCollect.GetType().GetProperty("Value");
+				}
+
+				return ReflectionHelper.GetPropInt(_reactivePropertyValueProperty, rewardsToCollect);
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetPendingBlueprintCount failed: {ex.Message}");
+			}
+
+			return 0;
+		}
+
+		/// <summary>
 		/// Check if there are pending cornerstones to pick.
 		/// Uses CornerstonesService.GetCurrentPick() != null.
 		/// </summary>

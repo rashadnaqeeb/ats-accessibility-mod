@@ -129,7 +129,8 @@ namespace ATSAccessibility.Panels {
 
 			// Blueprints
 			if (RewardsReflection.HasPendingBlueprints()) {
-				_items.Add(new RewardItem { Type = RewardType.Blueprints, Available = true, Label = Strings.Get("panel.rewards.blueprints") });
+				int count = RewardsReflection.GetPendingBlueprintCount();
+				_items.Add(new RewardItem { Type = RewardType.Blueprints, Available = true, Label = Strings.Get("panel.rewards.blueprints_remaining", count) });
 			} else {
 				var threshold = RewardsReflection.GetNextBlueprintThreshold();
 				string label = threshold.HasValue
