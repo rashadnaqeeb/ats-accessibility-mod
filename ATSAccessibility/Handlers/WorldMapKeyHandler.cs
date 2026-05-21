@@ -32,14 +32,16 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 
 		private static readonly List<HelpEntry> _helpEntries = new List<HelpEntry> {
+			HelpEntry.Loca("Q/E/D/C/Z/A", "handler.worldmap_key.help.hex_navigation"),
 			HelpEntry.Loca("I", "handler.worldmap_key.help.tooltip_info"),
-			HelpEntry.Loca("D", "handler.worldmap_key.help.embark_distance"),
+			HelpEntry.Loca("H", "handler.worldmap_key.help.embark_distance"),
+			HelpEntry.Loca("Alt+H", "handler.worldmap_key.help.reset_capital"),
 			HelpEntry.Loca("M", "handler.worldmap_key.help.effects_panel"),
 			HelpEntry.Loca("L", "handler.worldmap_key.help.level_info"),
 			HelpEntry.Loca("R", "handler.worldmap_key.help.meta_resources"),
 			HelpEntry.Loca("S", "handler.worldmap_key.help.seal_info"),
 			HelpEntry.Loca("T", "handler.worldmap_key.help.cycle_info"),
-			HelpEntry.Loca("E", "handler.worldmap_key.help.cycle_end"),
+			HelpEntry.Loca("Ctrl+E", "handler.worldmap_key.help.cycle_end"),
 			HelpEntry.Loca("F1", "handler.worldmap_key.help.tutorials"),
 			HelpEntry.Loca("PageUp/Down", "handler.worldmap_key.help.scanner_type"),
 			HelpEntry.Loca("Alt+PageUp/Down", "handler.worldmap_key.help.scanner_item"),
@@ -83,6 +85,29 @@ namespace ATSAccessibility.Handlers {
 					_worldMapNavigator.MoveArrow(0, -1);
 					return true;
 
+				// Hex direction navigation (Q/E/D/C/Z/A clockwise from NW)
+				case KeyCode.Q:
+					_worldMapNavigator.MoveCursor(0);  // NW
+					return true;
+				case KeyCode.E:
+					if (modifiers.Control)
+						WorldMapStatsReader.OpenCycleEndPopup();
+					else
+						_worldMapNavigator.MoveCursor(1);  // NE
+					return true;
+				case KeyCode.D:
+					_worldMapNavigator.MoveCursor(2);  // E
+					return true;
+				case KeyCode.C:
+					_worldMapNavigator.MoveCursor(3);  // SE
+					return true;
+				case KeyCode.Z:
+					_worldMapNavigator.MoveCursor(4);  // SW
+					return true;
+				case KeyCode.A:
+					_worldMapNavigator.MoveCursor(5);  // W
+					return true;
+
 				// Scanner controls
 				case KeyCode.PageUp:
 					if (modifiers.Alt)
@@ -114,14 +139,17 @@ namespace ATSAccessibility.Handlers {
 					_worldMapNavigator.Interact();
 					return true;
 
+				// Embark status and distance (H), jump cursor to the capital (Alt+H)
+				case KeyCode.H:
+					if (modifiers.Alt)
+						_worldMapNavigator.JumpToCapital();
+					else
+						_worldMapNavigator.ReadEmbarkAndDistance();
+					return true;
+
 				// Read full tooltip content
 				case KeyCode.I:
 					_worldMapNavigator.ReadTooltip();
-					return true;
-
-				// Read embark status and distance to capital
-				case KeyCode.D:
-					_worldMapNavigator.ReadEmbarkAndDistance();
 					return true;
 
 				// Open effects panel
@@ -141,9 +169,6 @@ namespace ATSAccessibility.Handlers {
 					return true;
 				case KeyCode.T:
 					WorldMapStatsReader.AnnounceCycleInfo();
-					return true;
-				case KeyCode.E:
-					WorldMapStatsReader.OpenCycleEndPopup();
 					return true;
 
 				// Open tutorials HUD and overlay

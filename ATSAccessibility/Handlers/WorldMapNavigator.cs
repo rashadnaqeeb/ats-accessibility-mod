@@ -195,6 +195,14 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		/// <summary>
+		/// Jump the cursor to the capital (Smoldering City) and announce it.
+		/// </summary>
+		public void JumpToCapital() {
+			SetCursorPosition(Vector3Int.zero);
+			AnnounceTile();
+		}
+
+		/// <summary>
 		/// Open the effects panel for the current tile.
 		/// Does not work on capital/city tiles.
 		/// </summary>

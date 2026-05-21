@@ -171,16 +171,20 @@ Opened via Menu Hub (F2 > Trends). Shows storage operations (gains and losses) f
 
 ## World Map
 
+The world map is a hexagonal grid. If you don't care about exact position, just use the arrow keys; they abstract the hexes away. Use Q/E/D/C/Z/A when you want precise control over the six hex directions.
+
 - Arrows: Move hex cursor
+- Q/E/D/C/Z/A: Move hex cursor by direction (NW, NE, E, SE, SW, W)
+- Alt+H: Jump cursor to the capital
 - I: Read hex tooltip
 - F1: Open tutorial hub
-- D: Embark status and distance from embark point
+- H: Embark status and distance from embark point
 - M: Descriptions of modifiers at tile.
 - L: Current level
 - R: Meta resources
 - S: Seal info
 - T: Cycle info
-- E: End cycle.
+- Ctrl+E: End cycle.
 Alt+L, Alt+R, Alt+S, and Alt+T also work from inside world map popups and menus.
 - Enter: Select tile / embark
 
