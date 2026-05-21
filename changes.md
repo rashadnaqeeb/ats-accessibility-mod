@@ -5,9 +5,9 @@
 ## Changes since v1.6.1
 
 ### New features
-- World map: Alt+H jumps the cursor back to the capital (Smoldering City), mirroring Alt+H in the settlement map.
-- World map: Q/E/D/C/Z/A move the hex cursor directly by direction (NW, NE, E, SE, SW, W), alongside the arrow keys.
+- World map: Q/E/D/C/Z/A move the hex cursor directly by direction (NW, NE, E, SE, SW, W), alongside the arrow keys which work unchanged. this allows for exact movement for those who understand how hex grids work.
 - World map: embark status and distance moved from D to H; end cycle moved from E to Ctrl+E, freeing D and E for hex navigation.
+- World map: Alt+H jumps the cursor back to the capital (Smoldering City), mirroring Alt+H in the settlement map.
 
 ### Bug fixes
 - Embark: the "cannot afford" message now reports the correct point cost in non-English languages (it previously always said "Need 0 points").
