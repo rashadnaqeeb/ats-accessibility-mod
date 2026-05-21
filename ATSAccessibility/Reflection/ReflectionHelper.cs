@@ -189,26 +189,22 @@ namespace ATSAccessibility.Reflection {
 
 		public static bool InvokeVoid(MethodInfo method, object instance) {
 			if (method == null || instance == null) return false;
-			try { method.Invoke(instance, null); return true; }
-			catch (Exception ex) { LogInvokeError(method, ex); return false; }
+			try { method.Invoke(instance, null); return true; } catch (Exception ex) { LogInvokeError(method, ex); return false; }
 		}
 
 		public static bool InvokeVoid(MethodInfo method, object instance, object arg0) {
 			if (method == null || instance == null) return false;
-			try { method.Invoke(instance, new[] { arg0 }); return true; }
-			catch (Exception ex) { LogInvokeError(method, ex); return false; }
+			try { method.Invoke(instance, new[] { arg0 }); return true; } catch (Exception ex) { LogInvokeError(method, ex); return false; }
 		}
 
 		public static bool InvokeVoid(MethodInfo method, object instance, object arg0, object arg1) {
 			if (method == null || instance == null) return false;
-			try { method.Invoke(instance, new[] { arg0, arg1 }); return true; }
-			catch (Exception ex) { LogInvokeError(method, ex); return false; }
+			try { method.Invoke(instance, new[] { arg0, arg1 }); return true; } catch (Exception ex) { LogInvokeError(method, ex); return false; }
 		}
 
 		public static bool InvokeVoid(MethodInfo method, object instance, object arg0, object arg1, object arg2) {
 			if (method == null || instance == null) return false;
-			try { method.Invoke(instance, new[] { arg0, arg1, arg2 }); return true; }
-			catch (Exception ex) { LogInvokeError(method, ex); return false; }
+			try { method.Invoke(instance, new[] { arg0, arg1, arg2 }); return true; } catch (Exception ex) { LogInvokeError(method, ex); return false; }
 		}
 
 		private static void LogInvokeError(MethodInfo method, Exception ex) {

@@ -2,7 +2,6 @@ using ATSAccessibility.Utils;
 using ATSAccessibility.Reflection;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace ATSAccessibility.Navigators {
 	/// <summary>

@@ -18,7 +18,7 @@ namespace ATSAccessibility.Reflection {
 			public object Model;         // BuildingModel
 			public string DisplayName;
 			public string Description;   // ListDescription
-		public string InternalName;  // Building internal name (for recipe lookups)
+			public string InternalName;  // Building internal name (for recipe lookups)
 		}
 
 		// ========================================
@@ -322,7 +322,7 @@ namespace ATSAccessibility.Reflection {
 						Model = buildingModel,
 						DisplayName = displayName,
 						Description = description,
-					InternalName = buildingName
+						InternalName = buildingName
 					});
 				}
 			} catch (Exception ex) {

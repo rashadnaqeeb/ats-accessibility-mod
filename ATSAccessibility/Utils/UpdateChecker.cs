@@ -4,7 +4,6 @@ using System.IO;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
-using UnityEngine;
 
 namespace ATSAccessibility.Utils {
 	public static class UpdateChecker {

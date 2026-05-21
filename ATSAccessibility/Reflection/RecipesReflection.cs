@@ -111,7 +111,7 @@ namespace ATSAccessibility.Reflection {
 				CacheGoodTypes(assembly);
 				CacheBuildingTypes(assembly);
 				CacheBiomeTypes(assembly);
-			_recipesPopupType = assembly.GetType("Eremite.View.Popups.Recipes.RecipesPopup");
+				_recipesPopupType = assembly.GetType("Eremite.View.Popups.Recipes.RecipesPopup");
 			});
 		}
 
