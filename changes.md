@@ -2,13 +2,22 @@
 
 
 
-## Changes since v1.6.2
+## Changes since v1.6.3
+
+### New features
+
+### Bug fixes
+
+### Internal
+
+## v1.6.3
 
 ### New features
 
 ### Bug fixes
 - Main menu: the Frogs and Bats DLC shop buttons now should read more clearly.
 - You can now properly continue a settlement after the victory screen if you wish, though no further rewards will be earned.
+
 ### Internal
 
 ## v1.6.2
