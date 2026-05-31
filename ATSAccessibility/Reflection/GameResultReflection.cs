@@ -22,6 +22,14 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _descTextField;
 		private static FieldInfo _menuButtonField;
 		private static FieldInfo _continueButtonField;
+		private static FieldInfo _decisionPopupField;
+
+		// DecisionPopup (Continue confirmation) fields
+		private static FieldInfo _decisionConfirmButtonField;
+		private static FieldInfo _decisionCancelButtonField;
+		private static FieldInfo _decisionTitleTextField;
+		private static FieldInfo _decisionDescTextField;
+		private static FieldInfo _popupContentField;
 
 		// GameMB.StateService access
 		private static PropertyInfo _gameMBStateServiceProperty;
@@ -690,6 +698,95 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		// ========================================
+		// DECISION POPUP (Continue confirmation child of GameResultPopup)
+		// ========================================
+
+		private static object GetDecisionPopup(object popup) {
+			if (popup == null || _decisionPopupField == null) return null;
+			return _decisionPopupField.GetValue(popup);
+		}
+
+		/// <summary>
+		/// Check whether the in-popup decision (Continue confirmation) is currently visible.
+		/// Popup.AnimateShow toggles content.gameObject, not the DecisionPopup MonoBehaviour itself.
+		/// </summary>
+		public static bool IsDecisionPopupVisible(object popup) {
+			EnsureTypes();
+			try {
+				var dp = GetDecisionPopup(popup);
+				if (dp == null || _popupContentField == null) return false;
+
+				var content = _popupContentField.GetValue(dp) as RectTransform;
+				return content != null && content.gameObject != null && content.gameObject.activeInHierarchy;
+			} catch {
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Get the decision popup's title and description text.
+		/// </summary>
+		public static (string title, string desc) GetDecisionPopupTexts(object popup) {
+			EnsureTypes();
+			try {
+				var dp = GetDecisionPopup(popup);
+				if (dp == null) return (null, null);
+
+				string title = null;
+				string desc = null;
+
+				if (_decisionTitleTextField != null) {
+					title = GetTMPText(_decisionTitleTextField.GetValue(dp));
+				}
+				if (_decisionDescTextField != null) {
+					desc = GetTMPText(_decisionDescTextField.GetValue(dp));
+				}
+
+				return (title, desc);
+			} catch {
+				return (null, null);
+			}
+		}
+
+		/// <summary>
+		/// Click the decision popup's Confirm button (commit to Continue).
+		/// </summary>
+		public static bool ClickDecisionConfirm(object popup) {
+			return ClickDecisionButton(popup, _decisionConfirmButtonField, nameof(ClickDecisionConfirm));
+		}
+
+		/// <summary>
+		/// Click the decision popup's Cancel button (back out of Continue).
+		/// </summary>
+		public static bool ClickDecisionCancel(object popup) {
+			return ClickDecisionButton(popup, _decisionCancelButtonField, nameof(ClickDecisionCancel));
+		}
+
+		private static bool ClickDecisionButton(object popup, FieldInfo buttonField, string source) {
+			EnsureTypes();
+			try {
+				var dp = GetDecisionPopup(popup);
+				if (dp == null || buttonField == null) return false;
+
+				var button = buttonField.GetValue(dp);
+				if (button == null) return false;
+
+				var onClickProp = button.GetType().GetProperty("onClick", GameReflection.PublicInstance);
+				var onClick = onClickProp?.GetValue(button);
+				if (onClick == null) return false;
+
+				var invokeMethod = onClick.GetType().GetMethod("Invoke", Type.EmptyTypes);
+				if (invokeMethod == null) return false;
+				invokeMethod.Invoke(onClick, null);
+
+				return true;
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GameResultReflection.{source} failed: {ex.Message}");
+				return false;
+			}
+		}
+
+		// ========================================
 		// SERVICE ACCESSORS
 		// ========================================
 
@@ -810,6 +907,22 @@ namespace ATSAccessibility.Reflection {
 					_descTextField = _gameResultPopupType.GetField("descText", GameReflection.NonPublicInstance);
 					_menuButtonField = _gameResultPopupType.GetField("menuButton", GameReflection.NonPublicInstance);
 					_continueButtonField = _gameResultPopupType.GetField("continueButton", GameReflection.NonPublicInstance);
+					_decisionPopupField = _gameResultPopupType.GetField("decisionPopup", GameReflection.NonPublicInstance);
+				}
+
+				// DecisionPopup (Continue confirmation child of GameResultPopup)
+				var decisionPopupType = assembly.GetType("Eremite.View.DecisionPopup");
+				if (decisionPopupType != null) {
+					_decisionConfirmButtonField = decisionPopupType.GetField("confirmButton", GameReflection.NonPublicInstance);
+					_decisionCancelButtonField = decisionPopupType.GetField("cancelButton", GameReflection.NonPublicInstance);
+					_decisionTitleTextField = decisionPopupType.GetField("titleText", GameReflection.NonPublicInstance);
+					_decisionDescTextField = decisionPopupType.GetField("descText", GameReflection.NonPublicInstance);
+				}
+
+				// Popup base class — content is what AnimateShow/Hide actually toggles
+				var popupBaseType = assembly.GetType("Eremite.View.Popups.Popup");
+				if (popupBaseType != null) {
+					_popupContentField = popupBaseType.GetField("content", GameReflection.NonPublicInstance);
 				}
 
 				// GameObjectivesState

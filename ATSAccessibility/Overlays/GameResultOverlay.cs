@@ -126,9 +126,41 @@ namespace ATSAccessibility.Overlays {
 					if (item.OnActivate != null) {
 						item.OnActivate();
 						SoundManager.PlayButtonClick();
+						AnnounceDecisionIfShown();
 					}
 					break;
 			}
+		}
+
+		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
+			// Continue playing opens a child DecisionPopup ("Are you sure?") inside the
+			// GameResultPopup. It never fires its own popup-shown event, so we intercept
+			// input here while it is visible and route Enter/Escape to its buttons.
+			if (!GameResultReflection.IsDecisionPopupVisible(_popup))
+				return null;
+
+			switch (keyCode) {
+				case KeyCode.Return:
+				case KeyCode.KeypadEnter:
+					GameResultReflection.ClickDecisionConfirm(_popup);
+					return true;
+				case KeyCode.Escape:
+					GameResultReflection.ClickDecisionCancel(_popup);
+					Speech.Say(Strings.Get("common.cancelled"));
+					return true;
+				default:
+					return true;
+			}
+		}
+
+		private void AnnounceDecisionIfShown() {
+			if (!GameResultReflection.IsDecisionPopupVisible(_popup)) return;
+
+			var (title, desc) = GameResultReflection.GetDecisionPopupTexts(_popup);
+			if (string.IsNullOrEmpty(title) && string.IsNullOrEmpty(desc)) return;
+
+			string instructions = Strings.Get("dialog.confirm.instructions");
+			Speech.Say($"{title}. {desc}. {instructions}");
 		}
 
 		protected override EscapeAction OnEscape() {

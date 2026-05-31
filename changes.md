@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Game result: the "Are you sure?" confirmation that appears after pressing Continue playing is now announced and can be confirmed with Enter or cancelled with Escape; previously it captured no input.
 
 ### Internal
 
