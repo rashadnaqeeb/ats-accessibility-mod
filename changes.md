@@ -5,6 +5,7 @@
 ## Changes since v1.6.2
 
 ### New features
+- Main menu: the Frogs and Bats DLC shop buttons now announce the localized expansion name plus the in-game tooltip description (which differs based on whether the DLC is owned) instead of just "Frogs" / "Bats".
 
 ### Bug fixes
 - Game result: the "Are you sure?" confirmation that appears after pressing Continue playing is now announced and can be confirmed with Enter or cancelled with Escape; previously it captured no input.

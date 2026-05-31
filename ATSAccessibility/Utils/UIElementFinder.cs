@@ -347,6 +347,11 @@ namespace ATSAccessibility.Utils {
 		public static string GetElementText(Selectable element) {
 			if (element == null) return null;
 
+			// Icon-only DLC shop buttons (Frogs/Bats in main menu) have no inner text,
+			// so pull the localized name + description from their DLCConfig.
+			string dlcLabel = DlcShopButtonReflection.TryGetLabel(element);
+			if (!string.IsNullOrEmpty(dlcLabel)) return dlcLabel;
+
 			// Handle dropdowns FIRST - their inner text is the value, not a label
 			if (element is TMP_Dropdown dropdown && dropdown.options.Count > 0) {
 				string value = dropdown.options[dropdown.value].text;
