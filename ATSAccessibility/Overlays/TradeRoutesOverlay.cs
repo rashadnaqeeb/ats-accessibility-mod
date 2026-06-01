@@ -74,6 +74,11 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		protected override void RefreshData() {
+			// Reset branch state on open. MenuBase resets _level/_indices but not our
+			// branch, so a popup that closed while drilled into a town would reopen stuck
+			// showing only that town's "extend offers" button.
+			_branch = Branch.MainMenu;
+			_currentTownIndex = 0;
 			RefreshAllData();
 			RefreshMainMenu();
 		}

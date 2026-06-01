@@ -7,6 +7,7 @@
 ### New features
 
 ### Bug fixes
+- Trade routes: reopening the screen after expanding a settlement no longer gets stuck showing only a single "extend offers" button; it now always reopens on the main settlement list.
 
 ### Internal
 
