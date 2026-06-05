@@ -21,6 +21,26 @@ release-package/
 Prism bundles every supported screen-reader bridge into a single DLL, so no
 separate SAPI/NVDA client files need to be shipped.
 
+The installer (`ATSAccessibilityInstaller.exe`) is NOT bundled in the zip. It is
+distributed as its own release asset and copies itself into the game folder on
+install, so the mod can relaunch it for in-place updates.
+
+## Quick path (scripts)
+
+```powershell
+# 1. Package the mod zip + SHA256 sidecar into releases/
+powershell -ExecutionPolicy Bypass -File build_release.ps1
+
+# 2. Build the installer into releases/ (needs Rust + libclang)
+powershell -ExecutionPolicy Bypass -File build-installer.ps1
+```
+
+`build_release.ps1` reads the version from `Plugin.cs`, builds the mod, assembles
+`release-package/`, and emits `ATSAccessibility-v<version>-with-BepInEx.zip` plus
+a matching `.sha256` sidecar under `releases/`. Then tag and upload all assets
+(see the publish step below). The manual steps that follow document what the
+scripts automate.
+
 ## Creating a Release
 
 1. **Update the version number** in `ATSAccessibility/Core/Plugin.cs`:
@@ -54,8 +74,17 @@ separate SAPI/NVDA client files need to be shipped.
    ```bash
    git tag vX.X.X
    git push origin vX.X.X
-   gh release create vX.X.X ../ATSAccessibility-vX.X.X-with-BepInEx.zip --title "vX.X.X" --notes "release notes here"
+   gh release create vX.X.X \
+     releases/ATSAccessibility-vX.X.X-with-BepInEx.zip \
+     releases/ATSAccessibility-vX.X.X-with-BepInEx.zip.sha256 \
+     releases/ATSAccessibilityInstaller.exe \
+     --title "vX.X.X" --notes "release notes here"
    ```
+   Upload all three assets: the mod zip, its `.sha256` sidecar, and the installer
+   exe. The installer exe MUST keep the exact name `ATSAccessibilityInstaller.exe`
+   so the mod's `releases/latest/download/ATSAccessibilityInstaller.exe` permalink
+   resolves. The installer verifies the downloaded zip against GitHub's per-asset
+   digest when present; the sidecar is a secondary integrity artifact.
    Creating the tag locally before pushing ensures it exists in both the local repo and on GitHub. Do not use `gh release create` with `--target` alone, as that only creates the tag on the remote.
    Use the `--notes` flag with release notes derived from the "Changes since" section in `changes.md`, formatted to match the style of previous GitHub releases (see any prior release for the template with installation instructions, known limitations, etc.). Do not pass `changes.md` directly as `--notes-file` since it now contains the full project history.
 

@@ -1,0 +1,40 @@
+[package]
+name = "ats-accessibility-installer"
+version = "0.1.0"
+edition = "2024"
+description = "Installer for the Against the Storm Accessibility mod"
+
+[[bin]]
+name = "ATSAccessibilityInstaller"
+path = "src/main.rs"
+# The bin embeds a requireAdministrator manifest, so its test harness can't be
+# launched by `cargo test` (os error 740). Tests live in the library crate.
+test = false
+
+[dependencies]
+regex = "=1.12.3"
+reqwest = { version = "=0.13.4", default-features = false, features = ["blocking", "json", "rustls"] }
+semver = "=1.0.28"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.150"
+sha2 = "=0.11.0"
+sysinfo = "=0.39.3"
+time = { version = "=0.3.47", features = ["formatting"] }
+wxdragon = "=0.9.16"
+zip = "=8.6.0"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_System_Console", "Win32_Globalization"] }
+winreg = "=0.56.0"
+
+[build-dependencies]
+embed-resource = "=3.0.9"
+
+[dev-dependencies]
+tempfile = "=3.27.0"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

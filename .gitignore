@@ -25,6 +25,8 @@ game-source/
 # Release packaging
 release-package/
 *.zip
+releases/
+*.sha256
 
 # Misc
 Against the Storm completed save/

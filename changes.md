@@ -5,11 +5,14 @@
 ## Changes since v1.6.3
 
 ### New features
+- Added a standalone installer (`ATSAccessibilityInstaller.exe`) that auto-detects the game, including the demo (Steam, Epic, GOG), installs or updates the mod with one accessible window, backs up overwritten files, and can repair or uninstall. It also detects Game Pass / Microsoft Store copies and warns that they can't be modded. Its UI is translated into every language the game supports; it asks for your language once and remembers your choice.
+- The in-game update check now hands off to the installer: when an update is found it launches the installer to apply it in place, or, if no installer is present, opens the installer download so manual installs can switch over.
 
 ### Bug fixes
 - Trade routes: reopening the screen after expanding a settlement no longer gets stuck showing only a single "extend offers" button; it now always reopens on the main settlement list.
 
 ### Internal
+- Release packaging now emits a SHA256 sidecar and adds `build_release.ps1` (mod zip) and `build-installer.ps1` (installer) scripts.
 
 ## v1.6.3
 
