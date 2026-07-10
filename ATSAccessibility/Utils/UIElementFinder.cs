@@ -212,17 +212,25 @@ namespace ATSAccessibility.Utils {
 						}
 					}
 				} else {
-					// Panel 1: Content (only from active content panel, excluding tabs)
+					// Panel 1: Content (only from the active tab's content)
 					var activeContentPanel = FindActiveContentPanel(tabsPanelRef);
-					Transform searchRoot = activeContentPanel ?? panel.transform;
 
-					var selectables = searchRoot.GetComponentsInChildren<Selectable>(true);
+					// No current tab means the game has not initialized its tabs yet - our
+					// popup-shown handler can run first. Every tab's content is still active
+					// at that point, so searching the popup root would snapshot the union of
+					// all tabs. Those controls go inactive a moment later without ever having
+					// run Start(), leaving them readable but inert. Report none instead; the
+					// caller falls back to the tabs so the player can pick one.
+					if (activeContentPanel == null) return elements;
+
+					var selectables = activeContentPanel.GetComponentsInChildren<Selectable>(true);
 
 					foreach (var sel in selectables) {
 						if (!sel.gameObject.activeInHierarchy) continue;
 						if (!sel.interactable) continue;
 						if (ShouldIgnoreElement(sel)) continue;
 						if (tabButtons.Contains(sel)) continue;
+						if (ShouldSkipHaulerSlotElement(sel)) continue;
 
 						string text = GetElementText(sel);
 						if (string.IsNullOrEmpty(text)) continue;
@@ -249,10 +257,48 @@ namespace ATSAccessibility.Utils {
 		}
 
 		/// <summary>
+		/// A hauler priority row exposes three Selectables (minus, input, plus). Collapse
+		/// it to just the input field, which +/- then adjusts, so skip the two buttons.
+		/// Also skip every element of a hidden pooled row: the panel deactivates the slot
+		/// root but not its children, so they would otherwise show up as bare "0" fields.
+		/// </summary>
+		public static bool ShouldSkipHaulerSlotElement(Selectable sel) {
+			var slot = HaulersReflection.GetSlotFor(sel);
+			if (slot == null) return false;
+
+			if (!HaulersReflection.IsSlotVisible(slot)) return true;
+
+			return !HaulersReflection.IsSlotRepresentative(slot, sel);
+		}
+
+		/// <summary>
+		/// Build the "Building, priority N" label for a hauler priority row's input field,
+		/// or null if the element is not one. Rows greyed out by their group's toggle are
+		/// marked inactive.
+		/// </summary>
+		private static string TryGetHaulerSlotLabel(Selectable element) {
+			var slot = HaulersReflection.GetSlotFor(element);
+			if (slot == null) return null;
+			if (!HaulersReflection.IsSlotRepresentative(slot, element)) return null;
+
+			if (!HaulersReflection.TryGetSlotValues(slot, out string label, out int priority))
+				return null;
+
+			string text = Strings.Get("nav.storage.hauler_priority", label, priority);
+
+			if (HaulersReflection.IsSlotInactive(slot))
+				text = Strings.Get("nav.storage.hauler_priority_inactive", text);
+
+			return text;
+		}
+
+		/// <summary>
 		/// Unified check for whether to skip an element during navigation.
 		/// Consolidates visibility, interactability, and filter checks.
 		/// </summary>
 		private static bool ShouldSkipElement(Selectable sel, Transform boundary, bool isPopup) {
+			if (ShouldSkipHaulerSlotElement(sel)) return true;
+
 			// For menus, skip inactive elements (check full hierarchy)
 			// For popups, allow animated elements (parent inactive) but skip directly deactivated
 			if (!isPopup && !sel.gameObject.activeInHierarchy) return true;
@@ -346,6 +392,11 @@ namespace ATSAccessibility.Utils {
 		/// </summary>
 		public static string GetElementText(Selectable element) {
 			if (element == null) return null;
+
+			// Hauler priority rows read as "Building, priority N" rather than as a bare
+			// number in a text field.
+			string haulerLabel = TryGetHaulerSlotLabel(element);
+			if (!string.IsNullOrEmpty(haulerLabel)) return haulerLabel;
 
 			// Icon-only DLC shop buttons (Frogs/Bats in main menu) have no inner text,
 			// so pull the localized name + description from their DLCConfig.
@@ -539,6 +590,11 @@ namespace ATSAccessibility.Utils {
 		/// Get the semantic type of a UI element.
 		/// </summary>
 		public static string GetElementType(Selectable element) {
+			// Hauler priority rows already announce as "Building, priority N" - calling
+			// them a text field adds nothing.
+			if (HaulersReflection.GetSlotFor(element) != null)
+				return null;
+
 			if (element is Button) {
 				// Check if this Button is wrapped by a ToggleButton (game's custom toggle)
 				if (FindToggleButton(element) != null)

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace ATSAccessibility.Reflection {
 	/// <summary>
@@ -56,8 +58,19 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _settingsClientPrefsConfigField = null;
 		private static MethodInfo _cpcGetDisplayNameKeyForMethod = null;
 
-		// TextsGatekeeper.GetText(string) - resolves a loca key to display text
-		private static MethodInfo _getTextMethod = null;
+		// HaulersPrioritySlot - one building-type row of the game's panel
+		private static Type _slotType = null;
+		private static FieldInfo _slotLabelField = null;      // TMP_Text
+		private static FieldInfo _slotPrioField = null;       // int
+		private static FieldInfo _slotInputField = null;      // TMP_InputField
+		private static FieldInfo _slotBlendField = null;      // GameObject, shown when the group toggle is off
+		private static FieldInfo _slotBuildingTypeField = null;  // BuildingType, the priority dictionary key
+		private static FieldInfo _slotIsProductField = null;     // bool, which of the panel's two dictionaries
+
+		// HaulersPriorityPanel - owns the two dictionaries the slots edit
+		private static Type _panelType = null;
+		private static FieldInfo _panelProductsPriosField = null;
+		private static FieldInfo _panelIngredientsPriosField = null;
 
 		private static void EnsureCached() {
 			if (_cached) return;
@@ -102,9 +115,21 @@ namespace ATSAccessibility.Reflection {
 				if (clientPrefsConfigType != null)
 					_cpcGetDisplayNameKeyForMethod = clientPrefsConfigType.GetMethod("GetDisplayNameKeyFor", GameReflection.PublicInstance);
 
-				var textsGatekeeperType = assembly.GetType("Eremite.Services.TextsGatekeeper");
-				if (textsGatekeeperType != null)
-					_getTextMethod = textsGatekeeperType.GetMethod("GetText", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(string) }, null);
+				_slotType = assembly.GetType("Eremite.Buildings.UI.HaulersPrioritySlot");
+				if (_slotType != null) {
+					_slotLabelField = _slotType.GetField("label", GameReflection.NonPublicInstance);
+					_slotPrioField = _slotType.GetField("prio", GameReflection.NonPublicInstance);
+					_slotInputField = _slotType.GetField("input", GameReflection.NonPublicInstance);
+					_slotBlendField = _slotType.GetField("blend", GameReflection.NonPublicInstance);
+					_slotBuildingTypeField = _slotType.GetField("type", GameReflection.NonPublicInstance);
+					_slotIsProductField = _slotType.GetField("isProduct", GameReflection.NonPublicInstance);
+				}
+
+				_panelType = assembly.GetType("Eremite.Buildings.UI.HaulersPriorityPanel");
+				if (_panelType != null) {
+					_panelProductsPriosField = _panelType.GetField("productsPrios", GameReflection.NonPublicInstance);
+					_panelIngredientsPriosField = _panelType.GetField("ingredientsPrios", GameReflection.NonPublicInstance);
+				}
 			});
 		}
 
@@ -242,15 +267,122 @@ namespace ATSAccessibility.Reflection {
 				var config = ReflectionHelper.GetField(_settingsClientPrefsConfigField, settings);
 				string key = ReflectionHelper.InvokeString(_cpcGetDisplayNameKeyForMethod, config, typeKey);
 
-				if (!string.IsNullOrEmpty(key) && _getTextMethod != null) {
-					string text = _getTextMethod.Invoke(null, new object[] { key }) as string;
-					if (!string.IsNullOrEmpty(text)) return text;
+				if (!string.IsNullOrEmpty(key)) {
+					string text = GameReflection.ResolveLocaKey(key);
+					if (!string.IsNullOrEmpty(text) && text != key) return text;
 				}
 			} catch (Exception ex) {
 				Debug.LogWarning($"[ATSAccessibility] GetBuildingTypeDisplayName failed: {ex.Message}");
 			}
 
 			return typeKey?.ToString();
+		}
+
+		// ========================================
+		// HAULERS PRIORITY SLOT (options menu / generic UI navigation)
+		// ========================================
+
+		/// <summary>
+		/// Get the HaulersPrioritySlot component owning this element, or null if the
+		/// element is not part of a priority row. The game's row is three Selectables
+		/// (minus button, input field, plus button) under one slot component.
+		///
+		/// Searches inactive parents too: HaulersPriorityPanel.HideRest deactivates the
+		/// slot root of surplus pooled rows while leaving the child Selectables active,
+		/// so a default GetComponentInParent would miss them.
+		/// </summary>
+		public static Component GetSlotFor(Selectable element) {
+			if (element == null) return null;
+			EnsureCached();
+			if (_slotType == null) return null;
+
+			return element.GetComponentInParent(_slotType, true);
+		}
+
+		/// <summary>
+		/// Whether this slot is a live row rather than a hidden pooled one.
+		/// </summary>
+		public static bool IsSlotVisible(Component slot) {
+			return slot != null && slot.gameObject.activeInHierarchy;
+		}
+
+		/// <summary>
+		/// Whether this element is the slot's input field - the one Selectable we keep
+		/// as the row's representative when collapsing it for navigation.
+		/// </summary>
+		public static bool IsSlotRepresentative(Component slot, Selectable element) {
+			if (slot == null || element == null) return false;
+			return ReferenceEquals(ReflectionHelper.GetField(_slotInputField, slot), element);
+		}
+
+		/// <summary>
+		/// Whether the slot is greyed out because its group's haul toggle is off.
+		/// </summary>
+		public static bool IsSlotInactive(Component slot) {
+			var blend = ReflectionHelper.GetField(_slotBlendField, slot) as GameObject;
+			return blend != null && blend.activeSelf;
+		}
+
+		/// <summary>
+		/// Read a slot's building-type label and current priority.
+		/// </summary>
+		public static bool TryGetSlotValues(Component slot, out string label, out int priority) {
+			label = null;
+			priority = 0;
+			if (slot == null) return false;
+
+			var labelText = ReflectionHelper.GetField(_slotLabelField, slot) as TMP_Text;
+			label = labelText != null ? labelText.text : null;
+			priority = ReflectionHelper.GetInt(_slotPrioField, slot);
+
+			return !string.IsNullOrEmpty(label);
+		}
+
+		/// <summary>
+		/// Change a slot's priority by delta, clamped to the game's range.
+		/// Returns the new priority, or the old one if nothing changed.
+		///
+		/// Writes straight into the dictionary the owning panel was set up with - the
+		/// settlement's PrefsState in the warehouse, the client-prefs defaults in the
+		/// options menu - which is exactly what HaulersPriorityPanel.ChangePrio does.
+		/// Driving the slot's input field instead would only work on rows that have been
+		/// active at least once, since the game registers its onValueChanged listener in
+		/// Start(), and the options menu keeps its haulers rows inactive.
+		/// </summary>
+		public static int AdjustSlot(Component slot, int delta) {
+			if (slot == null) return 0;
+
+			int priority = ReflectionHelper.GetInt(_slotPrioField, slot);
+			int newPriority = Mathf.Clamp(priority + delta, MinPriority, MaxPriority);
+			if (newPriority == priority) return priority;
+
+			var dict = GetSlotDictionary(slot);
+			var key = ReflectionHelper.GetField(_slotBuildingTypeField, slot);
+			if (dict == null || key == null) return priority;
+
+			if (!ReflectionHelper.DictSet(dict, key, newPriority)) return priority;
+
+			// Keep the slot and its visible text in step with the dictionary. The panel
+			// would normally do this in Rebuild().
+			ReflectionHelper.SetField(_slotPrioField, slot, newPriority);
+			var input = ReflectionHelper.GetField(_slotInputField, slot) as TMP_InputField;
+			input?.SetTextWithoutNotify(newPriority.ToString());
+
+			return newPriority;
+		}
+
+		/// <summary>
+		/// Get the priority dictionary this slot edits, taken from its owning panel so it
+		/// is correct in both the warehouse and the options menu.
+		/// </summary>
+		private static object GetSlotDictionary(Component slot) {
+			if (_panelType == null) return null;
+
+			var panel = slot.GetComponentInParent(_panelType, true);
+			if (panel == null) return null;
+
+			bool isProduct = ReflectionHelper.GetBool(_slotIsProductField, slot);
+			return ReflectionHelper.GetField(isProduct ? _panelProductsPriosField : _panelIngredientsPriosField, panel);
 		}
 
 		public static int LogCacheStatus() {

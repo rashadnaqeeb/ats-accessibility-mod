@@ -142,11 +142,11 @@ namespace ATSAccessibility.Overlays {
 				case KeyCode.Plus:
 				case KeyCode.KeypadPlus:
 				case KeyCode.Equals:
-					AdjustCurrentSlider(1, modifiers.Shift ? 10 : 1);
+					AdjustCurrentValue(1, modifiers.Shift);
 					return true;
 				case KeyCode.Minus:
 				case KeyCode.KeypadMinus:
-					AdjustCurrentSlider(-1, modifiers.Shift ? 10 : 1);
+					AdjustCurrentValue(-1, modifiers.Shift);
 					return true;
 				case KeyCode.LeftArrow:
 					NavigatePanel(-1);
@@ -600,6 +600,42 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		/// <summary>
+		/// Adjust whatever the current element exposes as a value: a hauler priority row,
+		/// or a slider.
+		/// </summary>
+		/// <param name="direction">1 for increase, -1 for decrease</param>
+		/// <param name="coarse">Shift held: step by 10 instead of 1</param>
+		private void AdjustCurrentValue(int direction, bool coarse) {
+			if (_elements.Count == 0 || _currentElementIndex >= _elements.Count) return;
+
+			if (AdjustCurrentHaulerSlot(direction, coarse)) return;
+
+			AdjustCurrentSlider(direction, coarse ? 10 : 1);
+		}
+
+		/// <summary>
+		/// If the current element is a hauler priority row, step its priority by 1 (or 10
+		/// with Shift), matching the warehouse navigator. Returns false if it is not one.
+		/// </summary>
+		private bool AdjustCurrentHaulerSlot(int direction, bool coarse) {
+			var element = _elements[_currentElementIndex];
+			var slot = HaulersReflection.GetSlotFor(element);
+			if (slot == null) return false;
+
+			HaulersReflection.TryGetSlotValues(slot, out _, out int before);
+			int after = HaulersReflection.AdjustSlot(slot, direction * (coarse ? 10 : 1));
+
+			if (after == before) {
+				SoundManager.PlayFailed();
+				return true;
+			}
+
+			SoundManager.PlayButtonClick();
+			Speech.Say(UIElementFinder.GetElementText(element));
+			return true;
+		}
+
+		/// <summary>
 		/// Adjust the current slider value by a step.
 		/// </summary>
 		/// <param name="direction">1 for increase, -1 for decrease</param>
@@ -679,6 +715,14 @@ namespace ATSAccessibility.Overlays {
 				_currentPanelIndex,
 				_tabButtons,
 				_tabsPanelRef);
+
+			// A tabbed popup yields no content until the game has selected a tab. Fall back
+			// to the tabs so the player can pick one rather than landing on an empty panel.
+			if (_isTabbedPopup && _currentPanelIndex != 0 && _elements.Count == 0) {
+				_currentPanelIndex = 0;
+				_elements = UIElementFinder.FindElementsInPanel(
+					panel, isPopup, _isTabbedPopup, 0, _tabButtons, _tabsPanelRef);
+			}
 
 			// For tabbed popups on the tabs panel, focus on the active tab
 			if (_isTabbedPopup && _currentPanelIndex == 0 && _elements.Count > 0) {
