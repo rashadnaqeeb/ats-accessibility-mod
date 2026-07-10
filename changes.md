@@ -6,6 +6,7 @@
 
 ### New features
 - Fishing Hut: new "Nearby Ponds" section listing each pond in harvesting range with its produced good and remaining charges as a percentage.
+- Warehouse: new "Haulers" section matching the game's Haulers tab. Enter or Space toggles hauling of products and ingredients; plus and minus adjust each building type's priority, with Shift for steps of 10.
 
 ### Bug fixes
 

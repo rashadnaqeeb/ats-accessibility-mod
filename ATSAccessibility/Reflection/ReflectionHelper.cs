@@ -259,6 +259,20 @@ namespace ATSAccessibility.Reflection {
 			} catch { return null; }
 		}
 
+		/// <summary>
+		/// Set a value in a reflected dictionary by key, adding the key if absent.
+		/// Returns false if the dictionary or its indexer was not found.
+		/// </summary>
+		public static bool DictSet(object dict, object key, object value) {
+			if (dict == null || key == null) return false;
+			try {
+				var indexer = dict.GetType().GetMethod("set_Item");
+				if (indexer == null) return false;
+				indexer.Invoke(dict, new[] { key, value });
+				return true;
+			} catch { return false; }
+		}
+
 		// ========================================
 		// LOCATEXT SHORTCUT
 		// ========================================

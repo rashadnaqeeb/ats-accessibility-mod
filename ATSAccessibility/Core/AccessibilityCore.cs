@@ -421,6 +421,7 @@ namespace ATSAccessibility.Core {
 				totalMissing += TradeRoutesReflection.LogCacheStatus();
 				totalMissing += BlackMarketReflection.LogCacheStatus();
 				totalMissing += AltarReflection.LogCacheStatus();
+				totalMissing += HaulersReflection.LogCacheStatus();
 				totalMissing += PerkCrafterReflection.LogCacheStatus();
 				totalMissing += CapitalReflection.LogCacheStatus();
 				totalMissing += CapitalUpgradeReflection.LogCacheStatus();

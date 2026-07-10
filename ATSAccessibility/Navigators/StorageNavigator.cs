@@ -19,7 +19,8 @@ namespace ATSAccessibility.Navigators {
 			Goods,
 			Workers,
 			Abilities,
-			Upgrades
+			Upgrades,
+			Haulers
 		}
 
 		// ========================================
@@ -40,6 +41,17 @@ namespace ATSAccessibility.Navigators {
 
 		// Abilities data
 		private int _abilityCount;
+
+		// Haulers data - a flat list of the panel's rows: each group's toggle followed
+		// by that group's building-type priority rows.
+		private class HaulerRow {
+			public bool IsToggle;
+			public bool IsProduct;
+			public object TypeKey;      // null for toggle rows
+			public string DisplayName;
+			public int Priority;
+		}
+		private List<HaulerRow> _haulerRows = new List<HaulerRow>();
 
 		// ========================================
 		// BASE CLASS IMPLEMENTATION
@@ -64,6 +76,8 @@ namespace ATSAccessibility.Navigators {
 					return _abilityCount > 0 ? _abilityCount : 1;  // At least 1 for "No abilities" message
 				case SectionType.Upgrades:
 					return _upgradesSection.GetItemCount();
+				case SectionType.Haulers:
+					return _haulerRows.Count;
 				default:
 					return 0;
 			}
@@ -108,6 +122,9 @@ namespace ATSAccessibility.Navigators {
 				case SectionType.Upgrades:
 					_upgradesSection.AnnounceItem(itemIndex);
 					break;
+				case SectionType.Haulers:
+					AnnounceHaulerItem(itemIndex);
+					break;
 			}
 		}
 
@@ -140,13 +157,15 @@ namespace ATSAccessibility.Navigators {
 		protected override void RefreshData() {
 			RefreshGoodsData();
 			RefreshAbilityData();
+			RefreshHaulerData();
 			BuildSections();
 
-			Debug.Log($"[ATSAccessibility] StorageNavigator: Refreshed data - {_goods.Count} goods, {_workersSection.MaxWorkers} worker slots, {_abilityCount} abilities");
+			Debug.Log($"[ATSAccessibility] StorageNavigator: Refreshed data - {_goods.Count} goods, {_workersSection.MaxWorkers} worker slots, {_abilityCount} abilities, {_haulerRows.Count} hauler rows");
 		}
 
 		protected override void ClearData() {
 			_goods.Clear();
+			_haulerRows.Clear();
 			_sectionNames = null;
 			_sectionTypes = null;
 			ClearWorkersSection();
@@ -180,6 +199,33 @@ namespace ATSAccessibility.Navigators {
 			_abilityCount = BuildingReflection.GetCycleAbilityCount();
 		}
 
+		/// <summary>
+		/// Rebuild the flat hauler row list. Empty unless this is the main storage and
+		/// a storage hauler meta perk is unlocked, matching the game's own tab condition.
+		/// </summary>
+		private void RefreshHaulerData() {
+			_haulerRows.Clear();
+
+			if (!HaulersReflection.IsMainStorage(_building)) return;
+			if (!HaulersReflection.AreAnyStorageHaulersUnlocked()) return;
+
+			AddHaulerGroup(isProduct: true);
+			AddHaulerGroup(isProduct: false);
+		}
+
+		private void AddHaulerGroup(bool isProduct) {
+			_haulerRows.Add(new HaulerRow { IsToggle = true, IsProduct = isProduct });
+
+			foreach (var prio in HaulersReflection.GetPriorities(isProduct)) {
+				_haulerRows.Add(new HaulerRow {
+					IsProduct = isProduct,
+					TypeKey = prio.TypeKey,
+					DisplayName = prio.DisplayName,
+					Priority = prio.Priority
+				});
+			}
+		}
+
 		private void BuildSections() {
 			var sections = new List<string>();
 			var types = new List<SectionType>();
@@ -192,6 +238,12 @@ namespace ATSAccessibility.Navigators {
 			if (_abilityCount > 0) {
 				sections.Add(Strings.Get("common.abilities"));
 				types.Add(SectionType.Abilities);
+			}
+
+			// Haulers section (main storage only, once a hauler perk is unlocked)
+			if (_haulerRows.Count > 0) {
+				sections.Add(Strings.Get("nav.storage.section.haulers"));
+				types.Add(SectionType.Haulers);
 			}
 
 			// Workers section (only if building currently accepts worker assignment)
@@ -257,12 +309,90 @@ namespace ATSAccessibility.Navigators {
 			}
 		}
 
+		// ========================================
+		// HAULERS SECTION
+		// ========================================
+
+		private void AnnounceHaulerItem(int itemIndex) {
+			if (itemIndex < 0 || itemIndex >= _haulerRows.Count) return;
+			Speech.Say(DescribeHaulerRow(_haulerRows[itemIndex]));
+		}
+
+		private string DescribeHaulerRow(HaulerRow row) {
+			if (row.IsToggle) {
+				bool on = IsHaulGroupEnabled(row.IsProduct);
+				string state = Strings.Get(on ? "common.enabled_lower" : "common.disabled_lower");
+				return Strings.Get(row.IsProduct ? "nav.storage.haul_products" : "nav.storage.haul_ingredients", state);
+			}
+
+			string text = Strings.Get("nav.storage.hauler_priority", row.DisplayName, row.Priority);
+
+			// The game greys out priority rows whose group toggle is off.
+			if (!IsHaulGroupEnabled(row.IsProduct))
+				text = Strings.Get("nav.storage.hauler_priority_inactive", text);
+
+			return text;
+		}
+
+		private static bool IsHaulGroupEnabled(bool isProduct) {
+			return isProduct ? HaulersReflection.GetHaulProducts() : HaulersReflection.GetHaulIngredients();
+		}
+
+		/// <summary>
+		/// Enter/Space on a hauler row. Toggle rows flip their group; priority rows have
+		/// no action (they are adjusted with plus/minus instead).
+		/// </summary>
+		private bool ToggleHaulerRow(int itemIndex) {
+			if (itemIndex < 0 || itemIndex >= _haulerRows.Count) return false;
+
+			var row = _haulerRows[itemIndex];
+			if (!row.IsToggle) return false;
+
+			bool newValue = !IsHaulGroupEnabled(row.IsProduct);
+			bool applied = row.IsProduct
+				? HaulersReflection.SetHaulProducts(newValue)
+				: HaulersReflection.SetHaulIngredients(newValue);
+
+			if (!applied) return false;
+
+			SoundManager.PlayButtonClick();
+			Speech.Say(DescribeHaulerRow(row));
+			return true;
+		}
+
+		private void AdjustHaulerPriority(int itemIndex, int delta, KeyboardManager.KeyModifiers modifiers) {
+			if (itemIndex < 0 || itemIndex >= _haulerRows.Count) return;
+
+			var row = _haulerRows[itemIndex];
+			if (row.IsToggle) return;
+
+			int adjustedDelta = delta * (modifiers.Shift ? 10 : 1);
+			int newPriority = Mathf.Clamp(row.Priority + adjustedDelta, HaulersReflection.MinPriority, HaulersReflection.MaxPriority);
+
+			if (newPriority == row.Priority) {
+				SoundManager.PlayFailed();
+				return;
+			}
+
+			if (!HaulersReflection.SetPriority(row.IsProduct, row.TypeKey, newPriority))
+				return;
+
+			row.Priority = newPriority;
+
+			SoundManager.PlayButtonClick();
+			Speech.Say(DescribeHaulerRow(row));
+		}
+
 		protected override bool PerformItemAction(int sectionIndex, int itemIndex) {
 			if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
 				return false;
 
 			if (_sectionTypes[sectionIndex] == SectionType.Abilities) {
 				return UseAbility(itemIndex);
+			}
+
+			if (_sectionTypes[sectionIndex] == SectionType.Haulers) {
+				return ToggleHaulerRow(itemIndex);
 			}
 
 			return false;
@@ -306,6 +436,11 @@ namespace ATSAccessibility.Navigators {
 			if (sectionIndex < 0 || sectionIndex >= _sectionTypes.Length)
 				return;
 
+			if (_sectionTypes[sectionIndex] == SectionType.Haulers) {
+				AdjustHaulerPriority(itemIndex, delta, modifiers);
+				return;
+			}
+
 			if (_sectionTypes[sectionIndex] != SectionType.Goods)
 				return;
 
@@ -346,9 +481,15 @@ namespace ATSAccessibility.Navigators {
 					return itemIndex < _abilityCount ? BuildingReflection.GetCycleAbilityName(itemIndex) : null;
 				case SectionType.Upgrades:
 					return _upgradesSection.GetItemName(itemIndex);
+				case SectionType.Haulers:
+					return itemIndex < _haulerRows.Count ? GetHaulerRowName(_haulerRows[itemIndex]) : null;
 				default:
 					return null;
 			}
+		}
+
+		private string GetHaulerRowName(HaulerRow row) {
+			return row.IsToggle ? DescribeHaulerRow(row) : row.DisplayName;
 		}
 
 		protected override string GetSubItemName(int sectionIndex, int itemIndex, int subItemIndex) {
