@@ -15,9 +15,10 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private enum SectionType {
-			Status,   // Active/Paused toggle at top
-			Bait,     // Bait mode settings
-			Recipes,  // Fish types to catch
+			Status,       // Active/Paused toggle at top
+			Bait,         // Bait mode settings
+			NearbyPonds,  // Lakes in harvesting range (read-only)
+			Recipes,      // Fish types to catch
 			Workers,
 			Upgrades
 		}
@@ -36,6 +37,10 @@ namespace ATSAccessibility.Navigators {
 
 		// Recipe data
 		private List<RecipeInfo> _recipes = new List<RecipeInfo>();
+
+		// Nearby ponds (Lake objects; the UI calls them ponds)
+		private List<(string goodName, int chargesLeft, int maxCharges)> _ponds =
+			new List<(string, int, int)>();
 
 		// ========================================
 		// RECIPE INFO STRUCT
@@ -67,6 +72,8 @@ namespace ATSAccessibility.Navigators {
 					return 0;  // No items, just section-level toggle
 				case SectionType.Bait:
 					return 3;  // Mode, Charges, Ingredient
+				case SectionType.NearbyPonds:
+					return _ponds.Count;
 				case SectionType.Recipes:
 					return _recipes.Count;
 				case SectionType.Workers:
@@ -118,6 +125,9 @@ namespace ATSAccessibility.Navigators {
 			switch (_sectionTypes[sectionIndex]) {
 				case SectionType.Bait:
 					AnnounceBaitItem(itemIndex);
+					break;
+				case SectionType.NearbyPonds:
+					AnnouncePondItem(itemIndex);
 					break;
 				case SectionType.Recipes:
 					AnnounceRecipeItem(itemIndex);
@@ -194,8 +204,9 @@ namespace ATSAccessibility.Navigators {
 			_baitIngredient = BuildingReflection.GetFishingBaitIngredient(_building);
 			_baitModeNames = BuildingReflection.GetFishingBaitModeNames();
 
-			// Cache recipe data
+			// Cache recipe and nearby pond data
 			RefreshRecipes();
+			RefreshPonds();
 
 			// Build sections list
 			var sectionNames = new List<string>();
@@ -208,6 +219,12 @@ namespace ATSAccessibility.Navigators {
 			// Always have Bait section for FishingHut
 			sectionNames.Add(Strings.Get("nav.fishinghut.section.bait"));
 			sectionTypes.Add(SectionType.Bait);
+
+			// Add Nearby Ponds if any lake is in range
+			if (_ponds.Count > 0) {
+				sectionNames.Add(Strings.Get("nav.fishinghut.section.nearby_ponds"));
+				sectionTypes.Add(SectionType.NearbyPonds);
+			}
 
 			// Add Recipes if available
 			if (_recipes.Count > 0) {
@@ -237,6 +254,7 @@ namespace ATSAccessibility.Navigators {
 			_sectionNames = null;
 			_sectionTypes = null;
 			_recipes.Clear();
+			_ponds.Clear();
 			ClearWorkersSection();
 			_baitMode = 0;
 			_baitCharges = 0;
@@ -328,6 +346,33 @@ namespace ATSAccessibility.Navigators {
 
 			Speech.Say(Strings.Get("nav.common.cannot_change_mode"));
 			return false;
+		}
+
+		// ========================================
+		// NEARBY PONDS SECTION
+		// ========================================
+
+		private void RefreshPonds() {
+			_ponds.Clear();
+			_ponds.AddRange(BuildingReflection.GetFishingHutNearbyLakes(_building));
+		}
+
+		private void AnnouncePondItem(int itemIndex) {
+			// Charges drain as villagers fish, so re-read rather than trust the open-time cache.
+			RefreshPonds();
+
+			if (itemIndex >= _ponds.Count) {
+				Speech.Say(Strings.Get("nav.fishinghut.invalid_pond"));
+				return;
+			}
+
+			var pond = _ponds[itemIndex];
+			string goodName = BuildingReflection.GetGoodDisplayName(pond.goodName);
+			int percent = pond.maxCharges > 0
+				? Mathf.RoundToInt(100f * pond.chargesLeft / pond.maxCharges)
+				: 0;
+
+			Speech.Say(Strings.Get("nav.fishinghut.pond", goodName, percent));
 		}
 
 		// ========================================

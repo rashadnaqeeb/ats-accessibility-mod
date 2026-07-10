@@ -5,6 +5,7 @@
 ## Changes since v1.6.4
 
 ### New features
+- Fishing Hut: new "Nearby Ponds" section listing each pond in harvesting range with its produced good and remaining charges as a percentage.
 
 ### Bug fixes
 

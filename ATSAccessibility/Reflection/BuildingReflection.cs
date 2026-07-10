@@ -110,6 +110,16 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _fishingHutModelBaitIngredientField = null;  // FishingHutModel.baitIngredient
 		private static bool _fishingHutTypesCached = false;
 
+		// Nearby lakes (the UI calls them ponds) — mirrors NearbyLakesPanel
+		private static PropertyInfo _lakesServiceLakesProperty = null;  // ILakesService.Lakes
+		private static MethodInfo _lakesServiceInDistanceMethod = null;  // ILakesService.InDistance(FishingHut, Lake)
+		private static PropertyInfo _lakeStateProperty = null;  // Lake.State
+		private static MethodInfo _lakeGetProducedGoodMethod = null;  // Lake.GetProducedGood()
+		private static FieldInfo _lakeStateIsAvailableField = null;  // LakeState.isAvailable
+		private static FieldInfo _lakeStateChargesLeftField = null;  // LakeState.chargesLeft
+		private static FieldInfo _lakeStateMaxChargesField = null;  // LakeState.maxCharges
+		private static bool _nearbyLakeTypesCached = false;
+
 		// RecipeState fields (they are fields, not properties)
 		private static FieldInfo _recipeActiveField = null;
 		private static FieldInfo _recipeModelField = null;
@@ -566,6 +576,33 @@ namespace ATSAccessibility.Reflection {
 				var fishingHutModelType = assembly.GetType("Eremite.Buildings.FishingHutModel");
 				if (fishingHutModelType != null) {
 					_fishingHutModelBaitIngredientField = fishingHutModelType.GetField("baitIngredient", GameReflection.PublicInstance);
+				}
+			});
+		}
+
+		private static void EnsureNearbyLakeTypes() {
+			if (_nearbyLakeTypesCached) return;
+			_nearbyLakeTypesCached = true;
+
+			ReflectionHelper.InitCache("BuildingReflection.NearbyLakes", assembly => {
+				var lakesServiceType = assembly.GetType("Eremite.Services.ILakesService");
+				var lakeType = assembly.GetType("Eremite.MapObjects.Lake");
+
+				if (lakesServiceType != null) {
+					_lakesServiceLakesProperty = lakesServiceType.GetProperty("Lakes", GameReflection.PublicInstance);
+					_lakesServiceInDistanceMethod = lakesServiceType.GetMethod("InDistance", GameReflection.PublicInstance);
+				}
+
+				if (lakeType != null) {
+					_lakeStateProperty = lakeType.GetProperty("State", GameReflection.PublicInstance);
+					_lakeGetProducedGoodMethod = lakeType.GetMethod("GetProducedGood", GameReflection.PublicInstance);
+				}
+
+				var lakeStateType = assembly.GetType("Eremite.MapObjects.LakeState");
+				if (lakeStateType != null) {
+					_lakeStateIsAvailableField = lakeStateType.GetField("isAvailable", GameReflection.PublicInstance);
+					_lakeStateChargesLeftField = lakeStateType.GetField("chargesLeft", GameReflection.PublicInstance);
+					_lakeStateMaxChargesField = lakeStateType.GetField("maxCharges", GameReflection.PublicInstance);
 				}
 			});
 		}
@@ -2138,6 +2175,48 @@ namespace ATSAccessibility.Reflection {
 				}
 			} catch {
 				// Return empty list on error
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Get the ponds (internally Lakes) in harvesting range of a FishingHut.
+		/// Mirrors NearbyLakesPanel: every available lake the hut is in distance of,
+		/// in the same order the panel lays its slots out.
+		/// </summary>
+		public static List<(string goodName, int chargesLeft, int maxCharges)> GetFishingHutNearbyLakes(object building) {
+			var result = new List<(string, int, int)>();
+			if (!IsFishingHut(building)) return result;
+
+			EnsureNearbyLakeTypes();
+
+			try {
+				var lakesService = GameReflection.GetLakesService();
+				if (lakesService == null || _lakesServiceInDistanceMethod == null) return result;
+
+				var lakes = ReflectionHelper.GetProp(_lakesServiceLakesProperty, lakesService);
+				var keys = ReflectionHelper.IterateKeys(lakes);
+				if (keys == null) return result;
+
+				foreach (var key in keys) {
+					var lake = ReflectionHelper.DictGet(lakes, key);
+					if (lake == null) continue;
+
+					var state = ReflectionHelper.GetProp(_lakeStateProperty, lake);
+					if (state == null) continue;
+
+					if (!ReflectionHelper.GetBool(_lakeStateIsAvailableField, state)) continue;
+					if (!ReflectionHelper.InvokeBool(_lakesServiceInDistanceMethod, lakesService, building, lake)) continue;
+
+					result.Add((
+						ReflectionHelper.InvokeString(_lakeGetProducedGoodMethod, lake),
+						ReflectionHelper.GetInt(_lakeStateChargesLeftField, state),
+						ReflectionHelper.GetInt(_lakeStateMaxChargesField, state)
+					));
+				}
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] GetFishingHutNearbyLakes failed: {ex.Message}");
 			}
 
 			return result;
