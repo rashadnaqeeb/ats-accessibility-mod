@@ -2,17 +2,17 @@
 
 
 
-## Changes since v1.6.4
+## Changes since v1.7
 
 ### New features
-- Fishing Hut: new "Nearby Ponds" section listing each pond in harvesting range with its produced good and remaining charges as a percentage.
-- Warehouse: new "Haulers" section matching the game's Haulers tab. Enter or Space toggles hauling of products and ingredients; plus and minus adjust each building type's priority, with Shift for steps of 10.
-- Options menu: hauler priority rows now read as a single "Building, priority N" item instead of three separate controls, and plus and minus adjust them the same way as in the warehouse.
 
 ### Bug fixes
-- Popups no longer expose controls belonging to a tab that has not been selected yet. These controls read normally but did nothing when activated, most visibly in the options menu before picking the Gameplay tab.
 
 ### Internal
+
+## v1.7
+
+- Added support for the 1.10 game update, bringing the ability to customise the behaviour of haulers from within the warehouse menu once unlocked with meta rewards.
 
 ## v1.6.4
 
