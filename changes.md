@@ -12,6 +12,7 @@
 - Event announcements no longer go silently missing when a game system wasn't ready at settlement start, or announce duplicates after a partially failed retry.
 - Closing a popup while a text field was being edited no longer leaves the keyboard stuck in editing mode.
 - Navigation state no longer survives where it shouldn't: leaving a settlement or closing a popup now fully resets armed input modes, overlay positions, and cached lists, so keys can't go dead or menus reopen in a stale state.
+- The Seal overlay's section names are now translated in all nine supported languages instead of always reading in English.
 
 ### Internal
 - A failed Harmony patch or key handler no longer disables the rest of the mod; failures are isolated per patch and per handler.
