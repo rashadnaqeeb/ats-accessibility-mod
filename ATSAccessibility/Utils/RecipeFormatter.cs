@@ -64,5 +64,45 @@ namespace ATSAccessibility.Utils {
 			int secs = (int)totalSeconds;
 			return Strings.Get("util.recipe_formatter.time", secs);
 		}
+
+		/// <summary>
+		/// Build an accessible label for a blueprint choice: the building name followed by
+		/// per-recipe comparisons against owned workshops (star grade, new/better/worse/same,
+		/// producibility), or the description for non-workshop buildings.
+		/// Used by ReputationRewardOverlay and WildcardOverlay.
+		/// </summary>
+		public static string BuildBlueprintLabel(string displayName, string internalName, string description) {
+			var comparisons = Reflection.RecipesReflection.GetRecipeComparisons(internalName);
+
+			if (comparisons != null && comparisons.Count > 0) {
+				var parts = new System.Text.StringBuilder(displayName);
+				foreach (var comp in comparisons) {
+					parts.Append(". ");
+					parts.Append(comp.GoodDisplayName);
+					switch (comp.Status) {
+						case Reflection.RecipesReflection.RecipeCompareStatus.New:
+							parts.Append(Strings.Get("overlay.rep_reward.comp.new", comp.GradeLevel));
+							break;
+						case Reflection.RecipesReflection.RecipeCompareStatus.Better:
+							parts.Append(Strings.Get("overlay.rep_reward.comp.better", comp.GradeLevel, comp.LevelDifference));
+							break;
+						case Reflection.RecipesReflection.RecipeCompareStatus.Worse:
+							parts.Append(Strings.Get("overlay.rep_reward.comp.worse", comp.GradeLevel, comp.LevelDifference));
+							break;
+						case Reflection.RecipesReflection.RecipeCompareStatus.Same:
+							parts.Append(Strings.Get("overlay.rep_reward.comp.same", comp.GradeLevel));
+							break;
+					}
+					if (!comp.CanProduce)
+						parts.Append(Strings.Get("overlay.rep_reward.comp.cannot_produce"));
+				}
+				return parts.ToString();
+			}
+
+			// Non-workshop building: use the description if available
+			return !string.IsNullOrEmpty(description)
+				? Strings.Get("overlay.rep_reward.building.with_desc", displayName, description)
+				: displayName;
+		}
 	}
 }

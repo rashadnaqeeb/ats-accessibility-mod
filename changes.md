@@ -5,6 +5,7 @@
 ## Changes since v1.7
 
 ### New features
+- Wildcard blueprint picker: buildings now announce the same recipe details as the reputation reward picker — each recipe's good, star grade, whether it is new, better, worse, or already unlocked, and whether it can be produced on the current map. Non-workshop buildings announce their description.
 
 ### Bug fixes
 

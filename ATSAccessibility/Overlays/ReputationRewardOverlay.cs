@@ -267,39 +267,7 @@ namespace ATSAccessibility.Overlays {
 		// ========================================
 
 		private string BuildBuildingLabel(ReputationRewardReflection.RewardOption option) {
-			// Try to get per-recipe comparison info
-			var comparisons = RecipesReflection.GetRecipeComparisons(option.InternalName);
-
-			if (comparisons != null && comparisons.Count > 0) {
-				// Build label with per-recipe status
-				var parts = new System.Text.StringBuilder(option.DisplayName);
-				foreach (var comp in comparisons) {
-					parts.Append(". ");
-					parts.Append(comp.GoodDisplayName);
-					switch (comp.Status) {
-						case RecipesReflection.RecipeCompareStatus.New:
-							parts.Append(Strings.Get("overlay.rep_reward.comp.new", comp.GradeLevel));
-							break;
-						case RecipesReflection.RecipeCompareStatus.Better:
-							parts.Append(Strings.Get("overlay.rep_reward.comp.better", comp.GradeLevel, comp.LevelDifference));
-							break;
-						case RecipesReflection.RecipeCompareStatus.Worse:
-							parts.Append(Strings.Get("overlay.rep_reward.comp.worse", comp.GradeLevel, comp.LevelDifference));
-							break;
-						case RecipesReflection.RecipeCompareStatus.Same:
-							parts.Append(Strings.Get("overlay.rep_reward.comp.same", comp.GradeLevel));
-							break;
-					}
-					if (!comp.CanProduce)
-						parts.Append(Strings.Get("overlay.rep_reward.comp.cannot_produce"));
-				}
-				return parts.ToString();
-			}
-
-			// Non-workshop building: use existing description
-			return !string.IsNullOrEmpty(option.Description)
-				? Strings.Get("overlay.rep_reward.building.with_desc", option.DisplayName, option.Description)
-				: option.DisplayName;
+			return RecipeFormatter.BuildBlueprintLabel(option.DisplayName, option.InternalName, option.Description);
 		}
 
 		private int CountBuildings() {

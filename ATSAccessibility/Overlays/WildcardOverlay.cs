@@ -28,6 +28,8 @@ namespace ATSAccessibility.Overlays {
 		/// </summary>
 		private class BuildingItem {
 			public string Name { get; set; }
+			public string InternalName { get; set; }
+			public string Description { get; set; }
 			public int Order { get; set; }
 			public object Model { get; set; }
 		}
@@ -80,7 +82,8 @@ namespace ATSAccessibility.Overlays {
 
 					var building = category.Buildings[index];
 					bool isSelected = _selectedModels.Contains(building.Model);
-					return isSelected ? Strings.Get("overlay.wildcard.selected", building.Name) : building.Name;
+					string name = isSelected ? Strings.Get("overlay.wildcard.selected", building.Name) : building.Name;
+					return RecipeFormatter.BuildBlueprintLabel(name, building.InternalName, building.Description);
 
 				default: return null;
 			}
@@ -106,6 +109,8 @@ namespace ATSAccessibility.Overlays {
 
 				category.Buildings.Add(new BuildingItem {
 					Name = building.DisplayName,
+					InternalName = building.InternalName,
+					Description = building.Description,
 					Order = building.BuildingOrder,
 					Model = building.Model
 				});

@@ -18,6 +18,8 @@ namespace ATSAccessibility.Reflection {
 		public class BuildingInfo {
 			public object Model;
 			public string DisplayName;
+			public string InternalName;  // Building internal name (for recipe lookups)
+			public string Description;   // ListDescription
 			public string CategoryName;
 			public int CategoryOrder;
 			public int BuildingOrder;
@@ -50,6 +52,9 @@ namespace ATSAccessibility.Reflection {
 
 		// IMetaConditionsService.IsUnlocked(BuildingModel) - cached at runtime
 		private static MethodInfo _mcsIsUnlockedMethod = null;
+
+		// BuildingModel.ListDescription (public virtual property)
+		private static PropertyInfo _bmListDescriptionProperty = null;
 
 		// WildcardPopup.slots (private serialized field)
 		private static FieldInfo _wpSlotsField = null;
@@ -164,6 +169,11 @@ namespace ATSAccessibility.Reflection {
 				_mcsIsUnlockedMethod = metaConditionsServiceType.GetMethod("IsUnlocked",
 					new[] { buildingModelType });
 			}
+
+			if (buildingModelType != null) {
+				_bmListDescriptionProperty = buildingModelType.GetProperty("ListDescription",
+					BindingFlags.Public | BindingFlags.Instance);
+			}
 		}
 
 		// ========================================
@@ -231,8 +241,10 @@ namespace ATSAccessibility.Reflection {
 					if (ConstructionReflection.IsBuildingUnlocked(buildingModel)) continue;
 					if (!IsMetaUnlocked(buildingModel)) continue;
 
+					var internalName = GameReflection.GetModelName(buildingModel);
 					var displayName = GameReflection.GetDisplayName(buildingModel) ??
-									  GameReflection.GetModelName(buildingModel) ?? "Unknown";
+									  internalName ?? "Unknown";
+					var description = ReflectionHelper.GetPropString(_bmListDescriptionProperty, buildingModel);
 					var category = ConstructionReflection.GetBuildingCategory(buildingModel);
 					var categoryName = category != null ? (GameReflection.GetDisplayName(category) ?? "Other") : "Other";
 					var categoryOrder = category != null ? GameReflection.GetModelOrder(category) : 999;
@@ -241,6 +253,8 @@ namespace ATSAccessibility.Reflection {
 					result.Add(new BuildingInfo {
 						Model = buildingModel,
 						DisplayName = displayName,
+						InternalName = internalName,
+						Description = description,
 						CategoryName = categoryName,
 						CategoryOrder = categoryOrder,
 						BuildingOrder = buildingOrder
