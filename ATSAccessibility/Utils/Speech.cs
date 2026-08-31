@@ -16,19 +16,15 @@ namespace ATSAccessibility.Utils {
 			new Regex(@"\s+", RegexOptions.Compiled);
 
 		// Prism P/Invoke declarations. The library name "prism" resolves to prism.dll on Windows.
-		[StructLayout(LayoutKind.Sequential)]
-		private struct PrismConfig {
-			public byte version;
-		}
-
+		// Vendored prism.dll is v0.18.2. prism_init accepts NULL config (uses defaults), which
+		// avoids declaring PrismConfig here — its layout changes between Prism versions and a
+		// mismatched struct silently corrupts memory. Prism strings are UTF-8, never ANSI:
+		// text must cross as UTF-8 bytes or non-ASCII input is rejected as PRISM_ERROR_INVALID_UTF8.
 		private const int PRISM_OK = 0;
 		private const int PRISM_ERROR_NOT_SPEAKING = 10;
 
 		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
-		private static extern PrismConfig prism_config_init();
-
-		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
-		private static extern IntPtr prism_init(ref PrismConfig cfg);
+		private static extern IntPtr prism_init(IntPtr cfg);
 
 		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
 		private static extern void prism_shutdown(IntPtr ctx);
@@ -39,8 +35,8 @@ namespace ATSAccessibility.Utils {
 		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
 		private static extern IntPtr prism_backend_name(IntPtr backend);
 
-		[DllImport("prism", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-		private static extern int prism_backend_speak(IntPtr backend, string text, bool interrupt);
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern int prism_backend_speak(IntPtr backend, byte[] textUtf8, [MarshalAs(UnmanagedType.I1)] bool interrupt);
 
 		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
 		private static extern int prism_backend_stop(IntPtr backend);
@@ -50,6 +46,32 @@ namespace ATSAccessibility.Utils {
 
 		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
 		private static extern IntPtr prism_error_string(int error);
+
+		[DllImport("prism", CallingConvention = CallingConvention.Cdecl)]
+		private static extern IntPtr prism_version_string();
+
+		/// <summary>
+		/// Encode a string as null-terminated UTF-8 bytes for Prism.
+		/// </summary>
+		private static byte[] ToUtf8(string text) {
+			byte[] bytes = new byte[System.Text.Encoding.UTF8.GetByteCount(text) + 1];
+			System.Text.Encoding.UTF8.GetBytes(text, 0, text.Length, bytes, 0);
+			return bytes;
+		}
+
+		/// <summary>
+		/// Read a null-terminated UTF-8 string returned by Prism.
+		/// (Marshal.PtrToStringUTF8 is unavailable on net472.)
+		/// </summary>
+		private static string FromUtf8(IntPtr ptr) {
+			if (ptr == IntPtr.Zero) return null;
+			int len = 0;
+			while (Marshal.ReadByte(ptr, len) != 0) len++;
+			if (len == 0) return string.Empty;
+			byte[] bytes = new byte[len];
+			Marshal.Copy(ptr, bytes, 0, len);
+			return System.Text.Encoding.UTF8.GetString(bytes);
+		}
 
 		// State tracking
 		private static IntPtr _context = IntPtr.Zero;
@@ -67,8 +89,8 @@ namespace ATSAccessibility.Utils {
 			if (_initialized) return _available;
 
 			try {
-				var config = prism_config_init();
-				_context = prism_init(ref config);
+				// NULL config = library defaults; see comment on the P/Invoke block.
+				_context = prism_init(IntPtr.Zero);
 				if (_context == IntPtr.Zero) {
 					Debug.LogError("[ATSAccessibility] prism_init returned null");
 					_initialized = true;
@@ -81,11 +103,17 @@ namespace ATSAccessibility.Utils {
 				_initialized = true;
 
 				if (_available) {
-					IntPtr namePtr = prism_backend_name(_backend);
-					string name = namePtr != IntPtr.Zero
-						? Marshal.PtrToStringAnsi(namePtr)
-						: "unknown";
-					Debug.Log($"[ATSAccessibility] Speech initialized with: {name}");
+					// Cosmetic only, in its own try/catch: a stale prism.dll can
+					// predate an export used here (EntryPointNotFoundException),
+					// and a decorative log line must never discard a working
+					// backend by falling into the outer catch.
+					try {
+						string name = FromUtf8(prism_backend_name(_backend)) ?? "unknown";
+						string version = FromUtf8(prism_version_string()) ?? "unknown";
+						Debug.Log($"[ATSAccessibility] Speech initialized with: {name} (Prism {version})");
+					} catch (Exception ex) {
+						Debug.LogWarning($"[ATSAccessibility] Speech initialized; backend/version info unavailable: {ex.Message}");
+					}
 				} else {
 					Debug.LogWarning("[ATSAccessibility] No Prism speech backend available");
 				}
@@ -217,7 +245,7 @@ namespace ATSAccessibility.Utils {
 				string filtered = FilterRichText(message);
 				if (string.IsNullOrEmpty(filtered)) return;
 
-				int err = prism_backend_speak(_backend, filtered, interrupt);
+				int err = prism_backend_speak(_backend, ToUtf8(filtered), interrupt);
 				if (err != PRISM_OK) {
 					Debug.LogWarning($"[ATSAccessibility] Speech error: {DescribePrismError(err)}");
 				}
@@ -243,10 +271,7 @@ namespace ATSAccessibility.Utils {
 		}
 
 		private static string DescribePrismError(int err) {
-			IntPtr msgPtr = prism_error_string(err);
-			return msgPtr != IntPtr.Zero
-				? Marshal.PtrToStringAnsi(msgPtr)
-				: $"error code {err}";
+			return FromUtf8(prism_error_string(err)) ?? $"error code {err}";
 		}
 	}
 }

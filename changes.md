@@ -8,6 +8,7 @@
 - Wildcard blueprint picker: buildings now announce the same recipe details as the reputation reward picker — each recipe's good, star grade, whether it is new, better, worse, or already unlocked, and whether it can be produced on the current map. Non-workshop buildings announce their description.
 
 ### Bug fixes
+- Speech: updated the bundled Prism library to v0.18.2 and fixed text encoding at the speech boundary; non-English text is no longer silently dropped.
 
 ### Internal
 
