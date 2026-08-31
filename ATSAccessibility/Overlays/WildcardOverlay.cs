@@ -32,6 +32,12 @@ namespace ATSAccessibility.Overlays {
 			public string Description { get; set; }
 			public int Order { get; set; }
 			public object Model { get; set; }
+			// Memoized BuildBlueprintLabel results — building it walks every owned
+			// workshop's recipes via reflection, far too heavy for every keypress.
+			// Owned workshops can't change while the popup is open, so the labels
+			// are stable for the life of a RefreshData.
+			public string CachedLabel { get; set; }
+			public string CachedSelectedLabel { get; set; }
 		}
 
 		// Data
@@ -81,9 +87,16 @@ namespace ATSAccessibility.Overlays {
 					if (index < 0 || index >= category.Buildings.Count) return null;
 
 					var building = category.Buildings[index];
-					bool isSelected = _selectedModels.Contains(building.Model);
-					string name = isSelected ? Strings.Get("overlay.wildcard.selected", building.Name) : building.Name;
-					return RecipeFormatter.BuildBlueprintLabel(name, building.InternalName, building.Description);
+					if (_selectedModels.Contains(building.Model)) {
+						if (building.CachedSelectedLabel == null)
+							building.CachedSelectedLabel = RecipeFormatter.BuildBlueprintLabel(
+								Strings.Get("overlay.wildcard.selected", building.Name), building.InternalName, building.Description);
+						return building.CachedSelectedLabel;
+					}
+					if (building.CachedLabel == null)
+						building.CachedLabel = RecipeFormatter.BuildBlueprintLabel(
+							building.Name, building.InternalName, building.Description);
+					return building.CachedLabel;
 
 				default: return null;
 			}

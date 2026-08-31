@@ -17,6 +17,7 @@
 ### Internal
 - A failed Harmony patch or key handler no longer disables the rest of the mod; failures are isolated per patch and per handler.
 - Reflection failures are logged once per member per session, and the build validates translation placeholders.
+- Wildcard blueprint picker labels are built once per open instead of on every keypress.
 
 ## v1.7
 
