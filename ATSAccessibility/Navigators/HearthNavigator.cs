@@ -588,13 +588,14 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		private void AnnounceFuelSubItem(int subItemIndex) {
+			// Refresh the fuel state BEFORE the bounds check — checking against the
+			// old list and indexing the new one throws if the list shrank.
+			_fuelTypes = HearthReflection.GetAllFuelTypes();
+
 			if (subItemIndex < 0 || subItemIndex >= _fuelTypes.Count) {
 				Speech.Say(Strings.Get("nav.hearth.invalid_fuel"));
 				return;
 			}
-
-			// Refresh the fuel state
-			_fuelTypes = HearthReflection.GetAllFuelTypes();
 
 			var fuel = _fuelTypes[subItemIndex];
 			string status = fuel.isEnabled ? Strings.Get("common.enabled") : Strings.Get("common.disabled");

@@ -65,6 +65,15 @@ namespace ATSAccessibility.Navigators {
 		// ========================================
 
 		void IBuildingNavigator.Open(object building) {
+			// The game can raise PanelShown for a different building while this
+			// navigator is still open for the previous one (panel switch without an
+			// intervening PanelClosed). MenuBase.Open() early-returns when already
+			// open, which would leave sections, cached lists, and indices belonging
+			// to the old building while actions target the new one — close first so
+			// the open below does a full refresh and announcement.
+			if (IsOpen && !ReferenceEquals(building, _building)) {
+				base.Close();
+			}
 			_building = building;
 			base.Open();
 		}
@@ -76,6 +85,19 @@ namespace ATSAccessibility.Navigators {
 		bool IBuildingNavigator.ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
 			if (_building == null) return false;
 			return base.ProcessKey(keyCode, modifiers);
+		}
+
+		/// <summary>
+		/// Clamp a stale item index after an in-announce refresh shrank the list,
+		/// syncing the navigator's cursor so the next arrow press starts from a
+		/// real item. Callers must have handled the empty-list case first.
+		/// </summary>
+		protected int ClampItemIndex(int itemIndex, int count) {
+			if (itemIndex >= count) {
+				itemIndex = count - 1;
+				_currentItemIndex = itemIndex;
+			}
+			return itemIndex;
 		}
 
 		// ========================================

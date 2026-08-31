@@ -32,7 +32,8 @@ namespace ATSAccessibility.Panels {
 		protected override EnterAction OnEnter(int index) => EnterAction.None;
 
 		protected override void OnClosed() {
-			Speech.Say(Strings.Get("common.closed"));
+			if (!IsClosingSilently)
+				Speech.Say(Strings.Get("common.closed"));
 		}
 
 		protected override EscapeAction OnEscape() {

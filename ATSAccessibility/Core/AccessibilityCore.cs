@@ -89,6 +89,10 @@ namespace ATSAccessibility.Core {
 		// Building panel handler for building accessibility
 		private BuildingPanelHandler _buildingPanelHandler;
 
+		// Settlement handlers with per-settlement state (reset on game scene unload)
+		private SettlementKeyHandler _settlementKeyHandler;
+		private HarvestMarkHandler _harvestMarkHandler;
+
 		// Announcements settings panel
 		private AnnouncementsSettingsPanel _announcementsPanel;
 
@@ -200,7 +204,8 @@ namespace ATSAccessibility.Core {
 			_moveModeController = new MoveModeController(_mapNavigator);
 
 			// Initialize harvest mark handler for tree marking/unmarking
-			var harvestMarkHandler = new HarvestMarkHandler(_mapNavigator);
+			_harvestMarkHandler = new HarvestMarkHandler(_mapNavigator);
+			var harvestMarkHandler = _harvestMarkHandler;
 
 			// Initialize world map navigator and scanner
 			_worldMapNavigator = new WorldMapNavigator();
@@ -335,8 +340,9 @@ namespace ATSAccessibility.Core {
 			_popupRouter.Register(CustomGamesReflection.IsCustomGamePopup, p => customGamesOverlay.Open(p), customGamesOverlay);
 
 			// Create context handlers for settlement and world map
-			var settlementHandler = new SettlementKeyHandler(
+			_settlementKeyHandler = new SettlementKeyHandler(
 				_mapNavigator, _mapScanner, _infoPanelMenu, _menuHub, _rewardsPanel, _buildingMenuPanel, _moveModeController, _announcementHistoryPanel, _confirmationDialog, harvestMarkHandler);
+			var settlementHandler = _settlementKeyHandler;
 			var worldMapHandler = new WorldMapKeyHandler(_worldMapNavigator, _worldMapScanner);
 			worldMapHandler.SetTutorialsOverlay(_worldTutorialsOverlay);
 
@@ -560,6 +566,11 @@ namespace ATSAccessibility.Core {
 			CancelInvoke(nameof(SetupWorldMapNavigation));
 			CancelInvoke(nameof(SetupMainMenuNavigation));
 
+			// A popup-hidden event on the menu scene can land during the transition
+			// out; without this, the first keypress in the next scene would run
+			// main-menu discovery against a game HUD canvas.
+			_menuPendingSetup = false;
+
 			// Clear state when leaving scenes
 			if (scene.buildIndex == SceneConstants.SCENE_GAME) {
 				_announcedGameStart = false;
@@ -568,6 +579,8 @@ namespace ATSAccessibility.Core {
 				_moveModeController?.Reset();
 				_tutorialTooltipHandler?.Reset();
 				_mapNavigator?.ClearCursor();  // Clear so it reinitializes on next game
+				_settlementKeyHandler?.Reset();  // Search input mode, bookmarks, worker cycling
+				_harvestMarkHandler?.Reset();    // Mark mode + selected old-map coordinates
 				WorkerInfoHelper.Reset();
 				StatsReader.ResetSpeciesCycling();
 				AnnouncementHistoryPanel.ClearHistory();
@@ -577,6 +590,12 @@ namespace ATSAccessibility.Core {
 			} else if (scene.buildIndex == SceneConstants.SCENE_WORLDMAP) {
 				_announcedWorldMap = false;
 				_worldMapNavigator?.Reset();
+				// A cycle reset regenerates the map; cached scan items would
+				// navigate to positions that no longer exist.
+				_worldMapScanner?.Reset();
+				// ForceEngage is a world-map feature; without this the handler kept
+				// consuming nearly every key in the next scene until Enter/Escape.
+				_tutorialTooltipHandler?.Reset();
 			}
 
 			// Close all overlays to prevent stale state after scene teardown
@@ -603,6 +622,7 @@ namespace ATSAccessibility.Core {
 			CameraControllerUpdateMovementPatch.ClearTarget();
 			ReputationRewardOverlay.ResetSuppression();
 			TutorialReflection.ClearCachedTooltip();
+			SoundManager.ClearClipCache();
 
 			// Reset UI navigator state
 			_uiNavigator?.Reset();
@@ -652,10 +672,17 @@ namespace ATSAccessibility.Core {
 				Invoke(nameof(SetupMainMenuNavigation), ANNOUNCEMENT_DELAY);
 			} else {
 				Debug.LogWarning("[ATSAccessibility] Speech not available for main menu announcement");
+				// Keyboard navigation must not depend on speech being up — set it up
+				// anyway so the menu is at least navigable (sounds still play).
+				_announcedMainMenu = true;
+				Invoke(nameof(SetupMainMenuNavigation), ANNOUNCEMENT_DELAY);
 			}
 		}
 
 		private void SetupMainMenuNavigation() {
+			// Guard against a deferred setup firing after the menu scene is gone —
+			// the fallback below would otherwise latch onto any canvas with buttons.
+			if (SceneManager.GetActiveScene().buildIndex != SceneConstants.SCENE_MENU) return;
 			// Use cached canvas if available and still valid
 			if (_cachedMainMenuCanvas != null && _cachedMainMenuCanvas.activeInHierarchy) {
 				_uiNavigator?.SetupMenuNavigation(_cachedMainMenuCanvas, "Main Menu");
@@ -937,6 +964,22 @@ namespace ATSAccessibility.Core {
 			_popupRouter?.CloseAll();
 			_capitalOverlay?.Close();
 			_worldTutorialsOverlay?.Close();
+
+			// Non-popup-routed panels: nothing else closes these on scene
+			// teardown, and a survivor stays IsActive in the next scene, eating
+			// every key and reading the previous settlement's data. Silent —
+			// the thing being closed no longer exists, so speech is noise.
+			_menuHub?.CloseSilently();
+			_infoPanelMenu?.CloseSilently();
+			_rewardsPanel?.CloseSilently();
+			_buildingMenuPanel?.CloseSilently();
+			_announcementHistoryPanel?.CloseSilently();
+			_helpOverlay?.CloseSilently();
+
+			// A pending confirmation captures closures over settlement objects
+			// (e.g. a building queued for demolition); Enter in the next scene
+			// must never invoke one against a destroyed object.
+			_confirmationDialog?.Cancel();
 		}
 
 		/// <summary>

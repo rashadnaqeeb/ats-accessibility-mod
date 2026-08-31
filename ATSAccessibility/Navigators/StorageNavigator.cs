@@ -275,13 +275,15 @@ namespace ATSAccessibility.Navigators {
 				return;
 			}
 
-			if (itemIndex < _goods.Count) {
-				var good = _goods[itemIndex];
-				string text = Strings.Get("nav.common.storage_item", good.DisplayName, good.Amount);
-				if (good.Reserve > 0)
-					text += Strings.Get("nav.storage.reserve_suffix", good.Reserve);
-				Speech.Say(text);
-			}
+			// The refresh can shrink the list under a stale index — clamp and
+			// announce the last item rather than going silent on a key press.
+			itemIndex = ClampItemIndex(itemIndex, _goods.Count);
+
+			var good = _goods[itemIndex];
+			string text = Strings.Get("nav.common.storage_item", good.DisplayName, good.Amount);
+			if (good.Reserve > 0)
+				text += Strings.Get("nav.storage.reserve_suffix", good.Reserve);
+			Speech.Say(text);
 		}
 
 		// ========================================

@@ -61,22 +61,24 @@ namespace ATSAccessibility.Handlers {
 		// ========================================
 		// HARDCODED ACCESSIBILITY MESSAGES
 		// ========================================
-		// Maps TutorialPhase ID to custom accessibility text.
+		// Maps TutorialPhase ID to a custom accessibility string key.
 		// If a phase has a custom message, it replaces the game's text.
 		// If not, the game's text is used as fallback.
+		// Keys, not resolved strings: this is consulted every frame while a tooltip
+		// is visible, and resolving lazily also follows language switches.
 
-		private static Dictionary<int, string> _accessibilityMessages => new Dictionary<int, string>
+		private static readonly Dictionary<int, string> _accessibilityMessageKeys = new Dictionary<int, string>
 		{
             // Tutorial 1: Basics
-            { 10, Strings.Get("handler.tutorial.phase_10") }, // CameraControl
-            { 20, Strings.Get("handler.tutorial.phase_20") }, // Impatience
-            { 30, Strings.Get("handler.tutorial.phase_30") }, // Reputation
-            { 35, Strings.Get("handler.tutorial.phase_35") }, // ReputationPick
-            { 40, Strings.Get("handler.tutorial.phase_40") }, // TimeControl
-            { 50, Strings.Get("handler.tutorial.phase_50") }, // Wood
+            { 10, "handler.tutorial.phase_10" }, // CameraControl
+            { 20, "handler.tutorial.phase_20" }, // Impatience
+            { 30, "handler.tutorial.phase_30" }, // Reputation
+            { 35, "handler.tutorial.phase_35" }, // ReputationPick
+            { 40, "handler.tutorial.phase_40" }, // TimeControl
+            { 50, "handler.tutorial.phase_50" }, // Wood
 
             // Tutorial 4: The Cycle
-            { 340, Strings.Get("handler.tutorial.phase_340") }, // CyclePreFinish
+            { 340, "handler.tutorial.phase_340" }, // CyclePreFinish
         };
 
 		// ========================================
@@ -202,8 +204,8 @@ namespace ATSAccessibility.Handlers {
 		/// Returns custom accessibility message if available, otherwise the game's text.
 		/// </summary>
 		private string GetTextForPhase(int phase, string gameText) {
-			if (_accessibilityMessages.TryGetValue(phase, out string customMessage)) {
-				return customMessage;
+			if (_accessibilityMessageKeys.TryGetValue(phase, out string key)) {
+				return Strings.Get(key);
 			}
 			return gameText;
 		}

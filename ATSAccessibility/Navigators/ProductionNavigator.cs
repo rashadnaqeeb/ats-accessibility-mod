@@ -576,10 +576,9 @@ namespace ATSAccessibility.Navigators {
 				return;
 			}
 
-			if (itemIndex >= _inputGoods.Count) {
-				Speech.Say(Strings.Get("nav.prod.invalid_input"));
-				return;
-			}
+			// Ingredients get consumed constantly; clamp a stale index instead of
+			// announcing "invalid" on a normal navigation keypress.
+			itemIndex = ClampItemIndex(itemIndex, _inputGoods.Count);
 
 			var (goodName, displayName, amount) = _inputGoods[itemIndex];
 			Speech.Say(Strings.Get("nav.prod.amount_good", amount, displayName));
@@ -637,10 +636,9 @@ namespace ATSAccessibility.Navigators {
 				return;
 			}
 
-			if (itemIndex >= _outputGoods.Count) {
-				Speech.Say(Strings.Get("nav.prod.invalid_output"));
-				return;
-			}
+			// Outputs get hauled away constantly; clamp a stale index instead of
+			// announcing "invalid" on a normal navigation keypress.
+			itemIndex = ClampItemIndex(itemIndex, _outputGoods.Count);
 
 			var (goodName, displayName, amount) = _outputGoods[itemIndex];
 

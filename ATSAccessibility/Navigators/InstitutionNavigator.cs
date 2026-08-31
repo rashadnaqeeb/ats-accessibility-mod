@@ -337,10 +337,12 @@ namespace ATSAccessibility.Navigators {
 				return;
 			}
 
-			if (itemIndex < _storageGoods.Count) {
-				var good = _storageGoods[itemIndex];
-				Speech.Say(Strings.Get("nav.common.storage_item", good.displayName, good.amount));
-			}
+			// The refresh can shrink the list under a stale index — clamp and
+			// announce the last item rather than going silent on a key press.
+			itemIndex = ClampItemIndex(itemIndex, _storageGoods.Count);
+
+			var good = _storageGoods[itemIndex];
+			Speech.Say(Strings.Get("nav.common.storage_item", good.displayName, good.amount));
 		}
 
 	}

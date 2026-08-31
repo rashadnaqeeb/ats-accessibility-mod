@@ -102,7 +102,7 @@ namespace ATSAccessibility.Panels {
 
 		protected override void OnClosed() {
 			_items.Clear();
-			if (!_closingForPopup) {
+			if (!_closingForPopup && !IsClosingSilently) {
 				InputBlocker.BlockCancelOnce = true;
 				Speech.Say(Strings.Get("common.closed"));
 			}

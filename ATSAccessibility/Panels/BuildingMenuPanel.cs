@@ -187,7 +187,7 @@ namespace ATSAccessibility.Panels {
 
 		protected override void OnClosed() {
 			_categories.Clear();
-			if (!_closingForBuild) {
+			if (!_closingForBuild && !IsClosingSilently) {
 				InputBlocker.BlockCancelOnce = true;
 				Speech.Say(Strings.Get("panel.building_menu.closed"));
 			}

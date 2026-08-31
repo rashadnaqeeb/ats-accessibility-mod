@@ -211,8 +211,10 @@ namespace ATSAccessibility.Panels {
 		protected override void OnClosed() {
 			_categories.Clear();
 			_allResources.Clear();
-			InputBlocker.BlockCancelOnce = true;
-			Speech.Say(Strings.Get("panel.resource.closed", OverlayName));
+			if (!IsClosingSilently) {
+				InputBlocker.BlockCancelOnce = true;
+				Speech.Say(Strings.Get("panel.resource.closed", OverlayName));
+			}
 		}
 
 		// ========================================

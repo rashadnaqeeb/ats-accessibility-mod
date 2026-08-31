@@ -191,6 +191,10 @@ namespace ATSAccessibility.Handlers {
 		/// </summary>
 		public void Reset() {
 			_cursorPos = Vector3Int.zero;
+			// Refresh the cached tile info too — otherwise I/M pressed before the
+			// first cursor move read the previous visit's tile (or "Unexplored")
+			// while actually sitting on the capital.
+			CacheTileInfo();
 			Debug.Log("[ATSAccessibility] WorldMapNavigator reset to capital");
 		}
 

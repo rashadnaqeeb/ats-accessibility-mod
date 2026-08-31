@@ -57,10 +57,23 @@ namespace ATSAccessibility.Overlays {
 		protected override string GetLabel(int index) {
 			if (Level == 0) {
 				if (index < 0 || index >= _allSections.Length) return null;
-				return _allSections[index].ToString();
+				return GetSectionName(_allSections[index]);
 			} else {
 				if (_offerings == null || index < 0 || index >= _offerings.Length) return null;
 				return SealReflection.GetOfferingDisplayName(_offerings.GetValue(index));
+			}
+		}
+
+		// Localized section names — enum ToString() would always announce English
+		// regardless of the user's language.
+		private static string GetSectionName(Section section) {
+			switch (section) {
+				case Section.Effects: return Strings.Get("overlay.seal.section_name.effects");
+				case Section.Progress: return Strings.Get("overlay.seal.section_name.progress");
+				case Section.Dialogue: return Strings.Get("overlay.seal.section_name.dialogue");
+				case Section.Offerings: return Strings.Get("overlay.seal.section_name.offerings");
+				case Section.Reward: return Strings.Get("overlay.seal.section_name.reward");
+				default: return section.ToString();
 			}
 		}
 

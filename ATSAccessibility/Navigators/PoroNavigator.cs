@@ -190,6 +190,13 @@ namespace ATSAccessibility.Navigators {
 				if (PoroReflection.GatherProducts(_building)) {
 					Speech.Say(Strings.Get("nav.poro.collected", _productAmount, _productName ?? Strings.Get("nav.poro.products_default")));
 					RefreshProductData();
+					// Collecting removes the only sub-item (_canGather is now false);
+					// drop back to the item level so navigation doesn't go silent at
+					// a level with zero items.
+					if (_navigationLevel > 1) {
+						_navigationLevel = 1;
+						_currentSubItemIndex = 0;
+					}
 					return true;
 				} else {
 					Speech.Say(Strings.Get("common.cannot_collect"));

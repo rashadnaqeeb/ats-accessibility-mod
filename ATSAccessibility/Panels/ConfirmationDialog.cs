@@ -97,5 +97,17 @@ namespace ATSAccessibility.Panels {
 			_itemName = null;
 			InputBlocker.BlockCancelOnce = true;
 		}
+
+		/// <summary>
+		/// Discard a pending confirmation without invoking the callback or
+		/// announcing anything. Called on scene unload: the captured closure may
+		/// reference destroyed settlement objects (e.g. a building queued for
+		/// demolition), so it must never survive into the next scene.
+		/// </summary>
+		public void Cancel() {
+			_isOpen = false;
+			_onConfirm = null;
+			_itemName = null;
+		}
 	}
 }

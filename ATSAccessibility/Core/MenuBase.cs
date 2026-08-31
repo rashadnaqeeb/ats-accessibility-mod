@@ -56,6 +56,7 @@ namespace ATSAccessibility.Core {
 		private bool _isOpen;
 		private bool _suspended;
 		private int _level;
+		private bool _closingSilently;
 
 		// ========================================
 		// PROPERTIES
@@ -178,9 +179,23 @@ namespace ATSAccessibility.Core {
 			int count = GetItemCount();
 			if (count == 0) return;
 
+			// The list can shrink while suspended (a child popup's action changed
+			// it); clamp so a subclass GetLabel that indexes a List with the raw
+			// value doesn't throw and silently lose the announcement.
+			ClampCurrentIndex(count);
+
 			string label = GetLabel(CurrentIndex);
 			if (!string.IsNullOrEmpty(label))
 				Speech.Say(label);
+		}
+
+		/// <summary>
+		/// Clamp CurrentIndex into range for the given item count. No-op when the
+		/// list is empty or the index is already valid.
+		/// </summary>
+		protected void ClampCurrentIndex(int count) {
+			if (count > 0 && CurrentIndex >= count)
+				CurrentIndex = count - 1;
 		}
 
 		/// <summary>Search text for the given index. Defaults to GetLabel. Override to customize search text.</summary>
@@ -269,6 +284,27 @@ namespace ATSAccessibility.Core {
 			Debug.Log($"[ATSAccessibility] {OverlayName}: Closed");
 		}
 
+		/// <summary>
+		/// True while a CloseSilently() call is in progress. OnClosed overrides
+		/// that announce the close (speech, InputBlocker.BlockCancelOnce) must
+		/// check this and stay quiet.
+		/// </summary>
+		protected bool IsClosingSilently => _closingSilently;
+
+		/// <summary>
+		/// Close without any close announcement. For scene-teardown cleanup,
+		/// where the thing being closed no longer exists and speech is noise.
+		/// </summary>
+		public void CloseSilently() {
+			if (!_isOpen) return;
+			_closingSilently = true;
+			try {
+				Close();
+			} finally {
+				_closingSilently = false;
+			}
+		}
+
 		/// <summary>Suspend input processing (e.g., when a sub-overlay opens).</summary>
 		public void Suspend() {
 			_suspended = true;
@@ -340,6 +376,12 @@ namespace ATSAccessibility.Core {
 
 			// 3. Standard navigation
 			int count = GetItemCount();
+
+			// Clamp a stale index once for every dispatch below: the list can
+			// shrink while suspended (a child popup's action changed it), and
+			// OnEnter/OnAction/OnSpace/OnAdjust/CanDrillDown must all receive an
+			// index that points at a real item.
+			ClampCurrentIndex(count);
 
 			switch (keyCode) {
 				case KeyCode.UpArrow:

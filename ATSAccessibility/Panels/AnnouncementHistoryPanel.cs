@@ -21,8 +21,13 @@ namespace ATSAccessibility.Panels {
 		private static readonly List<HistoryEntry> _history = new List<HistoryEntry>();
 		private static readonly object _lock = new object();
 
+		// Per-open snapshot of _history. New announcements arrive constantly and
+		// AddMessage inserts at index 0 — navigating the live list would shift
+		// every index under the cursor, so Enter could jump to a different event
+		// than the one just read.
+		private readonly List<HistoryEntry> _snapshot = new List<HistoryEntry>();
+
 		private readonly MapNavigator _mapNavigator;
-		private bool _suppressCloseAnnouncement;
 
 		public AnnouncementHistoryPanel(MapNavigator mapNavigator) {
 			_mapNavigator = mapNavigator;
@@ -66,17 +71,18 @@ namespace ATSAccessibility.Panels {
 		protected override string OverlayName => Strings.Get("panel.announcement_history.title");
 		protected override string EmptyMessage => Strings.Get("panel.announcement_history.empty");
 
-		protected override int GetItemCount() {
-			lock (_lock) { return _history.Count; }
-		}
+		protected override int GetItemCount() => _snapshot.Count;
 
 		protected override string GetLabel(int index) {
-			lock (_lock) {
-				return index >= 0 && index < _history.Count ? _history[index].Message : null;
-			}
+			return index >= 0 && index < _snapshot.Count ? _snapshot[index].Message : null;
 		}
 
-		protected override void RefreshData() { }  // Static list, no refresh needed
+		protected override void RefreshData() {
+			lock (_lock) {
+				_snapshot.Clear();
+				_snapshot.AddRange(_history);
+			}
+		}
 
 		protected override EnterAction OnEnter(int index) => EnterAction.Action;
 
@@ -97,38 +103,28 @@ namespace ATSAccessibility.Panels {
 		protected override EscapeAction OnEscape() => EscapeAction.Close;
 
 		protected override string GetOpenAnnouncement() {
-			lock (_lock) {
-				if (_history.Count == 0)
-					return EmptyMessage;
-				return Strings.Get("panel.announcement_history.open", _history[0].Message);
-			}
+			if (_snapshot.Count == 0)
+				return EmptyMessage;
+			return Strings.Get("panel.announcement_history.open", _snapshot[0].Message);
 		}
 
 		protected override void OnOpened() {
-			lock (_lock) {
-				if (_history.Count == 0) {
-					_suppressCloseAnnouncement = true;
-					Close();
-					return;
-				}
-			}
+			if (_snapshot.Count == 0)
+				CloseSilently();
 		}
 
 		protected override void OnClosed() {
-			if (!_suppressCloseAnnouncement) {
+			_snapshot.Clear();
+			if (!IsClosingSilently) {
 				InputBlocker.BlockCancelOnce = true;
 				Speech.Say(Strings.Get("panel.announcement_history.closed"));
 			}
-			_suppressCloseAnnouncement = false;
 		}
 
-		// Search overrides with locking
-		protected override int SearchItemCount { get { lock (_lock) { return _history.Count; } } }
+		protected override int SearchItemCount => _snapshot.Count;
 
 		protected override string GetSearchName(int index) {
-			lock (_lock) {
-				return index >= 0 && index < _history.Count ? _history[index].Message : null;
-			}
+			return index >= 0 && index < _snapshot.Count ? _snapshot[index].Message : null;
 		}
 
 		// ========================================
@@ -136,11 +132,8 @@ namespace ATSAccessibility.Panels {
 		// ========================================
 
 		private void GoToEventLocation() {
-			Vector2Int? location;
-			lock (_lock) {
-				if (_history.Count == 0) return;
-				location = _history[CurrentIndex].Location;
-			}
+			if (CurrentIndex < 0 || CurrentIndex >= _snapshot.Count) return;
+			Vector2Int? location = _snapshot[CurrentIndex].Location;
 
 			if (!location.HasValue) {
 				Speech.Say(Strings.Get("panel.announcement_history.no_location"));
@@ -148,8 +141,7 @@ namespace ATSAccessibility.Panels {
 			}
 
 			var pos = location.Value;
-			_suppressCloseAnnouncement = true;
-			Close();
+			CloseSilently();
 			_mapNavigator.SetCursorPosition(pos.x, pos.y);
 			_mapNavigator.MoveCursor(0, 0);
 		}
@@ -178,10 +170,7 @@ namespace ATSAccessibility.Panels {
 			}
 
 			var pos = location.Value;
-			if (IsOpen) {
-				_suppressCloseAnnouncement = true;
-				Close();
-			}
+			CloseSilently();
 			_mapNavigator.SetCursorPosition(pos.x, pos.y);
 			_mapNavigator.MoveCursor(0, 0);  // Announces tile
 			Speech.Say(message, interrupt: false);  // Queue after tile announcement

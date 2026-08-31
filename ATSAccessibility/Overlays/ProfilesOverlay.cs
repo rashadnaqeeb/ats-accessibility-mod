@@ -166,6 +166,9 @@ namespace ATSAccessibility.Overlays {
 			_awaitingConfirm = ConfirmAction.None;
 			_editingName = false;
 			_editBuffer.Clear();
+			// Reopening always starts in regular mode; keeping the flag would list
+			// Queen's Hand profiles with no mode announcement.
+			_viewingQueensHand = false;
 		}
 
 		// ========================================

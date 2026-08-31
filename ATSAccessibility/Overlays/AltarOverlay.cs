@@ -233,6 +233,11 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		protected override void OnClosed() {
+			// _menuLevel is this overlay's own state on top of MenuBase's Level/_indices
+			// (which Open/Close reset). Without this, closing while drilled into e.g.
+			// Cornerstones leaves every future open stuck reading that submenu as the
+			// root, with no way back to Resources or Skip.
+			_menuLevel = MenuLevel.Main;
 			_currencies?.Clear();
 			_races?.Clear();
 			_cornerstones?.Clear();

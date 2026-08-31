@@ -86,6 +86,27 @@ namespace ATSAccessibility.Utils {
 		private int _lastAutoMoveX = int.MinValue;
 		private int _lastAutoMoveY = int.MinValue;
 
+		/// <summary>
+		/// Reset per-settlement state. Called on scene unload: cached groups and
+		/// committed search results hold tile coordinates from the old map, and
+		/// navigating them in the next settlement would auto-move the cursor to
+		/// positions that mean nothing there.
+		/// </summary>
+		public void Reset() {
+			_currentCategory = ScanCategory.Glades;
+			_currentGroupIndex = 0;
+			_currentItemIndex = 0;
+			_cachedGroups = null;
+			_currentSubcategoryIndex = 0;
+			_cachedBuildingsBySubcategory = null;
+			_cachedResourcesBySubcategory = null;
+			_searchResultGroups = null;
+			_categoryBeforeSearch = ScanCategory.Glades;
+			_hasScanOrigin = false;
+			_lastAutoMoveX = int.MinValue;
+			_lastAutoMoveY = int.MinValue;
+		}
+
 		// ========================================
 		// BUILDING SUBCATEGORY DEFINITIONS
 		// ========================================

@@ -11,7 +11,7 @@ namespace ATSAccessibility.Overlays {
 	/// Flat list navigation: Buy Upgrades, Deeds, Game History, Home (if unlocked).
 	/// </summary>
 	public class CapitalOverlay: MenuBase {
-		private List<(string name, Action action)> _items = new List<(string, Action)>();
+		private List<(string name, Func<bool> action)> _items = new List<(string, Func<bool>)>();
 
 		// ========================================
 		// MENUBASE OVERRIDES
@@ -66,7 +66,20 @@ namespace ATSAccessibility.Overlays {
 			Debug.Log($"[ATSAccessibility] Capital overlay: activating {item.name}");
 			SoundManager.PlayButtonClick();
 			Suspend();
-			item.action?.Invoke();
+			bool opened = false;
+			try {
+				opened = item.action != null && item.action();
+			} finally {
+				if (!opened) {
+					// The reflected open failed, so no popup will ever appear and no
+					// popup-hidden event will resume this overlay — resume now
+					// instead of leaving the arrows dead until some other popup
+					// happens to open and close.
+					Debug.LogWarning($"[ATSAccessibility] Capital overlay: {item.name} failed to open");
+					SoundManager.PlayFailed();
+					Resume();
+				}
+			}
 		}
 
 		protected override bool? HandleSpecialKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {

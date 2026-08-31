@@ -52,6 +52,22 @@ namespace ATSAccessibility.Handlers {
 		}
 
 		/// <summary>
+		/// Reset marking state. Called on scene unload: a settlement can end while
+		/// mark mode is armed (not every exit path opens a MenuBase), and this
+		/// handler sits high in the key chain — stale mode would eat keys and
+		/// commit marks at old-map coordinates in the next settlement.
+		/// </summary>
+		public void Reset() {
+			// Not ExitMode(): no announcement, and BlockCancelOnce must not be
+			// armed across a scene change (it would eat one Escape in the menu).
+			_mode = Mode.None;
+			_rectPhase = RectPhase.Idle;
+			_awaitingGladeConfirm = false;
+			_selectedPositions.Clear();
+			_mapNavigator.AnnouncementPrefix = null;
+		}
+
+		/// <summary>
 		/// Enter mark or unmark mode.
 		/// </summary>
 		/// <param name="isUnmark">True for unmark mode, false for mark mode</param>

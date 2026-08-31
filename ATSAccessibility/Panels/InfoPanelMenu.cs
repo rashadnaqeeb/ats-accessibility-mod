@@ -154,8 +154,10 @@ namespace ATSAccessibility.Panels {
 
 		protected override void OnClosed() {
 			CloseActiveChildPanel();
-			InputBlocker.BlockCancelOnce = true;
-			Speech.Say(Strings.Get("common.closed"));
+			if (!IsClosingSilently) {
+				InputBlocker.BlockCancelOnce = true;
+				Speech.Say(Strings.Get("common.closed"));
+			}
 		}
 
 		// ========================================
@@ -244,32 +246,36 @@ namespace ATSAccessibility.Panels {
 
 			switch (_activeChildPanel.Value) {
 				case MenuPanel.Stats:
-					if (_statsPanel?.IsOpen == true)
-						_statsPanel.Close();
+					CloseChild(_statsPanel);
 					break;
 				case MenuPanel.Resources:
-					if (_resourcePanel?.IsOpen == true)
-						_resourcePanel.Close();
+					CloseChild(_resourcePanel);
 					break;
 				case MenuPanel.Modifiers:
-					if (_mysteriesPanel?.IsOpen == true)
-						_mysteriesPanel.Close();
+					CloseChild(_mysteriesPanel);
 					break;
 				case MenuPanel.Villagers:
-					if (_villagersPanel?.IsOpen == true)
-						_villagersPanel.Close();
+					CloseChild(_villagersPanel);
 					break;
 				case MenuPanel.Workers:
-					if (_workersPanel?.IsOpen == true)
-						_workersPanel.Close();
+					CloseChild(_workersPanel);
 					break;
 				case MenuPanel.Announcements:
-					if (_announcementsPanel?.IsOpen == true)
-						_announcementsPanel.Close();
+					CloseChild(_announcementsPanel);
 					break;
 			}
 
 			_activeChildPanel = null;
+		}
+
+		// A silent close of this menu (scene teardown) must not let the child's
+		// own close announcement leak either.
+		private void CloseChild(MenuBase panel) {
+			if (panel == null || !panel.IsOpen) return;
+			if (IsClosingSilently)
+				panel.CloseSilently();
+			else
+				panel.Close();
 		}
 
 		private bool ProcessChildPanelKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {

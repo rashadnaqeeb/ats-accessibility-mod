@@ -79,6 +79,25 @@ namespace ATSAccessibility.Handlers {
 			_harvestMarkHandler = harvestMarkHandler;
 		}
 
+		/// <summary>
+		/// Reset per-settlement state. Called on scene unload: a settlement can end
+		/// while search input mode is armed (it would silently eat every key in the
+		/// next settlement), and bookmarks/worker cycling hold coordinates that are
+		/// meaningless on a different map.
+		/// </summary>
+		public void Reset() {
+			_searchInputActive = false;
+			_searchBuffer.Length = 0;
+			_hasBookmark = false;
+			for (int i = 0; i < _numberedBookmarkSet.Length; i++)
+				_numberedBookmarkSet[i] = false;
+			_workerBuildingIndex = -1;
+			_workerCategoryIndex = 0;
+			// Scanner caches and committed search results also carry old-map
+			// coordinates.
+			_mapScanner?.Reset();
+		}
+
 		// ========================================
 		// IHELPPROVIDER
 		// ========================================

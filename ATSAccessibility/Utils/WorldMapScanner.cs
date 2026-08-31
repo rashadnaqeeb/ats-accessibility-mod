@@ -84,6 +84,17 @@ namespace ATSAccessibility.Utils {
 		// ========================================
 
 		/// <summary>
+		/// Clear cached scan results. Called on world map scene unload: a cycle
+		/// reset regenerates the map, so cached items would announce and jump to
+		/// positions that no longer exist.
+		/// </summary>
+		public void Reset() {
+			_cachedItems.Clear();
+			_currentItemIndex = 0;
+			_currentType = ScanType.Settlement;
+		}
+
+		/// <summary>
 		/// Cycle between scan types (PageUp/Down). Rescans and resets item index.
 		/// </summary>
 		public void ChangeType(int direction) {

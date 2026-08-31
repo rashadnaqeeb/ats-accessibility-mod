@@ -200,6 +200,15 @@ namespace ATSAccessibility.Utils {
 		private static object _modAudioSource;
 		private static MethodInfo _playOneShotWithVolumeMethod;
 
+		/// <summary>
+		/// Clear the clip cache. Called on scene unload: cached AudioClip instances
+		/// are destroyed with their scene, and negative entries would keep blocking
+		/// clips whose audio bank had not loaded yet at first request.
+		/// </summary>
+		public static void ClearClipCache() {
+			_clipCache.Clear();
+		}
+
 		private static object GetModAudioSource() {
 			if (_modAudioSource == null) {
 				if (_audioSourceType == null) {
@@ -277,8 +286,17 @@ namespace ATSAccessibility.Utils {
 					return;
 				}
 
-				// Check cache first, then search loaded clips
-				if (!_clipCache.TryGetValue(clipName, out object targetClip)) {
+				// Cache lookup with Unity-alive check: scene teardown or asset unload
+				// can destroy a cached clip, and a stale entry would fail on every
+				// play until game restart.
+				bool cached = _clipCache.TryGetValue(clipName, out object targetClip);
+				if (cached && targetClip is UnityEngine.Object unityClip && unityClip == null) {
+					_clipCache.Remove(clipName);
+					cached = false;
+					targetClip = null;
+				}
+
+				if (!cached) {
 					var clips = Resources.FindObjectsOfTypeAll(_audioClipType);
 					foreach (var clip in clips) {
 						if (clip != null && clip.name == clipName) {
@@ -287,7 +305,9 @@ namespace ATSAccessibility.Utils {
 						}
 					}
 
-					// Cache result (including null) to avoid repeated searches
+					// Cache result (including null) to avoid repeated searches.
+					// ClearClipCache() flushes negatives on scene change so a clip
+					// whose audio bank had not loaded yet isn't lost all session.
 					_clipCache[clipName] = targetClip;
 
 					if (targetClip == null) {
