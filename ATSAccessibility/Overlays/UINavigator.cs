@@ -316,6 +316,10 @@ namespace ATSAccessibility.Overlays {
 		/// Clear navigation state (shared by Reset and ResetPopup).
 		/// </summary>
 		private void ClearNavigationState() {
+			// A popup can be force-closed while a text field is being edited; end the
+			// edit here so editing mode and the disabled input blocking never outlive
+			// the popup (stuck editing mode consumes every key with no way out).
+			if (_isEditingTextField) EndTextFieldEdit(submit: false);
 			_currentPopup = null;
 			_panels.Clear();
 			_elements.Clear();
@@ -575,24 +579,34 @@ namespace ATSAccessibility.Overlays {
 		/// End text field editing (submit or cancel).
 		/// </summary>
 		public void EndTextFieldEdit(bool submit) {
-			if (!_isEditingTextField || _editingInputField == null) return;
+			if (!_isEditingTextField) return;
 
-			if (submit) {
-				// Deselect triggers OnEndEdit which submits
-				_editingInputField.DeactivateInputField();
-				string finalText = string.IsNullOrEmpty(_editingInputField.text) ? Strings.Get("common.empty_lower") : _editingInputField.text;
-				Speech.Say(Strings.Get("overlay.ui.edit.submitted", finalText));
-			} else {
-				// Cancel - just deactivate without submitting
-				_editingInputField.DeactivateInputField();
-				Speech.Say(Strings.Get("common.cancelled"));
-			}
-
+			// Clear editing state and restore input blocking BEFORE deactivating:
+			// DeactivateInputField fires the game's end-edit handler, which can close
+			// the popup and re-enter this method through ClearNavigationState. With
+			// the state already cleared, that re-entrant call is a no-op instead of
+			// cancelling a submit in progress and nulling the field under us.
+			var field = _editingInputField;
 			_isEditingTextField = false;
 			_editingInputField = null;
-
-			// Re-enable input blocking
 			InputBlocker.IsBlocking = true;
+
+			// The field may already be destroyed (popup force-closed mid-edit) —
+			// Unity's overloaded null catches that. Editing state and input blocking
+			// were restored above; bailing out here can't leave the mod eating every
+			// key with the game receiving raw input.
+			if (field != null) {
+				if (submit) {
+					// Deselect triggers OnEndEdit which submits
+					field.DeactivateInputField();
+					string finalText = string.IsNullOrEmpty(field.text) ? Strings.Get("common.empty_lower") : field.text;
+					Speech.Say(Strings.Get("overlay.ui.edit.submitted", finalText));
+				} else {
+					// Cancel - just deactivate without submitting
+					field.DeactivateInputField();
+					Speech.Say(Strings.Get("common.cancelled"));
+				}
+			}
 		}
 
 		// ========================================

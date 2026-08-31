@@ -173,7 +173,10 @@ namespace ATSAccessibility.Overlays {
 
 			if (Level == 0 && keyCode == KeyCode.RightArrow) {
 				var section = _sections[CurrentIndex];
-				if (section != SectionType.Seed) {
+				// Right means "enter section". Seed has no section to enter, and
+				// Embark is an action row — drill-down must not start the
+				// expedition; only an explicit Enter should do that.
+				if (section != SectionType.Seed && section != SectionType.Embark) {
 					OnAction(CurrentIndex);
 				}
 				return true;
@@ -207,6 +210,17 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		protected override void OnClosed() {
+			// The game can close the popup while the seed field is being edited;
+			// clear editing state and restore input blocking silently, or both
+			// outlive the popup (phantom editing mode plus unblocked game input).
+			if (_isEditingSeed) {
+				_isEditingSeed = false;
+				InputBlocker.IsBlocking = true;
+				if (_seedInputField != null) {
+					_seedInputField.DeactivateInputField();
+				}
+				_seedInputField = null;
+			}
 			ClearCachedData();
 			_popup = null;
 		}
