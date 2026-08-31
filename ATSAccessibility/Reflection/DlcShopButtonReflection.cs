@@ -98,5 +98,9 @@ namespace ATSAccessibility.Reflection {
 
 			return ReflectionHelper.InvokeBool(_hasDlcMethod, dlcsService, dlcType);
 		}
+
+		public static int LogCacheStatus() {
+			return ReflectionValidator.TriggerAndValidate(typeof(DlcShopButtonReflection), "DlcShopButtonReflection");
+		}
 	}
 }

@@ -365,5 +365,9 @@ namespace ATSAccessibility.Reflection {
 				return null;
 			}
 		}
+
+		public static int LogCacheStatus() {
+			return ReflectionValidator.TriggerAndValidate(typeof(ShrineReflection), "ShrineReflection");
+		}
 	}
 }

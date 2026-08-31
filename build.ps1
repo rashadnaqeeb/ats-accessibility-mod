@@ -15,6 +15,21 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+# Validate every shipped translation against en.properties. Placeholder drift is
+# fatal (the user would hear a raw "{0}" template); missing/untranslated keys are
+# tolerated (they fall back to English). Output is shown only on failure.
+Write-Host "Validating translations..." -ForegroundColor Cyan
+$translationFiles = Get-ChildItem "$ScriptDir\ATSAccessibility\Strings" -Filter "*.properties" |
+    Where-Object { $_.BaseName -ne "en" }
+foreach ($translation in $translationFiles) {
+    $output = & "$ScriptDir\ATSAccessibility\Tools\ValidateTranslation.ps1" -Language $translation.BaseName -Root "$ScriptDir\ATSAccessibility" *>&1
+    if ($LASTEXITCODE -ne 0) {
+        $output | Write-Host
+        Write-Host "Translation validation failed for $($translation.BaseName)" -ForegroundColor Red
+        exit 1
+    }
+}
+
 # Build the project
 Write-Host "Building ATSAccessibility ($Configuration)..." -ForegroundColor Cyan
 dotnet build "$ScriptDir\ATSAccessibility\ATSAccessibility.csproj" -c $Configuration -p:GamePath="$GamePath"

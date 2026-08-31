@@ -78,8 +78,11 @@ namespace ATSAccessibility.Reflection {
 		// LOCATEXT HELPER
 		// ========================================
 
-		// Cache for LocaText.Text property
-		private static PropertyInfo _locaTextTextProperty;
+		// Per-type cache for the LocaText Text property. Keyed by concrete type:
+		// more than one LocaText-shaped type can flow through GetLocaText, and a
+		// single cached PropertyInfo from whichever type arrived first would throw
+		// TargetException for every other type.
+		private static readonly Dictionary<Type, PropertyInfo> _locaTextTextProps = new Dictionary<Type, PropertyInfo>();
 
 		// TextsService for resolving localization keys
 		private static PropertyInfo _textsServiceProperty = null;
@@ -87,20 +90,24 @@ namespace ATSAccessibility.Reflection {
 		private static bool _textsServiceCached = false;
 
 		/// <summary>
-		/// Extract the Text string from a LocaText object.
-		/// Handles null checks and caches the property info.
+		/// Extract the Text string from a LocaText object. Never throws: the
+		/// GetProperty lookup itself sits inside the try (it can raise
+		/// AmbiguousMatchException if a derived type hides Text), and callers —
+		/// including event callbacks outside KeyboardManager's isolation — rely
+		/// on that.
 		/// </summary>
 		public static string GetLocaText(object locaText) {
 			if (locaText == null) return null;
 
-			// Cache the Text property on first use
-			if (_locaTextTextProperty == null) {
-				_locaTextTextProperty = locaText.GetType().GetProperty("Text", PublicInstance);
-			}
-
+			var type = locaText.GetType();
 			try {
-				return _locaTextTextProperty?.GetValue(locaText) as string;
-			} catch {
+				if (!_locaTextTextProps.TryGetValue(type, out var textProp)) {
+					textProp = type.GetProperty("Text", PublicInstance);
+					_locaTextTextProps[type] = textProp;
+				}
+				return textProp?.GetValue(locaText) as string;
+			} catch (Exception ex) {
+				Debug.LogWarning($"[ATSAccessibility] GetLocaText failed for {type.Name}: {ex.Message}");
 				return null;
 			}
 		}

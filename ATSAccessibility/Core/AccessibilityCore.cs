@@ -446,6 +446,21 @@ namespace ATSAccessibility.Core {
 				totalMissing += GamesHistoryReflection.LogCacheStatus();
 				totalMissing += DailyExpeditionReflection.LogCacheStatus();
 				totalMissing += AutomatonReflection.LogCacheStatus();
+				totalMissing += ConstructionReflection.LogCacheStatus();
+				totalMissing += PopupReflection.LogCacheStatus();
+				totalMissing += DlcShopButtonReflection.LogCacheStatus();
+				totalMissing += HearthReflection.LogCacheStatus();
+				totalMissing += InstitutionReflection.LogCacheStatus();
+				totalMissing += LocalizationReflection.LogCacheStatus();
+				totalMissing += PoroReflection.LogCacheStatus();
+				totalMissing += PortReflection.LogCacheStatus();
+				totalMissing += RelicReflection.LogCacheStatus();
+				totalMissing += ShrineReflection.LogCacheStatus();
+				totalMissing += StatsReflection.LogCacheStatus();
+				// Excluded on purpose: EventReflection, MapReflection, and
+				// TileInfoReflection cache most members from live instances
+				// (parameterized Ensure* methods), so validating them at startup
+				// would report false MISSING for members that only populate in-game.
 
 				if (totalMissing == 0)
 					Debug.Log("[ATSAccessibility] Reflection validation: All fields cached successfully");

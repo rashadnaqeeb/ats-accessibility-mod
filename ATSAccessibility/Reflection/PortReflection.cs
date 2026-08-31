@@ -764,5 +764,9 @@ namespace ATSAccessibility.Reflection {
 				return new List<string>();
 			}
 		}
+
+		public static int LogCacheStatus() {
+			return ReflectionValidator.TriggerAndValidate(typeof(PortReflection), "PortReflection");
+		}
 	}
 }

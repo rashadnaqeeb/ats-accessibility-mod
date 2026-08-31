@@ -85,7 +85,9 @@ namespace ATSAccessibility.Reflection {
 
 		private static bool _cached = false;
 
-		public static void EnsureCached() {
+		// Internal (not public) so ReflectionValidator's non-public method scan
+		// finds and triggers it before validating the cached fields.
+		internal static void EnsureCached() {
 			if (_cached) return;
 			_cached = true;
 
@@ -150,6 +152,10 @@ namespace ATSAccessibility.Reflection {
 		private static void CacheEnumTypes(Assembly assembly) {
 			_reputationChangeSourceType = assembly.GetType("Eremite.Services.ReputationChangeSource");
 			_hostilitySourceType = assembly.GetType("Eremite.Model.State.HostilitySource");
+		}
+
+		public static int LogCacheStatus() {
+			return ReflectionValidator.TriggerAndValidate(typeof(StatsReflection), "StatsReflection");
 		}
 	}
 }

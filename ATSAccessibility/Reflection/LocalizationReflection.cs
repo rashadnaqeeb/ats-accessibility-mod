@@ -40,5 +40,9 @@ namespace ATSAccessibility.Reflection {
 
 			return ReflectionHelper.GetProp(_currentLocaCodeProperty, textsService) as string;
 		}
+
+		public static int LogCacheStatus() {
+			return ReflectionValidator.TriggerAndValidate(typeof(LocalizationReflection), "LocalizationReflection");
+		}
 	}
 }

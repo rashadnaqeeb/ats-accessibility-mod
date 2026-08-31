@@ -396,5 +396,9 @@ namespace ATSAccessibility.Reflection {
 				return false;
 			}
 		}
+
+		public static int LogCacheStatus() {
+			return ReflectionValidator.TriggerAndValidate(typeof(PoroReflection), "PoroReflection");
+		}
 	}
 }

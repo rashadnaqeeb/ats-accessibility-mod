@@ -1298,5 +1298,9 @@ namespace ATSAccessibility.Reflection {
 
 			return result;
 		}
+
+		public static int LogCacheStatus() {
+			return ReflectionValidator.TriggerAndValidate(typeof(HearthReflection), "HearthReflection");
+		}
 	}
 }

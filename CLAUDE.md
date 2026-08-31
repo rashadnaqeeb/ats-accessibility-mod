@@ -86,7 +86,10 @@ public class MyHandler: IKeyHandler {
 ```
 
 - `IsActive` must be side-effect free - move cleanup to `ProcessKey()`
+- `ProcessKey()` is only called while `IsActive` is true — cleanup for "the game closed my thing without an event" cannot live in a `!IsActive` branch there; put it in a method polled from `AccessibilityCore.Update()` (see `BuildingPanelHandler.CleanupIfPanelClosed`)
+- `KeyboardManager` isolates each handler in try/catch (one throwing handler can't kill the key pipeline), but treat that as a safety net — handlers must still not throw
 - Register in `AccessibilityCore.Start()` via `KeyboardManager.RegisterHandler()` in priority order (highest first)
+- Handlers holding per-settlement state (bookmarks, input modes, cached indices) need a `Reset()` wired into `AccessibilityCore.OnSceneUnloaded` — a settlement can end while any mode is armed, and stale mode state eats keys on the next map
 - Key handlers are **separate** from popup routing — a popup overlay registers with both `PopupRouter` (for show/hide events) and `KeyboardManager` (for key input)
 - **Consume by default**: Return `true` for all keys unless intentionally passing through
 - **Document pass-throughs**: When returning `false`, add a comment explaining why (e.g., `// Pass to game to close popup`)
@@ -96,6 +99,8 @@ public class MyHandler: IKeyHandler {
 Base class for all keyboard-navigable menus and overlays. Implements `IKeyHandler` with a default `IsActive => IsOpen && !IsSuspended` — subclasses don't need to implement `IKeyHandler` separately. Override `IsActive` only for custom activation logic (e.g., `GameResultOverlay`). See `MenuBase.cs` for the full API (well-documented with doc comments).
 
 - **Abstract members**: `OverlayName`, `EmptyMessage`, `GetItemCount()`, `GetLabel(int)`, `RefreshData()`, `OnEnter(int)` → `EnterAction`
+- **Overlay-local state**: any navigation state a subclass keeps on top of MenuBase's `Level`/`_indices` (its own menu-level enum, mode flags, cached lists) MUST be reset in `OnClosed()` — MenuBase only resets its own state, and a survivor corrupts every future open (see AltarOverlay `_menuLevel`)
+- **Text-field editing**: an overlay that hands focus to a real `TMP_InputField` and sets `InputBlocker.IsBlocking = false` MUST restore the flag and clear its editing state in `OnClosed()`/`ClearNavigationState()` too — the game can force-close the popup mid-edit, and a destroyed field must not early-return past that cleanup (see UINavigator `EndTextFieldEdit`)
 - **Key virtuals**: `OnAction`, `OnSpace`, `OnAdjust`, `OnDrillDown`, `OnGoBack`, `OnEscape`, `HandleSpecialKey`, `AnnounceCurrentItem`
 - **Lifecycle**: `Open()` → `RefreshData()` → `GetOpenAnnouncement()` → `OnOpened()` → navigation → `Close()` → `OnClosed()`
 - **ProcessKey flow**: `HandleSpecialKey` → `_search.HandleKey` → standard navigation → consume by default
@@ -134,6 +139,20 @@ Provides compatibility properties (`_currentSectionIndex`, `_currentItemIndex`, 
 ### 5. Event Subscription Pattern
 
 Grace period + FIFO deduplication for game events.
+
+**Retry-safe subscription is mandatory.** Subscription is polled from `Update()` until it succeeds, so a partial failure must dispose whatever half succeeded before returning — otherwise the next poll overwrites the live subscription without disposing it and stacks a duplicate every 0.5s (thousands per hour). Never set the `_subscribed` flag unless every subscription in the group is non-null, and never leave a successful subscription behind when it isn't.
+
+```csharp
+_subA = SubscribeToA(OnA);
+_subB = SubscribeToB(OnB);
+if (_subA != null && _subB != null) {
+	_subscribed = true;
+} else {
+	// Partial failure: release the half that succeeded before the retry
+	_subA?.Dispose(); _subB?.Dispose();
+	_subA = null; _subB = null;
+}
+```
 
 ```csharp
 private float _gracePeriodEndTime;  // Pre-calculated for consistent checks
@@ -200,7 +219,7 @@ string name = ReflectionHelper.GetString(_nameField, instance);
 int count = ReflectionHelper.GetPropInt(_countProp, instance);
 ```
 
-**ReflectionHelper accessor families** (all null-safe, return sensible defaults on failure):
+**ReflectionHelper accessor families** (all null-safe, return sensible defaults on failure — but not silently: every accessor logs a failing member once per session via `LogAccessError`, so game-API drift shows up in Player.log instead of reading as a confident 0/false/null to a user who cannot cross-check the screen; keep that property when adding accessors):
 - **Fields**: `GetField`, `GetBool`, `GetInt`, `GetFloat`, `GetString`, `GetEnum`, `SetField`
 - **Properties**: `GetProp`, `GetPropBool`, `GetPropInt`, `GetPropFloat`, `GetPropString`
 - **Methods**: `Invoke`, `InvokeBool`, `InvokeInt`, `InvokeFloat`, `InvokeString`, `InvokeVoid` (`Invoke`/`InvokeVoid` have 0–3 arg overloads; others have fewer)
@@ -266,6 +285,16 @@ Users already know how navigation works - announce what they need to make decisi
 ---
 
 ## Design Decisions
+
+### Harmony Patching
+
+`Plugin.Awake` applies each patch class individually via `ApplyPatchClass` (not `PatchAll`) so one failed patch — e.g. a game update renaming a type resolved by string in a `TargetMethod` — cannot abort the remaining patches or prevent `AccessibilityCore` (speech, keyboard) from starting. Register new patch classes there, each in its own guarded call. Manual patches (EventAnnouncer) get their own try/catch too.
+
+### Prism (speech library)
+
+- Vendored `prism.dll` is **v0.18.2** (`prism/native/win-x64/`). On a version bump: replace the dll from the release's `dynamic/release/bin/`, refresh `prism/LICENSES` + `prism/NOTICE` from the release zip, and diff the release's `include/prism.h` against the P/Invoke declarations in `Utils/Speech.cs`.
+- `prism_init` is passed NULL (no `PrismConfig` struct is declared in C#) — the struct's layout changes between Prism versions and a mismatched declaration silently corrupts memory. Keep it that way unless config is genuinely needed, and then pin the exact struct for the vendored version.
+- All strings crossing the Prism boundary are **UTF-8**, never ANSI: text goes out through `ToUtf8()` (ANSI input is rejected as `PRISM_ERROR_INVALID_UTF8`, which silently drops all non-English speech), and returned `const char*` strings come back through `FromUtf8()`.
 
 ### Sounds
 
