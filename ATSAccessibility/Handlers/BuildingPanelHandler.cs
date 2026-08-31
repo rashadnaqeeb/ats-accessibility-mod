@@ -87,23 +87,51 @@ namespace ATSAccessibility.Handlers {
 		/// Process a key event.
 		/// </summary>
 		public bool ProcessKey(KeyCode keyCode, KeyboardManager.KeyModifiers modifiers) {
-			// IsActive now includes BuildingReflection.IsBuildingPanelOpen() check
-			if (!IsActive) {
-				// Clean up stale state if we have a navigator but panel is closed
-				if (_currentNavigator != null || _currentBuilding != null) {
-					CleanupNavigator();
-				}
-				return false;
-			}
+			// IsActive includes BuildingReflection.IsBuildingPanelOpen(); stale-state
+			// cleanup lives in CleanupIfPanelClosed (polled) because the manager
+			// never calls ProcessKey while IsActive is false.
+			if (!IsActive) return false;
 
 			return _currentNavigator.ProcessKey(keyCode, modifiers);
+		}
+
+		// Set when the poll saw the panel closed once; cleanup runs only on the
+		// second consecutive closed poll. IsBuildingPanelOpen is a reflected read
+		// of the game's currentBuilding field, which can be null for a frame
+		// during a panel switch — a single sample must not close a live navigator.
+		private bool _panelClosedPending = false;
+
+		/// <summary>
+		/// Safety net, called from the AccessibilityCore poll: if the game closed
+		/// the panel without firing the Closed event, release the navigator so it
+		/// doesn't sit open holding a stale building reference.
+		/// </summary>
+		public void CleanupIfPanelClosed() {
+			if (_currentNavigator == null && _currentBuilding == null) {
+				_panelClosedPending = false;
+				return;
+			}
+			if (BuildingReflection.IsBuildingPanelOpen()) {
+				_panelClosedPending = false;
+				return;
+			}
+			if (!_panelClosedPending) {
+				_panelClosedPending = true;  // Debounce: require a second closed poll
+				return;
+			}
+			_panelClosedPending = false;
+			CleanupNavigator();
 		}
 
 		/// <summary>
 		/// Clean up the navigator state without announcing (used when game closed panel).
 		/// </summary>
 		private void CleanupNavigator() {
-			if (_isCleaningUp || _currentNavigator == null) return;
+			if (_isCleaningUp) return;
+			if (_currentNavigator == null) {
+				_currentBuilding = null;  // Don't hold the building ref either
+				return;
+			}
 
 			_isCleaningUp = true;
 			try {
@@ -153,21 +181,32 @@ namespace ATSAccessibility.Handlers {
 				if (_shownSubscription != null && _closedSubscription != null) {
 					_subscribed = true;
 					Debug.Log("[ATSAccessibility] BuildingPanelHandler: Subscribed to building panel events");
+				} else {
+					// Partial failure: release the half that succeeded, otherwise the
+					// periodic retry overwrites it and stacks duplicate subscriptions.
+					Debug.LogError("[ATSAccessibility] BuildingPanelHandler: partial subscription failure, will retry");
+					DisposeSubscriptions();
 				}
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] BuildingPanelHandler subscription failed: {ex.Message}");
+				DisposeSubscriptions();
 			}
+		}
+
+		private void DisposeSubscriptions() {
+			_shownSubscription?.Dispose();
+			_closedSubscription?.Dispose();
+			_shownSubscription = null;
+			_closedSubscription = null;
 		}
 
 		/// <summary>
 		/// Dispose subscriptions.
 		/// </summary>
 		public void Dispose() {
-			_shownSubscription?.Dispose();
-			_closedSubscription?.Dispose();
-			_shownSubscription = null;
-			_closedSubscription = null;
+			DisposeSubscriptions();
 			_subscribed = false;
+			_panelClosedPending = false;
 
 			// Clean up all navigators to release building references
 			CleanupAllNavigators();
@@ -202,10 +241,20 @@ namespace ATSAccessibility.Handlers {
 		private void OnBuildingPanelShown(object building) {
 			Debug.Log($"[ATSAccessibility] BuildingPanelHandler: Panel shown for {BuildingReflection.GetBuildingTypeName(building)}");
 
+			var previousNavigator = _currentNavigator;
+			_panelClosedPending = false;
 			_currentBuilding = building;
 
 			// Select appropriate navigator based on building type
 			_currentNavigator = SelectNavigator(building);
+
+			// Panel switch without an intervening PanelClosed: if the previous
+			// building used a different navigator, close it so it doesn't stay
+			// open holding a stale building reference (and get "closed" later by
+			// a PanelClosed event that belongs to the new building).
+			if (previousNavigator != null && !ReferenceEquals(previousNavigator, _currentNavigator)) {
+				previousNavigator.Close();
+			}
 
 			if (_currentNavigator != null) {
 				_currentNavigator.Open(building);

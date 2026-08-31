@@ -506,6 +506,9 @@ namespace ATSAccessibility.Core {
 				// Try to subscribe to building panel events
 				_buildingPanelHandler?.TrySubscribe();
 
+				// Release a navigator whose panel the game closed without an event
+				_buildingPanelHandler?.CleanupIfPanelClosed();
+
 				// Try to subscribe to game events for announcements
 				_eventAnnouncer?.TrySubscribe();
 			}
@@ -783,11 +786,20 @@ namespace ATSAccessibility.Core {
 					_popupShownSubscription = GameReflection.SubscribeToObservable(shownObservable, OnPopupShown);
 					_popupHiddenSubscription = GameReflection.SubscribeToObservable(hiddenObservable, OnPopupHidden);
 
-					_subscribedToPopups = true;
-					Debug.Log("[ATSAccessibility] Subscribed to popup events");
+					// SubscribeToObservable returns null when no matching Subscribe
+					// method is found — only mark subscribed when both really exist,
+					// so popup routing keeps retrying instead of dying silently.
+					if (_popupShownSubscription != null && _popupHiddenSubscription != null) {
+						_subscribedToPopups = true;
+						Debug.Log("[ATSAccessibility] Subscribed to popup events");
+					} else {
+						Debug.LogError("[ATSAccessibility] Popup subscription returned null, will retry");
+						DisposePopupSubscriptions();
+					}
 				}
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] Failed to subscribe to popups: {ex.Message}\n{ex.StackTrace}");
+				DisposePopupSubscriptions();
 			}
 		}
 
@@ -826,9 +838,14 @@ namespace ATSAccessibility.Core {
 				if (_embarkShownSubscription != null && _embarkClosedSubscription != null) {
 					_subscribedToEmbark = true;
 					Debug.Log("[ATSAccessibility] Subscribed to embark screen events");
+				} else {
+					// Partial failure: release the half that succeeded, otherwise the
+					// periodic retry overwrites it and stacks duplicate subscriptions.
+					DisposeEmbarkSubscriptions();
 				}
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] Failed to subscribe to embark events: {ex.Message}");
+				DisposeEmbarkSubscriptions();
 			}
 		}
 
@@ -887,9 +904,14 @@ namespace ATSAccessibility.Core {
 				if (_capitalEnabledSubscription != null && _capitalClosedSubscription != null) {
 					_subscribedToCapital = true;
 					Debug.Log("[ATSAccessibility] Subscribed to capital screen events");
+				} else {
+					// Partial failure: release the half that succeeded, otherwise the
+					// periodic retry overwrites it and stacks duplicate subscriptions.
+					DisposeCapitalSubscriptions();
 				}
 			} catch (Exception ex) {
 				Debug.LogError($"[ATSAccessibility] Failed to subscribe to capital events: {ex.Message}");
+				DisposeCapitalSubscriptions();
 			}
 		}
 

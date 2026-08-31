@@ -48,40 +48,116 @@ namespace ATSAccessibility.Utils {
 		/// Try to subscribe to game events.
 		/// Called periodically until successful.
 		/// </summary>
+		// Bounded per-source retry: a source that isn't ready yet is retried on
+		// the next poll while the sources that succeeded stay live, and after MAX
+		// attempts the partial set is accepted with a loud log — a source lost to
+		// game-API drift must be visible in Player.log, not silently absent for
+		// the whole settlement, and one dead source must not black out the rest.
+		private int _subscribeAttempts = 0;
+		private const int MAX_SUBSCRIBE_ATTEMPTS = 10;
+		private readonly HashSet<string> _subscribedSources = new HashSet<string>();
+
 		public void TrySubscribe() {
 			if (_subscribed) return;
 			if (!GameReflection.GetIsGameActive()) return;
 
+			object gameServices;
 			try {
 				EventReflection.EnsureReflectionCached();
-
-				var gameServices = GameReflection.GetGameServices();
-				if (gameServices == null) return;
-
-				// Subscribe to all event sources
-				// Note: Some events removed in favor of game's built-in alerts (IMonitorsService)
-				SubscribeToCalendar(gameServices);
-				SubscribeToHostility(gameServices);
-				SubscribeToTrade(gameServices);
-				SubscribeToOrders(gameServices);
-				SubscribeToGlades(gameServices);
-				SubscribeToReputation(gameServices);
-				SubscribeToNews(gameServices);
-				SubscribeToNewcomers(gameServices);
-				SubscribeToGameBlackboard();
-				SubscribeToReputationRewards(gameServices);
-				SubscribeToCornerstones(gameServices);
-				SubscribeToMonitors(gameServices);
-				SubscribeToVillagers(gameServices);
-				SubscribeToLocateEvents();
-
-				_subscribed = true;
-				_gracePeriodEndTime = Time.realtimeSinceStartup + INITIALIZATION_GRACE_PERIOD;
-				SetInstance();  // Set instance for static patch callbacks
-				Debug.Log("[ATSAccessibility] EventAnnouncer: Subscribed to game events");
+				gameServices = GameReflection.GetGameServices();
 			} catch (Exception ex) {
-				Debug.LogError($"[ATSAccessibility] EventAnnouncer subscription failed: {ex.Message}");
+				// Bounded like source failures: setup that throws on every poll
+				// (game-API drift) must not error-log forever. Sources already
+				// live from earlier attempts keep announcing.
+				Debug.LogError($"[ATSAccessibility] EventAnnouncer subscription setup failed: {ex.Message}");
+				if (++_subscribeAttempts >= MAX_SUBSCRIBE_ATTEMPTS)
+					AcceptSubscriptions(new List<string> { "setup (all unsubscribed sources)" });
+				return;
 			}
+			if (gameServices == null) return;
+
+			// Keep the grace window open across retries: sources subscribed on an
+			// earlier attempt stay live, and their initialization noise must not
+			// be announced while the remaining sources are still being retried
+			// (polls are 0.5s apart, so the 2s window always covers the gap).
+			_gracePeriodEndTime = Time.realtimeSinceStartup + INITIALIZATION_GRACE_PERIOD;
+
+			// Subscribe to all event sources
+			// Note: Some events removed in favor of game's built-in alerts (IMonitorsService)
+			var failed = new List<string>();
+			if (!TrySubscribeSource("Calendar", () => SubscribeToCalendar(gameServices))) failed.Add("Calendar");
+			if (!TrySubscribeSource("Hostility", () => SubscribeToHostility(gameServices))) failed.Add("Hostility");
+			if (!TrySubscribeSource("Trade", () => SubscribeToTrade(gameServices))) failed.Add("Trade");
+			if (!TrySubscribeSource("Orders", () => SubscribeToOrders(gameServices))) failed.Add("Orders");
+			if (!TrySubscribeSource("Glades", () => SubscribeToGlades(gameServices))) failed.Add("Glades");
+			if (!TrySubscribeSource("Reputation", () => SubscribeToReputation(gameServices))) failed.Add("Reputation");
+			if (!TrySubscribeSource("News", () => SubscribeToNews(gameServices))) failed.Add("News");
+			if (!TrySubscribeSource("Newcomers", () => SubscribeToNewcomers(gameServices))) failed.Add("Newcomers");
+			if (!TrySubscribeSource("GameBlackboard", SubscribeToGameBlackboard)) failed.Add("GameBlackboard");
+			if (!TrySubscribeSource("ReputationRewards", () => SubscribeToReputationRewards(gameServices))) failed.Add("ReputationRewards");
+			if (!TrySubscribeSource("Cornerstones", () => SubscribeToCornerstones(gameServices))) failed.Add("Cornerstones");
+			if (!TrySubscribeSource("Monitors", () => SubscribeToMonitors(gameServices))) failed.Add("Monitors");
+			if (!TrySubscribeSource("Villagers", () => SubscribeToVillagers(gameServices))) failed.Add("Villagers");
+			if (!TrySubscribeSource("LocateEvents", SubscribeToLocateEvents)) failed.Add("LocateEvents");
+
+			if (failed.Count > 0 && ++_subscribeAttempts < MAX_SUBSCRIBE_ATTEMPTS)
+				return;  // Failed sources retry next poll; successful ones stay live.
+
+			AcceptSubscriptions(failed);
+		}
+
+		/// <summary>
+		/// Run one source's subscribe function, at most once per settlement.
+		/// On failure (returned false or threw), dispose only the subscriptions
+		/// that source added, so the next poll can retry it without stacking
+		/// duplicates and without disturbing the other sources.
+		/// </summary>
+		private bool TrySubscribeSource(string name, Func<bool> subscribe) {
+			if (_subscribedSources.Contains(name)) return true;
+
+			int countBefore = _subscriptions.Count;
+			bool ok;
+			try {
+				ok = subscribe();
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] EventAnnouncer: subscribing {name} threw: {ex.Message}");
+				ok = false;
+			}
+
+			if (!ok) {
+				// Roll back this source's partial subs only (group helpers can
+				// fail after some of their observables already subscribed).
+				for (int i = _subscriptions.Count - 1; i >= countBefore; i--) {
+					_subscriptions[i]?.Dispose();
+					_subscriptions.RemoveAt(i);
+				}
+				return false;
+			}
+
+			_subscribedSources.Add(name);
+			return true;
+		}
+
+		private void AcceptSubscriptions(List<string> failed) {
+			if (failed.Count > 0)
+				Debug.LogError($"[ATSAccessibility] EventAnnouncer: continuing without {string.Join(", ", failed)} after {MAX_SUBSCRIBE_ATTEMPTS} attempts — those events will not be announced this settlement");
+
+			_subscribed = true;
+			_gracePeriodEndTime = Time.realtimeSinceStartup + INITIALIZATION_GRACE_PERIOD;
+			SetInstance();  // Set instance for static patch callbacks
+			Debug.Log("[ATSAccessibility] EventAnnouncer: Subscribed to game events");
+		}
+
+		/// <summary>
+		/// Subscribe to one observable and track the subscription.
+		/// Returns false when the observable is missing or the subscribe failed.
+		/// </summary>
+		private bool AddSubscription(object observable, Action<object> callback) {
+			if (observable == null) return false;
+			var sub = GameReflection.SubscribeToObservable(observable, callback);
+			if (sub == null) return false;
+			_subscriptions.Add(sub);
+			return true;
 		}
 
 		/// <summary>
@@ -95,6 +171,8 @@ namespace ATSAccessibility.Utils {
 				}
 				_subscriptions.Clear();
 				_subscribed = false;
+				_subscribeAttempts = 0;
+				_subscribedSources.Clear();
 				_gracePeriodEndTime = 0f;
 				_lastAnnouncedHostilityLevel = -1;
 				_announcedAlerts.Clear();
@@ -384,23 +462,13 @@ namespace ATSAccessibility.Utils {
 		// CALENDAR SERVICE (Season, Year)
 		// ========================================
 
-		private void SubscribeToCalendar(object gameServices) {
+		private bool SubscribeToCalendar(object gameServices) {
 			var service = EventReflection.CalendarServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
-			// OnSeasonChanged
-			var onSeasonChanged = service.GetType().GetProperty("OnSeasonChanged")?.GetValue(service);
-			if (onSeasonChanged != null) {
-				var sub = GameReflection.SubscribeToObservable(onSeasonChanged, OnSeasonChanged);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnYearChanged
-			var onYearChanged = service.GetType().GetProperty("OnYearChanged")?.GetValue(service);
-			if (onYearChanged != null) {
-				var sub = GameReflection.SubscribeToObservable(onYearChanged, OnYearChanged);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			bool ok = AddSubscription(service.GetType().GetProperty("OnSeasonChanged")?.GetValue(service), OnSeasonChanged);
+			ok &= AddSubscription(service.GetType().GetProperty("OnYearChanged")?.GetValue(service), OnYearChanged);
+			return ok;
 		}
 
 		// Season names (lookup keys for Strings.Get — resolved at call time)
@@ -477,16 +545,12 @@ namespace ATSAccessibility.Utils {
 		// ========================================
 		// OnNewcomersArrival removed - covered by game's AlertsNewcomers
 
-		private void SubscribeToNewcomers(object gameServices) {
+		private bool SubscribeToNewcomers(object gameServices) {
 			var service = EventReflection.NewcomersServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
 			// OnNewcomersArrival - announces when newcomers arrive and are ready to be picked
-			var onNewcomersArrival = service.GetType().GetProperty("OnNewcomersArrival")?.GetValue(service);
-			if (onNewcomersArrival != null) {
-				var sub = GameReflection.SubscribeToObservable(onNewcomersArrival, OnNewcomersArrival);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			return AddSubscription(service.GetType().GetProperty("OnNewcomersArrival")?.GetValue(service), OnNewcomersArrival);
 		}
 
 		private void OnNewcomersArrival(object _) {
@@ -500,16 +564,12 @@ namespace ATSAccessibility.Utils {
 		// ========================================
 		// Re-added because game's NewsService alerts depend on user's in-game alert settings
 
-		private void SubscribeToVillagers(object gameServices) {
+		private bool SubscribeToVillagers(object gameServices) {
 			var service = EventReflection.VillagersServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
 			// OnVillagerRemoved - fires when a villager dies or leaves
-			var onVillagerRemoved = service.GetType().GetProperty("OnVillagerRemoved")?.GetValue(service);
-			if (onVillagerRemoved != null) {
-				var sub = GameReflection.SubscribeToObservable(onVillagerRemoved, OnVillagerRemoved);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			return AddSubscription(service.GetType().GetProperty("OnVillagerRemoved")?.GetValue(service), OnVillagerRemoved);
 		}
 
 		private void OnVillagerRemoved(object villager) {
@@ -557,23 +617,13 @@ namespace ATSAccessibility.Utils {
 		// HOSTILITY SERVICE
 		// ========================================
 
-		private void SubscribeToHostility(object gameServices) {
+		private bool SubscribeToHostility(object gameServices) {
 			var service = EventReflection.HostilityServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
-			// OnLevelUp
-			var onLevelUp = service.GetType().GetProperty("OnLevelUp")?.GetValue(service);
-			if (onLevelUp != null) {
-				var sub = GameReflection.SubscribeToObservable(onLevelUp, OnHostilityLevelUp);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnLevelDown
-			var onLevelDown = service.GetType().GetProperty("OnLevelDown")?.GetValue(service);
-			if (onLevelDown != null) {
-				var sub = GameReflection.SubscribeToObservable(onLevelDown, OnHostilityLevelDown);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			bool ok = AddSubscription(service.GetType().GetProperty("OnLevelUp")?.GetValue(service), OnHostilityLevelUp);
+			ok &= AddSubscription(service.GetType().GetProperty("OnLevelDown")?.GetValue(service), OnHostilityLevelDown);
+			return ok;
 		}
 
 		private void OnHostilityLevelUp(object level) {
@@ -601,16 +651,12 @@ namespace ATSAccessibility.Utils {
 		// ========================================
 		// OnTraderArrived removed - covered by game's AlertsTraderArrived
 
-		private void SubscribeToTrade(object gameServices) {
+		private bool SubscribeToTrade(object gameServices) {
 			var service = EventReflection.TradeServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
 			// OnTraderDepartured (note: game uses "Departured" spelling) - not covered by game alerts
-			var onTraderDeparted = service.GetType().GetProperty("OnTraderDepartured")?.GetValue(service);
-			if (onTraderDeparted != null) {
-				var sub = GameReflection.SubscribeToObservable(onTraderDeparted, OnTraderDeparted);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			return AddSubscription(service.GetType().GetProperty("OnTraderDepartured")?.GetValue(service), OnTraderDeparted);
 		}
 
 		private void OnTraderDeparted(object traderVisit) {
@@ -623,30 +669,17 @@ namespace ATSAccessibility.Utils {
 		// ORDERS SERVICE
 		// ========================================
 
-		private void SubscribeToOrders(object gameServices) {
+		private bool SubscribeToOrders(object gameServices) {
 			var service = EventReflection.OrdersServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
-			// OnOrderStarted (new order available) - not covered by game alerts
-			var onOrderStarted = service.GetType().GetProperty("OnOrderStarted")?.GetValue(service);
-			if (onOrderStarted != null) {
-				var sub = GameReflection.SubscribeToObservable(onOrderStarted, OnOrderStarted);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnOrderCompleted - game's alert has a delay, this is immediate
-			var onOrderCompleted = service.GetType().GetProperty("OnOrderCompleted")?.GetValue(service);
-			if (onOrderCompleted != null) {
-				var sub = GameReflection.SubscribeToObservable(onOrderCompleted, OnOrderCompleted);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnOrderFailed - not covered by game alerts
-			var onOrderFailed = service.GetType().GetProperty("OnOrderFailed")?.GetValue(service);
-			if (onOrderFailed != null) {
-				var sub = GameReflection.SubscribeToObservable(onOrderFailed, OnOrderFailed);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			// OnOrderStarted (new order available) and OnOrderFailed are not covered
+			// by game alerts; OnOrderCompleted is immediate where the game's alert
+			// has a delay.
+			bool ok = AddSubscription(service.GetType().GetProperty("OnOrderStarted")?.GetValue(service), OnOrderStarted);
+			ok &= AddSubscription(service.GetType().GetProperty("OnOrderCompleted")?.GetValue(service), OnOrderCompleted);
+			ok &= AddSubscription(service.GetType().GetProperty("OnOrderFailed")?.GetValue(service), OnOrderFailed);
+			return ok;
 		}
 
 		private void OnOrderStarted(object orderState) {
@@ -674,16 +707,11 @@ namespace ATSAccessibility.Utils {
 		// GLADES SERVICE
 		// ========================================
 
-		private void SubscribeToGlades(object gameServices) {
+		private bool SubscribeToGlades(object gameServices) {
 			var service = EventReflection.GladesServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
-			// OnGladeRevealed
-			var onGladeRevealed = service.GetType().GetProperty("OnGladeRevealed")?.GetValue(service);
-			if (onGladeRevealed != null) {
-				var sub = GameReflection.SubscribeToObservable(onGladeRevealed, OnGladeRevealed);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			return AddSubscription(service.GetType().GetProperty("OnGladeRevealed")?.GetValue(service), OnGladeRevealed);
 		}
 
 		private void OnGladeRevealed(object gladeState) {
@@ -720,23 +748,13 @@ namespace ATSAccessibility.Utils {
 		// REPUTATION SERVICE
 		// ========================================
 
-		private void SubscribeToReputation(object gameServices) {
+		private bool SubscribeToReputation(object gameServices) {
 			var service = EventReflection.ReputationServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
-			// OnReputationChanged
-			var onReputationChanged = service.GetType().GetProperty("OnReputationChanged")?.GetValue(service);
-			if (onReputationChanged != null) {
-				var sub = GameReflection.SubscribeToObservable(onReputationChanged, OnReputationChanged);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnGameResult
-			var onGameResult = service.GetType().GetProperty("OnGameResult")?.GetValue(service);
-			if (onGameResult != null) {
-				var sub = GameReflection.SubscribeToObservable(onGameResult, OnGameResult);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			bool ok = AddSubscription(service.GetType().GetProperty("OnReputationChanged")?.GetValue(service), OnReputationChanged);
+			ok &= AddSubscription(service.GetType().GetProperty("OnGameResult")?.GetValue(service), OnGameResult);
+			return ok;
 		}
 
 		private void OnReputationChanged(object reputationChange) {
@@ -776,16 +794,11 @@ namespace ATSAccessibility.Utils {
 		// NEWS SERVICE
 		// ========================================
 
-		private void SubscribeToNews(object gameServices) {
+		private bool SubscribeToNews(object gameServices) {
 			var service = EventReflection.NewsServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
-			// News
-			var newsObservable = service.GetType().GetProperty("News")?.GetValue(service);
-			if (newsObservable != null) {
-				var sub = GameReflection.SubscribeToObservable(newsObservable, OnNewsPublished);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			return AddSubscription(service.GetType().GetProperty("News")?.GetValue(service), OnNewsPublished);
 		}
 
 		private void OnNewsPublished(object newsList) {
@@ -830,90 +843,25 @@ namespace ATSAccessibility.Utils {
 		// GAME BLACKBOARD SERVICE
 		// ========================================
 
-		private void SubscribeToGameBlackboard() {
+		private bool SubscribeToGameBlackboard() {
 			var blackboard = GameReflection.GetGameBlackboardService();
-			if (blackboard == null) return;
+			if (blackboard == null) return false;
 
 			var blackboardType = blackboard.GetType();
 
-			// BuildingFinished
-			var buildingFinishedProp = blackboardType.GetProperty("BuildingFinished");
-			if (buildingFinishedProp != null) {
-				var buildingFinished = buildingFinishedProp.GetValue(blackboard);
-				if (buildingFinished != null) {
-					var sub = GameReflection.SubscribeToObservable(buildingFinished, OnBuildingFinished);
-					if (sub != null) _subscriptions.Add(sub);
-				}
-			}
-
-			// FinishedBuildingRemoved removed - covered by game's AlertsBuildingLoss
-
-			// OnHearthIgnited
-			var hearthIgnited = blackboardType.GetProperty("OnHearthIgnited")?.GetValue(blackboard);
-			if (hearthIgnited != null) {
-				var sub = GameReflection.SubscribeToObservable(hearthIgnited, OnHearthIgnited);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnHearthDiedDown removed - covered by game's AlertsFireDown
-
-			// OnHubLeveledUp
-			var hubLeveledUp = blackboardType.GetProperty("OnHubLeveledUp")?.GetValue(blackboard);
-			if (hubLeveledUp != null) {
-				var sub = GameReflection.SubscribeToObservable(hubLeveledUp, OnHearthLeveledUp);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnHubLeveledDown
-			var hubLeveledDown = blackboardType.GetProperty("OnHubLeveledDown")?.GetValue(blackboard);
-			if (hubLeveledDown != null) {
-				var sub = GameReflection.SubscribeToObservable(hubLeveledDown, OnHearthLeveledDown);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnHearthCorrupted
-			var hearthCorrupted = blackboardType.GetProperty("OnHearthCorrupted")?.GetValue(blackboard);
-			if (hearthCorrupted != null) {
-				var sub = GameReflection.SubscribeToObservable(hearthCorrupted, OnHearthCorrupted);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnGoodDiscovered
-			var goodDiscovered = blackboardType.GetProperty("OnGoodDiscovered")?.GetValue(blackboard);
-			if (goodDiscovered != null) {
-				var sub = GameReflection.SubscribeToObservable(goodDiscovered, OnGoodDiscovered);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnBlightCystSpawned removed - covered by game's AlertsBlight
-
-			// OnRelicResolved
-			var relicResolved = blackboardType.GetProperty("OnRelicResolved")?.GetValue(blackboard);
-			if (relicResolved != null) {
-				var sub = GameReflection.SubscribeToObservable(relicResolved, OnRelicResolved);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnRewardChaseStarted
-			var chaseStarted = blackboardType.GetProperty("OnRewardChaseStarted")?.GetValue(blackboard);
-			if (chaseStarted != null) {
-				var sub = GameReflection.SubscribeToObservable(chaseStarted, OnRewardChaseStarted);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnRewardChaseEnded
-			var chaseEnded = blackboardType.GetProperty("OnRewardChaseEnded")?.GetValue(blackboard);
-			if (chaseEnded != null) {
-				var sub = GameReflection.SubscribeToObservable(chaseEnded, OnRewardChaseEnded);
-				if (sub != null) _subscriptions.Add(sub);
-			}
-
-			// OnPortExpeditionStarted
-			var portExpeditionStarted = blackboardType.GetProperty("OnPortExpeditionStarted")?.GetValue(blackboard);
-			if (portExpeditionStarted != null) {
-				var sub = GameReflection.SubscribeToObservable(portExpeditionStarted, OnPortExpeditionStarted);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			// FinishedBuildingRemoved, OnHearthDiedDown, and OnBlightCystSpawned are
+			// intentionally absent - covered by the game's own alerts.
+			bool ok = AddSubscription(blackboardType.GetProperty("BuildingFinished")?.GetValue(blackboard), OnBuildingFinished);
+			ok &= AddSubscription(blackboardType.GetProperty("OnHearthIgnited")?.GetValue(blackboard), OnHearthIgnited);
+			ok &= AddSubscription(blackboardType.GetProperty("OnHubLeveledUp")?.GetValue(blackboard), OnHearthLeveledUp);
+			ok &= AddSubscription(blackboardType.GetProperty("OnHubLeveledDown")?.GetValue(blackboard), OnHearthLeveledDown);
+			ok &= AddSubscription(blackboardType.GetProperty("OnHearthCorrupted")?.GetValue(blackboard), OnHearthCorrupted);
+			ok &= AddSubscription(blackboardType.GetProperty("OnGoodDiscovered")?.GetValue(blackboard), OnGoodDiscovered);
+			ok &= AddSubscription(blackboardType.GetProperty("OnRelicResolved")?.GetValue(blackboard), OnRelicResolved);
+			ok &= AddSubscription(blackboardType.GetProperty("OnRewardChaseStarted")?.GetValue(blackboard), OnRewardChaseStarted);
+			ok &= AddSubscription(blackboardType.GetProperty("OnRewardChaseEnded")?.GetValue(blackboard), OnRewardChaseEnded);
+			ok &= AddSubscription(blackboardType.GetProperty("OnPortExpeditionStarted")?.GetValue(blackboard), OnPortExpeditionStarted);
+			return ok;
 		}
 
 		private void OnBuildingFinished(object building) {
@@ -1037,7 +985,7 @@ namespace ATSAccessibility.Utils {
 		private IDisposable _relicLocationSub;
 		private IDisposable _relicHighlightSub;
 
-		private void SubscribeToLocateEvents() {
+		private bool SubscribeToLocateEvents() {
 			_grassLocationSub = MapReflection.SubscribeToGrassLocationRequested(OnGrassLocationRevealed);
 			if (_grassLocationSub != null) _subscriptions.Add(_grassLocationSub);
 
@@ -1050,6 +998,9 @@ namespace ATSAccessibility.Utils {
 			// Subscribe to relic highlight events (Short Range Scanner, etc)
 			_relicHighlightSub = MapReflection.SubscribeToRelicsHighlightRequested(OnRelicHighlighted);
 			if (_relicHighlightSub != null) _subscriptions.Add(_relicHighlightSub);
+
+			return _grassLocationSub != null && _springsLocationSub != null
+				&& _relicLocationSub != null && _relicHighlightSub != null;
 		}
 
 		private void OnGrassLocationRevealed() {
@@ -1083,16 +1034,12 @@ namespace ATSAccessibility.Utils {
 		// REPUTATION REWARDS SERVICE (Blueprints)
 		// ========================================
 
-		private void SubscribeToReputationRewards(object gameServices) {
+		private bool SubscribeToReputationRewards(object gameServices) {
 			var service = EventReflection.ReputationRewardsServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
 			// PickPopupRequested - fires when the blueprint pick popup is requested
-			var pickPopupRequested = service.GetType().GetProperty("PickPopupRequested")?.GetValue(service);
-			if (pickPopupRequested != null) {
-				var sub = GameReflection.SubscribeToObservable(pickPopupRequested, OnBlueprintPickRequested);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			return AddSubscription(service.GetType().GetProperty("PickPopupRequested")?.GetValue(service), OnBlueprintPickRequested);
 		}
 
 		private void OnBlueprintPickRequested(object _) {
@@ -1105,16 +1052,12 @@ namespace ATSAccessibility.Utils {
 		// CORNERSTONES SERVICE
 		// ========================================
 
-		private void SubscribeToCornerstones(object gameServices) {
+		private bool SubscribeToCornerstones(object gameServices) {
 			var service = EventReflection.CornerstonesServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
 			// OnPicksChanged - fires when cornerstone picks become available
-			var onPicksChanged = service.GetType().GetProperty("OnPicksChanged")?.GetValue(service);
-			if (onPicksChanged != null) {
-				var sub = GameReflection.SubscribeToObservable(onPicksChanged, OnCornerstonePicksChanged);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			return AddSubscription(service.GetType().GetProperty("OnPicksChanged")?.GetValue(service), OnCornerstonePicksChanged);
 		}
 
 		private void OnCornerstonePicksChanged(object _) {
@@ -1127,16 +1070,11 @@ namespace ATSAccessibility.Utils {
 		// MONITORS SERVICE (Game's Built-in Alerts)
 		// ========================================
 
-		private void SubscribeToMonitors(object gameServices) {
+		private bool SubscribeToMonitors(object gameServices) {
 			var service = EventReflection.MonitorsServiceProperty?.GetValue(gameServices);
-			if (service == null) return;
+			if (service == null) return false;
 
-			// Subscribe to Alerts observable
-			var alertsObservable = service.GetType().GetProperty("Alerts")?.GetValue(service);
-			if (alertsObservable != null) {
-				var sub = GameReflection.SubscribeToObservable(alertsObservable, OnAlertsChanged);
-				if (sub != null) _subscriptions.Add(sub);
-			}
+			return AddSubscription(service.GetType().GetProperty("Alerts")?.GetValue(service), OnAlertsChanged);
 		}
 
 		private void OnAlertsChanged(object alertsList) {
@@ -1269,8 +1207,12 @@ namespace ATSAccessibility.Utils {
 				// Update state
 				_hearthSacrificeStates[key] = isOn;
 
-				// Cleanup old entries if too many (prevents memory leak)
-				if (_hearthSacrificeStates.Count > 50) {
+				// Leak backstop only. Entries are bounded by hearth count within a
+				// settlement and cleared on scene unload; the threshold is set far
+				// above any real settlement so it never thrashes tracked state
+				// (clearing wholesale re-baselines every building and can eat a
+				// transition that lands right after the eviction).
+				if (_hearthSacrificeStates.Count > 1000) {
 					_hearthSacrificeStates.Clear();
 					_hearthSacrificeStates[key] = isOn;
 				}
@@ -1389,8 +1331,11 @@ namespace ATSAccessibility.Utils {
 
 				_buildingIdleStates[key] = isIdle;
 
-				// Cleanup old entries if too many (prevents memory leak)
-				if (_buildingIdleStates.Count > 50) {
+				// Leak backstop only. Entries are bounded by production-building
+				// count within a settlement and cleared on scene unload; a low
+				// threshold thrashed every frame in 50+ building settlements,
+				// re-baselining all state and eating idle transitions.
+				if (_buildingIdleStates.Count > 1000) {
 					_buildingIdleStates.Clear();
 					_buildingIdleStates[key] = isIdle;
 				}
