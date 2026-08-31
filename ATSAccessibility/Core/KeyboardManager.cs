@@ -104,12 +104,57 @@ namespace ATSAccessibility.Core {
 			}
 
 			foreach (var handler in _handlers) {
-				if (handler.IsActive && handler.ProcessKey(keyCode, modifiers)) {
-					return; // Key was handled
+				// Isolate each handler: an exception in one handler must not abort
+				// key dispatch for the handlers below it, or the whole keyboard
+				// pipeline dies on every keypress.
+				bool active;
+				try {
+					active = handler.IsActive;
+					_lastKnownActive[handler] = active;
+				} catch (System.Exception ex) {
+					LogHandlerError(handler, keyCode, ex);
+					// Can't tell if this handler wants the key — fall back to its
+					// last successful answer (inactive when unknown). A handler
+					// that was active is usually a modal overlay; skipping it
+					// would leak every keypress to the map handlers stacked
+					// beneath the open popup, matching the ProcessKey policy
+					// below of never letting a broken active handler's key fall
+					// through.
+					_lastKnownActive.TryGetValue(handler, out active);
+				}
+				if (!active) continue;
+
+				try {
+					if (handler.ProcessKey(keyCode, modifiers)) {
+						return; // Key was handled
+					}
+				} catch (System.Exception ex) {
+					LogHandlerError(handler, keyCode, ex);
+					// The key was aimed at this ACTIVE handler (often a modal
+					// overlay). Treat it as consumed — letting it fall through
+					// would hand the same keypress to the map handlers behind
+					// the open popup, possibly after a partial side effect.
+					return;
 				}
 			}
 
 			// Key was not handled by any handler - let it pass through to the game
+		}
+
+		// Last successful IsActive answer per handler, used when the getter itself
+		// throws (game-API drift). Bounded by the registered handler count.
+		private readonly Dictionary<IKeyHandler, bool> _lastKnownActive = new Dictionary<IKeyHandler, bool>();
+
+		// Handlers whose failure was already reported — logged once per handler per
+		// session (matching ReflectionHelper.LogAccessError): a persistently broken
+		// handler under held arrow keys must not write stack traces to the log on
+		// every keypress.
+		private readonly HashSet<string> _loggedHandlerErrors = new HashSet<string>();
+
+		private void LogHandlerError(IKeyHandler handler, KeyCode keyCode, System.Exception ex) {
+			string name = handler.GetType().Name;
+			if (_loggedHandlerErrors.Add(name))
+				Debug.LogError($"[ATSAccessibility] Handler {name} threw on {keyCode} (logged once): {ex}");
 		}
 
 		private static bool IsModifierKey(KeyCode keyCode) {

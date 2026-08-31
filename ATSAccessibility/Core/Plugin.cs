@@ -110,13 +110,29 @@ namespace ATSAccessibility.Core {
 				// Initialize announcement config entries (all ON by default)
 				InitializeAnnouncementConfig();
 
-				// Apply Harmony patches to block game input
+				// Apply Harmony patches. Each patch class is applied separately so one
+				// failure (e.g. a game update renaming a type resolved by string in a
+				// TargetMethod) cannot abort the remaining patches or prevent the core
+				// from starting — a cosmetic camera patch must never take down speech.
 				var harmony = new Harmony("com.ats.accessibility");
-				harmony.PatchAll();
+				ApplyPatchClass(harmony, typeof(InputPatches.InputGetAxisPatch));
+				ApplyPatchClass(harmony, typeof(InputPatches.InputGetAxisRawPatch));
+				ApplyPatchClass(harmony, typeof(InputPatches.InputServiceWasTriggeredPatch));
+				ApplyPatchClass(harmony, typeof(InputPatches.InputServiceIsTriggeringPatch));
+				ApplyPatchClass(harmony, typeof(WorldCameraControllerUpdateMovementPatch));
+				ApplyPatchClass(harmony, typeof(CameraControllerUpdateMovementPatch));
 
 				// Register manual patches that need runtime type resolution
-				EventAnnouncer.RegisterSacrificeStoppedPatch(harmony);
-				EventAnnouncer.RegisterBuildingIdlePatch(harmony);
+				try {
+					EventAnnouncer.RegisterSacrificeStoppedPatch(harmony);
+				} catch (Exception ex) {
+					Logger.LogError($"SacrificeStopped patch failed (continuing): {ex}");
+				}
+				try {
+					EventAnnouncer.RegisterBuildingIdlePatch(harmony);
+				} catch (Exception ex) {
+					Logger.LogError($"BuildingIdle patch failed (continuing): {ex}");
+				}
 
 				Logger.LogInfo("Harmony patches applied");
 
@@ -129,6 +145,14 @@ namespace ATSAccessibility.Core {
 				Logger.LogInfo("ATS Accessibility mod initialized");
 			} catch (Exception ex) {
 				Logger.LogError($"Failed to initialize: {ex}");
+			}
+		}
+
+		private void ApplyPatchClass(Harmony harmony, Type patchClass) {
+			try {
+				harmony.CreateClassProcessor(patchClass).Patch();
+			} catch (Exception ex) {
+				Logger.LogError($"Patch {patchClass.Name} failed (continuing): {ex}");
 			}
 		}
 

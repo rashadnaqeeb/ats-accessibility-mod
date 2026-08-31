@@ -11,6 +11,7 @@
 - Speech: updated the bundled Prism library to v0.18.2 and fixed text encoding at the speech boundary; non-English text is no longer silently dropped.
 
 ### Internal
+- A failed Harmony patch or key handler no longer disables the rest of the mod; failures are isolated per patch and per handler.
 
 ## v1.7
 
