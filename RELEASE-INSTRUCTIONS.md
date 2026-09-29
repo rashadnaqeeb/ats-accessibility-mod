@@ -12,7 +12,7 @@ release-package/
 │           └── prism.dll
 ├── doorstop_config.ini          (from BepInEx distribution)
 ├── winhttp.dll                  (from BepInEx distribution)
-├── LICENSE.txt                  (MIT - this project)
+├── LICENSE.txt                  (GPL-3.0 - this project)
 ├── LICENSE-BepInEx.txt          (LGPL-2.1)
 ├── LICENSE-Prism.txt            (MPL-2.0)
 └── README.md                    (copy from repo root)
@@ -76,6 +76,6 @@ Sources:
 
 ## License Requirements
 
-- **ATSAccessibility**: MIT, must include `LICENSE.txt`.
+- **ATSAccessibility**: GPL-3.0, must include `LICENSE.txt`.
 - **BepInEx**: LGPL-2.1, must include `LICENSE-BepInEx.txt`.
 - **Prism**: MPL-2.0, must include `LICENSE-Prism.txt`. See `prism/NOTICE` for additional third-party attributions bundled inside `prism.dll`.
