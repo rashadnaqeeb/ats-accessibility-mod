@@ -1,0 +1,138 @@
+{
+  "manifestVersion": 1,
+  "id": "ats-accessibility",
+  "name": "ATS Accessibility",
+  "description": "Screen-reader accessibility for Against the Storm, for blind and visually-impaired players: speaks menus, popups and the settlement, and adds full keyboard navigation of the map, buildings, workers, orders and the world map.",
+  "authors": [
+    "Rashad Naqeeb"
+  ],
+  "license": "MIT",
+  "game": "against-the-storm",
+  "platforms": [
+    "windows"
+  ],
+  "distributions": {
+    "steam": "supported",
+    "gog": "untested",
+    "epic": "untested"
+  },
+  "install": [
+    {
+      "step": "expect",
+      "checks": [
+        {
+          "platform": "windows",
+          "message": "ATS Accessibility runs on Windows only."
+        },
+        {
+          "not": {
+            "processRunning": "Against the Storm"
+          },
+          "message": "Against the Storm is running. Quit the game, then install again."
+        }
+      ]
+    },
+    {
+      "step": "extract-archive",
+      "routes": [
+        {
+          "from": "BepInEx/**",
+          "to": "${gameDir}/BepInEx"
+        },
+        {
+          "from": "winhttp.dll",
+          "to": "${gameDir}/winhttp.dll"
+        },
+        {
+          "from": "doorstop_config.ini",
+          "to": "${gameDir}/doorstop_config.ini"
+        },
+        {
+          "from": ".doorstop_version",
+          "to": "${gameDir}/.doorstop_version"
+        },
+        {
+          "from": "README.md",
+          "to": "${gameDir}/BepInEx/plugins/ATSAccessibility/README.md"
+        },
+        {
+          "from": "tutorial.html",
+          "to": "${gameDir}/BepInEx/plugins/ATSAccessibility/tutorial.html"
+        },
+        {
+          "from": "LICENSE.txt",
+          "to": "${gameDir}/BepInEx/plugins/ATSAccessibility/licenses/LICENSE.txt"
+        },
+        {
+          "from": "LICENSE-BepInEx.txt",
+          "to": "${gameDir}/BepInEx/plugins/ATSAccessibility/licenses/LICENSE-BepInEx.txt"
+        },
+        {
+          "from": "LICENSE-Prism.txt",
+          "to": "${gameDir}/BepInEx/plugins/ATSAccessibility/licenses/LICENSE-Prism.txt"
+        }
+      ]
+    },
+    {
+      "step": "expect",
+      "checks": [
+        {
+          "fileExists": "${gameDir}/BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll",
+          "message": "The download didn't contain the mod (no BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll)."
+        }
+      ]
+    },
+    {
+      "step": "notice",
+      "message": "The tutorial is in the game folder under BepInEx, plugins, ATSAccessibility, tutorial.html."
+    }
+  ],
+  "launch": [
+    {
+      "step": "expect",
+      "when": {
+        "distribution": "steam"
+      },
+      "checks": [
+        {
+          "processRunning": "steam",
+          "message": "Steam isn't running. Open Steam, then press Launch again."
+        }
+      ]
+    },
+    {
+      "step": "open-url",
+      "when": {
+        "distribution": "steam"
+      },
+      "url": "steam://rungameid/${steam.appId}"
+    },
+    {
+      "step": "run",
+      "when": {
+        "not": {
+          "distribution": "steam"
+        }
+      },
+      "program": "${gameDir}/Against the Storm.exe"
+    }
+  ],
+  "uninstall": [
+    {
+      "step": "delete-files",
+      "paths": [
+        "${gameDir}/BepInEx/cache/**/*",
+        "${gameDir}/BepInEx/cache",
+        "${gameDir}/BepInEx/patchers",
+        "${gameDir}/BepInEx/LogOutput.log",
+        "${gameDir}/BepInEx/config/BepInEx.cfg",
+        "${gameDir}/BepInEx/config",
+        "${gameDir}/BepInEx/plugins",
+        "${gameDir}/BepInEx"
+      ]
+    }
+  ],
+  "userData": [
+    "${gameDir}/BepInEx/config/com.accessibility.ats.cfg"
+  ]
+}

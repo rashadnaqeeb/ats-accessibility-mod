@@ -1,0 +1,15 @@
+{
+  "manifestVersion": 1,
+  "kind": "game",
+  "id": "against-the-storm",
+  "name": "Against the Storm",
+  "detect": {
+    "steam": { "appId": 1336490, "dirName": "Against the Storm" },
+    "gog": {},
+    "epic": {},
+    "markers": ["Against the Storm.exe"]
+  },
+  "userData": {
+    "windows": "${localLow}/Eremite Games/Against the Storm"
+  }
+}

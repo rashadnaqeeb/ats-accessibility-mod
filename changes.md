@@ -9,6 +9,7 @@
 ### Bug fixes
 
 ### Internal
+- Loadstone installer support: `loadstone-packages/` describes the game and the install, and each release now carries a `loadstone-release.json` (see `RELEASE-INSTRUCTIONS.md`).
 
 ## v1.7.1
 
