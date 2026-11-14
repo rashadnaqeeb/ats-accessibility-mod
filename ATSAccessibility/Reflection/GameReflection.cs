@@ -135,6 +135,24 @@ namespace ATSAccessibility.Reflection {
 			}
 		}
 
+		/// <summary>
+		/// Resolve a localization key and fill its placeholders, like the game's own
+		/// GetText(key, args). Returns null when the key does not resolve or cannot
+		/// be formatted, so callers can fall back to their own wording instead of
+		/// speaking a raw key.
+		/// </summary>
+		public static string FormatLocaKey(string key, params object[] args) {
+			string template = ResolveLocaKey(key);
+			// An unresolved key comes back as the key itself, or wrapped as ">key<"
+			if (string.IsNullOrEmpty(template) || template.Contains(key)) return null;
+
+			try {
+				return string.Format(template, args);
+			} catch (FormatException) {
+				return null;
+			}
+		}
+
 		private static void EnsureTextsServiceCached() {
 			if (_textsServiceCached) return;
 			_textsServiceCached = true;
@@ -1852,6 +1870,123 @@ namespace ATSAccessibility.Reflection {
 			} catch {
 				return 0f;
 			}
+		}
+
+		// ========================================
+		// SEASON LOCK (HUD calendar lock icon, game 1.11+)
+		// ========================================
+
+		private static MethodInfo _esIsSeasonChangeBlockedMethod = null;
+		private static MethodInfo _esGetEffectsDisplayListMethod = null;
+		private static PropertyInfo _ssEffectsProperty = null;
+		private static FieldInfo _effectsStateSeasonChangeLocksField = null;
+		private static bool _seasonLockTypesCached = false;
+
+		private static void EnsureSeasonLockTypes() {
+			if (_seasonLockTypesCached) return;
+			_seasonLockTypesCached = true;
+			EnsureAssembly();
+			if (_gameAssembly == null) return;
+
+			try {
+				var effectsServiceType = _gameAssembly.GetType("Eremite.Services.IEffectsService");
+				if (effectsServiceType != null) {
+					_esIsSeasonChangeBlockedMethod = effectsServiceType.GetMethod("IsSeasonChangeBlocked",
+						Type.EmptyTypes);
+					_esGetEffectsDisplayListMethod = effectsServiceType.GetMethod("GetEffectsDisplayList",
+						new Type[] { typeof(List<string>) });
+				}
+
+				var stateServiceType = _gameAssembly.GetType("Eremite.Services.IStateService");
+				if (stateServiceType != null) {
+					_ssEffectsProperty = stateServiceType.GetProperty("Effects",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				var effectsStateType = _gameAssembly.GetType("Eremite.Model.State.EffectsState");
+				if (effectsStateType != null) {
+					_effectsStateSeasonChangeLocksField = effectsStateType.GetField("seasonChangeLocks",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] Season lock type caching failed: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// Whether an effect is holding the season change back (e.g. the Stormbird
+		/// glade event). While it is, the season timer can run out without the
+		/// season changing.
+		/// </summary>
+		public static bool IsSeasonChangeBlocked() {
+			EnsureSeasonLockTypes();
+			return ReflectionHelper.InvokeBool(_esIsSeasonChangeBlockedMethod, GetEffectsService());
+		}
+
+		/// <summary>
+		/// The game's own calendar lock tooltip, naming the blocking effects
+		/// ("Season change is blocked because of: X"). Null if it cannot be built.
+		/// </summary>
+		public static string GetSeasonLockDescription() {
+			EnsureSeasonLockTypes();
+			var effectsState = ReflectionHelper.GetProp(_ssEffectsProperty, GetStateService());
+			var locks = ReflectionHelper.GetField(_effectsStateSeasonChangeLocksField, effectsState);
+			if (locks == null) return null;
+
+			string effects = ReflectionHelper.InvokeString(_esGetEffectsDisplayListMethod, GetEffectsService(), locks);
+			if (string.IsNullOrEmpty(effects)) return null;
+			return FormatLocaKey("GameUI_Calendar_LockTooltip_Desc", effects);
+		}
+
+		// ========================================
+		// CURRENT MUSIC TRACK (ESC menu label, game 1.11+)
+		// ========================================
+
+		private static PropertyInfo _mcSoundsManagerProperty = null;
+		private static PropertyInfo _smMusicManagerProperty = null;
+		private static MethodInfo _mmGetCurrentMusicDisplayNameMethod = null;
+		private static bool _musicTypesCached = false;
+
+		private static void EnsureMusicTypes() {
+			if (_musicTypesCached) return;
+			_musicTypesCached = true;
+			EnsureAssembly();
+			if (_gameAssembly == null) return;
+
+			try {
+				var mainControllerType = _gameAssembly.GetType("Eremite.Controller.MainController");
+				if (mainControllerType != null) {
+					_mcSoundsManagerProperty = mainControllerType.GetProperty("SoundsManager",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				var soundsManagerType = _gameAssembly.GetType("Eremite.Sound.ISoundsManager");
+				if (soundsManagerType != null) {
+					_smMusicManagerProperty = soundsManagerType.GetProperty("MusicManager",
+						BindingFlags.Public | BindingFlags.Instance);
+				}
+
+				var musicManagerType = _gameAssembly.GetType("Eremite.Sound.MusicManager");
+				if (musicManagerType != null) {
+					_mmGetCurrentMusicDisplayNameMethod = musicManagerType.GetMethod("GetCurrentMusicDisplayName",
+						Type.EmptyTypes);
+				}
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] Music type caching failed: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// The ESC menu's "Current Track: X" line, built the same way the game's
+		/// CurrentMusicDisplay label builds it. Null if it cannot be built.
+		/// </summary>
+		public static string GetCurrentMusicTrackText() {
+			EnsureMusicTypes();
+			var soundsManager = ReflectionHelper.GetProp(_mcSoundsManagerProperty, GetMainControllerInstance());
+			var musicManager = ReflectionHelper.GetProp(_smMusicManagerProperty, soundsManager);
+			string track = ReflectionHelper.InvokeString(_mmGetCurrentMusicDisplayNameMethod, musicManager);
+			if (string.IsNullOrEmpty(track)) return null;
+			return FormatLocaKey("GameUI_GameMenu_CurrentSong", track);
 		}
 
 		// ========================================

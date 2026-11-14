@@ -47,6 +47,9 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _bmDescriptionField = null;
 		private static FieldInfo _bcmIsOnHUDField = null;
 		private static FieldInfo _bmRequiredGoodsField = null;
+		private static FieldInfo _bmMaxAmountField = null;
+		private static MethodInfo _bmGetConstructionBlockDescMethod = null;  // game 1.11+
+		private static MethodInfo _bsGetBuildingAmountMethod = null;
 		private static Type _goodRefType = null;
 		private static FieldInfo _goodRefGoodField = null;
 		private static FieldInfo _goodRefAmountField = null;
@@ -154,6 +157,17 @@ namespace ATSAccessibility.Reflection {
 						BindingFlags.NonPublic | BindingFlags.Instance);
 					_bmRequiredGoodsField = buildingModelType.GetField("requiredGoods",
 						BindingFlags.Public | BindingFlags.Instance);
+					_bmMaxAmountField = buildingModelType.GetField("maxAmount",
+						BindingFlags.Public | BindingFlags.Instance);
+					_bmGetConstructionBlockDescMethod = buildingModelType.GetMethod("GetConstructionBlockDesc",
+						Type.EmptyTypes);
+
+					// IBuildingsService.GetBuildingAmount(BuildingModel, bool includeConstructions)
+					var buildingsServiceType = GameReflection.GameAssembly.GetType("Eremite.Services.IBuildingsService");
+					if (buildingsServiceType != null) {
+						_bsGetBuildingAmountMethod = buildingsServiceType.GetMethod("GetBuildingAmount",
+							new Type[] { buildingModelType, typeof(bool) });
+					}
 				}
 
 				// Cache GoodRef fields (shared across multiple Reflection files)
@@ -425,6 +439,42 @@ namespace ATSAccessibility.Reflection {
 			} catch {
 				return false;
 			}
+		}
+
+		/// <summary>
+		/// Whether a building type has reached its per-settlement cap (e.g. one
+		/// Trading Post). Since game 1.11 this is only one of the reasons
+		/// CanConstructBuilding can be false, so it must be checked separately
+		/// before telling the player a building is "at maximum".
+		/// </summary>
+		public static bool IsAtBuildLimit(object buildingModel) {
+			if (buildingModel == null) return false;
+			EnsureBuildingModelFields();
+
+			int maxAmount = ReflectionHelper.GetInt(_bmMaxAmountField, buildingModel);
+			if (maxAmount <= 0) return false;
+
+			var built = ReflectionHelper.Invoke(_bsGetBuildingAmountMethod, GameReflection.GetBuildingsService(), buildingModel, true);
+			return built is int amount && amount >= maxAmount;
+		}
+
+		/// <summary>
+		/// The game's own explanation of why a building cannot be constructed, as
+		/// shown in its construction menu tooltip (e.g. the Trading Post while
+		/// trading is disabled). Null when the game gives none.
+		/// </summary>
+		public static string GetConstructionBlockReason(object buildingModel) {
+			if (buildingModel == null) return null;
+			EnsureBuildingModelFields();
+			return ReflectionHelper.InvokeString(_bmGetConstructionBlockDescMethod, buildingModel);
+		}
+
+		/// <summary>
+		/// Spoken when a building cannot be constructed for a reason other than its
+		/// cap: "X cannot be built" followed by the game's explanation, if any.
+		/// </summary>
+		public static string GetBuildBlockedMessage(object buildingModel, string buildingName) {
+			return Strings.Get("panel.building_menu.cannot_build", buildingName, GetConstructionBlockReason(buildingModel) ?? "");
 		}
 
 		/// <summary>

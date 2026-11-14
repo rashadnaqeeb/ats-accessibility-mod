@@ -34,7 +34,9 @@ namespace ATSAccessibility.Panels {
 		/// <param name="itemName">Name of the item being acted on</param>
 		/// <param name="onConfirm">Action to execute when confirmed</param>
 		/// <param name="refundGoods">Optional list of goods to be refunded</param>
-		public void Show(string itemName, Action onConfirm, List<(string name, int amount)> refundGoods = null) {
+		/// <param name="storedGoodsLost">Warn that goods in the building's internal
+		/// storage are destroyed with it, as the game's own popup does (1.11+)</param>
+		public void Show(string itemName, Action onConfirm, List<(string name, int amount)> refundGoods = null, bool storedGoodsLost = false) {
 			_isOpen = true;
 			_itemName = itemName;
 			_onConfirm = onConfirm;
@@ -53,6 +55,11 @@ namespace ATSAccessibility.Panels {
 					message.Append(Strings.Get("dialog.confirm.refund_item", amount, name));
 				}
 				message.Append(".");
+			}
+
+			if (storedGoodsLost) {
+				message.Append(' ');
+				message.Append(Strings.Get("dialog.confirm.storage_lost"));
 			}
 
 			message.Append(' ');

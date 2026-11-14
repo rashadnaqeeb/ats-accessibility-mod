@@ -279,7 +279,9 @@ namespace ATSAccessibility.Panels {
 
 			// Check if building can still be constructed
 			if (!ConstructionReflection.CanConstructBuilding(building.Model)) {
-				Speech.Say(Strings.Get("panel.building_menu.cannot_build_max", building.Name));
+				Speech.Say(ConstructionReflection.IsAtBuildLimit(building.Model)
+					? Strings.Get("panel.building_menu.cannot_build_max", building.Name)
+					: ConstructionReflection.GetBuildBlockedMessage(building.Model, building.Name));
 				return;
 			}
 
@@ -424,8 +426,7 @@ namespace ATSAccessibility.Panels {
 			string description = ConstructionReflection.GetBuildingModelDescription(building.Model) ?? "";
 
 			// Check if can be constructed
-			bool canConstruct = ConstructionReflection.CanConstructBuilding(building.Model);
-			string status = canConstruct ? "" : Strings.Get("panel.building_menu.status_at_max");
+			string status = GetBuildStatus(building.Model, ref description);
 
 			// Check movability
 			bool movable = WikiReflection.GetBuildingMovable(building.Model);
@@ -452,14 +453,30 @@ namespace ATSAccessibility.Panels {
 			string costs = ConstructionReflection.GetBuildingCosts(building.Model);
 			string costsText = !string.IsNullOrEmpty(costs) ? Strings.Get("panel.building_menu.costs", costs) : "";
 			string description = ConstructionReflection.GetBuildingModelDescription(building.Model) ?? "";
-			bool canConstruct = ConstructionReflection.CanConstructBuilding(building.Model);
-			string status = canConstruct ? "" : Strings.Get("panel.building_menu.status_at_max");
+			string status = GetBuildStatus(building.Model, ref description);
 			bool movable = WikiReflection.GetBuildingMovable(building.Model);
 			string movableText = movable ? "" : Strings.Get("panel.building_menu.unmovable");
 
 			string announcement = Strings.Get("panel.building_menu.building_with_category", category.Name, building.Name, status, sizeText, costsText, movableText, description);
 			Speech.Say(announcement);
 			Debug.Log($"[ATSAccessibility] Building (cross-category): {category.Name} > {building.Name}{status}, {sizeText}");
+		}
+
+		/// <summary>
+		/// Status suffix for a building that cannot be built ("" when it can).
+		/// At its cap the short "at maximum" suffix says it all. Any other block
+		/// (game 1.11+: e.g. a Trading Post while trading is disabled) swaps the
+		/// description for the game's own explanation, as its construction menu
+		/// tooltip does.
+		/// </summary>
+		private static string GetBuildStatus(object buildingModel, ref string description) {
+			if (ConstructionReflection.CanConstructBuilding(buildingModel)) return "";
+			if (ConstructionReflection.IsAtBuildLimit(buildingModel))
+				return Strings.Get("panel.building_menu.status_at_max");
+
+			string reason = ConstructionReflection.GetConstructionBlockReason(buildingModel);
+			if (!string.IsNullOrEmpty(reason)) description = reason;
+			return Strings.Get("panel.building_menu.status_blocked");
 		}
 	}
 }

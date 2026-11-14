@@ -111,6 +111,14 @@ namespace ATSAccessibility.Overlays {
 		}
 
 		private string GetLockSuffix(string itemName) {
+			if (itemName == Strings.Get("overlay.capital.item.buy_upgrades")) {
+				// The game's red badge on this button (1.11+): upgrades skipped
+				// earlier, typically before a DLC was enabled, that can now be
+				// bought. The game does not show it in Queen's Hand Trial.
+				if (WorldMapReflection.IsIronmanMode()) return "";
+				int skipped = CapitalUpgradeReflection.CountSkippedUpgrades();
+				return skipped > 0 ? Strings.Get("overlay.capital.suffix.skipped_upgrades", skipped) : "";
+			}
 			if (itemName == Strings.Get("common.deeds"))
 				return CapitalReflection.IsDeedsUnlocked() ? "" : Strings.Get("common.suffix_locked");
 			if (itemName == Strings.Get("common.daily_expedition"))

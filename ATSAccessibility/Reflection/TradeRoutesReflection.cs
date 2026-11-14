@@ -158,6 +158,8 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _haveEnoughFuelForMethod = null;
 		private static MethodInfo _hasReachedLimitMethod = null;
 		private static MethodInfo _countMaxRoutesToStartMethod = null;
+		private static MethodInfo _areTradeRoutesBlockedMethod = null;      // game 1.11+
+		private static MethodInfo _getTradeRoutesBlockDescMethod = null;    // game 1.11+
 
 		// IEffectsService methods
 		private static MethodInfo _getTradeRoutesAmountMethod = null;
@@ -298,6 +300,8 @@ namespace ATSAccessibility.Reflection {
 			_haveEnoughFuelForMethod = serviceType.GetMethod("HaveEnoughFuelFor", GameReflection.PublicInstance);
 			_hasReachedLimitMethod = serviceType.GetMethod("HasReachedLimit", GameReflection.PublicInstance);
 			_countMaxRoutesToStartMethod = serviceType.GetMethod("CountMaxRoutesToStart", GameReflection.PublicInstance);
+			_areTradeRoutesBlockedMethod = serviceType.GetMethod("AreTradeRoutesBlocked", GameReflection.PublicInstance);
+			_getTradeRoutesBlockDescMethod = serviceType.GetMethod("GetTradeRoutesBlockDesc", GameReflection.PublicInstance);
 		}
 
 		private static void CacheGoodTypes(Assembly assembly) {
@@ -359,6 +363,29 @@ namespace ATSAccessibility.Reflection {
 
 		private static object GetTradeState() {
 			return ReflectionHelper.GetProp(_stateTradeProperty, GetStateService());
+		}
+
+		// ========================================
+		// ROUTES BLOCKED BY EFFECTS (game 1.11+)
+		// ========================================
+
+		/// <summary>
+		/// Whether an effect is blocking trade routes for this settlement. The game
+		/// disables its Trade Routes button while this is true.
+		/// </summary>
+		public static bool AreTradeRoutesBlocked() {
+			var service = GetTradeRoutesService();  // caches the method on first use
+			return ReflectionHelper.InvokeBool(_areTradeRoutesBlockedMethod, service);
+		}
+
+		/// <summary>
+		/// The game's own explanation of why trade routes are blocked, naming the
+		/// blocking effects (the Trade Routes button's tooltip). Null when the
+		/// game gives none.
+		/// </summary>
+		public static string GetTradeRoutesBlockDescription() {
+			var service = GetTradeRoutesService();  // caches the method on first use
+			return ReflectionHelper.InvokeString(_getTradeRoutesBlockDescMethod, service);
 		}
 
 		private static object GetPrefsState() {

@@ -52,6 +52,7 @@ namespace ATSAccessibility.Reflection {
 		private static FieldInfo _upgradeRequiredLevelField = null;
 		private static FieldInfo _upgradePriceField = null;
 		private static FieldInfo _upgradeRewardsField = null;
+		private static MethodInfo _upgradeHasAccessToMethod = null;
 
 		// MetaCurrencyRef fields
 		private static FieldInfo _currencyRefCurrencyField = null;
@@ -113,6 +114,8 @@ namespace ATSAccessibility.Reflection {
 						BindingFlags.Public | BindingFlags.Instance);
 					_upgradeRewardsField = upgradeModelType.GetField("rewards",
 						BindingFlags.Public | BindingFlags.Instance);
+					_upgradeHasAccessToMethod = upgradeModelType.GetMethod("HasAccessTo",
+						Type.EmptyTypes);
 				}
 
 				// Cache MetaCurrencyRef fields
@@ -189,6 +192,59 @@ namespace ATSAccessibility.Reflection {
 		}
 
 		/// <summary>
+		/// Whether the player can use an upgrade node. DLC-exclusive nodes fail
+		/// this while their DLC is not enabled, and since game 1.11 the game hides
+		/// them entirely (they are skippable), so the mod must not list them.
+		/// Treated as accessible if the check itself is unavailable, so a
+		/// reflection failure can never hide the whole tree.
+		/// </summary>
+		private static bool HasAccess(object upgrade) {
+			if (_upgradeHasAccessToMethod == null) return true;
+			return ReflectionHelper.InvokeBool(_upgradeHasAccessToMethod, upgrade);
+		}
+
+		/// <summary>
+		/// Count upgrades that were skipped and can now be bought: accessible, not
+		/// yet unlocked, with an unlocked upgrade further up the same structure.
+		/// This is what a newly enabled DLC produces, and it is the number on the
+		/// game's red badge on the Buy Upgrades button (game 1.11+). The badge is
+		/// not used in Queen's Hand Trial, so callers should skip it there.
+		/// </summary>
+		public static int CountSkippedUpgrades() {
+			EnsureTypes();
+			int count = 0;
+
+			try {
+				var settings = GameReflection.GetSettings();
+				var structures = ReflectionHelper.GetField(_settingsCapitalStructuresField, settings) as Array;
+				var capitalService = GetCapitalService();
+				if (structures == null || capitalService == null || _upgradeHasAccessToMethod == null) return 0;
+
+				foreach (var structure in structures) {
+					var upgrades = ReflectionHelper.GetField(_structureUpgradesField, structure) as Array;
+					if (upgrades == null) continue;
+
+					// Walk from the top of the structure down: once an unlocked
+					// upgrade has been seen, every locked one below it was skipped.
+					bool unlockedAbove = false;
+					for (int i = upgrades.Length - 1; i >= 0; i--) {
+						var upgrade = upgrades.GetValue(i);
+						if (upgrade == null || !HasAccess(upgrade)) continue;
+
+						if (ReflectionHelper.InvokeBool(_csIsUnlockedMethod, capitalService, upgrade))
+							unlockedAbove = true;
+						else if (unlockedAbove)
+							count++;
+					}
+				}
+			} catch (Exception ex) {
+				Debug.LogError($"[ATSAccessibility] CountSkippedUpgrades failed: {ex.Message}");
+			}
+
+			return count;
+		}
+
+		/// <summary>
 		/// Get all capital structures with their info.
 		/// </summary>
 		public static List<StructureInfo> GetStructures() {
@@ -210,13 +266,15 @@ namespace ATSAccessibility.Reflection {
 					string name = ReflectionHelper.GetLocaString(_structureDisplayNameField, structure) ?? "";
 
 					var upgrades = _structureUpgradesField?.GetValue(structure) as Array;
-					int totalUpgrades = upgrades?.Length ?? 0;
 
+					// Count only the upgrades the game shows (see HasAccess)
+					int totalUpgrades = 0;
 					int unlockedCount = 0;
-					if (capitalService != null && upgrades != null) {
+					if (upgrades != null) {
 						foreach (var upgrade in upgrades) {
-							if (upgrade == null) continue;
-							if (ReflectionHelper.InvokeBool(_csIsUnlockedMethod, capitalService, upgrade))
+							if (upgrade == null || !HasAccess(upgrade)) continue;
+							totalUpgrades++;
+							if (capitalService != null && ReflectionHelper.InvokeBool(_csIsUnlockedMethod, capitalService, upgrade))
 								unlockedCount++;
 						}
 					}
@@ -251,7 +309,7 @@ namespace ATSAccessibility.Reflection {
 				var capitalService = GetCapitalService();
 
 				foreach (var upgrade in upgrades) {
-					if (upgrade == null) continue;
+					if (upgrade == null || !HasAccess(upgrade)) continue;
 
 					string name = ReflectionHelper.GetLocaString(_upgradeDisplayNameField, upgrade) ?? "";
 

@@ -71,6 +71,7 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _getForceArrivalPriceMethod = null;
 		private static MethodInfo _forceArrivalMethod = null;
 		private static MethodInfo _isTradingBlockedMethod = null;
+		private static MethodInfo _getTradeBlockDescMethod = null;  // game 1.11+
 		private static MethodInfo _isStormTooCloseToForceMethod = null;
 		private static MethodInfo _canPayForceArrivalPriceMethod = null;
 		private static MethodInfo _hasAnyTradePostMethod = null;
@@ -203,6 +204,7 @@ namespace ATSAccessibility.Reflection {
 					_getForceArrivalPriceMethod = tradeServiceType.GetMethod("GetForceArrivalPrice");
 					_forceArrivalMethod = tradeServiceType.GetMethod("ForceArrival");
 					_isTradingBlockedMethod = tradeServiceType.GetMethod("IsTradingBlocked");
+					_getTradeBlockDescMethod = tradeServiceType.GetMethod("GetTradeBlockDesc");
 					_isStormTooCloseToForceMethod = tradeServiceType.GetMethod("IsStormTooCloseToForce");
 					_canPayForceArrivalPriceMethod = tradeServiceType.GetMethod("CanPayForceArrivalPrice");
 					_hasAnyTradePostMethod = tradeServiceType.GetMethod("HasAnyTradePost");
@@ -492,6 +494,16 @@ namespace ATSAccessibility.Reflection {
 			var tradeService = GetTradeService();
 			if (tradeService == null) return true;
 			return ReflectionHelper.InvokeBool(_isTradingBlockedMethod, tradeService);
+		}
+
+		/// <summary>
+		/// The game's own explanation of why trading is blocked, naming the
+		/// blocking effects (the trader button's tooltip). Null when the game
+		/// gives none; only meaningful while IsTradingBlocked() is true.
+		/// </summary>
+		public static string GetTradeBlockDescription() {
+			var tradeService = GetTradeService();  // caches the method on first use
+			return ReflectionHelper.InvokeString(_getTradeBlockDescMethod, tradeService);
 		}
 
 		/// <summary>

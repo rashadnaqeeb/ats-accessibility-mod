@@ -133,6 +133,14 @@ namespace ATSAccessibility.Panels {
 						SoundManager.PlayFailed();
 						return;
 					}
+					if (TradeRoutesReflection.AreTradeRoutesBlocked()) {
+						// The game greys out its Trade Routes button here; speak the
+						// explanation from that button's tooltip (names the effect).
+						Speech.Say(TradeRoutesReflection.GetTradeRoutesBlockDescription()
+							?? Strings.Get("panel.menu_hub.unavailable", menuName));
+						SoundManager.PlayFailed();
+						return;
+					}
 					success = GameReflection.OpenTradeRoutesPopup();
 					if (success) SoundManager.PlayMenuTradeRoutes();
 					break;
@@ -156,7 +164,13 @@ namespace ATSAccessibility.Panels {
 				case 6: // Trader
 					success = GameReflection.OpenTraderPanel();
 					if (!success) {
-						Speech.Say(Strings.Get("panel.menu_hub.trader_unavailable"));
+						// No Trading Post. Since game 1.11 one cannot even be built while
+						// trading is disabled, so "build a Trading Post first" would be
+						// wrong advice there: give the game's reason instead.
+						string blockReason = TradeReflection.IsTradingBlocked()
+							? TradeReflection.GetTradeBlockDescription()
+							: null;
+						Speech.Say(blockReason ?? Strings.Get("panel.menu_hub.trader_unavailable"));
 						SoundManager.PlayFailed();
 						Debug.Log("[ATSAccessibility] Trader panel unavailable - no Trading Post");
 						return;

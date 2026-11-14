@@ -220,7 +220,9 @@ namespace ATSAccessibility.Handlers {
 
 			// Check if we can still construct this building type
 			if (!ConstructionReflection.CanConstructBuilding(_selectedBuildingModel)) {
-				Speech.Say(Strings.Get("handler.buildmode.at_max", _selectedBuildingName));
+				Speech.Say(ConstructionReflection.IsAtBuildLimit(_selectedBuildingModel)
+					? Strings.Get("handler.buildmode.at_max", _selectedBuildingName)
+					: ConstructionReflection.GetBuildBlockedMessage(_selectedBuildingModel, _selectedBuildingName));
 				return;
 			}
 
@@ -267,7 +269,9 @@ namespace ATSAccessibility.Handlers {
 
 			// Check if we can build more
 			if (!ConstructionReflection.CanConstructBuilding(_selectedBuildingModel)) {
-				Speech.Say(Strings.Get("handler.buildmode.max_reached", _selectedBuildingName));
+				Speech.Say(ConstructionReflection.IsAtBuildLimit(_selectedBuildingModel)
+					? Strings.Get("handler.buildmode.max_reached", _selectedBuildingName)
+					: ConstructionReflection.GetBuildBlockedMessage(_selectedBuildingModel, _selectedBuildingName));
 				ExitBuildMode();
 			}
 		}

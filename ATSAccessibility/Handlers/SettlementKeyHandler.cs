@@ -227,6 +227,8 @@ namespace ATSAccessibility.Handlers {
 							} else {
 								string name = GameReflection.GetDisplayName(ConstructionReflection.GetBuildingModel(buildingToDestroy));
 								var refundGoods = BuildingReflection.GetDestructionRefund(buildingToDestroy);
+								// Only production buildings have internal storage to lose
+								bool storedGoodsLost = BuildingReflection.IsProductionBuilding(buildingToDestroy);
 								_confirmationDialog.Show(name, () => {
 									if (BuildingReflection.DestroyBuilding(buildingToDestroy)) {
 										SoundManager.PlayBuildingDestroyed();
@@ -234,7 +236,7 @@ namespace ATSAccessibility.Handlers {
 									} else {
 										Speech.Say(Strings.Get("handler.settlekey.destroy_failed"));
 									}
-								}, refundGoods);
+								}, refundGoods, storedGoodsLost);
 							}
 						} else {
 							// No building — check for resource node

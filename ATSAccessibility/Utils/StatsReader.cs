@@ -604,6 +604,10 @@ namespace ATSAccessibility.Utils {
 		public static void AnnounceTimeSummary() {
 			var (year, season, seconds) = GetTimeSummary();
 
+			// While an effect blocks the season change, the timer runs past zero
+			// without the season changing; never speak a negative time.
+			if (seconds < 0) seconds = 0;
+
 			// Format time remaining as "X minutes Y seconds" or just "X seconds"
 			string timeRemaining;
 			if (seconds >= 60) {
@@ -615,6 +619,14 @@ namespace ATSAccessibility.Utils {
 			}
 
 			string message = Strings.Get("util.stats.time_summary", season, timeRemaining, year);
+
+			// Mirror the HUD calendar's lock icon: the game's own tooltip names the
+			// effects holding the season back.
+			if (GameReflection.IsSeasonChangeBlocked()) {
+				string lockText = GameReflection.GetSeasonLockDescription() ?? Strings.Get("util.stats.season_locked");
+				message = message + ". " + lockText;
+			}
+
 			Speech.Say(message);
 			Debug.Log($"[ATSAccessibility] Time: {message}");
 		}

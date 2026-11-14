@@ -796,7 +796,12 @@ namespace ATSAccessibility.Overlays {
 				yield break;
 			}
 			if (popupName.Contains("Pause") || popupName.Contains("GameMenu")) {
-				Speech.Say(Strings.Get("overlay.ui.popup.pause"));
+				string pauseTitle = Strings.Get("overlay.ui.popup.pause");
+
+				// Game 1.11+ shows the playing track in this menu as a plain label,
+				// which element navigation cannot reach; read it with the title.
+				string track = GameReflection.GetCurrentMusicTrackText();
+				Speech.Say(string.IsNullOrEmpty(track) ? pauseTitle : pauseTitle + ". " + track);
 				yield break;
 			}
 

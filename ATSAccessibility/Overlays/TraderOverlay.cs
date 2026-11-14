@@ -274,7 +274,8 @@ namespace ATSAccessibility.Overlays {
 			if (string.IsNullOrEmpty(traderName)) {
 				if (TradeReflection.IsTradingBlocked()) {
 					_noTraderItems.Add(new NavItem {
-						Label = Strings.Get("common.trading_is_blocked"),
+						// The game's own explanation names the blocking effect
+						Label = TradeReflection.GetTradeBlockDescription() ?? Strings.Get("common.trading_is_blocked"),
 						SearchName = null,
 						OnActivate = null
 					});
@@ -294,7 +295,7 @@ namespace ATSAccessibility.Overlays {
 			string arrivalInfo;
 
 			if (TradeReflection.IsTradingBlocked()) {
-				arrivalInfo = Strings.Get("overlay.trader.arrival.blocked");
+				arrivalInfo = TradeReflection.GetTradeBlockDescription() ?? Strings.Get("overlay.trader.arrival.blocked");
 			} else if (isStorm) {
 				float stormEnds = TradeReflection.GetTimeTillSeasonChange();
 				if (progress >= 1f) {

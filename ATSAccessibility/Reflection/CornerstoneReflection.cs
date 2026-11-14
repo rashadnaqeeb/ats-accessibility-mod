@@ -36,7 +36,6 @@ namespace ATSAccessibility.Reflection {
 		private static MethodInfo _csCanAffordExtendMethod;
 		private static MethodInfo _csExtendMethod;
 		private static MethodInfo _csGetDeclinePayoffMethod;
-		private static MethodInfo _csRemoveFromActiveMethod;
 
 		// RewardPickState fields
 		private static FieldInfo _rpsOptionsField;
@@ -114,13 +113,6 @@ namespace ATSAccessibility.Reflection {
 				_csCanAffordExtendMethod = csType.GetMethod("CanAffordExtend", GameReflection.PublicInstance);
 				_csExtendMethod = csType.GetMethod("Extend", GameReflection.PublicInstance);
 				_csGetDeclinePayoffMethod = csType.GetMethod("GetDeclinePayoff", GameReflection.PublicInstance);
-
-				// RemoveFromActive takes an EffectModel parameter
-				var effectModelType = assembly.GetType("Eremite.Model.EffectModel");
-				if (effectModelType != null) {
-					_csRemoveFromActiveMethod = csType.GetMethod("RemoveFromActive",
-						new[] { effectModelType });
-				}
 			}
 		}
 
@@ -522,11 +514,10 @@ namespace ATSAccessibility.Reflection {
 			EnsureTypesCached();
 
 			try {
-				// service.RemoveFromActive(effectModel)
-				var service = GetCornerstonesService();
-				ReflectionHelper.InvokeVoid(_csRemoveFromActiveMethod, service, effectModel);
-
-				// effectModel.Remove() - has optional params, pass defaults
+				// effectModel.Remove() - has optional params, pass defaults.
+				// Since game 1.11 this is all the game's own popup does: removing the
+				// perk fires PerksService.OnPerkRemoved, and CornerstonesService drops
+				// it from the active list itself (RemoveFromActive no longer exists).
 				if (_emRemoveMethod != null) {
 					var removeParams = _emRemoveMethod.GetParameters();
 					var removeArgs = new object[removeParams.Length];

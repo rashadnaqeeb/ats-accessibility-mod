@@ -5,8 +5,17 @@
 ## Changes since v1.7.1
 
 ### New features
+- Added support for the 1.11 game update (Rebel Hideout), up to game version 1.11.5. The individual changes follow.
+- Time readout (T): while an effect blocks the season change (e.g. the Stormbird glade event), the readout now says so and names the effect. The remaining time is no longer read as a negative number in that state.
+- Building menu: a building that cannot be built for a reason other than its cap (e.g. the Trading Post while trading is disabled) now announces "cannot be built" with the game's own explanation, instead of wrongly saying "at maximum".
+- Capital upgrades: DLC-only upgrades are no longer listed or counted when that DLC is not enabled, matching the game.
+- Capital screen: Buy Upgrades now announces how many previously skipped upgrades are available to buy (the game's new red badge).
+- Pause menu: the current music track is announced along with the menu title.
+- Menu Hub: Trade Routes and Trader now give the game's explanation, naming the effect, when an effect is blocking them. The trader screen's "trading blocked" lines name the effect too.
+- Destroy confirmation: warns that stored goods will be lost when destroying a production building.
 
 ### Bug fixes
+- Cornerstone limit popup: removed a call to a game function that no longer exists in 1.11.
 
 ### Internal
 - Loadstone installer support: `loadstone-packages/` describes the game and the install, and each release now carries a `loadstone-release.json` (see `RELEASE-INSTRUCTIONS.md`).
