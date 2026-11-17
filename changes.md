@@ -5,6 +5,7 @@
 ## Changes since v1.7.1
 
 ### New features
+- Added a Traditional Chinese translation.
 - Added support for the 1.11 game update (Rebel Hideout), up to game version 1.11.5. The individual changes follow.
 - Time readout (T): while an effect blocks the season change (e.g. the Stormbird glade event), the readout now says so and names the effect. The remaining time is no longer read as a negative number in that state.
 - Building menu: a building that cannot be built for a reason other than its cap (e.g. the Trading Post while trading is disabled) now announces "cannot be built" with the game's own explanation, instead of wrongly saying "at maximum".
