@@ -8,6 +8,16 @@ If this is your first time playing, there is another file included with this mod
 
 ## Installation
 
+The easiest way to install is [Loadstone](https://github.com/bradjrenshaw/loadstone), an accessible mod manager for screen-reader accessibility mods:
+
+1. Download `Loadstone.exe` from [Loadstone's latest release](https://github.com/bradjrenshaw/loadstone/releases/latest) and run it.
+2. Choose ATS Accessibility in the list of mods and press Install. Loadstone finds your Steam copy of the game on its own; for GOG, Epic or a demo, browse to the game folder.
+3. Press Launch in Loadstone, or start the game the way you usually do.
+
+To update, open Loadstone and press Update on the mod's page. The same page uninstalls the mod.
+
+### Installing by hand
+
 1. Locate your Against the Storm installation folder:
    - Steam: Right-click the game > Manage > Browse local files
    - Default: `C:\Program Files (x86)\Steam\steamapps\common\Against the Storm`
@@ -22,7 +32,7 @@ If this is your first time playing, there is another file included with this mod
 
 ### Uninstallation
 
-Delete the BepInEx folder, winhttp.dll, and doorstop_config.ini from your game folder.
+If you installed with Loadstone, press Uninstall on the mod's page. If you installed by hand, delete the BepInEx folder, winhttp.dll, and doorstop_config.ini from your game folder.
 
 ---
 

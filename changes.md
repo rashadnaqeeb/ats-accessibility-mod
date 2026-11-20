@@ -14,6 +14,7 @@
 - Pause menu: the current music track is announced along with the menu title.
 - Menu Hub: Trade Routes and Trader now give the game's explanation, naming the effect, when an effect is blocking them. The trader screen's "trading blocked" lines name the effect too.
 - Destroy confirmation: warns that stored goods will be lost when destroying a production building.
+- The mod can now be installed, updated and uninstalled with the Loadstone mod manager; the README explains how.
 
 ### Bug fixes
 - Cornerstone limit popup: removed a call to a game function that no longer exists in 1.11.
