@@ -1,8 +1,20 @@
 {
-  "manifestVersion": 1,
+  "manifestVersion": 2,
   "id": "ats-accessibility",
   "name": "ATS Accessibility",
-  "description": "Screen-reader accessibility for Against the Storm, for blind and visually-impaired players: speaks menus, popups and the settlement, and adds full keyboard navigation of the map, buildings, workers, orders and the world map.",
+  "description": {
+    "en": "Screen-reader accessibility for Against the Storm, for blind and visually-impaired players: speaks menus, popups and the settlement, and adds full keyboard navigation of the map, buildings, workers, orders and the world map.",
+    "de": "Screenreader-Barrierefreiheit für Against the Storm, für blinde und sehbehinderte Spieler: liest Menüs, Popups und die Siedlung vor und ergänzt eine vollständige Tastatursteuerung für Karte, Gebäude, Arbeiter, Aufträge und Weltkarte.",
+    "es": "Accesibilidad con lector de pantalla para Against the Storm, para jugadores ciegos y con discapacidad visual: lee en voz alta los menús, las ventanas emergentes y el asentamiento, y añade navegación completa con el teclado por el mapa, los edificios, los trabajadores, las órdenes y el mapa del mundo.",
+    "es-419": "Accesibilidad con lector de pantalla para Against the Storm, para jugadores ciegos y con discapacidad visual: lee en voz alta los menús, las ventanas emergentes y el asentamiento, y agrega navegación completa con el teclado por el mapa, los edificios, los trabajadores, las órdenes y el mapa del mundo.",
+    "fr": "Accessibilité par lecteur d'écran pour Against the Storm, destinée aux joueurs aveugles et malvoyants : lit les menus, les popups et la colonie, et ajoute une navigation complète au clavier sur la carte, les bâtiments, les travailleurs, les missions et la carte du monde.",
+    "pl": "Dostępność z czytnikiem ekranu dla Against the Storm, przeznaczona dla niewidomych i słabowidzących graczy: odczytuje menu, okna i osadę oraz dodaje pełną nawigację klawiaturą po mapie, budynkach, robotnikach, rozkazach i mapie świata.",
+    "pt-BR": "Acessibilidade com leitor de tela para Against the Storm, para jogadores cegos e com baixa visão: lê menus, popups e o assentamento, e adiciona navegação completa pelo teclado no mapa, nos edifícios, nos trabalhadores, nas ordens e no mapa-múndi.",
+    "ru": "Поддержка программ экранного доступа в Against the Storm для незрячих и слабовидящих игроков: озвучивает меню, всплывающие окна и поселение и добавляет полноценное управление с клавиатуры по карте, зданиям, работникам, указам и карте мира.",
+    "th": "การเข้าถึงด้วยโปรแกรมอ่านหน้าจอสำหรับ Against the Storm สำหรับผู้เล่นที่ตาบอดและผู้มีความบกพร่องทางการมองเห็น: อ่านออกเสียงเมนู ป๊อปอัป และการตั้งถิ่นฐาน พร้อมเพิ่มการนำทางด้วยแป้นพิมพ์อย่างครบถ้วนสำหรับแผนที่ สิ่งปลูกสร้าง คนงาน คำสั่ง และแผนที่โลก",
+    "zh-Hans": "为 Against the Storm 提供读屏无障碍支持，面向盲人和视障玩家：朗读菜单、弹窗和聚居地，并为地图、建筑、工人、指令和世界地图提供完整的键盘导航。",
+    "zh-Hant": "為風暴之城提供螢幕閱讀器無障礙支援，適用於全盲與視障玩家：朗讀選單、彈出視窗和聚居地，並為地圖、建築、工人、詔令和世界地圖提供完整的鍵盤導覽。"
+  },
   "authors": [
     "Rashad Naqeeb"
   ],
@@ -22,13 +34,37 @@
       "checks": [
         {
           "platform": "windows",
-          "message": "ATS Accessibility runs on Windows only."
+          "message": {
+            "en": "ATS Accessibility runs on Windows only.",
+            "de": "ATS Accessibility läuft nur unter Windows.",
+            "es": "ATS Accessibility solo funciona en Windows.",
+            "es-419": "ATS Accessibility solo funciona en Windows.",
+            "fr": "ATS Accessibility fonctionne uniquement sous Windows.",
+            "pl": "ATS Accessibility działa tylko w systemie Windows.",
+            "pt-BR": "O ATS Accessibility funciona apenas no Windows.",
+            "ru": "ATS Accessibility работает только в Windows.",
+            "th": "ATS Accessibility ทำงานได้บน Windows เท่านั้น",
+            "zh-Hans": "ATS Accessibility 仅支持 Windows。",
+            "zh-Hant": "ATS Accessibility 僅支援 Windows。"
+          }
         },
         {
           "not": {
             "processRunning": "Against the Storm"
           },
-          "message": "Against the Storm is running. Quit the game, then install again."
+          "message": {
+            "en": "Against the Storm is running. Quit the game, then install again.",
+            "de": "Against the Storm läuft. Beende das Spiel und starte die Installation dann erneut.",
+            "es": "Against the Storm está en ejecución. Cierra el juego y vuelve a instalar.",
+            "es-419": "Against the Storm está en ejecución. Cierra el juego y vuelve a instalar.",
+            "fr": "Against the Storm est en cours d'exécution. Quittez le jeu, puis relancez l'installation.",
+            "pl": "Against the Storm jest uruchomione. Zamknij grę, a następnie ponów instalację.",
+            "pt-BR": "O Against the Storm está em execução. Feche o jogo e instale novamente.",
+            "ru": "Against the Storm запущена. Закройте игру, затем повторите установку.",
+            "th": "Against the Storm กำลังทำงานอยู่ ปิดเกมแล้วติดตั้งอีกครั้ง",
+            "zh-Hans": "Against the Storm 正在运行。请退出游戏，然后重新安装。",
+            "zh-Hant": "風暴之城正在執行。請結束遊戲，然後重新安裝。"
+          }
         }
       ]
     },
@@ -78,13 +114,37 @@
       "checks": [
         {
           "fileExists": "${gameDir}/BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll",
-          "message": "The download didn't contain the mod (no BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll)."
+          "message": {
+            "en": "The download didn't contain the mod (no BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll).",
+            "de": "Der Download enthielt den Mod nicht (keine BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll).",
+            "es": "La descarga no contenía el mod (falta BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll).",
+            "es-419": "La descarga no contenía el mod (falta BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll).",
+            "fr": "Le téléchargement ne contenait pas le mod (BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll absent).",
+            "pl": "Pobrany plik nie zawierał moda (brak BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll).",
+            "pt-BR": "O download não continha o mod (falta BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll).",
+            "ru": "В загруженном архиве нет мода (отсутствует BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll).",
+            "th": "ไฟล์ที่ดาวน์โหลดไม่มีม็อด (ไม่มี BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll)",
+            "zh-Hans": "下载的文件中不包含模组（缺少 BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll）。",
+            "zh-Hant": "下載的檔案中不包含模組（缺少 BepInEx/plugins/ATSAccessibility/ATSAccessibility.dll）。"
+          }
         }
       ]
     },
     {
       "step": "notice",
-      "message": "The tutorial is in the game folder under BepInEx, plugins, ATSAccessibility, tutorial.html."
+      "message": {
+        "en": "The tutorial is in the game folder under BepInEx, plugins, ATSAccessibility, tutorial.html.",
+        "de": "Das Tutorial befindet sich im Spielverzeichnis unter BepInEx, plugins, ATSAccessibility, tutorial.html.",
+        "es": "El tutorial está en la carpeta del juego, en BepInEx, plugins, ATSAccessibility, tutorial.html.",
+        "es-419": "El tutorial está en la carpeta del juego, en BepInEx, plugins, ATSAccessibility, tutorial.html.",
+        "fr": "Le tutoriel se trouve dans le dossier du jeu, sous BepInEx, plugins, ATSAccessibility, tutorial.html.",
+        "pl": "Samouczek znajduje się w folderze gry, w BepInEx, plugins, ATSAccessibility, tutorial.html.",
+        "pt-BR": "O tutorial está na pasta do jogo, em BepInEx, plugins, ATSAccessibility, tutorial.html.",
+        "ru": "Обучающее руководство находится в папке игры: BepInEx, plugins, ATSAccessibility, tutorial.html.",
+        "th": "บทช่วยสอนอยู่ในโฟลเดอร์เกม ภายใต้ BepInEx, plugins, ATSAccessibility, tutorial.html",
+        "zh-Hans": "教程位于游戏目录下：BepInEx、plugins、ATSAccessibility、tutorial.html。",
+        "zh-Hant": "教學位於遊戲目錄下：BepInEx、plugins、ATSAccessibility、tutorial.html。"
+      }
     }
   ],
   "launch": [
@@ -96,7 +156,19 @@
       "checks": [
         {
           "processRunning": "steam",
-          "message": "Steam isn't running. Open Steam, then press Launch again."
+          "message": {
+            "en": "Steam isn't running. Open Steam, then press Launch game again.",
+            "de": "Steam läuft nicht. Öffne Steam und drücke dann erneut „Spiel starten“.",
+            "es": "Steam no está en ejecución. Abre Steam y vuelve a pulsar Iniciar el juego.",
+            "es-419": "Steam no está en ejecución. Abre Steam y vuelve a presionar Iniciar el juego.",
+            "fr": "Steam n'est pas lancé. Ouvrez Steam, puis appuyez de nouveau sur Lancer le jeu.",
+            "pl": "Steam nie jest uruchomiony. Otwórz Steam, a następnie ponownie naciśnij Uruchom grę.",
+            "pt-BR": "O Steam não está em execução. Abra o Steam e pressione Iniciar o jogo novamente.",
+            "ru": "Steam не запущен. Откройте Steam, затем снова нажмите «Запустить игру».",
+            "th": "Steam ไม่ได้ทำงานอยู่ เปิด Steam แล้วกด “เริ่มเกม” อีกครั้ง",
+            "zh-Hans": "Steam 未运行。请打开 Steam，然后再次按“启动游戏”。",
+            "zh-Hant": "Steam 未執行。請開啟 Steam，然後再按一次「啟動遊戲」。"
+          }
         }
       ]
     },
